@@ -104,3 +104,12 @@ fn facets_list_filter_values() {
     assert_eq!(facets.archetypes, ["Forge"]);
     assert!(facets.formats.contains(&"Master Duel".to_owned()));
 }
+
+#[test]
+fn resolves_alternate_artwork_passcodes() {
+    let store = store();
+    assert_eq!(store.resolve_id(1001).unwrap(), Some(1001));
+    assert_eq!(store.resolve_id(1002).unwrap(), Some(1001), "second artwork of Forge Golem");
+    assert_eq!(store.resolve_id(100).unwrap(), None, "no partial matches");
+    assert_eq!(store.resolve_id(9999).unwrap(), None);
+}

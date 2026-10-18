@@ -269,6 +269,16 @@ impl CardStore {
         Ok(ids.iter().filter_map(|id| found.remove(id)).collect())
     }
 
+    /// The card a passcode belongs to. Decks may use the passcode of an
+    /// alternate artwork, which YGOPRODeck lists among a card's images.
+    pub fn resolve_id(&self, id: u32) -> Result<Option<u32>, Error> {
+        let sql = "SELECT id FROM cards WHERE id = ?1 \
+                   UNION ALL \
+                   SELECT id FROM cards WHERE instr(',' || replace(replace(image_ids, '[', ''), ']', '') || ',', ',' || ?1 || ',') > 0 \
+                   LIMIT 1";
+        Ok(self.conn.query_row(sql, [id], |r| r.get(0)).optional()?)
+    }
+
     /// Values offered by the filter menus.
     pub fn facets(&self) -> Result<Facets, Error> {
         let list = |sql: &str| -> Result<Vec<String>, Error> {
