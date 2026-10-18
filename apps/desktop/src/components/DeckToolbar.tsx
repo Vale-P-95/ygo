@@ -19,6 +19,7 @@ interface Props {
   onOpenDeck: (id: number) => void;
   onImport: () => void;
   onExport: () => void;
+  onTestHand: () => void;
   onDelete: () => void;
   onUndo: () => void;
   onRedo: () => void;
@@ -117,6 +118,9 @@ export function DeckToolbar(p: Props) {
           </button>
           <button type="button" className="btn btn-ghost !px-2.5 !py-1.5" disabled={!p.canRedo} onClick={p.onRedo} title="Ripeti (Ctrl+Y)" aria-label="Ripeti">
             ↷
+          </button>
+          <button type="button" className="btn btn-ghost !py-1.5" onClick={p.onTestHand} disabled={p.deck.main.length === 0} title="Pesca mani di prova dal Main Deck">
+            Mano di prova
           </button>
           <button type="button" className="btn btn-ghost !py-1.5" onClick={p.onExport}>
             Esporta

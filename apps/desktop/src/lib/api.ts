@@ -94,6 +94,8 @@ export interface Deck {
   side: number[];
   /** Cards being considered: not part of the deck. */
   maybe: number[];
+  /** Cards by role ("starter", "handtrap", ...). */
+  roles: Record<string, number[]>;
   updatedAt: string | null;
 }
 

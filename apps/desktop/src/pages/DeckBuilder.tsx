@@ -7,6 +7,7 @@ import { ExportDialog, ImportDialog } from "../components/DeckIO";
 import { DeckToolbar } from "../components/DeckToolbar";
 import { DeckZone } from "../components/DeckZone";
 import { SectionHeader } from "../components/SectionHeader";
+import { TestHand } from "../components/TestHand";
 import { api, cardImage, type Card, type DataStatus, type Deck, type DeckSummary, type Imported, type Legality } from "../lib/api";
 import { useCardCache } from "../lib/cards";
 import { addCard, counts, craftCost, emptyDeck, removeAt, sortIds, useDeckHistory, ZONE_LIMITS, type Zone } from "../lib/deck";
@@ -74,7 +75,7 @@ function DeckEditor() {
   const [hover, setHover] = useState<{ id: number; rect: DOMRect } | null>(null);
   const hoverTimer = useRef<number>(undefined);
   const [viewer, setViewer] = useState<{ id: number; list: number[] } | null>(null);
-  const [dialog, setDialog] = useState<"import" | "export" | null>(null);
+  const [dialog, setDialog] = useState<"import" | "export" | "hand" | null>(null);
   const [query, setQuery] = useState("format:md sort:popular");
   const getCard = cards.get;
 
@@ -141,6 +142,8 @@ function DeckEditor() {
     },
     [setHistory],
   );
+
+  const setRoles = useCallback((roles: Record<string, number[]>) => update({ ...deckRef.current, roles }, false), [update]);
 
   const forged = useCallback((zone: Zone, index: number) => {
     sound.play("select");
@@ -290,6 +293,7 @@ function DeckEditor() {
         onOpenDeck={(id) => void openDeck(id)}
         onImport={() => setDialog("import")}
         onExport={() => setDialog("export")}
+        onTestHand={() => setDialog("hand")}
         onDelete={() => void removeDeck()}
         onUndo={() => {
           dirty.current = true;
@@ -412,6 +416,7 @@ function DeckEditor() {
       )}
       {dialog === "import" && <ImportDialog onClose={() => setDialog(null)} onImported={(r, n) => void imported(r, n)} />}
       {dialog === "export" && <ExportDialog deck={{ ...deck, id: idRef.current }} onClose={() => setDialog(null)} />}
+      {dialog === "hand" && <TestHand deck={deck} getCard={getCard} onRoles={setRoles} onClose={() => setDialog(null)} />}
     </div>
   );
 }

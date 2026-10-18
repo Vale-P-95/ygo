@@ -8,7 +8,7 @@ export const ZONE_LABELS: Record<Zone, string> = { main: "Main Deck", extra: "Ex
 export const FORMAT_LABELS: Record<DeckFormat, string> = { md: "Master Duel", tcg: "TCG", ocg: "OCG" };
 
 export function emptyDeck(name = "Nuovo deck", format: DeckFormat = "md"): Deck {
-  return { id: null, name, format, main: [], extra: [], side: [], maybe: [], updatedAt: null };
+  return { id: null, name, format, main: [], extra: [], side: [], maybe: [], roles: {}, updatedAt: null };
 }
 
 export function isExtraDeckCard(card: Card): boolean {

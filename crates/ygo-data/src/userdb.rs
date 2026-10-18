@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS decks (
     extra TEXT NOT NULL,
     side TEXT NOT NULL,
     maybe TEXT NOT NULL DEFAULT '[]',
+    roles TEXT NOT NULL DEFAULT '{}',  -- JSON object: role -> passcodes
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
@@ -60,10 +61,13 @@ pub struct UserStore {
 /// Brings databases created by older versions up to the current schema.
 fn migrate(conn: &Connection) -> Result<(), Error> {
     conn.execute_batch(SCHEMA)?;
-    let has_maybe: bool =
-        conn.query_row("SELECT COUNT(*) FROM pragma_table_info('decks') WHERE name = 'maybe'", [], |r| r.get::<_, i64>(0))? > 0;
-    if !has_maybe {
-        conn.execute_batch("ALTER TABLE decks ADD COLUMN maybe TEXT NOT NULL DEFAULT '[]'")?;
+    // Columns added after the first release, with their defaults.
+    for (column, default) in [("maybe", "'[]'"), ("roles", "'{}'")] {
+        let present: bool =
+            conn.query_row("SELECT COUNT(*) FROM pragma_table_info('decks') WHERE name = ?", [column], |r| r.get::<_, i64>(0))? > 0;
+        if !present {
+            conn.execute_batch(&format!("ALTER TABLE decks ADD COLUMN {column} TEXT NOT NULL DEFAULT {default}"))?;
+        }
     }
     Ok(())
 }
@@ -110,7 +114,7 @@ impl UserStore {
     pub fn get(&self, id: i64) -> Result<Option<Deck>, Error> {
         Ok(self
             .conn
-            .query_row("SELECT id, name, format, main, extra, side, maybe, updated_at FROM decks WHERE id = ?", [id], |r| {
+            .query_row("SELECT id, name, format, main, extra, side, maybe, roles, updated_at FROM decks WHERE id = ?", [id], |r| {
                 Ok(Deck {
                     id: Some(r.get(0)?),
                     name: r.get(1)?,
@@ -119,7 +123,8 @@ impl UserStore {
                     extra: ids(&r.get::<_, String>(4)?),
                     side: ids(&r.get::<_, String>(5)?),
                     maybe: ids(&r.get::<_, String>(6)?),
-                    updated_at: Some(r.get(7)?),
+                    roles: serde_json::from_str(&r.get::<_, String>(7)?).unwrap_or_default(),
+                    updated_at: Some(r.get(8)?),
                 })
             })
             .optional()?)
@@ -129,12 +134,13 @@ impl UserStore {
     pub fn save(&self, deck: &Deck) -> Result<Deck, Error> {
         let json = |ids: &Vec<u32>| serde_json::to_string(ids);
         let (main, extra, side, maybe) = (json(&deck.main)?, json(&deck.extra)?, json(&deck.side)?, json(&deck.maybe)?);
+        let roles = serde_json::to_string(&deck.roles)?;
         let name = if deck.name.trim().is_empty() { "Nuovo deck" } else { deck.name.trim() };
         let id = match deck.id {
             Some(id) => {
                 let changed = self.conn.execute(
-                    "UPDATE decks SET name = ?2, format = ?3, main = ?4, extra = ?5, side = ?6, maybe = ?7, updated_at = datetime('now') WHERE id = ?1",
-                    params![id, name, deck.format.as_str(), main, extra, side, maybe],
+                    "UPDATE decks SET name = ?2, format = ?3, main = ?4, extra = ?5, side = ?6, maybe = ?7, roles = ?8, updated_at = datetime('now') WHERE id = ?1",
+                    params![id, name, deck.format.as_str(), main, extra, side, maybe, roles],
                 )?;
                 if changed == 0 {
                     return Err(Error::Data(format!("il deck {id} non esiste più")));
@@ -143,8 +149,8 @@ impl UserStore {
             }
             None => {
                 self.conn.execute(
-                    "INSERT INTO decks (name, format, main, extra, side, maybe) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-                    params![name, deck.format.as_str(), main, extra, side, maybe],
+                    "INSERT INTO decks (name, format, main, extra, side, maybe, roles) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+                    params![name, deck.format.as_str(), main, extra, side, maybe, roles],
                 )?;
                 self.conn.last_insert_rowid()
             }
@@ -197,6 +203,8 @@ impl UserStore {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::BTreeMap;
+
     use super::*;
 
     #[test]
@@ -229,14 +237,20 @@ mod tests {
         {
             // A database from before the maybe board existed.
             let conn = Connection::open(&path).unwrap();
-            conn.execute_batch(&SCHEMA.replace("    maybe TEXT NOT NULL DEFAULT '[]',\n", "")).unwrap();
+            let old_schema = SCHEMA
+                .replace("    maybe TEXT NOT NULL DEFAULT '[]',\n", "")
+                .replace("    roles TEXT NOT NULL DEFAULT '{}',  -- JSON object: role -> passcodes\n", "");
+            assert!(!old_schema.contains("maybe") && !old_schema.contains("roles"));
+            conn.execute_batch(&old_schema).unwrap();
             conn.execute("INSERT INTO decks (name, format, main, extra, side) VALUES ('Old', 'md', '[1]', '[]', '[]')", []).unwrap();
         }
         let store = UserStore::open(&path).unwrap();
         let old = store.get(1).unwrap().unwrap();
         assert_eq!((old.main.as_slice(), old.maybe.as_slice()), (&[1][..], &[][..]));
-        let saved = store.save(&Deck { maybe: vec![7, 7], ..old }).unwrap();
+        let roles = BTreeMap::from([("starter".to_owned(), vec![1])]);
+        let saved = store.save(&Deck { maybe: vec![7, 7], roles: roles.clone(), ..old }).unwrap();
         assert_eq!(saved.maybe, [7, 7]);
+        assert_eq!(saved.roles, roles);
         drop(store);
         std::fs::remove_dir_all(&dir).unwrap();
     }

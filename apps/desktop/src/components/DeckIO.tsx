@@ -1,31 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import { api, type Deck, type Imported } from "../lib/api";
 import { sound } from "../lib/sound";
-
-function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
-  useEffect(() => {
-    sound.play("open");
-    const key = (e: KeyboardEvent) => e.key === "Escape" && onClose();
-    addEventListener("keydown", key);
-    return () => removeEventListener("keydown", key);
-  }, [onClose]);
-  return createPortal(
-    <div className="fixed inset-0 z-50 grid place-items-center p-6 anim-fade" role="dialog" aria-modal="true" aria-label={title}>
-      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
-      <div className="panel relative flex w-full max-w-2xl flex-col gap-4 p-6 anim-pop">
-        <div className="flex items-center justify-between">
-          <h2 className="display text-xl font-bold">{title}</h2>
-          <button type="button" className="btn btn-ghost !px-2.5 !py-1" onClick={onClose} aria-label="Chiudi">
-            ✕
-          </button>
-        </div>
-        {children}
-      </div>
-    </div>,
-    document.body,
-  );
-}
+import { Modal } from "./Modal";
 
 async function copy(text: string, el?: HTMLTextAreaElement | HTMLInputElement | null) {
   try {

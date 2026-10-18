@@ -62,6 +62,9 @@ pub struct Deck {
     /// Cards being considered ("maybe board"): not part of the deck, never validated or exported.
     #[serde(default)]
     pub maybe: Vec<u32>,
+    /// Cards grouped by role ("starter", "handtrap", ...), for the test hand and the statistics.
+    #[serde(default)]
+    pub roles: BTreeMap<String, Vec<u32>>,
     pub updated_at: Option<String>,
 }
 
