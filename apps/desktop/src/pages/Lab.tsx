@@ -1,13 +1,17 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { CalculatorTab } from "../components/lab/CalculatorTab";
+import { ConditionPicker } from "../components/lab/ConditionPicker";
+import { OptimizerTab } from "../components/lab/OptimizerTab";
 import { OverviewTab } from "../components/lab/OverviewTab";
 import { RolesPanel } from "../components/lab/RolesPanel";
+import { SimulatorTab } from "../components/lab/SimulatorTab";
 import { Popover, useOutsideClose } from "../components/Popover";
 import { SectionHeader } from "../components/SectionHeader";
-import { api, type Deck, type DeckSummary, type LabOverview } from "../lib/api";
+import { api, type Deck, type DeckSummary, type LabOverview, type Recipe } from "../lib/api";
 import { resolveLook } from "../lib/boxes";
 import { useCardCache } from "../lib/cards";
-import { FORMAT_LABELS, lastDeck, rememberDeck } from "../lib/deck";
+import { BUILTIN_RECIPES, fromCond, toCond, type Group } from "../lib/conditions";
+import { FORMAT_LABELS, lastDeck, rememberDeck, sortIds } from "../lib/deck";
 import { sound } from "../lib/sound";
 import { toast } from "../lib/toast";
 import { sectionById } from "../sections";
@@ -17,14 +21,12 @@ type Tab = "overview" | "calculator" | "simulator" | "optimizer" | "log";
 const TABS: { id: Tab; label: string; soon?: string }[] = [
   { id: "overview", label: "Panoramica" },
   { id: "calculator", label: "Calcolatore" },
-  { id: "simulator", label: "Simulatore", soon: "4B" },
-  { id: "optimizer", label: "Ottimizzatore", soon: "4B" },
+  { id: "simulator", label: "Simulatore" },
+  { id: "optimizer", label: "Ottimizzatore" },
   { id: "log", label: "Registro partite", soon: "4C" },
 ];
 
 const SOON: Record<string, string> = {
-  simulator: "Monte Carlo con Pot, ricerche, combo e conflitti di Normal Summon, con intervallo d'errore e convergenza in diretta.",
-  optimizer: "Valore di ogni copia, 40 contro 41–45 carte, mappa starter × handtrap e proposte di modifica.",
   log: "Registro delle partite con win-rate per matchup, primo/secondo, side e quante partite servono per capirlo.",
 };
 
@@ -37,6 +39,11 @@ export function Lab({ artReady, onGoForge }: { artReady: boolean; onGoForge: () 
   const [hand, setHand] = useState<"first" | "second">("first");
   const [tab, setTab] = useState<Tab>("overview");
   const [menu, setMenu] = useState(false);
+  // The condition is shared by Calcolatore, Simulatore and Ottimizzatore.
+  const [root, setRootState] = useState<Group>(() => fromCond(BUILTIN_RECIPES[2].cond));
+  const setRoot = useCallback((update: (g: Group) => Group) => setRootState((r) => update(structuredClone(r))), []);
+  const [recipes, setRecipesState] = useState<Recipe[]>([]);
+  const setRecipes = useCallback((update: (list: Recipe[]) => Recipe[]) => setRecipesState(update), []);
   const menuRef = useOutsideClose(menu, () => setMenu(false));
   const saveTimer = useRef<number>(undefined);
   const cards = useCardCache();
@@ -48,6 +55,7 @@ export function Lab({ artReady, onGoForge }: { artReady: boolean; onGoForge: () 
       if (!d) return;
       rememberDeck(id);
       setDeck(d);
+      api.listRecipes(id).then(setRecipesState).catch(() => setRecipesState([]));
       setRoles(d.roles ?? {});
       request([...new Set(d.main)]);
     },
@@ -94,6 +102,37 @@ export function Lab({ artReady, onGoForge }: { artReady: boolean; onGoForge: () 
     toast(`Segnate ${handtraps.length} handtrap e ${breakers.length} board breaker`, "ok");
   };
 
+  const applyChanges = async (changes: { id: number; from: number; to: number }[]) => {
+    if (!deck) return;
+    let main = [...deck.main];
+    let maybe = [...deck.maybe];
+    for (const c of changes) {
+      const delta = c.to - c.from;
+      for (let i = 0; i < Math.abs(delta); i++) {
+        if (delta > 0) {
+          main.push(c.id);
+          const at = maybe.indexOf(c.id);
+          if (at >= 0) maybe.splice(at, 1);
+        } else {
+          main.splice(main.indexOf(c.id), 1);
+          maybe.push(c.id);
+        }
+      }
+    }
+    main = sortIds(main, cards.get);
+    maybe = sortIds(maybe, cards.get);
+    try {
+      const saved = await api.saveDeck({ ...deck, main, maybe, roles });
+      setDeck(saved);
+      sound.play("forge");
+      toast("Deck aggiornato: le copie tolte sono nella Maybe board", "ok");
+    } catch (e) {
+      sound.play("error");
+      toast(`Deck non aggiornato: ${e}`, "error");
+    }
+  };
+
+  const cond = toCond(root);
   const section = sectionById("stats");
   const current = decks?.find((d) => d.id === deck?.id);
 
@@ -190,7 +229,16 @@ export function Lab({ artReady, onGoForge }: { artReady: boolean; onGoForge: () 
             ) : tab === "overview" ? (
               <OverviewTab overview={overview} hand={hand} roles={roles} getCard={cards.get} />
             ) : tab === "calculator" ? (
-              <CalculatorTab deckId={deck.id!} main={deck.main} roles={roles} hand={hand} getCard={cards.get} />
+              <CalculatorTab deckId={deck.id!} main={deck.main} roles={roles} hand={hand} getCard={cards.get} root={root} setRoot={setRoot} recipes={recipes} setRecipes={setRecipes} />
+            ) : tab === "simulator" || tab === "optimizer" ? (
+              <div className="flex flex-col gap-4">
+                <ConditionPicker root={root} setRoot={setRoot} recipes={recipes} getCard={cards.get} onEdit={() => setTab("calculator")} />
+                {tab === "simulator" ? (
+                  <SimulatorTab key={deck.id} deckId={deck.id!} main={deck.main} roles={roles} cond={cond} hand={hand} getCard={cards.get} />
+                ) : (
+                  <OptimizerTab deck={deck} roles={roles} cond={cond} hand={hand} getCard={cards.get} onApply={(c) => void applyChanges(c)} />
+                )}
+              </div>
             ) : (
               <div className="lab-card mx-auto mt-6 max-w-xl p-8 text-center anim-rise">
                 <p className="eyebrow text-sec">In arrivo nella Fase {TABS.find((t) => t.id === tab)?.soon}</p>

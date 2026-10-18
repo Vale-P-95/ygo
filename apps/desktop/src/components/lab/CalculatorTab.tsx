@@ -1,94 +1,11 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { api, type Card, type Cond, type LabOp, type LabTarget, type Recipe } from "../../lib/api";
+import { api, type Card, type LabOp, type LabTarget, type Recipe } from "../../lib/api";
+import { BUILTIN_RECIPES, clause, fromCond, group, OPS, plain, role, toCond, usedRoles, type Clause, type CondNode, type Group } from "../../lib/conditions";
 import { roleDefs, roleLabel } from "../../lib/roles";
 import { sound } from "../../lib/sound";
 import { toast } from "../../lib/toast";
 import { pct } from "../../lib/tooltip";
 import { FlaskMeter } from "../charts";
-
-/** The builder edits a tree of groups and clauses, turned into a `Cond`. */
-interface Clause {
-  kind: "clause";
-  id: number;
-  target: LabTarget;
-  op: LabOp;
-  n: number;
-}
-interface Group {
-  kind: "group";
-  id: number;
-  mode: "all" | "any";
-  negate: boolean;
-  items: Node[];
-}
-type Node = Clause | Group;
-
-let nextId = 1;
-const clause = (target: LabTarget, op: LabOp = "atLeast", n = 1): Clause => ({ kind: "clause", id: nextId++, target, op, n });
-const group = (mode: "all" | "any", items: Node[], negate = false): Group => ({ kind: "group", id: nextId++, mode, negate, items });
-const role = (value: string): LabTarget => ({ kind: "role", value });
-
-function toCond(node: Node): Cond {
-  if (node.kind === "clause") return { type: "count", target: node.target, op: node.op, n: node.n };
-  const inner: Cond = { type: node.mode, items: node.items.map(toCond) };
-  return node.negate ? { type: "not", item: inner } : inner;
-}
-
-function fromCond(cond: Cond): Group {
-  const asNode = (c: Cond): Node => {
-    switch (c.type) {
-      case "count":
-        return clause(c.target, c.op, c.n);
-      case "not": {
-        const inner = asNode(c.item);
-        return inner.kind === "group" ? { ...inner, negate: !inner.negate } : group("all", [inner], true);
-      }
-      default:
-        return group(c.type, c.items.map(asNode));
-    }
-  };
-  const root = asNode(cond);
-  return root.kind === "group" ? root : group("all", [root]);
-}
-
-const at = (r: string, n = 1): Cond => ({ type: "count", target: role(r), op: "atLeast", n });
-const resist: Cond = { type: "any", items: [at("starter", 2), { type: "all", items: [at("starter"), at("extender")] }] };
-const BUILTIN: { name: string; cond: Cond }[] = [
-  { name: "Mano ideale", cond: { type: "all", items: [at("starter"), at("handtrap")] } },
-  { name: "Gioca attraverso Ash", cond: resist },
-  { name: "Mano solida", cond: { type: "all", items: [resist, at("handtrap")] } },
-  { name: "Doppio starter", cond: at("starter", 2) },
-  { name: "Starter senza brick", cond: { type: "all", items: [at("starter"), { type: "count", target: role("brick"), op: "exactly", n: 0 }] } },
-  { name: "Breaker per secondo", cond: { type: "all", items: [at("starter"), at("breaker")] } },
-];
-
-function usedRoles(c: Cond, out: string[] = []): string[] {
-  if (c.type === "count") {
-    if (c.target.kind === "role" && !out.includes(c.target.value)) out.push(c.target.value);
-  } else if (c.type === "not") usedRoles(c.item, out);
-  else c.items.forEach((i) => usedRoles(i, out));
-  return out;
-}
-
-const OPS: { op: LabOp; label: string }[] = [
-  { op: "atLeast", label: "almeno" },
-  { op: "atMost", label: "al massimo" },
-  { op: "exactly", label: "esattamente" },
-];
-
-/** "circa 2 mani su 3", or "circa 1 mano su 8" for rare hands. */
-function plain(p: number): string {
-  if (p >= 0.995) return "quasi sempre";
-  if (p < 0.005) return "quasi mai";
-  if (p < 0.5) return `circa 1 mano su ${Math.round(1 / p)}`;
-  let best = { k: 1, d: 2, err: 1 };
-  for (let d = 2; d <= 10; d++) {
-    const k = Math.round(p * d);
-    const err = Math.abs(p - k / d);
-    if (err < best.err - 1e-9) best = { k, d, err };
-  }
-  return `circa ${best.k} mani su ${best.d}`;
-}
 
 interface Props {
   deckId: number;
@@ -96,23 +13,22 @@ interface Props {
   roles: Record<string, number[]>;
   hand: "first" | "second";
   getCard: (id: number) => Card | undefined;
+  /** The condition, shared with the simulator and the optimizer. */
+  root: Group;
+  setRoot: (update: (g: Group) => Group) => void;
+  recipes: Recipe[];
+  setRecipes: (update: (list: Recipe[]) => Recipe[]) => void;
 }
 
 /** Calcolatore: build a condition, get its exact probability. */
-export function CalculatorTab({ deckId, main, roles, hand, getCard }: Props) {
-  const [root, setRoot] = useState<Group>(() => fromCond(BUILTIN[2].cond));
+export function CalculatorTab({ deckId, main, roles, hand, getCard, root, setRoot, recipes, setRecipes }: Props) {
   const [draws, setDraws] = useState(0);
   const [result, setResult] = useState<{ first: number | null; second: number | null; error: string | null } | null>(null);
-  const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [name, setName] = useState("");
   const defs = roleDefs(roles);
   const ids = [...new Set(main)];
   const cond = toCond(root);
   const key = JSON.stringify([cond, draws, main, roles]);
-
-  useEffect(() => {
-    api.listRecipes(deckId).then(setRecipes).catch(() => setRecipes([]));
-  }, [deckId]);
 
   useEffect(() => {
     const t = window.setTimeout(async () => {
@@ -133,7 +49,7 @@ export function CalculatorTab({ deckId, main, roles, hand, getCard }: Props) {
     }
     return null;
   };
-  const edit = (id: number, change: (n: Node) => void) =>
+  const edit = (id: number, change: (n: CondNode) => void) =>
     update((r) => {
       const visit = (g: Group) => {
         if (g.id === id) change(g);
@@ -151,7 +67,7 @@ export function CalculatorTab({ deckId, main, roles, hand, getCard }: Props) {
       visit(r);
       return r;
     });
-  const add = (groupId: number, node: Node) =>
+  const add = (groupId: number, node: CondNode) =>
     update((r) => {
       findGroup(r, groupId)?.items.push(node);
       return r;
@@ -292,14 +208,14 @@ export function CalculatorTab({ deckId, main, roles, hand, getCard }: Props) {
         <section className="lab-card flex flex-col gap-2 p-4">
           <h3 className="text-sm font-semibold">Ricette</h3>
           <div className="flex flex-wrap gap-1.5">
-            {BUILTIN.map((r) => (
-              <button key={r.name} type="button" className="chip !px-2 !py-0.5 !text-[11px]" onClick={() => (sound.play("page"), setRoot(fromCond(r.cond)))}>
+            {BUILTIN_RECIPES.map((r) => (
+              <button key={r.name} type="button" className="chip !px-2 !py-0.5 !text-[11px]" onClick={() => (sound.play("page"), setRoot(() => fromCond(r.cond)))}>
                 {r.name}
               </button>
             ))}
             {recipes.map((r) => (
               <span key={r.id} className="chip chip-active !gap-1 !px-2 !py-0.5 !text-[11px]">
-                <button type="button" onClick={() => (sound.play("page"), setRoot(fromCond(r.cond)))}>
+                <button type="button" onClick={() => (sound.play("page"), setRoot(() => fromCond(r.cond)))}>
                   {r.name}
                 </button>
                 <button

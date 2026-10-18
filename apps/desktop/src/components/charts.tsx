@@ -264,3 +264,206 @@ export function ChartCard({ title, note, legend, table, children }: { title: str
     </section>
   );
 }
+
+/** Simulation estimate over a log scale of hands, with its 95% band. */
+export function ConvergenceChart({ points, exact, ariaLabel }: { points: { hands: number; p: number; lo: number; hi: number }[]; exact?: number | null; ariaLabel: string }) {
+  const w = 620;
+  const h = 230;
+  const m = { l: 44, r: 120, t: 12, b: 38 };
+  if (points.length === 0) return null;
+  const all = points.flatMap((p) => [p.lo, p.hi]).concat(exact != null ? [exact] : []);
+  const lo = Math.max(0, Math.floor((Math.min(...all) - 0.02) * 20) / 20);
+  const hi = Math.min(1, Math.ceil((Math.max(...all) + 0.02) * 20) / 20);
+  const first = Math.log10(Math.min(points[0].hands, 1000));
+  const last = Math.log10(Math.max(points[points.length - 1].hands, 10_000));
+  const x = (n: number) => lin(first, last, m.l, w - m.r)(Math.log10(Math.max(n, 1)));
+  const y = lin(lo, hi, h - m.b, m.t);
+  const ticks = Array.from({ length: Math.round((hi - lo) / 0.05) + 1 }, (_, i) => lo + i * 0.05).filter((_, i, a) => a.length <= 6 || i % 2 === 0);
+  const decades = [1e3, 1e4, 1e5, 1e6, 1e7].filter((d) => Math.log10(d) >= first - 1e-9 && Math.log10(d) <= last + 1e-9);
+  const band = points.map((p, i) => `${i ? "L" : "M"}${x(p.hands)},${y(p.hi)}`).join("") + [...points].reverse().map((p) => `L${x(p.hands)},${y(p.lo)}`).join("") + "Z";
+  const end = points[points.length - 1];
+  return (
+    <svg viewBox={`0 0 ${w} ${h}`} role="img" aria-label={ariaLabel} className="block h-auto w-full overflow-visible">
+      <YGrid y={y} ticks={ticks} x0={m.l} x1={w - m.r} fmt={(v) => pct(v, 0)} />
+      {decades.map((d) => (
+        <text key={d} x={x(d)} y={h - m.b + 16} textAnchor="middle" className="chart-axis">
+          {d.toLocaleString("it-IT")}
+        </text>
+      ))}
+      <text x={(m.l + w - m.r) / 2} y={h - 4} textAnchor="middle" className="chart-note">
+        mani simulate
+      </text>
+      <path d={band} style={{ fill: "var(--sec)" }} opacity={0.14} />
+      {exact != null && (
+        <g>
+          <line x1={m.l} x2={w - m.r} y1={y(exact)} y2={y(exact)} className="stroke-[var(--df-faint)]" strokeWidth={1} />
+          <text x={w - m.r + 8} y={y(exact) + 14} className="chart-note">
+            esatto senza effetti {pct(exact)}
+          </text>
+        </g>
+      )}
+      <path d={points.map((p, i) => `${i ? "L" : "M"}${x(p.hands)},${y(p.p)}`).join("")} fill="none" style={{ stroke: "var(--sec)" }} strokeWidth={2} strokeLinejoin="round" />
+      {points.map((p) => (
+        <circle
+          key={p.hands}
+          cx={x(p.hands)}
+          cy={y(p.p)}
+          r={4}
+          style={{ fill: "var(--sec)" }}
+          className="stroke-[var(--df-surface)]"
+          strokeWidth={2}
+          tabIndex={0}
+          data-tip={`${p.hands.toLocaleString("it-IT")} mani\nstima ${pct(p.p, 2)}\nintervallo ${pct(p.lo, 2)} – ${pct(p.hi, 2)}`}
+        />
+      ))}
+      <text x={x(end.hands) + 8} y={y(end.p) - 8} className="chart-label">
+        {pct(end.p)} ± {pct((end.hi - end.lo) / 2, 2)}
+      </text>
+    </svg>
+  );
+}
+
+/** Horizontal bars around zero: what one copy more (right) or less (left) changes. */
+export function TornadoChart({ rows, ariaLabel }: { rows: { label: string; plus: number | null; minus: number | null }[]; ariaLabel: string }) {
+  const w = 460;
+  const rowH = 30;
+  const m = { l: 150, r: 44, t: 6, b: 22 };
+  const h = m.t + rows.length * rowH + m.b;
+  // Room past the longest bar for its value label.
+  const max = Math.max(0.01, ...rows.flatMap((r) => [Math.abs(r.plus ?? 0), Math.abs(r.minus ?? 0)])) * 1.45;
+  const x = lin(-max, max, m.l, w - m.r);
+  const pp = (v: number) => `${v >= 0 ? "+" : "−"}${Math.abs(v * 100).toLocaleString("it-IT", { minimumFractionDigits: 1, maximumFractionDigits: 1 })}`;
+  return (
+    <svg viewBox={`0 0 ${w} ${h}`} role="img" aria-label={ariaLabel} className="block h-auto w-full overflow-visible">
+      <line x1={x(0)} x2={x(0)} y1={m.t} y2={h - m.b} className="stroke-[var(--df-border-strong)]" />
+      <text x={x(-max)} y={h - 6} className="chart-axis">
+        −1 copia
+      </text>
+      <text x={x(max)} y={h - 6} textAnchor="end" className="chart-axis">
+        +1 copia
+      </text>
+      {rows.map((r, i) => {
+        const cy = m.t + i * rowH + rowH / 2;
+        return (
+          <g key={r.label}>
+            <text x={m.l - 10} y={cy + 4} textAnchor="end" className="chart-label">
+              {r.label.length > 22 ? `${r.label.slice(0, 21)}…` : r.label}
+            </text>
+            {(
+              [
+                [r.plus, "var(--df-ok)", "+1 copia"],
+                [r.minus, "var(--df-danger)", "−1 copia"],
+              ] as const
+            ).map(([v, color, what]) =>
+              v == null || Math.abs(v) < 0.0005 ? null : (
+                <g key={what}>
+                  <rect
+                    x={Math.min(x(0), x(v))}
+                    y={cy - 8}
+                    width={Math.abs(x(v) - x(0))}
+                    height={16}
+                    rx={3}
+                    style={{ fill: color }}
+                    opacity={0.85}
+                    className="chart-bar"
+                    tabIndex={0}
+                    data-tip={`${r.label}, ${what}\n${pp(v)} punti percentuali`}
+                  />
+                  <text x={v > 0 ? x(v) + 6 : x(v) - 6} y={cy + 4} textAnchor={v > 0 ? "start" : "end"} className="chart-axis">
+                    {pp(v)}
+                  </text>
+                </g>
+              ),
+            )}
+            {(r.plus == null || Math.abs(r.plus) < 0.0005) && (r.minus == null || Math.abs(r.minus) < 0.0005) && (
+              <text x={x(0) + 8} y={cy + 4} className="chart-note">
+                {r.plus == null ? "già al massimo delle copie" : "nessun effetto"}
+              </text>
+            )}
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
+/** Grid of probabilities for two counts, colored on one hue (light to dark). */
+export function HeatmapChart({
+  rows,
+  cols,
+  values,
+  current,
+  rowLabel,
+  colLabel,
+  ariaLabel,
+}: {
+  rows: number[];
+  cols: number[];
+  values: (number | null)[][];
+  current: [number, number];
+  rowLabel: string;
+  colLabel: string;
+  ariaLabel: string;
+}) {
+  const cell = 34;
+  const gap = 2;
+  const m = { l: 92, t: 22, b: 30 };
+  const w = m.l + cols.length * (cell + gap) + 8;
+  const h = m.t + rows.length * (cell + gap) + m.b;
+  const flat = values.flat().filter((v): v is number => v != null);
+  const lo = Math.min(...flat);
+  const hi = Math.max(...flat);
+  const shade = (v: number) => `color-mix(in oklab, var(--sec) ${Math.round(12 + ((v - lo) / (hi - lo || 1)) * 88)}%, var(--df-surface))`;
+  return (
+    <div className="flex flex-col gap-2">
+      <svg viewBox={`0 0 ${w} ${h}`} role="img" aria-label={ariaLabel} className="block h-auto w-full max-w-[560px] overflow-visible">
+        {cols.map((c, j) => (
+          <text key={c} x={m.l + j * (cell + gap) + cell / 2} y={m.t - 8} textAnchor="middle" className="chart-axis">
+            {c}
+          </text>
+        ))}
+        <text x={m.l + (cols.length * (cell + gap)) / 2} y={h - 6} textAnchor="middle" className="chart-note">
+          {colLabel}
+        </text>
+        {rows.map((r, i) => (
+          <g key={r}>
+            <text x={m.l - 8} y={m.t + i * (cell + gap) + cell / 2 + 4} textAnchor="end" className="chart-axis">
+              {r} {rowLabel}
+            </text>
+            {cols.map((c, j) => {
+              const v = values[i][j];
+              if (v == null) return null;
+              const here = r === current[0] && c === current[1];
+              return (
+                <g key={c}>
+                  <rect
+                    x={m.l + j * (cell + gap)}
+                    y={m.t + i * (cell + gap)}
+                    width={cell}
+                    height={cell}
+                    rx={4}
+                    style={{ fill: shade(v), stroke: here ? "var(--df-text)" : "none", strokeWidth: here ? 2 : 0 }}
+                    tabIndex={0}
+                    data-tip={`${r} ${rowLabel}, ${c} ${colLabel}\n${pct(v)}`}
+                  />
+                  {here && (
+                    <text x={m.l + j * (cell + gap) + cell / 2} y={m.t + i * (cell + gap) + cell / 2 + 4} textAnchor="middle" className="chart-label" style={{ fontSize: 10 }}>
+                      {pct(v, 0)}
+                    </text>
+                  )}
+                </g>
+              );
+            })}
+          </g>
+        ))}
+      </svg>
+      <Legend
+        items={[
+          { name: pct(lo, 0), color: shade(lo) },
+          { name: pct((lo + hi) / 2, 0), color: shade((lo + hi) / 2) },
+          { name: `${pct(hi, 0)} · riquadro: il deck attuale`, color: shade(hi) },
+        ]}
+      />
+    </div>
+  );
+}

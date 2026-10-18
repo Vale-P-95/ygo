@@ -184,6 +184,50 @@ export interface LabOverview {
   opponent: number[];
 }
 
+/** Simulator rules for one card (`ygo_stats::CardRule`). */
+export type SimEffect = { type: "draw"; n: number; banishTop: number } | { type: "excavate"; n: number } | { type: "search"; targets: number[] };
+export interface SimRule {
+  id: number;
+  effect: SimEffect | null;
+  oncePerTurn: boolean;
+  normalSummon: boolean;
+}
+export interface Checkpoint {
+  hands: number;
+  p: number;
+  lo: number;
+  hi: number;
+}
+export interface SimResult extends Checkpoint {
+  hits: number;
+  checkpoints: Checkpoint[];
+  /** [passcode, share of hands where its effect resolved] */
+  effects: [number, number][];
+  cancelled: boolean;
+}
+export interface Delta {
+  key: string;
+  plus: number | null;
+  minus: number | null;
+}
+export interface LabAnalysis {
+  sensitivity: { base: number; roles: Delta[]; cards: Delta[]; grew: boolean } | null;
+  size: (number | null)[];
+  heatmap: { a: number[]; b: number[]; p: (number | null)[][]; current: [number, number] } | null;
+  error: string | null;
+}
+export interface OptimizeScore {
+  first: number;
+  second: number;
+  objective: number;
+}
+export interface OptimizeResult {
+  before: OptimizeScore;
+  after: OptimizeScore;
+  changes: { id: number; from: number; to: number }[];
+  size: number;
+}
+
 export interface Recipe {
   id: number;
   deckId: number | null;
@@ -220,6 +264,14 @@ export const api = {
   labProbability: (main: number[], roles: Record<string, number[]>, cond: Cond, hand: number) =>
     invoke<{ p: number | null; error: string | null }>("lab_probability", { main, roles, cond, hand }),
   setDeckRoles: (id: number, roles: Record<string, number[]>) => invoke<void>("set_deck_roles", { id, roles }),
+  labSimulate: (main: number[], roles: Record<string, number[]>, cond: Cond, hand: number, rules: SimRule[], hands: number, seed: number) =>
+    invoke<SimResult>("lab_simulate", { main, roles, cond, hand, rules, hands, seed }),
+  labCancelSimulation: () => invoke<void>("lab_cancel_simulation"),
+  onSimProgress: (handler: (c: Checkpoint) => void): Promise<UnlistenFn> => listen<Checkpoint>("lab-sim-progress", (e) => handler(e.payload)),
+  labAnalyze: (main: number[], roles: Record<string, number[]>, cond: Cond, hand: number, roleKeys: string[], limits: Record<number, number>, roleA: string | null, roleB: string | null) =>
+    invoke<LabAnalysis>("lab_analyze", { main, roles, cond, hand, roleKeys, limits, roleA, roleB }),
+  labOptimize: (args: { main: number[]; maybe: number[]; roles: Record<string, number[]>; limits: Record<number, number>; locked: number[]; cond: Cond; weightFirst: number; minSize: number; maxSize: number; seed: number }) =>
+    invoke<OptimizeResult>("lab_optimize", args),
   listRecipes: (deckId: number) => invoke<Recipe[]>("list_recipes", { deckId }),
   saveRecipe: (deckId: number | null, name: string, cond: Cond) => invoke<Recipe>("save_recipe", { deckId, name, cond }),
   deleteRecipe: (id: number) => invoke<void>("delete_recipe", { id }),

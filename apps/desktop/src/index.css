@@ -211,6 +211,18 @@ body {
       0 0 0 1px rgb(255 220 150 / 0.6) inset,
       0 10px 30px -8px color-mix(in oklab, var(--df-ember) 90%, transparent);
   }
+  /* In the laboratory the main button is glass and cyan, not molten metal. */
+  [data-section="stats"] .btn-molten {
+    color: #04201d;
+    background: linear-gradient(135deg, #c4fff8, var(--sec) 45%, #179589);
+    box-shadow:
+      0 0 0 1px rgb(190 255 246 / 0.4) inset,
+      0 8px 24px -10px color-mix(in oklab, var(--sec) 80%, transparent);
+  }
+  [data-theme="light"] [data-section="stats"] .btn-molten {
+    color: #fff;
+    background: linear-gradient(135deg, #2bb7ac, var(--sec) 50%, #0a6d65);
+  }
   .btn-ghost {
     color: var(--df-text);
     background: var(--df-surface-2);
