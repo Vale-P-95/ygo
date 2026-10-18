@@ -449,6 +449,43 @@ body {
   background: #e08a1e;
 }
 
+.fav-star {
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  font-size: 13px;
+  line-height: 1;
+  color: #fff;
+  background: rgb(10 8 8 / 0.78);
+  border: 1px solid rgb(255 255 255 / 0.25);
+  box-shadow: 0 1px 4px rgb(0 0 0 / 0.6);
+  opacity: 0;
+  cursor: pointer;
+  transition:
+    opacity 120ms,
+    transform 120ms;
+}
+.card-tile:hover .fav-star,
+.fav-star[data-on] {
+  opacity: 1;
+}
+.fav-star[data-on] {
+  color: #ffcf4a;
+}
+.fav-star:hover {
+  transform: scale(1.15);
+}
+.card-tile[data-compact] .fav-star {
+  width: 18px;
+  height: 18px;
+  font-size: 11px;
+}
+
 .rarity-gem {
   position: absolute;
   right: 4px;

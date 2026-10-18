@@ -21,6 +21,8 @@ interface Props {
   dragFrom: DropZone;
   /** Labels on the right of a row (copies in the deck, list status). */
   badgesFor?: (id: number) => TileBadge[];
+  favorites?: Set<number>;
+  onFavorite?: (id: number) => void;
 }
 
 function subtitle(card: Card): string {
@@ -32,7 +34,7 @@ function subtitle(card: Card): string {
 }
 
 /** Virtualized list of cards: thumbnail, name, type and stats on one row. */
-export function CardList({ ids, getCard, requestCards, version, onAdd, onOpen, onHover, onHoverEnd, dragFrom, badgesFor }: Props) {
+export function CardList({ ids, getCard, requestCards, version, onAdd, onOpen, onHover, onHoverEnd, dragFrom, badgesFor, favorites, onFavorite }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const virtualizer = useVirtualizer({
     count: ids.length,
@@ -110,6 +112,19 @@ export function CardList({ ids, getCard, requestCards, version, onAdd, onOpen, o
                   </span>
                 ))}
               </span>
+              {onFavorite && (
+                <button
+                  type="button"
+                  className={`shrink-0 px-1 text-base ${favorites?.has(id) ? "text-gold" : "text-faint opacity-0 group-hover:opacity-100 focus:opacity-100"}`}
+                  title={favorites?.has(id) ? "Togli dai preferiti" : "Aggiungi ai preferiti"}
+                  aria-label={favorites?.has(id) ? "Togli dai preferiti" : "Aggiungi ai preferiti"}
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onDoubleClick={(e) => e.stopPropagation()}
+                  onClick={() => onFavorite(id)}
+                >
+                  {favorites?.has(id) ? "★" : "☆"}
+                </button>
+              )}
               <button
                 type="button"
                 className="btn btn-ghost shrink-0 !px-2 !py-0.5 text-base opacity-0 group-hover:opacity-100 focus:opacity-100"

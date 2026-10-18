@@ -8,6 +8,7 @@ use rusqlite::{params, Connection, OptionalExtension};
 use crate::banlist::{self, Banlist};
 use crate::model::{Card, CardKind, Facets};
 use crate::query::{Range, SearchQuery, Sort};
+use crate::tags::Tag;
 use crate::Error;
 
 const SCHEMA: &str = r#"
@@ -232,6 +233,19 @@ impl CardStore {
         if !q.rarities.is_empty() {
             clauses.push(format!("c.md_rarity IN ({})", placeholders(q.rarities.len())));
             args.extend(q.rarities.iter().map(|r| Value::Text(r.clone())));
+        }
+        for tag in &q.tags {
+            if *tag == Tag::Favorite {
+                if q.favorites.is_empty() {
+                    clauses.push("0".into());
+                } else {
+                    clauses.push(format!("c.id IN ({})", placeholders(q.favorites.len())));
+                    args.extend(q.favorites.iter().map(|id| Value::Integer(*id as i64)));
+                }
+            } else {
+                clauses.push(format!("c.name IN ({})", placeholders(tag.names().len())));
+                args.extend(tag.names().iter().map(|n| Value::Text((*n).to_owned())));
+            }
         }
         if !q.bans.is_empty() {
             if q.formats.iter().any(|f| f == "Master Duel") {

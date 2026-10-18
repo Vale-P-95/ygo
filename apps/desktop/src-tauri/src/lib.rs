@@ -7,7 +7,8 @@ use tauri::http::{Response, StatusCode};
 use tauri::{Emitter, Manager, State};
 use ygo_data::sync::{self, Progress};
 use ygo_data::{
-    banlist, deck, Banlist, Card, CardStore, Chip, Deck, DeckSummary, Facets, Format, ImageCache, ImageSize, Legality, UserStore,
+    banlist, deck, Banlist, Card, CardStore, Chip, Deck, DeckSummary, Facets, Format, ImageCache, ImageSize, Legality, SavedSearch, Tag,
+    UserStore,
 };
 use ygo_engine::{Engine, ScriptStore};
 
@@ -160,7 +161,10 @@ struct SearchResult {
 
 #[tauri::command(async)]
 fn search_cards(state: State<'_, AppState>, query: String) -> Result<SearchResult, String> {
-    let parsed = ygo_data::parse_query(&query);
+    let mut parsed = ygo_data::parse_query(&query);
+    if parsed.query.tags.contains(&Tag::Favorite) {
+        parsed.query.favorites = state.with_user(|u| u.favorites())?;
+    }
     let ids = state.with_store(|s| s.search(&parsed.query))?;
     Ok(SearchResult { ids, chips: parsed.chips, errors: parsed.errors })
 }
@@ -173,6 +177,37 @@ fn get_cards(state: State<'_, AppState>, ids: Vec<u32>) -> Result<Vec<Card>, Str
 #[tauri::command(async)]
 fn card_facets(state: State<'_, AppState>) -> Result<Facets, String> {
     state.with_store(|s| s.facets())
+}
+
+#[tauri::command(async)]
+fn list_favorites(state: State<'_, AppState>) -> Result<Vec<u32>, String> {
+    state.with_user(|u| u.favorites())
+}
+
+#[tauri::command(async)]
+fn set_favorite(state: State<'_, AppState>, id: u32, favorite: bool) -> Result<(), String> {
+    state.with_user(|u| u.set_favorite(id, favorite))
+}
+
+#[tauri::command(async)]
+fn list_saved_searches(state: State<'_, AppState>) -> Result<Vec<SavedSearch>, String> {
+    state.with_user(|u| u.saved_searches())
+}
+
+#[tauri::command(async)]
+fn save_search(state: State<'_, AppState>, name: String, query: String) -> Result<Vec<SavedSearch>, String> {
+    state.with_user(|u| {
+        u.save_search(&name, &query)?;
+        u.saved_searches()
+    })
+}
+
+#[tauri::command(async)]
+fn delete_saved_search(state: State<'_, AppState>, name: String) -> Result<Vec<SavedSearch>, String> {
+    state.with_user(|u| {
+        u.delete_search(&name)?;
+        u.saved_searches()
+    })
 }
 
 #[tauri::command(async)]
@@ -306,6 +341,11 @@ pub fn run() {
             search_cards,
             get_cards,
             card_facets,
+            list_favorites,
+            set_favorite,
+            list_saved_searches,
+            save_search,
+            delete_saved_search,
             list_decks,
             get_deck,
             save_deck,

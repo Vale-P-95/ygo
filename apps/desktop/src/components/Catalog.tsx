@@ -1,16 +1,19 @@
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
-import { api, type Card, type Facets, type SearchResult } from "../lib/api";
+import { api, type Card, type Facets, type SavedSearch, type SearchResult } from "../lib/api";
 import type { Deck } from "../lib/api";
 import { copiesInDeck, copyLimit } from "../lib/deck";
 import { useDrag } from "../lib/drag";
-import { removeToken } from "../lib/query";
+import { toggleFavorite, useFavorites } from "../lib/favorites";
+import { hasToken, removeToken, toggleToken } from "../lib/query";
 import { updateSettings, useSettings, type CatalogView } from "../lib/settings";
 import { sound } from "../lib/sound";
+import { toast } from "../lib/toast";
 import { CardGrid } from "./CardGrid";
 import { CardList } from "./CardList";
 import type { TileBadge } from "./CardTile";
 import { EmblemIcon } from "./Emblems";
 import { FilterPanel } from "./FilterPanel";
+import { Popover, useOutsideClose } from "./Popover";
 
 interface Props {
   deck: Deck;
@@ -34,6 +37,103 @@ const VIEWS: { view: CatalogView; label: string; icon: string }[] = [
   { view: "s", label: "Carte piccole", icon: "M1 1h3v4H1zM5 1h3v4H5zM9 1h3v4H9zM13 1h2v4h-2zM1 6h3v4H1zM5 6h3v4H5zM9 6h3v4H9zM13 6h2v4h-2zM1 11h3v4H1zM5 11h3v4H5zM9 11h3v4H9zM13 11h2v4h-2z" },
   { view: "list", label: "Elenco", icon: "M1 2h3v3H1zM6 3h9v1H6zM1 7h3v3H1zM6 8h9v1H6zM1 12h3v3H1zM6 13h9v1H6z" },
 ];
+
+/** Quick filters: hand-picked groups (crates/ygo-data/src/tags.rs) and favourites. */
+const QUICK: { token: string; label: string }[] = [
+  { token: "tag:handtrap", label: "Handtrap" },
+  { token: "tag:staple", label: "Staple" },
+  { token: "tag:breaker", label: "Board breaker" },
+  { token: "tag:fav", label: "★ Preferite" },
+];
+
+const isQuick = (token: string) => QUICK.some((q) => q.token === token.toLowerCase());
+
+/** Saved searches: apply, save the current one, delete. */
+function SavedSearches({ query, onQuery }: { query: string; onQuery: (q: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const [saved, setSaved] = useState<SavedSearch[]>([]);
+  const [name, setName] = useState("");
+  const ref = useOutsideClose(open, () => setOpen(false));
+
+  useEffect(() => {
+    api.listSavedSearches().then(setSaved).catch(() => setSaved([]));
+  }, []);
+
+  const save = async () => {
+    try {
+      setSaved(await api.saveSearch(name, query));
+      setName("");
+      sound.play("chime");
+    } catch (e) {
+      sound.play("error");
+      toast(String(e), "error");
+    }
+  };
+
+  return (
+    <div ref={ref} className="relative shrink-0">
+      <button
+        type="button"
+        className={`btn h-full !px-2.5 ${open ? "btn-molten" : "btn-ghost"}`}
+        aria-expanded={open}
+        title="Ricerche salvate"
+        aria-label="Ricerche salvate"
+        onClick={() => {
+          sound.play(open ? "close" : "open");
+          setOpen((v) => !v);
+        }}
+      >
+        <svg viewBox="0 0 16 16" className="h-4 w-4" fill="currentColor" aria-hidden="true">
+          <path d="M3.5 1.5h9a1 1 0 0 1 1 1v12.2a.4.4 0 0 1-.64.32L8 11.6l-4.86 3.42a.4.4 0 0 1-.64-.32V2.5a1 1 0 0 1 1-1z" />
+        </svg>
+      </button>
+      <Popover open={open} align="right" width={320}>
+        <form
+          className="flex gap-1.5 p-1"
+          onSubmit={(e) => {
+            e.preventDefault();
+            void save();
+          }}
+        >
+          <input className="field !py-1 text-xs" placeholder="Nome della ricerca attuale" value={name} onChange={(e) => setName(e.target.value)} />
+          <button type="submit" className="btn btn-molten shrink-0 !px-2.5 !py-1 text-xs" disabled={!name.trim() || !query.trim()}>
+            Salva
+          </button>
+        </form>
+        {saved.length === 0 && <p className="px-2 py-2 text-xs text-faint">Nessuna ricerca salvata: scrivi una ricerca, dalle un nome e premi Salva.</p>}
+        {saved.length > 0 && <div className="my-1.5 border-t border-border" />}
+        {saved.map((s) => (
+          <div key={s.name} className="group flex items-center gap-1 rounded-lg hover:bg-surface-3">
+            <button
+              type="button"
+              className="min-w-0 flex-1 px-2 py-1.5 text-left"
+              onClick={() => {
+                sound.play("page");
+                onQuery(s.query);
+                setOpen(false);
+              }}
+            >
+              <span className="block truncate text-sm font-medium">{s.name}</span>
+              <span className="block truncate font-mono text-[10px] text-faint">{s.query}</span>
+            </button>
+            <button
+              type="button"
+              className="px-2 text-faint opacity-0 group-hover:opacity-100 hover:text-danger"
+              title="Elimina"
+              aria-label={`Elimina ${s.name}`}
+              onClick={async () => {
+                sound.play("close");
+                setSaved(await api.deleteSavedSearch(s.name));
+              }}
+            >
+              ✕
+            </button>
+          </div>
+        ))}
+      </Popover>
+    </div>
+  );
+}
 
 const CATALOG_MIN = 300;
 const CATALOG_MAX = 760;
@@ -76,6 +176,9 @@ export function Catalog({ deck, getCard, requestCards, version, onAdd, onOpen, o
   const drag = useDrag();
   const removing = drag && drag.source.from !== "catalog";
   const { catalogView: view, catalogWidth } = useSettings();
+  const favorites = useFavorites();
+  // Re-run a favourites search when the favourites change.
+  const favKey = hasToken(query, "tag:fav") ? favorites : null;
 
   const listBadges = (id: number): TileBadge[] => {
     const badges: TileBadge[] = [];
@@ -105,7 +208,7 @@ export function Catalog({ deck, getCard, requestCards, version, onAdd, onOpen, o
         .finally(() => setSearching(false));
     }, 160);
     return () => window.clearTimeout(timer);
-  }, [query, requestCards]);
+  }, [query, requestCards, favKey]);
 
   useEffect(() => {
     const key = (e: KeyboardEvent) => {
@@ -173,6 +276,7 @@ export function Catalog({ deck, getCard, requestCards, version, onAdd, onOpen, o
               onChange={(e) => onQuery(e.target.value)}
             />
           </label>
+          <SavedSearches query={query} onQuery={onQuery} />
           <button
             type="button"
             className={`btn shrink-0 !px-3 ${filters ? "btn-molten" : "btn-ghost"}`}
@@ -185,9 +289,28 @@ export function Catalog({ deck, getCard, requestCards, version, onAdd, onOpen, o
             Filtri{result.chips.length > 0 && <span className="rounded-full bg-black/25 px-1.5 text-[11px]">{result.chips.length}</span>}
           </button>
         </div>
-        {(result.chips.length > 0 || result.errors.length > 0) && (
+        <div className="flex flex-wrap items-center gap-1">
+          {QUICK.map((q) => {
+            const on = hasToken(query, q.token);
+            return (
+              <button
+                key={q.token}
+                type="button"
+                aria-pressed={on}
+                className={`chip !px-2 !py-0.5 !text-[11px] ${on ? "chip-active" : ""}`}
+                onClick={() => {
+                  sound.play("toggle");
+                  onQuery(toggleToken(query, q.token));
+                }}
+              >
+                {q.label}
+              </button>
+            );
+          })}
+        </div>
+        {(result.chips.some((c) => !isQuick(c.token)) || result.errors.length > 0) && (
           <div className="flex flex-wrap gap-1">
-            {result.chips.map((chip) => (
+            {result.chips.filter((c) => !isQuick(c.token)).map((chip) => (
               <button
                 key={chip.token}
                 type="button"
@@ -222,6 +345,8 @@ export function Catalog({ deck, getCard, requestCards, version, onAdd, onOpen, o
             onHoverEnd={onHoverEnd}
             dragFrom="catalog"
             badgesFor={listBadges}
+            favorites={favorites}
+            onFavorite={toggleFavorite}
           />
         ) : (
           <CardGrid
@@ -237,6 +362,8 @@ export function Catalog({ deck, getCard, requestCards, version, onAdd, onOpen, o
             onContext={(id, el, shift) => onAdd(id, el, shift)}
             dragFrom="catalog"
             minTile={TILE[view] ?? TILE.m}
+            favorites={favorites}
+            onFavorite={toggleFavorite}
             badgeFor={(id) => {
               const n = copiesInDeck(deck, id);
               const card = getCard(id);

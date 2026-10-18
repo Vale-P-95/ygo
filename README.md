@@ -117,6 +117,7 @@ cargo run --release -p ygo-cli -- search 'arch:invoked type:fusion sort:atk'
 | `attr:dark`, `race:spellcaster`, `arch:invoked` | attributo, tipo di mostro, archetipo |
 | `atk>=2500`, `def<1000`, `lv:4-6`, `link>=2` | statistiche |
 | `format:md`, `rarity:ur`, `ban:limited` | Master Duel, rarità MD, banlist (quella di Master Duel insieme a `format:md`, altrimenti TCG) |
+| `tag:handtrap`, `tag:staple`, `tag:breaker`, `tag:fav` | gruppi rapidi: handtrap, staple, board breaker, carte preferite (★) |
 | `sort:atk`, `sort:popular`, `sort:new` | ordinamento |
 
 Ogni filtro scelto nel pannello dell'app diventa testo nella barra di ricerca, e viceversa.

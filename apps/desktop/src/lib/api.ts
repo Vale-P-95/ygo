@@ -127,6 +127,11 @@ export function formatDate(iso: string): string {
   return Number.isNaN(d.getTime()) ? iso : d.toLocaleDateString("it-IT", { day: "numeric", month: "long", year: "numeric" });
 }
 
+export interface SavedSearch {
+  name: string;
+  query: string;
+}
+
 export interface Imported {
   main: number[];
   extra: number[];
@@ -140,6 +145,11 @@ export const api = {
   search: (query: string) => invoke<SearchResult>("search_cards", { query }),
   getCards: (ids: number[]) => invoke<Card[]>("get_cards", { ids }),
   facets: () => invoke<Facets>("card_facets"),
+  listFavorites: () => invoke<number[]>("list_favorites"),
+  setFavorite: (id: number, favorite: boolean) => invoke<void>("set_favorite", { id, favorite }),
+  listSavedSearches: () => invoke<SavedSearch[]>("list_saved_searches"),
+  saveSearch: (name: string, query: string) => invoke<SavedSearch[]>("save_search", { name, query }),
+  deleteSavedSearch: (name: string) => invoke<SavedSearch[]>("delete_saved_search", { name }),
   onProgress: (handler: (p: Progress) => void): Promise<UnlistenFn> => listen<Progress>("data-progress", (e) => handler(e.payload)),
   listDecks: () => invoke<DeckSummary[]>("list_decks"),
   getDeck: (id: number) => invoke<Deck | null>("get_deck", { id }),

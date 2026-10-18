@@ -22,11 +22,14 @@ interface Props {
   dragFrom?: DropZone;
   badgeFor?: (id: number) => TileBadge | undefined;
   minTile?: number;
+  favorites?: Set<number>;
+  onFavorite?: (id: number) => void;
 }
 
 /** Virtualized grid: only the visible rows exist in the page. */
 export function CardGrid(props: Props) {
-  const { ids, getCard, requestCards, version, selected, onSelect, onOpen, onHover, onHoverEnd, onContext, dragFrom, badgeFor, minTile = 128 } = props;
+  const { ids, getCard, requestCards, version, selected, onSelect, onOpen, onHover, onHoverEnd, onContext, dragFrom, badgeFor, minTile = 128, favorites, onFavorite } =
+    props;
   const gap = minTile < 70 ? 6 : minTile < 110 ? 8 : GAP;
   const scrollRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(0);
@@ -86,6 +89,8 @@ export function CardGrid(props: Props) {
                 dragSource={dragFrom ? { id, from: dragFrom } : undefined}
                 badge={badgeFor?.(id)}
                 compact={minTile < 90}
+                favorite={favorites?.has(id)}
+                onFavorite={onFavorite}
               />
             ))}
           </div>

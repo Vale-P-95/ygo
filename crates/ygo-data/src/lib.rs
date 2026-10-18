@@ -9,6 +9,7 @@ pub mod model;
 pub mod query;
 pub mod store;
 pub mod sync;
+pub mod tags;
 pub mod userdb;
 
 pub use banlist::Banlist;
@@ -17,7 +18,8 @@ pub use images::{ImageCache, ImageSize};
 pub use model::{Card, CardKind, Facets};
 pub use query::{parse as parse_query, Chip, Parsed, SearchQuery, Sort};
 pub use store::CardStore;
-pub use userdb::{DeckSummary, UserStore};
+pub use tags::Tag;
+pub use userdb::{DeckSummary, SavedSearch, UserStore};
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {

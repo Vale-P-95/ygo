@@ -42,6 +42,9 @@ interface Props {
   fresh?: boolean;
   /** Smaller tiles get smaller decorations. */
   compact?: boolean;
+  /** Shows the favourite star (filled when `favorite`). */
+  onFavorite?: (id: number) => void;
+  favorite?: boolean;
 }
 
 /**
@@ -50,7 +53,7 @@ interface Props {
  * Pointer tracking writes CSS variables directly, without re-rendering.
  */
 export const CardTile = memo(function CardTile(props: Props) {
-  const { id, card, selected, onSelect, onOpen, onHover, onHoverEnd, onContext, dragSource, badge, invalid, fresh, compact } = props;
+  const { id, card, selected, onSelect, onOpen, onHover, onHoverEnd, onContext, dragSource, badge, invalid, fresh, compact, onFavorite, favorite } = props;
   const ref = useRef<HTMLButtonElement>(null);
   const [loaded, setLoaded] = useState(false);
   const rarity = rarityCode(card);
@@ -125,6 +128,25 @@ export const CardTile = memo(function CardTile(props: Props) {
       {badge && (
         <span className="tile-badge" data-tone={badge.tone}>
           {badge.text}
+        </span>
+      )}
+      {onFavorite && (
+        // A span, not a button: the tile itself is a button.
+        <span
+          role="button"
+          tabIndex={-1}
+          className="fav-star"
+          data-on={favorite || undefined}
+          title={favorite ? "Togli dai preferiti" : "Aggiungi ai preferiti"}
+          aria-label={favorite ? "Togli dai preferiti" : "Aggiungi ai preferiti"}
+          onPointerDown={(e) => e.stopPropagation()}
+          onDoubleClick={(e) => e.stopPropagation()}
+          onClick={(e) => {
+            e.stopPropagation();
+            onFavorite(id);
+          }}
+        >
+          {favorite ? "★" : "☆"}
         </span>
       )}
     </button>

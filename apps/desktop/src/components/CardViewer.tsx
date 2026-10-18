@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { createPortal } from "react-dom";
 import { cardImage, type Card } from "../lib/api";
+import { toggleFavorite, useFavorites } from "../lib/favorites";
 import { sound } from "../lib/sound";
 import { CardDetails } from "./CardDetails";
 import { rarityCode } from "./CardTile";
@@ -25,6 +26,7 @@ interface Props {
  * through the results, Esc to close.
  */
 export function CardViewer({ card, position, onClose, onPrev, onNext, onSearch }: Props) {
+  const favorites = useFavorites();
   const [art, setArt] = useState(0);
   const [scale, setScale] = useState(1);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
@@ -224,6 +226,15 @@ export function CardViewer({ card, position, onClose, onPrev, onNext, onSearch }
                   →
                 </button>
               )}
+              <button
+                type="button"
+                className={`btn btn-ghost !px-2.5 !py-1 ${favorites.has(card.id) ? "text-gold" : ""}`}
+                onClick={() => toggleFavorite(card.id)}
+                title={favorites.has(card.id) ? "Togli dai preferiti" : "Aggiungi ai preferiti"}
+                aria-label={favorites.has(card.id) ? "Togli dai preferiti" : "Aggiungi ai preferiti"}
+              >
+                {favorites.has(card.id) ? "★" : "☆"}
+              </button>
               <button type="button" className="btn btn-ghost !px-2.5 !py-1" onClick={close} aria-label="Chiudi">
                 ✕
               </button>

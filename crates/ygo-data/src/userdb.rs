@@ -1,5 +1,6 @@
-//! The user's own data (`user.db`): saved decks. Kept apart from the card
-//! data, which can be re-downloaded at any time.
+//! The user's own data (`user.db`): saved decks, favourite cards and saved
+//! searches. Kept apart from the card data, which can be re-downloaded at
+//! any time.
 
 use std::path::Path;
 
@@ -21,7 +22,22 @@ CREATE TABLE IF NOT EXISTS decks (
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
+CREATE TABLE IF NOT EXISTS favorites (
+    id INTEGER PRIMARY KEY,
+    added_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE TABLE IF NOT EXISTS saved_searches (
+    name TEXT PRIMARY KEY,
+    query TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
 "#;
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SavedSearch {
+    pub name: String,
+    pub query: String,
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -140,6 +156,43 @@ impl UserStore {
         self.conn.execute("DELETE FROM decks WHERE id = ?", [id])?;
         Ok(())
     }
+
+    /// Favourite cards, by passcode.
+    pub fn favorites(&self) -> Result<Vec<u32>, Error> {
+        let mut stmt = self.conn.prepare("SELECT id FROM favorites ORDER BY id")?;
+        let ids = stmt.query_map([], |r| r.get(0))?.collect::<Result<_, _>>()?;
+        Ok(ids)
+    }
+
+    pub fn set_favorite(&self, id: u32, favorite: bool) -> Result<(), Error> {
+        if favorite {
+            self.conn.execute("INSERT OR IGNORE INTO favorites (id) VALUES (?)", [id])?;
+        } else {
+            self.conn.execute("DELETE FROM favorites WHERE id = ?", [id])?;
+        }
+        Ok(())
+    }
+
+    pub fn saved_searches(&self) -> Result<Vec<SavedSearch>, Error> {
+        let mut stmt = self.conn.prepare("SELECT name, query FROM saved_searches ORDER BY created_at, rowid")?;
+        let rows = stmt.query_map([], |r| Ok(SavedSearch { name: r.get(0)?, query: r.get(1)? }))?;
+        Ok(rows.collect::<Result<_, _>>()?)
+    }
+
+    /// Saves a search under `name`, replacing one with the same name.
+    pub fn save_search(&self, name: &str, query: &str) -> Result<(), Error> {
+        let name = name.trim();
+        if name.is_empty() {
+            return Err(Error::Data("dai un nome alla ricerca".into()));
+        }
+        self.conn.execute("INSERT OR REPLACE INTO saved_searches (name, query) VALUES (?1, ?2)", [name, query.trim()])?;
+        Ok(())
+    }
+
+    pub fn delete_search(&self, name: &str) -> Result<(), Error> {
+        self.conn.execute("DELETE FROM saved_searches WHERE name = ?", [name])?;
+        Ok(())
+    }
 }
 
 #[cfg(test)]
@@ -186,6 +239,27 @@ mod tests {
         assert_eq!(saved.maybe, [7, 7]);
         drop(store);
         std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn favorites_and_saved_searches() {
+        let store = UserStore::open_in_memory().unwrap();
+        store.set_favorite(5, true).unwrap();
+        store.set_favorite(3, true).unwrap();
+        store.set_favorite(5, true).unwrap();
+        assert_eq!(store.favorites().unwrap(), [3, 5]);
+        store.set_favorite(5, false).unwrap();
+        assert_eq!(store.favorites().unwrap(), [3]);
+
+        store.save_search("Handtrap MD", "tag:handtrap format:md").unwrap();
+        store.save_search("Invoked", "arch:invoked").unwrap();
+        store.save_search("Handtrap MD", "tag:handtrap format:md sort:popular").unwrap();
+        let saved = store.saved_searches().unwrap();
+        assert_eq!(saved.iter().map(|s| s.name.as_str()).collect::<Vec<_>>(), ["Invoked", "Handtrap MD"]);
+        assert_eq!(saved[1].query, "tag:handtrap format:md sort:popular");
+        assert!(store.save_search(" ", "x").is_err());
+        store.delete_search("Invoked").unwrap();
+        assert_eq!(store.saved_searches().unwrap().len(), 1);
     }
 
     #[test]

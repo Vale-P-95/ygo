@@ -139,3 +139,16 @@ fn master_duel_list_is_applied_and_survives_card_updates() {
     store.replace_all(&cards, "test-2").unwrap();
     assert_eq!(store.get_many(&[1001]).unwrap()[0].ban_md.as_deref(), Some("Forbidden"));
 }
+
+#[test]
+fn tags_and_favorites() {
+    let store = store();
+    // The sample has no real handtraps: the group matches by exact name.
+    assert!(search(&store, "tag:handtrap").is_empty());
+    let mut parsed = parse_query("tag:fav sort:name");
+    assert_eq!(parsed.chips[0].label, "★ Preferite");
+    assert!(store.search(&parsed.query).unwrap().is_empty(), "no favourites yet");
+    parsed.query.favorites = vec![1004, 1001];
+    assert_eq!(store.search(&parsed.query).unwrap(), [1004, 1001]);
+    assert!(!parse_query("tag:nonsense").errors.is_empty());
+}

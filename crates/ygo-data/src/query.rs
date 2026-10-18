@@ -11,6 +11,7 @@
 //! atk>=2500  def<1000  lv:4-6   numeric ranges (atk, def, level/rank, link, scale)
 //! format:md  rarity:ur          Master Duel availability and rarity
 //! ban:limited                   Forbidden/Limited status (Master Duel list with format:md, else TCG)
+//! tag:handtrap                  quick groups: handtrap, staple, breaker, fav (favourites)
 //! sort:atk                      name, atk, def, level, popular, new
 //! ```
 //! Italian aliases are accepted (`tipo`, `attributo`, `livello`, `magia`, ...).
@@ -18,6 +19,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::model::CardKind;
+use crate::tags::Tag;
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Range {
@@ -66,6 +68,10 @@ pub struct SearchQuery {
     pub formats: Vec<String>,
     pub rarities: Vec<String>,
     pub bans: Vec<String>,
+    pub tags: Vec<Tag>,
+    /// The user's favourites, filled in by the caller when `tags` has `Favorite`.
+    #[serde(default)]
+    pub favorites: Vec<u32>,
     pub sort: Sort,
 }
 
@@ -339,6 +345,10 @@ pub fn parse(input: &str) -> Parsed {
             "ban" => ban_alias(&v).map(|b| {
                 out.query.bans.push(b.to_owned());
                 format!("Banlist: {b}")
+            }),
+            "tag" | "is" => Tag::parse(&v).map(|t| {
+                out.query.tags.push(t);
+                t.label().to_owned()
             }),
             "sort" | "ordina" => sort_alias(&v).map(|s| {
                 out.query.sort = s;
