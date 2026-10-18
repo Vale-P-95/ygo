@@ -1,5 +1,6 @@
 use std::collections::{BTreeMap, HashMap};
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
 
 use serde::Serialize;
@@ -22,6 +23,8 @@ struct AppState {
     updating: tokio::sync::Mutex<()>,
     /// The user's decks (`user.db`), kept outside the re-downloadable data.
     user: Mutex<UserStore>,
+    /// Set to stop the lab's running simulation.
+    sim_cancel: AtomicBool,
 }
 
 impl AppState {
@@ -231,6 +234,93 @@ fn lab_probability(main: Vec<u32>, roles: BTreeMap<String, Vec<u32>>, cond: ygo_
         Ok(p) => LabResult { p: Some(p), error: None },
         Err(e) => LabResult { p: None, error: Some(e.to_string()) },
     }
+}
+
+/// Lab: Monte Carlo simulation. Sends `lab-sim-progress` checkpoints while it runs.
+#[tauri::command(async)]
+#[allow(clippy::too_many_arguments)]
+fn lab_simulate(
+    app: tauri::AppHandle,
+    state: State<'_, AppState>,
+    main: Vec<u32>,
+    roles: BTreeMap<String, Vec<u32>>,
+    cond: ygo_stats::Cond,
+    hand: u32,
+    rules: Vec<ygo_stats::CardRule>,
+    hands: u64,
+    seed: u64,
+) -> ygo_stats::SimResult {
+    state.sim_cancel.store(false, Ordering::Relaxed);
+    let config =
+        ygo_stats::SimConfig { deck: ygo_stats::DeckModel::from_ids(&main, &roles), cond, hand, rules, hands: hands.min(20_000_000), seed };
+    let threads = std::thread::available_parallelism().map_or(4, |n| n.get());
+    ygo_stats::simulate(&config, threads, &state.sim_cancel, |cp| {
+        let _ = app.emit("lab-sim-progress", cp);
+    })
+}
+
+#[tauri::command]
+fn lab_cancel_simulation(state: State<'_, AppState>) {
+    state.sim_cancel.store(true, Ordering::Relaxed);
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct Optimizer {
+    sensitivity: Option<ygo_stats::Sensitivity>,
+    size: Vec<Option<f64>>,
+    heatmap: Option<ygo_stats::Heatmap>,
+    error: Option<String>,
+}
+
+/// Lab: value of each copy, deck size curve and the two-role map, in one call.
+#[tauri::command(async)]
+#[allow(clippy::too_many_arguments)]
+fn lab_analyze(
+    main: Vec<u32>,
+    roles: BTreeMap<String, Vec<u32>>,
+    cond: ygo_stats::Cond,
+    hand: u32,
+    role_keys: Vec<String>,
+    limits: BTreeMap<u32, u32>,
+    role_a: Option<String>,
+    role_b: Option<String>,
+) -> Optimizer {
+    let deck = ygo_stats::DeckModel::from_ids(&main, &roles);
+    let sensitivity = ygo_stats::sensitivity(&deck, &cond, hand, &role_keys, &limits);
+    let heatmap = match (role_a, role_b) {
+        (Some(a), Some(b)) if a != b => Some(ygo_stats::heatmap(&deck, &cond, hand, &a, &b, 4)),
+        _ => None,
+    };
+    Optimizer {
+        error: sensitivity.as_ref().err().map(|e| e.to_string()),
+        sensitivity: sensitivity.ok(),
+        size: ygo_stats::size_curve(&deck, &cond, hand, 5),
+        heatmap,
+    }
+}
+
+/// Lab: the optimizer. Cards of the Maybe board may enter the deck.
+#[tauri::command(async)]
+#[allow(clippy::too_many_arguments)]
+fn lab_optimize(
+    main: Vec<u32>,
+    maybe: Vec<u32>,
+    roles: BTreeMap<String, Vec<u32>>,
+    limits: BTreeMap<u32, u32>,
+    locked: Vec<u32>,
+    cond: ygo_stats::Cond,
+    weight_first: f64,
+    min_size: u32,
+    max_size: u32,
+    seed: u64,
+) -> Result<ygo_stats::OptimizeResult, String> {
+    let deck = ygo_stats::DeckModel::from_ids(&main, &roles);
+    let mut candidates = ygo_stats::DeckModel::from_ids(&maybe, &roles).cards;
+    candidates.retain(|c| !deck.cards.iter().any(|d| d.id == c.id));
+    let config =
+        ygo_stats::OptimizeConfig { deck, candidates, limits, locked, cond, weight_first, min_size, max_size, iterations: 2500, seed };
+    ygo_stats::optimize(&config).map_err(|e| e.to_string())
 }
 
 #[tauri::command(async)]
@@ -458,6 +548,7 @@ pub fn run() {
                 store: Mutex::new(None),
                 client,
                 updating: tokio::sync::Mutex::new(()),
+                sim_cancel: AtomicBool::new(false),
             };
             state.open_store();
             app.manage(state);
@@ -497,6 +588,10 @@ pub fn run() {
             list_decks,
             lab_overview,
             lab_probability,
+            lab_simulate,
+            lab_cancel_simulation,
+            lab_analyze,
+            lab_optimize,
             set_deck_roles,
             list_recipes,
             save_recipe,
