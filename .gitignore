@@ -1,0 +1,13 @@
+# Build output
+/target/
+node_modules/
+dist/
+
+# Downloaded game data (card scripts, card databases, images): never committed
+/data/
+
+# Editors / OS
+.DS_Store
+.vscode/*
+!.vscode/extensions.json
+.idea/

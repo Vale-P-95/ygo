@@ -1,0 +1,46 @@
+//! Rust bindings to the EDOPro duel engine (ygopro-core) and the data it
+//! needs: card databases, card scripts and deck lists.
+//!
+//! ```no_run
+//! use ygo_engine::{actions, DeckList, Duel, Engine, Step};
+//!
+//! let engine = Engine::load("data".as_ref())?;
+//! let deck = DeckList::from_ydk(&std::fs::read_to_string("deck.ydk")?)?;
+//! let mut duel = Duel::goldfish(&engine, &deck, &deck.main[..5], 42)?;
+//! if let Step::Decision { decision, .. } = duel.advance()? {
+//!     for action in actions(&decision, engine.cards()) {
+//!         println!("{}", action.label);
+//!     }
+//! }
+//! # Ok::<(), Box<dyn std::error::Error>>(())
+//! ```
+
+mod actions;
+mod carddb;
+pub mod consts;
+mod deck;
+mod duel;
+mod ffi;
+mod message;
+mod script;
+mod scripts;
+
+pub use actions::{actions, describe_card, Action, ActionKind};
+pub use carddb::{Card, CardDb};
+pub use deck::DeckList;
+pub use duel::{Duel, DuelConfig, Engine, Step};
+pub use message::{Activatable, CardRef, Decision, Event};
+pub use script::{run_script, ScriptEnd, Trace};
+pub use scripts::ScriptStore;
+
+#[derive(Debug, thiserror::Error)]
+pub enum Error {
+    #[error("data error: {0}")]
+    Data(String),
+    #[error("card database error: {0}")]
+    Sqlite(#[from] rusqlite::Error),
+    #[error("engine error: {0}")]
+    Engine(String),
+    #[error("the engine rejected the response: {0}")]
+    Rejected(String),
+}
