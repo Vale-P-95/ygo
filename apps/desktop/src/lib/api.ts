@@ -78,6 +78,48 @@ export interface Progress {
   total: number | null;
 }
 
+export type DeckFormat = "md" | "tcg" | "ocg";
+
+/** Mirrors `ygo_data::Deck`. */
+export interface Deck {
+  id: number | null;
+  name: string;
+  format: DeckFormat;
+  main: number[];
+  extra: number[];
+  side: number[];
+  updatedAt: string | null;
+}
+
+export interface DeckSummary {
+  id: number;
+  name: string;
+  format: DeckFormat;
+  mainCount: number;
+  extraCount: number;
+  sideCount: number;
+  updatedAt: string;
+  cover: number | null;
+}
+
+export interface Issue {
+  severity: "error" | "warning";
+  message: string;
+  cards: number[];
+}
+
+export interface Legality {
+  legal: boolean;
+  issues: Issue[];
+}
+
+export interface Imported {
+  main: number[];
+  extra: number[];
+  side: number[];
+  unknown: number[];
+}
+
 export const api = {
   dataStatus: () => invoke<DataStatus>("data_status"),
   updateData: (force = false) => invoke<DataStatus>("update_data", { force }),
@@ -85,6 +127,13 @@ export const api = {
   getCards: (ids: number[]) => invoke<Card[]>("get_cards", { ids }),
   facets: () => invoke<Facets>("card_facets"),
   onProgress: (handler: (p: Progress) => void): Promise<UnlistenFn> => listen<Progress>("data-progress", (e) => handler(e.payload)),
+  listDecks: () => invoke<DeckSummary[]>("list_decks"),
+  getDeck: (id: number) => invoke<Deck | null>("get_deck", { id }),
+  saveDeck: (deck: Deck) => invoke<Deck>("save_deck", { deck }),
+  deleteDeck: (id: number) => invoke<void>("delete_deck", { id }),
+  validateDeck: (deck: Deck) => invoke<Legality>("validate_deck", { deck }),
+  importDeck: (text: string) => invoke<Imported>("import_deck", { text }),
+  exportDeck: (deck: Deck) => invoke<{ ydk: string; ydke: string }>("export_deck", { deck }),
 };
 
 export type ImageSize = "small" | "full" | "cropped";

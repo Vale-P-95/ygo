@@ -68,7 +68,7 @@ export function Overview({ status, onStatus, go }: { status: DataStatus | null; 
                         {step.phase}
                       </span>
                       <span className={step.state === "next" ? "text-muted" : "font-medium"}>{step.title}</span>
-                      {step.state === "now" && <span className="chip chip-active ml-auto !text-[10px]">prossima</span>}
+                      {step.state === "now" && <span className="chip chip-active ml-auto !text-[10px]">in corso</span>}
                     </li>
                   ))}
                 </ol>

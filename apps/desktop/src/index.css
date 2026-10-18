@@ -402,6 +402,53 @@ body {
   display: none;
 }
 
+.card-tile[data-invalid] {
+  box-shadow:
+    0 0 0 2px var(--df-danger),
+    0 0 18px -4px var(--df-danger);
+}
+.card-tile[data-compact] .card-tile__clip {
+  border-radius: 4px;
+}
+.card-drop {
+  animation: card-drop 520ms cubic-bezier(0.2, 0.9, 0.25, 1.15) both;
+}
+@keyframes card-drop {
+  0% {
+    transform: perspective(700px) translateY(-14px) scale(1.28);
+    filter: brightness(1.9) drop-shadow(0 0 14px #ffb547);
+  }
+  60% {
+    filter: brightness(1.2) drop-shadow(0 0 8px #ff6a26);
+  }
+  100% {
+    transform: perspective(700px);
+    filter: none;
+  }
+}
+.tile-badge {
+  position: absolute;
+  left: 3px;
+  top: 3px;
+  min-width: 16px;
+  border-radius: 999px;
+  padding: 0 5px;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 16px;
+  text-align: center;
+  color: #fff;
+  background: rgb(10 8 8 / 0.82);
+  border: 1px solid rgb(255 255 255 / 0.25);
+  box-shadow: 0 1px 4px rgb(0 0 0 / 0.6);
+}
+.tile-badge[data-tone="ban"] {
+  background: #d93b3b;
+}
+.tile-badge[data-tone="limit"] {
+  background: #e08a1e;
+}
+
 .rarity-gem {
   position: absolute;
   right: 4px;

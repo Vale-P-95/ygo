@@ -1,9 +1,9 @@
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useEffect, useRef, useState } from "react";
 import type { Card } from "../lib/api";
-import { CardTile } from "./CardTile";
+import type { DropZone } from "../lib/drag";
+import { CardTile, type TileBadge } from "./CardTile";
 
-const MIN_TILE = 128;
 const GAP = 14;
 
 interface Props {
@@ -17,10 +17,17 @@ interface Props {
   onOpen: (id: number) => void;
   onHover: (id: number, el: HTMLElement) => void;
   onHoverEnd: () => void;
+  onContext?: (id: number, el: HTMLElement, shift: boolean) => void;
+  /** Tiles can be dragged out of this grid (as coming from `dragFrom`). */
+  dragFrom?: DropZone;
+  badgeFor?: (id: number) => TileBadge | undefined;
+  minTile?: number;
 }
 
 /** Virtualized grid: only the visible rows exist in the page. */
-export function CardGrid({ ids, getCard, requestCards, version, selected, onSelect, onOpen, onHover, onHoverEnd }: Props) {
+export function CardGrid(props: Props) {
+  const { ids, getCard, requestCards, version, selected, onSelect, onOpen, onHover, onHoverEnd, onContext, dragFrom, badgeFor, minTile = 128 } = props;
+  const gap = minTile < 110 ? 10 : GAP;
   const scrollRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(0);
 
@@ -32,9 +39,9 @@ export function CardGrid({ ids, getCard, requestCards, version, selected, onSele
     return () => observer.disconnect();
   }, []);
 
-  const columns = Math.max(1, Math.floor((width + GAP) / (MIN_TILE + GAP)));
-  const tile = width > 0 ? (width - GAP * (columns - 1)) / columns : MIN_TILE;
-  const rowHeight = tile * (614 / 421) + GAP;
+  const columns = Math.max(1, Math.floor((width + gap) / (minTile + gap)));
+  const tile = width > 0 ? (width - gap * (columns - 1)) / columns : minTile;
+  const rowHeight = tile * (614 / 421) + gap;
   const rows = Math.ceil(ids.length / columns);
 
   const virtualizer = useVirtualizer({
@@ -63,7 +70,7 @@ export function CardGrid({ ids, getCard, requestCards, version, selected, onSele
           <div
             key={row.key}
             className="absolute left-0 grid w-full"
-            style={{ transform: `translateY(${row.start}px)`, gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`, gap: GAP }}
+            style={{ transform: `translateY(${row.start}px)`, gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`, gap }}
           >
             {ids.slice(row.index * columns, row.index * columns + columns).map((id) => (
               <CardTile
@@ -75,6 +82,10 @@ export function CardGrid({ ids, getCard, requestCards, version, selected, onSele
                 onOpen={onOpen}
                 onHover={onHover}
                 onHoverEnd={onHoverEnd}
+                onContext={onContext}
+                dragSource={dragFrom ? { id, from: dragFrom } : undefined}
+                badge={badgeFor?.(id)}
+                compact={minTile < 110}
               />
             ))}
           </div>

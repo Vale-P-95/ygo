@@ -1,82 +1,223 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { CardDetails } from "../components/CardDetails";
-import { CardGrid } from "../components/CardGrid";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { CardPreview } from "../components/CardPreview";
 import { CardViewer } from "../components/CardViewer";
+import { Catalog } from "../components/Catalog";
 import { DataSetup } from "../components/DataSetup";
-import { EmblemIcon } from "../components/Emblems";
-import { FilterPanel } from "../components/FilterPanel";
+import { ExportDialog, ImportDialog } from "../components/DeckIO";
+import { DeckToolbar } from "../components/DeckToolbar";
+import { DeckZone } from "../components/DeckZone";
 import { SectionHeader } from "../components/SectionHeader";
-import { api, cardImage, isDesktop, type DataStatus, type Facets, type SearchResult } from "../lib/api";
+import { api, cardImage, type Card, type DataStatus, type Deck, type DeckSummary, type Imported, type Legality } from "../lib/api";
 import { useCardCache } from "../lib/cards";
-import { removeToken } from "../lib/query";
+import { addCard, counts, craftCost, emptyDeck, removeAt, sortIds, useDeckHistory, type Zone } from "../lib/deck";
+import { setDropHandler, type DragSource, type DropZone } from "../lib/drag";
 import { useSettings } from "../lib/settings";
 import { sound } from "../lib/sound";
 import { burstFrom } from "../lib/sparks";
+import { toast } from "../lib/toast";
 import { sectionById } from "../sections";
 
-const EXAMPLES = ['arch:invoked type:fusion', '"negate the activation" attr:light', "type:tuner lv<=3 format:md", "tipo:magia rapida"];
+const LAST_DECK = "duelforge.lastDeck";
+
+function rememberDeck(id: number | null) {
+  try {
+    if (id == null) localStorage.removeItem(LAST_DECK);
+    else localStorage.setItem(LAST_DECK, String(id));
+  } catch {
+    // Only a convenience: reopening the last deck.
+  }
+}
+
+function lastDeck(): number | null {
+  try {
+    const v = Number(localStorage.getItem(LAST_DECK));
+    return Number.isFinite(v) && v > 0 ? v : null;
+  } catch {
+    return null;
+  }
+}
 
 export function DeckBuilder({ status, onStatus }: { status: DataStatus | null; onStatus: (s: DataStatus) => void }) {
-  const section = sectionById("deck-builder");
-  const ready = !!status?.cards;
+  if (!status?.cards) {
+    return (
+      <div className="flex h-full flex-col">
+        <SectionHeader section={sectionById("deck-builder")} artReady={false} />
+        <div className="flex-1 overflow-y-auto px-10">
+          <DataSetup onReady={onStatus} />
+        </div>
+      </div>
+    );
+  }
+  return <DeckEditor />;
+}
+
+function Dot({ color }: { color: string }) {
+  return <span className="inline-block h-2 w-2 rounded-full" style={{ background: color }} />;
+}
+
+function DeckEditor() {
   const settings = useSettings();
-  const [query, setQuery] = useState("sort:popular");
-  const [result, setResult] = useState<SearchResult>({ ids: [], chips: [], errors: [] });
-  const [searching, setSearching] = useState(false);
-  const [facets, setFacets] = useState<Facets | null>(null);
-  const [selected, setSelected] = useState<number | null>(null);
-  const [viewer, setViewer] = useState<number | null>(null);
-  const [hover, setHover] = useState<{ id: number; rect: DOMRect } | null>(null);
-  const [filtersOpen, setFiltersOpen] = useState(() => innerWidth >= 1500);
-  const hoverTimer = useRef<number>(undefined);
   const cards = useCardCache();
-  const inputRef = useRef<HTMLInputElement>(null);
+  // The history functions are stable; the returned object is not.
+  const { deck, set: setHistory, reset, undo, redo, canUndo, canRedo } = useDeckHistory(emptyDeck());
+  const deckRef = useRef(deck);
+  deckRef.current = deck;
+  /** Id of the stored copy: new decks get one on their first autosave. */
+  const idRef = useRef<number | null>(null);
+  const dirty = useRef(false);
+  const [decks, setDecks] = useState<DeckSummary[]>([]);
+  const [legality, setLegality] = useState<Legality | null>(null);
+  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">("idle");
+  const [fresh, setFresh] = useState<{ zone: Zone; index: number; nonce: number } | null>(null);
+  const [flash, setFlash] = useState<Set<number>>(new Set());
+  const [hover, setHover] = useState<{ id: number; rect: DOMRect } | null>(null);
+  const hoverTimer = useRef<number>(undefined);
+  const [viewer, setViewer] = useState<{ id: number; list: number[] } | null>(null);
+  const [dialog, setDialog] = useState<"import" | "export" | null>(null);
+  const [query, setQuery] = useState("format:md sort:popular");
+  const getCard = cards.get;
+
+  const refreshDecks = useCallback(() => api.listDecks().then((list) => (setDecks(list), list)), []);
+
+  const openDeck = useCallback(
+    async (id: number) => {
+      const stored = await api.getDeck(id);
+      if (!stored) return;
+      dirty.current = false;
+      idRef.current = stored.id;
+      rememberDeck(stored.id);
+      reset(stored);
+      setSaveState("saved");
+      sound.play("page");
+    },
+    [reset],
+  );
 
   useEffect(() => {
-    if (!ready) return;
-    api.facets().then(setFacets).catch(() => setFacets(null));
-  }, [ready]);
+    refreshDecks().then((list) => {
+      const id = list.find((d) => d.id === lastDeck())?.id ?? list[0]?.id;
+      if (id != null) void openDeck(id);
+    });
+  }, [refreshDecks, openDeck]);
 
   useEffect(() => {
-    if (!ready) return;
-    setSearching(true);
+    cards.request([...deck.main, ...deck.extra, ...deck.side]);
+  }, [deck, cards.request]);
+
+  useEffect(() => {
     const timer = window.setTimeout(() => {
-      api
-        .search(query)
-        .then((r) => {
-          setResult(r);
-          cards.request(r.ids.slice(0, 60));
-        })
-        .catch(() => sound.play("error"))
-        .finally(() => setSearching(false));
-    }, 160);
+      api.validateDeck(deck).then(setLegality).catch(() => setLegality(null));
+    }, 150);
     return () => window.clearTimeout(timer);
-  }, [query, ready, cards.request]);
+  }, [deck]);
+
+  // Autosave shortly after each change.
+  useEffect(() => {
+    if (!dirty.current) return;
+    const empty = deck.main.length + deck.extra.length + deck.side.length === 0;
+    if (idRef.current == null && empty) return;
+    setSaveState("saving");
+    const timer = window.setTimeout(async () => {
+      try {
+        const saved = await api.saveDeck({ ...deck, id: idRef.current });
+        idRef.current = saved.id;
+        rememberDeck(saved.id);
+        dirty.current = false;
+        setSaveState("saved");
+        void refreshDecks();
+      } catch (e) {
+        setSaveState("idle");
+        toast(`Salvataggio non riuscito: ${e}`, "error");
+      }
+    }, 700);
+    return () => window.clearTimeout(timer);
+  }, [deck, refreshDecks]);
+
+  const update = useCallback(
+    (next: Deck, record = true) => {
+      dirty.current = true;
+      setHistory(next, record);
+    },
+    [setHistory],
+  );
+
+  const forged = useCallback((zone: Zone, index: number) => {
+    sound.play("select");
+    setFresh({ zone, index, nonce: Date.now() });
+    requestAnimationFrame(() => burstFrom(document.querySelector(`[data-deck-slot="${zone}-${index}"]`), 18, 0.9));
+  }, []);
+
+  const tryAdd = useCallback(
+    (base: Deck, card: Card | undefined, want: Zone | null) => {
+      if (!card) return false;
+      const result = addCard(base, card, want, getCard);
+      if ("error" in result) {
+        sound.play("error");
+        toast(result.error, "error");
+        return false;
+      }
+      update(result.deck);
+      forged(result.zone, result.index);
+      return true;
+    },
+    [getCard, update, forged],
+  );
+
+  const remove = useCallback(
+    (zone: Zone, index: number) => {
+      sound.play("close");
+      setHover(null);
+      update(removeAt(deckRef.current, zone, index));
+    },
+    [update],
+  );
 
   useEffect(() => {
-    const focus = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "f") {
+    setDropHandler((source: DragSource, target: DropZone) => {
+      const current = deckRef.current;
+      const card = getCard(source.id);
+      if (source.from === "catalog") {
+        if (target !== "catalog") tryAdd(current, card, target === "main" ? null : target);
+        return;
+      }
+      if (target === source.from || source.index == null) return;
+      const without = removeAt(current, source.from, source.index);
+      if (target === "catalog") {
+        sound.play("close");
+        update(without);
+        return;
+      }
+      tryAdd(without, card, target === "main" ? null : target);
+    });
+    return () => setDropHandler(null);
+  }, [getCard, tryAdd, update]);
+
+  useEffect(() => {
+    const key = (e: KeyboardEvent) => {
+      if (!(e.ctrlKey || e.metaKey) || (e.target as HTMLElement).closest("input, textarea")) return;
+      const k = e.key.toLowerCase();
+      if (k === "z" && !e.shiftKey) {
         e.preventDefault();
-        inputRef.current?.focus();
+        dirty.current = true;
+        undo();
+        sound.play("toggle");
+      } else if (k === "y" || (k === "z" && e.shiftKey)) {
+        e.preventDefault();
+        dirty.current = true;
+        redo();
+        sound.play("toggle");
       }
     };
-    addEventListener("keydown", focus);
-    return () => removeEventListener("keydown", focus);
-  }, []);
-
-  const select = useCallback((id: number, el: HTMLElement) => {
-    sound.play("select");
-    burstFrom(el, 14, 0.8);
-    setSelected(id);
-  }, []);
+    addEventListener("keydown", key);
+    return () => removeEventListener("keydown", key);
+  }, [undo, redo]);
 
   const startHover = useCallback(
     (id: number, el: HTMLElement) => {
       sound.play("hover");
       window.clearTimeout(hoverTimer.current);
       if (!settings.hoverPreview) return;
-      hoverTimer.current = window.setTimeout(() => setHover({ id, rect: el.getBoundingClientRect() }), 380);
+      hoverTimer.current = window.setTimeout(() => setHover({ id, rect: el.getBoundingClientRect() }), 420);
     },
     [settings.hoverPreview],
   );
@@ -85,183 +226,173 @@ export function DeckBuilder({ status, onStatus }: { status: DataStatus | null; o
     setHover(null);
   }, []);
 
-  const open = useCallback((id: number) => {
-    window.clearTimeout(hoverTimer.current);
-    setHover(null);
-    setSelected(id);
-    setViewer(id);
-  }, []);
-
-  const searchFor = useCallback((q: string) => {
-    sound.play("page");
-    setViewer(null);
-    setQuery(q);
-  }, []);
-
-  const viewerIndex = viewer == null ? -1 : result.ids.indexOf(viewer);
-  const step = (delta: number) => {
-    const next = result.ids[viewerIndex + delta];
-    if (next == null) return;
-    cards.request([next, ...result.ids.slice(viewerIndex + delta + 1, viewerIndex + delta + 4)]);
-    setViewer(next);
-    setSelected(next);
+  const flashCards = (ids: number[]) => {
+    setFlash(new Set(ids));
+    window.setTimeout(() => setFlash(new Set()), 2200);
   };
 
-  const selectedCard = selected != null ? cards.get(selected) : undefined;
-  const viewerCard = viewer != null ? cards.get(viewer) : undefined;
-  const hoverCard = hover ? cards.get(hover.id) : undefined;
-  const count = useMemo(() => result.ids.length.toLocaleString("it-IT"), [result.ids.length]);
+  const newDeck = () => {
+    sound.play("forge");
+    dirty.current = false;
+    idRef.current = null;
+    rememberDeck(null);
+    reset(emptyDeck());
+    setSaveState("idle");
+  };
 
-  if (!ready) {
-    return (
-      <div className="flex h-full flex-col">
-        <SectionHeader section={section} artReady={false} />
-        <div className="flex-1 overflow-y-auto px-10">
-          <DataSetup onReady={onStatus} />
-        </div>
-      </div>
-    );
-  }
+  const imported = async (result: Imported, name: string) => {
+    setDialog(null);
+    const all = [...result.main, ...result.extra, ...result.side];
+    const data = new Map((await api.getCards([...new Set(all)])).map((c) => [c.id, c]));
+    const lookup = (id: number) => data.get(id);
+    idRef.current = null;
+    dirty.current = true;
+    reset({ ...emptyDeck(name, deckRef.current.format), main: sortIds(result.main, lookup), extra: sortIds(result.extra, lookup), side: sortIds(result.side, lookup) });
+    sound.play("forge");
+    toast(`Importato «${name}»: ${result.main.length}/${result.extra.length}/${result.side.length} carte`, "ok");
+    if (result.unknown.length) toast(`${result.unknown.length} passcode non riconosciuti sono stati saltati`, "error");
+  };
+
+  const removeDeck = async () => {
+    if (idRef.current == null) return;
+    await api.deleteDeck(idRef.current);
+    sound.play("close");
+    toast(`«${deck.name}» eliminato`);
+    const list = await refreshDecks();
+    if (list[0]) void openDeck(list[0].id);
+    else newDeck();
+  };
+
+  const invalid = new Set([...(legality?.issues.flatMap((i) => (i.severity === "error" ? i.cards : [])) ?? []), ...flash]);
+  const main = counts(deck.main, getCard);
+  const extraTypes = ["Fusion", "Synchro", "Xyz", "Link"].map((t) => [t, deck.extra.filter((id) => getCard(id)?.typeLine.includes(t)).length] as const);
+  const viewerCard = viewer ? getCard(viewer.id) : undefined;
+  const viewerIndex = viewer ? viewer.list.indexOf(viewer.id) : -1;
+  const hoverCard = hover ? getCard(hover.id) : undefined;
+  const themeArt = sectionById("deck-builder").themeCard!;
+
+  const zoneProps = { format: deck.format, getCard, invalid, fresh, onRemove: remove, onHover: startHover, onHoverEnd: endHover };
 
   return (
     <div className="flex h-full flex-col">
-      <SectionHeader section={section}>
-        <span className="chip chip-active tabular-nums">
-          {count} carte {searching && <EmblemIcon emblem="gear" className="h-3 w-3 animate-[spin-slow_1.6s_linear_infinite]" />}
-        </span>
-      </SectionHeader>
+      <DeckToolbar
+        deck={deck}
+        decks={decks}
+        legality={legality}
+        saveState={saveState}
+        cost={craftCost(deck, getCard)}
+        canUndo={canUndo}
+        canRedo={canRedo}
+        onRename={(name) => update({ ...deck, name }, false)}
+        onFormat={(format) => update({ ...deck, format })}
+        onNew={newDeck}
+        onOpenDeck={(id) => void openDeck(id)}
+        onImport={() => setDialog("import")}
+        onExport={() => setDialog("export")}
+        onDelete={() => void removeDeck()}
+        onUndo={() => {
+          dirty.current = true;
+          undo();
+        }}
+        onRedo={() => {
+          dirty.current = true;
+          redo();
+        }}
+        onFlash={flashCards}
+      />
 
-      <div className={`grid min-h-0 flex-1 ${filtersOpen ? "grid-cols-[240px_minmax(0,1fr)_320px]" : "grid-cols-[minmax(0,1fr)_320px]"}`}>
-        {filtersOpen && (
-          <aside className="min-h-0 overflow-y-auto border-r border-border bg-surface/60 anim-fade">
-            <FilterPanel query={query} onChange={setQuery} facets={facets} />
-          </aside>
-        )}
-
-        <section className="bg-blueprint flex min-h-0 flex-col">
-          <div className="flex flex-col gap-2 px-4 pt-4 pb-2">
-            <div className="flex gap-2">
-              <button
-                type="button"
-                className={`btn shrink-0 ${filtersOpen ? "btn-molten" : "btn-ghost"}`}
-                onClick={() => {
-                  sound.play("toggle");
-                  setFiltersOpen((v) => !v);
-                }}
-                aria-expanded={filtersOpen}
-              >
-                Filtri{result.chips.length > 0 && <span className="rounded-full bg-black/25 px-1.5 text-[11px]">{result.chips.length}</span>}
-              </button>
-              <label className="relative block flex-1">
-                <span className="pointer-events-none absolute top-1/2 left-3.5 -translate-y-1/2 text-faint">⌕</span>
-                <input
-                  ref={inputRef}
-                  className="field !rounded-xl !py-2.5 !pl-9 text-[15px] shadow-inner"
-                  placeholder="Cerca per nome o testo, oppure filtra: attr:dark type:fusion atk>=2500 …"
-                  value={query}
-                  spellCheck={false}
-                  onChange={(e) => setQuery(e.target.value)}
-                />
-              </label>
-            </div>
-            <div className="flex min-h-7 flex-wrap items-center gap-1.5">
-              {result.chips.map((chip) => (
-                <button
-                  key={chip.token}
-                  type="button"
-                  className="chip chip-active group"
-                  title="Rimuovi filtro"
-                  onClick={() => {
-                    sound.play("toggle");
-                    setQuery(removeToken(query, chip.token));
-                  }}
-                >
-                  {chip.label}
-                  <span className="text-muted group-hover:text-text">✕</span>
-                </button>
-              ))}
-              {result.errors.map((e) => (
-                <span key={e} className="chip border-danger/60 text-danger" title="Filtro non riconosciuto">
-                  ? {e}
-                </span>
-              ))}
-              {result.chips.length === 0 && result.errors.length === 0 && (
-                <span className="text-xs text-faint">
-                  Prova:{" "}
-                  {EXAMPLES.map((ex) => (
-                    <button key={ex} type="button" className="mr-2 font-mono text-muted hover:text-sec" onClick={() => searchFor(ex)}>
-                      {ex}
-                    </button>
-                  ))}
-                </span>
-              )}
-            </div>
-          </div>
-          {status?.engineError && (
-            <p className="mx-4 mb-2 rounded-lg border border-warn/40 bg-warn/10 px-3 py-2 text-xs text-warn">
-              Script del motore non scaricati: servono dal Combo Lab in poi. Riprova da Impostazioni → Dati. ({status.engineError})
-            </p>
-          )}
-          <div className="min-h-0 flex-1">
-            {result.ids.length === 0 && !searching ? (
-              <div className="grid h-full place-items-center text-center text-muted anim-fade">
-                <div>
-                  <EmblemIcon emblem="anvil" className="mx-auto mb-3 h-10 w-10 text-faint" />
-                  <p className="display text-lg">Nessuna carta nella forgia</p>
-                  <p className="text-sm">Allenta qualche filtro o cerca un'altra parola.</p>
+      <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_392px]">
+        <div className="bg-blueprint relative min-h-0 overflow-y-auto px-6 py-5">
+          <img
+            src={cardImage(themeArt.id, "cropped")}
+            alt=""
+            className="pointer-events-none absolute top-0 right-0 h-72 w-[60%] object-cover opacity-[0.10]"
+            style={{ maskImage: "radial-gradient(ellipse at 70% 20%, black, transparent 70%)" }}
+          />
+          <div className="relative mx-auto flex max-w-[1180px] flex-col gap-5">
+            <DeckZone
+              {...zoneProps}
+              zone="main"
+              title="Main Deck"
+              ids={deck.main}
+              columns={10}
+              slots={40}
+              max={60}
+              onOpen={(id) => setViewer({ id, list: deck.main })}
+              info={
+                <>
+                  <span className="flex items-center gap-1.5">
+                    <Dot color="#cf7a43" /> Mostri {main.monsters}
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <Dot color="#1d9e74" /> Magie {main.spells}
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <Dot color="#b8457f" /> Trappole {main.traps}
+                  </span>
+                </>
+              }
+              emptyHint={
+                <div className="flex max-w-sm flex-col items-center gap-3 text-sm text-muted">
+                  <p className="display text-lg text-text">Il banco è vuoto</p>
+                  <p>Trascina qui le carte dal catalogo, oppure clic destro su una carta per aggiungerla.</p>
+                  <button type="button" className="btn btn-molten pointer-events-auto" onClick={() => setDialog("import")}>
+                    Importa un deck
+                  </button>
                 </div>
-              </div>
-            ) : (
-              <CardGrid
-                ids={result.ids}
-                getCard={cards.get}
-                requestCards={cards.request}
-                version={cards.version}
-                selected={selected}
-                onSelect={select}
-                onOpen={open}
-                onHover={startHover}
-                onHoverEnd={endHover}
-              />
-            )}
+              }
+            />
+            <DeckZone
+              {...zoneProps}
+              zone="extra"
+              title="Extra Deck"
+              ids={deck.extra}
+              columns={15}
+              slots={15}
+              max={15}
+              onOpen={(id) => setViewer({ id, list: deck.extra })}
+              info={extraTypes
+                .filter(([, n]) => n > 0)
+                .map(([t, n]) => (
+                  <span key={t}>
+                    {t} {n}
+                  </span>
+                ))}
+            />
+            <DeckZone {...zoneProps} zone="side" title="Side Deck" ids={deck.side} columns={15} slots={15} max={15} onOpen={(id) => setViewer({ id, list: deck.side })} />
           </div>
-        </section>
+        </div>
 
-        <aside className="flex min-h-0 flex-col gap-4 overflow-y-auto border-l border-border bg-surface/60 p-5">
-          {selectedCard ? (
-            <div key={selectedCard.id} className="flex flex-col gap-4 anim-rise">
-              <button type="button" className="group relative mx-auto w-44" onClick={() => open(selectedCard.id)} title="Apri nella lente">
-                <img src={cardImage(selectedCard.id, "full")} alt={selectedCard.name} className="w-full rounded-md shadow-[0_18px_40px_-14px_black] transition-transform group-hover:scale-[1.03]" />
-                <span className="chip absolute -bottom-3 left-1/2 -translate-x-1/2 bg-surface opacity-0 transition-opacity group-hover:opacity-100">Apri nella lente</span>
-              </button>
-              <CardDetails card={selectedCard} onSearch={searchFor} />
-            </div>
-          ) : (
-            <div className="flex flex-col gap-3 text-sm text-muted">
-              <p className="display text-lg text-text">Il banco del fabbro</p>
-              <p>Clicca una carta per esaminarla qui. Doppio clic per aprirla nella lente, con zoom e lente d'ingrandimento.</p>
-              <p className="text-xs text-faint">Ctrl+F porta il cursore nella ricerca. Ogni filtro scelto a sinistra diventa testo nella barra: puoi anche scriverlo a mano.</p>
-            </div>
-          )}
-          <div className="mt-auto rounded-xl border border-dashed border-border-strong p-4 text-center text-xs text-faint">
-            <EmblemIcon emblem="anvil" className="mx-auto mb-2 h-5 w-5" />
-            Qui forgerai il tuo deck: arriva nella Fase 2.
-          </div>
-        </aside>
+        <Catalog
+          deck={deck}
+          getCard={getCard}
+          requestCards={cards.request}
+          version={cards.version}
+          onAdd={(id, _el, toSide) => tryAdd(deckRef.current, getCard(id), toSide ? "side" : null)}
+          onOpen={(id, list) => setViewer({ id, list })}
+          onHover={startHover}
+          onHoverEnd={endHover}
+          query={query}
+          onQuery={setQuery}
+        />
       </div>
 
       {hover && hoverCard && !viewer && <CardPreview card={hoverCard} anchor={hover.rect} />}
-      {viewerCard && (
+      {viewer && viewerCard && (
         <CardViewer
           card={viewerCard}
-          position={`${viewerIndex + 1} / ${count}`}
+          position={`${viewerIndex + 1} / ${viewer.list.length}`}
           onClose={() => setViewer(null)}
-          onPrev={viewerIndex > 0 ? () => step(-1) : undefined}
-          onNext={viewerIndex < result.ids.length - 1 ? () => step(1) : undefined}
-          onSearch={searchFor}
+          onPrev={viewerIndex > 0 ? () => setViewer({ ...viewer, id: viewer.list[viewerIndex - 1] }) : undefined}
+          onNext={viewerIndex < viewer.list.length - 1 ? () => setViewer({ ...viewer, id: viewer.list[viewerIndex + 1] }) : undefined}
+          onSearch={(q) => {
+            setViewer(null);
+            setQuery(q);
+          }}
         />
       )}
-      {!isDesktop && <p className="p-4 text-warn">Anteprima nel browser: i dati sono disponibili solo nell'app desktop.</p>}
+      {dialog === "import" && <ImportDialog onClose={() => setDialog(null)} onImported={(r, n) => void imported(r, n)} />}
+      {dialog === "export" && <ExportDialog deck={{ ...deck, id: idRef.current }} onClose={() => setDialog(null)} />}
     </div>
   );
 }

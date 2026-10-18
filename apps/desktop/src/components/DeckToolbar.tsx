@@ -1,0 +1,231 @@
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { cardImage, isDesktop, type Deck, type DeckFormat, type DeckSummary, type Legality } from "../lib/api";
+import { FORMAT_LABELS } from "../lib/deck";
+import { sound } from "../lib/sound";
+import { EmblemIcon } from "./Emblems";
+
+function useOutsideClose(open: boolean, close: () => void) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const down = (e: PointerEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) close();
+    };
+    const key = (e: KeyboardEvent) => e.key === "Escape" && close();
+    addEventListener("pointerdown", down);
+    addEventListener("keydown", key);
+    return () => {
+      removeEventListener("pointerdown", down);
+      removeEventListener("keydown", key);
+    };
+  }, [open, close]);
+  return ref;
+}
+
+function Popover({ open, children, align = "left", width = 340 }: { open: boolean; children: ReactNode; align?: "left" | "right"; width?: number }) {
+  if (!open) return null;
+  return (
+    <div className={`panel absolute top-full z-30 mt-2 max-h-[70vh] overflow-y-auto p-2 anim-pop ${align === "right" ? "right-0" : "left-0"}`} style={{ width }}>
+      {children}
+    </div>
+  );
+}
+
+interface Props {
+  deck: Deck;
+  decks: DeckSummary[];
+  legality: Legality | null;
+  saveState: "idle" | "saving" | "saved";
+  cost: { ur: number; sr: number; r: number; n: number };
+  canUndo: boolean;
+  canRedo: boolean;
+  onRename: (name: string) => void;
+  onFormat: (format: DeckFormat) => void;
+  onNew: () => void;
+  onOpenDeck: (id: number) => void;
+  onImport: () => void;
+  onExport: () => void;
+  onDelete: () => void;
+  onUndo: () => void;
+  onRedo: () => void;
+  onFlash: (cards: number[]) => void;
+}
+
+export function DeckToolbar(p: Props) {
+  const [menu, setMenu] = useState(false);
+  const [issuesOpen, setIssuesOpen] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const menuRef = useOutsideClose(menu, () => setMenu(false));
+  const issuesRef = useOutsideClose(issuesOpen, () => setIssuesOpen(false));
+  const errors = p.legality?.issues.filter((i) => i.severity === "error") ?? [];
+  const warnings = p.legality?.issues.filter((i) => i.severity === "warning") ?? [];
+
+  useEffect(() => {
+    if (!confirmDelete) return;
+    const t = window.setTimeout(() => setConfirmDelete(false), 3000);
+    return () => window.clearTimeout(t);
+  }, [confirmDelete]);
+
+  return (
+    <div className="relative z-20 border-b border-border bg-surface/70 backdrop-blur">
+      <div className="flex items-center gap-4 px-6 pt-3 pb-2">
+        <div ref={menuRef} className="relative">
+          <button
+            type="button"
+            className="btn btn-ghost"
+            onClick={() => {
+              sound.play(menu ? "close" : "open");
+              setMenu((v) => !v);
+            }}
+            aria-expanded={menu}
+          >
+            <EmblemIcon emblem="shelf" className="h-4 w-4" /> I miei deck <span className="text-faint">▾</span>
+          </button>
+          <Popover open={menu}>
+            <button
+              type="button"
+              className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm font-semibold text-sec hover:bg-surface-3"
+              onClick={() => {
+                setMenu(false);
+                p.onNew();
+              }}
+            >
+              ＋ Nuovo deck
+            </button>
+            <button
+              type="button"
+              className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-surface-3"
+              onClick={() => {
+                setMenu(false);
+                p.onImport();
+              }}
+            >
+              ⇣ Importa .ydk o ydke://
+            </button>
+            {p.decks.length > 0 && <div className="my-2 border-t border-border" />}
+            {p.decks.map((d) => (
+              <button
+                key={d.id}
+                type="button"
+                onPointerEnter={() => sound.play("hover")}
+                onClick={() => {
+                  setMenu(false);
+                  p.onOpenDeck(d.id);
+                }}
+                className={`flex w-full items-center gap-3 rounded-lg px-2 py-1.5 text-left hover:bg-surface-3 ${d.id === p.deck.id ? "bg-surface-3" : ""}`}
+              >
+                <span className="h-11 w-8 shrink-0 overflow-hidden rounded bg-surface-3">
+                  {d.cover != null && isDesktop && <img src={cardImage(d.cover, "small")} alt="" className="h-full w-full object-cover" />}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-medium">{d.name}</span>
+                  <span className="text-[11px] text-faint">
+                    {FORMAT_LABELS[d.format]} · {d.mainCount}/{d.extraCount}/{d.sideCount}
+                  </span>
+                </span>
+              </button>
+            ))}
+          </Popover>
+        </div>
+        <div className="min-w-0 flex-1">
+          <input
+            className="display w-full max-w-xl truncate rounded border-b border-transparent bg-transparent text-xl font-bold outline-none hover:border-border focus:border-sec"
+            value={p.deck.name}
+            onChange={(e) => p.onRename(e.target.value)}
+            spellCheck={false}
+            aria-label="Nome del deck"
+          />
+        </div>
+        <span className="w-20 text-right text-[11px] text-faint">{p.saveState === "saving" ? "Salvataggio…" : p.saveState === "saved" ? "Salvato ✓" : ""}</span>
+        <div className="flex items-center gap-1">
+          <button type="button" className="btn btn-ghost !px-2.5 !py-1.5" disabled={!p.canUndo} onClick={p.onUndo} title="Annulla (Ctrl+Z)" aria-label="Annulla">
+            ↶
+          </button>
+          <button type="button" className="btn btn-ghost !px-2.5 !py-1.5" disabled={!p.canRedo} onClick={p.onRedo} title="Ripeti (Ctrl+Y)" aria-label="Ripeti">
+            ↷
+          </button>
+          <button type="button" className="btn btn-ghost !py-1.5" onClick={p.onExport}>
+            Esporta
+          </button>
+          {p.deck.id != null && (
+            <button
+              type="button"
+              className={`btn !py-1.5 ${confirmDelete ? "bg-danger text-white" : "btn-ghost"}`}
+              onClick={() => {
+                if (confirmDelete) {
+                  setConfirmDelete(false);
+                  p.onDelete();
+                } else {
+                  sound.play("toggle");
+                  setConfirmDelete(true);
+                }
+              }}
+            >
+              {confirmDelete ? "Conferma" : "Elimina"}
+            </button>
+          )}
+        </div>
+      </div>
+      <div className="flex items-center gap-4 px-6 pb-2.5">
+        <div className="flex gap-1 rounded-xl border border-border bg-bg-2 p-1">
+          {(["md", "tcg", "ocg"] as const).map((f) => (
+            <button
+              key={f}
+              type="button"
+              onClick={() => {
+                sound.play("toggle");
+                p.onFormat(f);
+              }}
+              className={`rounded-lg px-2.5 py-1 text-xs font-semibold ${p.deck.format === f ? "bg-sec text-bg" : "text-muted hover:text-text"}`}
+            >
+              {FORMAT_LABELS[f]}
+            </button>
+          ))}
+        </div>
+        <div ref={issuesRef} className="relative">
+          <button
+            type="button"
+            onClick={() => {
+              sound.play(issuesOpen ? "close" : "open");
+              setIssuesOpen((v) => !v);
+            }}
+            className="chip !py-1.5 font-semibold"
+            style={{
+              borderColor: errors.length ? "var(--df-danger)" : "color-mix(in oklab, var(--df-ok) 70%, transparent)",
+              color: errors.length ? "var(--df-danger)" : "var(--df-ok)",
+            }}
+          >
+            {p.legality == null ? "…" : errors.length ? `✕ ${errors.length} ${errors.length === 1 ? "problema" : "problemi"}` : `✓ Legale in ${FORMAT_LABELS[p.deck.format]}`}
+          </button>
+          <Popover open={issuesOpen} width={420}>
+            {errors.length === 0 && <p className="px-2 py-1.5 text-sm text-ok">Il deck rispetta le regole di {FORMAT_LABELS[p.deck.format]}.</p>}
+            {[...errors, ...warnings].map((issue, i) => (
+              <button
+                key={i}
+                type="button"
+                onClick={() => issue.cards.length && p.onFlash(issue.cards)}
+                className="flex w-full gap-2 rounded-lg px-2 py-1.5 text-left text-xs hover:bg-surface-3"
+              >
+                <span className={issue.severity === "error" ? "text-danger" : "text-warn"}>{issue.severity === "error" ? "✕" : "!"}</span>
+                <span>{issue.message}</span>
+              </button>
+            ))}
+          </Popover>
+        </div>
+        {p.deck.format === "md" && (
+          <div className="flex items-center gap-1.5" title="Carte da creare in Master Duel, per rarità">
+            {(["ur", "sr", "r", "n"] as const).map((r) => (
+              <span key={r} className="flex items-center gap-1 text-xs tabular-nums text-muted">
+                <span className="rarity-gem !static" data-rarity={r}>
+                  {r.toUpperCase()}
+                </span>
+                {p.cost[r]}
+              </span>
+            ))}
+          </div>
+        )}
+        <span className="ml-auto text-[11px] text-faint">Trascina le carte · clic destro su una carta del deck per toglierla · Ctrl+Z annulla</span>
+      </div>
+    </div>
+  );
+}

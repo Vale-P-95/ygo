@@ -1,5 +1,6 @@
 import { memo, useRef, useState, type PointerEvent } from "react";
 import { cardImage, type Card } from "../lib/api";
+import { pointerDownDraggable, type DragSource } from "../lib/drag";
 
 export function rarityCode(card: Card | undefined): "n" | "r" | "sr" | "ur" | undefined {
   switch (card?.mdRarity) {
@@ -16,6 +17,11 @@ export function rarityCode(card: Card | undefined): "n" | "r" | "sr" | "ur" | un
   }
 }
 
+export interface TileBadge {
+  text: string;
+  tone?: "ban" | "limit";
+}
+
 interface Props {
   id: number;
   card?: Card;
@@ -24,6 +30,18 @@ interface Props {
   onOpen?: (id: number) => void;
   onHover?: (id: number, el: HTMLElement) => void;
   onHoverEnd?: () => void;
+  /** Right click; `shift` when Shift is held. */
+  onContext?: (id: number, el: HTMLElement, shift: boolean) => void;
+  /** Makes the tile draggable. */
+  dragSource?: DragSource;
+  /** Small label in the top-left corner (copies, Forbidden/Limited status). */
+  badge?: TileBadge;
+  /** Red outline: the card breaks a deck rule. */
+  invalid?: boolean;
+  /** Plays the "just forged" drop animation. */
+  fresh?: boolean;
+  /** Smaller tiles get smaller decorations. */
+  compact?: boolean;
 }
 
 /**
@@ -31,7 +49,8 @@ interface Props {
  * and Ultra Rare cards (Master Duel rarity) get a silver or rainbow foil.
  * Pointer tracking writes CSS variables directly, without re-rendering.
  */
-export const CardTile = memo(function CardTile({ id, card, selected, onSelect, onOpen, onHover, onHoverEnd }: Props) {
+export const CardTile = memo(function CardTile(props: Props) {
+  const { id, card, selected, onSelect, onOpen, onHover, onHoverEnd, onContext, dragSource, badge, invalid, fresh, compact } = props;
   const ref = useRef<HTMLButtonElement>(null);
   const [loaded, setLoaded] = useState(false);
   const rarity = rarityCode(card);
@@ -62,8 +81,10 @@ export const CardTile = memo(function CardTile({ id, card, selected, onSelect, o
     <button
       ref={ref}
       type="button"
-      className="card-tile"
+      className={`card-tile${fresh ? " card-drop" : ""}`}
       data-rarity={rarity}
+      data-invalid={invalid || undefined}
+      data-compact={compact || undefined}
       aria-pressed={selected}
       aria-label={card?.name ?? "Carta"}
       onPointerMove={move}
@@ -71,6 +92,15 @@ export const CardTile = memo(function CardTile({ id, card, selected, onSelect, o
       onPointerLeave={leave}
       onClick={() => ref.current && onSelect?.(id, ref.current)}
       onDoubleClick={() => onOpen?.(id)}
+      onPointerDown={dragSource ? (e) => pointerDownDraggable(e, dragSource) : undefined}
+      onContextMenu={
+        onContext
+          ? (e) => {
+              e.preventDefault();
+              if (ref.current) onContext(id, ref.current, e.shiftKey);
+            }
+          : undefined
+      }
     >
       <span className="card-tile__clip">
         {!loaded && <span className="card-tile__shimmer" />}
@@ -87,9 +117,14 @@ export const CardTile = memo(function CardTile({ id, card, selected, onSelect, o
         <span className="card-tile__foil" />
         <span className="card-tile__glare" />
       </span>
-      {rarity && (
+      {rarity && !compact && (
         <span className="rarity-gem" data-rarity={rarity}>
           {rarity.toUpperCase()}
+        </span>
+      )}
+      {badge && (
+        <span className="tile-badge" data-tone={badge.tone}>
+          {badge.text}
         </span>
       )}
     </button>
