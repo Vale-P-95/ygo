@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Mutex;
 
@@ -5,7 +6,7 @@ use serde::Serialize;
 use tauri::http::{Response, StatusCode};
 use tauri::{Emitter, Manager, State};
 use ygo_data::sync::{self, Progress};
-use ygo_data::{Card, CardStore, Chip, Facets, ImageCache, ImageSize};
+use ygo_data::{deck, Card, CardStore, Chip, Deck, DeckSummary, Facets, ImageCache, ImageSize, Legality, UserStore};
 use ygo_engine::{Engine, ScriptStore};
 
 /// Shared by every command. The card database connection is not `Sync`, so
@@ -16,6 +17,8 @@ struct AppState {
     images: ImageCache,
     client: reqwest::Client,
     updating: tokio::sync::Mutex<()>,
+    /// The user's decks (`user.db`), kept outside the re-downloadable data.
+    user: Mutex<UserStore>,
 }
 
 impl AppState {
@@ -33,6 +36,11 @@ impl AppState {
         let guard = self.store.lock().map_err(|e| e.to_string())?;
         let store = guard.as_ref().ok_or("Database delle carte non ancora scaricato")?;
         f(store).map_err(|e| e.to_string())
+    }
+
+    fn with_user<T>(&self, f: impl FnOnce(&UserStore) -> Result<T, ygo_data::Error>) -> Result<T, String> {
+        let guard = self.user.lock().map_err(|e| e.to_string())?;
+        f(&guard).map_err(|e| e.to_string())
     }
 }
 
@@ -145,6 +153,78 @@ fn card_facets(state: State<'_, AppState>) -> Result<Facets, String> {
     state.with_store(|s| s.facets())
 }
 
+#[tauri::command(async)]
+fn list_decks(state: State<'_, AppState>) -> Result<Vec<DeckSummary>, String> {
+    state.with_user(|u| u.list())
+}
+
+#[tauri::command(async)]
+fn get_deck(state: State<'_, AppState>, id: i64) -> Result<Option<Deck>, String> {
+    state.with_user(|u| u.get(id))
+}
+
+#[tauri::command(async)]
+fn save_deck(state: State<'_, AppState>, deck: Deck) -> Result<Deck, String> {
+    state.with_user(|u| u.save(&deck))
+}
+
+#[tauri::command(async)]
+fn delete_deck(state: State<'_, AppState>, id: i64) -> Result<(), String> {
+    state.with_user(|u| u.delete(id))
+}
+
+#[tauri::command(async)]
+fn validate_deck(state: State<'_, AppState>, deck: Deck) -> Result<Legality, String> {
+    let mut ids: Vec<u32> = deck.main.iter().chain(&deck.extra).chain(&deck.side).copied().collect();
+    ids.sort_unstable();
+    ids.dedup();
+    let cards: HashMap<u32, Card> = state.with_store(|s| s.get_many(&ids))?.into_iter().map(|c| (c.id, c)).collect();
+    Ok(deck::validate(&deck, &cards))
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct Imported {
+    main: Vec<u32>,
+    extra: Vec<u32>,
+    side: Vec<u32>,
+    /// Passcodes that match no known card.
+    unknown: Vec<u32>,
+}
+
+/// Reads a `.ydk` file or a `ydke://` link; alternate-artwork passcodes are
+/// mapped to their card.
+#[tauri::command(async)]
+fn import_deck(state: State<'_, AppState>, text: String) -> Result<Imported, String> {
+    let (main, extra, side) = deck::parse_any(&text).map_err(|e| e.to_string())?;
+    state.with_store(|s| {
+        let mut unknown = Vec::new();
+        let mut resolve = |ids: Vec<u32>| -> Result<Vec<u32>, ygo_data::Error> {
+            let mut out = Vec::with_capacity(ids.len());
+            for id in ids {
+                match s.resolve_id(id)? {
+                    Some(card) => out.push(card),
+                    None => unknown.push(id),
+                }
+            }
+            Ok(out)
+        };
+        let (main, extra, side) = (resolve(main)?, resolve(extra)?, resolve(side)?);
+        Ok(Imported { main, extra, side, unknown })
+    })
+}
+
+#[derive(Serialize)]
+struct Exported {
+    ydk: String,
+    ydke: String,
+}
+
+#[tauri::command]
+fn export_deck(deck: Deck) -> Exported {
+    Exported { ydk: deck::to_ydk(&deck), ydke: deck::to_ydke(&deck) }
+}
+
 /// Path of a `cardimg://localhost/<size>/<id>` request.
 fn parse_image_path(path: &str) -> Option<(ImageSize, u32)> {
     let mut parts = path.trim_start_matches('/').split('/');
@@ -159,7 +239,11 @@ pub fn run() {
         .setup(|app| {
             let dir = data_dir(app.handle());
             let client = sync::http_client()?;
+            let user_db = std::env::var_os("DUELFORGE_USER_DB")
+                .map(PathBuf::from)
+                .unwrap_or_else(|| app.path().app_data_dir().unwrap_or_else(|_| PathBuf::from(".")).join("user.db"));
             let state = AppState {
+                user: Mutex::new(UserStore::open(&user_db)?),
                 images: ImageCache::new(dir.join("images"), client.clone()),
                 data_dir: dir,
                 store: Mutex::new(None),
@@ -190,7 +274,20 @@ pub fn run() {
                 responder.respond(response.expect("valid response"));
             });
         })
-        .invoke_handler(tauri::generate_handler![data_status, update_data, search_cards, get_cards, card_facets])
+        .invoke_handler(tauri::generate_handler![
+            data_status,
+            update_data,
+            search_cards,
+            get_cards,
+            card_facets,
+            list_decks,
+            get_deck,
+            save_deck,
+            delete_deck,
+            validate_deck,
+            import_deck,
+            export_deck
+        ])
         .run(tauri::generate_context!())
         .expect("error while running DuelForge");
 }
