@@ -4,7 +4,7 @@ Suite desktop per Yu-Gi-Oh!: deck builder con carte e banlist sempre aggiornate,
 
 Il piano di progetto completo è in [`docs/PIANO.md`](docs/PIANO.md).
 
-**Stato**: Fase 2 in corso. L'app scarica da sola carte e dati del motore; nella Fucina si costruiscono i deck in stile Master Duel (Main, Extra e Side al centro, catalogo a destra), con validazione del formato, costo di creazione in Master Duel, salvataggio automatico e import/export `.ydk`/`ydke://`. Mancano ancora la banlist di Master Duel, le versioni dei deck e la pagina Novità.
+**Stato**: Fase 2 completata. L'app scarica da sola carte e dati del motore; nella Fucina si costruiscono i deck in stile Master Duel (Main, Extra, Side e Maybe board al centro, catalogo a destra), con banlist di Master Duel, TCG e OCG, costo di creazione in Master Duel, filtri rapidi e preferiti, mano di prova con probabilità esatte, salvataggio automatico, import/export `.ydk`/`ydke://` e immagine PNG del deck.
 
 ## Struttura
 
@@ -75,7 +75,10 @@ cd apps\desktop; pnpm typecheck
 | Spostare tra Main, Extra e Side | trascina la carta nell'altra sezione |
 | Annullare, ripetere | Ctrl+Z, Ctrl+Y (o i pulsanti ↶ ↷) |
 | Vedere i problemi | clic sul badge di legalità: ogni problema evidenzia le carte coinvolte |
-| Importare, esportare | "I miei deck" → Importa; pulsante Esporta (`.ydk` e `ydke://`) |
+| Importare, esportare | "I miei deck" → Importa; Esporta → testo (`.ydk` e `ydke://`) o immagine PNG (salvata in Download/DuelForge) |
+| Provare le carte senza metterle nel deck | trascinale nella Maybe board, sotto il Side |
+| Pescare mani di prova | pulsante Mano di prova: N nuova mano, D pesca una carta; segna Starter (S) e Handtrap (H) per contare le mani buone e vedere la probabilità esatta |
+| Filtri rapidi, preferiti | pulsanti Handtrap, Staple, Board breaker, ★ Preferite sotto la ricerca; stella su ogni carta; segnalibro per salvare le ricerche |
 | Cambiare la vista del catalogo | i quattro pulsanti accanto al numero di carte: carte grandi, medie (predefinita), piccole, elenco; trascina il bordo sinistro del catalogo per allargarlo |
 
 I deck si salvano da soli in `user.db` nella cartella dati dell'app. Le carte Fusion, Synchro, Xyz e Link vanno sempre nell'Extra Deck, e il deck si riordina come in Master Duel (mostri, magie, trappole).

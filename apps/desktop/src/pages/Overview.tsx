@@ -8,8 +8,8 @@ import { sectionById, type SectionId } from "../sections";
 const ROADMAP = [
   { phase: 0, title: "Fondamenta e prova del motore", state: "done" },
   { phase: 1, title: "Database carte, visualizzatore, suoni ed effetti", state: "done" },
-  { phase: 2, title: "Deck Builder e banlist (Master Duel)", state: "now" },
-  { phase: 3, title: "La Bottega: deck box 3D", state: "next" },
+  { phase: 2, title: "Deck Builder e banlist (Master Duel)", state: "done" },
+  { phase: 3, title: "La Bottega: deck box 3D", state: "now" },
   { phase: 4, title: "Il Laboratorio statistico", state: "next" },
   { phase: 5, title: "Motore e sandbox", state: "next" },
   { phase: 6, title: "Circolo Arcano: esplorazione delle combo", state: "next" },
