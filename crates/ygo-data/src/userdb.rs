@@ -53,6 +53,8 @@ pub struct DeckSummary {
     pub updated_at: String,
     /// First showcase card, else the first card of the Main Deck, for a thumbnail.
     pub cover: Option<u32>,
+    /// Cards shown on the shelf: the showcase, else the first three different Main Deck cards.
+    pub preview: Vec<u32>,
     #[serde(rename = "box")]
     pub deck_box: DeckBox,
 }
@@ -73,6 +75,19 @@ fn migrate(conn: &Connection) -> Result<(), Error> {
         }
     }
     Ok(())
+}
+
+fn first_distinct(ids: &[u32], n: usize) -> Vec<u32> {
+    let mut out = Vec::with_capacity(n);
+    for id in ids {
+        if out.len() == n {
+            break;
+        }
+        if !out.contains(id) {
+            out.push(*id);
+        }
+    }
+    out
 }
 
 fn ids(json: &str) -> Vec<u32> {
@@ -111,6 +126,7 @@ impl UserStore {
                 side_count: ids(&r.get::<_, String>(5)?).len(),
                 updated_at: r.get(6)?,
                 cover: deck_box.showcase.first().or(main.first()).copied(),
+                preview: if deck_box.showcase.is_empty() { first_distinct(&main, 3) } else { deck_box.showcase.clone() },
                 deck_box,
             })
         })?;
@@ -288,12 +304,12 @@ mod tests {
         let store = UserStore::open_in_memory().unwrap();
         let deck = store.save(&Deck { name: "Invoked".into(), main: vec![1, 2], ..Default::default() }).unwrap();
         let id = deck.id.unwrap();
-        assert_eq!(store.list().unwrap()[0].cover, Some(1));
+        assert_eq!((store.list().unwrap()[0].cover, store.list().unwrap()[0].preview.as_slice()), (Some(1), &[1, 2][..]));
         let look = DeckBox { color: "#8b1e1e".into(), material: "leather".into(), shape: "tin".into(), showcase: vec![2, 1] };
         store.set_box(id, &look).unwrap();
         assert_eq!(store.get(id).unwrap().unwrap().deck_box, look);
         let summary = &store.list().unwrap()[0];
-        assert_eq!((summary.cover, &summary.deck_box), (Some(2), &look));
+        assert_eq!((summary.cover, summary.preview.as_slice(), &summary.deck_box), (Some(2), &[2, 1][..], &look));
 
         let copy = store.duplicate(id).unwrap();
         assert_ne!(copy.id, Some(id));
