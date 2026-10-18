@@ -1,4 +1,4 @@
-# DuelForge: piano di progetto (v0.8)
+# DuelForge: piano di progetto (v0.9)
 
 > Nome provvisorio. Il documento è la proposta iniziale: una volta approvate le decisioni aperte (§14) diventa la roadmap di sviluppo.
 >
@@ -11,6 +11,8 @@
 > **v0.5 (18/10/2026)**: Fase 1 realizzata; risultati nella §17.
 >
 > **v0.6 (18/10/2026)**: Fase 2, prima parte: editor dei deck in stile Master Duel; risultati nella §18.
+>
+> **v0.9 (18/10/2026)**: piano dettagliato della Fase 4 (Laboratorio statistico) nella §20, da approvare prima di iniziare.
 >
 > **v0.8 (18/10/2026)**: Fase 3 realizzata: la Bottega con i deck box 3D; risultati nella §19.
 >
@@ -631,3 +633,34 @@ Versioni dei deck e piani di side (§4.4) e pagina Novità: non scelti per ora, 
 
 ### 19.3 Verifica
 WebKitGTK sotto Xvfb (l'ambiente di test su Linux) non compone il 3D, quindi i box lì appaiono piatti. La verifica del 3D è fatta con Chromium, lo stesso motore di WebView2 che l'app usa su Windows, rendendo l'interfaccia vera con un backend simulato.
+
+## 20. Piano della Fase 4: il Laboratorio (proposta, 18/10/2026)
+
+Versione illustrata con mockup e grafici: pagina "Il Laboratorio di DuelForge" pubblicata per Valerio. Qui la sintesi.
+
+### 20.1 Domande a cui risponde
+Quanto spesso apro bene (per primo e per secondo); quanto resiste la mano a un'interruzione; quante copie mi servono e se conviene andare oltre 40 carte; quanto valgono Pot e ricerche; come vanno le mie partite per matchup; se una modifica al deck ha funzionato e quante partite servono per saperlo.
+
+### 20.2 Interfaccia
+Stessa struttura delle altre sezioni: intestazione in Cinzel con l'artwork di Brain Research Lab, accento ciano, griglia millimetrata appena visibile. Barra con il deck (menu con la miniatura del deck box della Bottega), primo/secondo e cinque schede: Panoramica, Calcolatore, Simulatore, Ottimizzatore, Registro partite. Pannello laterale dei ruoli. Indicatori principali come ampolle che si riempiono; grafici SVG animati con tooltip e tabella dati; suoni sintetizzati (bollicine a fine calcolo, tintinnio di vetro).
+
+### 20.3 Ruoli
+Starter, Estensore, Handtrap (già segnati dal gruppo Handtrap), Board breaker, Brick/Garnet e ruoli personalizzati; una carta può averne più di uno; salvati con il deck. Colori dei ruoli verificati per il daltonismo in tema scuro e chiaro.
+
+### 20.4 Schede
+- **Panoramica**: probabilità esatte (ipergeometrica multivariata sui gruppi di ruoli) di starter, doppio starter, handtrap, mano ideale, mano che resiste a un'interruzione, mano solida, mano bloccata; valori attesi; istogramma delle handtrap in mano; curva "pescare una carta entro N carte viste" per 1/2/3 copie; probabilità per carta; probabilità che l'avversario abbia almeno una handtrap in funzione delle handtrap nel suo deck.
+- **Calcolatore**: condizioni composte con ruoli o carte, soglie (almeno, al massimo, esattamente) ed E/O/NON; mani di 5/6 carte più le pescate successive; ricette salvate per deck; passaggio dichiarato al Monte Carlo per condizioni troppo complesse.
+- **Simulatore**: Monte Carlo in Rust multi-thread con seed: Pot of Prosperity, Desires, Extravagance, Duality, Upstart Goblin, Allure of Darkness, Triple Tactics Talent; ricerche ("la carta vale come quella che può prendere"), combo a due carte, conflitti di Normal Summon e once-per-turn. Intervallo al 95% e grafico di convergenza in diretta. Obiettivo: un milione di mani in meno di un secondo.
+- **Ottimizzatore**: valore di +1/−1 copia per ruolo o carta (tornado), 40 contro 41–45 carte, mappa starter × handtrap, ottimizzatore con vincoli (40–60 carte, 3 copie, banlist, carte bloccate) e obiettivo pesato; le proposte si possono mettere nella Maybe board.
+- **Registro partite**: inserimento in pochi secondi (deck e versione, avversario, primo/secondo, game, note, tag); win-rate con intervalli di Wilson e stima bayesiana, forest plot per matchup, matrice matchup × primo/secondo, andamento, game 1 contro side, meta incontrato, CSV; calcolo di quante partite servono (55% contro 50%: circa 783 partite; due versioni a confronto: circa 1.565 per versione); fotografia del deck a ogni partita per confrontare le versioni.
+
+### 20.5 Numeri d'esempio (Invoked di Siracusa, ruoli d'esempio)
+Starter 13, Estensore 11, Handtrap 10, Board breaker 3, altro 3. Per primo / per secondo: almeno uno starter 87,7% / 92,3%; almeno una handtrap 78,3% / 84,5%; mano ideale 67,0% / 77,1%; resiste a un'interruzione 84,1% / 90,8%; mano bloccata 12,3% / 7,7%. Una copia di handtrap in più vale +3,3 punti di mano solida per primo; i board breaker non cambiano le mani per primo.
+
+### 20.6 Costruzione e sotto-fasi
+Nuovo crate `ygo-stats` (calcolo esatto, Monte Carlo, ottimizzatore, statistiche del registro) con test su valori noti; tabelle `user.db` per partite e ricette; grafici SVG propri.
+- **4A** Ruoli, Panoramica e Calcolatore.
+- **4B** Simulatore e Ottimizzatore.
+- **4C** Registro partite.
+Il Monte Carlo guidato dal motore resta nella Fase 7.
+
