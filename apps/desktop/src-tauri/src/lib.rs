@@ -286,6 +286,69 @@ fn export_deck(deck: Deck) -> Exported {
     Exported { ydk: deck::to_ydk(&deck), ydke: deck::to_ydke(&deck) }
 }
 
+/// Raw bytes of a card image, for drawing on a canvas: an image loaded from
+/// `cardimg:` comes from another origin and would block exporting the canvas.
+#[tauri::command]
+async fn card_image_data(state: State<'_, AppState>, id: u32, size: String) -> Result<tauri::ipc::Response, String> {
+    let size = ImageSize::parse(&size).ok_or("formato immagine sconosciuto")?;
+    let path = state.images.get(id, size).await.map_err(|e| e.to_string())?;
+    Ok(tauri::ipc::Response::new(std::fs::read(path).map_err(|e| e.to_string())?))
+}
+
+/// Decodes `%XX` escapes (the file name travels in an HTTP-style header).
+fn percent_decode(s: &str) -> String {
+    let bytes = s.as_bytes();
+    let mut out = Vec::with_capacity(bytes.len());
+    let mut i = 0;
+    while i < bytes.len() {
+        let hex = |b: u8| (b as char).to_digit(16);
+        match (bytes[i], bytes.get(i + 1).and_then(|b| hex(*b)), bytes.get(i + 2).and_then(|b| hex(*b))) {
+            (b'%', Some(h), Some(l)) => {
+                out.push((h * 16 + l) as u8);
+                i += 3;
+            }
+            (b, _, _) => {
+                out.push(b);
+                i += 1;
+            }
+        }
+    }
+    String::from_utf8_lossy(&out).into_owned()
+}
+
+/// A file name made of the deck name's letters, digits and a few signs.
+fn file_stem(name: &str) -> String {
+    let stem: String = name.chars().map(|c| if c.is_alphanumeric() || " -_()".contains(c) { c } else { '_' }).collect();
+    let stem = stem.trim();
+    if stem.is_empty() {
+        "deck".into()
+    } else {
+        stem.chars().take(80).collect()
+    }
+}
+
+/// Saves a PNG sent as the raw request body into Downloads/DuelForge (the
+/// deck name comes, percent-encoded, in the `x-file-name` header). Returns
+/// the path of the new file.
+#[tauri::command]
+fn save_deck_image(app: tauri::AppHandle, request: tauri::ipc::Request<'_>) -> Result<String, String> {
+    let tauri::ipc::InvokeBody::Raw(bytes) = request.body() else {
+        return Err("immagine mancante".into());
+    };
+    let name = request.headers().get("x-file-name").and_then(|v| v.to_str().ok()).map(percent_decode).unwrap_or_default();
+    let dir = app.path().download_dir().or_else(|_| app.path().app_data_dir()).map_err(|e| e.to_string())?.join("DuelForge");
+    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    let stem = file_stem(&name);
+    let mut path = dir.join(format!("{stem}.png"));
+    let mut n = 2;
+    while path.exists() {
+        path = dir.join(format!("{stem} ({n}).png"));
+        n += 1;
+    }
+    std::fs::write(&path, bytes).map_err(|e| e.to_string())?;
+    Ok(path.display().to_string())
+}
+
 /// Path of a `cardimg://localhost/<size>/<id>` request.
 fn parse_image_path(path: &str) -> Option<(ImageSize, u32)> {
     let mut parts = path.trim_start_matches('/').split('/');
@@ -352,8 +415,23 @@ pub fn run() {
             delete_deck,
             validate_deck,
             import_deck,
-            export_deck
+            export_deck,
+            card_image_data,
+            save_deck_image
         ])
         .run(tauri::generate_context!())
         .expect("error while running DuelForge");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn file_names_from_deck_names() {
+        assert_eq!(percent_decode("Invoked%20Siracusa%20%C3%A8%20%2F%20MD"), "Invoked Siracusa è / MD");
+        assert_eq!(file_stem("Invoked Siracusa è / MD"), "Invoked Siracusa è _ MD");
+        assert_eq!(file_stem("  ../  "), "___", "no way out of the folder");
+        assert_eq!(file_stem(""), "deck");
+    }
 }

@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
-import { api, type Deck, type Imported } from "../lib/api";
+import { api, type Card, type Deck, type Imported } from "../lib/api";
+import { renderDeckImage, saveDeckImage } from "../lib/deckImage";
 import { sound } from "../lib/sound";
+import { toast } from "../lib/toast";
 import { Modal } from "./Modal";
 
 async function copy(text: string, el?: HTMLTextAreaElement | HTMLInputElement | null) {
@@ -95,6 +97,80 @@ export function ExportDialog({ deck, onClose }: { deck: Deck; onClose: () => voi
           </button>
         </div>
         <textarea ref={ydkRef} className="field h-48 resize-none font-mono text-xs" readOnly value={out?.ydk ?? ""} />
+      </div>
+    </Modal>
+  );
+}
+
+export function ImageDialog({ deck, getCard, legal, onClose }: { deck: Deck; getCard: (id: number) => Card | undefined; legal: boolean | null; onClose: () => void }) {
+  const [side, setSide] = useState(true);
+  const [url, setUrl] = useState<string | null>(null);
+  const [busy, setBusy] = useState(true);
+  const blob = useRef<Blob | null>(null);
+  const key = JSON.stringify([deck.name, deck.format, deck.main, deck.extra, deck.side, side, legal]);
+
+  useEffect(() => {
+    let cancelled = false;
+    let made: string | null = null;
+    setBusy(true);
+    renderDeckImage(deck, getCard, { side, legal })
+      .then((b) => {
+        if (cancelled) return;
+        blob.current = b;
+        made = URL.createObjectURL(b);
+        setUrl(made);
+      })
+      .catch((e) => toast(`Immagine non creata: ${e}`, "error"))
+      .finally(() => !cancelled && setBusy(false));
+    return () => {
+      cancelled = true;
+      if (made) URL.revokeObjectURL(made);
+    };
+    // The key covers what the picture shows.
+  }, [key]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const save = async () => {
+    if (!blob.current) return;
+    try {
+      const path = await saveDeckImage(blob.current, deck.name);
+      sound.play("chime");
+      toast(`Immagine salvata in ${path}`, "ok");
+    } catch (e) {
+      sound.play("error");
+      toast(`Immagine non salvata: ${e}`, "error");
+    }
+  };
+
+  const copyImage = async () => {
+    if (!blob.current) return;
+    try {
+      await navigator.clipboard.write([new ClipboardItem({ "image/png": blob.current })]);
+      sound.play("chime");
+      toast("Immagine copiata negli appunti", "ok");
+    } catch {
+      sound.play("error");
+      toast("Questo sistema non permette di copiare immagini: usa Salva PNG", "error");
+    }
+  };
+
+  return (
+    <Modal title="Immagine del deck" onClose={onClose} wide>
+      <div className="relative grid min-h-[240px] place-items-center overflow-hidden rounded-xl border border-border bg-bg-2">
+        {url && <img src={url} alt={`Immagine del deck ${deck.name}`} className="max-h-[62vh] w-full object-contain" />}
+        {busy && <p className="absolute inset-0 grid place-items-center bg-bg-2/70 text-sm text-muted">Preparo l'immagine…</p>}
+      </div>
+      <div className="flex flex-wrap items-center gap-3">
+        <label className="flex items-center gap-2 text-sm text-muted">
+          <input type="checkbox" checked={side} onChange={(e) => setSide(e.target.checked)} className="accent-[var(--sec)]" />
+          Includi il Side Deck
+        </label>
+        <span className="ml-auto text-xs text-faint">Salvata nella cartella Download/DuelForge</span>
+        <button type="button" className="btn btn-ghost" onClick={copyImage} disabled={busy}>
+          Copia
+        </button>
+        <button type="button" className="btn btn-molten" onClick={save} disabled={busy}>
+          Salva PNG
+        </button>
       </div>
     </Modal>
   );

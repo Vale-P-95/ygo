@@ -3,7 +3,7 @@ import { CardPreview } from "../components/CardPreview";
 import { CardViewer } from "../components/CardViewer";
 import { Catalog } from "../components/Catalog";
 import { DataSetup } from "../components/DataSetup";
-import { ExportDialog, ImportDialog } from "../components/DeckIO";
+import { ExportDialog, ImageDialog, ImportDialog } from "../components/DeckIO";
 import { DeckToolbar } from "../components/DeckToolbar";
 import { DeckZone } from "../components/DeckZone";
 import { SectionHeader } from "../components/SectionHeader";
@@ -75,7 +75,7 @@ function DeckEditor() {
   const [hover, setHover] = useState<{ id: number; rect: DOMRect } | null>(null);
   const hoverTimer = useRef<number>(undefined);
   const [viewer, setViewer] = useState<{ id: number; list: number[] } | null>(null);
-  const [dialog, setDialog] = useState<"import" | "export" | "hand" | null>(null);
+  const [dialog, setDialog] = useState<"import" | "export" | "image" | "hand" | null>(null);
   const [query, setQuery] = useState("format:md sort:popular");
   const getCard = cards.get;
 
@@ -294,6 +294,7 @@ function DeckEditor() {
         onImport={() => setDialog("import")}
         onExport={() => setDialog("export")}
         onTestHand={() => setDialog("hand")}
+        onImage={() => setDialog("image")}
         onDelete={() => void removeDeck()}
         onUndo={() => {
           dirty.current = true;
@@ -416,6 +417,7 @@ function DeckEditor() {
       )}
       {dialog === "import" && <ImportDialog onClose={() => setDialog(null)} onImported={(r, n) => void imported(r, n)} />}
       {dialog === "export" && <ExportDialog deck={{ ...deck, id: idRef.current }} onClose={() => setDialog(null)} />}
+      {dialog === "image" && <ImageDialog deck={deck} getCard={getCard} legal={legality?.legal ?? null} onClose={() => setDialog(null)} />}
       {dialog === "hand" && <TestHand deck={deck} getCard={getCard} onRoles={setRoles} onClose={() => setDialog(null)} />}
     </div>
   );

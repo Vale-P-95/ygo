@@ -19,6 +19,7 @@ interface Props {
   onOpenDeck: (id: number) => void;
   onImport: () => void;
   onExport: () => void;
+  onImage: () => void;
   onTestHand: () => void;
   onDelete: () => void;
   onUndo: () => void;
@@ -30,6 +31,8 @@ export function DeckToolbar(p: Props) {
   const [menu, setMenu] = useState(false);
   const [issuesOpen, setIssuesOpen] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [exportMenu, setExportMenu] = useState(false);
+  const exportRef = useOutsideClose(exportMenu, () => setExportMenu(false));
   const menuRef = useOutsideClose(menu, () => setMenu(false));
   const issuesRef = useOutsideClose(issuesOpen, () => setIssuesOpen(false));
   const errors = p.legality?.issues.filter((i) => i.severity === "error") ?? [];
@@ -122,9 +125,37 @@ export function DeckToolbar(p: Props) {
           <button type="button" className="btn btn-ghost !py-1.5" onClick={p.onTestHand} disabled={p.deck.main.length === 0} title="Pesca mani di prova dal Main Deck">
             Mano di prova
           </button>
-          <button type="button" className="btn btn-ghost !py-1.5" onClick={p.onExport}>
-            Esporta
-          </button>
+          <div ref={exportRef} className="relative">
+            <button
+              type="button"
+              className="btn btn-ghost !py-1.5"
+              aria-expanded={exportMenu}
+              onClick={() => {
+                sound.play(exportMenu ? "close" : "open");
+                setExportMenu((v) => !v);
+              }}
+            >
+              Esporta <span className="text-faint">▾</span>
+            </button>
+            <Popover open={exportMenu} align="right" width={240}>
+              {[
+                { label: "Testo: .ydk e ydke://", run: p.onExport },
+                { label: "Immagine PNG", run: p.onImage },
+              ].map((item) => (
+                <button
+                  key={item.label}
+                  type="button"
+                  className="flex w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-surface-3"
+                  onClick={() => {
+                    setExportMenu(false);
+                    item.run();
+                  }}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </Popover>
+          </div>
           {p.deck.id != null && (
             <button
               type="button"
