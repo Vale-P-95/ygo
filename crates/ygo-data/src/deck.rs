@@ -237,7 +237,7 @@ fn decode_ids(part: &str) -> Result<Vec<u32>, Error> {
     if bytes.len() % 4 != 0 {
         return Err(Error::Data("ydke non valido: lunghezza errata".into()));
     }
-    Ok(bytes.chunks_exact(4).map(|c| u32::from_le_bytes([c[0], c[1], c[2], c[3]])).collect())
+    Ok(bytes.as_chunks::<4>().0.iter().map(|c| u32::from_le_bytes(*c)).collect())
 }
 
 /// `ydke://<main>!<extra>!<side>!`, each part base64 of little-endian u32s.
