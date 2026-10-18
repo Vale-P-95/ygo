@@ -4,7 +4,7 @@ Suite desktop per Yu-Gi-Oh!: deck builder con carte e banlist sempre aggiornate,
 
 Il piano di progetto completo è in [`docs/PIANO.md`](docs/PIANO.md).
 
-**Stato**: Fase 2 completata. L'app scarica da sola carte e dati del motore; nella Fucina si costruiscono i deck in stile Master Duel (Main, Extra, Side e Maybe board al centro, catalogo a destra), con banlist di Master Duel, TCG e OCG, costo di creazione in Master Duel, filtri rapidi e preferiti, mano di prova con probabilità esatte, salvataggio automatico, import/export `.ydk`/`ydke://` e immagine PNG del deck.
+**Stato**: Fasi 0–3 completate. L'app scarica da sola carte e dati del motore. Nella Fucina si costruiscono i deck in stile Master Duel (Main, Extra, Side e Maybe board al centro, catalogo a destra), con banlist di Master Duel, TCG e OCG, costo di creazione in Master Duel, filtri rapidi e preferiti, mano di prova con probabilità esatte, salvataggio automatico, import/export `.ydk`/`ydke://` e immagine PNG del deck. Nella Bottega ogni deck è un deck box 3D personalizzabile (colore, materiale, forma, tre carte vetrina) con la legalità sempre aggiornata.
 
 ## Struttura
 
@@ -82,6 +82,10 @@ cd apps\desktop; pnpm typecheck
 | Cambiare la vista del catalogo | i quattro pulsanti accanto al numero di carte: carte grandi, medie (predefinita), piccole, elenco; trascina il bordo sinistro del catalogo per allargarlo |
 
 I deck si salvano da soli in `user.db` nella cartella dati dell'app. Le carte Fusion, Synchro, Xyz e Link vanno sempre nell'Extra Deck, e il deck si riordina come in Master Duel (mostri, magie, trappole).
+
+## La Bottega
+
+Ogni deck salvato sta su uno scaffale, nel suo deck box. Clic su un box per personalizzarlo: colore, materiale (pelle, metallo, legno, olografico, opaco), forma (deck box, latta, cofanetto) e fino a tre carte vetrina. Il sigillo verde o rosso sul box dice se il deck è legale con le banlist in vigore. Dal pannello si apre il deck nella Fucina, lo si duplica o lo si elimina.
 
 ## CLI
 

@@ -1,4 +1,4 @@
-# DuelForge: piano di progetto (v0.7)
+# DuelForge: piano di progetto (v0.8)
 
 > Nome provvisorio. Il documento è la proposta iniziale: una volta approvate le decisioni aperte (§14) diventa la roadmap di sviluppo.
 >
@@ -11,6 +11,8 @@
 > **v0.5 (18/10/2026)**: Fase 1 realizzata; risultati nella §17.
 >
 > **v0.6 (18/10/2026)**: Fase 2, prima parte: editor dei deck in stile Master Duel; risultati nella §18.
+>
+> **v0.8 (18/10/2026)**: Fase 3 realizzata: la Bottega con i deck box 3D; risultati nella §19.
 >
 > **v0.7 (18/10/2026)**: Fase 2 completata con le migliorie scelte (banlist di Master Duel, mano di prova, immagine del deck, filtri rapidi e preferiti, Maybe board); versioni dei deck, side plan e pagina Novità passano più avanti (§18.4).
 
@@ -612,3 +614,20 @@ Deck Builder vero e proprio (Main/Extra/Side con drag & drop e suoni "forgia"), 
 
 ### 18.4 Rimandati
 Versioni dei deck e piani di side (§4.4) e pagina Novità: non scelti per ora, restano in lista per le fasi successive.
+
+## 19. Risultati della Fase 3: la Bottega (18/10/2026)
+
+### 19.1 Dati
+- Ogni deck ha un `box` (colore, materiale, forma, fino a 3 carte vetrina) salvato in `user.db` (nuova colonna, migrazione automatica). Cambiare l'aspetto non conta come modifica del deck, quindi non cambia l'ordine "Recenti".
+- Il comando `shelf_decks` restituisce tutti i deck con la legalità ricalcolata sulle banlist in vigore: se una nuova banlist rende illegale un deck, il sigillo sul box diventa rosso con il numero di problemi.
+- Senza carte vetrina scelte, il box mostra le prime tre carte diverse del Main Deck. I deck si possono duplicare.
+
+### 19.2 Interfaccia
+- **Scaffali di legno** con i deck box in 3D (trasformazioni CSS 3D: cinque pareti, coperchio incernierato appoggiato all'indietro, carte vetrina in piedi dentro il box). Ogni riga si riempie con quanti box ci stanno.
+- **3 forme**: deck box verticale, latta arrotondata, cofanetto con fermaglio e cinghie. **5 materiali**: pelle con cuciture, metallo spazzolato con rivetti, legno, olografico animato, opaco. **12 colori** più un colore libero.
+- **Effetti**: al passaggio del mouse il box si solleva e segue il puntatore, il coperchio si apre di più e le carte salgono a ventaglio; suoni sintetizzati nuovi: "knock" di legno quando si sceglie un box, "latch" metallico quando si cambia materiale.
+- **Pannello Personalizza**: anteprima grande che oscilla lentamente, nome modificabile, colori, materiali, forme, scelta delle carte vetrina (numerate 1–3), "Apri nella Fucina", "Duplica", "Elimina" con conferma. Le modifiche si salvano da sole.
+- Ricerca per nome, filtro per formato, ordine per recenti, nome o formato; "Nuovo deck" porta nella Fucina con un deck vuoto.
+
+### 19.3 Verifica
+WebKitGTK sotto Xvfb (l'ambiente di test su Linux) non compone il 3D, quindi i box lì appaiono piatti. La verifica del 3D è fatta con Chromium, lo stesso motore di WebView2 che l'app usa su Windows, rendendo l'interfaccia vera con un backend simulato.
