@@ -443,7 +443,7 @@ Il numero di combo cresce in modo esponenziale con la lunghezza della linea. La 
 
 **Prima versione usabile**: al termine della Fase 2 (database + builder). Lo spike sul motore sta già nella Fase 0 perché è il rischio tecnico principale: meglio scoprire subito eventuali problemi.
 
-**Deck di prova per il solver**: l'Invoked con cui Danilo Siracusa è arrivato Top 8 all'European WCQ 2026 (11 luglio 2026). Ha combo note e documentate, quindi i risultati si possono confrontare con le guide della community. È una lista TCG: per il Combo Lab non cambia nulla (le regole sono le stesse), mentre il validatore ne controllerà la legalità contro la banlist di Master Duel. Poi si passa a deck via via più complessi.
+**Deck di prova per il solver**: l'Invoked con cui Danilo Siracusa è arrivato Top 8 all'European WCQ 2026 (11 luglio 2026), nella versione resa legale per Master Duel (`tests/fixtures/decks/invoked-siracusa-md.ydk`). Ha combo note e documentate, quindi i risultati si possono confrontare con le guide della community; la lista originale TCG resta come caso di prova per il validatore di formato. Poi si passa a deck via via più complessi.
 
 ---
 
@@ -485,7 +485,7 @@ Versionamento semantico, release su GitHub con changelog e **auto-aggiornamento 
 3. ~~Licenza~~: deciso, progetto open source AGPL-3.0 con il motore di EDOPro (§8.1, §15).
 4. ~~Formati prioritari~~: deciso, prima Master Duel.
 5. ~~Lingua del testo delle carte~~: deciso, inglese per ora, altre lingue in seguito.
-6. ~~Deck di prova~~: deciso, Invoked di Danilo Siracusa (European WCQ 2026), salvato in `tests/fixtures/decks/`. È una lista TCG: in Master Duel non è legale così com'è (3 carte Proibite, Super Polymerization Limitata a 2).
+6. ~~Deck di prova~~: deciso, Invoked di Danilo Siracusa (European WCQ 2026), salvato in `tests/fixtures/decks/`. Si usa la versione legale in Master Duel (`invoked-siracusa-md.ydk`): al posto di Called by the Grave, Dimension Shifter e Terraforming ci sono 3 Invocation - "Grail", e al posto di una Super Polymerization un Triple Tactics Talent.
 7. **Fonte della banlist di Master Duel**: proposta Master Duel Meta, previa autorizzazione; disponibilità e rarità da YGOPRODeck (§3.1).
 8. **Sostenibilità**: se e come finanziare il progetto (§15.3), da decidere più avanti.
 
