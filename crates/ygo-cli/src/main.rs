@@ -87,8 +87,16 @@ fn fetch_data(dir: &Path) -> Result<()> {
     for (name, url) in SOURCES {
         let target = dir.join(name);
         let status = if target.join(".git").is_dir() {
+            // Shallow clones cannot always fast-forward: fetch the latest
+            // commit and move to it (the folder only holds downloaded data).
             println!("Updating {} ...", target.display());
-            Command::new("git").arg("-C").arg(&target).args(["pull", "--ff-only", "--depth", "1"]).status()
+            let fetched = Command::new("git").arg("-C").arg(&target).args(["fetch", "--depth", "1", "origin", "HEAD"]).status();
+            match fetched {
+                Ok(s) if s.success() => {
+                    Command::new("git").arg("-C").arg(&target).args(["reset", "--hard", "--quiet", "FETCH_HEAD"]).status()
+                }
+                other => other,
+            }
         } else {
             println!("Downloading {url} ...");
             Command::new("git").args(["clone", "--depth", "1", url]).arg(&target).status()
