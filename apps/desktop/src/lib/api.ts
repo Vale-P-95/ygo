@@ -84,6 +84,14 @@ export interface Progress {
 
 export type DeckFormat = "md" | "tcg" | "ocg";
 
+/** How a deck looks on the shelf (`ygo_data::DeckBox`); empty means default. */
+export interface DeckBox {
+  color: string;
+  material: string;
+  shape: string;
+  showcase: number[];
+}
+
 /** Mirrors `ygo_data::Deck`. */
 export interface Deck {
   id: number | null;
@@ -96,6 +104,7 @@ export interface Deck {
   maybe: number[];
   /** Cards by role ("starter", "handtrap", ...). */
   roles: Record<string, number[]>;
+  box: DeckBox;
   updatedAt: string | null;
 }
 
@@ -108,6 +117,15 @@ export interface DeckSummary {
   sideCount: number;
   updatedAt: string;
   cover: number | null;
+  /** Showcase cards, else the first three Main Deck cards. */
+  preview: number[];
+  box: DeckBox;
+}
+
+/** A deck on the shelf, with its legality under the current lists. */
+export interface ShelfDeck extends DeckSummary {
+  legal: boolean | null;
+  errors: number;
 }
 
 export interface Issue {
@@ -154,6 +172,9 @@ export const api = {
   deleteSavedSearch: (name: string) => invoke<SavedSearch[]>("delete_saved_search", { name }),
   onProgress: (handler: (p: Progress) => void): Promise<UnlistenFn> => listen<Progress>("data-progress", (e) => handler(e.payload)),
   listDecks: () => invoke<DeckSummary[]>("list_decks"),
+  shelfDecks: () => invoke<ShelfDeck[]>("shelf_decks"),
+  setDeckBox: (id: number, deckBox: DeckBox) => invoke<void>("set_deck_box", { id, deckBox }),
+  duplicateDeck: (id: number) => invoke<Deck>("duplicate_deck", { id }),
   getDeck: (id: number) => invoke<Deck | null>("get_deck", { id }),
   saveDeck: (deck: Deck) => invoke<Deck>("save_deck", { deck }),
   deleteDeck: (id: number) => invoke<void>("delete_deck", { id }),

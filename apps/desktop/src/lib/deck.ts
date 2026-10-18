@@ -8,7 +8,7 @@ export const ZONE_LABELS: Record<Zone, string> = { main: "Main Deck", extra: "Ex
 export const FORMAT_LABELS: Record<DeckFormat, string> = { md: "Master Duel", tcg: "TCG", ocg: "OCG" };
 
 export function emptyDeck(name = "Nuovo deck", format: DeckFormat = "md"): Deck {
-  return { id: null, name, format, main: [], extra: [], side: [], maybe: [], roles: {}, updatedAt: null };
+  return { id: null, name, format, main: [], extra: [], side: [], maybe: [], roles: {}, box: { color: "", material: "", shape: "", showcase: [] }, updatedAt: null };
 }
 
 export function isExtraDeckCard(card: Card): boolean {
@@ -141,4 +141,39 @@ export function useDeckHistory(initial: Deck) {
   const undo = useCallback(() => setState((s) => (s.past.length ? { past: s.past.slice(0, -1), present: s.past[s.past.length - 1], future: [s.present, ...s.future] } : s)), []);
   const redo = useCallback(() => setState((s) => (s.future.length ? { past: [...s.past, s.present], present: s.future[0], future: s.future.slice(1) } : s)), []);
   return { deck: state.present, set, reset, undo, redo, canUndo: state.past.length > 0, canRedo: state.future.length > 0 };
+}
+
+const LAST_DECK = "duelforge.lastDeck";
+
+/** Remembers the deck open in the editor (reopened next time). */
+export function rememberDeck(id: number | null) {
+  try {
+    if (id == null) localStorage.removeItem(LAST_DECK);
+    else localStorage.setItem(LAST_DECK, String(id));
+  } catch {
+    // Only a convenience: reopening the last deck.
+  }
+}
+
+/** The deck to open in the editor. */
+export function lastDeck(): number | null {
+  try {
+    const v = Number(localStorage.getItem(LAST_DECK));
+    return Number.isFinite(v) && v > 0 ? v : null;
+  } catch {
+    return null;
+  }
+}
+
+let newDeckRequested = false;
+
+/** Asks the editor to start a new deck the next time it opens. */
+export function requestNewDeck() {
+  newDeckRequested = true;
+}
+
+export function takeNewDeckRequest(): boolean {
+  const asked = newDeckRequested;
+  newDeckRequested = false;
+  return asked;
 }

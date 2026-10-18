@@ -525,6 +525,360 @@ body {
   background: linear-gradient(135deg, #ffb3d1, #ffe58a, #a5f3c3, #9ec9ff, #e0b3ff);
 }
 
+/* ---------- Deck boxes (La Bottega) ---------- */
+
+.dbox-stage {
+  position: relative;
+  display: block;
+  flex-shrink: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  perspective: 1100px;
+  perspective-origin: 50% 15%;
+}
+.dbox-stage[role="button"] {
+  cursor: pointer;
+}
+.dbox-shadow {
+  position: absolute;
+  left: 50%;
+  bottom: calc(22px * var(--s));
+  width: calc(var(--w) * var(--s) * 1.35);
+  height: calc(26px * var(--s));
+  transform: translateX(-50%);
+  background: radial-gradient(closest-side, rgb(0 0 0 / 0.65), transparent);
+  transition: background 300ms;
+}
+.dbox-stage[data-selected] .dbox-shadow {
+  background: radial-gradient(closest-side, color-mix(in oklab, var(--sec) 85%, transparent), transparent);
+}
+.dbox {
+  position: absolute;
+  left: 50%;
+  bottom: calc(32px * var(--s));
+  width: var(--w);
+  height: var(--h);
+  margin-left: calc(var(--w) / -2);
+  transform-style: preserve-3d;
+  transform-origin: 50% 100%;
+  transform: translateY(var(--lift, 0px)) scale(var(--s)) rotateX(calc(-11deg + var(--tilt-x, 0deg))) rotateY(calc(-26deg + var(--tilt-y, 0deg)));
+  transition: transform 420ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.dbox-stage[data-interactive]:hover .dbox,
+.dbox-stage[data-selected] .dbox {
+  --lift: -10px;
+}
+.dbox-stage[data-sway] .dbox {
+  animation: dbox-sway 7s ease-in-out infinite alternate;
+}
+@keyframes dbox-sway {
+  from {
+    transform: scale(var(--s)) rotateX(-13deg) rotateY(-40deg);
+  }
+  to {
+    transform: scale(var(--s)) rotateX(-7deg) rotateY(28deg);
+  }
+}
+
+.dbox-face {
+  position: absolute;
+  top: 0;
+  left: 0;
+  background-color: var(--c);
+}
+.dbox-front {
+  width: var(--w);
+  height: var(--h);
+  transform: translateZ(calc(var(--d) / 2));
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-top: 34%;
+}
+.dbox-back {
+  width: var(--w);
+  height: var(--h);
+  transform: rotateY(180deg) translateZ(calc(var(--d) / 2));
+  filter: brightness(0.55);
+}
+.dbox-left,
+.dbox-right {
+  width: var(--d);
+  height: var(--h);
+  left: calc((var(--w) - var(--d)) / 2);
+}
+.dbox-right {
+  transform: rotateY(90deg) translateZ(calc(var(--w) / 2));
+  filter: brightness(0.68);
+}
+.dbox-left {
+  transform: rotateY(-90deg) translateZ(calc(var(--w) / 2));
+  filter: brightness(0.82);
+}
+.dbox-bottom {
+  width: var(--w);
+  height: var(--d);
+  top: calc(var(--h) - var(--d) / 2);
+  transform: rotateX(-90deg);
+  filter: brightness(0.4);
+}
+/* The lid, hinged on the back edge and leaning back. */
+.dbox-lid {
+  width: var(--w);
+  height: calc(var(--d) * 0.96);
+  top: calc(var(--d) * -0.96);
+  transform-origin: 50% 100%;
+  transform: translateZ(calc(var(--d) / -2)) rotateX(var(--lid, 16deg));
+  filter: brightness(0.78);
+  transition: transform 420ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.dbox-stage[data-interactive]:hover .dbox-lid {
+  --lid: 28deg;
+}
+.dbox[data-shape="box"] .dbox-lid {
+  height: calc(var(--d) * 0.8);
+  top: calc(var(--d) * -0.8);
+  border-radius: 6px 6px 0 0;
+}
+
+.dbox-cards {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+}
+.dbox-card {
+  position: absolute;
+  left: 50%;
+  top: calc(var(--w) * 0.52 * 1.458 * -0.4);
+  width: calc(var(--w) * 0.52);
+  margin-left: calc(var(--w) * -0.26);
+  aspect-ratio: 421 / 614;
+  border-radius: 3px;
+  box-shadow: 0 2px 6px rgb(0 0 0 / 0.55);
+  transform-origin: 50% 100%;
+  transform: translateX(calc(var(--i) * 17px)) rotateZ(calc(var(--i) * 7deg)) translateZ(calc(var(--i) * 2px));
+  transition: transform 380ms cubic-bezier(0.2, 0.9, 0.3, 1.2);
+}
+.dbox-stage[data-interactive]:hover .dbox-card,
+.dbox-stage[data-selected] .dbox-card {
+  transform: translateY(-16px) translateX(calc(var(--i) * 22px)) rotateZ(calc(var(--i) * 9deg)) translateZ(calc(var(--i) * 2px));
+}
+
+.dbox-plate {
+  position: relative;
+  width: 84%;
+  padding: 5px 7px 4px;
+  border-radius: 6px;
+  text-align: center;
+  color: #2a1a0a;
+  background: linear-gradient(180deg, #f2dc9e, #c39645 55%, #e5c77e);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.6),
+    inset 0 -1px 0 rgb(0 0 0 / 0.25),
+    0 2px 5px rgb(0 0 0 / 0.5);
+}
+.dbox-name {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.15;
+}
+.dbox-name[data-long="1"] {
+  font-size: 9.5px;
+}
+.dbox-name[data-long="2"] {
+  font-size: 8.5px;
+}
+.dbox-format {
+  display: block;
+  margin-top: 2px;
+  font-size: 7.5px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  opacity: 0.7;
+}
+.dbox-seal {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  display: grid;
+  place-items: center;
+  min-width: 26px;
+  height: 26px;
+  padding: 0 4px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+  color: #fff;
+  background: radial-gradient(circle at 35% 30%, #ff8a7c, #b3261e 60%, #7d1712);
+  box-shadow:
+    0 2px 4px rgb(0 0 0 / 0.5),
+    inset 0 0 0 2px rgb(255 255 255 / 0.18);
+}
+.dbox-seal[data-ok] {
+  background: radial-gradient(circle at 35% 30%, #9ff5c2, #2f9e5e 60%, #1d6b3e);
+}
+.dbox-clasp {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 24px;
+  height: 18px;
+  margin-left: -12px;
+  border-radius: 0 0 6px 6px;
+  background: linear-gradient(#f3d791, #a77a2c);
+  box-shadow: 0 2px 3px rgb(0 0 0 / 0.5);
+}
+
+/* Shapes */
+.dbox[data-shape="tin"] .dbox-front,
+.dbox[data-shape="tin"] .dbox-back {
+  border-radius: 16px;
+}
+.dbox[data-shape="tin"] .dbox-front {
+  padding-top: 26%;
+  box-shadow:
+    inset 0 3px 0 rgb(255 255 255 / 0.22),
+    inset 0 0 0 5px rgb(0 0 0 / 0.12);
+}
+.dbox[data-shape="tin"] .dbox-lid {
+  border-radius: 16px 16px 4px 4px;
+}
+.dbox[data-shape="chest"] .dbox-front {
+  padding-top: 24%;
+}
+.dbox[data-shape="chest"] .dbox-front::before,
+.dbox[data-shape="chest"] .dbox-lid::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(90deg, transparent 14%, rgb(0 0 0 / 0.28) 14% 18%, transparent 18% 82%, rgb(0 0 0 / 0.28) 82% 86%, transparent 86%),
+    linear-gradient(90deg, transparent 15%, rgb(255 220 150 / 0.22) 15% 16%, transparent 16% 83%, rgb(255 220 150 / 0.22) 83% 84%, transparent 84%);
+  pointer-events: none;
+}
+
+/* Materials */
+.dbox[data-material="leather"] .dbox-face {
+  background-image:
+    radial-gradient(rgb(255 255 255 / 0.07) 1px, transparent 1.6px),
+    radial-gradient(rgb(0 0 0 / 0.22) 1px, transparent 1.6px),
+    linear-gradient(160deg, rgb(255 255 255 / 0.14), transparent 45%, rgb(0 0 0 / 0.28));
+  background-size:
+    5px 5px,
+    7px 7px,
+    100% 100%;
+  background-position:
+    0 0,
+    2px 3px,
+    0 0;
+}
+.dbox[data-material="leather"] .dbox-front::after {
+  content: "";
+  position: absolute;
+  inset: 6px;
+  border: 1.5px dashed rgb(255 235 200 / 0.35);
+  border-radius: inherit;
+  pointer-events: none;
+}
+.dbox[data-material="metal"] .dbox-face {
+  background-image:
+    linear-gradient(110deg, rgb(255 255 255 / 0.5), rgb(255 255 255 / 0) 35%, rgb(255 255 255 / 0.2) 55%, rgb(0 0 0 / 0.3)),
+    repeating-linear-gradient(90deg, rgb(255 255 255 / 0.07) 0 1px, transparent 1px 3px);
+}
+.dbox[data-material="metal"] .dbox-front::after {
+  content: "";
+  position: absolute;
+  inset: 5px;
+  background:
+    radial-gradient(circle, rgb(255 255 255 / 0.75) 0 1.5px, rgb(0 0 0 / 0.35) 2.5px, transparent 3px) 0 0 / 100% 100% no-repeat,
+    radial-gradient(circle at 4px 4px, rgb(230 230 230) 0 2px, rgb(0 0 0 / 0.4) 3px, transparent 3.5px),
+    radial-gradient(circle at calc(100% - 4px) 4px, rgb(230 230 230) 0 2px, rgb(0 0 0 / 0.4) 3px, transparent 3.5px),
+    radial-gradient(circle at 4px calc(100% - 4px), rgb(230 230 230) 0 2px, rgb(0 0 0 / 0.4) 3px, transparent 3.5px),
+    radial-gradient(circle at calc(100% - 4px) calc(100% - 4px), rgb(230 230 230) 0 2px, rgb(0 0 0 / 0.4) 3px, transparent 3.5px);
+  pointer-events: none;
+}
+.dbox[data-material="wood"] .dbox-face {
+  background-color: color-mix(in oklab, var(--c) 55%, #6b4423);
+  background-image:
+    repeating-linear-gradient(88deg, rgb(0 0 0 / 0.16) 0 2px, transparent 2px 7px, rgb(255 255 255 / 0.05) 7px 8px, transparent 8px 13px),
+    linear-gradient(170deg, rgb(255 255 255 / 0.12), rgb(0 0 0 / 0.28));
+}
+.dbox[data-material="holo"] .dbox-face {
+  background-image: linear-gradient(115deg, rgb(255 60 160 / 0.5), rgb(255 210 60 / 0.45), rgb(60 255 190 / 0.45), rgb(70 150 255 / 0.5), rgb(200 80 255 / 0.45), rgb(255 60 160 / 0.5));
+  background-size: 300% 300%;
+  animation: holo-shift 9s linear infinite;
+}
+.dbox-stage:hover .dbox[data-material="holo"] .dbox-face {
+  animation-duration: 2.5s;
+}
+@keyframes holo-shift {
+  from {
+    background-position: 0% 50%;
+  }
+  to {
+    background-position: 300% 50%;
+  }
+}
+.dbox[data-material="matte"] .dbox-face {
+  background-image:
+    radial-gradient(circle at 30% 20%, rgb(255 255 255 / 0.1), transparent 60%),
+    linear-gradient(rgb(0 0 0 / 0), rgb(0 0 0 / 0.2));
+}
+
+/* The shelf planks */
+.shelf-row {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: flex-end;
+  gap: 18px;
+  padding: 0 28px;
+  min-height: 250px;
+}
+/* Top surface (seen from above, where the boxes stand) and front edge. */
+.shelf-plank {
+  position: relative;
+  height: 40px;
+  margin: -30px 0 40px;
+  border-radius: 3px;
+  background:
+    repeating-linear-gradient(90deg, rgb(0 0 0 / 0.12) 0 2px, transparent 2px 23px, rgb(255 255 255 / 0.04) 23px 24px, transparent 24px 41px),
+    linear-gradient(180deg, #5a3a20 0, #8a5c34 22px, #b07a47 23px, #8a5a31 30px, #5e3b1f 100%);
+  box-shadow:
+    0 14px 22px -8px rgb(0 0 0 / 0.75),
+    inset 0 1px 0 rgb(255 220 170 / 0.35);
+}
+.shelf-plank::before,
+.shelf-plank::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  width: 16px;
+  height: 22px;
+  border-radius: 0 0 4px 4px;
+  background: linear-gradient(90deg, #8a6a3a, #e2c27e 50%, #8a6a3a);
+  box-shadow: 0 4px 6px rgb(0 0 0 / 0.5);
+}
+.shelf-plank::before {
+  left: 7%;
+}
+.shelf-plank::after {
+  right: 7%;
+}
+[data-theme="light"] .shelf-plank {
+  background:
+    repeating-linear-gradient(90deg, rgb(0 0 0 / 0.08) 0 2px, transparent 2px 23px),
+    linear-gradient(180deg, #a5774a 0, #c99a69 22px, #e0b585 23px, #b07f4f 30px, #8d6038 100%);
+}
+
 /* ---------- Animations ---------- */
 
 @keyframes molten-flow {

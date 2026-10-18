@@ -3,10 +3,12 @@ import { Embers } from "./components/Embers";
 import { DragLayer, Toasts } from "./components/Overlays";
 import { Sidebar } from "./components/Sidebar";
 import { api, isDesktop, type DataStatus } from "./lib/api";
+import { rememberDeck, requestNewDeck } from "./lib/deck";
 import { useSettings } from "./lib/settings";
 import { DeckBuilder } from "./pages/DeckBuilder";
 import { Overview } from "./pages/Overview";
 import { Settings } from "./pages/Settings";
+import { Shelf } from "./pages/Shelf";
 import { Upcoming } from "./pages/Upcoming";
 import { sectionById, type SectionId } from "./sections";
 
@@ -54,14 +56,27 @@ export default function App() {
 
   return (
     <div className="flex h-full">
-      <Sidebar active={active} onSelect={setActive} compact={active === "deck-builder" && !!status?.cards} />
+      <Sidebar active={active} onSelect={setActive} compact={(active === "deck-builder" || active === "shelf") && !!status?.cards} />
       <main data-section={active} className="relative min-w-0 flex-1">
         <Embers color={EMBER_COLORS[active] ?? "#ffc65c"} />
         <div key={active} className="relative h-full anim-fade">
           {active === "overview" && <Overview status={status} onStatus={setStatus} go={setActive} />}
           {active === "deck-builder" && <DeckBuilder status={status} onStatus={setStatus} />}
+          {active === "shelf" && (
+            <Shelf
+              artReady={artReady}
+              onOpenDeck={(id) => {
+                rememberDeck(id);
+                setActive("deck-builder");
+              }}
+              onNewDeck={() => {
+                requestNewDeck();
+                setActive("deck-builder");
+              }}
+            />
+          )}
           {active === "settings" && <Settings onStatus={setStatus} />}
-          {!["overview", "deck-builder", "settings"].includes(active) && <Upcoming section={section} artReady={artReady} />}
+          {!["overview", "deck-builder", "shelf", "settings"].includes(active) && <Upcoming section={section} artReady={artReady} />}
         </div>
       </main>
       <DragLayer />

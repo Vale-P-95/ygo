@@ -10,7 +10,20 @@ import { SectionHeader } from "../components/SectionHeader";
 import { TestHand } from "../components/TestHand";
 import { api, cardImage, type Card, type DataStatus, type Deck, type DeckSummary, type Imported, type Legality } from "../lib/api";
 import { useCardCache } from "../lib/cards";
-import { addCard, counts, craftCost, emptyDeck, removeAt, sortIds, useDeckHistory, ZONE_LIMITS, type Zone } from "../lib/deck";
+import {
+  addCard,
+  counts,
+  craftCost,
+  emptyDeck,
+  lastDeck,
+  rememberDeck,
+  removeAt,
+  sortIds,
+  takeNewDeckRequest,
+  useDeckHistory,
+  ZONE_LIMITS,
+  type Zone,
+} from "../lib/deck";
 import { setDropHandler, type DragSource, type DropZone } from "../lib/drag";
 import { useSettings } from "../lib/settings";
 import { sound } from "../lib/sound";
@@ -18,26 +31,7 @@ import { burstFrom } from "../lib/sparks";
 import { toast } from "../lib/toast";
 import { sectionById } from "../sections";
 
-const LAST_DECK = "duelforge.lastDeck";
 const NONE = new Set<number>();
-
-function rememberDeck(id: number | null) {
-  try {
-    if (id == null) localStorage.removeItem(LAST_DECK);
-    else localStorage.setItem(LAST_DECK, String(id));
-  } catch {
-    // Only a convenience: reopening the last deck.
-  }
-}
-
-function lastDeck(): number | null {
-  try {
-    const v = Number(localStorage.getItem(LAST_DECK));
-    return Number.isFinite(v) && v > 0 ? v : null;
-  } catch {
-    return null;
-  }
-}
 
 export function DeckBuilder({ status, onStatus }: { status: DataStatus | null; onStatus: (s: DataStatus) => void }) {
   if (!status?.cards) {
@@ -96,7 +90,11 @@ function DeckEditor() {
   );
 
   useEffect(() => {
+    // Coming from the shelf's "new deck": keep the empty deck.
+    const fresh = takeNewDeckRequest();
+    if (fresh) rememberDeck(null);
     refreshDecks().then((list) => {
+      if (fresh) return;
       const id = list.find((d) => d.id === lastDeck())?.id ?? list[0]?.id;
       if (id != null) void openDeck(id);
     });
