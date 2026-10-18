@@ -147,6 +147,50 @@ export function formatDate(iso: string): string {
   return Number.isNaN(d.getTime()) ? iso : d.toLocaleDateString("it-IT", { day: "numeric", month: "long", year: "numeric" });
 }
 
+/** Lab condition (`ygo_stats::Cond`). */
+export type LabTarget = { kind: "role"; value: string } | { kind: "card"; value: number };
+export type LabOp = "atLeast" | "atMost" | "exactly";
+export type Cond =
+  | { type: "all"; items: Cond[] }
+  | { type: "any"; items: Cond[] }
+  | { type: "not"; item: Cond }
+  | { type: "count"; target: LabTarget; op: LabOp; n: number };
+
+export interface HandStats {
+  hand: number;
+  starter: number;
+  starter2: number;
+  handtrap: number;
+  ideal: number;
+  resist: number;
+  solid: number;
+  brick: number;
+  garnet: number;
+  breaker: number;
+  expected: Record<string, number>;
+  starterDist: number[];
+  handtrapDist: number[];
+}
+
+/** Mirrors `ygo_stats::Overview`. */
+export interface LabOverview {
+  size: number;
+  roles: Record<string, number>;
+  first: HandStats;
+  second: HandStats;
+  cards: { id: number; copies: number; first: number; second: number }[];
+  seen: number[];
+  byCopies: number[][];
+  opponent: number[];
+}
+
+export interface Recipe {
+  id: number;
+  deckId: number | null;
+  name: string;
+  cond: Cond;
+}
+
 export interface SavedSearch {
   name: string;
   query: string;
@@ -172,6 +216,13 @@ export const api = {
   deleteSavedSearch: (name: string) => invoke<SavedSearch[]>("delete_saved_search", { name }),
   onProgress: (handler: (p: Progress) => void): Promise<UnlistenFn> => listen<Progress>("data-progress", (e) => handler(e.payload)),
   listDecks: () => invoke<DeckSummary[]>("list_decks"),
+  labOverview: (main: number[], roles: Record<string, number[]>) => invoke<LabOverview>("lab_overview", { main, roles }),
+  labProbability: (main: number[], roles: Record<string, number[]>, cond: Cond, hand: number) =>
+    invoke<{ p: number | null; error: string | null }>("lab_probability", { main, roles, cond, hand }),
+  setDeckRoles: (id: number, roles: Record<string, number[]>) => invoke<void>("set_deck_roles", { id, roles }),
+  listRecipes: (deckId: number) => invoke<Recipe[]>("list_recipes", { deckId }),
+  saveRecipe: (deckId: number | null, name: string, cond: Cond) => invoke<Recipe>("save_recipe", { deckId, name, cond }),
+  deleteRecipe: (id: number) => invoke<void>("delete_recipe", { id }),
   shelfDecks: () => invoke<ShelfDeck[]>("shelf_decks"),
   setDeckBox: (id: number, deckBox: DeckBox) => invoke<void>("set_deck_box", { id, deckBox }),
   duplicateDeck: (id: number) => invoke<Deck>("duplicate_deck", { id }),

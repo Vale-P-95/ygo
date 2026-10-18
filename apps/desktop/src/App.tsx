@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
 import { Embers } from "./components/Embers";
-import { DragLayer, Toasts } from "./components/Overlays";
+import { ChartTooltip, DragLayer, Toasts } from "./components/Overlays";
 import { Sidebar } from "./components/Sidebar";
 import { api, isDesktop, type DataStatus } from "./lib/api";
 import { rememberDeck, requestNewDeck } from "./lib/deck";
 import { useSettings } from "./lib/settings";
 import { DeckBuilder } from "./pages/DeckBuilder";
+import { Lab } from "./pages/Lab";
 import { Overview } from "./pages/Overview";
 import { Settings } from "./pages/Settings";
 import { Shelf } from "./pages/Shelf";
@@ -56,7 +57,7 @@ export default function App() {
 
   return (
     <div className="flex h-full">
-      <Sidebar active={active} onSelect={setActive} compact={(active === "deck-builder" || active === "shelf") && !!status?.cards} />
+      <Sidebar active={active} onSelect={setActive} compact={(active === "deck-builder" || active === "shelf" || active === "stats") && !!status?.cards} />
       <main data-section={active} className="relative min-w-0 flex-1">
         <Embers color={EMBER_COLORS[active] ?? "#ffc65c"} />
         <div key={active} className="relative h-full anim-fade">
@@ -75,12 +76,14 @@ export default function App() {
               }}
             />
           )}
+          {active === "stats" && <Lab artReady={artReady} onGoForge={() => setActive("deck-builder")} />}
           {active === "settings" && <Settings onStatus={setStatus} />}
-          {!["overview", "deck-builder", "shelf", "settings"].includes(active) && <Upcoming section={section} artReady={artReady} />}
+          {!["overview", "deck-builder", "shelf", "stats", "settings"].includes(active) && <Upcoming section={section} artReady={artReady} />}
         </div>
       </main>
       <DragLayer />
       <Toasts />
+      <ChartTooltip />
     </div>
   );
 }

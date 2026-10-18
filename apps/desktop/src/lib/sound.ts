@@ -7,7 +7,7 @@
  */
 import { getSettings, subscribeSettings } from "./settings";
 
-export type SoundName = "hover" | "select" | "open" | "close" | "page" | "toggle" | "chime" | "error" | "forge" | "knock" | "latch";
+export type SoundName = "hover" | "select" | "open" | "close" | "page" | "toggle" | "chime" | "error" | "forge" | "knock" | "latch" | "bubble" | "glass";
 
 const UI_SOUNDS: ReadonlySet<SoundName> = new Set(["hover", "page", "toggle"]);
 
@@ -152,6 +152,16 @@ class SoundEngine {
         this.noiseBurst(out, t, 0.02, 0.18, "highpass", 3800);
         this.noiseBurst(out, t + 0.05, 0.025, 0.14, "highpass", 2600);
         this.tone(out, 2350, t + 0.05, 0.16, 0.035, "triangle", 2200);
+        break;
+      case "bubble":
+        // The lab: a few small bubbles popping, rising in pitch.
+        [0, 0.05, 0.11].forEach((d, i) => this.tone(out, 620 + i * 260, t + d, 0.07, 0.03, "sine", 900 + i * 380));
+        break;
+      case "glass":
+        // A glass vial tapped: bright, short partials.
+        this.tone(out, 2793, t, 0.32, 0.05);
+        this.tone(out, 4186, t + 0.01, 0.22, 0.025);
+        this.tone(out, 5588, t + 0.02, 0.14, 0.012);
         break;
       case "forge":
         // Hammer on anvil: low thud, impact noise, ringing metal.

@@ -1,7 +1,9 @@
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { cardImage } from "../lib/api";
 import { useDrag } from "../lib/drag";
 import { useToasts } from "../lib/toast";
+import { hideTip, showTip, useTip } from "../lib/tooltip";
 
 /** The card following the pointer while dragging. */
 export function DragLayer() {
@@ -43,6 +45,59 @@ export function Toasts() {
           {t.message}
         </div>
       ))}
+    </div>,
+    document.body,
+  );
+}
+
+/**
+ * Chart tooltip: follows the pointer over any element with `data-tip`
+ * (keyboard focus shows it too), or wherever a chart's crosshair puts it.
+ */
+export function ChartTooltip() {
+  const tip = useTip();
+  const ref = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState({ left: 0, top: 0 });
+
+  useEffect(() => {
+    const move = (e: PointerEvent) => {
+      const el = (e.target as Element | null)?.closest?.("[data-tip]") as HTMLElement | SVGElement | null;
+      if (el?.dataset.tip) showTip(el.dataset.tip, e.clientX, e.clientY);
+      else if (!(e.target as Element | null)?.closest?.("[data-crosshair]")) hideTip();
+    };
+    const focus = (e: FocusEvent) => {
+      const el = (e.target as Element | null)?.closest?.("[data-tip]") as HTMLElement | SVGElement | null;
+      if (!el?.dataset.tip) return;
+      const r = el.getBoundingClientRect();
+      showTip(el.dataset.tip, r.right, r.top);
+    };
+    addEventListener("pointermove", move);
+    addEventListener("focusin", focus);
+    addEventListener("focusout", hideTip);
+    addEventListener("scroll", hideTip, true);
+    return () => {
+      removeEventListener("pointermove", move);
+      removeEventListener("focusin", focus);
+      removeEventListener("focusout", hideTip);
+      removeEventListener("scroll", hideTip, true);
+    };
+  }, []);
+
+  useLayoutEffect(() => {
+    if (!tip || !ref.current) return;
+    const r = ref.current.getBoundingClientRect();
+    setPos({ left: Math.min(innerWidth - r.width - 8, tip.x + 14), top: Math.max(8, tip.y - r.height - 12) });
+  }, [tip]);
+
+  if (!tip) return null;
+  return createPortal(
+    <div
+      ref={ref}
+      role="tooltip"
+      className="panel pointer-events-none fixed z-[75] max-w-64 px-3 py-2 text-xs leading-relaxed whitespace-pre-line tabular-nums"
+      style={{ left: pos.left, top: pos.top }}
+    >
+      {tip.text}
     </div>,
     document.body,
   );
