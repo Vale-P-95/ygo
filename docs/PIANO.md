@@ -1,10 +1,12 @@
-# DuelForge: piano di progetto (v0.3)
+# DuelForge: piano di progetto (v0.4)
 
 > Nome provvisorio. Il documento è la proposta iniziale: una volta approvate le decisioni aperte (§14) diventa la roadmap di sviluppo.
 >
 > **v0.2 (18/10/2026)**: repository `Vale-P-95/ygo`; Master Duel come primo formato; testi delle carte in inglese; deck di prova Invoked; obiettivo di monetizzazione nel lungo periodo, quindi motore con licenza MIT (§8.1) e nuova sezione su monetizzazione e aspetti legali (§15).
 >
 > **v0.3 (18/10/2026)**: il progetto resta **open source** (licenza AGPL-3.0). Si torna quindi al motore di EDOPro, tecnicamente più adatto al solver (§8.1); la §15 diventa "Licenza, sostenibilità e aspetti legali".
+>
+> **v0.4 (18/10/2026)**: Fase 0 realizzata; risultati e misure nella §16.
 
 ## 0. Visione
 
@@ -513,3 +515,45 @@ Open source non significa per forza gratis per sempre: se in futuro servisse cop
 ### 15.4 Conseguenze sull'architettura
 - Il motore sta dietro un'interfaccia (`ygo-engine`), quindi resta sostituibile.
 - Il repository contiene il file `LICENSE` (AGPL-3.0) e un avviso di licenza nel README e nella schermata "Informazioni" dell'app.
+
+---
+
+## 16. Risultati della Fase 0 (18/10/2026)
+
+### 16.1 Cosa è stato fatto
+- **Motore**: il core di EDOPro (API 11.0) e Lua sono compilati dentro il crate Rust `ygo-engine` (`cc`, nessun premake). Il crate gestisce le partite, legge database e script, interpreta i messaggi di decisione del motore e trasforma ogni decisione nell'elenco delle azioni legali, con la risposta binaria esatta che il motore si aspetta.
+- **Dati**: la CLI scarica CardScripts e BabelCDB con `git` (`duelforge-cli fetch-data`): 15.004 carte e 19.315 script caricati. Tutte le carte del deck Invoked hanno lo script.
+- **CLI** `duelforge-cli`: `info`, `play` (interattivo o seguendo una linea di passi), `bench`.
+- **Test end-to-end**: la linea Magical Meltdown → Aleister the Invoker → Invocation → Invocation - "Chalice" → Invoked Baybarron gira nel motore e la board finale viene verificata.
+- **App desktop**: scheletro Tauri 2 + React con le sezioni del piano, tema chiaro/scuro e il pannello di stato del motore (il frontend interroga il motore reale).
+- **CI**: GitHub Actions con formattazione, clippy e test (dati scaricati in CI), build del frontend e installer Windows (`.exe` NSIS) come artefatto scaricabile.
+
+### 16.2 Il motore applica i ruling da solo
+Nella linea di prova, Invoked Baybarron non offre la sua ricerca: cerca Virakam o Gamma Summon nel Deck, ma l'unico Virakam è stato bandito come materiale e Gamma Summon è nel Side Deck. Nessuna regola è stata scritta da noi: è lo script della carta eseguito dal motore. È esattamente il comportamento che serve al Combo Lab.
+
+### 16.3 Prestazioni misurate (4 core, build release)
+| Misura | Valore |
+|---|---|
+| Creazione di una partita vuota (solo script di base) | ~12 ms |
+| Creazione della partita con il deck + prima decisione | ~17 ms |
+| Elaborazione di una decisione | ~0,2 ms |
+| Riprodurre da zero una linea di ~25 decisioni | ~22 ms |
+| Decisioni al secondo riproducendo da zero, 4 thread in parallelo | ~4.400 |
+
+**Conclusione**: la parte lenta non è il gioco ma la creazione della partita (caricamento di `constant.lua`, `utility.lua` e delle procedure). Ripristinare un nodo della ricerca rigiocando da zero costa ~20 ms, troppo per esplorare milioni di stati. In Fase 6 servirà una o più di queste soluzioni, in ordine di costo:
+1. **ricerca in profondità che riusa la partita**: si ricrea la partita solo tornando indietro, e i rami fratelli si esplorano in blocco;
+2. **pool di partite "calde"** già posizionate sui prefissi più usati;
+3. **script di base precompilati** in bytecode Lua, per ridurre i ~12 ms di avvio;
+4. **snapshot nativo** della partita in un fork del motore (la soluzione più efficace e più costosa).
+
+La parallelizzazione su più thread funziona: ogni thread ha le sue partite.
+
+### 16.4 Scoperte sui dati
+- **I nomi delle carte non coincidono tra le fonti**: la stessa carta (passcode 76334960) è *Invocation - "Grail"* su YGOPRODeck e *Invocation - "Chalice"* nel database di EDOPro. La chiave unica tra le fonti deve essere il passcode, mai il nome.
+- **Artwork alternativi**: i deck di YGOPRODeck usano a volte il passcode dell'artwork alternativo (Ash Blossom 14558128 invece di 14558127). Il motore li gestisce tramite `alias`; il nostro codice li tratta come la stessa carta.
+- **Banlist Master Duel**: non è nei dati di YGOPRODeck né in LFLists di Project Ignis (vedi §3.1).
+
+### 16.5 Prossimi passi
+- Verificare in CI la compilazione del motore con MSVC e scaricare il primo installer Windows.
+- Fase 1: database carte unificato (YGOPRODeck + BabelCDB, chiave passcode), immagini in cache, ricerca e visualizzatore.
+
