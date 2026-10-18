@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["crates/ygo-engine", "crates/ygo-cli", "apps/desktop/src-tauri"]
+members = ["crates/ygo-engine", "crates/ygo-data", "crates/ygo-cli", "apps/desktop/src-tauri"]
 
 [workspace.package]
 version = "0.1.0"

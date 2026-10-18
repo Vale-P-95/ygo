@@ -12,6 +12,7 @@ use std::time::Instant;
 
 use anyhow::{bail, Context, Result};
 use clap::{Parser, Subcommand};
+use ygo_data::{sync, CardStore};
 use ygo_engine::consts::{location, phase, position};
 use ygo_engine::{actions, describe_card, run_script, Action, ActionKind, DeckList, Duel, Engine, Event, ScriptEnd, Step, Trace};
 
@@ -31,6 +32,19 @@ enum Cmd {
     FetchData,
     /// Show engine version and loaded data.
     Info,
+    /// Download the card list from YGOPRODeck into `<data>/cards.db`.
+    UpdateCards {
+        /// Rebuild even if the local version is current.
+        #[arg(long)]
+        force: bool,
+    },
+    /// Search the card database with the same language as the app.
+    Search {
+        /// e.g. `attr:dark type:fusion atk>=2500 "negate"`
+        query: String,
+        #[arg(long, default_value_t = 20)]
+        limit: usize,
+    },
     /// Play a starting hand. Without --steps, asks for each decision.
     Play {
         #[command(flatten)]
@@ -74,6 +88,8 @@ fn main() -> Result<()> {
     match cli.command {
         Cmd::FetchData => fetch_data(&cli.data),
         Cmd::Info => info(&cli.data),
+        Cmd::UpdateCards { force } => update_cards(&cli.data, force),
+        Cmd::Search { query, limit } => search(&cli.data, &query, limit),
         Cmd::Play { setup, steps, verbose } => play(&cli.data, &setup, steps.as_deref(), verbose),
         Cmd::Bench { setup, playouts, max_decisions } => bench(&cli.data, &setup, playouts, max_decisions),
     }
@@ -107,6 +123,55 @@ fn fetch_data(dir: &Path) -> Result<()> {
         }
     }
     info(dir)
+}
+
+fn update_cards(dir: &Path, force: bool) -> Result<()> {
+    std::fs::create_dir_all(dir)?;
+    let db_path = dir.join("cards.db");
+    let current = if force { None } else { CardStore::open(&db_path).ok().and_then(|s| s.version()) };
+    let new_db = dir.join("cards.db.new");
+    let runtime = tokio::runtime::Runtime::new()?;
+    let installed = runtime.block_on(async {
+        let client = sync::http_client()?;
+        sync::update_cards(&client, current.as_deref(), &new_db, &|p| {
+            if !matches!(p.stage, sync::Stage::Downloading) || p.total == Some(p.done) {
+                println!("{:?} {}", p.stage, p.item);
+            }
+        })
+        .await
+    })?;
+    match installed {
+        Some(version) => {
+            sync::install_file(&new_db, &db_path)?;
+            println!("Card database {version}: {} cards", CardStore::open(&db_path)?.count()?);
+        }
+        None => println!("Card database already up to date ({})", current.unwrap_or_default()),
+    }
+    Ok(())
+}
+
+fn search(dir: &Path, text: &str, limit: usize) -> Result<()> {
+    let store = CardStore::open(&dir.join("cards.db"))?;
+    let parsed = ygo_data::parse_query(text);
+    for chip in &parsed.chips {
+        println!("filter: {}", chip.label);
+    }
+    for bad in &parsed.errors {
+        println!("not understood: {bad}");
+    }
+    let started = Instant::now();
+    let ids = store.search(&parsed.query)?;
+    let elapsed = started.elapsed();
+    for card in store.get_many(&ids[..ids.len().min(limit)])? {
+        let stats = match (card.atk, card.def, card.link_rating) {
+            (atk, _, Some(link)) => format!(" ATK {} LINK-{link}", atk.map_or("?".into(), |a| a.to_string())),
+            (Some(atk), def, None) => format!(" ATK {atk} DEF {}", def.map_or("?".into(), |d| d.to_string())),
+            _ => String::new(),
+        };
+        println!("{:>9}  {} [{}]{stats}", card.id, card.name, card.human_type);
+    }
+    println!("{} results in {:.1} ms", ids.len(), elapsed.as_secs_f64() * 1000.0);
+    Ok(())
 }
 
 fn load_engine(dir: &Path) -> Result<Engine> {
