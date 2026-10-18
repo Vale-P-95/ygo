@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { DataSetup } from "../components/DataSetup";
 import { EmblemIcon } from "../components/Emblems";
 import { SectionHeader } from "../components/SectionHeader";
-import type { DataStatus } from "../lib/api";
+import { formatDate, type DataStatus } from "../lib/api";
 import { sectionById, type SectionId } from "../sections";
 
 const ROADMAP = [
@@ -37,9 +37,10 @@ export function Overview({ status, onStatus, go }: { status: DataStatus | null; 
           <DataSetup onReady={onStatus} />
         ) : (
           <div className="flex flex-col gap-6 anim-rise">
-            <div className="grid grid-cols-4 gap-4">
+            <div className="grid grid-cols-5 gap-4">
               <Tile label="Carte" value={n(status?.cards?.count)} hint={status?.cards ? `YGOPRODeck, versione ${status.cards.version}` : undefined} accent />
               <Tile label="Script del motore" value={n(status?.engine.scripts)} hint="Project Ignis CardScripts" />
+              <Tile label="Banlist Master Duel" value={status?.banlistMd ? formatDate(status.banlistMd) : "—"} hint="in vigore dal" />
               <Tile label="Immagini in cache" value={n(status?.imagesCached)} hint="scaricate quando servono" />
               <Tile label="Motore di gioco" value={`API ${status?.engine.apiVersion ?? "—"}`} hint="EDOPro core" />
             </div>

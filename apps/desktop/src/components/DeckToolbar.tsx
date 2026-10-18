@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { cardImage, isDesktop, type Deck, type DeckFormat, type DeckSummary, type Legality } from "../lib/api";
+import { cardImage, formatDate, isDesktop, type Deck, type DeckFormat, type DeckSummary, type Legality } from "../lib/api";
 import { FORMAT_LABELS } from "../lib/deck";
 import { sound } from "../lib/sound";
 import { EmblemIcon } from "./Emblems";
@@ -198,6 +198,7 @@ export function DeckToolbar(p: Props) {
             {p.legality == null ? "…" : errors.length ? `✕ ${errors.length} ${errors.length === 1 ? "problema" : "problemi"}` : `✓ Legale in ${FORMAT_LABELS[p.deck.format]}`}
           </button>
           <Popover open={issuesOpen} width={420}>
+            {p.legality?.banlist && <p className="px-2 pt-1 pb-2 text-[11px] text-faint">Banlist {FORMAT_LABELS[p.deck.format]} in vigore dal {formatDate(p.legality.banlist)}</p>}
             {errors.length === 0 && <p className="px-2 py-1.5 text-sm text-ok">Il deck rispetta le regole di {FORMAT_LABELS[p.deck.format]}.</p>}
             {[...errors, ...warnings].map((issue, i) => (
               <button

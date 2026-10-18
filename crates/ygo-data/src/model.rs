@@ -69,6 +69,9 @@ pub struct Card {
     pub ocg_date: Option<String>,
     pub ban_tcg: Option<String>,
     pub ban_ocg: Option<String>,
+    /// Master Duel status (Forbidden, Limited, Semi-Limited), from our own list.
+    #[serde(default)]
+    pub ban_md: Option<String>,
     /// Ids of the available artworks (the first is the main one).
     pub image_ids: Vec<u32>,
     pub views: u64,

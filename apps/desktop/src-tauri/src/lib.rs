@@ -6,7 +6,9 @@ use serde::Serialize;
 use tauri::http::{Response, StatusCode};
 use tauri::{Emitter, Manager, State};
 use ygo_data::sync::{self, Progress};
-use ygo_data::{deck, Card, CardStore, Chip, Deck, DeckSummary, Facets, ImageCache, ImageSize, Legality, UserStore};
+use ygo_data::{
+    banlist, deck, Banlist, Card, CardStore, Chip, Deck, DeckSummary, Facets, Format, ImageCache, ImageSize, Legality, UserStore,
+};
 use ygo_engine::{Engine, ScriptStore};
 
 /// Shared by every command. The card database connection is not `Sync`, so
@@ -26,9 +28,19 @@ impl AppState {
         self.data_dir.join("cards.db")
     }
 
+    /// A newer Master Duel list downloaded by `update_data` (the app also has one built in).
+    fn md_banlist_path(&self) -> PathBuf {
+        self.data_dir.join("banlists").join("md.json")
+    }
+
     fn open_store(&self) {
         let path = self.cards_db();
-        let store = path.is_file().then(|| CardStore::open(&path).ok()).flatten();
+        let mut store = path.is_file().then(|| CardStore::open(&path).ok()).flatten();
+        if let Some(store) = store.as_mut() {
+            if let Err(e) = store.set_banlist(&Banlist::newest_md(&self.md_banlist_path())) {
+                eprintln!("Master Duel banlist not applied: {e}");
+            }
+        }
         *self.store.lock().expect("store lock") = store;
     }
 
@@ -79,6 +91,8 @@ struct DataStatus {
     /// Set by `update_data` when the card list updated but the engine data
     /// could not be downloaded (the card browser works without it).
     engine_error: Option<String>,
+    /// Effective date of the Master Duel Forbidden & Limited list in use.
+    banlist_md: Option<String>,
 }
 
 fn status(state: &AppState) -> DataStatus {
@@ -100,6 +114,7 @@ fn status(state: &AppState) -> DataStatus {
         },
         images_cached: state.images.cached_count(ImageSize::Small),
         engine_error: None,
+        banlist_md: state.with_store(|s| Ok(s.banlist_date("md"))).ok().flatten(),
     }
 }
 
@@ -123,6 +138,13 @@ async fn update_data(app: tauri::AppHandle, state: State<'_, AppState>, force: b
         *state.store.lock().map_err(|e| e.to_string())? = None;
         sync::install_file(&new_db, &state.cards_db()).map_err(|e| e.to_string())?;
         state.open_store();
+    }
+    // A newer Master Duel list, if the repository has one; the built-in list stays otherwise.
+    let current_md = Banlist::newest_md(&state.md_banlist_path()).effective;
+    match banlist::update_md(&state.client, &state.md_banlist_path(), &current_md).await {
+        Ok(true) => state.open_store(),
+        Ok(false) => {}
+        Err(e) => eprintln!("Master Duel banlist not updated: {e}"),
     }
     let engine = sync::update_engine_data(&state.client, &state.data_dir, &report).await;
     Ok(DataStatus { engine_error: engine.err().map(|e| e.to_string()), ..status(&state) })
@@ -179,7 +201,11 @@ fn validate_deck(state: State<'_, AppState>, deck: Deck) -> Result<Legality, Str
     ids.sort_unstable();
     ids.dedup();
     let cards: HashMap<u32, Card> = state.with_store(|s| s.get_many(&ids))?.into_iter().map(|c| (c.id, c)).collect();
-    Ok(deck::validate(&deck, &cards))
+    let mut legality = deck::validate(&deck, &cards);
+    if deck.format == Format::Md {
+        legality.banlist = state.with_store(|s| Ok(s.banlist_date("md"))).ok().flatten();
+    }
+    Ok(legality)
 }
 
 #[derive(Serialize)]

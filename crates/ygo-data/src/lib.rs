@@ -1,6 +1,7 @@
 //! Card data for DuelForge: the local card database built from YGOPRODeck,
 //! the search language, the image cache and the data downloads.
 
+pub mod banlist;
 pub mod deck;
 pub mod images;
 pub mod import;
@@ -10,6 +11,7 @@ pub mod store;
 pub mod sync;
 pub mod userdb;
 
+pub use banlist::Banlist;
 pub use deck::{Deck, Format, Issue, Legality, Severity};
 pub use images::{ImageCache, ImageSize};
 pub use model::{Card, CardKind, Facets};

@@ -15,9 +15,9 @@ export function isExtraDeckCard(card: Card): boolean {
   return card.typeLine.some((t) => t === "Fusion" || t === "Synchro" || t === "Xyz" || t === "Link");
 }
 
-/** Copies allowed by the format's list, when the data has it (not yet for Master Duel). */
+/** Copies allowed by the format's Forbidden & Limited list. */
 export function copyLimit(card: Card, format: DeckFormat): number {
-  const status = format === "tcg" ? card.banTcg : format === "ocg" ? card.banOcg : null;
+  const status = format === "tcg" ? card.banTcg : format === "ocg" ? card.banOcg : card.banMd;
   switch (status) {
     case "Banned":
     case "Forbidden":

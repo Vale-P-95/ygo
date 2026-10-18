@@ -146,6 +146,8 @@ export function CardDetails({ card, onSearch }: { card: Card; onSearch?: (query:
         <dd className="flex flex-wrap gap-1">
           {card.formats.length ? card.formats.map((f) => <span key={f} className="text-muted">{f}</span>).reduce<ReactNode[]>((acc, el, i) => (i ? [...acc, " · ", el] : [el]), []) : "—"}
         </dd>
+        <dt className="text-faint">Banlist MD</dt>
+        <dd className={card.banMd ? "text-warn" : "text-muted"}>{card.banMd ? BAN_LABEL[card.banMd] ?? card.banMd : card.formats.includes("Master Duel") ? "Senza limiti" : "Non in Master Duel"}</dd>
         <dt className="text-faint">Banlist TCG</dt>
         <dd className={card.banTcg ? "text-warn" : "text-muted"}>{card.banTcg ? BAN_LABEL[card.banTcg] ?? card.banTcg : "Senza limiti"}</dd>
         <dt className="text-faint">Banlist OCG</dt>

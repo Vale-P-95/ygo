@@ -239,7 +239,11 @@ export function Catalog({ deck, getCard, requestCards, version, onAdd, onOpen, o
             minTile={TILE[view] ?? TILE.m}
             badgeFor={(id) => {
               const n = copiesInDeck(deck, id);
-              return n ? { text: `×${n}` } : undefined;
+              const card = getCard(id);
+              const limit = card ? copyLimit(card, deck.format) : 3;
+              if (limit === 3) return n ? { text: `×${n}` } : undefined;
+              const tone = limit === 0 ? "ban" : "limit";
+              return { text: n ? `×${n}/${limit}` : limit === 0 ? "✕" : String(limit), tone };
             }}
           />
         )}

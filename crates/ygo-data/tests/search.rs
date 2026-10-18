@@ -1,7 +1,7 @@
 //! Import + search on a small synthetic card list shaped like the
 //! YGOPRODeck `cardinfo.php?misc=yes` response.
 
-use ygo_data::{import, parse_query, CardKind, CardStore};
+use ygo_data::{import, parse_query, Banlist, CardKind, CardStore};
 
 const SAMPLE: &str = r#"{"data": [
   {"id": 1001, "name": "Forge Golem", "type": "Effect Monster", "humanReadableCardType": "Effect Monster",
@@ -112,4 +112,30 @@ fn resolves_alternate_artwork_passcodes() {
     assert_eq!(store.resolve_id(1002).unwrap(), Some(1001), "second artwork of Forge Golem");
     assert_eq!(store.resolve_id(100).unwrap(), None, "no partial matches");
     assert_eq!(store.resolve_id(9999).unwrap(), None);
+}
+
+#[test]
+fn master_duel_list_is_applied_and_survives_card_updates() {
+    let mut store = store();
+    let list = Banlist::parse(
+        r#"{"format": "md", "effective": "2026-10-06", "cards": [
+            {"id": 1001, "name": "Forge Golem", "limit": 0},
+            {"id": 1005, "name": "Laboratory Lockdown", "limit": 1}]}"#,
+    )
+    .unwrap();
+    store.set_banlist(&list).unwrap();
+    assert_eq!(store.banlist_date("md").as_deref(), Some("2026-10-06"));
+    let cards = store.get_many(&[1001, 1005, 1003]).unwrap();
+    let md: Vec<Option<&str>> = cards.iter().map(|c| c.ban_md.as_deref()).collect();
+    assert_eq!(md, [Some("Forbidden"), Some("Limited"), None]);
+
+    // `ban:` reads Master Duel's list only when the search is about Master Duel.
+    assert_eq!(search(&store, "format:md ban:forbidden"), [1001]);
+    assert_eq!(search(&store, "format:md ban:limited"), [1005]);
+    assert_eq!(search(&store, "ban:limited"), [1004]);
+    assert_eq!(parse_query("format:md ban:limited").chips[1].label, "Banlist Master Duel: Limited");
+
+    let cards = import::parse_cardinfo(SAMPLE.as_bytes()).unwrap();
+    store.replace_all(&cards, "test-2").unwrap();
+    assert_eq!(store.get_many(&[1001]).unwrap()[0].ban_md.as_deref(), Some("Forbidden"));
 }

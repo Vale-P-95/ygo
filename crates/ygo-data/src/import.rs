@@ -108,6 +108,7 @@ impl From<ApiCard> for Card {
             ocg_date: misc.ocg_date,
             ban_tcg: c.banlist_info.as_ref().and_then(|b| b.ban_tcg.clone()),
             ban_ocg: c.banlist_info.and_then(|b| b.ban_ocg),
+            ban_md: None,
             image_ids: c.card_images.into_iter().map(|i| i.id).collect(),
             views: misc.views,
         }

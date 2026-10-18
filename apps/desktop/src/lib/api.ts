@@ -31,6 +31,8 @@ export interface Card {
   ocgDate: string | null;
   banTcg: string | null;
   banOcg: string | null;
+  /** Master Duel status, from DuelForge's own list. */
+  banMd: string | null;
   imageIds: number[];
   views: number;
 }
@@ -66,6 +68,8 @@ export interface DataStatus {
   imagesCached: number;
   /** Engine data download failure after an update (cards may still be fine). */
   engineError: string | null;
+  /** Effective date (YYYY-MM-DD) of the Master Duel Forbidden & Limited list in use. */
+  banlistMd: string | null;
 }
 
 export type ProgressItem = "cards" | "scripts" | "cdb";
@@ -113,6 +117,14 @@ export interface Issue {
 export interface Legality {
   legal: boolean;
   issues: Issue[];
+  /** Effective date of the list used (Master Duel). */
+  banlist: string | null;
+}
+
+/** "2026-10-06" → "6 ottobre 2026". */
+export function formatDate(iso: string): string {
+  const d = new Date(`${iso}T12:00:00`);
+  return Number.isNaN(d.getTime()) ? iso : d.toLocaleDateString("it-IT", { day: "numeric", month: "long", year: "numeric" });
 }
 
 export interface Imported {

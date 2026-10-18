@@ -10,7 +10,7 @@
 //! arch:invoked                  archetype
 //! atk>=2500  def<1000  lv:4-6   numeric ranges (atk, def, level/rank, link, scale)
 //! format:md  rarity:ur          Master Duel availability and rarity
-//! ban:limited                   TCG Forbidden/Limited status
+//! ban:limited                   Forbidden/Limited status (Master Duel list with format:md, else TCG)
 //! sort:atk                      name, atk, def, level, popular, new
 //! ```
 //! Italian aliases are accepted (`tipo`, `attributo`, `livello`, `magia`, ...).
@@ -338,7 +338,7 @@ pub fn parse(input: &str) -> Parsed {
             }),
             "ban" => ban_alias(&v).map(|b| {
                 out.query.bans.push(b.to_owned());
-                format!("TCG: {b}")
+                format!("Banlist: {b}")
             }),
             "sort" | "ordina" => sort_alias(&v).map(|s| {
                 out.query.sort = s;
@@ -363,6 +363,11 @@ pub fn parse(input: &str) -> Parsed {
             Some(label) => out.chips.push(Chip { token, label }),
             None => out.errors.push(token),
         }
+    }
+    // `ban:` follows Master Duel's list when the search is limited to Master Duel.
+    let list = if out.query.formats.iter().any(|f| f == "Master Duel") { "Master Duel" } else { "TCG" };
+    for chip in out.chips.iter_mut().filter(|c| c.label.starts_with("Banlist: ")) {
+        chip.label = chip.label.replacen("Banlist", &format!("Banlist {list}"), 1);
     }
     out
 }

@@ -86,25 +86,28 @@ pub struct Issue {
 pub struct Legality {
     pub legal: bool,
     pub issues: Vec<Issue>,
+    /// Effective date of the Forbidden & Limited list used, when known.
+    #[serde(default)]
+    pub banlist: Option<String>,
 }
 
 fn is_extra_deck_card(card: &Card) -> bool {
     card.type_line.iter().any(|t| matches!(t.as_str(), "Fusion" | "Synchro" | "Xyz" | "Link"))
 }
 
-/// Copies allowed by the format's Forbidden/Limited list, if known.
-fn limit(card: &Card, format: Format) -> Option<u8> {
+/// Copies allowed by the format's Forbidden & Limited list.
+fn limit(card: &Card, format: Format) -> u8 {
     let status = match format {
         Format::Tcg => card.ban_tcg.as_deref(),
         Format::Ocg => card.ban_ocg.as_deref(),
-        Format::Md => return None,
+        Format::Md => card.ban_md.as_deref(),
     };
-    Some(match status {
+    match status {
         Some("Banned" | "Forbidden") => 0,
         Some("Limited") => 1,
         Some("Semi-Limited") => 2,
         _ => 3,
-    })
+    }
 }
 
 fn error(message: String, cards: Vec<u32>) -> Issue {
@@ -169,7 +172,7 @@ pub fn validate(deck: &Deck, cards: &HashMap<u32, Card>) -> Legality {
         if !card.formats.iter().any(|f| f == format.data_name()) {
             issues.push(error(format!("{}: non disponibile in {}.", card.name, format.label()), vec![id]));
         }
-        let allowed = limit(card, format).unwrap_or(3);
+        let allowed = limit(card, format);
         if allowed == 0 && copies > 0 {
             issues.push(error(format!("{}: proibita in {}.", card.name, format.label()), vec![id]));
         } else if copies > allowed as usize {
@@ -179,14 +182,7 @@ pub fn validate(deck: &Deck, cards: &HashMap<u32, Card>) -> Legality {
     }
 
     let legal = issues.iter().all(|i| i.severity != Severity::Error);
-    if format == Format::Md {
-        issues.push(Issue {
-            severity: Severity::Warning,
-            message: "La banlist di Master Duel non è ancora integrata: controllati numero di carte, disponibilità e copie (max 3).".into(),
-            cards: vec![],
-        });
-    }
-    Legality { legal, issues }
+    Legality { legal, issues, banlist: None }
 }
 
 /// Main, Extra and Side Deck passcodes.
@@ -293,6 +289,7 @@ mod tests {
             ocg_date: None,
             ban_tcg: None,
             ban_ocg: None,
+            ban_md: None,
             image_ids: vec![id],
             views: 0,
         }
@@ -343,10 +340,13 @@ mod tests {
     }
 
     #[test]
-    fn master_duel_warns_about_missing_banlist() {
-        let result = validate(&deck(Format::Md, vec![2, 2], vec![]), &pool());
-        assert!(result.issues.iter().any(|i| i.severity == Severity::Warning && i.message.contains("Master Duel")));
-        assert!(!result.issues.iter().any(|i| i.message.contains("limitata")), "TCG limits must not apply to Master Duel");
+    fn master_duel_follows_its_own_list() {
+        let mut cards = pool();
+        cards.get_mut(&1).unwrap().ban_md = Some("Forbidden".into());
+        let result = validate(&deck(Format::Md, vec![1, 2, 2], vec![]), &cards);
+        let messages: Vec<&str> = result.issues.iter().map(|i| i.message.as_str()).collect();
+        assert!(messages.iter().any(|m| m.contains("Monster A: proibita in Master Duel")), "{messages:?}");
+        assert!(!messages.iter().any(|m| m.contains("Spell B")), "TCG limits must not apply to Master Duel: {messages:?}");
     }
 
     #[test]

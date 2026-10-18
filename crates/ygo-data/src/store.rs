@@ -5,6 +5,7 @@ use std::path::Path;
 use rusqlite::types::Value;
 use rusqlite::{params, Connection, OptionalExtension};
 
+use crate::banlist::{self, Banlist};
 use crate::model::{Card, CardKind, Facets};
 use crate::query::{Range, SearchQuery, Sort};
 use crate::Error;
@@ -37,6 +38,13 @@ CREATE TABLE IF NOT EXISTS cards (
     ban_ocg TEXT,
     image_ids TEXT NOT NULL,      -- JSON array
     views INTEGER NOT NULL
+);
+-- Lists not in the card data (Master Duel); kept when the cards are replaced.
+CREATE TABLE IF NOT EXISTS banlists (
+    format TEXT NOT NULL,
+    id INTEGER NOT NULL,
+    status TEXT NOT NULL,
+    PRIMARY KEY (format, id)
 );
 CREATE VIRTUAL TABLE IF NOT EXISTS cards_fts USING fts5(
     name, desc, content='cards', content_rowid='id', tokenize='unicode61 remove_diacritics 2'
@@ -145,6 +153,29 @@ impl CardStore {
         Ok(())
     }
 
+    /// Replaces the stored list for `list.format`.
+    pub fn set_banlist(&mut self, list: &Banlist) -> Result<(), Error> {
+        let tx = self.conn.transaction()?;
+        tx.execute("DELETE FROM banlists WHERE format = ?", [&list.format])?;
+        {
+            let mut insert = tx.prepare("INSERT OR REPLACE INTO banlists (format, id, status) VALUES (?1, ?2, ?3)")?;
+            for e in &list.cards {
+                insert.execute(params![list.format, e.id, banlist::status_name(e.limit)])?;
+            }
+        }
+        tx.execute(
+            "INSERT OR REPLACE INTO meta (key, value) VALUES (?1, ?2)",
+            [format!("banlist_{}", list.format), list.effective.clone()],
+        )?;
+        tx.commit()?;
+        Ok(())
+    }
+
+    /// Effective date of the stored list for `format` (`md`).
+    pub fn banlist_date(&self, format: &str) -> Option<String> {
+        self.conn.query_row("SELECT value FROM meta WHERE key = ?", [format!("banlist_{format}")], |r| r.get(0)).optional().ok().flatten()
+    }
+
     pub fn version(&self) -> Option<String> {
         self.conn.query_row("SELECT value FROM meta WHERE key = 'version'", [], |r| r.get(0)).optional().ok().flatten()
     }
@@ -203,8 +234,15 @@ impl CardStore {
             args.extend(q.rarities.iter().map(|r| Value::Text(r.clone())));
         }
         if !q.bans.is_empty() {
-            clauses.push(format!("c.ban_tcg IN ({})", placeholders(q.bans.len())));
-            args.extend(q.bans.iter().map(|b| Value::Text(b.clone())));
+            if q.formats.iter().any(|f| f == "Master Duel") {
+                // Master Duel cards follow Master Duel's own list.
+                clauses
+                    .push(format!("c.id IN (SELECT id FROM banlists WHERE format = 'md' AND status IN ({}))", placeholders(q.bans.len())));
+                args.extend(q.bans.iter().map(|b| Value::Text(if b == "Banned" { "Forbidden".into() } else { b.clone() })));
+            } else {
+                clauses.push(format!("c.ban_tcg IN ({})", placeholders(q.bans.len())));
+                args.extend(q.bans.iter().map(|b| Value::Text(b.clone())));
+            }
         }
         if !clauses.is_empty() {
             sql.push_str(" WHERE ");
@@ -229,7 +267,10 @@ impl CardStore {
         if ids.is_empty() {
             return Ok(Vec::new());
         }
-        let sql = format!("SELECT {COLUMNS} FROM cards WHERE id IN ({})", placeholders(ids.len()));
+        let sql = format!(
+            "SELECT {COLUMNS}, (SELECT status FROM banlists b WHERE b.format = 'md' AND b.id = cards.id) FROM cards WHERE id IN ({})",
+            placeholders(ids.len())
+        );
         let mut stmt = self.conn.prepare(&sql)?;
         let mut found = std::collections::HashMap::with_capacity(ids.len());
         let rows = stmt.query_map(rusqlite::params_from_iter(ids.iter()), |r| {
@@ -260,6 +301,7 @@ impl CardStore {
                 ban_ocg: r.get(22)?,
                 image_ids: serde_json::from_str(&r.get::<_, String>(23)?).unwrap_or_default(),
                 views: r.get::<_, i64>(24)? as u64,
+                ban_md: r.get(25)?,
             })
         })?;
         for card in rows {
