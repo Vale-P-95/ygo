@@ -5,12 +5,14 @@
 
 pub mod cond;
 pub mod exact;
+pub mod matches;
 pub mod optimize;
 pub mod overview;
 pub mod sim;
 
 pub use cond::{Cond, Op, Target};
 pub use exact::{probability, CardEntry, DeckModel, ExactError};
+pub use matches::{report as match_report, sample_size, MatchInput, Report as MatchReport};
 pub use optimize::{heatmap, optimize, sensitivity, size_curve, Heatmap, OptimizeConfig, OptimizeResult, Sensitivity};
 pub use overview::{overview, Overview};
 pub use sim::{simulate, CardRule, Checkpoint, Effect, SimConfig, SimResult};
