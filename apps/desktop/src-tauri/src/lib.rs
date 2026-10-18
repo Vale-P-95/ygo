@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::path::PathBuf;
 use std::sync::Mutex;
 
@@ -7,7 +7,7 @@ use tauri::http::{Response, StatusCode};
 use tauri::{Emitter, Manager, State};
 use ygo_data::sync::{self, Progress};
 use ygo_data::{
-    banlist, deck, Banlist, Card, CardStore, Chip, Deck, DeckBox, DeckSummary, Facets, Format, ImageCache, ImageSize, Legality,
+    banlist, deck, Banlist, Card, CardStore, Chip, Deck, DeckBox, DeckSummary, Facets, Format, ImageCache, ImageSize, Legality, Recipe,
     SavedSearch, Tag, UserStore,
 };
 use ygo_engine::{Engine, ScriptStore};
@@ -208,6 +208,49 @@ fn delete_saved_search(state: State<'_, AppState>, name: String) -> Result<Vec<S
         u.delete_search(&name)?;
         u.saved_searches()
     })
+}
+
+/// Lab: the overview of a Main Deck with its roles.
+#[tauri::command(async)]
+fn lab_overview(main: Vec<u32>, roles: BTreeMap<String, Vec<u32>>) -> ygo_stats::Overview {
+    ygo_stats::overview(&ygo_stats::DeckModel::from_ids(&main, &roles))
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct LabResult {
+    /// `None` when the exact calculation is impossible (see `error`).
+    p: Option<f64>,
+    error: Option<String>,
+}
+
+/// Lab: exact probability that a hand of `hand` cards satisfies `cond`.
+#[tauri::command(async)]
+fn lab_probability(main: Vec<u32>, roles: BTreeMap<String, Vec<u32>>, cond: ygo_stats::Cond, hand: u32) -> LabResult {
+    match ygo_stats::probability(&ygo_stats::DeckModel::from_ids(&main, &roles), &cond, hand) {
+        Ok(p) => LabResult { p: Some(p), error: None },
+        Err(e) => LabResult { p: None, error: Some(e.to_string()) },
+    }
+}
+
+#[tauri::command(async)]
+fn set_deck_roles(state: State<'_, AppState>, id: i64, roles: BTreeMap<String, Vec<u32>>) -> Result<(), String> {
+    state.with_user(|u| u.set_roles(id, &roles))
+}
+
+#[tauri::command(async)]
+fn list_recipes(state: State<'_, AppState>, deck_id: i64) -> Result<Vec<Recipe>, String> {
+    state.with_user(|u| u.recipes(deck_id))
+}
+
+#[tauri::command(async)]
+fn save_recipe(state: State<'_, AppState>, deck_id: Option<i64>, name: String, cond: serde_json::Value) -> Result<Recipe, String> {
+    state.with_user(|u| u.save_recipe(deck_id, &name, &cond))
+}
+
+#[tauri::command(async)]
+fn delete_recipe(state: State<'_, AppState>, id: i64) -> Result<(), String> {
+    state.with_user(|u| u.delete_recipe(id))
 }
 
 #[tauri::command(async)]
@@ -452,6 +495,12 @@ pub fn run() {
             save_search,
             delete_saved_search,
             list_decks,
+            lab_overview,
+            lab_probability,
+            set_deck_roles,
+            list_recipes,
+            save_recipe,
+            delete_recipe,
             shelf_decks,
             set_deck_box,
             duplicate_deck,

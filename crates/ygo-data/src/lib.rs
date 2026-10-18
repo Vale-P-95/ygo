@@ -19,7 +19,7 @@ pub use model::{Card, CardKind, Facets};
 pub use query::{parse as parse_query, Chip, Parsed, SearchQuery, Sort};
 pub use store::CardStore;
 pub use tags::Tag;
-pub use userdb::{DeckSummary, SavedSearch, UserStore};
+pub use userdb::{DeckSummary, Recipe, SavedSearch, UserStore};
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {

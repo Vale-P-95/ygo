@@ -2,6 +2,7 @@
 //! searches. Kept apart from the card data, which can be re-downloaded at
 //! any time.
 
+use std::collections::BTreeMap;
 use std::path::Path;
 
 use rusqlite::{params, Connection, OptionalExtension};
@@ -28,12 +29,29 @@ CREATE TABLE IF NOT EXISTS favorites (
     id INTEGER PRIMARY KEY,
     added_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
+CREATE TABLE IF NOT EXISTS recipes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    deck_id INTEGER,  -- NULL: offered for every deck
+    name TEXT NOT NULL,
+    cond TEXT NOT NULL,  -- JSON condition of the lab (ygo-stats Cond)
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
 CREATE TABLE IF NOT EXISTS saved_searches (
     name TEXT PRIMARY KEY,
     query TEXT NOT NULL,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 "#;
+
+/// A saved lab condition ("Mano solida", "Gioca attraverso Ash", ...).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Recipe {
+    pub id: i64,
+    pub deck_id: Option<i64>,
+    pub name: String,
+    pub cond: serde_json::Value,
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SavedSearch {
@@ -195,6 +213,44 @@ impl UserStore {
         Ok(())
     }
 
+    /// Replaces the roles of a deck's cards, without counting as an edit of the deck.
+    pub fn set_roles(&self, id: i64, roles: &BTreeMap<String, Vec<u32>>) -> Result<(), Error> {
+        let changed = self.conn.execute("UPDATE decks SET roles = ?2 WHERE id = ?1", params![id, serde_json::to_string(roles)?])?;
+        if changed == 0 {
+            return Err(Error::Data(format!("il deck {id} non esiste più")));
+        }
+        Ok(())
+    }
+
+    /// Recipes for a deck, plus the ones offered for every deck.
+    pub fn recipes(&self, deck_id: i64) -> Result<Vec<Recipe>, Error> {
+        let mut stmt =
+            self.conn.prepare("SELECT id, deck_id, name, cond FROM recipes WHERE deck_id = ?1 OR deck_id IS NULL ORDER BY id")?;
+        let rows = stmt.query_map([deck_id], |r| {
+            Ok(Recipe {
+                id: r.get(0)?,
+                deck_id: r.get(1)?,
+                name: r.get(2)?,
+                cond: serde_json::from_str(&r.get::<_, String>(3)?).unwrap_or_default(),
+            })
+        })?;
+        Ok(rows.collect::<Result<_, _>>()?)
+    }
+
+    pub fn save_recipe(&self, deck_id: Option<i64>, name: &str, cond: &serde_json::Value) -> Result<Recipe, Error> {
+        let name = name.trim();
+        if name.is_empty() {
+            return Err(Error::Data("dai un nome alla ricetta".into()));
+        }
+        self.conn.execute("INSERT INTO recipes (deck_id, name, cond) VALUES (?1, ?2, ?3)", params![deck_id, name, cond.to_string()])?;
+        Ok(Recipe { id: self.conn.last_insert_rowid(), deck_id, name: name.to_owned(), cond: cond.clone() })
+    }
+
+    pub fn delete_recipe(&self, id: i64) -> Result<(), Error> {
+        self.conn.execute("DELETE FROM recipes WHERE id = ?", [id])?;
+        Ok(())
+    }
+
     /// Copies a deck under the name "<name> (copia)"; returns the copy.
     pub fn duplicate(&self, id: i64) -> Result<Deck, Error> {
         let deck = self.get(id)?.ok_or_else(|| Error::Data(format!("il deck {id} non esiste più")))?;
@@ -246,8 +302,6 @@ impl UserStore {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::BTreeMap;
-
     use super::*;
 
     #[test]
@@ -315,6 +369,29 @@ mod tests {
         assert_ne!(copy.id, Some(id));
         assert_eq!((copy.name.as_str(), copy.main.as_slice(), &copy.deck_box), ("Invoked (copia)", &[1, 2][..], &look));
         assert!(store.set_box(999, &look).is_err());
+    }
+
+    #[test]
+    fn roles_and_recipes() {
+        let store = UserStore::open_in_memory().unwrap();
+        let id = store.save(&Deck { name: "Invoked".into(), main: vec![1, 2], ..Default::default() }).unwrap().id.unwrap();
+        let other = store.save(&Deck { name: "Altro".into(), ..Default::default() }).unwrap().id.unwrap();
+        let roles = BTreeMap::from([("starter".to_owned(), vec![1])]);
+        store.set_roles(id, &roles).unwrap();
+        assert_eq!(store.get(id).unwrap().unwrap().roles, roles);
+        assert!(store.set_roles(999, &roles).is_err());
+
+        let cond = serde_json::json!({"type": "count", "target": {"kind": "role", "value": "starter"}, "op": "atLeast", "n": 1});
+        store.save_recipe(Some(id), "Uno starter", &cond).unwrap();
+        store.save_recipe(None, "Per tutti", &cond).unwrap();
+        store.save_recipe(Some(other), "Solo l'altro", &cond).unwrap();
+        let names: Vec<String> = store.recipes(id).unwrap().into_iter().map(|r| r.name).collect();
+        assert_eq!(names, ["Uno starter", "Per tutti"]);
+        assert_eq!(store.recipes(id).unwrap()[0].cond, cond);
+        assert!(store.save_recipe(Some(id), " ", &cond).is_err());
+        let first = store.recipes(id).unwrap()[0].id;
+        store.delete_recipe(first).unwrap();
+        assert_eq!(store.recipes(id).unwrap().len(), 1);
     }
 
     #[test]
