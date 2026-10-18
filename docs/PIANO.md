@@ -1,4 +1,4 @@
-# DuelForge: piano di progetto (v0.5)
+# DuelForge: piano di progetto (v0.6)
 
 > Nome provvisorio. Il documento è la proposta iniziale: una volta approvate le decisioni aperte (§14) diventa la roadmap di sviluppo.
 >
@@ -9,6 +9,8 @@
 > **v0.4 (18/10/2026)**: Fase 0 realizzata; risultati e misure nella §16.
 >
 > **v0.5 (18/10/2026)**: Fase 1 realizzata; risultati nella §17.
+>
+> **v0.6 (18/10/2026)**: Fase 2, prima parte: editor dei deck in stile Master Duel; risultati nella §18.
 
 ## 0. Visione
 
@@ -582,3 +584,21 @@ La parallelizzazione su più thread funziona: ogni thread ha le sue partite.
 ### 17.3 Prossimo passo: Fase 2
 Deck Builder vero e proprio (Main/Extra/Side con drag & drop e suoni "forgia"), banlist di Master Duel e validazione, import/export `.ydk`, pagina Novità.
 
+## 18. Risultati della Fase 2, prima parte (18/10/2026)
+
+### 18.1 Dati e regole
+- `ygo-data` ora gestisce i deck: modello (Main, Extra, Side, formato), import ed export `.ydk` e `ydke://`, e un archivio locale `user.db` (SQLite) separato dal database delle carte, così un aggiornamento delle carte non tocca mai i deck dell'utente.
+- **Validazione** per Master Duel, TCG e OCG: 40–60 carte nel Main, al massimo 15 in Extra e Side, carte sconosciute, carte da Extra Deck nella sezione sbagliata, skill e token, disponibilità nel formato, numero di copie con i limiti delle banlist TCG e OCG. Ogni problema elenca le carte coinvolte, che l'interfaccia evidenzia.
+- **Artwork alternativi**: all'importazione ogni passcode viene ricondotto alla carta giusta anche quando YGOPRODeck usa un altro id come principale (§17.1).
+- **Limite aperto**: YGOPRODeck non pubblica la banlist di Master Duel. Il validatore lo segnala con un avviso; per integrarla serve una fonte (ad esempio Master Duel Meta, previo permesso).
+
+### 18.2 Editor "Fucina"
+- Disposizione in stile Master Duel, come scelto: deck al centro (Main 10 carte per riga con 40 posti tratteggiati, poi Extra e Side), catalogo in una colonna a destra. Una carta per ogni copia.
+- **Drag & drop** con puntatore (non quello HTML5, che in WebView2 e WebKitGTK è poco fluido): dal catalogo al deck, tra le sezioni e dal deck al catalogo per togliere. La carta trascinata segue il puntatore, la sezione di arrivo si illumina e una carta da Extra Deck lasciata nel Main finisce comunque nell'Extra.
+- **Clic destro**: aggiunge dal catalogo (Maiusc: nel Side) e toglie dal deck. Il catalogo mostra "×N" sulle carte già nel deck.
+- **Effetti**: "clink" e scintille sulla carta appena forgiata, animazione di arrivo, toast per gli errori (ad esempio "massimo 3 copie").
+- **Barra del deck**: menu "I miei deck" con le copertine, nome modificabile, salvataggio automatico, annulla e ripeti (Ctrl+Z, Ctrl+Y), esporta, elimina con conferma; formato MD/TCG/OCG, badge di legalità con l'elenco dei problemi e **costo di creazione in Master Duel** per rarità (UR/SR/R/N).
+- **Prova con l'Invoked di Siracusa**: in Master Duel il deck risulta legale (costo UR 33, SR 25, R 9, N 3); passando a TCG compare "Triple Tactics Talent: 2 copie, al massimo 1".
+
+### 18.3 Prossimi passi della Fase 2
+Banlist di Master Duel, versioni dei deck e piani di side (§4.4), pagina Novità con le differenze tra banlist e l'impatto sui deck salvati.

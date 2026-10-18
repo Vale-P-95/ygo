@@ -4,7 +4,7 @@ Suite desktop per Yu-Gi-Oh!: deck builder con carte e banlist sempre aggiornate,
 
 Il piano di progetto completo è in [`docs/PIANO.md`](docs/PIANO.md).
 
-**Stato**: Fase 1 completata. L'app scarica da sola carte e dati del motore e offre la Fucina: catalogo di tutte le carte con ricerca avanzata, filtri, visualizzatore con zoom e lente, effetti visivi e sonori.
+**Stato**: Fase 2 in corso. L'app scarica da sola carte e dati del motore; nella Fucina si costruiscono i deck in stile Master Duel (Main, Extra e Side al centro, catalogo a destra), con validazione del formato, costo di creazione in Master Duel, salvataggio automatico e import/export `.ydk`/`ydke://`. Mancano ancora la banlist di Master Duel, le versioni dei deck e la pagina Novità.
 
 ## Struttura
 
@@ -61,10 +61,23 @@ Senza `DUELFORGE_DATA`, l'app cerca i dati nella sua cartella dati (`%APPDATA%\a
 Test e controlli:
 
 ```powershell
-cargo test -p ygo-engine -p ygo-cli
-cargo clippy -p ygo-engine -p ygo-cli --all-targets
+cargo test -p ygo-engine -p ygo-data -p ygo-cli
+cargo clippy -p ygo-engine -p ygo-data -p ygo-cli -p duelforge-desktop --all-targets
 cd apps\desktop; pnpm typecheck
 ```
+
+## Costruire un deck
+
+| Azione | Come |
+|---|---|
+| Aggiungere una carta | trascinala dal catalogo nel deck, oppure clic destro sulla carta del catalogo (Maiusc+clic destro: Side) |
+| Togliere una carta | clic destro sulla carta nel deck, oppure trascinala sul catalogo |
+| Spostare tra Main, Extra e Side | trascina la carta nell'altra sezione |
+| Annullare, ripetere | Ctrl+Z, Ctrl+Y (o i pulsanti ↶ ↷) |
+| Vedere i problemi | clic sul badge di legalità: ogni problema evidenzia le carte coinvolte |
+| Importare, esportare | "I miei deck" → Importa; pulsante Esporta (`.ydk` e `ydke://`) |
+
+I deck si salvano da soli in `user.db` nella cartella dati dell'app. Le carte Fusion, Synchro, Xyz e Link vanno sempre nell'Extra Deck, e il deck si riordina come in Master Duel (mostri, magie, trappole).
 
 ## CLI
 
