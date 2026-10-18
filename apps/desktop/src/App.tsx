@@ -1,110 +1,67 @@
-import { useState } from "react";
-import { EngineStatusPanel } from "./EngineStatus";
-import { sections, type Section, type SectionId } from "./sections";
+import { useEffect, useState } from "react";
+import { Embers } from "./components/Embers";
+import { Sidebar } from "./components/Sidebar";
+import { api, isDesktop, type DataStatus } from "./lib/api";
+import { useSettings } from "./lib/settings";
+import { DeckBuilder } from "./pages/DeckBuilder";
+import { Overview } from "./pages/Overview";
+import { Settings } from "./pages/Settings";
+import { Upcoming } from "./pages/Upcoming";
+import { sectionById, type SectionId } from "./sections";
 
-const roadmap = [
-  { phase: 0, title: "Fondamenta e prova del motore", done: true },
-  { phase: 1, title: "Database carte e visualizzatore", done: false },
-  { phase: 2, title: "Deck Builder e banlist", done: false },
-  { phase: 3, title: "Scaffale dei deck", done: false },
-  { phase: 4, title: "Laboratorio statistico", done: false },
-  { phase: 5, title: "Motore e sandbox", done: false },
-  { phase: 6, title: "Combo Lab v1", done: false },
-  { phase: 7, title: "Combo Lab v2", done: false },
-];
+/** Ember color per section, matching its accent. */
+const EMBER_COLORS: Partial<Record<SectionId, string>> = {
+  "deck-builder": "#ff8a3d",
+  stats: "#5ee6db",
+  combo: "#c39bff",
+  shelf: "#e2bb7d",
+};
 
-function Icon({ path }: { path: string }) {
-  return (
-    <svg viewBox="0 0 24 24" className="h-5 w-5 shrink-0" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path d={path} />
-    </svg>
-  );
-}
-
-function Sidebar({ active, onSelect }: { active: SectionId; onSelect: (id: SectionId) => void }) {
-  return (
-    <nav className="flex w-60 shrink-0 flex-col border-r border-border bg-surface px-3 py-4" aria-label="Sezioni">
-      <div className="mb-6 flex items-center gap-2 px-3">
-        <span className="grid h-8 w-8 place-items-center rounded-lg bg-accent font-bold text-bg">D</span>
-        <span className="text-lg font-semibold tracking-tight">DuelForge</span>
-      </div>
-      <ul className="flex flex-col gap-1">
-        {sections.map((s) => (
-          <li key={s.id}>
-            <button
-              type="button"
-              onClick={() => onSelect(s.id)}
-              aria-current={active === s.id ? "page" : undefined}
-              className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm transition-colors duration-150 ${
-                active === s.id ? "bg-accent-soft font-medium text-text" : "text-muted hover:bg-surface-2 hover:text-text"
-              }`}
-            >
-              <Icon path={s.icon} />
-              {s.label}
-            </button>
-          </li>
-        ))}
-      </ul>
-      <p className="mt-auto px-3 text-xs text-muted">Versione 0.1.0 · progetto non ufficiale, non affiliato a Konami</p>
-    </nav>
-  );
-}
-
-function Overview() {
-  return (
-    <div className="grid gap-6 lg:grid-cols-2">
-      <EngineStatusPanel />
-      <section className="rounded-xl border border-border bg-surface p-5">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-muted">Roadmap</h2>
-        <ol className="mt-3 flex flex-col gap-2 text-sm">
-          {roadmap.map((step) => (
-            <li key={step.phase} className="flex items-center gap-3">
-              <span
-                className={`grid h-6 w-6 place-items-center rounded-full text-xs font-semibold ${
-                  step.done ? "bg-ok text-bg" : "border border-border text-muted"
-                }`}
-              >
-                {step.phase}
-              </span>
-              <span className={step.done ? "" : "text-muted"}>{step.title}</span>
-            </li>
-          ))}
-        </ol>
-      </section>
-    </div>
-  );
-}
-
-function Upcoming({ section }: { section: Section }) {
-  return (
-    <section className="max-w-2xl rounded-xl border border-border bg-surface p-6">
-      <p className="text-sm font-medium text-accent">In arrivo nella Fase {section.phase}</p>
-      <ul className="mt-4 flex flex-col gap-2 text-sm">
-        {section.planned.map((item) => (
-          <li key={item} className="flex gap-2">
-            <span className="text-accent" aria-hidden>
-              ◆
-            </span>
-            {item}
-          </li>
-        ))}
-      </ul>
-    </section>
-  );
+function useTheme() {
+  const { theme, cardEffects } = useSettings();
+  useEffect(() => {
+    const root = document.documentElement;
+    const apply = () => {
+      const light = theme === "light" || (theme === "system" && matchMedia("(prefers-color-scheme: light)").matches);
+      root.dataset.theme = light ? "light" : "forge";
+    };
+    apply();
+    root.dataset.cardEffects = cardEffects ? "on" : "off";
+    if (theme !== "system") return;
+    const media = matchMedia("(prefers-color-scheme: light)");
+    media.addEventListener("change", apply);
+    return () => media.removeEventListener("change", apply);
+  }, [theme, cardEffects]);
 }
 
 export default function App() {
-  const [active, setActive] = useState<SectionId>("overview");
-  const section = sections.find((s) => s.id === active) ?? sections[0];
+  useTheme();
+  const [active, setActive] = useState<SectionId>("deck-builder");
+  const [status, setStatus] = useState<DataStatus | null>(null);
+
+  useEffect(() => {
+    if (isDesktop) api.dataStatus().then(setStatus).catch(() => setStatus(null));
+  }, []);
+
+  // Portals (viewer, previews) live in <body>: give it the section accent too.
+  useEffect(() => {
+    document.body.dataset.section = active;
+  }, [active]);
+
+  const section = sectionById(active);
+  const artReady = !!status?.cards;
+
   return (
     <div className="flex h-full">
       <Sidebar active={active} onSelect={setActive} />
-      <main className="flex-1 overflow-y-auto px-10 py-8">
-        <header className="mb-8">
-          <h1 className="text-2xl font-semibold tracking-tight">{section.label}</h1>
-          <p className="mt-1 text-muted">{section.summary}</p>
-        </header>
-        {section.id === "overview" ? <Overview /> : <Upcoming section={section} />}
+      <main data-section={active} className="relative min-w-0 flex-1">
+        <Embers color={EMBER_COLORS[active] ?? "#ffc65c"} />
+        <div key={active} className="relative h-full anim-fade">
+          {active === "overview" && <Overview status={status} onStatus={setStatus} go={setActive} />}
+          {active === "deck-builder" && <DeckBuilder status={status} onStatus={setStatus} />}
+          {active === "settings" && <Settings onStatus={setStatus} />}
+          {!["overview", "deck-builder", "settings"].includes(active) && <Upcoming section={section} artReady={artReady} />}
+        </div>
       </main>
     </div>
   );

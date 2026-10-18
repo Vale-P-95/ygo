@@ -17,3 +17,6 @@ tauri-build = { version = "2", features = [] }
 tauri = { version = "2", features = [] }
 serde = { version = "1", features = ["derive"] }
 ygo-engine = { path = "../../../crates/ygo-engine" }
+ygo-data = { path = "../../../crates/ygo-data" }
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
+tokio = { version = "1", features = ["sync"] }

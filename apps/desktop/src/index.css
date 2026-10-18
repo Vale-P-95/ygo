@@ -1,49 +1,106 @@
 @import "tailwindcss";
+@import "@fontsource/cinzel/600.css";
+@import "@fontsource/cinzel/700.css";
+@import "@fontsource-variable/inter";
 
-/* Design tokens: light by default, dark when the system asks for it. */
-:root {
-  --df-bg: #f4f5f8;
-  --df-surface: #ffffff;
-  --df-surface-2: #eceef3;
-  --df-border: #d9dde6;
-  --df-text: #161a22;
-  --df-muted: #5d6578;
-  --df-accent: #b7860f;
-  --df-accent-soft: #f6ead0;
-  --df-fusion: #7b4fb8;
-  --df-ok: #1f8a4c;
-  --df-warn: #b45309;
+/*
+ * Design tokens. "Fucina" (forge) is the default dark theme: warm charcoal,
+ * molten gold and ember orange. "Pergamena" is the light theme. Each section
+ * sets its own accent (--sec): ember for the forge, cyan for the laboratory,
+ * violet for the arcane combo lab, brass for the workshop shelf.
+ */
+:root,
+[data-theme="forge"] {
+  color-scheme: dark;
+  --df-bg: #0b090a;
+  --df-bg-2: #110d0e;
+  --df-surface: #171314;
+  --df-surface-2: #1f1a1a;
+  --df-surface-3: #2a2322;
+  --df-border: #332a28;
+  --df-border-strong: #4d3e39;
+  --df-text: #f3ece4;
+  --df-muted: #ab9f95;
+  --df-faint: #74685f;
+  --df-gold: #f2b544;
+  --df-ember: #ff6b2c;
+  --df-ok: #6fd28a;
+  --df-warn: #ffb547;
+  --df-danger: #ff6464;
+  --df-highlight: rgb(255 240 220 / 0.06);
+  --df-shadow: 0 18px 40px -18px rgb(0 0 0 / 0.85);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --df-bg: #0d0f14;
-    --df-surface: #151922;
-    --df-surface-2: #1d2230;
-    --df-border: #2a3142;
-    --df-text: #e8eaf0;
-    --df-muted: #9aa3b5;
-    --df-accent: #e3b341;
-    --df-accent-soft: #3a3020;
-    --df-fusion: #a77bd8;
-    --df-ok: #4ade80;
-    --df-warn: #fbbf24;
-  }
+[data-theme="light"] {
+  color-scheme: light;
+  --df-bg: #f3ede3;
+  --df-bg-2: #ece3d4;
+  --df-surface: #fffaf2;
+  --df-surface-2: #f5ecdd;
+  --df-surface-3: #ebdfcb;
+  --df-border: #ddcdb4;
+  --df-border-strong: #c7b291;
+  --df-text: #2a201a;
+  --df-muted: #6c5c4e;
+  --df-faint: #9c8a77;
+  --df-gold: #a8700c;
+  --df-ember: #c94a17;
+  --df-ok: #23854a;
+  --df-warn: #b26a00;
+  --df-danger: #c23030;
+  --df-highlight: rgb(255 255 255 / 0.6);
+  --df-shadow: 0 16px 34px -18px rgb(80 50 20 / 0.45);
+}
+
+[data-section] {
+  --sec: var(--df-gold);
+  --sec-2: var(--df-ember);
+}
+[data-section="deck-builder"] {
+  --sec: var(--df-ember);
+  --sec-2: var(--df-gold);
+}
+[data-section="stats"] {
+  --sec: #3fd4c9;
+  --sec-2: #9bf0e8;
+}
+[data-section="combo"] {
+  --sec: #a77bd8;
+  --sec-2: #dcbcff;
+}
+[data-section="shelf"] {
+  --sec: #c9a26b;
+  --sec-2: #ecd2a4;
+}
+[data-theme="light"] [data-section="stats"] {
+  --sec: #0f8f86;
+  --sec-2: #13b3a7;
+}
+[data-theme="light"] [data-section="combo"] {
+  --sec: #6c3fae;
+  --sec-2: #8b5bd0;
 }
 
 @theme inline {
   --color-bg: var(--df-bg);
+  --color-bg-2: var(--df-bg-2);
   --color-surface: var(--df-surface);
   --color-surface-2: var(--df-surface-2);
+  --color-surface-3: var(--df-surface-3);
   --color-border: var(--df-border);
+  --color-border-strong: var(--df-border-strong);
   --color-text: var(--df-text);
   --color-muted: var(--df-muted);
-  --color-accent: var(--df-accent);
-  --color-accent-soft: var(--df-accent-soft);
-  --color-fusion: var(--df-fusion);
+  --color-faint: var(--df-faint);
+  --color-gold: var(--df-gold);
+  --color-ember: var(--df-ember);
   --color-ok: var(--df-ok);
   --color-warn: var(--df-warn);
-  --font-sans: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --color-danger: var(--df-danger);
+  --color-sec: var(--sec);
+  --color-sec-2: var(--sec-2);
+  --font-sans: "Inter Variable", "Segoe UI", system-ui, sans-serif;
+  --font-display: "Cinzel", "Times New Roman", serif;
 }
 
 html,
@@ -54,10 +111,379 @@ body,
 
 body {
   margin: 0;
-  background: var(--df-bg);
+  background:
+    radial-gradient(1200px 600px at 70% -10%, color-mix(in oklab, var(--df-ember) 9%, transparent), transparent 60%),
+    radial-gradient(900px 500px at -10% 110%, color-mix(in oklab, var(--df-gold) 6%, transparent), transparent 60%), var(--df-bg);
   color: var(--df-text);
   font-family: var(--font-sans);
+  font-feature-settings: "cv11", "ss01";
   -webkit-font-smoothing: antialiased;
+  user-select: none;
+  overflow: hidden;
+}
+
+::selection {
+  background: color-mix(in oklab, var(--df-gold) 40%, transparent);
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--df-border-strong) transparent;
+}
+
+:focus-visible {
+  outline: 2px solid var(--df-gold);
+  outline-offset: 2px;
+}
+
+@layer components {
+  .panel {
+    background: linear-gradient(180deg, var(--df-highlight), transparent 40%), var(--df-surface);
+    border: 1px solid var(--df-border);
+    border-radius: 14px;
+    box-shadow: var(--df-shadow);
+  }
+
+  .display {
+    font-family: var(--font-display);
+    letter-spacing: 0.04em;
+  }
+
+  .eyebrow {
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--df-muted);
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    border-radius: 10px;
+    padding: 0.55rem 1rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    transition:
+      transform 120ms ease,
+      box-shadow 160ms ease,
+      background-color 160ms ease,
+      color 160ms ease;
+  }
+  .btn:active {
+    transform: translateY(1px) scale(0.98);
+  }
+  .btn-molten {
+    color: #1a0d05;
+    background: linear-gradient(135deg, #ffd27a, var(--df-gold) 40%, var(--df-ember));
+    box-shadow:
+      0 0 0 1px rgb(255 200 120 / 0.35) inset,
+      0 8px 24px -10px color-mix(in oklab, var(--df-ember) 80%, transparent);
+  }
+  .btn-molten:hover {
+    box-shadow:
+      0 0 0 1px rgb(255 220 150 / 0.6) inset,
+      0 10px 30px -8px color-mix(in oklab, var(--df-ember) 90%, transparent);
+  }
+  .btn-ghost {
+    color: var(--df-text);
+    background: var(--df-surface-2);
+    border: 1px solid var(--df-border);
+  }
+  .btn-ghost:hover {
+    background: var(--df-surface-3);
+    border-color: var(--df-border-strong);
+  }
+
+  .field {
+    width: 100%;
+    border-radius: 10px;
+    border: 1px solid var(--df-border);
+    background: var(--df-bg-2);
+    color: var(--df-text);
+    padding: 0.5rem 0.7rem;
+    font-size: 0.875rem;
+    transition:
+      border-color 150ms ease,
+      box-shadow 150ms ease;
+  }
+  .field:focus {
+    outline: none;
+    border-color: color-mix(in oklab, var(--sec) 70%, var(--df-border));
+    box-shadow: 0 0 0 3px color-mix(in oklab, var(--sec) 22%, transparent);
+  }
+
+  select.field {
+    appearance: none;
+    padding-right: 2rem;
+    background-image: linear-gradient(45deg, transparent 50%, var(--df-muted) 50%), linear-gradient(135deg, var(--df-muted) 50%, transparent 50%);
+    background-position:
+      calc(100% - 16px) 50%,
+      calc(100% - 11px) 50%;
+    background-size: 5px 5px;
+    background-repeat: no-repeat;
+  }
+  select.field option {
+    background: var(--df-surface);
+    color: var(--df-text);
+  }
+
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    border-radius: 999px;
+    border: 1px solid var(--df-border-strong);
+    background: var(--df-surface-2);
+    padding: 0.2rem 0.65rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+    white-space: nowrap;
+  }
+  .chip-active {
+    border-color: color-mix(in oklab, var(--sec) 70%, transparent);
+    background: color-mix(in oklab, var(--sec) 16%, var(--df-surface-2));
+    color: var(--df-text);
+  }
+
+  /* Workbench patterns behind section content. */
+  .bg-blueprint {
+    background-image:
+      linear-gradient(color-mix(in oklab, var(--sec) 6%, transparent) 1px, transparent 1px),
+      linear-gradient(90deg, color-mix(in oklab, var(--sec) 6%, transparent) 1px, transparent 1px);
+    background-size: 28px 28px;
+  }
+
+  /* Molten metal progress bar. */
+  .molten-track {
+    height: 8px;
+    border-radius: 999px;
+    background: var(--df-bg-2);
+    border: 1px solid var(--df-border);
+    overflow: hidden;
+  }
+  .molten-fill {
+    height: 100%;
+    border-radius: inherit;
+    background: linear-gradient(90deg, #ff5a1f, #ffb547, #fff0b8, #ffb547, #ff5a1f);
+    background-size: 200% 100%;
+    animation: molten-flow 1.4s linear infinite;
+    box-shadow: 0 0 12px color-mix(in oklab, var(--df-ember) 70%, transparent);
+    transition: width 220ms ease;
+  }
+}
+
+/* Glowing embers only read on the dark forge theme. */
+[data-theme="light"] .embers {
+  display: none;
+}
+
+/* ---------- Card tiles: 3D tilt, glare and Master Duel rarity foil ---------- */
+
+.card-tile {
+  --rx: 0deg;
+  --ry: 0deg;
+  --mx: 50%;
+  --my: 50%;
+  position: relative;
+  display: block;
+  width: 100%;
+  aspect-ratio: 421 / 614;
+  border-radius: 6px;
+  transform: perspective(700px) rotateX(var(--rx)) rotateY(var(--ry));
+  transition:
+    transform 380ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    box-shadow 220ms ease,
+    filter 220ms ease;
+  box-shadow: 0 6px 16px -8px rgb(0 0 0 / 0.8);
+  cursor: pointer;
+}
+.card-tile[data-tilting="true"] {
+  transition:
+    transform 60ms linear,
+    box-shadow 220ms ease;
+}
+.card-tile:hover {
+  box-shadow:
+    0 0 0 1px color-mix(in oklab, var(--sec) 70%, transparent),
+    0 14px 30px -10px rgb(0 0 0 / 0.9),
+    0 0 26px -6px color-mix(in oklab, var(--sec) 65%, transparent);
+  z-index: 2;
+}
+.card-tile[aria-pressed="true"] {
+  box-shadow:
+    0 0 0 2px var(--sec),
+    0 0 30px -4px color-mix(in oklab, var(--sec) 80%, transparent);
+}
+.card-tile__clip {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  overflow: hidden;
+  background: linear-gradient(135deg, var(--df-surface-3), var(--df-surface-2));
+}
+.card-tile__img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  transition: opacity 260ms ease;
+}
+.card-tile__img[data-loaded="true"] {
+  opacity: 1;
+}
+.card-tile__shimmer {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(110deg, transparent 30%, rgb(255 255 255 / 0.06) 50%, transparent 70%);
+  background-size: 250% 100%;
+  animation: shimmer 1.3s linear infinite;
+}
+.card-tile__glare {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  background: radial-gradient(circle at var(--mx) var(--my), rgb(255 255 255 / 0.32), transparent 55%);
+  mix-blend-mode: overlay;
+  transition: opacity 200ms ease;
+  pointer-events: none;
+}
+.card-tile:hover .card-tile__glare {
+  opacity: 1;
+}
+.card-tile__foil {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  mix-blend-mode: color-dodge;
+  opacity: 0;
+  transition: opacity 260ms ease;
+}
+/* Super Rare: a silver sheen that follows the pointer. */
+.card-tile[data-rarity="sr"] .card-tile__foil {
+  background: linear-gradient(115deg, transparent 25%, rgb(255 255 255 / 0.55) calc(var(--mx) - 5%), transparent 75%);
+  opacity: 0.18;
+}
+/* Ultra Rare: rainbow holo foil bands. */
+.card-tile[data-rarity="ur"] .card-tile__foil {
+  background:
+    repeating-linear-gradient(
+      115deg,
+      hsl(0 90% 65% / 0.55) 0%,
+      hsl(50 95% 65% / 0.55) 7%,
+      hsl(130 80% 60% / 0.55) 14%,
+      hsl(200 90% 65% / 0.55) 21%,
+      hsl(280 85% 70% / 0.55) 28%,
+      hsl(0 90% 65% / 0.55) 35%
+    ),
+    radial-gradient(circle at var(--mx) var(--my), rgb(255 255 255 / 0.5), transparent 45%);
+  background-size:
+    300% 300%,
+    100% 100%;
+  background-position:
+    var(--mx) var(--my),
+    0 0;
+  opacity: 0.22;
+}
+.card-tile:hover[data-rarity="sr"] .card-tile__foil {
+  opacity: 0.4;
+}
+.card-tile:hover[data-rarity="ur"] .card-tile__foil {
+  opacity: 0.5;
+}
+[data-card-effects="off"] .card-tile {
+  transform: none !important;
+}
+[data-card-effects="off"] .card-tile__foil,
+[data-card-effects="off"] .card-tile__glare {
+  display: none;
+}
+
+.rarity-gem {
+  position: absolute;
+  right: 4px;
+  top: 4px;
+  border-radius: 4px;
+  padding: 0 4px;
+  font-size: 9px;
+  font-weight: 800;
+  line-height: 14px;
+  letter-spacing: 0.04em;
+  color: #120c08;
+  box-shadow: 0 1px 4px rgb(0 0 0 / 0.6);
+}
+.rarity-gem[data-rarity="n"] {
+  background: #c9c4bd;
+}
+.rarity-gem[data-rarity="r"] {
+  background: linear-gradient(135deg, #b8e2ff, #5aa9e6);
+}
+.rarity-gem[data-rarity="sr"] {
+  background: linear-gradient(135deg, #fff6c9, #e0b84a);
+}
+.rarity-gem[data-rarity="ur"] {
+  background: linear-gradient(135deg, #ffb3d1, #ffe58a, #a5f3c3, #9ec9ff, #e0b3ff);
+}
+
+/* ---------- Animations ---------- */
+
+@keyframes molten-flow {
+  to {
+    background-position: -200% 0;
+  }
+}
+@keyframes shimmer {
+  to {
+    background-position: -250% 0;
+  }
+}
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes pop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes glow-pulse {
+  50% {
+    opacity: 0.55;
+  }
+}
+@keyframes spin-slow {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.anim-rise {
+  animation: rise-in 420ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.anim-pop {
+  animation: pop-in 240ms cubic-bezier(0.2, 0.9, 0.3, 1.2) both;
+}
+.anim-fade {
+  animation: fade-in 200ms ease both;
 }
 
 @media (prefers-reduced-motion: reduce) {
