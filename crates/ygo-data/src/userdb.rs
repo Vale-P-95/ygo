@@ -7,7 +7,7 @@ use std::path::Path;
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
 
-use crate::deck::{Deck, Format};
+use crate::deck::{Deck, DeckBox, Format};
 use crate::Error;
 
 const SCHEMA: &str = r#"
@@ -20,6 +20,7 @@ CREATE TABLE IF NOT EXISTS decks (
     side TEXT NOT NULL,
     maybe TEXT NOT NULL DEFAULT '[]',
     roles TEXT NOT NULL DEFAULT '{}',  -- JSON object: role -> passcodes
+    deck_box TEXT NOT NULL DEFAULT '{}',  -- JSON: shelf appearance
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
@@ -50,8 +51,10 @@ pub struct DeckSummary {
     pub extra_count: usize,
     pub side_count: usize,
     pub updated_at: String,
-    /// First card of the Main Deck, for a thumbnail.
+    /// First showcase card, else the first card of the Main Deck, for a thumbnail.
     pub cover: Option<u32>,
+    #[serde(rename = "box")]
+    pub deck_box: DeckBox,
 }
 
 pub struct UserStore {
@@ -62,7 +65,7 @@ pub struct UserStore {
 fn migrate(conn: &Connection) -> Result<(), Error> {
     conn.execute_batch(SCHEMA)?;
     // Columns added after the first release, with their defaults.
-    for (column, default) in [("maybe", "'[]'"), ("roles", "'{}'")] {
+    for (column, default) in [("maybe", "'[]'"), ("roles", "'{}'"), ("deck_box", "'{}'")] {
         let present: bool =
             conn.query_row("SELECT COUNT(*) FROM pragma_table_info('decks') WHERE name = ?", [column], |r| r.get::<_, i64>(0))? > 0;
         if !present {
@@ -93,10 +96,12 @@ impl UserStore {
     }
 
     pub fn list(&self) -> Result<Vec<DeckSummary>, Error> {
-        let mut stmt =
-            self.conn.prepare("SELECT id, name, format, main, extra, side, updated_at FROM decks ORDER BY updated_at DESC, id DESC")?;
+        let mut stmt = self
+            .conn
+            .prepare("SELECT id, name, format, main, extra, side, updated_at, deck_box FROM decks ORDER BY updated_at DESC, id DESC")?;
         let rows = stmt.query_map([], |r| {
             let main = ids(&r.get::<_, String>(3)?);
+            let deck_box: DeckBox = serde_json::from_str(&r.get::<_, String>(7)?).unwrap_or_default();
             Ok(DeckSummary {
                 id: r.get(0)?,
                 name: r.get(1)?,
@@ -105,7 +110,8 @@ impl UserStore {
                 extra_count: ids(&r.get::<_, String>(4)?).len(),
                 side_count: ids(&r.get::<_, String>(5)?).len(),
                 updated_at: r.get(6)?,
-                cover: main.first().copied(),
+                cover: deck_box.showcase.first().or(main.first()).copied(),
+                deck_box,
             })
         })?;
         Ok(rows.collect::<Result<_, _>>()?)
@@ -114,19 +120,24 @@ impl UserStore {
     pub fn get(&self, id: i64) -> Result<Option<Deck>, Error> {
         Ok(self
             .conn
-            .query_row("SELECT id, name, format, main, extra, side, maybe, roles, updated_at FROM decks WHERE id = ?", [id], |r| {
-                Ok(Deck {
-                    id: Some(r.get(0)?),
-                    name: r.get(1)?,
-                    format: Format::parse(&r.get::<_, String>(2)?).unwrap_or_default(),
-                    main: ids(&r.get::<_, String>(3)?),
-                    extra: ids(&r.get::<_, String>(4)?),
-                    side: ids(&r.get::<_, String>(5)?),
-                    maybe: ids(&r.get::<_, String>(6)?),
-                    roles: serde_json::from_str(&r.get::<_, String>(7)?).unwrap_or_default(),
-                    updated_at: Some(r.get(8)?),
-                })
-            })
+            .query_row(
+                "SELECT id, name, format, main, extra, side, maybe, roles, updated_at, deck_box FROM decks WHERE id = ?",
+                [id],
+                |r| {
+                    Ok(Deck {
+                        id: Some(r.get(0)?),
+                        name: r.get(1)?,
+                        format: Format::parse(&r.get::<_, String>(2)?).unwrap_or_default(),
+                        main: ids(&r.get::<_, String>(3)?),
+                        extra: ids(&r.get::<_, String>(4)?),
+                        side: ids(&r.get::<_, String>(5)?),
+                        maybe: ids(&r.get::<_, String>(6)?),
+                        roles: serde_json::from_str(&r.get::<_, String>(7)?).unwrap_or_default(),
+                        updated_at: Some(r.get(8)?),
+                        deck_box: serde_json::from_str(&r.get::<_, String>(9)?).unwrap_or_default(),
+                    })
+                },
+            )
             .optional()?)
     }
 
@@ -135,12 +146,13 @@ impl UserStore {
         let json = |ids: &Vec<u32>| serde_json::to_string(ids);
         let (main, extra, side, maybe) = (json(&deck.main)?, json(&deck.extra)?, json(&deck.side)?, json(&deck.maybe)?);
         let roles = serde_json::to_string(&deck.roles)?;
+        let deck_box = serde_json::to_string(&deck.deck_box)?;
         let name = if deck.name.trim().is_empty() { "Nuovo deck" } else { deck.name.trim() };
         let id = match deck.id {
             Some(id) => {
                 let changed = self.conn.execute(
-                    "UPDATE decks SET name = ?2, format = ?3, main = ?4, extra = ?5, side = ?6, maybe = ?7, roles = ?8, updated_at = datetime('now') WHERE id = ?1",
-                    params![id, name, deck.format.as_str(), main, extra, side, maybe, roles],
+                    "UPDATE decks SET name = ?2, format = ?3, main = ?4, extra = ?5, side = ?6, maybe = ?7, roles = ?8, deck_box = ?9, updated_at = datetime('now') WHERE id = ?1",
+                    params![id, name, deck.format.as_str(), main, extra, side, maybe, roles, deck_box],
                 )?;
                 if changed == 0 {
                     return Err(Error::Data(format!("il deck {id} non esiste più")));
@@ -149,13 +161,28 @@ impl UserStore {
             }
             None => {
                 self.conn.execute(
-                    "INSERT INTO decks (name, format, main, extra, side, maybe, roles) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
-                    params![name, deck.format.as_str(), main, extra, side, maybe, roles],
+                    "INSERT INTO decks (name, format, main, extra, side, maybe, roles, deck_box) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+                    params![name, deck.format.as_str(), main, extra, side, maybe, roles, deck_box],
                 )?;
                 self.conn.last_insert_rowid()
             }
         };
         self.get(id)?.ok_or_else(|| Error::Data("deck salvato ma non trovato".into()))
+    }
+
+    /// Changes how a deck looks on the shelf, without counting as an edit of the deck.
+    pub fn set_box(&self, id: i64, deck_box: &DeckBox) -> Result<(), Error> {
+        let changed = self.conn.execute("UPDATE decks SET deck_box = ?2 WHERE id = ?1", params![id, serde_json::to_string(deck_box)?])?;
+        if changed == 0 {
+            return Err(Error::Data(format!("il deck {id} non esiste più")));
+        }
+        Ok(())
+    }
+
+    /// Copies a deck under the name "<name> (copia)"; returns the copy.
+    pub fn duplicate(&self, id: i64) -> Result<Deck, Error> {
+        let deck = self.get(id)?.ok_or_else(|| Error::Data(format!("il deck {id} non esiste più")))?;
+        self.save(&Deck { id: None, name: format!("{} (copia)", deck.name), ..deck })
     }
 
     pub fn delete(&self, id: i64) -> Result<(), Error> {
@@ -239,8 +266,9 @@ mod tests {
             let conn = Connection::open(&path).unwrap();
             let old_schema = SCHEMA
                 .replace("    maybe TEXT NOT NULL DEFAULT '[]',\n", "")
-                .replace("    roles TEXT NOT NULL DEFAULT '{}',  -- JSON object: role -> passcodes\n", "");
-            assert!(!old_schema.contains("maybe") && !old_schema.contains("roles"));
+                .replace("    roles TEXT NOT NULL DEFAULT '{}',  -- JSON object: role -> passcodes\n", "")
+                .replace("    deck_box TEXT NOT NULL DEFAULT '{}',  -- JSON: shelf appearance\n", "");
+            assert!(!old_schema.contains("maybe") && !old_schema.contains("roles") && !old_schema.contains("deck_box"));
             conn.execute_batch(&old_schema).unwrap();
             conn.execute("INSERT INTO decks (name, format, main, extra, side) VALUES ('Old', 'md', '[1]', '[]', '[]')", []).unwrap();
         }
@@ -253,6 +281,24 @@ mod tests {
         assert_eq!(saved.roles, roles);
         drop(store);
         std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn deck_box_duplicate_and_cover() {
+        let store = UserStore::open_in_memory().unwrap();
+        let deck = store.save(&Deck { name: "Invoked".into(), main: vec![1, 2], ..Default::default() }).unwrap();
+        let id = deck.id.unwrap();
+        assert_eq!(store.list().unwrap()[0].cover, Some(1));
+        let look = DeckBox { color: "#8b1e1e".into(), material: "leather".into(), shape: "tin".into(), showcase: vec![2, 1] };
+        store.set_box(id, &look).unwrap();
+        assert_eq!(store.get(id).unwrap().unwrap().deck_box, look);
+        let summary = &store.list().unwrap()[0];
+        assert_eq!((summary.cover, &summary.deck_box), (Some(2), &look));
+
+        let copy = store.duplicate(id).unwrap();
+        assert_ne!(copy.id, Some(id));
+        assert_eq!((copy.name.as_str(), copy.main.as_slice(), &copy.deck_box), ("Invoked (copia)", &[1, 2][..], &look));
+        assert!(store.set_box(999, &look).is_err());
     }
 
     #[test]

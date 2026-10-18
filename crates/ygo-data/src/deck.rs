@@ -50,6 +50,20 @@ impl Format {
     }
 }
 
+/// How the deck looks on the shelf. Empty fields mean "app default".
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "camelCase", default)]
+pub struct DeckBox {
+    /// CSS color, e.g. `#8b1e1e`.
+    pub color: String,
+    /// `leather`, `metal`, `wood`, `holo` or `matte`.
+    pub material: String,
+    /// `box`, `tin` or `chest`.
+    pub shape: String,
+    /// Up to three cards shown peeking out of the box.
+    pub showcase: Vec<u32>,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "camelCase")]
 pub struct Deck {
@@ -65,6 +79,8 @@ pub struct Deck {
     /// Cards grouped by role ("starter", "handtrap", ...), for the test hand and the statistics.
     #[serde(default)]
     pub roles: BTreeMap<String, Vec<u32>>,
+    #[serde(default, rename = "box")]
+    pub deck_box: DeckBox,
     pub updated_at: Option<String>,
 }
 

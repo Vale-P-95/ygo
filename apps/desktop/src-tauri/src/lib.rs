@@ -7,8 +7,8 @@ use tauri::http::{Response, StatusCode};
 use tauri::{Emitter, Manager, State};
 use ygo_data::sync::{self, Progress};
 use ygo_data::{
-    banlist, deck, Banlist, Card, CardStore, Chip, Deck, DeckSummary, Facets, Format, ImageCache, ImageSize, Legality, SavedSearch, Tag,
-    UserStore,
+    banlist, deck, Banlist, Card, CardStore, Chip, Deck, DeckBox, DeckSummary, Facets, Format, ImageCache, ImageSize, Legality,
+    SavedSearch, Tag, UserStore,
 };
 use ygo_engine::{Engine, ScriptStore};
 
@@ -215,6 +215,52 @@ fn list_decks(state: State<'_, AppState>) -> Result<Vec<DeckSummary>, String> {
     state.with_user(|u| u.list())
 }
 
+/// A deck on the shelf, with its legality checked against the current lists.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ShelfDeck {
+    #[serde(flatten)]
+    summary: DeckSummary,
+    /// `None` when the card database is missing.
+    legal: Option<bool>,
+    errors: usize,
+}
+
+fn check(state: &AppState, deck: &Deck) -> Result<Legality, String> {
+    let mut ids: Vec<u32> = deck.main.iter().chain(&deck.extra).chain(&deck.side).copied().collect();
+    ids.sort_unstable();
+    ids.dedup();
+    let cards: HashMap<u32, Card> = state.with_store(|s| s.get_many(&ids))?.into_iter().map(|c| (c.id, c)).collect();
+    Ok(deck::validate(deck, &cards))
+}
+
+#[tauri::command(async)]
+fn shelf_decks(state: State<'_, AppState>) -> Result<Vec<ShelfDeck>, String> {
+    let decks: Vec<(DeckSummary, Option<Deck>)> =
+        state.with_user(|u| u.list()?.into_iter().map(|s| Ok((s.clone(), u.get(s.id)?))).collect())?;
+    Ok(decks
+        .into_iter()
+        .map(|(summary, deck)| {
+            let legality = deck.and_then(|d| check(&state, &d).ok());
+            ShelfDeck {
+                summary,
+                legal: legality.as_ref().map(|l| l.legal),
+                errors: legality.map_or(0, |l| l.issues.iter().filter(|i| i.severity == ygo_data::Severity::Error).count()),
+            }
+        })
+        .collect())
+}
+
+#[tauri::command(async)]
+fn set_deck_box(state: State<'_, AppState>, id: i64, deck_box: DeckBox) -> Result<(), String> {
+    state.with_user(|u| u.set_box(id, &deck_box))
+}
+
+#[tauri::command(async)]
+fn duplicate_deck(state: State<'_, AppState>, id: i64) -> Result<Deck, String> {
+    state.with_user(|u| u.duplicate(id))
+}
+
 #[tauri::command(async)]
 fn get_deck(state: State<'_, AppState>, id: i64) -> Result<Option<Deck>, String> {
     state.with_user(|u| u.get(id))
@@ -232,11 +278,7 @@ fn delete_deck(state: State<'_, AppState>, id: i64) -> Result<(), String> {
 
 #[tauri::command(async)]
 fn validate_deck(state: State<'_, AppState>, deck: Deck) -> Result<Legality, String> {
-    let mut ids: Vec<u32> = deck.main.iter().chain(&deck.extra).chain(&deck.side).copied().collect();
-    ids.sort_unstable();
-    ids.dedup();
-    let cards: HashMap<u32, Card> = state.with_store(|s| s.get_many(&ids))?.into_iter().map(|c| (c.id, c)).collect();
-    let mut legality = deck::validate(&deck, &cards);
+    let mut legality = check(&state, &deck)?;
     if deck.format == Format::Md {
         legality.banlist = state.with_store(|s| Ok(s.banlist_date("md"))).ok().flatten();
     }
@@ -410,6 +452,9 @@ pub fn run() {
             save_search,
             delete_saved_search,
             list_decks,
+            shelf_decks,
+            set_deck_box,
+            duplicate_deck,
             get_deck,
             save_deck,
             delete_deck,

@@ -13,7 +13,7 @@ pub mod tags;
 pub mod userdb;
 
 pub use banlist::Banlist;
-pub use deck::{Deck, Format, Issue, Legality, Severity};
+pub use deck::{Deck, DeckBox, Format, Issue, Legality, Severity};
 pub use images::{ImageCache, ImageSize};
 pub use model::{Card, CardKind, Facets};
 pub use query::{parse as parse_query, Chip, Parsed, SearchQuery, Sort};
