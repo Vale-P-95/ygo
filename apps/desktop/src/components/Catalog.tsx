@@ -1,11 +1,14 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { api, type Card, type Facets, type SearchResult } from "../lib/api";
 import type { Deck } from "../lib/api";
-import { copiesInDeck } from "../lib/deck";
+import { copiesInDeck, copyLimit } from "../lib/deck";
 import { useDrag } from "../lib/drag";
 import { removeToken } from "../lib/query";
+import { updateSettings, useSettings, type CatalogView } from "../lib/settings";
 import { sound } from "../lib/sound";
 import { CardGrid } from "./CardGrid";
+import { CardList } from "./CardList";
+import type { TileBadge } from "./CardTile";
 import { EmblemIcon } from "./Emblems";
 import { FilterPanel } from "./FilterPanel";
 
@@ -22,6 +25,44 @@ interface Props {
   onQuery: (q: string) => void;
 }
 
+/** Smallest tile width per grid size: about 3, 4 or 5 cards per row at the default width. */
+const TILE: Record<Exclude<CatalogView, "list">, number> = { l: 100, m: 78, s: 58 };
+
+const VIEWS: { view: CatalogView; label: string; icon: string }[] = [
+  { view: "l", label: "Carte grandi", icon: "M1 2h4v12H1zM6 2h4v12H6zM11 2h4v12h-4z" },
+  { view: "m", label: "Carte medie", icon: "M1 2h4v5H1zM6 2h4v5H6zM11 2h4v5h-4zM1 9h4v5H1zM6 9h4v5H6zM11 9h4v5h-4z" },
+  { view: "s", label: "Carte piccole", icon: "M1 1h3v4H1zM5 1h3v4H5zM9 1h3v4H9zM13 1h2v4h-2zM1 6h3v4H1zM5 6h3v4H5zM9 6h3v4H9zM13 6h2v4h-2zM1 11h3v4H1zM5 11h3v4H5zM9 11h3v4H9zM13 11h2v4h-2z" },
+  { view: "list", label: "Elenco", icon: "M1 2h3v3H1zM6 3h9v1H6zM1 7h3v3H1zM6 8h9v1H6zM1 12h3v3H1zM6 13h9v1H6z" },
+];
+
+const CATALOG_MIN = 300;
+const CATALOG_MAX = 760;
+
+/**
+ * Drag handle on the catalog's left edge. While dragging it only updates
+ * the layout's CSS variable; the width is saved when the pointer is released.
+ */
+function startResize(e: ReactPointerEvent<HTMLDivElement>, width: number) {
+  if (e.button !== 0) return;
+  e.preventDefault();
+  const layout = e.currentTarget.closest<HTMLElement>("[data-deck-layout]");
+  const startX = e.clientX;
+  let next = width;
+  const move = (ev: PointerEvent) => {
+    next = Math.round(Math.min(CATALOG_MAX, Math.max(CATALOG_MIN, width - (ev.clientX - startX))));
+    layout?.style.setProperty("--catalog-w", `${next}px`);
+  };
+  const up = () => {
+    removeEventListener("pointermove", move);
+    removeEventListener("pointerup", up);
+    document.body.style.cursor = "";
+    updateSettings({ catalogWidth: next });
+  };
+  document.body.style.cursor = "col-resize";
+  addEventListener("pointermove", move);
+  addEventListener("pointerup", up);
+}
+
 /**
  * The card catalog column of the deck editor. Dropping deck cards here
  * removes them from the deck.
@@ -34,6 +75,18 @@ export function Catalog({ deck, getCard, requestCards, version, onAdd, onOpen, o
   const inputRef = useRef<HTMLInputElement>(null);
   const drag = useDrag();
   const removing = drag && drag.source.from !== "catalog";
+  const { catalogView: view, catalogWidth } = useSettings();
+
+  const listBadges = (id: number): TileBadge[] => {
+    const badges: TileBadge[] = [];
+    const card = getCard(id);
+    const limit = card ? copyLimit(card, deck.format) : 3;
+    if (limit === 0) badges.push({ text: "Proibita", tone: "ban" });
+    else if (limit < 3) badges.push({ text: limit === 1 ? "Limitata" : "Semi-lim.", tone: "limit" });
+    const n = copiesInDeck(deck, id);
+    if (n) badges.push({ text: `×${n}` });
+    return badges;
+  };
 
   useEffect(() => {
     api.facets().then(setFacets).catch(() => setFacets(null));
@@ -71,13 +124,42 @@ export function Catalog({ deck, getCard, requestCards, version, onAdd, onOpen, o
       className="relative flex min-h-0 flex-col border-l border-border bg-surface/70 transition-colors"
       style={{ background: drag?.over === "catalog" && removing ? "color-mix(in oklab, var(--df-danger) 12%, var(--df-surface))" : undefined }}
     >
+      <div
+        className="group absolute inset-y-0 -left-[5px] z-20 w-[9px] cursor-col-resize"
+        onPointerDown={(e) => startResize(e, catalogWidth)}
+        onDoubleClick={() => updateSettings({ catalogWidth: 392 })}
+        title="Trascina per allargare il catalogo (doppio clic: larghezza iniziale)"
+      >
+        <span className="absolute inset-y-0 left-1 w-px bg-transparent transition-colors group-hover:bg-sec" />
+      </div>
       <div className="flex flex-col gap-2 px-3 pt-3 pb-2">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
           <p className="display text-sm font-bold tracking-[0.12em] uppercase">Catalogo</p>
           <span className="flex items-center gap-1.5 text-xs text-muted tabular-nums">
             {searching && <EmblemIcon emblem="gear" className="h-3 w-3 animate-[spin-slow_1.6s_linear_infinite]" />}
             {result.ids.length.toLocaleString("it-IT")} carte
           </span>
+          <div className="ml-auto flex gap-0.5 rounded-lg border border-border bg-bg-2 p-0.5" role="radiogroup" aria-label="Vista del catalogo">
+            {VIEWS.map((v) => (
+              <button
+                key={v.view}
+                type="button"
+                role="radio"
+                aria-checked={view === v.view}
+                title={v.label}
+                aria-label={v.label}
+                onClick={() => {
+                  sound.play("toggle");
+                  updateSettings({ catalogView: v.view });
+                }}
+                className={`grid h-6 w-7 place-items-center rounded-md ${view === v.view ? "bg-sec text-bg" : "text-muted hover:text-text"}`}
+              >
+                <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" fill="currentColor" aria-hidden="true">
+                  <path d={v.icon} />
+                </svg>
+              </button>
+            ))}
+          </div>
         </div>
         <div className="flex gap-2">
           <label className="relative block flex-1">
@@ -128,24 +210,39 @@ export function Catalog({ deck, getCard, requestCards, version, onAdd, onOpen, o
       </div>
 
       <div className="relative min-h-0 flex-1">
-        <CardGrid
-          ids={result.ids}
-          getCard={getCard}
-          requestCards={requestCards}
-          version={version}
-          selected={null}
-          onSelect={() => sound.play("select")}
-          onOpen={(id) => onOpen(id, result.ids)}
-          onHover={onHover}
-          onHoverEnd={onHoverEnd}
-          onContext={(id, el, shift) => onAdd(id, el, shift)}
-          dragFrom="catalog"
-          minTile={92}
-          badgeFor={(id) => {
-            const n = copiesInDeck(deck, id);
-            return n ? { text: `×${n}` } : undefined;
-          }}
-        />
+        {view === "list" ? (
+          <CardList
+            ids={result.ids}
+            getCard={getCard}
+            requestCards={requestCards}
+            version={version}
+            onAdd={onAdd}
+            onOpen={(id) => onOpen(id, result.ids)}
+            onHover={onHover}
+            onHoverEnd={onHoverEnd}
+            dragFrom="catalog"
+            badgesFor={listBadges}
+          />
+        ) : (
+          <CardGrid
+            ids={result.ids}
+            getCard={getCard}
+            requestCards={requestCards}
+            version={version}
+            selected={null}
+            onSelect={() => sound.play("select")}
+            onOpen={(id) => onOpen(id, result.ids)}
+            onHover={onHover}
+            onHoverEnd={onHoverEnd}
+            onContext={(id, el, shift) => onAdd(id, el, shift)}
+            dragFrom="catalog"
+            minTile={TILE[view] ?? TILE.m}
+            badgeFor={(id) => {
+              const n = copiesInDeck(deck, id);
+              return n ? { text: `×${n}` } : undefined;
+            }}
+          />
+        )}
         {filters && (
           <div className="absolute inset-0 z-10 overflow-y-auto border-t border-border bg-surface anim-fade">
             <FilterPanel query={query} onChange={onQuery} facets={facets} />

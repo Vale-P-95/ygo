@@ -2,6 +2,9 @@ import { useSyncExternalStore } from "react";
 
 export type Theme = "forge" | "light" | "system";
 
+/** Deck editor catalog: large, medium or small cards, or a list. */
+export type CatalogView = "l" | "m" | "s" | "list";
+
 export interface Settings {
   theme: Theme;
   sound: boolean;
@@ -14,6 +17,9 @@ export interface Settings {
   /** Tilt, holo foil and sparks on cards. */
   cardEffects: boolean;
   hoverPreview: boolean;
+  catalogView: CatalogView;
+  /** Width of the deck editor catalog column, in pixels. */
+  catalogWidth: number;
 }
 
 const defaults: Settings = {
@@ -25,6 +31,8 @@ const defaults: Settings = {
   ambient: true,
   cardEffects: true,
   hoverPreview: true,
+  catalogView: "m",
+  catalogWidth: 392,
 };
 
 const KEY = "duelforge.settings";

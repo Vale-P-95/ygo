@@ -76,6 +76,7 @@ cd apps\desktop; pnpm typecheck
 | Annullare, ripetere | Ctrl+Z, Ctrl+Y (o i pulsanti ↶ ↷) |
 | Vedere i problemi | clic sul badge di legalità: ogni problema evidenzia le carte coinvolte |
 | Importare, esportare | "I miei deck" → Importa; pulsante Esporta (`.ydk` e `ydke://`) |
+| Cambiare la vista del catalogo | i quattro pulsanti accanto al numero di carte: carte grandi, medie (predefinita), piccole, elenco; trascina il bordo sinistro del catalogo per allargarlo |
 
 I deck si salvano da soli in `user.db` nella cartella dati dell'app. Le carte Fusion, Synchro, Xyz e Link vanno sempre nell'Extra Deck, e il deck si riordina come in Master Duel (mostri, magie, trappole).
 

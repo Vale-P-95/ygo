@@ -27,7 +27,7 @@ interface Props {
 /** Virtualized grid: only the visible rows exist in the page. */
 export function CardGrid(props: Props) {
   const { ids, getCard, requestCards, version, selected, onSelect, onOpen, onHover, onHoverEnd, onContext, dragFrom, badgeFor, minTile = 128 } = props;
-  const gap = minTile < 110 ? 10 : GAP;
+  const gap = minTile < 70 ? 6 : minTile < 110 ? 8 : GAP;
   const scrollRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(0);
 
@@ -85,7 +85,7 @@ export function CardGrid(props: Props) {
                 onContext={onContext}
                 dragSource={dragFrom ? { id, from: dragFrom } : undefined}
                 badge={badgeFor?.(id)}
-                compact={minTile < 110}
+                compact={minTile < 90}
               />
             ))}
           </div>
