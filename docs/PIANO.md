@@ -120,7 +120,7 @@ ygo/
 | **Project Ignis – CardScripts** | Lo script Lua di ogni carta: è ciò che fa "capire" gli effetti al motore | Licenza AGPL-3.0; aggiornamenti pre-release rapidi. Verificato: aggiornato a ottobre 2026 |
 | **Project Ignis – LFLists** | Banlist: TCG, OCG, Worlds, Traditional, GOAT, Speed Duel, Rush | Verificato: a oggi contiene TCG 2026.09 e OCG 2026.10 |
 | **Konami** (yugioh-card.com) | Punti Genesys ufficiali (TCG e OCG), banlist ufficiali | Fonte di verità per verificare le altre |
-| **Master Duel** (formato prioritario) | Banlist, carte disponibili nel gioco, rarità di creazione (N/R/SR/UR) | Fonte da scegliere nello spike dati (YGOPRODeck o Master Duel Meta, rispettandone i termini), con inserimento manuale come riserva |
+| **Master Duel** (formato prioritario) | Banlist, carte disponibili nel gioco, rarità di creazione (N/R/SR/UR), data di uscita nel gioco | Verificato il 18/10/2026: YGOPRODeck indica disponibilità e rarità in Master Duel ma **non** la banlist; Master Duel Meta espone banlist, rarità e data di uscita tramite un'API pubblica ma non documentata: chiedere il permesso prima di usarla nell'app distribuita. Inserimento manuale come riserva |
 | Formati retro (Edison, HAT, Tengu Plant…) | Banlist dedicate | Fonte da scegliere in Fase 3; previsto anche l'inserimento manuale |
 
 Chiave comune tra le fonti: il **passcode** della carta. Una tabella di riconciliazione gestisce gli ID temporanei delle carte pre-release (che cambiano quando la carta esce ufficialmente), gli alias (artwork alternativi) e i conflitti tra fonti.
@@ -457,7 +457,7 @@ Il numero di combo cresce in modo esponenziale con la lunghezza della linea. La 
 1. **Sul tuo PC in sviluppo**: `pnpm tauri dev` avvia l'app con hot-reload (le modifiche all'interfaccia si vedono subito).
 2. **Senza installare nulla**: a ogni push, **GitHub Actions** compila l'installer Windows (e macOS/Linux). Lo scarichi dalla pagina Actions o Releases e lo installi come un normale programma.
 3. **Test automatici** in CI: `cargo test` (statistica, motore, solver), Vitest (componenti), Playwright (test end-to-end dell'interfaccia), suite dei ruling, benchmark del solver.
-4. **Nelle sessioni cloud con me**: posso compilare e testare i moduli Rust e la CLI, avviare l'interfaccia in un browser headless e mandarti screenshot. Nota: in questo ambiente cloud `db.ygoprodeck.com`, `ygoprodeck.com`, `yugiohmeta.com` e `masterduelmeta.com` sono bloccati dalla policy di rete (GitHub è raggiungibile). Per usare dati reali nelle sessioni cloud vanno aggiunti questi domini tra gli Allowed domains dell'ambiente.
+4. **Nelle sessioni cloud con me**: posso compilare e testare i moduli Rust e la CLI, avviare l'interfaccia in un browser headless e mandarti screenshot. Nell'ambiente cloud "Yu Gi Oh" sono abilitati (18/10/2026) `ygoprodeck.com`, `db.ygoprodeck.com`, `images.ygoprodeck.com`, `yugiohmeta.com` e `masterduelmeta.com`, oltre a GitHub e ai registri dei pacchetti.
 
 ### 12.3 Rilasci
 Versionamento semantico, release su GitHub con changelog e **auto-aggiornamento dell'app** tramite l'updater di Tauri (aggiornamento di programma, separato da quello dei dati delle carte).
@@ -485,8 +485,8 @@ Versionamento semantico, release su GitHub con changelog e **auto-aggiornamento 
 3. ~~Licenza~~: deciso, progetto open source AGPL-3.0 con il motore di EDOPro (§8.1, §15).
 4. ~~Formati prioritari~~: deciso, prima Master Duel.
 5. ~~Lingua del testo delle carte~~: deciso, inglese per ora, altre lingue in seguito.
-6. ~~Deck di prova~~: deciso, Invoked di Danilo Siracusa (European WCQ 2026). Serve la decklist esatta: in questo ambiente cloud i siti di decklist sono bloccati.
-7. **Fonte di banlist e pool di carte di Master Duel**: da scegliere nello spike dati (§3.1).
+6. ~~Deck di prova~~: deciso, Invoked di Danilo Siracusa (European WCQ 2026), salvato in `tests/fixtures/decks/`. È una lista TCG: in Master Duel non è legale così com'è (3 carte Proibite, Super Polymerization Limitata a 2).
+7. **Fonte della banlist di Master Duel**: proposta Master Duel Meta, previa autorizzazione; disponibilità e rarità da YGOPRODeck (§3.1).
 8. **Sostenibilità**: se e come finanziare il progetto (§15.3), da decidere più avanti.
 
 ---
