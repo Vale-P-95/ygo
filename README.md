@@ -4,18 +4,19 @@ Suite desktop per Yu-Gi-Oh!: deck builder con carte e banlist sempre aggiornate,
 
 Il piano di progetto completo è in [`docs/PIANO.md`](docs/PIANO.md).
 
-**Stato**: Fase 0 completata. Il motore di gioco gira dentro il progetto, una CLI permette di giocare mani di prova e l'app desktop ha lo scheletro delle sezioni.
+**Stato**: Fase 1 completata. L'app scarica da sola carte e dati del motore e offre la Fucina: catalogo di tutte le carte con ricerca avanzata, filtri, visualizzatore con zoom e lente, effetti visivi e sonori.
 
 ## Struttura
 
 ```
 apps/desktop/          app desktop: React + TypeScript (src/) e Tauri 2 (src-tauri/)
 crates/ygo-engine/     collegamento Rust al motore EDOPro: partite, carte, script, deck .ydk
+crates/ygo-data/       database delle carte (SQLite + ricerca full-text), linguaggio di ricerca, immagini, download
 crates/ygo-cli/        duelforge-cli: scarica i dati, gioca mani, benchmark
 vendor/ygopro-core/    motore EDOPro (submodule git, AGPL-3.0)
 tests/fixtures/decks/  deck di prova (Invoked di Siracusa, versione Master Duel)
 docs/                  piano di progetto
-data/                  dati scaricati (script e database delle carte), non versionati
+data/                  dati scaricati (carte, script, database del motore, immagini), non versionati
 ```
 
 ## Provare l'app senza installare nulla
@@ -82,6 +83,29 @@ cargo run --release -p ygo-cli -- bench --deck tests/fixtures/decks/invoked-sira
 ```
 
 Le carte della mano si indicano per nome inglese (come nel database di EDOPro) o per passcode.
+
+```bash
+# Scarica l'elenco delle carte da YGOPRODeck in data/cards.db
+cargo run --release -p ygo-cli -- update-cards
+
+# Cerca con lo stesso linguaggio dell'app
+cargo run --release -p ygo-cli -- search 'arch:invoked type:fusion sort:atk'
+```
+
+### Linguaggio di ricerca
+
+| Esempio | Significato |
+|---|---|
+| `aleister` | parole nel nome o nel testo (anche iniziali) |
+| `"negate the activation"` | frase esatta |
+| `name:invoked` | solo nel nome |
+| `type:fusion`, `tipo:magia`, `type:quick-play` | tipo o sottotipo |
+| `attr:dark`, `race:spellcaster`, `arch:invoked` | attributo, tipo di mostro, archetipo |
+| `atk>=2500`, `def<1000`, `lv:4-6`, `link>=2` | statistiche |
+| `format:md`, `rarity:ur`, `ban:limited` | Master Duel, rarità MD, banlist TCG |
+| `sort:atk`, `sort:popular`, `sort:new` | ordinamento |
+
+Ogni filtro scelto nel pannello dell'app diventa testo nella barra di ricerca, e viceversa.
 
 ## Licenza
 

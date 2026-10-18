@@ -1,4 +1,4 @@
-# DuelForge: piano di progetto (v0.4)
+# DuelForge: piano di progetto (v0.5)
 
 > Nome provvisorio. Il documento è la proposta iniziale: una volta approvate le decisioni aperte (§14) diventa la roadmap di sviluppo.
 >
@@ -7,6 +7,8 @@
 > **v0.3 (18/10/2026)**: il progetto resta **open source** (licenza AGPL-3.0). Si torna quindi al motore di EDOPro, tecnicamente più adatto al solver (§8.1); la §15 diventa "Licenza, sostenibilità e aspetti legali".
 >
 > **v0.4 (18/10/2026)**: Fase 0 realizzata; risultati e misure nella §16.
+>
+> **v0.5 (18/10/2026)**: Fase 1 realizzata; risultati nella §17.
 
 ## 0. Visione
 
@@ -556,4 +558,27 @@ La parallelizzazione su più thread funziona: ogni thread ha le sue partite.
 ### 16.5 Prossimi passi
 - Verificare in CI la compilazione del motore con MSVC e scaricare il primo installer Windows.
 - Fase 1: database carte unificato (YGOPRODeck + BabelCDB, chiave passcode), immagini in cache, ricerca e visualizzatore.
+
+---
+
+## 17. Risultati della Fase 1 (18/10/2026)
+
+### 17.1 Dati
+- Nuovo crate `ygo-data`: l'elenco completo di YGOPRODeck (14.618 carte) diventa un database SQLite locale con indice full-text FTS5. Una ricerca tipica richiede pochi millisecondi.
+- **Linguaggio di ricerca** con alias italiani (`tipo:magia`, `attributo:luce`, …) condiviso da app e CLI: i filtri del pannello scrivono nella barra di ricerca, quindi ciò che si vede è ciò che si cerca.
+- **Immagini** scaricate alla prima visualizzazione e poi servite dal disco tramite il protocollo `cardimg://`, con un massimo di circa 14 richieste al secondo (limite YGOPRODeck: 20).
+- **Download dentro l'app** con avanzamento: elenco carte (YGOPRODeck, con controllo di versione) e dati del motore (zip da GitHub, controllo del commit). Se fallisce solo la parte del motore, il catalogo funziona lo stesso e l'app mostra un avviso.
+- Scoperta: YGOPRODeck a volte usa come id principale quello di un artwork alternativo (Aleister the Invoker: 86120752). In Fase 2 i deck importati andranno risolti tramite tutti gli id delle immagini.
+
+### 17.2 Interfaccia "Fucina"
+- **Temi**: Fucina (scuro, oro fuso e brace) e Pergamena (chiaro), più "come il sistema". Ogni sezione ha il suo colore: brace per la Fucina, ciano per il Laboratorio, viola per il Circolo Arcano, ottone per la Bottega.
+- **Ispirazione dalle carte**: l'artwork di una carta a tema sfuma nell'intestazione di ogni sezione (Fiendsmith Engraver per la Fucina, Brain Research Lab per il Laboratorio, Ancient Gear Workshop per l'Officina, Witchcrafter Schmietta per la Bottega, Aleister the Invoker per il Circolo Arcano). Le immagini si scaricano a runtime e non sono nel repository.
+- **Effetti visivi**: inclinazione 3D delle carte che segue il puntatore, riflesso e foil olografico per rarità di Master Duel (argento per SR, arcobaleno per UR), scintille quando si seleziona una carta, braci che salgono sullo sfondo, transizioni tra le sezioni. Tutto disattivabile, e rispettato "riduci movimento" del sistema.
+- **Effetti sonori**: sintetizzati in tempo reale con Web Audio (nessun file audio da terzi): tic al passaggio, "clink" metallico alla selezione, folate per aprire e chiudere, martello sull'incudine a fine download, rintocchi ed errori. Mixer con volume generale, interfaccia ed effetti.
+- **Catalogo** (Fucina): griglia virtualizzata di tutte le carte, pannello filtri a scomparsa, filtri come chip rimovibili, anteprima al passaggio del mouse, banco con i dettagli della carta (nomi tra virgolette e archetipi cliccabili per cercare).
+- **Lente**: visualizzatore a tutto schermo con zoom intorno al puntatore (rotella, +/−, doppio clic), trascinamento, lente d'ingrandimento (L), artwork alternativi, navigazione con le frecce.
+- **Primo avvio**: schermata "La fucina è spenta" con il download guidato e barre di avanzamento "metallo fuso".
+
+### 17.3 Prossimo passo: Fase 2
+Deck Builder vero e proprio (Main/Extra/Side con drag & drop e suoni "forgia"), banlist di Master Duel e validazione, import/export `.ydk`, pagina Novità.
 
