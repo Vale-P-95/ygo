@@ -23,6 +23,8 @@ interface Props {
   onHover: (id: number, el: HTMLElement) => void;
   onHoverEnd: () => void;
   emptyHint?: ReactNode;
+  /** Dashed frame, for areas that are not part of the deck. */
+  dashed?: boolean;
 }
 
 function banBadge(card: Card | undefined, format: DeckFormat): TileBadge | undefined {
@@ -35,7 +37,7 @@ function banBadge(card: Card | undefined, format: DeckFormat): TileBadge | undef
 
 /** One deck section: a drop target with one tile per copy and empty slots. */
 export function DeckZone(props: Props) {
-  const { zone, title, ids, columns, slots, max, format, getCard, invalid, fresh, info, onRemove, onOpen, onHover, onHoverEnd, emptyHint } = props;
+  const { zone, title, ids, columns, slots, max, format, getCard, invalid, fresh, info, onRemove, onOpen, onHover, onHoverEnd, emptyHint, dashed } = props;
   const drag = useDrag();
   const over = drag?.over === zone;
   const target = drag && drag.source.from !== zone;
@@ -60,7 +62,7 @@ export function DeckZone(props: Props) {
       </header>
       <div
         data-dropzone={zone}
-        className="relative grid rounded-xl border p-2 transition-all duration-150"
+        className={`relative grid rounded-xl border p-2 transition-all duration-150 ${dashed ? "border-dashed" : ""}`}
         style={{
           gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`,
           gap: columns > 10 ? 5 : 7,

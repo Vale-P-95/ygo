@@ -9,7 +9,7 @@ import { DeckZone } from "../components/DeckZone";
 import { SectionHeader } from "../components/SectionHeader";
 import { api, cardImage, type Card, type DataStatus, type Deck, type DeckSummary, type Imported, type Legality } from "../lib/api";
 import { useCardCache } from "../lib/cards";
-import { addCard, counts, craftCost, emptyDeck, removeAt, sortIds, useDeckHistory, type Zone } from "../lib/deck";
+import { addCard, counts, craftCost, emptyDeck, removeAt, sortIds, useDeckHistory, ZONE_LIMITS, type Zone } from "../lib/deck";
 import { setDropHandler, type DragSource, type DropZone } from "../lib/drag";
 import { useSettings } from "../lib/settings";
 import { sound } from "../lib/sound";
@@ -18,6 +18,7 @@ import { toast } from "../lib/toast";
 import { sectionById } from "../sections";
 
 const LAST_DECK = "duelforge.lastDeck";
+const NONE = new Set<number>();
 
 function rememberDeck(id: number | null) {
   try {
@@ -101,7 +102,7 @@ function DeckEditor() {
   }, [refreshDecks, openDeck]);
 
   useEffect(() => {
-    cards.request([...deck.main, ...deck.extra, ...deck.side]);
+    cards.request([...deck.main, ...deck.extra, ...deck.side, ...deck.maybe]);
   }, [deck, cards.request]);
 
   useEffect(() => {
@@ -114,7 +115,7 @@ function DeckEditor() {
   // Autosave shortly after each change.
   useEffect(() => {
     if (!dirty.current) return;
-    const empty = deck.main.length + deck.extra.length + deck.side.length === 0;
+    const empty = deck.main.length + deck.extra.length + deck.side.length + deck.maybe.length === 0;
     if (idRef.current == null && empty) return;
     setSaveState("saving");
     const timer = window.setTimeout(async () => {
@@ -364,6 +365,20 @@ function DeckEditor() {
                 ))}
             />
             <DeckZone {...zoneProps} zone="side" title="Side Deck" ids={deck.side} columns={15} slots={15} max={15} onOpen={(id) => setViewer({ id, list: deck.side })} />
+            <DeckZone
+              {...zoneProps}
+              zone="maybe"
+              title="Maybe board"
+              ids={deck.maybe}
+              columns={15}
+              slots={15}
+              max={ZONE_LIMITS.maybe}
+              invalid={NONE}
+              dashed
+              onOpen={(id) => setViewer({ id, list: deck.maybe })}
+              info={<span>Carte in prova: non contano nel deck e non si esportano</span>}
+              emptyHint={<p className="max-w-md text-xs text-faint">Trascina qui le carte che stai valutando.</p>}
+            />
           </div>
         </div>
 

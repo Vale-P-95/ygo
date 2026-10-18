@@ -6,7 +6,7 @@
  */
 import { useSyncExternalStore, type PointerEvent as ReactPointerEvent } from "react";
 
-export type DropZone = "main" | "extra" | "side" | "catalog";
+export type DropZone = "main" | "extra" | "side" | "maybe" | "catalog";
 
 export interface DragSource {
   id: number;

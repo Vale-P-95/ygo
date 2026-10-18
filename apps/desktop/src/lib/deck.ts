@@ -1,13 +1,14 @@
 import { useCallback, useState } from "react";
 import type { Card, Deck, DeckFormat } from "./api";
 
-export type Zone = "main" | "extra" | "side";
+export type Zone = "main" | "extra" | "side" | "maybe";
 
-export const ZONE_LIMITS: Record<Zone, number> = { main: 60, extra: 15, side: 15 };
+export const ZONE_LIMITS: Record<Zone, number> = { main: 60, extra: 15, side: 15, maybe: 30 };
+export const ZONE_LABELS: Record<Zone, string> = { main: "Main Deck", extra: "Extra Deck", side: "Side Deck", maybe: "Maybe board" };
 export const FORMAT_LABELS: Record<DeckFormat, string> = { md: "Master Duel", tcg: "TCG", ocg: "OCG" };
 
 export function emptyDeck(name = "Nuovo deck", format: DeckFormat = "md"): Deck {
-  return { id: null, name, format, main: [], extra: [], side: [], updatedAt: null };
+  return { id: null, name, format, main: [], extra: [], side: [], maybe: [], updatedAt: null };
 }
 
 export function isExtraDeckCard(card: Card): boolean {
@@ -65,10 +66,18 @@ export function sortIds(ids: number[], getCard: (id: number) => Card | undefined
 
 export type AddResult = { deck: Deck; zone: Zone; index: number } | { error: string };
 
-/** Adds one copy, choosing Main or Extra from the card type unless the Side is asked for. */
+/**
+ * Adds one copy, choosing Main or Extra from the card type unless the Side
+ * or the maybe board is asked for. The maybe board has no copy limits.
+ */
 export function addCard(deck: Deck, card: Card, want: Zone | null, getCard: (id: number) => Card | undefined): AddResult {
   const extraCard = isExtraDeckCard(card);
   if (card.kind === "skill" || card.kind === "token") return { error: `${card.name} non si può mettere in un deck.` };
+  if (want === "maybe") {
+    if (deck.maybe.length >= ZONE_LIMITS.maybe) return { error: "La Maybe board è piena." };
+    const ids = sortIds([...deck.maybe, card.id], getCard);
+    return { deck: { ...deck, maybe: ids }, zone: "maybe", index: ids.lastIndexOf(card.id) };
+  }
   let zone: Zone = want === "side" ? "side" : extraCard ? "extra" : "main";
   if (want === "extra" && !extraCard) return { error: `${card.name} non è una carta dell'Extra Deck.` };
   if (want === "main" && extraCard) zone = "extra";
@@ -76,7 +85,7 @@ export function addCard(deck: Deck, card: Card, want: Zone | null, getCard: (id:
   const copies = copiesInDeck(deck, card.id);
   if (limit === 0) return { error: `${card.name} è proibita in ${FORMAT_LABELS[deck.format]}.` };
   if (copies >= limit) return { error: limit < 3 ? `${card.name} è limitata a ${limit} in ${FORMAT_LABELS[deck.format]}.` : `Puoi avere al massimo 3 copie di ${card.name}.` };
-  if (deck[zone].length >= ZONE_LIMITS[zone]) return { error: `Il ${zone === "main" ? "Main" : zone === "extra" ? "Extra" : "Side"} Deck è pieno.` };
+  if (deck[zone].length >= ZONE_LIMITS[zone]) return { error: `Il ${ZONE_LABELS[zone]} è pieno.` };
   const ids = sortIds([...deck[zone], card.id], getCard);
   return { deck: { ...deck, [zone]: ids }, zone, index: ids.lastIndexOf(card.id) };
 }

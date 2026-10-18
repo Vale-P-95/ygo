@@ -59,6 +59,9 @@ pub struct Deck {
     pub main: Vec<u32>,
     pub extra: Vec<u32>,
     pub side: Vec<u32>,
+    /// Cards being considered ("maybe board"): not part of the deck, never validated or exported.
+    #[serde(default)]
+    pub maybe: Vec<u32>,
     pub updated_at: Option<String>,
 }
 

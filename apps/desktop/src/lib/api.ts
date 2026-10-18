@@ -88,6 +88,8 @@ export interface Deck {
   main: number[];
   extra: number[];
   side: number[];
+  /** Cards being considered: not part of the deck. */
+  maybe: number[];
   updatedAt: string | null;
 }
 
