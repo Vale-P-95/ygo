@@ -1,8 +1,10 @@
-# DuelForge: piano di progetto (v0.2)
+# DuelForge: piano di progetto (v0.3)
 
 > Nome provvisorio. Il documento è la proposta iniziale: una volta approvate le decisioni aperte (§14) diventa la roadmap di sviluppo.
 >
 > **v0.2 (18/10/2026)**: repository `Vale-P-95/ygo`; Master Duel come primo formato; testi delle carte in inglese; deck di prova Invoked; obiettivo di monetizzazione nel lungo periodo, quindi motore con licenza MIT (§8.1) e nuova sezione su monetizzazione e aspetti legali (§15).
+>
+> **v0.3 (18/10/2026)**: il progetto resta **open source** (licenza AGPL-3.0). Si torna quindi al motore di EDOPro, tecnicamente più adatto al solver (§8.1); la §15 diventa "Licenza, sostenibilità e aspetti legali".
 
 ## 0. Visione
 
@@ -51,7 +53,7 @@ Principi guida:
 - image per generare miniature WebP.
 - `cc`/cmake + bindgen per compilare e collegare il motore di gioco C++ (ygopro-core).
 
-**Motore di gioco**: ygopro-core, il motore originale di YGOPro (C++ con Lua embedded, licenza MIT), con gli script delle carte della community YGOPro tenuti come componente separato (vedi §8 e §15).
+**Motore di gioco**: il core di EDOPro (C++ con Lua embedded) e gli script delle carte di Project Ignis, entrambi AGPL-3.0 come il nostro progetto (vedi §8 e §15).
 
 ### 1.3 Dove gira
 
@@ -73,11 +75,11 @@ Principi guida:
 │  data-sync │ card-db │ deck │ stats (Monte Carlo) │ engine-host │ solver        │
 │                                                       ▲            ▲            │
 │                                                       │ FFI (API C)│            │
-│                      ygopro-core (C++, MIT) + Lua ── script carte (Lua, separati) │
+│                   core EDOPro (C++, AGPL) + Lua ── script carte Project Ignis (Lua) │
 ├────────────────────────────────────────────────────────────────────────────────┤
 │  Storage locale: cards.db (SQLite+FTS5) │ user.db │ cache immagini │ script    │
 └────────────────────────────────────────────────────────────────────────────────┘
-   ▲ aggiornamenti: YGOPRODeck API · script YGOPro (GitHub) · banlist (Master Duel, Project Ignis) · Konami
+   ▲ aggiornamenti: YGOPRODeck API · Project Ignis (BabelCDB, CardScripts, LFLists) · banlist Master Duel · Konami
 ```
 
 - **Dati di gioco** (carte, banlist, script, immagini) e **dati utente** (deck, partite, simulazioni, combo salvate) stanno in due database separati: i primi si possono riscaricare in qualsiasi momento, i secondi si salvano ed esportano.
@@ -99,7 +101,7 @@ ygo/
 │  ├─ ygo-engine/          # binding sicuri al motore, parser messaggi, stato canonico
 │  ├─ ygo-solver/          # ricerca combo, scoring, stress test, spiegazioni
 │  └─ ygo-cli/             # CLI headless per test, benchmark, batch
-├─ vendor/ygopro-core/     # submodule del motore (MIT); gli script NON stanno qui
+├─ vendor/ygopro-core/     # submodule del motore EDOPro (AGPL-3.0)
 ├─ assets/sounds/          # suoni CC0 o originali
 ├─ tests/rulings/          # scenari di ruling in formato dichiarativo
 └─ docs/
@@ -114,7 +116,8 @@ ygo/
 | Fonte | Cosa fornisce | Note |
 |---|---|---|
 | **YGOPRODeck API v7** (`cardinfo.php`) | Tutte le carte TCG/OCG, testi (anche in italiano), archetipi, set, rarità, prezzi, stato in banlist, immagini (piena, piccola, artwork ritagliato) | Limite di 20 richieste/s (oltre, blocco di 1 ora). Chiedono di salvare i dati in locale e di non fare hotlink delle immagini: scarichiamo una volta e serviamo dalla cache |
-| **YGOPro – ygopro-scripts** (Fluorohydride) | Lo script Lua di ogni carta ufficiale (~13.500): è ciò che fa "capire" gli effetti al motore | Licenza GPL-2: componente separato, scaricato dall'app dal repository pubblico (§15). Verificato: aggiornato a settembre 2026. I dati delle carte per il motore li forniamo noi dal nostro database |
+| **Project Ignis – BabelCDB** | `cards.cdb` (SQLite) con i dati nel formato del motore, incluse carte OCG e pre-release | Aggiornato molto spesso via GitHub |
+| **Project Ignis – CardScripts** | Lo script Lua di ogni carta: è ciò che fa "capire" gli effetti al motore | Licenza AGPL-3.0; aggiornamenti pre-release rapidi. Verificato: aggiornato a ottobre 2026 |
 | **Project Ignis – LFLists** | Banlist: TCG, OCG, Worlds, Traditional, GOAT, Speed Duel, Rush | Verificato: a oggi contiene TCG 2026.09 e OCG 2026.10 |
 | **Konami** (yugioh-card.com) | Punti Genesys ufficiali (TCG e OCG), banlist ufficiali | Fonte di verità per verificare le altre |
 | **Master Duel** (formato prioritario) | Banlist, carte disponibili nel gioco, rarità di creazione (N/R/SR/UR) | Fonte da scegliere nello spike dati (YGOPRODeck o Master Duel Meta, rispettandone i termini), con inserimento manuale come riserva |
@@ -276,7 +279,7 @@ Istogrammi, heatmap, tornado, Sankey (mano → linea di gioco → board finale) 
 
 ## 8. Motore di gioco
 
-### 8.1 Scelta: un motore esistente, con una licenza compatibile con la monetizzazione
+### 8.1 Scelta: integrare un motore esistente
 
 Scrivere da zero un motore con migliaia di carte e tutti i ruling richiederebbe anni-uomo: si integra un motore esistente. Ne esistono due famiglie, non compatibili tra loro (gli script dell'una non girano sull'altra):
 
@@ -288,27 +291,33 @@ Scrivere da zero un motore con migliaia di carte e tutti i ruling richiederebbe 
 | API | C con callback globali (`create_duel`, `new_card`, `process`, `get_message`, `set_responsei/b`, `query_field_card`…) | C più recente, opzioni per partita (`OCG_CreateDuel`, `OCG_DuelProcess`…) |
 | Programma a pagamento e a codice chiuso | **Possibile**: motore MIT, script tenuti separati (§15) | Non possibile: l'intero programma diventerebbe AGPL |
 
-**Scelta: YGOPro originale**, perché l'obiettivo nel lungo periodo è monetizzare (§15). Le due famiglie sono equivalenti nel funzionamento:
+**Scelta: EDOPro**, perché il progetto è open source (§15) e, a parità di licenza possibile, è il più adatto al Combo Lab:
+- **le callback sono per partita**, non globali: ogni thread del solver ha le sue partite indipendenti, il che semplifica il calcolo parallelo;
+- API più recente, con le opzioni del duello (regole del campo, flag per formato) passate alla creazione della partita;
+- dati delle carte (BabelCDB), script e banlist (LFLists) arrivano dallo stesso progetto, con gli script pre-release più rapidi;
+- è il motore del simulatore desktop più usato, quindi i bug vengono trovati e corretti in fretta.
+
+In entrambe le famiglie il funzionamento di base è lo stesso:
 - ogni carta è descritta da uno **script Lua**: il motore "capisce" le carte eseguendo questi script;
 - le regole complesse sono implementate: catene, SEGOC, "missing the timing", once-per-turn rigidi e soft, costi, priorità, Master Rule attuale;
 - le nuove carte arrivano presto, spesso prima dell'uscita ufficiale.
 
-Il motore resta dietro un'interfaccia nostra (`ygo-engine`): se un giorno servisse cambiarlo (EDOPro per un'eventuale edizione open source, o un motore proprietario), il resto del programma non cambia.
+Il motore resta dietro un'interfaccia nostra (`ygo-engine`): se un giorno servisse cambiarlo, per esempio con il motore originale di YGOPro (licenza MIT), il resto del programma non cambia.
 
 **Cosa significa "perfetto" in pratica**: nessun software lo è al 100%. Gli script hanno occasionalmente bug e le carte appena annunciate possono non essere ancora scriptate. Mitigazioni:
 - aggiornamento continuo degli script dal repository ufficiale;
 - una nostra **suite di test dei ruling** (§8.4) eseguita a ogni aggiornamento;
 - le carte senza script sono segnalate chiaramente nell'interfaccia e il solver non le usa in silenzio;
-- i bug trovati si segnalano ai manutentori degli script, con la correzione quando possibile.
+- i bug trovati si segnalano a Project Ignis, con la correzione quando possibile.
 
 ### 8.2 Integrazione (crate `ygo-engine`)
-- Compilazione di ygopro-core + Lua dentro la build Rust, con binding generati e un wrapper sicuro.
-- Callback per leggere i dati delle carte (dal nostro database) e gli script (dalla cartella scaricata dal repository pubblico).
+- Compilazione del core di EDOPro + Lua dentro la build Rust, con binding generati e un wrapper sicuro.
+- Callback per partita per leggere i dati delle carte (dal nostro database, alimentato anche da BabelCDB) e gli script (dalla cartella aggiornata da CardScripts).
 - **Parser dei messaggi binari** del motore e modello tipizzato delle **decisioni**: scegli un'azione (idle), rispondi in catena, scegli carte, zone, posizione, opzione, sì/no, somme di livelli, tributi, dichiarazioni (carta, tipo, attributo, numero)… Ogni decisione diventa una lista di azioni enumerabili, la base sia della sandbox sia del solver.
 - **Stato canonico** del campo letto con le query: carte e zone, posizioni, contatori, LP, effetti once-per-turn già usati, Normal Summon usata, Extra Deck disponibile.
 - **Configurazione delle regole per formato** (per esempio il campo di Genesys senza Extra Monster Zone e Zone Pendulum) tramite le opzioni del duello: da verificare nello spike.
 - **Snapshot**: il motore non sa clonare una partita in corso. Strategia: partite **deterministiche** (seed fisso) + registro delle risposte; per "tornare indietro" o ramificare si ricrea la partita e si rigioca il prefisso, con cache dei prefissi più usati. In fase di R&D si può valutare uno snapshot nativo in un fork del core.
-- **Pool di istanze**: una partita indipendente per ogni thread di lavoro. In questo motore le callback di lettura sono globali: le nostre devono essere thread-safe (dati in sola lettura). Lo spike verificherà la sicurezza tra thread; in alternativa si usa un pool di processi.
+- **Pool di istanze**: una partita indipendente per ogni thread di lavoro. Le callback sono per partita e i dati letti sono in sola lettura; lo spike verificherà comunque la sicurezza tra thread, con un pool di processi come alternativa.
 
 ### 8.3 Sandbox "goldfish"
 - Giochi la tua mano con il motore reale su un campo di gioco grafico.
@@ -422,7 +431,7 @@ Il numero di combo cresce in modo esponenziale con la lunghezza della linea. La 
 
 | Fase | Contenuto | Dimensione | Risultato verificabile |
 |---|---|---|---|
-| **0. Fondamenta + spike** | Monorepo, CI che produce l'installer Windows, scheletro Tauri, design system. **Spike sul motore**: compilare ygopro-core su Windows e Linux, caricare script, giocare una mano scriptata da CLI, misurare la velocità del replay. Spike sui dati: import carte e immagini | M | L'app si installa da GitHub Actions; la CLI gioca una combo nota |
+| **0. Fondamenta + spike** | Monorepo, CI che produce l'installer Windows, scheletro Tauri, design system. **Spike sul motore**: compilare il core di EDOPro su Windows e Linux, caricare script, giocare una mano scriptata da CLI, misurare la velocità del replay. Spike sui dati: import carte e immagini | M | L'app si installa da GitHub Actions; la CLI gioca una combo nota |
 | **1. Database carte & viewer** | Sync fonti, ricerca e filtri, viewer con zoom e popup, prime animazioni e suoni | M | Cerco e visualizzo qualsiasi carta offline |
 | **2. Deck Builder** | Builder completo, formati e banlist (prima Master Duel, poi TCG/OCG e Genesys), validazione, import/export, versioni, pagina Novità | L | Costruisco un deck legale, lo esporto in .ydk e vedo l'impatto di una nuova banlist |
 | **3. Scaffale deck** | Deck box 3D, personalizzazione, carte vetrina, audio ed effetti estesi | M | Scaffale con box personalizzati e animati |
@@ -461,8 +470,8 @@ Versionamento semantico, release su GitHub con changelog e **auto-aggiornamento 
 |---|---|---|
 | Esplosione combinatoria nella ricerca combo | Alto | Ricerca anytime, trasposizioni, simmetrie, macro-azioni, budget e indicatore di copertura, guida neurale in R&D |
 | Bug negli script o carte non ancora scriptate | Medio | Aggiornamenti continui, suite di ruling, segnalazione in UI, contributi upstream |
-| Licenze di motore e script | Medio | Motore MIT; script GPL-2 come componente separato e mai incorporato nel nostro codice; controllo automatico delle licenze in CI; parere legale prima della vendita (§15) |
-| Proprietà intellettuale Konami (immagini, nomi, testi, marchio) | **Alto** se si monetizza | Niente asset Konami nel programma, immagini scaricate dall'utente, nome e logo senza marchi Konami, avviso "non ufficiale", si vende il nostro software e non le carte (§15) |
+| Licenze di motore e script | Basso | Progetto AGPL-3.0 come motore e script; file LICENSE nel repository; controllo automatico delle licenze delle dipendenze in CI (§15) |
+| Proprietà intellettuale Konami (immagini, nomi, testi, marchio) | Medio (alto con servizi a pagamento) | Niente asset Konami nel programma, immagini scaricate dall'utente, nome e logo senza marchi Konami, avviso "non ufficiale" (§15) |
 | Fonti dati che cambiano o limitano l'accesso | Medio | Cache locale completa, più fonti con adattatori intercambiabili, rispetto dei limiti di richieste |
 | Prestazioni dell'interfaccia con oltre 13.000 carte | Basso | Virtualizzazione, miniature WebP, ricerca indicizzata |
 | Ampiezza del progetto | Alto | Fasi con risultati verificabili, prima versione usabile alla Fase 2 |
@@ -473,40 +482,34 @@ Versionamento semantico, release su GitHub con changelog e **auto-aggiornamento 
 
 1. **Nome** definitivo (DuelForge è provvisorio).
 2. ~~Repository dedicato~~: deciso, il progetto vive nel repository `Vale-P-95/ygo`.
-3. ~~Licenza~~: deciso, obiettivo monetizzare; motore YGOPro originale (MIT) con gli script come componente separato. Da far verificare a un legale prima del lancio commerciale (§15).
+3. ~~Licenza~~: deciso, progetto open source AGPL-3.0 con il motore di EDOPro (§8.1, §15).
 4. ~~Formati prioritari~~: deciso, prima Master Duel.
 5. ~~Lingua del testo delle carte~~: deciso, inglese per ora, altre lingue in seguito.
 6. ~~Deck di prova~~: deciso, Invoked di Danilo Siracusa (European WCQ 2026). Serve la decklist esatta: in questo ambiente cloud i siti di decklist sono bloccati.
 7. **Fonte di banlist e pool di carte di Master Duel**: da scegliere nello spike dati (§3.1).
-8. **Modello di monetizzazione** preferito (§15.3).
+8. **Sostenibilità**: se e come finanziare il progetto (§15.3), da decidere più avanti.
 
 ---
 
-## 15. Monetizzazione e aspetti legali
+## 15. Licenza, sostenibilità e aspetti legali
 
-> Questa sezione non è una consulenza legale: prima del lancio commerciale serve il parere di un avvocato esperto di proprietà intellettuale e licenze software.
+> Questa sezione non è una consulenza legale: per qualsiasi uso commerciale serve il parere di un avvocato esperto di proprietà intellettuale e licenze software.
 
-### 15.1 Licenze del codice
-- **Motore (ygopro-core, MIT)**: si può includere in un programma a pagamento e a codice chiuso; basta riportare l'avviso di copyright e il testo della licenza.
-- **Script delle carte (ygopro-scripts, GPL-2)**: restano un componente separato. L'app li scarica dal repository pubblico come file a parte, non li incorpora nel nostro codice, e il motore li esegue come dati. Eventuali correzioni nostre agli script si pubblicano con licenza GPL-2 (conviene comunque proporle ai manutentori). **Questa separazione è il punto da far verificare al legale.**
-- **Il nostro codice** (interfaccia, statistica, solver, punteggio) resta proprietario. Le dipendenze (React, Tauri, librerie Rust) hanno licenze permissive (MIT/Apache); un controllo automatico delle licenze in CI evita di includere per sbaglio librerie copyleft.
-- **EDOPro (AGPL)** resta un'opzione solo per un'eventuale edizione open source separata.
+### 15.1 Licenza: AGPL-3.0-or-later
+- È la licenza del motore e degli script di EDOPro, quindi anche del nostro progetto, che li usa.
+- Chiunque può usare, studiare, modificare e ridistribuire il programma; chi distribuisce versioni modificate, o le offre come servizio online, deve pubblicarne il codice con la stessa licenza.
+- Le dipendenze (React, Tauri, librerie Rust) hanno licenze permissive (MIT/Apache) compatibili; un controllo automatico in CI verifica le licenze delle nuove dipendenze.
+- **Per lasciare aperte opzioni future**: come autore del codice puoi sempre rilasciarlo anche con un'altra licenza. Se arriveranno contributi esterni, un accordo di contribuzione (CLA) preserva questa possibilità anche per il loro codice.
 
-### 15.2 Proprietà intellettuale Konami (il rischio maggiore)
-Nomi, testi e immagini delle carte e il marchio Yu-Gi-Oh! appartengono a Konami. Siti come YGOPRODeck e Master Duel Meta si finanziano con pubblicità e abbonamenti premium come strumenti per i fan, ma senza garanzie: in passato Konami ha fatto chiudere un simulatore online molto diffuso (Dueling Network, 2016). Accorgimenti:
-- nessuna immagine, suono o asset di Konami nel programma o nel repository: le immagini le scarica l'app dell'utente in locale;
+### 15.2 Proprietà intellettuale Konami
+Anche per un progetto open source e gratuito, nomi, testi e immagini delle carte e il marchio Yu-Gi-Oh! appartengono a Konami. I simulatori dei fan sono in genere tollerati, ma senza garanzie: nel 2016 Konami fece chiudere Dueling Network. Accorgimenti:
+- nessuna immagine, suono o asset di Konami nel repository: le immagini le scarica l'app dell'utente in locale;
 - nome e logo del programma senza "Yu-Gi-Oh!" né elementi grafici di Konami; avviso chiaro "prodotto non ufficiale, non affiliato a Konami";
-- nessuna interazione con il client di Master Duel (niente lettura della memoria, overlay o automazioni): oltre a rispettarne i termini di servizio, evita rischi di ban per gli utenti;
-- se il progetto cresce, valutare un contatto con Konami per una licenza ufficiale.
+- nessuna interazione con il client di Master Duel (niente lettura della memoria, overlay o automazioni): rispetta i termini di servizio ed evita rischi di ban per gli utenti.
 
-### 15.3 Modelli di monetizzazione (dal meno al più esposto)
-1. **Freemium**: deck builder, scaffale e statistiche di base gratuiti; a pagamento le funzioni avanzate (Combo Lab completo, Monte Carlo guidato dal motore, ottimizzatore, stress test con handtrap). Si vende il nostro software, non le carte di Konami.
-2. **Servizi cloud in abbonamento**: ricerca combo su server potenti (risultati in secondi anche con i deck complessi), sincronizzazione tra dispositivi, condivisione di combo e guide. Così il codice del solver non viene distribuito, ed è più protetto.
-3. **Donazioni/Patreon, sponsor, contenuti** (guide combo generate dal Combo Lab).
-4. **Vendita del programma a prezzo fisso**: possibile con il motore MIT, ma è il modello più esposto sul fronte Konami.
+### 15.3 Sostenibilità senza chiudere il codice
+Open source non significa per forza gratis per sempre: se in futuro servisse coprire i costi, le strade compatibili con l'AGPL sono donazioni (GitHub Sponsors, Patreon), sponsor, contenuti (guide combo generate dal Combo Lab) e servizi cloud opzionali, come il solver su server potenti, il cui codice resterebbe comunque pubblico. Ognuna di queste aumenta l'esposizione verso Konami e va valutata quando sarà il momento.
 
-### 15.4 Conseguenze sull'architettura, già da ora
-- Il motore sta dietro un'interfaccia (`ygo-engine`), quindi è sostituibile.
-- Gli script vivono in una cartella dati scaricata, mai in `vendor/` né nel nostro codice.
-- Il solver è progettato per girare sia in locale sia su server.
-- Gestione di licenze/abbonamenti e attivazione delle funzioni premium prevista nella Fase 8.
+### 15.4 Conseguenze sull'architettura
+- Il motore sta dietro un'interfaccia (`ygo-engine`), quindi resta sostituibile.
+- Il repository contiene il file `LICENSE` (AGPL-3.0) e un avviso di licenza nel README e nella schermata "Informazioni" dell'app.
