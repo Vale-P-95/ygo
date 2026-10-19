@@ -152,8 +152,9 @@ impl CardDb {
                 Some(text) => text.clone(),
                 None => format!("effect of {}", card.name),
             },
-            None if description == 0 => String::new(),
-            None => format!("system string {description}"),
+            // System strings (generic prompts such as "use this effect?") are
+            // not in the card data: the card and the action already say it.
+            None => String::new(),
         }
     }
 

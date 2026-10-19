@@ -4830,6 +4830,7 @@ dependencies = [
  "tokio",
  "ygo-data",
  "ygo-engine",
+ "ygo-solver",
 ]
 
 [[package]]
@@ -4854,6 +4855,13 @@ dependencies = [
  "cc",
  "rusqlite",
  "thiserror 2.0.21",
+]
+
+[[package]]
+name = "ygo-solver"
+version = "0.1.0"
+dependencies = [
+ "ygo-engine",
 ]
 
 [[package]]

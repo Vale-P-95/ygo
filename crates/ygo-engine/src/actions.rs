@@ -37,11 +37,18 @@ pub struct Action {
     pub kind: ActionKind,
     pub label: String,
     pub response: Vec<u8>,
+    /// The card the action is about (summoned, set, activated, attacking), if any.
+    pub card: Option<CardRef>,
 }
 
 impl Action {
     fn new(kind: ActionKind, label: impl Into<String>, response: Vec<u8>) -> Self {
-        Self { kind, label: label.into(), response }
+        Self { kind, label: label.into(), response, card: None }
+    }
+
+    fn on(mut self, card: &CardRef) -> Self {
+        self.card = Some(*card);
+        self
     }
 }
 
@@ -281,22 +288,22 @@ pub fn actions_with(decision: &Decision, db: &CardDb, known: &[u32]) -> Vec<Acti
             ..
         } => {
             for (i, c) in summonable.iter().enumerate() {
-                out.push(Action::new(K::NormalSummon, format!("Normal Summon {}", describe_card(db, c)), cmd(0, i)));
+                out.push(Action::new(K::NormalSummon, format!("Normal Summon {}", describe_card(db, c)), cmd(0, i)).on(c));
             }
             for (i, c) in special_summonable.iter().enumerate() {
-                out.push(Action::new(K::SpecialSummon, format!("Special Summon {}", describe_card(db, c)), cmd(1, i)));
+                out.push(Action::new(K::SpecialSummon, format!("Special Summon {}", describe_card(db, c)), cmd(1, i)).on(c));
             }
             for (i, c) in repositionable.iter().enumerate() {
-                out.push(Action::new(K::ChangePosition, format!("Change position of {}", describe_card(db, c)), cmd(2, i)));
+                out.push(Action::new(K::ChangePosition, format!("Change position of {}", describe_card(db, c)), cmd(2, i)).on(c));
             }
             for (i, c) in monster_settable.iter().enumerate() {
-                out.push(Action::new(K::SetMonster, format!("Set {}", describe_card(db, c)), cmd(3, i)));
+                out.push(Action::new(K::SetMonster, format!("Set {}", describe_card(db, c)), cmd(3, i)).on(c));
             }
             for (i, c) in spell_settable.iter().enumerate() {
-                out.push(Action::new(K::SetSpellTrap, format!("Set {}", describe_card(db, c)), cmd(4, i)));
+                out.push(Action::new(K::SetSpellTrap, format!("Set {}", describe_card(db, c)), cmd(4, i)).on(c));
             }
             for (i, a) in activatable.iter().enumerate() {
-                out.push(Action::new(K::Activate, format!("Activate {}", describe_activation(db, a)), cmd(5, i)));
+                out.push(Action::new(K::Activate, format!("Activate {}", describe_activation(db, a)), cmd(5, i)).on(&a.card));
             }
             if *to_battle_phase {
                 out.push(Action::new(K::ToBattlePhase, "Go to Battle Phase", cmd(6, 0)));
@@ -307,11 +314,11 @@ pub fn actions_with(decision: &Decision, db: &CardDb, known: &[u32]) -> Vec<Acti
         }
         Decision::BattleCmd { activatable, attackers, to_main2, to_end_phase, .. } => {
             for (i, a) in activatable.iter().enumerate() {
-                out.push(Action::new(K::Activate, format!("Activate {}", describe_activation(db, a)), cmd(0, i)));
+                out.push(Action::new(K::Activate, format!("Activate {}", describe_activation(db, a)), cmd(0, i)).on(&a.card));
             }
             for (i, (c, direct)) in attackers.iter().enumerate() {
                 let how = if *direct { " (can attack directly)" } else { "" };
-                out.push(Action::new(K::Attack, format!("Attack with {}{how}", describe_card(db, c)), cmd(1, i)));
+                out.push(Action::new(K::Attack, format!("Attack with {}{how}", describe_card(db, c)), cmd(1, i)).on(c));
             }
             if *to_main2 {
                 out.push(Action::new(K::ToMainPhase2, "Go to Main Phase 2", cmd(2, 0)));
@@ -322,11 +329,14 @@ pub fn actions_with(decision: &Decision, db: &CardDb, known: &[u32]) -> Vec<Acti
         }
         Decision::EffectYesNo { card, description, .. } => {
             let text = db.describe(*description);
-            out.push(Action::new(
-                K::Yes,
-                format!("Yes, use {}{}", describe_card(db, card), if text.is_empty() { String::new() } else { format!(": {text}") }),
-                i32_bytes(1),
-            ));
+            out.push(
+                Action::new(
+                    K::Yes,
+                    format!("Yes, use {}{}", describe_card(db, card), if text.is_empty() { String::new() } else { format!(": {text}") }),
+                    i32_bytes(1),
+                )
+                .on(card),
+            );
             out.push(Action::new(K::No, "No", i32_bytes(0)));
         }
         Decision::YesNo { description, .. } => {
@@ -373,7 +383,7 @@ pub fn actions_with(decision: &Decision, db: &CardDb, known: &[u32]) -> Vec<Acti
                 out.push(Action::new(K::Pass, "Don't chain", i32_bytes(-1)));
             }
             for (i, a) in chains.iter().enumerate() {
-                out.push(Action::new(K::Activate, format!("Chain {}", describe_activation(db, a)), i32_bytes(i as i32)));
+                out.push(Action::new(K::Activate, format!("Chain {}", describe_activation(db, a)), i32_bytes(i as i32)).on(&a.card));
             }
         }
         Decision::SelectPlace { player, count, blocked, .. } => {

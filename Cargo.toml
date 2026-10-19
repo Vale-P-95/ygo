@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["crates/ygo-engine", "crates/ygo-data", "crates/ygo-stats", "crates/ygo-cli", "apps/desktop/src-tauri"]
+members = ["crates/ygo-engine", "crates/ygo-data", "crates/ygo-stats", "crates/ygo-solver", "crates/ygo-cli", "apps/desktop/src-tauri"]
 
 [workspace.package]
 version = "0.1.0"
@@ -9,4 +9,8 @@ license = "AGPL-3.0-or-later"
 repository = "https://github.com/Vale-P-95/ygo"
 
 [profile.dev.package."*"]
+opt-level = 2
+
+# The engine is slow unoptimized (its C++ too): optimize it in tests and dev builds.
+[profile.dev.package.ygo-engine]
 opt-level = 2

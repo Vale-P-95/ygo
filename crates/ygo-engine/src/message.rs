@@ -68,14 +68,14 @@ pub struct CardRef {
 }
 
 /// An effect that can be activated, as listed in idle/battle/chain decisions.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Activatable {
     pub card: CardRef,
     pub description: u64,
     pub client_mode: u8,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Decision {
     IdleCmd {
         player: u8,

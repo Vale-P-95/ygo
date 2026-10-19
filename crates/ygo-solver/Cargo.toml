@@ -1,0 +1,10 @@
+[package]
+name = "ygo-solver"
+description = "DuelForge's Combo Lab: the engine plays every line from a hand and collects the end boards"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+ygo-engine = { path = "../ygo-engine" }

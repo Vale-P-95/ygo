@@ -3,7 +3,8 @@
 //! one step once the chain prompts with a single answer are taken).
 
 use crate::actions::{Action, ActionKind};
-use crate::consts::position;
+use crate::carddb::CardDb;
+use crate::consts::{location, position};
 use crate::duel::{Duel, Step};
 use crate::message::Decision;
 use crate::Error;
@@ -14,20 +15,46 @@ pub struct AutoPolicy {
     pub positions: bool,
     /// Never enter the Battle Phase (going first, no one can attack).
     pub skip_battle: bool,
+    /// Cards never summoned, set or activated.
+    pub forbid: Vec<u32>,
+    /// Cards not activated from the hand (handtraps on your own turn).
+    pub passive: Vec<u32>,
+    /// Among your free zones, offer one per kind: Extra Monster Zone or not,
+    /// and which of your Link arrows point to it. Zones that differ only by
+    /// position are taken as the same (faster, rarely loses a line).
+    pub zones: bool,
 }
 
 impl Default for AutoPolicy {
     fn default() -> Self {
-        Self { positions: true, skip_battle: true }
+        Self { positions: true, skip_battle: true, forbid: Vec::new(), passive: Vec::new(), zones: true }
     }
 }
 
-/// The answers the search should consider for `decision`.
-pub fn choices(decision: &Decision, actions: Vec<Action>, policy: &AutoPolicy) -> Vec<Action> {
-    if policy.skip_battle && matches!(decision, Decision::IdleCmd { .. }) {
-        return actions.into_iter().filter(|a| a.kind != ActionKind::ToBattlePhase).collect();
+/// The answers the search should consider for `decision`. Never empties a
+/// list that had answers: if every answer is ruled out, they all stay.
+/// Cards are compared by their original code (alternate artworks included).
+pub fn choices(decision: &Decision, actions: Vec<Action>, policy: &AutoPolicy, db: &CardDb) -> Vec<Action> {
+    let skip_battle = policy.skip_battle && matches!(decision, Decision::IdleCmd { .. });
+    let listed = |list: &[u32], code: u32| {
+        let code = db.canonical_code(code);
+        list.iter().any(|&c| db.canonical_code(c) == code)
+    };
+    let keep = |a: &Action| {
+        if skip_battle && a.kind == ActionKind::ToBattlePhase {
+            return false;
+        }
+        match a.card {
+            Some(c) if listed(&policy.forbid, c.code) => false,
+            Some(c) if a.kind == ActionKind::Activate && c.location == location::HAND && listed(&policy.passive, c.code) => false,
+            _ => true,
+        }
+    };
+    if actions.iter().any(keep) {
+        actions.into_iter().filter(keep).collect()
+    } else {
+        actions
     }
-    actions
 }
 
 /// The answer to give without asking, if there is nothing to choose.
@@ -47,6 +74,68 @@ pub fn auto_answer(decision: &Decision, actions: &[Action], policy: &AutoPolicy)
     None
 }
 
+/// Link arrows (bottom-left, bottom, ...) and the zone they point to, from
+/// a Link monster in `from` (Monster Zones: 0-4 main, 5-6 extra).
+fn arrow_targets(from: usize) -> &'static [(u32, usize)] {
+    const BL: u32 = 0x1;
+    const B: u32 = 0x2;
+    const BR: u32 = 0x4;
+    const L: u32 = 0x8;
+    const R: u32 = 0x20;
+    const TL: u32 = 0x40;
+    const T: u32 = 0x80;
+    const TR: u32 = 0x100;
+    match from {
+        0 => &[(R, 1), (TR, 5)],
+        1 => &[(L, 0), (R, 2), (T, 5)],
+        2 => &[(L, 1), (R, 3), (TL, 5), (TR, 6)],
+        3 => &[(L, 2), (R, 4), (T, 6)],
+        4 => &[(L, 3), (TL, 6)],
+        5 => &[(BL, 0), (B, 1), (BR, 2)],
+        6 => &[(BL, 2), (B, 3), (BR, 4)],
+        _ => &[],
+    }
+}
+
+/// One zone per kind among the offered places of `player`'s own field;
+/// other places (the opponent's field) stay as they are.
+fn distinct_zones(state: &crate::state::DuelState, player: u8, actions: Vec<Action>) -> Vec<Action> {
+    let me = &state.players[player as usize];
+    let pointed = |zone: usize| -> Vec<(usize, u32)> {
+        let mut by = Vec::new();
+        for (from, card) in me.monsters.iter().enumerate() {
+            let Some(card) = card else { continue };
+            if card.link.0 == 0 || !card.is_face_up() {
+                continue;
+            }
+            for &(arrow, to) in arrow_targets(from) {
+                if to == zone && card.link.1 & arrow != 0 {
+                    by.push((from, arrow));
+                }
+            }
+        }
+        by
+    };
+    let mut seen = Vec::new();
+    let mut out = Vec::new();
+    for a in actions {
+        let kind = match *a.response.as_slice() {
+            [p, loc, seq] if p == player && loc == location::MZONE => Some((loc, seq >= 5, pointed(seq as usize))),
+            [p, loc, seq] if p == player && loc == location::SZONE && seq < 5 => Some((loc, false, Vec::new())),
+            _ => None,
+        };
+        match kind {
+            Some(kind) if seen.contains(&kind) => {}
+            Some(kind) => {
+                seen.push(kind);
+                out.push(a);
+            }
+            None => out.push(a),
+        }
+    }
+    out
+}
+
 impl Duel {
     /// Like [`Duel::advance`], but answers the decisions [`auto_answer`]
     /// takes care of, appending those answers to `answers` so the line can
@@ -57,7 +146,12 @@ impl Duel {
             match self.advance()? {
                 Step::Decision { decision, events: mut new } => {
                     events.append(&mut new);
-                    let actions = choices(&decision, self.actions(&decision), policy);
+                    let mut actions = choices(&decision, self.actions(&decision), policy, self.cards());
+                    if policy.zones {
+                        if let Decision::SelectPlace { player, count: 1, .. } = decision {
+                            actions = distinct_zones(&self.state(), player, actions);
+                        }
+                    }
                     match auto_answer(&decision, &actions, policy) {
                         Some(i) => {
                             answers.push(actions[i].response.clone());

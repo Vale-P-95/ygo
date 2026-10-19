@@ -4,6 +4,7 @@
 //! - `info`: engine version and loaded data.
 //! - `play`: play a starting hand from a deck, interactively or by script.
 //! - `bench`: measure duel creation, playout and replay speed.
+//! - `combos`: search every line from a hand and list the end boards.
 //! - `sweep`: random duels between random decks, reporting any decision
 //!   that cannot be answered or any answer the engine rejects.
 
@@ -71,6 +72,32 @@ enum Cmd {
         #[arg(long, default_value_t = 60)]
         max_decisions: u32,
     },
+    /// Let the engine play every line from a hand and list the end boards.
+    Combos {
+        #[command(flatten)]
+        setup: Setup,
+        /// Time limit in seconds.
+        #[arg(long, default_value_t = 60)]
+        seconds: u64,
+        /// Worker threads (default: all cores).
+        #[arg(long)]
+        threads: Option<usize>,
+        /// Boards to list.
+        #[arg(long, default_value_t = 10)]
+        top: usize,
+        /// Print the line of each board.
+        #[arg(long)]
+        lines: bool,
+        /// Also try activating handtraps on your own turn.
+        #[arg(long)]
+        use_handtraps: bool,
+        /// Cards never to use (semicolon-separated names or passcodes).
+        #[arg(long, default_value = "")]
+        forbid: String,
+        /// Cards to keep in hand (semicolon-separated names or passcodes).
+        #[arg(long, default_value = "")]
+        keep: String,
+    },
     /// Random duels between random decks; fails on unanswerable or rejected decisions.
     Sweep {
         #[arg(long, default_value_t = 200)]
@@ -113,11 +140,98 @@ fn main() -> Result<()> {
         Cmd::Search { query, limit } => search(&cli.data, &query, limit),
         Cmd::Play { setup, steps, verbose } => play(&cli.data, &setup, steps.as_deref(), verbose),
         Cmd::Bench { setup, playouts, max_decisions } => bench(&cli.data, &setup, playouts, max_decisions),
+        Cmd::Combos { setup, seconds, threads, top, lines, use_handtraps, forbid, keep } => {
+            combos(&cli.data, &setup, CombosOptions { seconds, threads, top, show_lines: lines, use_handtraps, forbid, keep })
+        }
         Cmd::Sweep { duels, max_decisions, max_turns, seed, threads, script_errors } => {
             let threads = threads.unwrap_or_else(|| std::thread::available_parallelism().map_or(4, |n| n.get()));
             sweep(&cli.data, &SweepConfig { duels, max_decisions, max_turns, seed, threads }, script_errors)
         }
     }
+}
+
+struct CombosOptions {
+    seconds: u64,
+    threads: Option<usize>,
+    top: usize,
+    show_lines: bool,
+    use_handtraps: bool,
+    forbid: String,
+    keep: String,
+}
+
+fn combos(dir: &Path, setup: &Setup, options: CombosOptions) -> Result<()> {
+    let CombosOptions { seconds, threads, top, show_lines, use_handtraps, forbid, keep } = options;
+    let (engine, deck, hand) = start(dir, setup)?;
+    let mut config = ygo_solver::SearchConfig::new(deck, hand);
+    config.seed = setup.seed;
+    config.time_limit = std::time::Duration::from_secs(seconds);
+    if let Some(t) = threads {
+        config.threads = t;
+    }
+    if !use_handtraps {
+        config.policy.passive =
+            ygo_data::Tag::Handtrap.names().iter().filter_map(|n| engine.cards().find_by_name(n)).map(|c| c.code).collect();
+    }
+    config.policy.forbid = resolve_hand(&engine, &forbid)?;
+    config.keep_in_hand = resolve_hand(&engine, &keep)?;
+    let cancel = std::sync::atomic::AtomicBool::new(false);
+    let mut last = 0;
+    let result = ygo_solver::search(&engine, &config, &cancel, |p| {
+        if p.elapsed.as_secs() >= last + 5 {
+            last = p.elapsed.as_secs();
+            eprintln!(
+                "{:>4} s  {} nodes, {} replays, {} duplicates, {} queued, {} boards (best {:.1})",
+                p.elapsed.as_secs(),
+                p.nodes,
+                p.replays,
+                p.duplicates,
+                p.queued,
+                p.boards,
+                p.best_quick_score
+            );
+        }
+    });
+    let p = &result.progress;
+    println!(
+        "{:?} after {:.1} s: {} nodes ({:.0}/s), {} replays, {} duplicates, {} boards, {} interrupted lines",
+        result.stop,
+        p.elapsed.as_secs_f64(),
+        p.nodes,
+        p.nodes as f64 / p.elapsed.as_secs_f64().max(1e-9),
+        p.replays,
+        p.duplicates,
+        p.boards,
+        result.interrupted
+    );
+    let db = engine.cards();
+    for (i, board) in result.boards.iter().take(top).enumerate() {
+        let me = &board.state.players[0];
+        let field: Vec<String> = me.monsters.iter().chain(&me.spells).flatten().map(|c| db.name(c.code)).collect();
+        let hand: Vec<String> = me.hand.iter().map(|&c| db.name(c)).collect();
+        println!(
+            "\n#{} score {:.1} · {} cards used · {} choices · found at {:.1} s\n   field: {}\n   hand: {}",
+            i + 1,
+            board.quick_score,
+            board.cards_used,
+            board.line.choices.len(),
+            board.found_after.as_secs_f64(),
+            field.join(", "),
+            hand.join(", ")
+        );
+        if show_lines {
+            let (_, steps) = ygo_solver::explain(&engine, &config.deck, &config.hand, config.seed, &board.line)?;
+            for (k, step) in steps.iter().enumerate() {
+                if let Some(choice) = &step.choice {
+                    println!("     {:>2}. {choice}", k);
+                }
+                for line in &step.events {
+                    println!("           {line}");
+                }
+            }
+        }
+    }
+    Ok(())
 }
 
 fn sweep(dir: &Path, config: &SweepConfig, show_script_errors: bool) -> Result<()> {

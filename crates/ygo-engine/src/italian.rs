@@ -156,6 +156,8 @@ pub fn describe(db: &CardDb, event: &Event) -> Option<String> {
         }
         Event::ChainNegated { chain_link } => format!("L'attivazione della Catena {chain_link} viene annullata"),
         Event::ChainDisabled { chain_link } => format!("L'effetto della Catena {chain_link} viene annullato"),
+        // Set Spells and Traps turn face-up when activated: the activation says it.
+        Event::PositionChange { card, .. } if card.location == location::SZONE => return None,
         Event::PositionChange { card, .. } => format!("{} cambia posizione", name(db, card.code)),
         Event::Damage { player, amount } => {
             if *player == 0 {
@@ -181,6 +183,98 @@ pub fn describe(db: &CardDb, event: &Event) -> Option<String> {
         }
         _ => return None,
     })
+}
+
+/// A choice in Italian: the label of an [`Action`] with its game terms
+/// and places translated (card names and effect texts stay in English).
+pub fn choice(action: &crate::actions::Action) -> String {
+    use crate::actions::ActionKind as K;
+    let label = action.label.as_str();
+    let places = |text: &str| {
+        let mut out = text.to_owned();
+        for (en, it) in [
+            ("(Extra Monster Zone (left))", "(Zona Mostri Extra sinistra)"),
+            ("(Extra Monster Zone (right))", "(Zona Mostri Extra destra)"),
+            ("Extra Monster Zone (left)", "Zona Mostri Extra sinistra"),
+            ("Extra Monster Zone (right)", "Zona Mostri Extra destra"),
+            ("Main Monster Zone ", "Zona Mostri Principale "),
+            ("Monster Zone ", "Zona Mostri "),
+            ("Spell/Trap Zone ", "Zona Magie e Trappole "),
+            ("S/T Zone ", "Zona Magie e Trappole "),
+            ("Field Zone", "Zona Terreno"),
+            ("Pendulum Zone (left)", "Zona Pendulum sinistra"),
+            ("Pendulum Zone (right)", "Zona Pendulum destra"),
+            ("(Hand)", "(mano)"),
+            ("(GY)", "(Cimitero)"),
+            ("(Banished)", "(bandita)"),
+            ("opponent's ", "dell'avversario, "),
+            ("face-down card", "carta coperta"),
+        ] {
+            out = out.replace(en, it);
+        }
+        out
+    };
+    let rest = |prefix: &str| places(label.strip_prefix(prefix).unwrap_or(label));
+    match action.kind {
+        K::NormalSummon => format!("Evochi normalmente {}", rest("Normal Summon ")),
+        K::SpecialSummon => format!("Evochi specialmente {}", rest("Special Summon ")),
+        K::SetMonster | K::SetSpellTrap => format!("Posizioni {}", rest("Set ")),
+        K::ChangePosition => format!("Cambi la posizione di {}", rest("Change position of ")),
+        K::Activate if label.starts_with("Chain ") => format!("Concateni {}", rest("Chain ")),
+        K::Activate => format!("Attivi {}", rest("Activate ")),
+        K::ToBattlePhase => "Entri nella Battle Phase".to_owned(),
+        K::ToMainPhase2 => "Passi alla Main Phase 2".to_owned(),
+        K::EndTurn => "Termini il turno".to_owned(),
+        K::Attack => format!("Attacchi con {}", rest("Attack with ")),
+        K::Yes if label.starts_with("Yes, use ") => format!("Sì, usi {}", rest("Yes, use ")),
+        K::Yes => format!("Sì{}", rest("Yes")),
+        K::No => "No".to_owned(),
+        K::Pass => "Non concateni".to_owned(),
+        K::Finish => "Concludi la selezione".to_owned(),
+        K::Cancel => "Annulli".to_owned(),
+        K::Place => {
+            if let Some(zone) = label.strip_prefix("Place in your ") {
+                format!("Scegli la {}", places(zone))
+            } else if let Some(zone) = label.strip_prefix("Place in opponent's ") {
+                format!("Scegli la {} dell'avversario", places(zone))
+            } else {
+                format!("Scegli le zone {}", rest("Choose zones "))
+            }
+        }
+        K::Position => format!("Posizione: {}", position_it(label.strip_prefix("Position: ").unwrap_or(label))),
+        K::Order => {
+            if label == "Keep the default order" {
+                "Lasci l'ordine com'è".to_owned()
+            } else {
+                format!("Ordine: {}", rest("Order: "))
+            }
+        }
+        K::Announce => format!("Dichiari {}", rest("Declare ")),
+        K::Choose => {
+            for (en, it) in [
+                ("Select ", "Scegli "),
+                ("Unselect ", "Togli dalla selezione "),
+                ("Tribute ", "Offri come tributo "),
+                ("Option: ", "Opzione: "),
+                ("Counters: ", "Segnalini: "),
+            ] {
+                if let Some(text) = label.strip_prefix(en) {
+                    return format!("{it}{}", places(text).replace(" + ", " e ").replace(" from ", " da "));
+                }
+            }
+            places(label)
+        }
+    }
+}
+
+fn position_it(position: &str) -> &str {
+    match position {
+        "face-up Attack" => "Attacco scoperto",
+        "face-down Attack" => "Attacco coperto",
+        "face-up Defense" => "Difesa scoperta",
+        "face-down Defense" => "Difesa coperta",
+        other => other,
+    }
 }
 
 #[cfg(test)]
@@ -211,5 +305,26 @@ mod tests {
         // Arriving in a Monster Zone is told by the summon line.
         assert!(line(Event::Move { code: 0, from: card(0, 0, location::HAND), to: card(0, 0, location::MZONE), reason: 0 }).is_none());
         assert_eq!(line(Event::ChainNegated { chain_link: 2 }).unwrap(), "L'attivazione della Catena 2 viene annullata");
+    }
+
+    #[test]
+    fn choices_in_italian() {
+        use crate::actions::{Action, ActionKind};
+        let a = |kind, label: &str| Action { kind, label: label.to_owned(), response: Vec::new(), card: None };
+        assert_eq!(
+            choice(&a(ActionKind::NormalSummon, "Normal Summon Aleister the Invoker (Hand)")),
+            "Evochi normalmente Aleister the Invoker (mano)"
+        );
+        assert_eq!(
+            choice(&a(ActionKind::Activate, "Activate Invocation (S/T Zone 2): Fusion Summon")),
+            "Attivi Invocation (Zona Magie e Trappole 2): Fusion Summon"
+        );
+        assert_eq!(choice(&a(ActionKind::Place, "Place in your Extra Monster Zone (left)")), "Scegli la Zona Mostri Extra sinistra");
+        assert_eq!(
+            choice(&a(ActionKind::Choose, "Select Aleister the Invoker (GY) + Virakam (Monster Zone 1)")),
+            "Scegli Aleister the Invoker (Cimitero) e Virakam (Zona Mostri 1)"
+        );
+        assert_eq!(choice(&a(ActionKind::Pass, "Don't chain")), "Non concateni");
+        assert_eq!(choice(&a(ActionKind::EndTurn, "End turn")), "Termini il turno");
     }
 }
