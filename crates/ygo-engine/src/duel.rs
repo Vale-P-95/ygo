@@ -139,6 +139,8 @@ pub struct Duel {
     /// The decision waiting for an answer: after a rejected answer the engine
     /// does not ask again, so another answer must be given to this one.
     pending: Option<Decision>,
+    /// The last answer given, for telling what was rejected.
+    last_response: Vec<u8>,
     /// Every card code put in the duel, for card declarations.
     known: Vec<u32>,
     turn: u32,
@@ -198,6 +200,7 @@ impl Duel {
             ctx,
             select_hint: 0,
             pending: None,
+            last_response: Vec::new(),
             known: Vec::new(),
             turn: 0,
             turn_player: 0,
@@ -221,6 +224,18 @@ impl Duel {
     /// board you pass with (not after your next draw).
     pub fn goldfish(engine: &Engine, deck: &DeckList, hand: &[u32], seed: u64) -> Result<Self, Error> {
         let mut duel = Self::solitaire(engine, deck, hand, seed, None)?;
+        duel.last_turn = Some(1);
+        Ok(duel)
+    }
+
+    /// Like [`Duel::goldfish`], but the opponent has `opponent`'s cards (if
+    /// any) during your turn, like in [`Duel::goldfish_vs`]: a line found
+    /// against it plays the same when the opponent's turn follows. Cards
+    /// that look at the opponent's Deck, hand or Extra Deck offer the same
+    /// choices in both. The opponent's decisions are asked like yours.
+    pub fn goldfish_against(engine: &Engine, deck: &DeckList, hand: &[u32], seed: u64, opponent: Option<&Opponent>) -> Result<Self, Error> {
+        let Some(opponent) = opponent else { return Self::goldfish(engine, deck, hand, seed) };
+        let mut duel = Self::solitaire(engine, deck, hand, seed, Some(opponent))?;
         duel.last_turn = Some(1);
         Ok(duel)
     }
@@ -334,7 +349,12 @@ impl Duel {
             }
             if events.contains(&Event::Retry) {
                 // The engine still waits for an answer to `pending`.
-                return Err(Error::Rejected(self.log().join("; ")));
+                let mut why = format!("{:?} answered {:?}", self.pending, self.last_response);
+                for line in self.log() {
+                    why.push_str("; ");
+                    why.push_str(&line);
+                }
+                return Err(Error::Rejected(why));
             }
             self.pending = None;
             match status {
@@ -428,6 +448,7 @@ impl Duel {
     }
 
     pub fn respond(&mut self, response: &[u8]) {
+        self.last_response = response.to_vec();
         unsafe { OCG_DuelSetResponse(self.raw, response.as_ptr() as *const c_void, response.len() as u32) };
     }
 

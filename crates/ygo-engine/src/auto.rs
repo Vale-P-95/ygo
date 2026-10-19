@@ -144,16 +144,35 @@ pub fn distinct_zones(state: &crate::state::DuelState, player: u8, actions: Vec<
     out
 }
 
+/// The answer of a player who does nothing: not chaining, no, cancel or
+/// finish when offered, else the first answer.
+pub fn passive_answer(decision: &Decision, actions: &[Action]) -> Vec<u8> {
+    let pass = actions.iter().find(|a| matches!(a.kind, ActionKind::Pass | ActionKind::No | ActionKind::Cancel | ActionKind::Finish));
+    match pass.or(actions.first()) {
+        Some(a) => a.response.clone(),
+        None if matches!(decision, Decision::EffectYesNo { .. } | Decision::YesNo { .. }) => 0i32.to_le_bytes().to_vec(),
+        None => (-1i32).to_le_bytes().to_vec(),
+    }
+}
+
 impl Duel {
     /// Like [`Duel::advance`], but answers the decisions [`auto_answer`]
-    /// takes care of, appending those answers to `answers` so the line can
-    /// be replayed. Returns at the next real choice or at the end.
+    /// takes care of (and the opponent's, passing), appending those answers
+    /// to `answers` so the line can be replayed. Returns at the next real
+    /// choice or at the end.
     pub fn advance_auto(&mut self, policy: &AutoPolicy, answers: &mut Vec<Vec<u8>>) -> Result<(Step, Vec<Action>), Error> {
         let mut events = Vec::new();
         loop {
             match self.advance()? {
                 Step::Decision { decision, events: mut new } => {
                     events.append(&mut new);
+                    // The opponent does nothing on your turn.
+                    if decision.player() == Some(1) {
+                        let answer = passive_answer(&decision, &self.actions(&decision));
+                        self.respond(&answer);
+                        answers.push(answer);
+                        continue;
+                    }
                     let mut actions = choices(&decision, self.actions(&decision), policy, self.cards());
                     if policy.zones {
                         if let Decision::SelectPlace { player, count: 1, .. } = decision {

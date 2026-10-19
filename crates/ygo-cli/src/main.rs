@@ -214,6 +214,9 @@ fn combos(dir: &Path, setup: &Setup, options: CombosOptions) -> Result<()> {
     if let Some(t) = threads {
         config.threads = t;
     }
+    // The search plays against the probe turn's opponent: its lines play the same there.
+    let kit = ygo_solver::Kit::standard(&engine);
+    config.opponent = Some(kit.opponent().clone());
     config.hand_traps = ygo_data::Tag::Handtrap.names().iter().filter_map(|n| engine.cards().find_by_name(n)).map(|c| c.code).collect();
     if !use_handtraps {
         config.policy.passive = config.hand_traps.clone();
@@ -297,7 +300,6 @@ fn combos(dir: &Path, setup: &Setup, options: CombosOptions) -> Result<()> {
         result.interrupted
     );
     let db = engine.cards();
-    let kit = ygo_solver::Kit::standard(&engine);
     let mut prober = ygo_solver::Prober::new(&engine, &config.deck, &config.hand, config.seed, &kit);
     for (i, board) in result.boards.iter().take(top).enumerate() {
         let me = &board.state.players[0];
@@ -336,7 +338,7 @@ fn combos(dir: &Path, setup: &Setup, options: CombosOptions) -> Result<()> {
             }
         }
         if show_lines {
-            let (_, steps) = ygo_solver::explain(&engine, &config.deck, &config.hand, config.seed, &board.line)?;
+            let (_, steps) = ygo_solver::explain(&engine, &config.deck, &config.hand, config.seed, config.opponent.as_ref(), &board.line)?;
             for (k, step) in steps.iter().enumerate() {
                 if let Some(choice) = &step.choice {
                     println!("     {:>2}. {choice}", k);

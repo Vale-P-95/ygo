@@ -854,6 +854,8 @@ fn combo_search(app: tauri::AppHandle, state: State<'_, AppState>, request: Comb
     let mut config = ygo_solver::SearchConfig::new(list.clone(), Vec::new());
     config.keep_in_hand = request.keep;
     config.policy.forbid = request.forbid;
+    // The search plays against the probe turn's opponent: its lines play the same there.
+    config.opponent = Some(ygo_solver::Kit::standard(&engine).opponent().clone());
     config.hand_traps = Tag::Handtrap.names().iter().filter_map(|n| engine.cards().find_by_name(n)).map(|c| c.code).collect();
     if !request.use_handtraps {
         config.policy.passive = config.hand_traps.clone();
@@ -1020,7 +1022,8 @@ fn combo_explain(state: State<'_, AppState>, hand: usize, key: String) -> Result
     let board =
         job.boards.iter().find(|(h, b)| *h == hand && format!("{:016x}", b.key) == key).map(|(_, b)| b).ok_or("Board non trovata")?;
     let (cards, _, _) = job.hands.get(hand).ok_or("Mano non trovata")?;
-    let (_, steps) = ygo_solver::explain(&engine, &job.config.deck, cards, job.config.seed, &board.line).map_err(|e| e.to_string())?;
+    let (_, steps) = ygo_solver::explain(&engine, &job.config.deck, cards, job.config.seed, job.config.opponent.as_ref(), &board.line)
+        .map_err(|e| e.to_string())?;
     Ok(steps.into_iter().map(|s| ExplainedStepView { choice: s.choice, events: s.events }).collect())
 }
 

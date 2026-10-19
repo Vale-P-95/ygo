@@ -25,7 +25,7 @@ use std::time::{Duration, Instant};
 
 use ygo_engine::auto::AutoPolicy;
 use ygo_engine::consts::{card_type, location};
-use ygo_engine::{canonical_fingerprint, italian, Action, ActionKind, Decision, DeckList, Duel, DuelState, Engine, Error, Step};
+use ygo_engine::{canonical_fingerprint, italian, Action, ActionKind, Decision, DeckList, Duel, DuelState, Engine, Error, Opponent, Step};
 
 #[derive(Debug, Clone)]
 pub struct SearchConfig {
@@ -47,6 +47,10 @@ pub struct SearchConfig {
     pub hand_traps: Vec<u32>,
     pub goal: Goal,
     pub policy: AutoPolicy,
+    /// The opponent's cards during your turn: those of the probe turn
+    /// ([`crate::Kit::opponent`]), so a line found here plays the same
+    /// there. `None`: an opponent with no cards.
+    pub opponent: Option<Opponent>,
     /// Best boards included in each progress report.
     pub live_top: usize,
     /// Provisional boards played to the end of the turn when the search stops.
@@ -69,6 +73,7 @@ impl SearchConfig {
             hand_traps: Vec::new(),
             goal: Goal::default(),
             policy: AutoPolicy::default(),
+            opponent: None,
             live_top: 10,
             confirm_top: 40,
             zone_top: 20,
@@ -691,7 +696,7 @@ fn keeps_hand(engine: &Engine, config: &SearchConfig, state: &DuelState) -> bool
 /// Plays one edge: replays its line, gives its answer, then dives.
 fn work(shared: &Shared, edge: Edge) -> Result<(), Error> {
     let config = shared.config;
-    let mut duel = Duel::goldfish(shared.engine, &config.deck, &config.hand, config.seed)?;
+    let mut duel = Duel::goldfish_against(shared.engine, &config.deck, &config.hand, config.seed, config.opponent.as_ref())?;
     let mut line = (*edge.prefix).clone();
     for answer in &line.answers {
         duel.advance()?;
@@ -892,7 +897,7 @@ fn zone_variants_of(shared: &Shared, line: &Line) -> Result<(), Error> {
     let config = shared.config;
     // The zone choices of the line that had other kinds of zones.
     let mut spots = Vec::new();
-    let mut duel = Duel::goldfish(shared.engine, &config.deck, &config.hand, config.seed)?;
+    let mut duel = Duel::goldfish_against(shared.engine, &config.deck, &config.hand, config.seed, config.opponent.as_ref())?;
     for (i, answer) in line.answers.iter().enumerate() {
         let Step::Decision { decision, .. } = duel.advance()? else { break };
         if let Decision::SelectPlace { player: 0, count: 1, .. } = decision {
@@ -911,7 +916,7 @@ fn zone_variants_of(shared: &Shared, line: &Line) -> Result<(), Error> {
     }
     for (i, k, others) in spots {
         for other in others {
-            let mut duel = Duel::goldfish(shared.engine, &config.deck, &config.hand, config.seed)?;
+            let mut duel = Duel::goldfish_against(shared.engine, &config.deck, &config.hand, config.seed, config.opponent.as_ref())?;
             let mut played = true;
             for (j, answer) in line.answers.iter().enumerate() {
                 if !matches!(duel.advance(), Ok(Step::Decision { .. })) {

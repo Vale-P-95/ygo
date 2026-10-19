@@ -30,6 +30,7 @@ fn finds_invoked_boards_by_itself() {
     // Handtraps stay in the hand on your own turn.
     config.policy.passive = vec![ASH, FUWALOS];
     config.hand_traps = vec![ASH, FUWALOS];
+    config.opponent = Some(Kit::standard(&engine).opponent().clone());
     let result = search(&engine, &config, &AtomicBool::new(false), |_| {});
     assert!(matches!(result.stop, Stop::TimeLimit | Stop::Exhausted));
     assert_eq!(result.interrupted, 0);
@@ -49,7 +50,7 @@ fn finds_invoked_boards_by_itself() {
         .expect("an Invoked Fusion board");
 
     // The line plays again to the same board, told in Italian.
-    let (state, steps) = explain(&engine, &deck, &hand, config.seed, &board.line).unwrap();
+    let (state, steps) = explain(&engine, &deck, &hand, config.seed, config.opponent.as_ref(), &board.line).unwrap();
     assert_eq!(state.players[0].monsters, board.state.players[0].monsters);
     assert_eq!(steps.iter().filter(|s| s.choice.is_some()).count(), board.line.choices.len());
     let text: Vec<&String> = steps.iter().flat_map(|s| &s.events).collect();
@@ -75,13 +76,14 @@ fn a_goal_is_reached_or_proved_impossible() {
     config.time_limit = Duration::from_secs(20);
     config.policy.passive = vec![ASH, FUWALOS];
     config.hand_traps = vec![ASH, FUWALOS];
+    config.opponent = Some(Kit::standard(&engine).opponent().clone());
     config.goal = goal.clone();
     let result = search(&engine, &config, &AtomicBool::new(false), |_| {});
     assert_eq!(result.stop, Stop::GoalReached);
     assert_eq!(result.goal_reached(&goal), Some(true));
     let board = &result.boards[0];
     assert!(board.exact && goal.reached(board.goal_hits));
-    let (state, _) = explain(&engine, &deck, &config.hand, config.seed, &board.line).unwrap();
+    let (state, _) = explain(&engine, &deck, &config.hand, config.seed, config.opponent.as_ref(), &board.line).unwrap();
     assert!(state.players[0].monsters.iter().flatten().any(|c| c.code == mechaba));
 
     // Without Aleister or a way to reach him every line is tried: impossible.
@@ -117,6 +119,7 @@ fn the_probe_turn_tells_the_zones_of_oceanus_apart() {
         config.time_limit = Duration::from_secs(20);
         config.policy.passive = vec![ASH, FUWALOS];
         config.hand_traps = vec![ASH, FUWALOS];
+        config.opponent = Some(Kit::standard(&engine).opponent().clone());
         config.goal = Goal {
             on_field: vec![GoalCard { code: oceanus, zone }, GoalCard { code: mechaba, zone: GoalZone::Any }],
             all: true,

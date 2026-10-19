@@ -21,6 +21,7 @@
 
 use std::collections::{HashMap, HashSet};
 
+use ygo_engine::auto::passive_answer;
 use ygo_engine::consts::{location, reason};
 use ygo_engine::{Action, ActionKind, CardRef, Decision, DeckList, Duel, DuelState, Engine, Error, Event, Opponent, Step};
 
@@ -345,6 +346,13 @@ impl Kit {
         // turn and by Pot of Greed): plain ones, so the cards to search stay.
         deck.extend([filler; 3].into_iter().flatten());
         Kit { opponent: Opponent { hand, deck, extra }, steps, breakers }
+    }
+
+    /// The opponent's cards: give them to the search too
+    /// ([`crate::SearchConfig::opponent`]), so the lines it finds play the
+    /// same in the probe turn.
+    pub fn opponent(&self) -> &Opponent {
+        &self.opponent
     }
 
     /// The probes this kit can measure.
@@ -884,15 +892,13 @@ impl<'a> Prober<'a> {
             let actions = duel.actions(&decision);
             // Your turn: the line's answers; the opponent passes.
             if turn <= 1 {
-                if decision.player() == Some(1) {
-                    duel.respond(&passive_answer(&decision, &actions));
-                    continue;
-                }
+                // The line has every answer of your turn, the opponent's passes included.
                 match prelude {
                     Prelude::Line(_) => match answers.next() {
                         Some(a) => duel.respond(a),
                         None => return Err(Error::Engine("the line does not end the turn here".into())),
                     },
+                    Prelude::EndAtOnce if decision.player() == Some(1) => duel.respond(&passive_answer(&decision, &actions)),
                     Prelude::EndAtOnce => duel.respond(&end_turn(&decision, &actions)),
                 }
                 continue;
@@ -1057,12 +1063,6 @@ impl<'a> Prober<'a> {
         run.worked = step.goals.iter().map(|(_, want)| count(after, want) - count(before, want) >= want.delta).collect();
         run.negated = observer.step_negated;
     }
-}
-
-/// The opponent passes on your turn: no chain, no optional effect.
-fn passive_answer(decision: &Decision, actions: &[Action]) -> Vec<u8> {
-    let pass = actions.iter().find(|a| matches!(a.kind, ActionKind::Pass | ActionKind::No | ActionKind::Cancel | ActionKind::Finish));
-    pass.or(actions.first()).map(|a| a.response.clone()).unwrap_or_else(|| window_answer(decision, None))
 }
 
 /// Ends your turn at once (the empty board).

@@ -1,7 +1,7 @@
 //! A line played again from the start, told in Italian, with the state it
 //! reaches: what the Combo Lab shows for a board.
 
-use ygo_engine::{italian, DeckList, Duel, DuelState, Engine, Error, Event, Step};
+use ygo_engine::{italian, DeckList, Duel, DuelState, Engine, Error, Event, Opponent, Step};
 
 use crate::search::Line;
 
@@ -14,9 +14,17 @@ pub struct ExplainedStep {
     pub events: Vec<String>,
 }
 
-/// Plays `line` again and returns the state at the end and the steps.
-pub fn explain(engine: &Engine, deck: &DeckList, hand: &[u32], seed: u64, line: &Line) -> Result<(DuelState, Vec<ExplainedStep>), Error> {
-    let mut duel = Duel::goldfish(engine, deck, hand, seed)?;
+/// Plays `line` again (against the opponent it was found against) and
+/// returns the state at the end and the steps.
+pub fn explain(
+    engine: &Engine,
+    deck: &DeckList,
+    hand: &[u32],
+    seed: u64,
+    opponent: Option<&Opponent>,
+    line: &Line,
+) -> Result<(DuelState, Vec<ExplainedStep>), Error> {
+    let mut duel = Duel::goldfish_against(engine, deck, hand, seed, opponent)?;
     let tell = |events: &[Event]| events.iter().filter_map(|e| italian::describe(engine.cards(), e)).collect::<Vec<_>>();
     let mut steps = vec![ExplainedStep::default()];
     let mut next_choice = 0;
