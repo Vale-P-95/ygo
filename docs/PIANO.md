@@ -920,16 +920,16 @@ Dalla mano Aleister the Invoker, Magical Meltdown, Invocation, Ash Blossom, Mulc
 
 | Invoked Mechaba + Invoked Oceanus | Oceanus in zona principale | Oceanus in zona Extra |
 |---|---|---|
-| Interruzioni dal campo (Mechaba) | 0,39 | 0,36 |
+| Interruzioni dal campo (Mechaba) | 0,57 | 0,60 |
 | Interruzioni dalla mano (Ash) | 0,80 | 0,80 |
 | Floodgate | 0 | 0,60 (Foolish Burial, effetti dal Cimitero) |
-| Resta dopo l'attacco da 4200 ATK | 1,19 (attacca Oceanus, Mechaba resta) | 0,80 (Mechaba distrutto) |
-| Resilienza media | 0,90 | 0,87 |
-| **Bilanciato** | 1,65 | **2,08** |
-| **Controllo e floodgate** | 1,41 | **2,33** |
-| **A prova di board breaker** | 2,38 | **2,67** |
+| Resta dopo l'attacco da 4200 ATK | 0,57 (l'attacco va su Oceanus, Mechaba resta) | 0 (Mechaba distrutto) |
+| Resilienza media (solo campo) | 0,19 | 0,15 |
+| **Bilanciato** | 1,40 | **1,89** |
+| **Controllo e floodgate** | 1,13 | **2,09** |
+| **A prova di board breaker** | 1,46 | **1,79** |
 
-(Totali senza risorse, follow-up e costo, uguali nelle due board.) Con tutti i profili vince Oceanus nella zona Extra; la zona principale passa davanti solo se il peso dei floodgate è vicino a zero. La protezione conta poco perché ferma un solo attacco, dopo che le giocate dell'avversario sono già avvenute; il floodgate pesa su tutto il turno.
+Valori dopo le correzioni della §28 (copertura misurata finestra per finestra, resilienza solo del campo). (Totali senza risorse, follow-up e costo, uguali nelle due board.) Con tutti i profili vince Oceanus nella zona Extra; la zona principale passa davanti solo se il peso dei floodgate è vicino a zero. La protezione conta poco perché ferma un solo attacco, dopo che le giocate dell'avversario sono già avvenute; il floodgate pesa su tutto il turno.
 
 ### 26.4 Nell'app
 - Finita la ricerca parte il turno di prova; la classifica passa dalla stima al **punteggio misurato**, con una barra che mostra quanto pesa ogni metrica.
@@ -1060,12 +1060,13 @@ Segue solo la sessione principale: dopo un fan-out un messaggio breve (risultati
 Prima tornata, 37 deck × 2 mani: 71 corse pulite, 2 crash, 1 turno di prova fallito. Più 8 archetipi provati a parte (Snake-Eye, Tenpai, Labrynth, Kashtira, Sky Striker, Branded, Spright, Yubel). Le regole corrette sono tutte generali: nessuna eccezione per singole carte.
 
 ### 28.2 Bug trovati e corretti
-- **Crash del motore con D/D/D** (segmentation fault, l'app si sarebbe chiusa). AddressSanitizer: lettura di memoria già liberata in `field::reset_phase` del core EDOPro. Quando a fine fase scade un effetto concesso ad altre carte (grant effect), toglierlo toglie anche gli effetti concessi, mentre il ciclo li sta ancora scorrendo. Il bug è anche nell'ultima versione upstream. `build.rs` compila `field.cpp` da una copia corretta (`reset_phase` e `reset_chain` raccolgono prima gli effetti scaduti, poi tolgono quelli ancora presenti) e si ferma se upstream cambia quel codice. Verificato con AddressSanitizer sulle due mani D/D/D (prima: lettura dopo la liberazione; dopo: nessun errore); la passata AddressSanitizer su tutti i deck è in corso. Va segnalato a edo9300/ygopro-core.
+- **Crash del motore con D/D/D** (segmentation fault, l'app si sarebbe chiusa). AddressSanitizer: lettura di memoria già liberata in `field::reset_phase` del core EDOPro. Quando a fine fase scade un effetto concesso ad altre carte (grant effect), toglierlo toglie anche gli effetti concessi, mentre il ciclo li sta ancora scorrendo. Il bug è anche nell'ultima versione upstream. `build.rs` compila `field.cpp` da una copia corretta (`reset_phase` e `reset_chain` raccolgono prima gli effetti scaduti, poi tolgono quelli ancora presenti) e si ferma se upstream cambia quel codice. Verificato con AddressSanitizer sulle due mani D/D/D (prima: lettura dopo la liberazione; dopo: nessun errore); poi una passata AddressSanitizer su tutti i 37 deck, ricerca e turno di prova: nessun errore. Va segnalato a edo9300/ygopro-core.
 - **Turno di prova fallito con Kashtira.** La ricerca giocava contro un avversario senza carte, il turno di prova contro uno con carte vere: le carte che guardano Deck, mano o Extra Deck avversario offrivano scelte diverse e la linea non si rigiocava. Ora ricerca, spiegazione e turno di prova usano lo stesso avversario; le sue risposte (passa) fanno parte della linea. Effetto collaterale: la mano Kashtira trova la sua vera board (Shangri-Ira + Arise-Heart, floodgate 0,90), prima invisibile perché i suoi effetti non avevano nulla da colpire.
 - **Effect Veiler e Infinite Impermanence contati come "blocca le azioni dopo".** Annullano gli effetti di una carta, e il motore lo segnala solo quando la catena arriva all'effetto avversario, dopo che il loro è già risolto: l'attribuzione si perdeva. Ora la negazione va all'ultimo effetto tuo risolto nella stessa catena.
 - **Copertura gonfiata.** Si assumeva che un effetto fermasse tutto ciò che c'era nelle finestre in cui veniva offerto (Veiler è offerto mentre l'avversario evoca, ma non ferma un'Evocazione). Ora per ogni finestra in cui è offerto si gioca una partita che lo usa solo lì e si conta ciò che ferma davvero. Veiler: dal 67% gonfiato al 14% reale (in questo kit può fermare solo l'effetto di Terrortop). Invoked Mechaba è ora riconosciuto come "nega l'attivazione e toglie la carta". Ogni board costa 0,4–0,9 s invece di 0,1–0,3 s.
 - **Board provvisorie e End Phase** (Mitsurugi): la linea si ferma a "termina il turno" e la End Phase chiedeva scelte che la linea non aveva. Il turno di prova ora la gioca come la ricerca, facendo qualcosa per primo.
 - Un errore del motore ("risposta rifiutata") ora dice quale scelta e quale risposta.
+- **Doppi conteggi nel punteggio.** Nell'app, con la mano Invoked di prova, la prima board era "Evocazione Normale di Aleister e 5 carte tenute in mano" (3,13), sopra Mechaba + Oceanus (2,54). Ash in mano contava tre volte: come handtrap, di nuovo come risorsa e come resilienza (una handtrap non può essere distrutta da Dark Hole). Le risorse, a 0,3 per carta e senza tetto, valevano più di qualsiasi interruzione. Ora ogni carta in mano conta una volta: una handtrap misurata nella sua voce, uno starter o estensore nel follow-up, le altre nelle risorse. La resilienza misura solo il campo, e il peso delle risorse scende (Bilanciato da 0,3 a 0,1). I profili scelti per nome prendono sempre i pesi aggiornati.
 
 ### 28.3 Ancora aperto
 - **Il kit sottostima gli effetti di mostro sul campo**: ha una sola giocata di quel tipo (Terrortop), mentre nei combo moderni sono le più frequenti. Va allargato (per esempio l'effetto di Link Spider) e vanno rivisti i pesi delle giocate (#43). Per questo Veiler vale ancora poco.
@@ -1073,3 +1074,4 @@ Prima tornata, 37 deck × 2 mani: 71 corse pulite, 2 crash, 1 turno di prova fal
 - **Handtrap** riconosciute da una lista di nomi (`tags.rs`) invece che dal motore (#41).
 - **Matchup**: provare le board contro un deck avversario scelto dall'utente (#44).
 - Tabella di regressione per deck, con `combo_hunt.py` a budget di nodi, da tenere aggiornata qui.
+- Test: i due test a obiettivo giocavano con 2 thread e un limite di tempo e a volte non trovavano l'obiettivo in 20 secondi (dalla riga di comando: 20 ricerche su 20 lo trovano in meno di un secondo, con 2 e 4 thread). Ora usano un thread e un budget di nodi: stesso risultato a ogni corsa. Da capire perché, con più thread e la macchina carica, la ricerca guidata a volte si perde.

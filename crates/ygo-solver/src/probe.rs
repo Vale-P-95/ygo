@@ -609,7 +609,8 @@ pub struct Measure {
     /// Interruption value from the hand.
     pub hand_value: f64,
     pub floodgate_value: f64,
-    /// Interruption value left on average after a board breaker.
+    /// Interruption value of the field (not the hand) left on average
+    /// after a board breaker.
     pub resilience: f64,
 }
 
@@ -770,7 +771,9 @@ impl<'a> Prober<'a> {
         }
 
         // Board breakers, each in a run of its own.
-        let total = interruptions.iter().map(|i| i.value).sum::<f64>() + 0.0;
+        // Resilience is how the field holds: handtraps are out of the
+        // breakers' reach and already counted on their own.
+        let total = interruptions.iter().filter(|i| i.location != location::HAND).map(|i| i.value).sum::<f64>() + 0.0;
         let mut breakers = Vec::new();
         // The breakers go for the monster worth the most first (the attack,
         // the monster a Kaiju takes).
@@ -810,7 +813,8 @@ impl<'a> Prober<'a> {
                 let none = HashSet::new();
                 let Ok(tried) = self.run(Prelude::Line(line), &steps, Policy::Use(negator.responder, &none)) else { continue };
                 if tried.steps.iter().any(|s| s.negated) {
-                    let left = self.left(&tried.state, &interruptions) - negator.value / negator.uses as f64;
+                    let spent = if negator.location == location::HAND { 0.0 } else { negator.value / negator.uses as f64 };
+                    let left = self.left(&tried.state, &interruptions) - spent;
                     if left > result.remaining {
                         result.remaining = left;
                         result.stopped_by = Some(negator.responder);
@@ -825,7 +829,7 @@ impl<'a> Prober<'a> {
 
         let hand_value = interruptions.iter().filter(|i| i.location == location::HAND).map(|i| i.value).sum::<f64>() + 0.0;
         Ok(Measure {
-            field_value: total - hand_value,
+            field_value: total,
             hand_value,
             floodgate_value: floodgates.iter().map(|p| p.weight()).sum::<f64>() + 0.0,
             interruptions,
@@ -835,8 +839,9 @@ impl<'a> Prober<'a> {
         })
     }
 
-    /// Interruption value still usable in `state`: each responder's card is
-    /// still where it was (face-up and not negated on the field).
+    /// Interruption value of the field still usable in `state`: each
+    /// responder's card is still where it was (face-up and not negated on
+    /// the field). Handtraps are not counted (see the resilience).
     fn left(&self, state: &DuelState, interruptions: &[Interruption]) -> f64 {
         let db = self.engine.cards();
         let me = &state.players[0];
@@ -846,7 +851,7 @@ impl<'a> Prober<'a> {
             .filter(|i| {
                 let code = i.responder.code;
                 match i.location {
-                    location::HAND => me.hand.iter().any(|&c| same(c, code)),
+                    location::HAND => false,
                     location::GRAVE => me.grave.iter().any(|&c| same(c, code)),
                     location::REMOVED => me.banished.iter().any(|&(c, _)| same(c, code)),
                     _ => me

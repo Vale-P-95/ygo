@@ -6,7 +6,9 @@ import type { ComboScore } from "./api";
  * weight the player can change. Interruptions, floodgates and resilience
  * are in "interruptions" (1 = negating any activation once, without a
  * target); resources and follow-up in cards; cost in cards of the hand
- * beyond the first.
+ * beyond the first. A card in hand counts once: a measured handtrap in
+ * its metric, a starter or extender in the follow-up, any other card in
+ * the resources, which weigh far less than an interruption.
  */
 export type MetricKey = "interruptions" | "handTraps" | "floodgates" | "resilience" | "followup" | "resources" | "cost";
 
@@ -21,9 +23,9 @@ export const METRICS: Metric[] = [
   { key: "interruptions", label: "Interruzioni", hint: "Effetti sul campo, nel Cimitero o banditi che fermano le azioni dell'avversario, per quanto le coprono e quante volte", color: "var(--metric-interruptions)" },
   { key: "handTraps", label: "Dalla mano", hint: "Le stesse interruzioni, ma dalle carte rimaste in mano (handtrap)", color: "var(--metric-hand)" },
   { key: "floodgates", label: "Floodgate", hint: "Azioni che l'avversario fa su un campo vuoto e non contro questa board", color: "var(--metric-floodgates)" },
-  { key: "resilience", label: "Resilienza", hint: "Interruzioni che restano in media dopo Dark Hole, Raigeki, Harpie's, Kaiju e gli altri board breaker", color: "var(--metric-resilience)" },
+  { key: "resilience", label: "Resilienza", hint: "Interruzioni del campo che restano in media dopo Dark Hole, Raigeki, Harpie's, Kaiju, un attacco e gli altri board breaker (le handtrap non contano: hanno la loro voce)", color: "var(--metric-resilience)" },
   { key: "followup", label: "Follow-up", hint: "Starter ed estensori rimasti in mano (dai ruoli del Laboratorio)", color: "var(--metric-followup)" },
-  { key: "resources", label: "Risorse", hint: "Carte in mano, e un po' il Cimitero", color: "var(--metric-resources)" },
+  { key: "resources", label: "Risorse", hint: "Le altre carte rimaste in mano (non handtrap misurate, starter o estensori), e un po' il Cimitero", color: "var(--metric-resources)" },
   { key: "cost", label: "Costo", hint: "Carte della mano usate oltre la prima (peso negativo)", color: "var(--df-faint)" },
 ];
 
@@ -36,11 +38,11 @@ export interface Profile {
 }
 
 export const PROFILES: Profile[] = [
-  { id: "balanced", label: "Bilanciato", weights: { interruptions: 1, handTraps: 0.9, floodgates: 0.8, resilience: 0.6, followup: 0.4, resources: 0.3, cost: -0.1 } },
-  { id: "negates", label: "Più negazioni", weights: { interruptions: 1.5, handTraps: 1.2, floodgates: 0.5, resilience: 0.4, followup: 0.2, resources: 0.2, cost: -0.05 } },
-  { id: "control", label: "Controllo e floodgate", weights: { interruptions: 0.8, handTraps: 0.7, floodgates: 1.6, resilience: 0.6, followup: 0.3, resources: 0.2, cost: -0.1 } },
-  { id: "resilient", label: "A prova di board breaker", weights: { interruptions: 0.8, handTraps: 0.9, floodgates: 0.6, resilience: 1.5, followup: 0.5, resources: 0.3, cost: -0.1 } },
-  { id: "grind", label: "Risorse e follow-up", weights: { interruptions: 0.7, handTraps: 0.7, floodgates: 0.5, resilience: 0.6, followup: 1.2, resources: 0.8, cost: -0.2 } },
+  { id: "balanced", label: "Bilanciato", weights: { interruptions: 1, handTraps: 0.9, floodgates: 0.8, resilience: 0.6, followup: 0.4, resources: 0.1, cost: -0.1 } },
+  { id: "negates", label: "Più negazioni", weights: { interruptions: 1.5, handTraps: 1.2, floodgates: 0.5, resilience: 0.4, followup: 0.2, resources: 0.05, cost: -0.05 } },
+  { id: "control", label: "Controllo e floodgate", weights: { interruptions: 0.8, handTraps: 0.7, floodgates: 1.6, resilience: 0.6, followup: 0.3, resources: 0.05, cost: -0.1 } },
+  { id: "resilient", label: "A prova di board breaker", weights: { interruptions: 0.8, handTraps: 0.9, floodgates: 0.6, resilience: 1.5, followup: 0.5, resources: 0.1, cost: -0.1 } },
+  { id: "grind", label: "Risorse e follow-up", weights: { interruptions: 0.7, handTraps: 0.7, floodgates: 0.5, resilience: 0.6, followup: 1.2, resources: 0.3, cost: -0.2 } },
 ];
 
 export function score(s: ComboScore, w: Weights): number {
@@ -64,6 +66,9 @@ function loadChoice(): Choice {
     const raw = localStorage.getItem(KEY);
     if (raw) {
       const saved = JSON.parse(raw) as Choice;
+      // A profile is remembered by name: its weights are today's ones.
+      const profile = PROFILES.find((p) => p.id === saved.profile);
+      if (profile) return { profile: profile.id, weights: profile.weights };
       return { profile: saved.profile, weights: { ...PROFILES[0].weights, ...saved.weights } };
     }
   } catch {

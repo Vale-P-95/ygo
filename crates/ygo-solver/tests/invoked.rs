@@ -72,8 +72,10 @@ fn a_goal_is_reached_or_proved_impossible() {
 
     // From the Invoked hand the goal leads the search to Mechaba at once.
     let mut config = SearchConfig::new(deck.clone(), vec![ALEISTER, CHALICE, MELTDOWN, ASH, FUWALOS]);
-    config.threads = 2;
-    config.time_limit = Duration::from_secs(20);
+    // One thread and a node budget: the same boards whatever the machine's load.
+    config.threads = 1;
+    config.max_nodes = 4000;
+    config.time_limit = Duration::from_secs(300);
     config.policy.passive = vec![ASH, FUWALOS];
     config.hand_traps = vec![ASH, FUWALOS];
     config.opponent = Some(Kit::standard(&engine).opponent().clone());
@@ -115,8 +117,10 @@ fn the_probe_turn_tells_the_zones_of_oceanus_apart() {
     // Invoked Mechaba with Invoked Oceanus in a Main Monster Zone, then in the Extra Monster Zone.
     let measure = |zone: GoalZone| {
         let mut config = SearchConfig::new(deck.clone(), hand.clone());
-        config.threads = 2;
-        config.time_limit = Duration::from_secs(20);
+        // One thread and a node budget: the same boards whatever the machine's load.
+        config.threads = 1;
+        config.max_nodes = 4000;
+        config.time_limit = Duration::from_secs(300);
         config.policy.passive = vec![ASH, FUWALOS];
         config.hand_traps = vec![ASH, FUWALOS];
         config.opponent = Some(Kit::standard(&engine).opponent().clone());

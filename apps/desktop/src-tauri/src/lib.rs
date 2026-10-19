@@ -562,16 +562,30 @@ fn place_name(loc: u8) -> &'static str {
 
 /// The metrics of a board from its measure and its state.
 fn score_view(
+    engine: &ygo_engine::Engine,
     hand: usize,
     board: &ygo_solver::Board,
     measured: Result<ygo_solver::Measure, String>,
     roles: &BTreeMap<String, Vec<u32>>,
 ) -> ScoreView {
     let me = &board.state.players[0];
-    let resources = me.hand.len() as f64 + 0.1 * me.grave.len() as f64;
-    let count_role = |role: &str| me.hand.iter().filter(|c| roles.get(role).is_some_and(|ids| ids.contains(c))).count();
-    let (starters, extenders) = (count_role("starter"), count_role("extender"));
+    // Each card in hand counts once: a handtrap the probe turn measured in
+    // its metric, a starter or extender in the follow-up, any other card in
+    // the resources.
+    let mut rest = me.hand.clone();
+    if let Ok(m) = &measured {
+        for i in m.interruptions.iter().filter(|i| i.location == ygo_engine::consts::location::HAND) {
+            if let Some(at) = rest.iter().position(|&c| engine.cards().canonical_code(c) == i.responder.code) {
+                rest.remove(at);
+            }
+        }
+    }
+    let has_role = |c: u32, role: &str| roles.get(role).is_some_and(|ids| ids.contains(&c));
+    let (starters, extenders) =
+        (rest.iter().filter(|&&c| has_role(c, "starter")).count(), rest.iter().filter(|&&c| has_role(c, "extender")).count());
     let followup = starters as f64 + 0.5 * extenders as f64;
+    let others = rest.iter().filter(|&&c| !has_role(c, "starter") && !has_role(c, "extender")).count();
+    let resources = others as f64 + 0.1 * me.grave.len() as f64;
     let mut view = ScoreView {
         hand,
         key: format!("{:016x}", board.key),
@@ -585,7 +599,7 @@ fn score_view(
         details: Vec::new(),
         floodgate_list: Vec::new(),
         breakers: Vec::new(),
-        resources_note: format!("{} in mano, {} nel Cimitero", me.hand.len(), me.grave.len()),
+        resources_note: format!("{others} altre carte in mano, {} nel Cimitero", me.grave.len()),
         followup_note: format!("{starters} starter e {extenders} estensori in mano"),
         error: None,
     };
@@ -979,7 +993,7 @@ fn combo_score(app: tauri::AppHandle, state: State<'_, AppState>) -> Result<usiz
                     let prober = probers
                         .entry(*hand)
                         .or_insert_with(|| ygo_solver::Prober::new(&engine, &config.deck, &hands[*hand], config.seed, &kit));
-                    let view = score_view(*hand, board, prober.measure(&board.line).map_err(|e| e.to_string()), &roles);
+                    let view = score_view(&engine, *hand, board, prober.measure(&board.line).map_err(|e| e.to_string()), &roles);
                     let _ = app.emit("combo-score", view.clone());
                     if let Ok(mut r) = results.lock() {
                         r.push(((*hand, board.key), view));
