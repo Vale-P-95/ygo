@@ -1,10 +1,12 @@
 /**
  * Small SVG chart kit for the lab: grouped bars, lines with a crosshair,
- * and the flask meter. Marks take their colors from CSS tokens, axes and
+ * the flask meter, tornado, heatmap and forest plots. Marks take their colors from CSS tokens, axes and
  * text from the theme; every mark has a tooltip (data-tip) and every chart
  * can show its data as a table.
  */
 import { useId, useState, type ReactNode } from "react";
+import type { WinRecord } from "../lib/api";
+import { decided, played, recordTip, verdict } from "../lib/matches";
 import { hideTip, pct, showTip } from "../lib/tooltip";
 
 export interface Series {
@@ -127,12 +129,21 @@ export function LineChart({
   const y = lin(0, ymax, height - m.b, m.t);
   const [cross, setCross] = useState<number | null>(null);
   const ticks = yTicks ?? [0, 0.25, 0.5, 0.75, 1].filter((t) => t <= ymax + 1e-9);
-  const every = xs.length > 12 ? 2 : 1;
+  // About a dozen x labels at most, on round steps.
+  const every = [1, 2, 5, 10, 20, 50, 100, 200, 500].find((s) => xs.length / s <= 12) ?? Math.ceil(xs.length / 12);
+  // End labels of different series pushed apart when they would overlap.
+  const ends = series.map((s) => y(s.values[s.values.length - 1]) + 4);
+  series
+    .map((_, i) => i)
+    .sort((a, b) => ends[a] - ends[b])
+    .forEach((i, k, order) => {
+      if (k > 0) ends[i] = Math.max(ends[i], ends[order[k - 1]] + 12);
+    });
   return (
     <svg viewBox={`0 0 ${w} ${height}`} role="img" aria-label={ariaLabel} className="block h-auto w-full overflow-visible">
       <YGrid y={y} ticks={ticks} x0={m.l} x1={w - m.r} fmt={(v) => pct(v, 0)} />
       {xs.map((v, i) =>
-        i % every === 0 ? (
+        (every === 1 ? true : v % every === 0 || i === 0) ? (
           <text key={v} x={x(v)} y={height - m.b + 16} textAnchor="middle" className="chart-axis">
             {xfmt(v)}
           </text>
@@ -144,7 +155,7 @@ export function LineChart({
         </text>
       )}
       {cross != null && <line x1={x(xs[cross])} x2={x(xs[cross])} y1={m.t} y2={height - m.b} className="stroke-[var(--df-border-strong)]" />}
-      {series.map((s) => {
+      {series.map((s, k) => {
         const last = s.values.length - 1;
         return (
           <g key={s.name}>
@@ -159,7 +170,7 @@ export function LineChart({
               strokeLinecap="round"
             />
             <circle cx={x(xs[last])} cy={y(s.values[last])} r={4} style={{ fill: s.color }} className="stroke-[var(--df-surface)]" strokeWidth={2} />
-            <text x={x(xs[last]) + 8} y={y(s.values[last]) + 4} className="chart-label">
+            <text x={x(xs[last]) + 8} y={ends[k]} className="chart-label">
               {pct(s.values[last], 0)}
             </text>
           </g>
@@ -465,5 +476,138 @@ export function HeatmapChart({
         ]}
       />
     </div>
+  );
+}
+
+export interface ForestRow {
+  label: string;
+  /** Second line under the label (dates, changes...). */
+  sub?: string;
+  record: WinRecord;
+}
+
+/**
+ * Win rates with their 95% interval, one row each, against the 50% line
+ * and an optional reference (the overall win rate). A row whose whole
+ * interval is above or below 50% is marked ▲ or ▼, not by color alone.
+ */
+export function ForestPlot({ rows, reference, width = 460, ariaLabel }: { rows: ForestRow[]; reference?: { value: number; label: string }; width?: number; ariaLabel: string }) {
+  const w = width;
+  const rowH = 32;
+  const m = { l: 128, r: 84, t: 24, b: 6 };
+  const h = m.t + rows.length * rowH + m.b;
+  const x = lin(0, 1, m.l, w - m.r);
+  const most = Math.max(1, ...rows.map((r) => decided(r.record)));
+  return (
+    <svg viewBox={`0 0 ${w} ${h}`} role="img" aria-label={ariaLabel} className="block h-auto w-full overflow-visible">
+      {[0, 0.25, 0.5, 0.75, 1].map((t) => (
+        <g key={t}>
+          <line x1={x(t)} x2={x(t)} y1={m.t - 4} y2={h - m.b} className="stroke-[var(--df-surface-3)]" strokeDasharray={t === 0.5 ? "4 3" : undefined} strokeWidth={t === 0.5 ? 1.5 : 1} />
+          <text x={x(t)} y={m.t - 10} textAnchor="middle" className="chart-axis">
+            {pct(t, 0)}
+          </text>
+        </g>
+      ))}
+      {reference && (
+        <g>
+          <line x1={x(reference.value)} x2={x(reference.value)} y1={m.t - 2} y2={h - m.b} style={{ stroke: "var(--sec)" }} strokeOpacity={0.45} strokeWidth={1.5} />
+          <text x={x(reference.value) + 4} y={h - m.b - 2} className="chart-note">
+            {reference.label}
+          </text>
+        </g>
+      )}
+      {rows.map((r, i) => {
+        const cy = m.t + i * rowH + rowH / 2;
+        const rec = r.record;
+        const n = decided(rec);
+        const v = verdict(rec);
+        const tone = v === "up" ? "var(--df-ok)" : v === "down" ? "var(--df-danger)" : "var(--sec)";
+        return (
+          <g key={`${r.label}-${i}`} tabIndex={0} data-tip={recordTip(r.sub ? `${r.label} · ${r.sub}` : r.label, rec)} className="forest-row">
+            <rect x={0} y={cy - rowH / 2} width={w} height={rowH} rx={6} className="forest-hit" />
+            <text x={m.l - 12} y={r.sub ? cy - 1 : cy + 4} textAnchor="end" className="chart-label">
+              {r.label.length > 17 ? `${r.label.slice(0, 16)}…` : r.label}
+            </text>
+            {r.sub && (
+              <text x={m.l - 12} y={cy + 11} textAnchor="end" className="chart-note">
+                {r.sub.length > 22 ? `${r.sub.slice(0, 21)}…` : r.sub}
+              </text>
+            )}
+            {n === 0 ? (
+              <text x={x(0.5) + 8} y={cy + 4} className="chart-note">
+                nessuna partita decisa
+              </text>
+            ) : (
+              <>
+                <line x1={x(rec.lo)} x2={x(rec.hi)} y1={cy} y2={cy} style={{ stroke: tone }} strokeWidth={2} strokeLinecap="round" opacity={0.75} className="chart-line" pathLength={1} />
+                {[rec.lo, rec.hi].map((e, k) => (
+                  <line key={k} x1={x(e)} x2={x(e)} y1={cy - 4} y2={cy + 4} style={{ stroke: tone }} strokeWidth={1.5} opacity={0.75} />
+                ))}
+                <circle cx={x(rec.p)} cy={cy} r={4 + 3 * Math.sqrt(n / most)} style={{ fill: tone }} className="stroke-[var(--df-surface)]" strokeWidth={2} />
+              </>
+            )}
+            <text x={w - m.r + 12} y={cy + 4} className="chart-label">
+              {n ? pct(rec.p, 0) : "—"}
+              <tspan className="chart-note" dx={5}>
+                {played(rec)}
+              </tspan>
+              {v && (
+                <tspan dx={5} style={{ fill: tone }}>
+                  {v === "up" ? "▲" : "▼"}
+                </tspan>
+              )}
+            </text>
+          </g>
+        );
+      })}
+    </svg>
+  );
+}
+
+/** Opponent × going first / second, cells on a red–gray–green scale around 50%, fainter with few matches. */
+export function WinMatrix({ rows }: { rows: { name: string; first: WinRecord; second: WinRecord; total: WinRecord }[] }) {
+  const cell = (title: string, r: WinRecord) => {
+    const n = decided(r);
+    if (played(r) === 0) return <td className="px-2 py-1.5 text-center text-faint">—</td>;
+    // Stronger with a bigger gap from 50% and with more matches behind it.
+    const k = n ? Math.round(Math.min(1, Math.abs(r.p - 0.5) * 2) * Math.sqrt(Math.min(1, n / 10)) * 60) : 0;
+    const hue = r.p >= 0.5 ? "var(--df-ok)" : "var(--df-danger)";
+    return (
+      <td className="px-1 py-0.5">
+        <span
+          tabIndex={0}
+          data-tip={recordTip(title, r)}
+          className="flex items-baseline justify-center gap-1 rounded-md px-2 py-1 tabular-nums"
+          style={{ background: `color-mix(in oklab, ${hue} ${k}%, var(--df-surface-2))` }}
+        >
+          <b className="text-[13px] font-semibold text-text">{n ? pct(r.p, 0) : "—"}</b>
+          <span className="text-[10px] text-muted">{played(r)}</span>
+        </span>
+      </td>
+    );
+  };
+  return (
+    <table className="w-full text-xs">
+      <thead>
+        <tr className="text-faint">
+          <th className="pb-1 text-left font-medium">Avversario</th>
+          <th className="pb-1 font-medium">Per primo</th>
+          <th className="pb-1 font-medium">Per secondo</th>
+          <th className="pb-1 font-medium">Totale</th>
+        </tr>
+      </thead>
+      <tbody>
+        {rows.map((r) => (
+          <tr key={r.name}>
+            <td className="max-w-36 truncate py-0.5 pr-2 text-muted" title={r.name}>
+              {r.name}
+            </td>
+            {cell(`${r.name}, per primo`, r.first)}
+            {cell(`${r.name}, per secondo`, r.second)}
+            {cell(r.name, r.total)}
+          </tr>
+        ))}
+      </tbody>
+    </table>
   );
 }

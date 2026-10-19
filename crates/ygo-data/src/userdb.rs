@@ -1,6 +1,6 @@
-//! The user's own data (`user.db`): saved decks, favourite cards and saved
-//! searches. Kept apart from the card data, which can be re-downloaded at
-//! any time.
+//! The user's own data (`user.db`): saved decks, favourite cards, saved
+//! searches, lab recipes and the match log (see `matchlog`). Kept apart
+//! from the card data, which can be re-downloaded at any time.
 
 use std::collections::BTreeMap;
 use std::path::Path;
@@ -36,6 +36,22 @@ CREATE TABLE IF NOT EXISTS recipes (
     cond TEXT NOT NULL,  -- JSON condition of the lab (ygo-stats Cond)
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
+CREATE TABLE IF NOT EXISTS matches (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    deck_id INTEGER,
+    deck_name TEXT NOT NULL,
+    deck_hash TEXT NOT NULL,  -- version of the list played
+    deck_snapshot TEXT NOT NULL DEFAULT '{}',  -- JSON: main, extra, side
+    played_at TEXT NOT NULL,
+    opponent TEXT NOT NULL DEFAULT '',
+    first INTEGER,  -- 1 first, 0 second, NULL not recorded
+    games TEXT NOT NULL DEFAULT '',  -- "WLW"
+    result TEXT NOT NULL,  -- W, L or D
+    tags TEXT NOT NULL DEFAULT '[]',
+    notes TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS matches_by_deck ON matches (deck_id, played_at);
 CREATE TABLE IF NOT EXISTS saved_searches (
     name TEXT PRIMARY KEY,
     query TEXT NOT NULL,
@@ -78,7 +94,7 @@ pub struct DeckSummary {
 }
 
 pub struct UserStore {
-    conn: Connection,
+    pub(crate) conn: Connection,
 }
 
 /// Brings databases created by older versions up to the current schema.

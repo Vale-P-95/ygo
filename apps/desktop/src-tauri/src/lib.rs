@@ -8,8 +8,8 @@ use tauri::http::{Response, StatusCode};
 use tauri::{Emitter, Manager, State};
 use ygo_data::sync::{self, Progress};
 use ygo_data::{
-    banlist, deck, Banlist, Card, CardStore, Chip, Deck, DeckBox, DeckSummary, Facets, Format, ImageCache, ImageSize, Legality, Recipe,
-    SavedSearch, Tag, UserStore,
+    banlist, deck, matchlog, Banlist, Card, CardChange, CardStore, Chip, Deck, DeckBox, DeckList, DeckSummary, Facets, Format, ImageCache,
+    ImageSize, Legality, MatchEntry, Recipe, SavedSearch, Tag, UserStore,
 };
 use ygo_engine::{Engine, ScriptStore};
 
@@ -343,6 +343,127 @@ fn delete_recipe(state: State<'_, AppState>, id: i64) -> Result<(), String> {
     state.with_user(|u| u.delete_recipe(id))
 }
 
+/// A version of the deck in the match log.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct LogVersion {
+    version: String,
+    /// "v1", "v2"... in the order they were first played.
+    name: String,
+    /// Changes from the version before; `None` when either list is unknown.
+    changes: Option<Vec<CardChange>>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct MatchLog {
+    /// Oldest first.
+    matches: Vec<MatchEntry>,
+    report: ygo_stats::MatchReport,
+    /// Versions of the deck, oldest first (none in the log of every deck).
+    versions: Vec<LogVersion>,
+    /// The list as saved now (in the log of one deck).
+    current: Option<LogVersion>,
+    /// No match has been played with the current list yet.
+    current_is_new: bool,
+    /// Opponents and tags used so far, to suggest while logging.
+    opponents: Vec<String>,
+    tags: Vec<String>,
+}
+
+/// Lab: the matches of a deck (or of every deck) with their statistics.
+/// For one deck the report compares its versions; for every deck, the decks.
+#[tauri::command(async)]
+fn match_log(state: State<'_, AppState>, deck_id: Option<i64>) -> Result<MatchLog, String> {
+    state.with_user(|u| {
+        let matches = u.matches(deck_id)?;
+        let (opponents, tags) = u.match_suggestions()?;
+        let (mut versions, mut current, mut current_is_new) = (Vec::new(), None, false);
+        if let Some(id) = deck_id {
+            let lists = u.match_versions(id)?;
+            for (i, (version, list)) in lists.iter().enumerate() {
+                let before = i.checked_sub(1).map(|j| &lists[j].1).filter(|l| !l.is_empty());
+                let changes = before.filter(|_| !list.is_empty()).map(|b| b.changes(list));
+                versions.push(LogVersion { version: version.clone(), name: format!("v{}", i + 1), changes });
+            }
+            if let Some(deck) = u.get(id)? {
+                let list = DeckList::of(&deck);
+                let version = list.version();
+                current = Some(match versions.iter().find(|v| v.version == version) {
+                    Some(played) => LogVersion { version, name: played.name.clone(), changes: None },
+                    None => {
+                        current_is_new = true;
+                        let changes = lists.last().filter(|(_, l)| !l.is_empty()).map(|(_, l)| l.changes(&list));
+                        LogVersion { version, name: format!("v{}", lists.len() + 1), changes }
+                    }
+                });
+            }
+        }
+        let names: HashMap<String, String> = match deck_id {
+            Some(_) => versions.iter().map(|v| (v.version.clone(), v.name.clone())).collect(),
+            None => u.list()?.into_iter().map(|d| (d.id.to_string(), d.name)).collect(),
+        };
+        let inputs: Vec<ygo_stats::MatchInput> = matches
+            .iter()
+            .map(|m| {
+                let version = match deck_id {
+                    Some(_) => m.version.clone(),
+                    None => m.deck_id.map(|d| d.to_string()).unwrap_or_default(),
+                };
+                ygo_stats::MatchInput {
+                    opponent: m.opponent.clone(),
+                    first: m.first,
+                    games: m.games.chars().collect(),
+                    result: m.result.chars().next().unwrap_or('D'),
+                    tags: m.tags.clone(),
+                    version_name: names.get(&version).cloned().unwrap_or_else(|| m.deck_name.clone()),
+                    version,
+                    played_at: m.played_at.clone(),
+                }
+            })
+            .collect();
+        Ok(MatchLog { report: ygo_stats::match_report(&inputs), matches, versions, current, current_is_new, opponents, tags })
+    })
+}
+
+#[tauri::command(async)]
+fn log_match(state: State<'_, AppState>, entry: MatchEntry) -> Result<MatchEntry, String> {
+    state.with_user(|u| u.log_match(&entry))
+}
+
+#[tauri::command(async)]
+fn update_match(state: State<'_, AppState>, entry: MatchEntry) -> Result<MatchEntry, String> {
+    state.with_user(|u| u.update_match(&entry))
+}
+
+#[tauri::command(async)]
+fn delete_match(state: State<'_, AppState>, id: i64) -> Result<(), String> {
+    state.with_user(|u| u.delete_match(id))
+}
+
+/// Saves the log as CSV in the downloads folder; returns the file's path.
+#[tauri::command(async)]
+fn export_matches(app: tauri::AppHandle, state: State<'_, AppState>, deck_id: Option<i64>, name: String) -> Result<String, String> {
+    let csv = state.with_user(|u| u.matches(deck_id).map(|m| matchlog::matches_to_csv(&m)))?;
+    let path = download_path(&app, &format!("{} - partite", file_stem(&name)), "csv")?;
+    // The byte order mark tells spreadsheets the file is UTF-8.
+    std::fs::write(&path, format!("\u{feff}{csv}")).map_err(|e| e.to_string())?;
+    Ok(path.display().to_string())
+}
+
+/// Adds the matches of a CSV file to a deck; returns how many.
+#[tauri::command(async)]
+fn import_matches(state: State<'_, AppState>, deck_id: i64, text: String) -> Result<usize, String> {
+    let entries = matchlog::matches_from_csv(&text).map_err(|e| e.to_string())?;
+    state.with_user(|u| u.import_matches(deck_id, &entries))
+}
+
+/// Matches needed to tell `p1` from `p0`: against a fixed rate, and per version.
+#[tauri::command]
+fn lab_sample_size(p0: f64, p1: f64) -> (u32, u32) {
+    ygo_stats::sample_size(p0, p1)
+}
+
 #[tauri::command(async)]
 fn list_decks(state: State<'_, AppState>) -> Result<Vec<DeckSummary>, String> {
     state.with_user(|u| u.list())
@@ -511,17 +632,22 @@ fn save_deck_image(app: tauri::AppHandle, request: tauri::ipc::Request<'_>) -> R
         return Err("immagine mancante".into());
     };
     let name = request.headers().get("x-file-name").and_then(|v| v.to_str().ok()).map(percent_decode).unwrap_or_default();
-    let dir = app.path().download_dir().or_else(|_| app.path().app_data_dir()).map_err(|e| e.to_string())?.join("DuelForge");
-    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
-    let stem = file_stem(&name);
-    let mut path = dir.join(format!("{stem}.png"));
-    let mut n = 2;
-    while path.exists() {
-        path = dir.join(format!("{stem} ({n}).png"));
-        n += 1;
-    }
+    let path = download_path(&app, &file_stem(&name), "png")?;
     std::fs::write(&path, bytes).map_err(|e| e.to_string())?;
     Ok(path.display().to_string())
+}
+
+/// A new file in the "DuelForge" folder of the downloads, never overwriting one.
+fn download_path(app: &tauri::AppHandle, stem: &str, ext: &str) -> Result<PathBuf, String> {
+    let dir = app.path().download_dir().or_else(|_| app.path().app_data_dir()).map_err(|e| e.to_string())?.join("DuelForge");
+    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    let mut path = dir.join(format!("{stem}.{ext}"));
+    let mut n = 2;
+    while path.exists() {
+        path = dir.join(format!("{stem} ({n}).{ext}"));
+        n += 1;
+    }
+    Ok(path)
 }
 
 /// Path of a `cardimg://localhost/<size>/<id>` request.
@@ -596,6 +722,13 @@ pub fn run() {
             list_recipes,
             save_recipe,
             delete_recipe,
+            match_log,
+            log_match,
+            update_match,
+            delete_match,
+            export_matches,
+            import_matches,
+            lab_sample_size,
             shelf_decks,
             set_deck_box,
             duplicate_deck,

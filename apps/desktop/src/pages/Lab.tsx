@@ -1,13 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { CalculatorTab } from "../components/lab/CalculatorTab";
 import { ConditionPicker } from "../components/lab/ConditionPicker";
+import { LogTab } from "../components/lab/LogTab";
+import { MatchEntryPanel } from "../components/lab/MatchEntryPanel";
 import { OptimizerTab } from "../components/lab/OptimizerTab";
 import { OverviewTab } from "../components/lab/OverviewTab";
 import { RolesPanel } from "../components/lab/RolesPanel";
 import { SimulatorTab } from "../components/lab/SimulatorTab";
 import { Popover, useOutsideClose } from "../components/Popover";
 import { SectionHeader } from "../components/SectionHeader";
-import { api, type Deck, type DeckSummary, type LabOverview, type Recipe } from "../lib/api";
+import { api, type Deck, type DeckSummary, type LabOverview, type MatchLog, type Recipe } from "../lib/api";
 import { resolveLook } from "../lib/boxes";
 import { useCardCache } from "../lib/cards";
 import { BUILTIN_RECIPES, fromCond, toCond, type Group } from "../lib/conditions";
@@ -18,17 +20,13 @@ import { sectionById } from "../sections";
 
 type Tab = "overview" | "calculator" | "simulator" | "optimizer" | "log";
 
-const TABS: { id: Tab; label: string; soon?: string }[] = [
+const TABS: { id: Tab; label: string }[] = [
   { id: "overview", label: "Panoramica" },
   { id: "calculator", label: "Calcolatore" },
   { id: "simulator", label: "Simulatore" },
   { id: "optimizer", label: "Ottimizzatore" },
-  { id: "log", label: "Registro partite", soon: "4C" },
+  { id: "log", label: "Registro partite" },
 ];
-
-const SOON: Record<string, string> = {
-  log: "Registro delle partite con win-rate per matchup, primo/secondo, side e quante partite servono per capirlo.",
-};
 
 /** Il Laboratorio: statistics on a deck, built on the roles of its cards. */
 export function Lab({ artReady, onGoForge }: { artReady: boolean; onGoForge: () => void }) {
@@ -44,6 +42,8 @@ export function Lab({ artReady, onGoForge }: { artReady: boolean; onGoForge: () 
   const setRoot = useCallback((update: (g: Group) => Group) => setRootState((r) => update(structuredClone(r))), []);
   const [recipes, setRecipesState] = useState<Recipe[]>([]);
   const setRecipes = useCallback((update: (list: Recipe[]) => Recipe[]) => setRecipesState(update), []);
+  const [log, setLog] = useState<MatchLog | null>(null);
+  const [logScope, setLogScope] = useState<"deck" | "all">("deck");
   const menuRef = useOutsideClose(menu, () => setMenu(false));
   const saveTimer = useRef<number>(undefined);
   const cards = useCardCache();
@@ -78,6 +78,21 @@ export function Lab({ artReady, onGoForge }: { artReady: boolean; onGoForge: () 
       cancelled = true;
     };
   }, [deck, roles]);
+
+  const deckId = deck?.id;
+  const updatedAt = deck?.updatedAt;
+  const reloadLog = useCallback(() => {
+    if (deckId == null) return;
+    api
+      .matchLog(logScope === "deck" ? deckId : null)
+      .then(setLog)
+      .catch((e) => toast(`Registro non letto: ${e}`, "error"));
+  }, [deckId, logScope]);
+
+  // The log also knows the deck's current version, so it reloads after every save.
+  useEffect(() => {
+    if (tab === "log") reloadLog();
+  }, [tab, reloadLog, updatedAt]);
 
   const changeRoles = (next: Record<string, number[]>) => {
     setRoles(next);
@@ -179,7 +194,7 @@ export function Lab({ artReady, onGoForge }: { artReady: boolean; onGoForge: () 
             ))}
           </Popover>
         </div>
-        <div className="flex gap-1 rounded-xl border border-border bg-bg-2 p-1">
+        <div className={`flex gap-1 rounded-xl border border-border bg-bg-2 p-1 ${tab === "log" ? "invisible" : ""}`}>
           {(["first", "second"] as const).map((h) => (
             <button
               key={h}
@@ -206,7 +221,6 @@ export function Lab({ artReady, onGoForge }: { artReady: boolean; onGoForge: () 
               className={`relative rounded-lg px-3 py-1.5 text-sm ${tab === t.id ? "bg-surface-3 text-text shadow-[inset_0_-2px_0_var(--sec)]" : "text-muted hover:text-text"}`}
             >
               {t.label}
-              {t.soon && <span className="ml-1.5 rounded-full bg-surface-3 px-1.5 text-[9px] font-bold tracking-wider text-faint">{t.soon}</span>}
             </button>
           ))}
         </nav>
@@ -240,14 +254,30 @@ export function Lab({ artReady, onGoForge }: { artReady: boolean; onGoForge: () 
                 )}
               </div>
             ) : (
-              <div className="lab-card mx-auto mt-6 max-w-xl p-8 text-center anim-rise">
-                <p className="eyebrow text-sec">In arrivo nella Fase {TABS.find((t) => t.id === tab)?.soon}</p>
-                <p className="display mt-2 text-xl">{TABS.find((t) => t.id === tab)?.label}</p>
-                <p className="mt-2 text-sm text-muted">{SOON[tab]}</p>
-              </div>
+              <LogTab
+                deck={deck}
+                log={log}
+                scope={logScope}
+                setScope={(s) => {
+                  setLog(null);
+                  setLogScope(s);
+                }}
+                getCard={cards.get}
+                onChanged={reloadLog}
+              />
             )}
           </div>
-          {deck && <RolesPanel main={deck.main} roles={roles} getCard={cards.get} onChange={changeRoles} onSuggest={() => void suggest()} />}
+          {deck &&
+            (tab === "log" ? (
+              <MatchEntryPanel
+                deck={deck}
+                log={log}
+                getCard={cards.get}
+                onLogged={reloadLog}
+              />
+            ) : (
+              <RolesPanel main={deck.main} roles={roles} getCard={cards.get} onChange={changeRoles} onSuggest={() => void suggest()} />
+            ))}
         </div>
       )}
     </div>

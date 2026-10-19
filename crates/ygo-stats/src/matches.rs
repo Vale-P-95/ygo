@@ -129,7 +129,8 @@ pub struct Report {
     pub opponents: Vec<Named>,
     /// Opponent × first / second.
     pub matrix: Vec<(String, Record, Record)>,
-    /// Win rate expected against the meta met: per-opponent win rates weighted by how often each was met.
+    /// Win rate to expect if the next matches meet the opponents of the
+    /// last [`META_WINDOW`] (see [`meta_expected`]).
     pub meta_expected: f64,
     pub trend: Vec<TrendPoint>,
     pub versions: Vec<VersionStats>,
@@ -173,8 +174,7 @@ pub fn report(matches: &[MatchInput]) -> Report {
             )
         })
         .collect();
-    let meta_expected = opponents.iter().filter(|o| o.record.decided() > 0).map(|o| o.share * o.record.p).sum::<f64>()
-        / opponents.iter().filter(|o| o.record.decided() > 0).map(|o| o.share).sum::<f64>().max(f64::EPSILON);
+    let meta_expected = meta_expected(matches, &total);
 
     let mut trend = Vec::new();
     let decided: Vec<(&MatchInput, bool)> = matches.iter().filter(|m| m.result != 'D').map(|m| (m, m.result == 'W')).collect();
@@ -242,6 +242,34 @@ pub fn report(matches: &[MatchInput]) -> Report {
         latest_comparison,
         tags,
     }
+}
+
+/// Matches that make up the "recent meta".
+pub const META_WINDOW: usize = 30;
+
+/// Win rate expected against the recent meta: each matchup's win rate over
+/// every match, weighted by how often that opponent appeared in the last
+/// [`META_WINDOW`] matches. A matchup with few matches is pulled toward the
+/// overall win rate (as if it had 4 more matches at that rate), so one lucky
+/// win does not count as a 100% matchup. Weighting by the whole log would
+/// give back the overall win rate exactly.
+fn meta_expected(matches: &[MatchInput], total: &Record) -> f64 {
+    const PRIOR: f64 = 4.0;
+    let overall = if total.decided() > 0 { total.p } else { 0.5 };
+    let key = |m: &MatchInput| m.opponent.trim().to_lowercase();
+    let recent = &matches[matches.len().saturating_sub(META_WINDOW)..];
+    if recent.is_empty() {
+        return overall;
+    }
+    let mut seen: BTreeMap<String, usize> = BTreeMap::new();
+    recent.iter().for_each(|m| *seen.entry(key(m)).or_default() += 1);
+    seen.iter()
+        .map(|(opponent, count)| {
+            let r = record(matches.iter().filter(|m| key(m) == *opponent).map(|m| m.result));
+            let p = (r.wins as f64 + PRIOR * overall) / (r.decided() as f64 + PRIOR);
+            *count as f64 / recent.len() as f64 * p
+        })
+        .sum()
 }
 
 /// Compares an older and a newer record.
@@ -465,5 +493,20 @@ mod tests {
         assert_eq!(r.trend.len(), 6);
         assert!((r.trend[5].cumulative - 4.0 / 6.0).abs() < 1e-12);
         assert!(r.total.lo < r.total.p && r.total.p < r.total.hi && r.total.beta_lo < r.total.beta_hi);
+    }
+
+    #[test]
+    fn meta_follows_the_recent_opponents() {
+        // 30 old matches against a good matchup, then the meta moves to a bad one.
+        let mut matches: Vec<MatchInput> = (0..30).map(|i| m("Yubel", true, if i % 5 == 0 { "L" } else { "W" }, "a")).collect();
+        matches.extend((0..30).map(|i| m("Tenpai", true, if i % 3 == 0 { "W" } else { "L" }, "a")));
+        let r = report(&matches);
+        assert!((r.total.p - 34.0 / 60.0).abs() < 1e-12);
+        // Only Tenpai in the last 30: 10 wins in 30, pulled a little toward 34/60.
+        let expected = (10.0 + 4.0 * 34.0 / 60.0) / 34.0;
+        assert!((r.meta_expected - expected).abs() < 1e-12, "{}", r.meta_expected);
+        // A single win does not make a 100% matchup.
+        let one = report(&[m("Snake-Eye", true, "L", "a"), m("Exodia", true, "W", "a")]);
+        assert!(one.meta_expected < 0.6, "{}", one.meta_expected);
     }
 }

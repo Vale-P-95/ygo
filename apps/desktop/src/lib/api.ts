@@ -235,6 +235,78 @@ export interface Recipe {
   cond: Cond;
 }
 
+/** One logged match. Outcomes are "W", "L" or "D". */
+export interface MatchEntry {
+  id?: number | null;
+  deckId: number | null;
+  deckName?: string;
+  /** Fingerprint of the list played. */
+  version?: string;
+  /** "YYYY-MM-DD HH:MM"; now when empty. */
+  playedAt?: string;
+  opponent: string;
+  /** Went first in game 1; null when not recorded. */
+  first: boolean | null;
+  /** Each game in order: "WLW". */
+  games: string;
+  /** Worked out from the games when empty. */
+  result?: string;
+  tags: string[];
+  notes: string;
+}
+export interface WinRecord {
+  wins: number;
+  losses: number;
+  draws: number;
+  /** Over decided matches. */
+  p: number;
+  /** 95% Wilson interval. */
+  lo: number;
+  hi: number;
+  /** 95% credible interval, Beta(1 + wins, 1 + losses). */
+  betaLo: number;
+  betaHi: number;
+}
+export interface NamedRecord {
+  name: string;
+  record: WinRecord;
+  share: number;
+}
+export interface MatchReport {
+  matches: number;
+  total: WinRecord;
+  first: WinRecord;
+  second: WinRecord;
+  orderFisherP: number | null;
+  game1: WinRecord;
+  postSide: WinRecord;
+  opponents: NamedRecord[];
+  /** [opponent, going first, going second] */
+  matrix: [string, WinRecord, WinRecord][];
+  metaExpected: number;
+  trend: { index: number; playedAt: string; rolling: number; cumulative: number }[];
+  versions: { version: string; name: string; firstPlayed: string; lastPlayed: string; record: WinRecord }[];
+  latestComparison: { fisherP: number; probNewerBetter: number } | null;
+  tags: NamedRecord[];
+}
+export interface LogVersion {
+  version: string;
+  name: string;
+  /** From the version before; null when a list is unknown. */
+  changes: { id: number; zone: "main" | "extra" | "side"; delta: number }[] | null;
+}
+export interface MatchLog {
+  matches: MatchEntry[];
+  report: MatchReport;
+  versions: LogVersion[];
+  /** The list as saved now (log of one deck). */
+  current: LogVersion | null;
+  /** No match has been played with the current list yet. */
+  currentIsNew: boolean;
+  opponents: string[];
+  tags: string[];
+}
+
 export interface SavedSearch {
   name: string;
   query: string;
@@ -275,6 +347,13 @@ export const api = {
   listRecipes: (deckId: number) => invoke<Recipe[]>("list_recipes", { deckId }),
   saveRecipe: (deckId: number | null, name: string, cond: Cond) => invoke<Recipe>("save_recipe", { deckId, name, cond }),
   deleteRecipe: (id: number) => invoke<void>("delete_recipe", { id }),
+  matchLog: (deckId: number | null) => invoke<MatchLog>("match_log", { deckId }),
+  logMatch: (entry: MatchEntry) => invoke<MatchEntry>("log_match", { entry }),
+  updateMatch: (entry: MatchEntry) => invoke<MatchEntry>("update_match", { entry }),
+  deleteMatch: (id: number) => invoke<void>("delete_match", { id }),
+  exportMatches: (deckId: number | null, name: string) => invoke<string>("export_matches", { deckId, name }),
+  importMatches: (deckId: number, text: string) => invoke<number>("import_matches", { deckId, text }),
+  sampleSize: (p0: number, p1: number) => invoke<[number, number]>("lab_sample_size", { p0, p1 }),
   shelfDecks: () => invoke<ShelfDeck[]>("shelf_decks"),
   setDeckBox: (id: number, deckBox: DeckBox) => invoke<void>("set_deck_box", { id, deckBox }),
   duplicateDeck: (id: number) => invoke<Deck>("duplicate_deck", { id }),
