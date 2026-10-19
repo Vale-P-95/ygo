@@ -1,4 +1,4 @@
-# DuelForge: piano di progetto (v1.1)
+# DuelForge: piano di progetto (v1.2)
 
 > Nome provvisorio. Il documento è la proposta iniziale: una volta approvate le decisioni aperte (§14) diventa la roadmap di sviluppo.
 >
@@ -12,7 +12,9 @@
 >
 > **v0.6 (18/10/2026)**: Fase 2, prima parte: editor dei deck in stile Master Duel; risultati nella §18.
 >
-> **v1.1 (19/10/2026)**: piano della Fase 5 (motore e sandbox) nella §22, da approvare prima di iniziare.
+> **v1.2 (19/10/2026)**: la Fase 5 diventa direttamente il Combo Lab: ricerca automatica delle combo in background, senza partite da giocare a mano. La sandbox manuale (§8.3) esce dalla roadmap. Piano dettagliato, con il sistema di punteggio delle board, nella §22.
+>
+> **v1.1 (19/10/2026)**: prima proposta di Fase 5 con una sandbox da giocare a mano, sostituita dalla v1.2.
 >
 > **v1.0 (19/10/2026)**: Fase 4 realizzata: il Laboratorio statistico; risultati nella §21.
 >
@@ -336,6 +338,8 @@ Il motore resta dietro un'interfaccia nostra (`ygo-engine`): se un giorno servis
 - **Pool di istanze**: una partita indipendente per ogni thread di lavoro. Le callback sono per partita e i dati letti sono in sola lettura; lo spike verificherà comunque la sicurezza tra thread, con un pool di processi come alternativa.
 
 ### 8.3 Sandbox "goldfish"
+> **Uscita dalla roadmap (v1.2)**: l'obiettivo è che il motore giochi da solo, non giocare a mano. Del Tavolo resta solo la riproduzione passo per passo delle combo trovate (§22.6), da guardare e non da giocare. Se in futuro servirà, la sandbox riusa lo stesso motore.
+
 - Giochi la tua mano con il motore reale su un campo di gioco grafico.
 - **Undo/redo illimitati e rami**: ogni scelta crea un nodo di un albero, si torna indietro e si prova un'alternativa.
 - **Editor di scenario**: metti qualsiasi carta in qualsiasi zona (anche avversaria: campo, GY, bandite, mano) per verificare "cosa succede se…".
@@ -393,7 +397,7 @@ Le interruzioni non sono solo stimate: si **certificano con il motore**. Si pass
 
 **B. Floodgate e lock.** Effetti continui che limitano l'avversario (limiti alle evocazioni speciali, blocco degli effetti nel GY, blocco dell'Extra Deck…), pesati per matchup: un blocco dell'Extra Deck vale molto contro un deck che ne dipende e poco contro gli altri.
 
-**C. Resilienza.** Si applicano alla board i **board breaker** più comuni con il motore reale (Evenly Matched, Dark Ruler No More, Lightning Storm, Raigeki, Harpie's Feather Duster, Forbidden Droplet, i Kaiju, Super Polymerization, Triple Tactics Thrust…, lista aggiornabile col meta) e si misura cosa resta. Contano protezioni (non può essere bersagliato o distrutto) ed effetti "fluttuanti" (quando lascia il campo…).
+**C. Resilienza.** Si applicano alla board i **board breaker** più comuni con il motore reale (Evenly Matched, Dark Ruler No More, Lightning Storm, Raigeki, Harpie's Feather Duster, Forbidden Droplet, i Kaiju, Super Polymerization, Triple Tactics Talent…, lista aggiornabile col meta) e si misura cosa resta. Contano protezioni (non può essere bersagliato o distrutto) ed effetti "fluttuanti" (quando lascia il campo…).
 
 **D. Risorse.** Handtrap e interazioni rimaste in mano (Ash Blossom, Infinite Impermanence, Nibiru, Effect Veiler, Ghost Ogre…), che contano come interruzioni aggiuntive; effetti utilizzabili dal GY o dalle bandite; Extra Deck rimasto; deck thinning; LP pagati.
 
@@ -408,6 +412,8 @@ Le interruzioni non sono solo stimate: si **certificano con il motore**. Si pass
 **Classificazione degli effetti**: automatica a partire dagli script (ogni effetto dichiara categorie come negazione, distruzione, bandire, ricerca, evocazione speciale; tipo quick o trigger; limiti di attivazione), più un **database di eccezioni curato** e, come opzione, un tagging del testo della carta assistito da un modello linguistico e verificato.
 
 **Calibrazione dei pesi**: confronto con board note dei deck meta e feedback dell'utente ("questa board è migliore di quella"), da cui si possono imparare i pesi.
+
+> La versione dettagliata e misurata dal motore di questo punteggio è nella §22.4.
 
 ### 9.4 Turno avversario e interazioni
 
@@ -452,10 +458,9 @@ Il numero di combo cresce in modo esponenziale con la lunghezza della linea. La 
 | **2. Deck Builder** | Builder completo, formati e banlist (prima Master Duel, poi TCG/OCG e Genesys), validazione, import/export, versioni, pagina Novità | L | Costruisco un deck legale, lo esporto in .ydk e vedo l'impatto di una nuova banlist |
 | **3. Scaffale deck** | Deck box 3D, personalizzazione, carte vetrina, audio ed effetti estesi | M | Scaffale con box personalizzati e animati |
 | **4. Lab statistico v1** | Calcolo esatto, Monte Carlo, ottimizzatore, sensibilità, registro partite, report | L | Probabilità esatte verificate contro casi noti; MC con intervalli |
-| **5. Motore + sandbox** | Wrapper completo, stato canonico, sandbox goldfish con undo e rami, editor di scenario, suite di ruling | XL | Gioco a mano una combo reale con undo; i test di ruling passano |
-| **6. Combo Lab v1** | Solver (trasposizioni, simmetrie, macro-azioni, best-first parallelo), punteggio statico, interfaccia di spiegazione | XL | Data una mano, trova la combo nota del deck di prova e la spiega |
-| **7. Combo Lab v2** | Stress test handtrap, board breaker, turno avversario, modalità secondo, MC guidato dal motore, ruoli automatici | XL | Classifica combo per valore atteso sotto interruzione |
-| **8. Rifinitura & R&D** | Guida neurale, meta dashboard, collezione e prezzi, auto-aggiornamento dell'app, ottimizzazioni | L+ | — |
+| **5. Combo Lab v1** | Motore pronto per la ricerca (stato canonico, tutte le scelte gestite, velocità), ricerca automatica in background da una mano o da una carta, punteggio misurato e personalizzabile delle board, spiegazione passo per passo (§22) | XL | Data una mano, trova da solo la combo nota del deck di prova e la classifica, spiegando ogni punto |
+| **6. Combo Lab v2** | Stress test con le handtrap, andare secondo contro una board da rompere, turno avversario simulato con deck del meta, MC guidato dal motore, ruoli automatici | XL | Classifica combo per valore atteso sotto interruzione |
+| **7. Rifinitura & R&D** | Guida neurale, meta dashboard, collezione e prezzi, auto-aggiornamento dell'app, ottimizzazioni | L+ | — |
 
 **Prima versione usabile**: al termine della Fase 2 (database + builder). Lo spike sul motore sta già nella Fase 0 perché è il rischio tecnico principale: meglio scoprire subito eventuali problemi.
 
@@ -690,47 +695,102 @@ Cinque schede (Panoramica, Calcolatore, Simulatore, Ottimizzatore, Registro part
 Test Rust su valori noti (ipergeometrica, Fisher, Beta, numero di partite, impronta delle versioni, CSV). Nell'app vera sotto Xvfb con 74 partite d'esempio su due versioni del deck Invoked: inserimento Bo1 e Bo3, vista di tutti i deck, esportazione e importazione CSV, stato vuoto.
 
 ### 21.5 Prossimo passo: Fase 5
-Motore e sandbox: stato canonico della partita, sandbox goldfish con undo e rami, editor di scenario e suite di ruling (§11).
+Il Combo Lab: il motore cerca da solo le combo a partire da una mano o da una carta e classifica le board finali (§22).
 
-## 22. Piano della Fase 5: motore e sandbox (proposta, 19/10/2026)
+## 22. Piano della Fase 5: il Combo Lab (proposta, 19/10/2026)
 
-Obiettivo della roadmap (§11): **giocare a mano una combo reale con undo, e far passare una suite di test dei ruling**. È la base del Combo Lab: il solver della Fase 6 userà lo stesso stato canonico, le stesse azioni e lo stesso campo per spiegare le combo.
+Obiettivo: **scegli un deck e una mano (o una carta), il motore gioca da solo in background tutte le linee possibili e ti restituisce le board finali classificate per forza, con ogni passaggio spiegato.** Nessuna partita da giocare a mano.
 
-### 22.1 Dove sta
-Nel Circolo Arcano (sezione Combo Lab), come prima scheda: **Tavolo**. Nella Fase 6 si aggiungerà accanto la scheda dell'esplorazione automatica, che riusa il campo per mostrare le linee trovate. Dalla Fucina, dalla Bottega e dalla mano di prova si potrà aprire un deck direttamente sul Tavolo.
+### 22.1 Cosa chiedi e cosa ottieni
+- **Partenza**: un deck salvato e
+  - una **mano precisa** (5 carte per primo), oppure
+  - **"carta X + resto"**: il programma prova molte mani che contengono X (campionate o, quando sono poche, tutte), pesate per quanto sono probabili, e dice con quale frequenza raggiungi ciascuna board.
+- **Vincoli facoltativi**: carte da non usare, carte da tenere in mano (per esempio Ash Blossom), board che deve contenere una certa carta, tempo massimo.
+- **Risultato**: le board finali in classifica con punteggio e dettaglio di ogni punto, la linea più corta per raggiungerle, le carte usate, e una riproduzione animata passo per passo da guardare.
+- **In background**: la ricerca gira sui thread del PC mentre usi il resto dell'app; vedi le board trovate man mano e ricevi un avviso alla fine. I risultati si salvano per deck e mano.
 
-### 22.2 Motore (`ygo-engine`)
-- **Stato canonico completo**: per ogni zona dei due giocatori, carta, posizione, faccia, livello/rango/link, ATK/DEF attuali, materiali Xyz, contatori, carte equipaggiate, effetti negati; più LP, turno, fase, Normal Summon usata, carte rimaste nel Deck. Un'impronta (hash) dello stato, che servirà alla tabella di trasposizione della Fase 6.
-- **Tutte le decisioni di un turno**: oltre a quelle già gestite (azioni, catene, scelta di carte, zone, posizione, tributi, somme, ordinamento, dichiarazioni), i casi oggi "non supportati": scelta dei contatori, zone del campo avversario, dichiarazione di carta con filtro, scelte multiple con annulla. Nessuna decisione deve bloccare la partita.
-- **Registro leggibile**: eventi in italiano con la causa ("Aleister the Invoker è evocato normalmente", "Catena 2: Ash Blossom & Joyous Spring", "Invocation viene risolta: Invoked Mechaba è evocato per fusione"), la base anche delle spiegazioni del solver.
-- **Albero delle mosse**: ogni nodo è la sequenza di risposte dal seed iniziale. Andare avanti costa ~0,2 ms; tornare indietro ricrea la partita e rigioca il prefisso (~20 ms per 25 decisioni, §16.3), con una cache delle partite vive sui nodi visitati di recente. Obiettivo: **ogni passo e ogni undo sotto i 100 ms**; se non basta, script di base precompilati in bytecode Lua.
-- **Partite deterministiche**: seed fisso; ordine del Deck casuale ma riproducibile, oppure scelto (carte in cima).
-- **Backend**: una sessione di gioco in un thread dedicato dell'app, comandata da Tauri (nuova partita, stato, azione, vai al nodo, albero).
+### 22.2 Il motore pronto per giocare da solo
+Il motore di EDOPro applica regole e ruling (lo ha già dimostrato la linea Invoked della Fase 0). Il nostro lavoro è fargli giocare milioni di scelte senza intoppi e velocemente.
 
-### 22.3 Il Tavolo (interfaccia)
-- **Campo in stile Master Duel**: zone mostri ed Extra Monster Zone con le frecce Link visibili, magie/trappole, campo, Cimitero, bandite, Deck ed Extra Deck per entrambi i giocatori; la mano in basso; LP, turno e fase in alto. Prospettiva leggermente inclinata come in Master Duel (piatta dove il 3D non è disponibile).
-- **Giocare**: clic su una carta mostra solo le azioni legali secondo il motore (evoca, posiziona, attiva l'effetto 1 o 2 con il testo dell'effetto, evoca specialmente); le scelte richieste dal motore appaiono come pannelli (carte da scegliere, zone evidenziate sul campo, posizione, sì/no, dichiarazioni). Le catene si vedono come una pila numerata che si risolve all'indietro.
-- **Undo e rami**: Ctrl+Z / Ctrl+Y, cronologia delle mosse cliccabile e un albero dei rami: si torna a un punto e si prova un'altra strada, senza perdere la prima.
-- **Effetti**: le carte si spostano animate tra le zone, lampo all'evocazione, anelli della catena, suoni nuovi per evocazioni, attivazioni e risoluzioni, coerenti con le altre sezioni (tema ametista del Circolo Arcano).
-- **Carte senza script** segnalate con un avviso; non si possono usare in silenzio.
+**Perché oggi una scelta può "bloccare" una linea.** Quando il motore chiede una scelta si ferma e aspetta una risposta. Per ogni tipo di scelta il programma costruisce l'elenco delle risposte possibili, e la ricerca le prova tutte. Oggi per alcune scelte rare l'elenco resta vuoto o incompleto:
+- **dichiarare il nome di una carta** (il motore manda un piccolo programma di filtro che dice quali nomi sono validi: va interpretato e applicato a tutte le carte);
+- **distribuire o togliere segnalini** da più carte;
+- **dichiarare più Tipi o Attributi** insieme;
+- **ordinare carte** (per esempio rimetterle in cima al Deck nell'ordine scelto): oggi si usa solo l'ordine predefinito;
+- **sasso-carta-forbice** e altre scelte casuali.
 
-### 22.4 Scenari e linee
-- **Mano**: casuale dal deck (5 per primo, 6 per secondo, con seed) oppure scelta carta per carta; si può rimescolare.
-- **Editor di scenario**: qualsiasi carta in qualsiasi zona dei due giocatori, mano dell'avversario, carte in cima al Deck, LP, primo o secondo. Serve per "cosa succede se l'avversario ha Ash in mano" o per partire da una board avversaria.
-- **Avversario**: di base passa sempre (goldfish). Con "Gioca anche per l'avversario" le sue scelte le fai tu: si attivano le sue handtrap quando il motore lo chiede e si vede come cambia la combo.
-- **Linee salvate**: una linea (dalla mano iniziale alla board finale) si salva come guida combo con note su ogni passo, si riapre e si rigioca passo per passo; scenari e linee stanno in `user.db`.
+Con un elenco vuoto la linea si interrompe lì in silenzio: non si rompe nulla, ma quella combo e tutte quelle che passavano da lì non vengono trovate.
 
-### 22.5 Test dei ruling
-Scenari dichiarativi in `tests/rulings/` (stato iniziale, mosse, risultato atteso) eseguiti in CI a ogni aggiornamento di motore e script. Primo gruppo, circa 25 casi: Ash Blossom su una ricerca e sullo spostamento dal Deck al Cimitero; Called by the Grave; Infinite Impermanence dalla mano e la colonna negata; Nibiru dopo cinque evocazioni; Droll & Lock Bird dopo la prima aggiunta; Mulcharmy; Pot of Prosperity e il divieto di danni; SEGOC e l'ordine della catena; "missing the timing" ("quando… puoi" contro "se… puoi"); once per turn rigidi e morbidi (Aleister, Invocation); Extra Monster Zone e frecce Link; la linea Invoked della Fase 0.
+**Come lo risolvo.**
+1. **Gestire tutte le scelte**: interprete del filtro dei nomi (con i nomi sensati da provare: carte del tuo deck, del kit avversario e del meta), enumerazione delle distribuzioni di segnalini e delle combinazioni di Tipi/Attributi, permutazioni quando l'ordine conta (fino a 5 carte, altrimenti le più promettenti), nodi casuali per le scelte casuali.
+2. **Rete di sicurezza**: una linea che incontra una scelta non gestita non sparisce, viene segnalata ("linea interrotta: scelta non gestita") così si vede e si corregge; una risposta rifiutata dal motore viene scartata e la ricerca continua; limite di passi e riconoscimento degli stati ripetuti contro i cicli infiniti.
+3. **Collaudo a tappeto**: un test che gioca milioni di scelte casuali con centinaia di deck diversi (costruiti dagli archetipi del database) e fallisce se anche una sola scelta resta senza risposte o viene rifiutata. È il modo per trovare i casi rari prima che li trovi tu.
+
+**Il resto del lavoro sul motore.**
+- **Stato canonico** completo dei due campi (carte, posizioni, materiali, segnalini, ATK/DEF, effetti negati, LP, fase, Normal Summon usata) e un'**impronta** per riconoscere la stessa board raggiunta in ordini diversi.
+- **Scelte irrilevanti risposte da sole** (posizione d'attacco, zona quando le zone sono equivalenti; le frecce Link e l'Extra Monster Zone invece contano) e **macro-azioni** ("attiva e risolvi la catena" come un solo passo).
+- **Velocità**: oggi tornare a una scelta precedente ricrea la partita e rigioca le mosse (~20 ms, §16.3). La ricerca in profondità riusa la partita in avanti e la ricrea solo tornando indietro, con una cache delle partite sui punti più visitati e gli script di base precompilati. Le misure guidano il lavoro; uno snapshot nativo della partita resta l'ultima opzione.
+- **Registro in italiano** di ogni passo, che diventa la spiegazione della combo.
+
+### 22.3 La ricerca
+- **Ricerca in profondità con priorità**: si esplorano prima i rami promettenti secondo una stima veloce del punteggio (letta dagli script: un effetto rapido che nega vale più di uno che pesca), su tutti i core, ciascuno con le sue partite.
+- **Niente lavoro doppio**: tabella delle trasposizioni sull'impronta dello stato (la stessa board raggiunta in ordini diversi si esplora una volta), copie identiche della stessa carta trattate come una, azioni indipendenti provate in un solo ordine.
+- **Eventi casuali** (pescate, scavi, Pot of Prosperity): più ordini del Deck; una combo che dipende dalla fortuna riporta la sua probabilità di riuscita.
+- **Fine del turno**: ogni linea finisce passando il turno, così contano anche gli effetti della End Phase (ricerche, ritorni).
+- **Board uguali, una voce sola**: per ogni board finale si tiene la linea migliore (meno carte dalla mano, meno passi).
+
+### 22.4 La classificazione delle board
+Il punteggio non è stimato leggendo il testo delle carte: **è misurato dal motore**, mettendo la board alla prova contro un avversario finto, il "turno di prova". Ogni punto ha una spiegazione.
+
+**Il turno di prova.** Dalla board finale si passa il turno a un avversario che ha un kit di carte e azioni standard, e si prova ogni azione separatamente:
+- **sonde di gioco**: attiva una Magia dalla mano, un effetto di mostro dalla mano, sul campo e nel Cimitero, una Trappola, una Magia Continua o Terreno; Evocazione Normale; Evocazione Speciale dalla mano, dal Cimitero e dall'Extra Deck; cerca una carta dal Deck; manda una carta dal Deck al Cimitero; attacca;
+- **board breaker** veri, con i loro ruling: Dark Hole, Raigeki, Harpie's Feather Duster, Lightning Storm, Evenly Matched, Kaiju, Super Polymerization, Forbidden Droplet, Book of Eclipse, Dark Ruler No More, Triple Tactics Talent (lista aggiornabile con il meta).
+
+Per ogni sonda il motore dice se l'azione è ancora possibile, se puoi rispondere, con quali carte e cosa succede se rispondi (attivazione negata, carta distrutta, bandita, rimandata). Così le condizioni, i costi e i limiti "una volta per turno" sono quelli veri.
+
+**Le metriche** (unità: 1,0 = un'interruzione standard, cioè negare l'attivazione di qualsiasi carta e distruggerla, una volta, senza bersaglio):
+
+| Metrica | Come si misura | Cosa la fa salire |
+|---|---|---|
+| **Interruzioni** | Quante azioni dell'avversario fermi una dopo l'altra, rispettando costi e limiti; ogni interruzione pesata per effetto, bersaglio e copertura | Più negazioni, senza bersaglio, che colpiscono tutto, usabili più volte |
+| **Floodgate** | Sonde che diventano impossibili o limitate rispetto a un campo vuoto, pesate per quanto quell'azione conta nei deck | Blocchi dell'Extra Deck, del Cimitero, delle Evocazioni Speciali, delle ricerche |
+| **Resilienza** | Interruzioni che restano dopo ogni board breaker (potendo rispondere), più ciò che torna in campo | Protezioni, risposte ai board breaker, effetti che "fluttuano" |
+| **Interazioni dalla mano** | Le handtrap rimaste in mano messe alla prova con le sonde che le attivano | Ash, Impermanence, Nibiru, Droll, Veiler, Mulcharmy rimaste in mano |
+| **Risorse** | Carte in mano e sul campo a fine turno, effetti utilizzabili nel Cimitero e tra le bandite, Extra Deck rimasto | Vantaggio di carte, Cimitero carico |
+| **Follow-up** | Carte aggiunte in End Phase, starter rimasti (dai ruoli del Laboratorio), ricorsioni per ripartire se la board salta | Poter rifare una board al turno dopo |
+| **Costo della linea** | Carte della mano usate, passi, LP pagati, dipendenza dalla Normal Summon | Linee che usano poche carte |
+| **Vulnerabilità** (Fase 6) | Punti della linea in cui una sola handtrap ferma tutto | Linee con alternative; peso 0 finché non arriva lo stress test |
+
+**Il valore di un'interruzione** = effetto × bersaglio × copertura × quante volte:
+- **effetto**: nega l'attivazione e distrugge o bandisce 1,00; nega l'attivazione 0,90; bandisce 0,85; rimanda nel Deck 0,85; nega l'effetto 0,80; rimanda in mano 0,70; distrugge 0,70; manda al Cimitero 0,70; cambia posizione o controllo 0,40;
+- **bersaglio**: senza bersaglio ×1,00, con bersaglio ×0,85;
+- **copertura**: la quota di sonde che può fermare, pesata (qualsiasi carta ×1,00; solo effetti di mostri, solo Magie e Trappole, solo Cimitero, solo Evocazioni: la loro quota);
+- **velocità**: una Counter Trap, che risponde a tutto, riceve un piccolo bonus;
+- **quante volte**: ogni uso disponibile conta di nuovo. **Più interruzioni hai, più sale il punteggio**: niente rendimenti decrescenti, salvo che tu li attivi.
+
+**Il punteggio** è la somma pesata delle metriche, mostrata come barra divisa per colore con il dettaglio di ogni voce ("Board A: nega l'attivazione di un effetto di mostro, senza bersaglio, 2 volte → 1,6"). Pesi predefiniti: Interruzioni 1,0; Floodgate 0,8; Interazioni dalla mano 0,9; Resilienza 0,6; Follow-up 0,4; Risorse 0,3; Costo −0,1 per carta della mano oltre la prima. A parità di punteggio: meno carte usate, linea più corta, più carte in mano.
+
+**Oltre la classifica.** La vista "frontiera" mostra le board che nessun'altra supera in tutto: la board con più negazioni, quella più resistente, quella che lascia più risorse; si possono confrontare due board fianco a fianco.
+
+**Personalizzabile.**
+- **Profili**: Bilanciato (predefinito), Più negazioni possibili, Controllo e floodgate, A prova di board breaker, Risorse e follow-up, Contro il mio meta.
+- **Pesi**: un cursore per ogni metrica e una tabella dei valori delle interruzioni; scelta delle sonde e dei board breaker considerati; rendimenti decrescenti attivabili.
+- **Contro il mio meta**: i deck che incontri di più nel Registro partite decidono quali azioni avversarie contano di più (per esempio, contro deck che vivono di Extra Deck un blocco dell'Extra Deck vale di più).
+- **Insegnagli i tuoi gusti**: quando secondo te una board è migliore di un'altra lo indichi; dopo una ventina di confronti i pesi si adattano (modello di Bradley-Terry) e vedi come sono cambiati.
+- Le metriche restano salvate per ogni board, quindi **cambiare i pesi riordina subito** senza rifare la ricerca.
+
+**Quanto è "perfetto".** Nessuna formula è perfetta in assoluto; questa punta a esserlo dove conta: le metriche sono misurate dal motore con i ruling veri, ogni punto è spiegato, i pesi predefiniti si tarano su un insieme di board note dei deck del meta ordinate da giocatori esperti (obiettivo: almeno 85% di accordo sulle coppie), e i tuoi confronti li adattano a te. Nella Fase 6 il turno avversario simulato con veri deck del meta darà una verifica sul campo: la probabilità che l'avversario non riesca a passare la board.
+
+### 22.5 Interfaccia (il Circolo Arcano)
+Tema ametista della sezione, intestazione con Aleister the Invoker. A sinistra: deck, mano (carte cliccabili dal deck) o "carta + resto", vincoli, profilo di punteggio, pulsante Cerca. Al centro: avanzamento della ricerca (stati esplorati, board trovate, la migliore finora) e la classifica con le barre del punteggio. A destra: la board selezionata sul campo, il dettaglio del punteggio e la linea passo per passo con riproduzione animata (carte che si spostano, catene numerate, registro in italiano).
 
 ### 22.6 Sotto-fasi
-- **5A** Motore: stato canonico, decisioni mancanti, registro leggibile, albero con cache, comandi dell'app; misure di velocità.
-- **5B** Tavolo: campo, azioni sulle carte, scelte, catena, cronologia e rami, animazioni e suoni.
-- **5C** Scenari, linee salvate, gioco per l'avversario e suite di ruling in CI.
+- **5A Motore per la ricerca**: tutte le scelte gestite, rete di sicurezza, collaudo a tappeto, stato canonico e impronta, risposte automatiche e macro-azioni, velocità misurata, registro in italiano. Pronto quando il collaudo gioca un milione di scelte con almeno 200 deck senza blocchi.
+- **5B Ricerca in background**: mano precisa e "carta + resto", vincoli, trasposizioni e simmetrie, eventi casuali, risultati in diretta, salvataggio. Pronto quando, dalla mano della Fase 0, ritrova da sola la linea Invoked nota (e altre) entro un minuto.
+- **5C Punteggio e spiegazione**: turno di prova, metriche, profili, pesi, confronti, frontiera, interfaccia dei risultati con la riproduzione passo per passo. Pronto quando ogni punto è spiegato e l'ordine delle board di riferimento rispetta l'obiettivo di accordo.
 
 ### 22.7 Scelte da confermare
-1. Il Tavolo come scheda del Circolo Arcano (proposta) o come sezione a sé.
-2. Campo inclinato in stile Master Duel (proposta) o visto dall'alto.
-3. Avversario che passa sempre, con l'opzione di giocare anche per lui (proposta).
-4. Battle Phase inclusa (serve andando secondo per gli OTK) o rimandata alla Fase 7.
+1. Per ora solo andando **per primo**; per secondo (rompere una board avversaria) nella Fase 6 insieme alle handtrap.
+2. I pesi predefiniti del profilo Bilanciato (§22.4).
+3. Il kit del turno di prova: le sonde e i board breaker elencati, aggiornabili con il meta.
 

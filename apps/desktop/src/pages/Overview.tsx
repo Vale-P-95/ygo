@@ -11,9 +11,9 @@ const ROADMAP: { phase: number; title: string; state: "done" | "now" | "next" }[
   { phase: 2, title: "Deck Builder e banlist (Master Duel)", state: "done" },
   { phase: 3, title: "La Bottega: deck box 3D", state: "done" },
   { phase: 4, title: "Il Laboratorio statistico", state: "done" },
-  { phase: 5, title: "Motore e sandbox", state: "next" },
-  { phase: 6, title: "Circolo Arcano: esplorazione delle combo", state: "next" },
-  { phase: 7, title: "Classifica delle board, handtrap, turno avversario", state: "next" },
+  { phase: 5, title: "Circolo Arcano: ricerca automatica delle combo e classifica delle board", state: "next" },
+  { phase: 6, title: "Handtrap, andare secondo, turno avversario", state: "next" },
+  { phase: 7, title: "Rifinitura e ricerca", state: "next" },
 ] as const;
 
 function Tile({ label, value, hint, accent }: { label: string; value: ReactNode; hint?: string; accent?: boolean }) {
