@@ -1,4 +1,4 @@
-# DuelForge: piano di progetto (v1.0)
+# DuelForge: piano di progetto (v1.1)
 
 > Nome provvisorio. Il documento è la proposta iniziale: una volta approvate le decisioni aperte (§14) diventa la roadmap di sviluppo.
 >
@@ -11,6 +11,8 @@
 > **v0.5 (18/10/2026)**: Fase 1 realizzata; risultati nella §17.
 >
 > **v0.6 (18/10/2026)**: Fase 2, prima parte: editor dei deck in stile Master Duel; risultati nella §18.
+>
+> **v1.1 (19/10/2026)**: piano della Fase 5 (motore e sandbox) nella §22, da approvare prima di iniziare.
 >
 > **v1.0 (19/10/2026)**: Fase 4 realizzata: il Laboratorio statistico; risultati nella §21.
 >
@@ -689,4 +691,46 @@ Test Rust su valori noti (ipergeometrica, Fisher, Beta, numero di partite, impro
 
 ### 21.5 Prossimo passo: Fase 5
 Motore e sandbox: stato canonico della partita, sandbox goldfish con undo e rami, editor di scenario e suite di ruling (§11).
+
+## 22. Piano della Fase 5: motore e sandbox (proposta, 19/10/2026)
+
+Obiettivo della roadmap (§11): **giocare a mano una combo reale con undo, e far passare una suite di test dei ruling**. È la base del Combo Lab: il solver della Fase 6 userà lo stesso stato canonico, le stesse azioni e lo stesso campo per spiegare le combo.
+
+### 22.1 Dove sta
+Nel Circolo Arcano (sezione Combo Lab), come prima scheda: **Tavolo**. Nella Fase 6 si aggiungerà accanto la scheda dell'esplorazione automatica, che riusa il campo per mostrare le linee trovate. Dalla Fucina, dalla Bottega e dalla mano di prova si potrà aprire un deck direttamente sul Tavolo.
+
+### 22.2 Motore (`ygo-engine`)
+- **Stato canonico completo**: per ogni zona dei due giocatori, carta, posizione, faccia, livello/rango/link, ATK/DEF attuali, materiali Xyz, contatori, carte equipaggiate, effetti negati; più LP, turno, fase, Normal Summon usata, carte rimaste nel Deck. Un'impronta (hash) dello stato, che servirà alla tabella di trasposizione della Fase 6.
+- **Tutte le decisioni di un turno**: oltre a quelle già gestite (azioni, catene, scelta di carte, zone, posizione, tributi, somme, ordinamento, dichiarazioni), i casi oggi "non supportati": scelta dei contatori, zone del campo avversario, dichiarazione di carta con filtro, scelte multiple con annulla. Nessuna decisione deve bloccare la partita.
+- **Registro leggibile**: eventi in italiano con la causa ("Aleister the Invoker è evocato normalmente", "Catena 2: Ash Blossom & Joyous Spring", "Invocation viene risolta: Invoked Mechaba è evocato per fusione"), la base anche delle spiegazioni del solver.
+- **Albero delle mosse**: ogni nodo è la sequenza di risposte dal seed iniziale. Andare avanti costa ~0,2 ms; tornare indietro ricrea la partita e rigioca il prefisso (~20 ms per 25 decisioni, §16.3), con una cache delle partite vive sui nodi visitati di recente. Obiettivo: **ogni passo e ogni undo sotto i 100 ms**; se non basta, script di base precompilati in bytecode Lua.
+- **Partite deterministiche**: seed fisso; ordine del Deck casuale ma riproducibile, oppure scelto (carte in cima).
+- **Backend**: una sessione di gioco in un thread dedicato dell'app, comandata da Tauri (nuova partita, stato, azione, vai al nodo, albero).
+
+### 22.3 Il Tavolo (interfaccia)
+- **Campo in stile Master Duel**: zone mostri ed Extra Monster Zone con le frecce Link visibili, magie/trappole, campo, Cimitero, bandite, Deck ed Extra Deck per entrambi i giocatori; la mano in basso; LP, turno e fase in alto. Prospettiva leggermente inclinata come in Master Duel (piatta dove il 3D non è disponibile).
+- **Giocare**: clic su una carta mostra solo le azioni legali secondo il motore (evoca, posiziona, attiva l'effetto 1 o 2 con il testo dell'effetto, evoca specialmente); le scelte richieste dal motore appaiono come pannelli (carte da scegliere, zone evidenziate sul campo, posizione, sì/no, dichiarazioni). Le catene si vedono come una pila numerata che si risolve all'indietro.
+- **Undo e rami**: Ctrl+Z / Ctrl+Y, cronologia delle mosse cliccabile e un albero dei rami: si torna a un punto e si prova un'altra strada, senza perdere la prima.
+- **Effetti**: le carte si spostano animate tra le zone, lampo all'evocazione, anelli della catena, suoni nuovi per evocazioni, attivazioni e risoluzioni, coerenti con le altre sezioni (tema ametista del Circolo Arcano).
+- **Carte senza script** segnalate con un avviso; non si possono usare in silenzio.
+
+### 22.4 Scenari e linee
+- **Mano**: casuale dal deck (5 per primo, 6 per secondo, con seed) oppure scelta carta per carta; si può rimescolare.
+- **Editor di scenario**: qualsiasi carta in qualsiasi zona dei due giocatori, mano dell'avversario, carte in cima al Deck, LP, primo o secondo. Serve per "cosa succede se l'avversario ha Ash in mano" o per partire da una board avversaria.
+- **Avversario**: di base passa sempre (goldfish). Con "Gioca anche per l'avversario" le sue scelte le fai tu: si attivano le sue handtrap quando il motore lo chiede e si vede come cambia la combo.
+- **Linee salvate**: una linea (dalla mano iniziale alla board finale) si salva come guida combo con note su ogni passo, si riapre e si rigioca passo per passo; scenari e linee stanno in `user.db`.
+
+### 22.5 Test dei ruling
+Scenari dichiarativi in `tests/rulings/` (stato iniziale, mosse, risultato atteso) eseguiti in CI a ogni aggiornamento di motore e script. Primo gruppo, circa 25 casi: Ash Blossom su una ricerca e sullo spostamento dal Deck al Cimitero; Called by the Grave; Infinite Impermanence dalla mano e la colonna negata; Nibiru dopo cinque evocazioni; Droll & Lock Bird dopo la prima aggiunta; Mulcharmy; Pot of Prosperity e il divieto di danni; SEGOC e l'ordine della catena; "missing the timing" ("quando… puoi" contro "se… puoi"); once per turn rigidi e morbidi (Aleister, Invocation); Extra Monster Zone e frecce Link; la linea Invoked della Fase 0.
+
+### 22.6 Sotto-fasi
+- **5A** Motore: stato canonico, decisioni mancanti, registro leggibile, albero con cache, comandi dell'app; misure di velocità.
+- **5B** Tavolo: campo, azioni sulle carte, scelte, catena, cronologia e rami, animazioni e suoni.
+- **5C** Scenari, linee salvate, gioco per l'avversario e suite di ruling in CI.
+
+### 22.7 Scelte da confermare
+1. Il Tavolo come scheda del Circolo Arcano (proposta) o come sezione a sé.
+2. Campo inclinato in stile Master Duel (proposta) o visto dall'alto.
+3. Avversario che passa sempre, con l'opzione di giocare anche per lui (proposta).
+4. Battle Phase inclusa (serve andando secondo per gli OTK) o rimandata alla Fase 7.
 
