@@ -1,4 +1,4 @@
-# DuelForge: piano di progetto (v1.2)
+# DuelForge: piano di progetto (v1.3)
 
 > Nome provvisorio. Il documento è la proposta iniziale: una volta approvate le decisioni aperte (§14) diventa la roadmap di sviluppo.
 >
@@ -11,6 +11,8 @@
 > **v0.5 (18/10/2026)**: Fase 1 realizzata; risultati nella §17.
 >
 > **v0.6 (18/10/2026)**: Fase 2, prima parte: editor dei deck in stile Master Duel; risultati nella §18.
+>
+> **v1.3 (19/10/2026)**: Fase 5A realizzata: il motore è pronto per la ricerca automatica; risultati nella §23.
 >
 > **v1.2 (19/10/2026)**: la Fase 5 diventa direttamente il Combo Lab: ricerca automatica delle combo in background, senza partite da giocare a mano. La sandbox manuale (§8.3) esce dalla roadmap. Piano dettagliato, con il sistema di punteggio delle board, nella §22.
 >
@@ -793,4 +795,34 @@ Tema ametista della sezione, intestazione con Aleister the Invoker. A sinistra: 
 1. Per ora solo andando **per primo**; per secondo (rompere una board avversaria) nella Fase 6 insieme alle handtrap.
 2. I pesi predefiniti del profilo Bilanciato (§22.4).
 3. Il kit del turno di prova: le sonde e i board breaker elencati, aggiornabili con il meta.
+
+## 23. Risultati della Fase 5A: il motore pronto per la ricerca (19/10/2026)
+
+### 23.1 Nessuna scelta senza risposta
+- Gestite le scelte che prima non avevano risposte: **dichiarare un nome di carta** (porting esatto del filtro del motore; si provano prima le carte presenti nel duello, poi qualsiasi carta valida), **segnalini** distribuiti su più carte, **più Tipi o Attributi** insieme, **tutti gli ordini** fino a 5 carte, **più zone** insieme, **sasso-carta-forbice**.
+- Dopo una risposta rifiutata dal motore la scelta resta in attesa e se ne può dare un'altra.
+- **Collaudo a tappeto** (`duelforge-cli sweep`): duelli tra deck casuali costruiti dagli archetipi del database, con risposte casuali per entrambi i giocatori. Risultato: **1.432.145 scelte in 6.000 duelli (circa 12.000 deck), nessuna scelta senza risposte, nessuna risposta rifiutata**. Una versione breve gira a ogni test in CI.
+
+### 23.2 Stato, impronta e registro
+- Il duello restituisce lo **stato completo**: i due campi con ATK/DEF attuali, frecce Link, materiali, segnalini ed effetti negati; mano, Deck, Extra Deck, Cimitero, bandite; LP, turno e fase; e ciò che è stato fatto nel turno (attivazioni, Evocazioni Speciali, Normal Summon usata), che sostituisce l'informazione sugli effetti «una volta per turno» che il motore non espone.
+- **Impronta** dello stato: due linee che arrivano alla stessa situazione in ordine diverso hanno la stessa impronta; quella **canonica** unisce anche le board speculari (zone e frecce Link da sinistra a destra), perché le regole non distinguono sinistra e destra.
+- **Registro in italiano** di ogni passo, per esempio: «Catena 1: Magical Meltdown», «Aleister the Invoker viene aggiunta alla mano dal Deck», «Evochi normalmente Aleister the Invoker», «Invoked Baybarron viene evocato tramite Evocazione Fusion». Nuovi eventi letti dal motore: risoluzione della catena, attivazioni ed effetti annullati, bersagli, carte posizionate, cambi di posizione, LP, attacchi, segnalini.
+
+### 23.3 Risposte automatiche
+Le scelte con una sola risposta (per esempio «non concatenare» quando non c'è nulla da concatenare, o l'unica copia da prendere dal Deck) e la posizione dei mostri evocati (scoperta in Attacco) si danno da sole; la Battle Phase non si prova andando per primo. Così «attiva e risolvi la catena» diventa un passo solo: nella linea Invoked restano 8 scelte vere.
+
+### 23.4 Velocità
+Gli script Lua ora si compilano una volta in bytecode e restano in memoria, invece di essere riletti da disco e ricompilati a ogni partita.
+
+| Misura (4 core) | Prima | Ora |
+|---|---|---|
+| Creazione di una partita vuota | 12–17 ms | ~3 ms |
+| Creazione con il deck + prima scelta | 17–22 ms | ~4–5 ms |
+| Rigiocare una linea di ~25 scelte | 22–34 ms | ~8–10 ms |
+| Scelte al secondo rigiocando, 4 thread | ~4.400 | ~7.500–9.600 |
+
+Con `DUELFORGE_LUA_SOURCE=1` si caricano i sorgenti, i cui errori indicano il numero di riga.
+
+### 23.5 Prossimo passo: 5B
+La ricerca in background: mano precisa e «carta + resto», tabella delle trasposizioni sull'impronta canonica, eventi casuali, risultati in diretta.
 

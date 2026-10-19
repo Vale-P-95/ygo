@@ -39,6 +39,10 @@ fn main() {
             lua_build.file(file);
         }
     }
+    // Our Lua helpers, built with Lua itself (same flags, same library).
+    let shim = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("shim");
+    println!("cargo:rerun-if-changed={}", shim.display());
+    lua_build.file(shim.join("compile.cpp"));
     lua_build.compile("lua");
 
     let mut core_build = cc::Build::new();

@@ -161,3 +161,70 @@ fn the_line_told_in_italian() {
         assert!(lines.iter().any(|l| l.starts_with(expected)), "missing {expected:?} in {lines:#?}");
     }
 }
+
+#[test]
+fn trivial_answers_are_taken_automatically() {
+    use ygo_engine::auto::AutoPolicy;
+    use ygo_engine::Step;
+    let Some((engine, deck)) = setup() else { return };
+    let mut duel = Duel::goldfish(&engine, &deck, &[ALEISTER, CHALICE, MELTDOWN, ASH_ALT_ART, FUWALOS], 1).unwrap();
+    let policy = AutoPolicy::default();
+    let mut answers = Vec::new();
+    let mut real = Vec::new();
+    for step in [
+        "activate magical meltdown",
+        "yes",
+        "normal summon aleister the invoker",
+        "yes",
+        "activate invocation - \"chalice\"",
+        // The only mode Chalice can use here: chosen automatically.
+        "select invoked baybarron",
+        "select aleister the invoker (monster zone",
+        "select virakam",
+    ] {
+        loop {
+            let (Step::Decision { .. }, actions) = duel.advance_auto(&policy, &mut answers).unwrap() else { panic!("duel ended") };
+            assert!(!actions.iter().any(|a| a.kind == ygo_engine::ActionKind::ToBattlePhase));
+            // Mulcharmy Fuwalos may be chained at many points: the line does
+            // not; zones are a real choice, the line takes the first.
+            let action = match actions.iter().find(|a| a.label.to_lowercase().contains(step)) {
+                Some(a) => a,
+                None => actions
+                    .iter()
+                    .find(|a| a.label == "Don't chain" || a.kind == ygo_engine::ActionKind::Place)
+                    .unwrap_or_else(|| panic!("no {step:?} in {:#?}", actions.iter().map(|a| &a.label).collect::<Vec<_>>())),
+            };
+            real.push(action.label.clone());
+            answers.push(action.response.clone());
+            duel.respond(&action.response);
+            if action.label.to_lowercase().contains(step) {
+                break;
+            }
+        }
+    }
+    // Finish the summon (its zone) until the turn is back to us.
+    loop {
+        let (Step::Decision { .. }, actions) = duel.advance_auto(&policy, &mut answers).unwrap() else { panic!("duel ended") };
+        if actions.iter().any(|a| a.kind == ygo_engine::ActionKind::EndTurn) {
+            break;
+        }
+        let action =
+            actions.iter().find(|a| a.label == "Don't chain" || a.kind == ygo_engine::ActionKind::Place).expect("zone or chain prompt");
+        answers.push(action.response.clone());
+        duel.respond(&action.response);
+    }
+    let monsters: Vec<_> = duel.query_location(0, location::MZONE).into_iter().flatten().map(|(c, _)| engine.cards().name(c)).collect();
+    assert_eq!(monsters, ["Invoked Baybarron"]);
+    // Picking the only Aleister and the only Invocation in the Deck, the
+    // chain prompts and the positions were answered without asking.
+    assert!(answers.len() > real.len() + 4, "{} answers for {} choices", answers.len(), real.len());
+
+    // The answers replay the same line on a new duel.
+    let mut again = Duel::goldfish(&engine, &deck, &[ALEISTER, CHALICE, MELTDOWN, ASH_ALT_ART, FUWALOS], 1).unwrap();
+    for a in &answers {
+        again.advance().unwrap();
+        again.respond(a);
+    }
+    again.advance().unwrap();
+    assert_eq!(again.fingerprint(), duel.fingerprint());
+}

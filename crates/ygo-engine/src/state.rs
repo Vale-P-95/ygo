@@ -244,6 +244,89 @@ impl Duel {
     pub fn fingerprint(&self) -> u64 {
         fingerprint(&self.state())
     }
+
+    /// [`canonical_fingerprint`] of the current state.
+    pub fn canonical_fingerprint(&self) -> u64 {
+        canonical_fingerprint(&self.state())
+    }
+}
+
+/// Link arrows that swap places in a mirror image: bottom-left and
+/// bottom-right, left and right, top-left and top-right.
+const MIRRORED_ARROWS: [(u32, u32); 3] = [(0x1, 0x4), (0x8, 0x20), (0x40, 0x100)];
+
+fn mirror_arrows(markers: u32) -> u32 {
+    let mut out = markers;
+    for (a, b) in MIRRORED_ARROWS {
+        out &= !(a | b);
+        if markers & a != 0 {
+            out |= b;
+        }
+        if markers & b != 0 {
+            out |= a;
+        }
+    }
+    out
+}
+
+/// Monster Zones 0-4 swap around 2; the Extra Monster Zones swap with each other.
+fn mirror_monster_zone(i: usize) -> usize {
+    match i {
+        0..=4 => 4 - i,
+        5 => 6,
+        6 => 5,
+        _ => i,
+    }
+}
+
+/// Spell & Trap Zones 0-4 swap around 2; the Field Zone stays; the old Pendulum Zones swap.
+fn mirror_spell_zone(i: usize) -> usize {
+    match i {
+        0..=4 => 4 - i,
+        6 => 7,
+        7 => 6,
+        _ => i,
+    }
+}
+
+impl DuelState {
+    /// The same duel seen in a mirror: zones and Link arrows left to right.
+    /// The rules do not tell left from right, so it plays the same.
+    pub fn mirrored(&self) -> DuelState {
+        let mut out = self.clone();
+        for p in &mut out.players {
+            let flip_card = |c: &FieldCard| {
+                let mut c = c.clone();
+                c.link.1 = mirror_arrows(c.link.1);
+                if let Some((ctrl, loc, seq)) = c.equipped_to {
+                    let seq = match loc {
+                        location::MZONE => mirror_monster_zone(seq as usize) as u32,
+                        location::SZONE => mirror_spell_zone(seq as usize) as u32,
+                        _ => seq,
+                    };
+                    c.equipped_to = Some((ctrl, loc, seq));
+                }
+                c
+            };
+            let mut monsters = vec![None; p.monsters.len()];
+            for (i, zone) in p.monsters.iter().enumerate() {
+                monsters[mirror_monster_zone(i).min(p.monsters.len() - 1)] = zone.as_ref().map(flip_card);
+            }
+            let mut spells = vec![None; p.spells.len()];
+            for (i, zone) in p.spells.iter().enumerate() {
+                spells[mirror_spell_zone(i).min(p.spells.len() - 1)] = zone.as_ref().map(flip_card);
+            }
+            p.monsters = monsters;
+            p.spells = spells;
+        }
+        out
+    }
+}
+
+/// The fingerprint shared by a state and its mirror image: two lines that
+/// reach mirrored boards are explored once.
+pub fn canonical_fingerprint(state: &DuelState) -> u64 {
+    fingerprint(state).min(fingerprint(&state.mirrored()))
 }
 
 /// FNV-1a over a canonical encoding of the state.
@@ -330,5 +413,30 @@ impl Fnv {
             self.0 ^= b as u64;
             self.0 = self.0.wrapping_mul(0x0100_0000_01b3);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn monster(code: u32, arrows: u32) -> Option<FieldCard> {
+        Some(FieldCard { code, link: (2, arrows), ..Default::default() })
+    }
+
+    #[test]
+    fn mirror_images_share_a_fingerprint() {
+        let mut state = DuelState::default();
+        state.players[0].monsters = vec![monster(1, 0), None, None, None, None, monster(2, 0x1 | 0x80), None];
+        state.players[0].spells = vec![None; 8];
+        state.players[1].monsters = vec![None; 7];
+        state.players[1].spells = vec![None; 8];
+        let m = state.mirrored();
+        assert_eq!(m.players[0].monsters[4].as_ref().unwrap().code, 1);
+        let link = m.players[0].monsters[6].as_ref().unwrap();
+        assert_eq!((link.code, link.link.1), (2, 0x4 | 0x80), "bottom-left becomes bottom-right, top stays");
+        assert_eq!(m.mirrored(), state);
+        assert_ne!(fingerprint(&state), fingerprint(&m));
+        assert_eq!(canonical_fingerprint(&state), canonical_fingerprint(&m));
     }
 }

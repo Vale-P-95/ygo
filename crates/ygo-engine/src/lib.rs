@@ -17,6 +17,7 @@
 
 mod actions;
 mod announce;
+pub mod auto;
 mod carddb;
 pub mod consts;
 mod deck;
@@ -37,7 +38,7 @@ pub use duel::{Duel, DuelConfig, Engine, Step};
 pub use message::{Activatable, CardRef, Decision, Event};
 pub use script::{run_script, ScriptEnd, Trace};
 pub use scripts::ScriptStore;
-pub use state::{fingerprint, DuelState, FieldCard, PlayerState, TurnActivity};
+pub use state::{canonical_fingerprint, fingerprint, DuelState, FieldCard, PlayerState, TurnActivity};
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {

@@ -115,8 +115,8 @@ unsafe extern "C" fn script_reader(payload: *mut c_void, duel: OCG_Duel, name: *
     let ctx = &*(payload as *const Context);
     let name = CStr::from_ptr(name);
     let name_str = name.to_string_lossy();
-    match ctx.scripts.read(&name_str) {
-        Some(source) => OCG_LoadScript(duel, source.as_ptr() as *const c_char, source.len() as u32, name.as_ptr()),
+    match ctx.scripts.load(&name_str) {
+        Some(chunk) => OCG_LoadScript(duel, chunk.as_ptr() as *const c_char, chunk.len() as u32, name.as_ptr()),
         None => {
             // Code 0 is a placeholder the engine probes for; it has no script.
             if name_str != "c0.lua" {

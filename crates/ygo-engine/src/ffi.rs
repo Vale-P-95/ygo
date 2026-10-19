@@ -93,4 +93,8 @@ extern "C" {
     pub fn OCG_DuelQuery(duel: OCG_Duel, length: *mut u32, info: *const OCG_QueryInfo) -> *mut c_void;
     pub fn OCG_DuelQueryLocation(duel: OCG_Duel, length: *mut u32, info: *const OCG_QueryInfo) -> *mut c_void;
     pub fn OCG_DuelQueryField(duel: OCG_Duel, length: *mut u32) -> *mut c_void;
+
+    // shim/compile.cpp
+    pub fn df_lua_compile(source: *const c_char, length: usize, name: *const c_char, out_length: *mut usize) -> *mut u8;
+    pub fn df_free(p: *mut c_void);
 }
