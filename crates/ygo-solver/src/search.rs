@@ -961,6 +961,10 @@ fn play(shared: &Shared, edge: &Edge, dive: &mut Dive) -> Result<(), Error> {
     // Something was started at a free moment (an idle or chain window) and
     // nothing has happened since: cancelling only goes back to that moment.
     let mut undoable = false;
+    // The situations met since your last free moment: meeting one again
+    // means going round in circles (choosing a Fusion Monster whose
+    // materials cannot be chosen, cancelling, choosing it again).
+    let mut since_free: HashSet<u64> = HashSet::new();
     loop {
         if shared.halted() {
             return Ok(());
@@ -985,6 +989,13 @@ fn play(shared: &Shared, edge: &Edge, dive: &mut Dive) -> Result<(), Error> {
         };
         let state = duel.state();
         shared.nodes.fetch_add(1, Ordering::Relaxed);
+        let free = is_free(&decision);
+        if free {
+            since_free.clear();
+        } else if !since_free.insert(node_key(&state, &decision, &Pending::default())) {
+            shared.duplicates.fetch_add(1, Ordering::Relaxed);
+            return Ok(());
+        }
         if !shared.first_visit(node_key(&state, &decision, &pending)) {
             shared.duplicates.fetch_add(1, Ordering::Relaxed);
             return Ok(());
@@ -1072,7 +1083,6 @@ fn play(shared: &Shared, edge: &Edge, dive: &mut Dive) -> Result<(), Error> {
         if let Some(c) = first.card.filter(|c| c.location == location::EXTRA) {
             placing = Some(c.code);
         }
-        let free = matches!(decision, Decision::IdleCmd { .. } | Decision::BattleCmd { .. } | Decision::SelectChain { .. });
         undoable = (free && first.kind != ActionKind::Pass) || (undoable && !free);
         pending.answered(&decision, &first.response);
         duel.respond(&first.response);

@@ -1,4 +1,4 @@
-# DuelForge: piano di progetto (v1.7)
+# DuelForge: piano di progetto (v1.8)
 
 > Nome provvisorio. Il documento è la proposta iniziale: una volta approvate le decisioni aperte (§14) diventa la roadmap di sviluppo.
 >
@@ -11,6 +11,8 @@
 > **v0.5 (18/10/2026)**: Fase 1 realizzata; risultati nella §17.
 >
 > **v0.6 (18/10/2026)**: Fase 2, prima parte: editor dei deck in stile Master Duel; risultati nella §18.
+>
+> **v1.8 (19/10/2026)**: la ricerca non perde più linee (chiave dei nodi, cicli, doppioni), è guidata dal valore misurato delle carte e impara durante la ricerca; ruoli automatici e confronto tra deck nel Laboratorio; linea della combo in forma visuale; ordine dei prossimi lavori (§29).
 >
 > **v1.7 (19/10/2026)**: valutazione del lavoro in parallelo con sub-agenti (§27); caccia ai bug su 37 deck di Master Duel Meta (§28).
 >
@@ -1075,3 +1077,108 @@ Prima tornata, 37 deck × 2 mani: 71 corse pulite, 2 crash, 1 turno di prova fal
 - **Matchup**: provare le board contro un deck avversario scelto dall'utente (#44).
 - Tabella di regressione per deck, con `combo_hunt.py` a budget di nodi, da tenere aggiornata qui.
 - Test: i due test a obiettivo giocavano con 2 thread e un limite di tempo e a volte non trovavano l'obiettivo in 20 secondi (dalla riga di comando: 20 ricerche su 20 lo trovano in meno di un secondo, con 2 e 4 thread). Ora usano un thread e un budget di nodi: stesso risultato a ogni corsa. Da capire perché, con più thread e la macchina carica, la ricerca guidata a volte si perde.
+
+## 29. Ricerca combo: linee perse, efficienza, ruoli e confronto (19/10/2026)
+
+### 29.1 Ordine dei lavori
+Le richieste di questa tornata, nell'ordine in cui sono state fatte:
+1. **Correttezza della ricerca** sulle linee del video Invoked, con correzioni generali (§29.2-29.3). Fatto.
+2. **Efficienza**: niente mosse inutili, linee ripetute o iterazioni sprecate (§29.4). Fatto.
+3. **Classificazione più profonda**: nuovi criteri di forza, verificati sui deck di Master Duel Meta. In corso (§29.8).
+4. **Linea della combo in forma visuale** nella scheda della board (§29.6). Fatto.
+5. **Ruoli automatici** nel Laboratorio (starter, estensore...), modificabili a mano (§29.7). Fatto.
+6. **Confronto affiancato di due deck** nel Laboratorio (§29.7). Fatto.
+
+Dopo, i lavori già previsti:
+- #43: pesi delle metriche, partendo dai dati della classificazione delle carte;
+- #44: board messe alla prova contro un deck avversario scelto dall'utente;
+- #40: frontiera di Pareto e apprendimento delle preferenze;
+- #36: il simulatore passo passo, alla fine.
+
+### 29.2 Il video Invoked e il banco di prova
+Il video segnalato (Moha, «INVOKED | EASY GUIDE & DECKLIST!») non è leggibile dal container: il player di YouTube chiede l'accesso («Sign in to confirm you're not a bot») e non c'è trascrizione. Restano i capitoli:
+- Aleister the Reminiscent;
+- Aleister e un mostro FUOCO/VENTO;
+- Aleister the Invoker;
+- Aleister e Aleister.
+
+Le mani sono state ricostruite così, con la lista Invoked più recente di Master Duel Meta (Aiwass, Virakam, Book of the Law, Hyperinvoked Aeon). Su indicazione dell'utente, Aleister the Reminiscent è accompagnato da 4 carte casuali del deck, che la combo può anche scartare. Le stesse mani, più una mano per 8 altri deck di Master Duel Meta, formano un banco di prova:
+- 16 mani, budget di nodi e un thread, quindi riproducibile;
+- per ogni mano: le 10 board migliori misurate con il turno di prova, e il valore della migliore e della prima in classifica;
+- valore = campo×1 + mano×0,9 + floodgate×0,8 + resilienza×0,6.
+
+### 29.3 Bug trovati (tutti generali)
+- **Linee perse: la chiave dei nodi.** La tabella degli stati già visti riconosceva un nodo dallo stato del duello più la scelta richiesta. Dentro un'evocazione o un'attivazione, però, lo stato non dice ancora cosa si sta facendo. "Scegli Aleister come materiale" per Salamangreat Almiraj o per Artemis è la stessa scelta sullo stesso stato, quindi la seconda veniva scartata come doppione e tutta la linea con Artemis (e Mechaba) non veniva mai esplorata. Lo stesso valeva per Sorath e De Anima dalla stessa Invocation. Con Aleister the Invoker e 4 carte inerti, la ricerca si esauriva dopo 24 nodi trovando solo De Anima. Ora la chiave include le risposte date dall'ultimo momento libero (finestra di azione o di catena). Test di regressione: `every_summon_is_tried_even_when_its_materials_are_chosen_alike`.
+- **Cicli.** Scegliere un mostro Fusione senza materiali possibili porta ad "Annulla", che riporta alla stessa scelta. Prima il ciclo era fermato dalla tabella; con la chiave nuova no, e una linea girava a vuoto per migliaia di nodi. Ora una procedura che torna nella stessa situazione si ferma.
+- **Doppioni (50% dei replay sprecati).** Togliere una carta dalla selezione, annullare ciò che si è appena iniziato e scegliere le stesse carte in un altro ordine riportavano a stati già visti. Ognuno costava un replay dell'intera linea. Ora queste risposte non vengono provate.
+- **End Phase delle board provvisorie.** Il turno di prova attivava il primo effetto disponibile: Hyperinvoked Aeon, poi Invoked Mechaba negava l'effetto del proprio Aeon scartando l'ultima carta in mano. Ora nella tua End Phase si attivano i trigger, non gli effetti rapidi; la ricerca fa lo stesso.
+- **Board confermate.** Giocata la End Phase di una board provvisoria, la lettura vera non la sostituiva se la linea aveva una scelta in più (la regola "linea più corta" la scartava). In cima restavano board "End Phase non giocata".
+- **Kit.** L'avversario evocava Link Spider in una zona Main puntata da un nostro Link in EMZ: la sua freccia non puntava a nulla e ogni Link in EMZ sembrava un floodgate. Ora i mostri dell'Extra Deck avversari vanno prima nell'EMZ.
+- Le dichiarazioni di Attributo e Tipo mostravano "attribute #0": ora dicono il nome (LUCE, OSCURITÀ...).
+
+### 29.4 Come cerca adesso
+- **Priorità.** La priorità premiava la profondità (+0,3 per scelta). La ricerca esplorava quasi solo le ultime scelte delle linee più lunghe (zone, ordine dei materiali) e quasi mai quelle iniziali (cosa cercare, cosa evocare), che decidono la combo. Ora le risposte lasciate da un'immersione entrano in coda con la stima della board migliore raggiunta dopo di loro, meno 0,6 per ogni scelta diversa da quella dell'immersione: prima le linee vicine alle migliori, a ogni profondità. La taratura su 0,3, 0,6 e 1,2 ha scelto 0,6.
+- **Valore misurato delle carte** (`ygo_solver::value`, `card-values` nella CLI). Il turno di prova si gioca con una sola carta sul campo, in EMZ o in zona Main, e da questo si ricava il valore di ogni carta. Gli Xyz hanno due materiali; le handtrap si misurano in mano, a campo vuoto e con un mostro sul campo, perché Infinite Impermanence e i Mulcharmy funzionano solo se non controlli carte. Misure per gli Invoked: Mechaba 1,00, Caliga 0,96, Oceanus 0,48 in EMZ e 0 in zona Main, Super Polymerization coperta 0,39, Ash dalla mano 0,71. Costo: 2-3 s per deck, poi in cache. La stima rapida, che contava solo i corpi sul campo, ora somma questi valori ×5 (taratura su 2, 3 e 5).
+- **Apprendimento durante la ricerca.** Una carta può valere poco da sola e molto accanto a un'altra: Allied Code Talker nega sacrificando un Link che punta. Ogni 1500 nodi, e alla fine, la ricerca misura le board migliori con carte mai misurate e alza il valore di ciò che ha interrotto davvero. Con un thread i giri cadono sugli stessi nodi, quindi il risultato resta riproducibile.
+
+### 29.5 Risultati sul banco di prova
+16 mani, 4000 nodi, valore misurato della board migliore tra le 10 in cima e della prima in classifica:
+
+| Versione | Migliore | Prima | Ricerca |
+|---|---|---|---|
+| Di partenza | 15,80 | 12,95 | 713 s |
+| + niente doppioni | 16,98 | 13,48 | 681 s |
+| + priorità per valore della linea | 15,65 | 12,34 | 298 s |
+| + valore misurato delle carte | 21,52 | 17,67 | 320 s |
+| + peso 5, apprendimento, chiave dei nodi, cicli | **24,30** | **20,21** | — |
+
+Il tempo dell'ultima riga non è confrontabile: la macchina era occupata dall'app.
+
+Sulle 8 mani Invoked a 15000 nodi:
+
+| | Di partenza | Ora |
+|---|---|---|
+| Migliore | 8,88 | 12,72 (+43%) |
+| Prima | 7,00 | 11,93 (+70%) |
+| Tempo | 2013 s | 1277 s |
+
+Esempi di board trovate:
+- Reminiscent da solo (con 4 handtrap): Hyperinvoked Aeon + Mechaba + Endymion + Artemis, con le 4 handtrap ancora in mano.
+- Aleister the Invoker da solo: Mechaba + Baybarron.
+- Reminiscent + Aleister + Invocation + Ash + Ghost Ogre: Mechaba + Augoeides + Virakam + Crowley + Endymion + Artemis + Sword coperta, con Ash e Ghost Ogre in mano.
+
+Prima, con le stesse mani, la ricerca si fermava a Sorath + Artemis o Baybarron + Virakam.
+
+### 29.6 La linea in forma visuale
+Nella scheda della board, "La linea" ha due viste: Visuale (predefinita) e Testo.
+- **Vista visuale**: una sequenza con un'icona colorata per ogni scelta (evocazione, attivazione, scelta, posizionamento, fine turno) e la miniatura della carta.
+- **Conseguenze**: miniature con badge per ciò che è successo, cioè carta evocata, attivata (C1, C2: anello di catena), annullata, aggiunta alla mano, al Cimitero, bandita, rimessa nel Deck, usata come materiale.
+- **Separatori**: turni e fasi diventano separatori.
+- **Scelte nascoste**: le scelte di non rispondere sono nascoste e si possono mostrare.
+- **Backend**: il motore fornisce i dati strutturati di ogni passo (tipo di scelta, carta, eventi con tipo e carta).
+
+### 29.7 Laboratorio: ruoli automatici e confronto
+- **Riconosci** (pannello Ruoli, `roles` nella CLI): il motore gioca ogni carta del Main Deck.
+  - **Starter**: da sola, con 4 carte inerti, la stima sale di almeno 3.
+  - **Estensore**: sulla board dello starter migliore, rimessa sul campo e nel Cimitero, la migliora di almeno 1,5 e la linea la usa. Provarla in mano insieme allo starter non funzionava: con più carte la ricerca breve trova board peggiori.
+  - **Handtrap**: dal motore.
+  - **Board breaker**: dal testo.
+  - **Brick**: mostri che non si possono evocare da soli e non fanno nulla.
+
+  Per ogni carta c'è la motivazione; i ruoli si cambiano a mano come prima, e «Annulla» rimette quelli di prima. Esempi:
+  - Invoked: starter Aleister the Invoker, Reminiscent, Aiwass, Sacred Spirit Sword Aiwass e Magical Meltdown; estensori Crowley, Grail e Crossout Designator. Crossout è una sinergia vera: bandisce Aleister dal Deck e Invocation lo riprende.
+  - Mitsurugi: estensori Kusanagi e Saji.
+  - Branded: estensori Branded in White e The Fallen & The Virtuous.
+
+  Tempo: 10-55 s per deck.
+- **Confronto** (nuova scheda): un secondo deck accanto al corrente, ciascuno con i suoi ruoli.
+  - Tutte le probabilità con la differenza, verde se migliora e rosso se peggiora; per "mano bloccata" e "brick" vale il contrario.
+  - Grafici di starter e handtrap aperti, uno accanto all'altro.
+  - Carte solo in uno dei due deck e carte con copie diverse.
+
+### 29.8 Limiti e prossimi passi
+- **Geometria dei Link.** Le zone Main non puntate sono considerate equivalenti e la ricerca ne prova una sola. Una disposizione che un Link evocato più tardi punterà (Allied Code Talker con un Link sotto) a volte si trova solo variando le zone alla fine. Distinguere le colonne sotto le EMZ è stato provato: risultati simili, più costo.
+- **Classificazione (#47).** Caliga e Mechaba sulla stessa board: il floodgate di Caliga fa sembrare Mechaba quasi inutile (0,2-0,4 sul campo), mentre Mechaba nega il primo effetto, che Caliga lascia passare. È il prossimo punto, insieme a nuovi criteri: tipo e qualità delle interruzioni, protezione della board, risorse per il turno dopo.
+- **Board breaker** riconosciuti dal testo: vanno misurati con il motore (giocandoli contro una board).
+- **Velocità del motore.** Creare il duello per ogni replay vale circa il 45% del tempo; gli script sono già in bytecode, quindi il margine è nel numero di replay, non nel caricamento.
+

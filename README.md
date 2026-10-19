@@ -143,6 +143,17 @@ cargo run --release -p ygo-cli -- combos --deck tests/fixtures/decks/invoked-sir
 python3 scripts/mdm_decks.py --out /tmp/mdm
 python3 scripts/combo_hunt.py /tmp/mdm --hands 2 --nodes 3000
 
+# Quanto vale ogni carta da sola sul campo (o in mano, per le handtrap),
+# misurato dal turno di prova: è la stima che guida la ricerca
+cargo run --release -p ygo-cli -- card-values --deck tests/fixtures/decks/invoked-siracusa-md.ydk
+
+# Handtrap del deck, riconosciute dal motore
+cargo run --release -p ygo-cli -- hand-traps --deck tests/fixtures/decks/invoked-siracusa-md.ydk
+
+# Ruoli delle carte (starter, estensore, handtrap, board breaker, brick),
+# trovati giocandole: da sole, sulla board dello starter migliore
+cargo run --release -p ygo-cli -- roles --deck tests/fixtures/decks/invoked-siracusa-md.ydk
+
 # Collaudo a tappeto: duelli tra deck casuali con scelte casuali; segnala ogni
 # scelta senza risposte o risposta rifiutata dal motore
 cargo run --release -p ygo-cli -- sweep --duels 6000 --max-decisions 600 --max-turns 10
