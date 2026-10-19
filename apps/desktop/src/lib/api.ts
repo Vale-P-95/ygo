@@ -344,6 +344,10 @@ export interface ComboBoard {
   cardsUsed: number;
   choices: number;
   foundAfterMs: number;
+  /** Played to the opponent's turn; otherwise read when the turn was ended, before the End Phase. */
+  exact: boolean;
+  /** Cards of the goal on the field. */
+  goalHits: number;
   /** Main Monster Zones 0-4, then the Extra Monster Zones. */
   monsters: (ZoneCard | null)[];
   /** Spell & Trap Zones 0-4, then the Field Zone. */
@@ -351,12 +355,20 @@ export interface ComboBoard {
   handCards: number[];
   grave: number[];
   banished: number[];
+  deckCount: number;
+  extraCount: number;
+  /** Face-up Pendulum monsters in the Extra Deck. */
+  extraFaceUp: number[];
 }
 
 export interface ComboHand {
   cards: number[];
   /** Share of the hands with the card that this one stands for. */
   weight: number;
+  /** The goal is reached (true), impossible (false) or unknown (null). */
+  goal: boolean | null;
+  /** Every line from this hand was tried. */
+  complete: boolean;
 }
 
 export interface ComboProgress {
@@ -377,6 +389,16 @@ export interface ComboOutcome {
   nodes: number;
   hands: ComboHand[];
   boards: ComboBoard[];
+  /** Every line of every hand was tried: going on finds nothing new. */
+  complete: boolean;
+}
+
+export interface ComboGoal {
+  cards: number[];
+  /** All of them (else one is enough). */
+  all: boolean;
+  /** Stop at the first board that reaches it. */
+  first: boolean;
 }
 
 export interface ComboRequest {
@@ -389,6 +411,7 @@ export interface ComboRequest {
   keep: number[];
   forbid: number[];
   useHandtraps: boolean;
+  goal: ComboGoal | null;
 }
 
 export interface ComboStep {
@@ -441,6 +464,7 @@ export const api = {
   importDeck: (text: string) => invoke<Imported>("import_deck", { text }),
   exportDeck: (deck: Deck) => invoke<{ ydk: string; ydke: string }>("export_deck", { deck }),
   comboSearch: (request: ComboRequest) => invoke<ComboOutcome>("combo_search", { request }),
+  comboContinue: (deckId: number, seconds: number) => invoke<ComboOutcome>("combo_continue", { deckId, seconds }),
   comboCancel: () => invoke<void>("combo_cancel"),
   comboExplain: (hand: number, key: string) => invoke<ComboStep[]>("combo_explain", { hand, key }),
   onComboProgress: (handler: (p: ComboProgress) => void): Promise<UnlistenFn> => listen<ComboProgress>("combo-progress", (e) => handler(e.payload)),

@@ -145,6 +145,8 @@ pub struct Duel {
     turn_player: u8,
     phase: u16,
     activity: TurnActivity,
+    /// Links of the chain being built (0 once it starts to resolve).
+    open_chain: usize,
 }
 
 // Each duel is a self-contained engine instance (its own Lua state); the
@@ -191,6 +193,7 @@ impl Duel {
             turn_player: 0,
             phase: 0,
             activity: TurnActivity::default(),
+            open_chain: 0,
         };
         for base in ["constant.lua", "utility.lua"] {
             if !duel.load_script(base) {
@@ -318,7 +321,9 @@ impl Duel {
             Event::Chaining { card, description, .. } => {
                 a.activations.push((card.code, *description));
                 a.activations.sort_unstable();
+                self.open_chain += 1;
             }
+            Event::ChainSolving { .. } | Event::ChainEnd => self.open_chain = 0,
             _ => {}
         }
     }
@@ -331,6 +336,12 @@ impl Duel {
     /// What was done this turn.
     pub fn activity(&self) -> &TurnActivity {
         &self.activity
+    }
+
+    /// Links of the chain being built: a chain decision with links already
+    /// open asks for a response, one without starts a new chain.
+    pub fn open_chain(&self) -> usize {
+        self.open_chain
     }
 
     pub(crate) fn raw_query_location(&self, player: u8, loc: u8, flags: u32) -> Vec<u8> {

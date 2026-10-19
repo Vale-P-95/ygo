@@ -4,7 +4,7 @@ Suite desktop per Yu-Gi-Oh!: deck builder con carte e banlist sempre aggiornate,
 
 Il piano di progetto completo è in [`docs/PIANO.md`](docs/PIANO.md).
 
-**Stato**: Fasi 0–4 completate. L'app scarica da sola carte e dati del motore. Nella Fucina si costruiscono i deck in stile Master Duel (Main, Extra, Side e Maybe board al centro, catalogo a destra), con banlist di Master Duel, TCG e OCG, costo di creazione in Master Duel, filtri rapidi e preferiti, mano di prova con probabilità esatte, salvataggio automatico, import/export `.ydk`/`ydke://` e immagine PNG del deck. Nella Bottega ogni deck è un deck box 3D personalizzabile (colore, materiale, forma, tre carte vetrina) con la legalità sempre aggiornata. Nel Laboratorio si calcolano le probabilità esatte delle mani in base ai ruoli delle carte, si simulano milioni di mani con Pot e ricerche, si ottimizza il numero di copie e si registrano le partite per vedere win-rate, matchup e l'effetto di ogni modifica del deck. Nel Circolo Arcano (Fase 5, in corso) il motore gioca da solo in background tutte le linee del primo turno da una mano o da una carta e mostra le board finali con la linea raccontata in italiano.
+**Stato**: Fasi 0–4 completate. L'app scarica da sola carte e dati del motore. Nella Fucina si costruiscono i deck in stile Master Duel (Main, Extra, Side e Maybe board al centro, catalogo a destra), con banlist di Master Duel, TCG e OCG, costo di creazione in Master Duel, filtri rapidi e preferiti, mano di prova con probabilità esatte, salvataggio automatico, import/export `.ydk`/`ydke://` e immagine PNG del deck. Nella Bottega ogni deck è un deck box 3D personalizzabile (colore, materiale, forma, tre carte vetrina) con la legalità sempre aggiornata. Nel Laboratorio si calcolano le probabilità esatte delle mani in base ai ruoli delle carte, si simulano milioni di mani con Pot e ricerche, si ottimizza il numero di copie e si registrano le partite per vedere win-rate, matchup e l'effetto di ogni modifica del deck. Nel Circolo Arcano (Fase 5, in corso) il motore gioca da solo in background tutte le linee del primo turno da una mano o da una carta e mostra le board finali con la linea raccontata in italiano; con un obiettivo (carte da avere sul campo) dice se si raggiunge, con la linea, o se è impossibile.
 
 ## Struttura
 
@@ -120,6 +120,12 @@ cargo run --release -p ygo-cli -- bench --deck tests/fixtures/decks/invoked-sira
 # Il motore gioca da solo tutte le linee da una mano e elenca le board finali
 cargo run --release -p ygo-cli -- combos --deck tests/fixtures/decks/invoked-siracusa-md.ydk \
   --hand "Aleister the Invoker;76334960;Magical Meltdown;Ash Blossom & Joyous Spring;Mulcharmy Fuwalos" --seconds 60 --lines
+
+# Obiettivo: il motore cerca una linea che porti queste carte sul campo,
+# o dimostra che non esiste
+cargo run --release -p ygo-cli -- combos --deck tests/fixtures/decks/invoked-siracusa-md.ydk \
+  --hand "Aleister the Invoker;76334960;Magical Meltdown;Ash Blossom & Joyous Spring;Mulcharmy Fuwalos" \
+  --goal "Invoked Mechaba" --first --lines
 
 # "Carta + resto": tante mani con una carta, pesate per quanto sono probabili
 cargo run --release -p ygo-cli -- combos --deck tests/fixtures/decks/invoked-siracusa-md.ydk \

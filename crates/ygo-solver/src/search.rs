@@ -6,6 +6,14 @@
 //! queue for later. A table of the states already seen (by their canonical
 //! fingerprint, plus the choice being asked) makes sure that lines reaching
 //! the same situation in a different order are explored once.
+//!
+//! Ending the turn is an answer at every free moment, and playing it means a
+//! whole replay just to read a board. So the board is read on the spot,
+//! before the End Phase ("provisional"), the End Phase is queued last, and
+//! when the search stops the best provisional boards are played for real.
+//!
+//! A search can go on where it stopped ([`resume`]) and can aim at a
+//! [`Goal`]: cards that must be on the field at the end.
 
 use std::cmp::Ordering as CmpOrdering;
 use std::collections::hash_map::DefaultHasher;
@@ -16,7 +24,7 @@ use std::sync::{Arc, Condvar, Mutex};
 use std::time::{Duration, Instant};
 
 use ygo_engine::auto::AutoPolicy;
-use ygo_engine::consts::card_type;
+use ygo_engine::consts::{card_type, location};
 use ygo_engine::{canonical_fingerprint, italian, Action, ActionKind, Decision, DeckList, Duel, DuelState, Engine, Error, Step};
 
 #[derive(Debug, Clone)]
@@ -25,19 +33,21 @@ pub struct SearchConfig {
     pub hand: Vec<u32>,
     /// Order of the Deck and the engine's random numbers.
     pub seed: u64,
+    /// For this run (a resumed search gets a new one).
     pub time_limit: Duration,
-    /// Nodes (real choices reached) at most.
+    /// Nodes (real choices reached) at most, over all runs.
     pub max_nodes: u64,
     pub threads: usize,
     /// Real choices per line at most.
     pub max_choices: usize,
     /// Cards that must still be in the hand at the end (e.g. a handtrap).
     pub keep_in_hand: Vec<u32>,
-    /// Cards that must be on the field at the end.
-    pub require_on_field: Vec<u32>,
+    pub goal: Goal,
     pub policy: AutoPolicy,
     /// Best boards included in each progress report.
     pub live_top: usize,
+    /// Provisional boards played to the end of the turn when the search stops.
+    pub confirm_top: usize,
 }
 
 impl SearchConfig {
@@ -51,10 +61,58 @@ impl SearchConfig {
             threads: std::thread::available_parallelism().map_or(4, |n| n.get()),
             max_choices: 60,
             keep_in_hand: Vec::new(),
-            require_on_field: Vec::new(),
+            goal: Goal::default(),
             policy: AutoPolicy::default(),
             live_top: 10,
+            confirm_top: 40,
         }
+    }
+}
+
+/// Cards wanted on your field at the end of the turn. The search favours
+/// the lines that bring them, and ranks the boards that have them first.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Goal {
+    /// A code listed twice wants two copies.
+    pub on_field: Vec<u32>,
+    /// All of them; otherwise at least one.
+    pub all: bool,
+    /// Stop at the first board that reaches the goal.
+    pub first_only: bool,
+}
+
+impl Goal {
+    pub fn is_set(&self) -> bool {
+        !self.on_field.is_empty()
+    }
+
+    /// How many of the wanted cards are on your field (alternate artworks count).
+    pub fn hits(&self, engine: &Engine, state: &DuelState) -> usize {
+        if !self.is_set() {
+            return 0;
+        }
+        let db = engine.cards();
+        let me = &state.players[0];
+        let mut field: Vec<u32> = me.monsters.iter().chain(&me.spells).flatten().map(|c| db.canonical_code(c.code)).collect();
+        let mut hits = 0;
+        for &code in &self.on_field {
+            if let Some(i) = field.iter().position(|&c| c == db.canonical_code(code)) {
+                field.swap_remove(i);
+                hits += 1;
+            }
+        }
+        hits
+    }
+
+    pub fn reached(&self, hits: usize) -> bool {
+        self.is_set() && if self.all { hits == self.on_field.len() } else { hits > 0 }
+    }
+
+    /// The action picks or plays one of the wanted cards (summoning it,
+    /// choosing it in a list such as the Fusion Monsters offered).
+    fn involves(&self, engine: &Engine, action: &Action) -> bool {
+        let db = engine.cards();
+        action.card.is_some_and(|c| self.on_field.iter().any(|&g| db.canonical_code(g) == db.canonical_code(c.code)))
     }
 }
 
@@ -74,6 +132,17 @@ impl Line {
         self.answers.push(answer);
         self.choices.push(label);
     }
+
+    /// The line up to its last choice, and that choice.
+    fn split_last(&self) -> Option<(Line, Answer)> {
+        let at = *self.choice_at.last()?;
+        let mut prefix = self.clone();
+        let answer = prefix.answers.remove(at);
+        prefix.answers.truncate(at);
+        prefix.choice_at.pop();
+        let label = prefix.choices.pop()?;
+        Some((prefix, (answer, label)))
+    }
 }
 
 /// A board reached at the end of the turn, with the best line found to it.
@@ -82,12 +151,16 @@ pub struct Board {
     /// Identity of the board (same cards in the same places).
     pub key: u64,
     pub line: Line,
-    /// The duel when the opponent's turn begins.
+    /// The duel when the opponent's turn begins; for a provisional board,
+    /// when the turn was ended (End Phase effects not played yet).
     pub state: DuelState,
+    pub exact: bool,
     /// Cards of the starting hand no longer in the hand.
     pub cards_used: usize,
     /// A quick estimate until the real score is computed (Phase 5C).
     pub quick_score: f64,
+    /// Cards of the goal on the field.
+    pub goal_hits: usize,
     pub found_after: Duration,
 }
 
@@ -104,10 +177,13 @@ pub enum Stop {
     TimeLimit,
     NodeLimit,
     Cancelled,
+    /// A board reached the goal ([`Goal::first_only`]).
+    GoalReached,
 }
 
 #[derive(Debug, Clone, Default)]
 pub struct Progress {
+    /// Over all the runs of the search.
     pub elapsed: Duration,
     /// Real choices reached.
     pub nodes: u64,
@@ -122,26 +198,49 @@ pub struct Progress {
     pub top: Vec<Board>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct SearchResult {
-    /// Best first (by the quick estimate).
+    /// Best first (goal first, then the quick estimate).
     pub boards: Vec<Board>,
     pub progress: Progress,
     pub stop: Stop,
     /// Lines that stopped on a choice without answers or a rejected answer
     /// (should stay 0: see the engine's randomized sweep).
     pub interrupted: u64,
+    /// Where the search stopped, to go on with [`resume`].
+    pub frontier: Frontier,
+}
+
+impl SearchResult {
+    /// `Some(true)` when a board reaches the goal, `Some(false)` when no
+    /// line can (every line was tried, none lost to an engine error),
+    /// `None` while it is unknown.
+    pub fn goal_reached(&self, goal: &Goal) -> Option<bool> {
+        if self.boards.iter().any(|b| goal.reached(b.goal_hits)) {
+            Some(true)
+        } else if self.stop == Stop::Exhausted && self.interrupted == 0 {
+            Some(false)
+        } else {
+            None
+        }
+    }
 }
 
 /// An answer to try and its label.
 type Answer = (Vec<u8>, String);
 
+/// An edge to queue: prefix, answer, priority, provisional board it confirms.
+type NewEdge = (Arc<Line>, Option<Answer>, f64, Option<u64>);
+
 /// A choice left for later: the line to its node and the answer to try.
+#[derive(Clone)]
 struct Edge {
     prefix: Arc<Line>,
     answer: Option<Answer>,
     priority: f64,
     order: u64,
+    /// The provisional board this edge plays to the end of the turn.
+    confirms: Option<u64>,
 }
 
 impl PartialEq for Edge {
@@ -162,10 +261,49 @@ impl Ord for Edge {
     }
 }
 
+/// Everything a search knows when it stops: the choices left, the states
+/// seen and the boards found.
+#[derive(Clone, Default)]
+pub struct Frontier {
+    edges: Vec<Edge>,
+    seen: Vec<HashSet<u64>>,
+    boards: HashMap<u64, Board>,
+    next_order: u64,
+    nodes: u64,
+    replays: u64,
+    duplicates: u64,
+    interrupted: u64,
+    elapsed: Duration,
+    started: bool,
+}
+
+impl std::fmt::Debug for Frontier {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Frontier")
+            .field("edges", &self.edges.len())
+            .field("boards", &self.boards.len())
+            .field("nodes", &self.nodes)
+            .finish()
+    }
+}
+
+impl Frontier {
+    /// Every line was explored: going on would find nothing new.
+    pub fn is_exhausted(&self) -> bool {
+        self.started && self.edges.is_empty()
+    }
+}
+
+/// Priority taken off the End Phase of a provisional board: it is played
+/// when there is nothing better to do (or at the end, for the best ones).
+const END_PHASE_LAST: f64 = 100.0;
+
 struct Shared<'a> {
     engine: &'a Engine,
     config: &'a SearchConfig,
     start: Instant,
+    /// Search time before this run.
+    before: Duration,
     cancel: &'a AtomicBool,
     queue: Mutex<Queue>,
     wake: Condvar,
@@ -176,6 +314,8 @@ struct Shared<'a> {
     duplicates: AtomicU64,
     interrupted: AtomicU64,
     stop: Mutex<Option<Stop>>,
+    /// Playing the best provisional boards to the end: only cancelling stops it.
+    confirming: AtomicBool,
 }
 
 struct Queue {
@@ -191,11 +331,24 @@ impl Shared<'_> {
         self.stop.lock().map(|s| s.is_some()).unwrap_or(true)
     }
 
+    /// Whether a worker should leave its line now.
+    fn halted(&self) -> bool {
+        if self.confirming.load(Ordering::Relaxed) {
+            self.cancel.load(Ordering::Relaxed)
+        } else {
+            self.stopped()
+        }
+    }
+
     fn set_stop(&self, why: Stop) {
         if let Ok(mut s) = self.stop.lock() {
             s.get_or_insert(why);
         }
         self.wake.notify_all();
+    }
+
+    fn elapsed(&self) -> Duration {
+        self.before + self.start.elapsed()
     }
 
     fn check_limits(&self) {
@@ -214,15 +367,15 @@ impl Shared<'_> {
         shard.lock().map(|mut s| s.insert(key)).unwrap_or(false)
     }
 
-    fn push(&self, edges: Vec<(Arc<Line>, Option<Answer>, f64)>) {
+    fn push(&self, edges: Vec<NewEdge>) {
         if edges.is_empty() {
             return;
         }
         if let Ok(mut q) = self.queue.lock() {
-            for (prefix, answer, priority) in edges {
+            for (prefix, answer, priority, confirms) in edges {
                 let order = q.next_order;
                 q.next_order += 1;
-                q.edges.push(Edge { prefix, answer, priority, order });
+                q.edges.push(Edge { prefix, answer, priority, order, confirms });
             }
         }
         self.wake.notify_all();
@@ -258,13 +411,27 @@ impl Shared<'_> {
         self.wake.notify_all();
     }
 
-    fn record(&self, board: Board) {
+    /// Keeps the board with the better line; a board played to the end of
+    /// the turn replaces its provisional reading.
+    fn record(&self, board: Board, confirms: Option<u64>) {
+        if self.config.goal.first_only && board.exact && self.config.goal.reached(board.goal_hits) {
+            self.set_stop(Stop::GoalReached);
+        }
         let Ok(mut boards) = self.boards.lock() else { return };
-        match boards.get(&board.key) {
-            Some(old) if !board.better_line_than(old) => {}
-            _ => {
-                boards.insert(board.key, board);
+        if let Some(old) = confirms {
+            if old != board.key && boards.get(&old).is_some_and(|b| !b.exact) {
+                boards.remove(&old);
             }
+        }
+        let replace = match boards.get(&board.key) {
+            None => true,
+            Some(old) if old.exact == board.exact => board.better_line_than(old),
+            // The real reading wins unless the provisional one has a better line.
+            Some(old) if board.exact => !old.better_line_than(&board),
+            Some(old) => board.better_line_than(old),
+        };
+        if replace {
+            boards.insert(board.key, board);
         }
     }
 
@@ -280,7 +447,7 @@ impl Shared<'_> {
             })
             .unwrap_or_default();
         Progress {
-            elapsed: self.start.elapsed(),
+            elapsed: self.elapsed(),
             nodes: self.nodes.load(Ordering::Relaxed),
             replays: self.replays.load(Ordering::Relaxed),
             duplicates: self.duplicates.load(Ordering::Relaxed),
@@ -290,11 +457,29 @@ impl Shared<'_> {
             top,
         }
     }
+
+    fn board(&self, state: DuelState, line: Line, exact: bool) -> Board {
+        Board {
+            key: board_key(&state),
+            cards_used: cards_used(&self.config.hand, &state),
+            quick_score: quick_score(self.engine, &state),
+            goal_hits: self.config.goal.hits(self.engine, &state),
+            exact,
+            line,
+            state,
+            found_after: self.elapsed(),
+        }
+    }
 }
 
-/// Best first: higher estimate, then fewer cards from the hand, then a shorter line.
+/// Best first: the goal, then a higher estimate, then fewer cards from the
+/// hand, then a shorter line.
 fn rank(a: &Board, b: &Board) -> CmpOrdering {
-    b.quick_score.total_cmp(&a.quick_score).then(a.cards_used.cmp(&b.cards_used)).then(a.line.choices.len().cmp(&b.line.choices.len()))
+    b.goal_hits
+        .cmp(&a.goal_hits)
+        .then(b.quick_score.total_cmp(&a.quick_score))
+        .then(a.cards_used.cmp(&b.cards_used))
+        .then(a.line.choices.len().cmp(&b.line.choices.len()))
 }
 
 /// Key of a node: the state and the choice being asked (two steps of the
@@ -367,11 +552,25 @@ pub fn quick_score(engine: &Engine, state: &DuelState) -> f64 {
     score + 0.3 * me.hand.len() as f64
 }
 
-/// Answers that do something come first: the dive tries them before ending the turn.
-fn dive_order(actions: &mut [Action]) {
+/// Answers that do something come first: the dive tries them before ending
+/// the turn, and Sets (which give up a Normal Summon or a card's use this
+/// turn) after the rest.
+///
+/// When responding to your own chain, effects of cards on the field or in
+/// the Graveyard (often other triggers of the same moment) still come
+/// first, but effects from the hand come after not chaining: they mostly
+/// spend a card for little, like discarding one for ATK.
+///
+/// Answers that pick or play a card of the goal come before everything.
+fn dive_order(actions: &mut [Action], responding: bool, wanted: impl Fn(&Action) -> bool) {
+    let in_hand = |a: &Action| a.card.is_some_and(|c| c.location == location::HAND);
     let rank = |a: &Action| match a.kind {
-        ActionKind::EndTurn => 3,
-        ActionKind::Pass | ActionKind::No | ActionKind::Cancel | ActionKind::Finish => 2,
+        _ if wanted(a) => -1,
+        ActionKind::Activate if responding && in_hand(a) => 2,
+        ActionKind::Pass if responding => 1,
+        ActionKind::EndTurn => 4,
+        ActionKind::Pass | ActionKind::No | ActionKind::Cancel | ActionKind::Finish => 3,
+        ActionKind::SetMonster | ActionKind::SetSpellTrap => 2,
         _ => 0,
     };
     actions.sort_by_key(rank);
@@ -389,18 +588,16 @@ fn cards_used(hand: &[u32], state: &DuelState) -> usize {
     hand.len() - kept
 }
 
-fn satisfies(config: &SearchConfig, state: &DuelState) -> bool {
-    let me = &state.players[0];
-    let mut hand = me.hand.clone();
-    for code in &config.keep_in_hand {
-        match hand.iter().position(|c| c == code) {
-            Some(i) => {
-                hand.swap_remove(i);
-            }
-            None => return false,
+/// The cards to keep are still in the hand.
+fn keeps_hand(config: &SearchConfig, state: &DuelState) -> bool {
+    let mut hand = state.players[0].hand.clone();
+    config.keep_in_hand.iter().all(|code| match hand.iter().position(|c| c == code) {
+        Some(i) => {
+            hand.swap_remove(i);
+            true
         }
-    }
-    config.require_on_field.iter().all(|code| me.monsters.iter().chain(&me.spells).flatten().any(|c| c.code == *code))
+        None => false,
+    })
 }
 
 /// Plays one edge: replays its line, gives its answer, then dives.
@@ -421,7 +618,7 @@ fn work(shared: &Shared, edge: Edge) -> Result<(), Error> {
         line.choose(answer, label);
     }
     loop {
-        if shared.stopped() {
+        if shared.halted() {
             return Ok(());
         }
         let (step, mut actions) = duel.advance_auto(&config.policy, &mut line.answers)?;
@@ -431,15 +628,8 @@ fn work(shared: &Shared, edge: Edge) -> Result<(), Error> {
             // The opponent's turn (or the end of the duel): the board is done.
             _ => {
                 let state = duel.state();
-                if satisfies(config, &state) {
-                    shared.record(Board {
-                        key: board_key(&state),
-                        cards_used: cards_used(&config.hand, &state),
-                        quick_score: quick_score(shared.engine, &state),
-                        line,
-                        state,
-                        found_after: shared.start.elapsed(),
-                    });
+                if keeps_hand(config, &state) {
+                    shared.record(shared.board(state, line, true), edge.confirms);
                 }
                 return Ok(());
             }
@@ -452,7 +642,7 @@ fn work(shared: &Shared, edge: Edge) -> Result<(), Error> {
         }
         if line.choices.len() >= config.max_choices {
             // Too long: end the turn, or close what is pending as fast as possible.
-            dive_order(&mut actions);
+            dive_order(&mut actions, false, |_| false);
             let wrap_up = |a: &Action| {
                 matches!(a.kind, ActionKind::EndTurn | ActionKind::Pass | ActionKind::No | ActionKind::Cancel | ActionKind::Finish)
             };
@@ -463,11 +653,35 @@ fn work(shared: &Shared, edge: Edge) -> Result<(), Error> {
             shared.interrupted.fetch_add(1, Ordering::Relaxed);
             return Ok(());
         }
-        dive_order(&mut actions);
-        let priority = quick_score(shared.engine, &state) + 0.3 * line.choices.len() as f64;
+        let wanted = |a: &Action| config.goal.involves(shared.engine, a);
+        dive_order(&mut actions, matches!(decision, Decision::SelectChain { .. }) && duel.open_chain() > 0, wanted);
+        let goal = 3.0 * config.goal.hits(shared.engine, &state) as f64;
+        let priority = quick_score(shared.engine, &state) + 0.3 * line.choices.len() as f64 + goal;
         let prefix = Arc::new(line.clone());
-        let rest: Vec<_> =
-            actions[1..].iter().map(|a| (prefix.clone(), Some((a.response.clone(), italian::choice(a))), priority)).collect();
+        let mut rest = Vec::with_capacity(actions.len());
+        // Ending the turn here: read the board now, play the End Phase later.
+        if actions.len() > 1 {
+            if let Some(i) = actions.iter().position(|a| a.kind == ActionKind::EndTurn) {
+                let end = actions.remove(i);
+                let label = italian::choice(&end);
+                if keeps_hand(config, &state) {
+                    let mut ended = line.clone();
+                    ended.choose(end.response.clone(), label.clone());
+                    let board = shared.board(state.clone(), ended, false);
+                    let key = board.key;
+                    // A board that reaches the goal is played to the end at once.
+                    let end_priority =
+                        if config.goal.reached(board.goal_hits) { priority + END_PHASE_LAST } else { priority - END_PHASE_LAST };
+                    shared.record(board, None);
+                    rest.push((prefix.clone(), Some((end.response, label)), end_priority, Some(key)));
+                }
+            }
+        }
+        // Lines that pick a card of the goal are tried before the others.
+        rest.extend(actions[1..].iter().map(|a| {
+            let bonus = if wanted(a) { 10.0 } else { 0.0 };
+            (prefix.clone(), Some((a.response.clone(), italian::choice(a))), priority + bonus, None)
+        }));
         shared.push(rest);
         let first = &actions[0];
         duel.respond(&first.response);
@@ -475,28 +689,10 @@ fn work(shared: &Shared, edge: Edge) -> Result<(), Error> {
     }
 }
 
-/// Runs the search on `config.threads` threads. `progress` is called about
-/// four times a second from the calling thread.
-pub fn search(engine: &Engine, config: &SearchConfig, cancel: &AtomicBool, mut progress: impl FnMut(&Progress)) -> SearchResult {
-    let shared = Shared {
-        engine,
-        config,
-        start: Instant::now(),
-        cancel,
-        queue: Mutex::new(Queue { edges: BinaryHeap::new(), busy: 0, next_order: 0 }),
-        wake: Condvar::new(),
-        seen: (0..SEEN_SHARDS).map(|_| Mutex::new(HashSet::new())).collect(),
-        boards: Mutex::new(HashMap::new()),
-        nodes: AtomicU64::new(0),
-        replays: AtomicU64::new(0),
-        duplicates: AtomicU64::new(0),
-        interrupted: AtomicU64::new(0),
-        stop: Mutex::new(None),
-    };
-    shared.push(vec![(Arc::new(Line::default()), None, 0.0)]);
+/// Runs the workers until the queue is empty or a limit is hit.
+fn run_workers(shared: &Shared, threads: usize, mut progress: impl FnMut(&Progress)) {
     std::thread::scope(|s| {
-        for _ in 0..config.threads.max(1) {
-            let shared = &shared;
+        for _ in 0..threads.max(1) {
             s.spawn(move || {
                 while let Some(edge) = shared.pop() {
                     if let Err(e) = work(shared, edge) {
@@ -516,14 +712,129 @@ pub fn search(engine: &Engine, config: &SearchConfig, cancel: &AtomicBool, mut p
             progress(&shared.progress());
         }
     });
+}
+
+/// Plays to the end of the turn the best provisional boards (and those
+/// that reach the goal), so their End Phase effects count.
+fn confirm_best(shared: &Shared) {
+    let mut provisional: Vec<Board> = shared.boards.lock().map(|b| b.values().filter(|b| !b.exact).cloned().collect()).unwrap_or_default();
+    provisional.sort_by(rank);
+    let goal = &shared.config.goal;
+    let picked: Vec<Edge> = provisional
+        .iter()
+        .enumerate()
+        .filter(|(i, b)| *i < shared.config.confirm_top || goal.reached(b.goal_hits))
+        .filter_map(|(_, b)| {
+            let (prefix, answer) = b.line.split_last()?;
+            Some(Edge { prefix: Arc::new(prefix), answer: Some(answer), priority: 0.0, order: 0, confirms: Some(b.key) })
+        })
+        .collect();
+    if picked.is_empty() {
+        return;
+    }
+    shared.confirming.store(true, Ordering::Relaxed);
+    let next = AtomicU64::new(0);
+    std::thread::scope(|s| {
+        for _ in 0..shared.config.threads.max(1) {
+            s.spawn(|| loop {
+                let i = next.fetch_add(1, Ordering::Relaxed) as usize;
+                let Some(edge) = picked.get(i) else { break };
+                if shared.cancel.load(Ordering::Relaxed) {
+                    break;
+                }
+                // The End Phase may offer choices: their alternatives join the queue.
+                if work(shared, edge.clone()).is_err() {
+                    shared.interrupted.fetch_add(1, Ordering::Relaxed);
+                }
+            });
+        }
+    });
+    shared.confirming.store(false, Ordering::Relaxed);
+}
+
+/// Runs the search on `config.threads` threads. `progress` is called about
+/// four times a second from the calling thread.
+pub fn search(engine: &Engine, config: &SearchConfig, cancel: &AtomicBool, progress: impl FnMut(&Progress)) -> SearchResult {
+    resume(engine, config, Frontier::default(), cancel, progress)
+}
+
+/// Goes on with a search from where it stopped, for `config.time_limit`
+/// more (the deck, hand, keep and goal must be the same).
+pub fn resume(
+    engine: &Engine,
+    config: &SearchConfig,
+    frontier: Frontier,
+    cancel: &AtomicBool,
+    mut progress: impl FnMut(&Progress),
+) -> SearchResult {
+    let Frontier { edges, mut seen, boards, next_order, nodes, replays, duplicates, interrupted, elapsed, started } = frontier;
+    seen.resize_with(SEEN_SHARDS, HashSet::new);
+    let shared = Shared {
+        engine,
+        config,
+        start: Instant::now(),
+        before: elapsed,
+        cancel,
+        queue: Mutex::new(Queue { edges: edges.into_iter().collect(), busy: 0, next_order }),
+        wake: Condvar::new(),
+        seen: seen.into_iter().map(Mutex::new).collect(),
+        boards: Mutex::new(boards),
+        nodes: AtomicU64::new(nodes),
+        replays: AtomicU64::new(replays),
+        duplicates: AtomicU64::new(duplicates),
+        interrupted: AtomicU64::new(interrupted),
+        stop: Mutex::new(None),
+        confirming: AtomicBool::new(false),
+    };
+    if !started {
+        shared.push(vec![(Arc::new(Line::default()), None, 0.0, None)]);
+    }
+    shared.check_limits();
+    run_workers(&shared, config.threads, &mut progress);
+    let mut stop = shared.stop.lock().ok().and_then(|s| *s).unwrap_or(Stop::Exhausted);
+    if stop != Stop::Cancelled {
+        confirm_best(&shared);
+    }
     let final_progress = shared.progress();
     progress(&final_progress);
-    let mut boards: Vec<Board> = shared.boards.into_inner().map(|b| b.into_values().collect()).unwrap_or_default();
-    boards.sort_by(rank);
-    SearchResult {
+    let boards: HashMap<u64, Board> = shared.boards.into_inner().unwrap_or_else(|e| e.into_inner());
+    let queue = shared.queue.into_inner().unwrap_or_else(|e| e.into_inner());
+    // Playing the End Phases above may have queued new choices.
+    if stop == Stop::Exhausted && !queue.edges.is_empty() {
+        stop = Stop::TimeLimit;
+    }
+    let mut sorted: Vec<Board> = boards.values().cloned().collect();
+    sorted.sort_by(rank);
+    let interrupted = shared.interrupted.load(Ordering::Relaxed);
+    let frontier = Frontier {
+        edges: queue.edges.into_vec(),
+        seen: shared.seen.into_iter().map(|s| s.into_inner().unwrap_or_else(|e| e.into_inner())).collect(),
         boards,
-        progress: final_progress,
-        stop: shared.stop.into_inner().ok().flatten().unwrap_or(Stop::Exhausted),
-        interrupted: shared.interrupted.load(Ordering::Relaxed),
+        next_order: queue.next_order,
+        nodes: final_progress.nodes,
+        replays: final_progress.replays,
+        duplicates: final_progress.duplicates,
+        interrupted,
+        elapsed: final_progress.elapsed,
+        started: true,
+    };
+    SearchResult { boards: sorted, progress: final_progress, stop, interrupted, frontier }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn split_last_takes_off_the_last_choice() {
+        let mut line = Line::default();
+        line.answers.push(vec![1]);
+        line.choose(vec![2], "a".into());
+        line.answers.push(vec![3]);
+        line.choose(vec![4], "b".into());
+        let (prefix, (answer, label)) = line.split_last().unwrap();
+        assert_eq!(prefix.answers, vec![vec![1], vec![2], vec![3]]);
+        assert_eq!(prefix.choices, vec!["a".to_owned()]);
+        assert_eq!((answer, label.as_str()), (vec![4], "b"));
     }
 }

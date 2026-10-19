@@ -5,9 +5,9 @@ import { CardPreview } from "../components/CardPreview";
 import { CardTile } from "../components/CardTile";
 import { DeckMenu } from "../components/DeckMenu";
 import { SectionHeader } from "../components/SectionHeader";
-import { api, type ComboBoard, type ComboStep, type Deck, type DeckSummary, type ZoneCard } from "../lib/api";
+import { api, type ComboBoard, type ComboGoal, type ComboHand, type ComboStep, type Deck, type DeckSummary, type ZoneCard } from "../lib/api";
 import { useCardCache } from "../lib/cards";
-import { startCombo, stopCombo, useCombo } from "../lib/combo";
+import { continueCombo, startCombo, stopCombo, useCombo } from "../lib/combo";
 import { lastDeck, rememberDeck } from "../lib/deck";
 import { sound } from "../lib/sound";
 import { toast } from "../lib/toast";
@@ -24,9 +24,14 @@ interface Setup {
   keep: number[];
   /** Cards the engine must not use. */
   forbid: number[];
+  /** Cards wanted on the field at the end (the goal), all or one of them. */
+  goal: number[];
+  goalAll: boolean;
+  /** Stop at the first line that reaches the goal. */
+  goalFirst: boolean;
 }
 
-const NO_SETUP: Setup = { mode: "hand", hand: [], card: null, keep: [], forbid: [] };
+const NO_SETUP: Setup = { mode: "hand", hand: [], card: null, keep: [], forbid: [], goal: [], goalAll: true, goalFirst: true };
 
 const BUDGETS = [
   { seconds: 30, label: "30 s" },
@@ -43,6 +48,7 @@ const STOPS: Record<string, string> = {
   NodeLimit: "limite di scelte raggiunto",
   Cancelled: "fermata",
   Finished: "tutte le mani provate",
+  GoalReached: "obiettivo raggiunto",
 };
 
 function load<T>(key: string, fallback: T): T {
@@ -71,7 +77,10 @@ function lookKey(b: ComboBoard): string {
   return [b.hand, sorted(b.monsters.map(zone)), sorted(b.spells.slice(0, 6).map(zone)), sorted(b.handCards.map(String))].join("|");
 }
 
-const byRank = (a: ComboBoard, b: ComboBoard) => b.quickScore - a.quickScore || a.cardsUsed - b.cardsUsed || a.choices - b.choices;
+const byRank = (a: ComboBoard, b: ComboBoard) => b.goalHits - a.goalHits || b.quickScore - a.quickScore || a.cardsUsed - b.cardsUsed || a.choices - b.choices;
+
+/** Whether a board has the goal's cards (all of them, or one). */
+const reaches = (b: ComboBoard, goal: ComboGoal | null) => !!goal && (goal.all ? b.goalHits >= goal.cards.length : b.goalHits > 0);
 
 function duration(ms: number): string {
   const s = Math.round(ms / 1000);
@@ -89,6 +98,80 @@ function LockIcon({ closed }: { closed: boolean }) {
   );
 }
 
+function GoalMark({ status }: { status: boolean | null }) {
+  return status === true ? (
+    <span className="text-[11px] font-semibold text-ok" title="Obiettivo raggiunto">
+      ✓
+    </span>
+  ) : status === false ? (
+    <span className="text-[11px] text-danger" title="Impossibile: provate tutte le linee">
+      ✕
+    </span>
+  ) : (
+    <span className="text-[11px] text-faint" title="Non ancora deciso">
+      ?
+    </span>
+  );
+}
+
+/** What the search says about the goal: reached (with its line), impossible, or not known yet. */
+function GoalBanner(props: {
+  goal: ComboGoal;
+  running: boolean;
+  byCard: boolean;
+  groups: { board: ComboBoard }[];
+  hands: ComboHand[];
+  elapsedMs: number;
+  name: (id: number) => string;
+  onShow: (b: ComboBoard) => void;
+}) {
+  const { goal, running, byCard, groups, hands, elapsedMs, name, onShow } = props;
+  const names = goal.cards.map(name);
+  const wanted = names.length === 1 ? names[0] : goal.all ? names.join(" + ") : `una tra ${names.join(", ")}`;
+  const best = groups.map((g) => g.board).find((b) => reaches(b, goal));
+  let tone = "border-border";
+  let title: string;
+  let text: string;
+  if (byCard) {
+    const total = hands.reduce((t, h) => t + h.weight, 0) || 1;
+    const reached = hands.filter((h) => h.goal === true);
+    const impossible = hands.filter((h) => h.goal === false).length;
+    const share = reached.reduce((t, h) => t + h.weight, 0) / total;
+    title = running ? `Cerco ${wanted} in ogni mano…` : `${wanted}: raggiunto da ${reached.length} mani su ${hands.length}`;
+    text = running
+      ? "Ogni mano viene giocata a turno; l'esito compare accanto a ciascuna."
+      : `Circa il ${Math.round(share * 100)}% delle mani con la carta ci arriva (pesato per quanto sono probabili). ${impossible} impossibili, ${hands.length - reached.length - impossible} non decise nel tempo dato.`;
+    if (!running) tone = reached.length ? "!border-[var(--df-ok)]" : "border-border";
+  } else if (best) {
+    tone = "!border-[var(--df-ok)]";
+    title = `Obiettivo raggiunto: ${wanted}`;
+    text = `La linea migliore trovata usa ${best.cardsUsed} ${best.cardsUsed === 1 ? "carta" : "carte"} della mano in ${best.choices} scelte.`;
+  } else if (running) {
+    title = `Cerco una linea che porti ${wanted} sul campo…`;
+    text = "Le linee che ci si avvicinano vengono provate per prime.";
+  } else if (hands[0]?.goal === false) {
+    tone = "!border-[var(--df-danger)]";
+    title = "Impossibile da questa mano";
+    text = `Il motore ha provato tutte le linee del primo turno: nessuna porta ${wanted} sul campo.`;
+  } else {
+    title = "Non ancora trovato";
+    text = `In ${Math.round(elapsedMs / 1000)} s nessuna linea ci è arrivata, ma non le ho provate tutte: continua la ricerca per esserne certo.`;
+  }
+  return (
+    <section className={`lab-card flex flex-wrap items-center gap-3 p-4 ${tone}`} aria-live="polite">
+      <div className="min-w-0 flex-1">
+        <h3 className="text-sm font-semibold">{title}</h3>
+        <p className="mt-0.5 text-xs text-muted">{text}</p>
+      </div>
+      {best && !byCard && (
+        <button type="button" className="btn btn-ghost !py-1 text-xs" onClick={() => onShow(best)}>
+          Vedi la linea
+        </button>
+      )}
+    </section>
+  );
+}
+
 /** Il Circolo Arcano: the engine plays every line from a hand by itself and ranks the boards. */
 export function Combo({ artReady, onGoForge }: { artReady: boolean; onGoForge: () => void }) {
   const [decks, setDecks] = useState<DeckSummary[] | null>(null);
@@ -100,6 +183,7 @@ export function Combo({ artReady, onGoForge }: { artReady: boolean; onGoForge: (
   const [steps, setSteps] = useState<ComboStep[] | null>(null);
   const [handFilter, setHandFilter] = useState<number | null>(null);
   const [hover, setHover] = useState<{ code: number; rect: DOMRect } | null>(null);
+  const [picker, setPicker] = useState<"extra" | "main" | null>(null);
   const explained = useRef(new Map<string, ComboStep[]>());
   const run = useCombo();
   const cards = useCardCache();
@@ -125,6 +209,7 @@ export function Combo({ artReady, onGoForge }: { artReady: boolean; onGoForge: (
       rememberDeck(id);
       setDeck(d);
       setSetupState(load(`duelforge.combo.${id}`, NO_SETUP));
+      setPicker(null);
       request([...new Set([...d.main, ...d.extra])]);
     },
     [request],
@@ -143,6 +228,7 @@ export function Combo({ artReady, onGoForge }: { artReady: boolean; onGoForge: (
   }, [open]);
 
   const unique = useMemo(() => [...new Set(deck?.main ?? [])], [deck]);
+  const extraUnique = useMemo(() => [...new Set(deck?.extra ?? [])], [deck]);
   const copies = useMemo(() => {
     const m = new Map<number, number>();
     deck?.main.forEach((id) => m.set(id, (m.get(id) ?? 0) + 1));
@@ -190,6 +276,7 @@ export function Combo({ artReady, onGoForge }: { artReady: boolean; onGoForge: (
     const best = [...outcome.boards].sort(byRank)[0];
     setSelected(best ?? null);
   }, [outcome]);
+  const goal = (ours && run.request?.goal) || null;
 
   // The line is told once the search is over (it plays the line again).
   useEffect(() => {
@@ -236,6 +323,7 @@ export function Combo({ artReady, onGoForge }: { artReady: boolean; onGoForge: (
       keep: setup.keep,
       forbid: setup.forbid,
       useHandtraps: options.useHandtraps,
+      goal: setup.goal.length ? { cards: setup.goal, all: setup.goalAll, first: setup.goalFirst } : null,
     });
     if (done.error) {
       sound.play("error");
@@ -243,6 +331,23 @@ export function Combo({ artReady, onGoForge }: { artReady: boolean; onGoForge: (
     } else {
       sound.play("glass");
     }
+  };
+
+  const goOn = async () => {
+    sound.play("open");
+    explained.current.clear();
+    const done = await continueCombo(options.seconds);
+    if (done.error) {
+      sound.play("error");
+      toast(done.error, "error");
+    } else sound.play("glass");
+  };
+
+  const addToGoal = (id: number) => {
+    const max = (deck?.main.filter((c) => c === id).length ?? 0) + (deck?.extra.filter((c) => c === id).length ?? 0);
+    if (setup.goal.filter((c) => c === id).length >= max || setup.goal.length >= 5) return sound.play("error");
+    sound.play("select");
+    setSetup((s) => ({ ...s, goal: [...s.goal, id] }));
   };
 
   const addToHand = (id: number) => {
@@ -287,7 +392,10 @@ export function Combo({ artReady, onGoForge }: { artReady: boolean; onGoForge: (
   const progress = ours ? run.progress : null;
   const budgetMs = (run.request?.seconds ?? options.seconds) * 1000;
   const handCount = Math.max(1, hands.length);
-  const doneMs = progress ? (run.request?.card != null ? (progress.handIndex * budgetMs) / handCount + progress.elapsedMs : progress.elapsedMs) : 0;
+  const byCard = run.request?.card != null;
+  const doneMs = progress?.elapsedMs ?? 0;
+  // "Card + rest" goes hand after hand: the bar follows the hands.
+  const done = run.outcome ? 1 : byCard ? ((progress?.handIndex ?? 0) + 0.5) / handCount : Math.min(1, doneMs / budgetMs);
   const rate = progress && progress.elapsedMs > 0 ? Math.round((progress.nodes * 1000) / progress.elapsedMs) : 0;
 
   // "Card + rest": the best estimate reached from each hand, and their weighted mean.
@@ -343,7 +451,7 @@ export function Combo({ artReady, onGoForge }: { artReady: boolean; onGoForge: (
       ) : (
         <div className={`grid min-h-0 flex-1 ${selected ? "grid-cols-[330px_minmax(0,1fr)_460px]" : "grid-cols-[330px_minmax(0,1fr)]"}`}>
           {/* The setup: hand or card, options, search. */}
-          <aside className="flex min-h-0 flex-col gap-4 overflow-y-auto border-r border-border bg-surface/60 p-4">
+          <aside className="flex min-h-0 flex-col gap-4 overflow-y-auto border-r border-border bg-surface/60 px-4 pt-4">
             {setup.mode === "hand" ? (
               <section className="flex flex-col gap-2">
                 <div className="flex items-baseline justify-between">
@@ -411,6 +519,92 @@ export function Combo({ artReady, onGoForge }: { artReady: boolean; onGoForge: (
 
             <section className="flex flex-col gap-2">
               <div className="flex items-baseline justify-between">
+                <h3 className="text-sm font-semibold">Obiettivo</h3>
+                <span className="text-[11px] text-faint">facoltativo</span>
+              </div>
+              <p className="text-[11px] leading-relaxed text-faint">Carte da avere sul campo a fine turno: il motore cerca la linea che ci arriva, o prova che non esiste.</p>
+              {setup.goal.length > 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                  {setup.goal.map((id, i) => (
+                    <span key={i} className="chip !py-0.5 !pl-1 text-xs" onPointerEnter={(e) => onHover(id, e.currentTarget)} onPointerLeave={onHoverEnd}>
+                      <CardImage code={id} card={cards.get(id)} className="h-[22px] w-[15px]" />
+                      <span className="max-w-36 truncate">{name(id)}</span>
+                      <button
+                        type="button"
+                        aria-label={`Togli ${name(id)} dall'obiettivo`}
+                        className="text-faint hover:text-danger"
+                        onClick={() => {
+                          sound.play("close");
+                          setSetup((s) => ({ ...s, goal: s.goal.filter((_, j) => j !== i) }));
+                        }}
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+              <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted">
+                {(
+                  [
+                    ["extra", "+ dall'Extra Deck"],
+                    ["main", "+ dal Main Deck"],
+                  ] as const
+                ).map(([where, label]) => (
+                  <button
+                    key={where}
+                    type="button"
+                    className={`chip !py-0.5 ${picker === where ? "chip-active" : ""}`}
+                    onClick={() => {
+                      sound.play(picker === where ? "close" : "open");
+                      setPicker((p) => (p === where ? null : where));
+                    }}
+                    aria-expanded={picker === where}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              {picker && (
+                <div className="grid grid-cols-6 gap-1 rounded-lg border border-border bg-bg-2 p-1.5 anim-fade">
+                  {(picker === "extra" ? extraUnique : unique).map((id) => (
+                    <button key={id} type="button" title={name(id)} onClick={() => addToGoal(id)} onPointerEnter={(e) => onHover(id, e.currentTarget)} onPointerLeave={onHoverEnd}>
+                      <CardImage code={id} card={cards.get(id)} className="aspect-[59/86] w-full" />
+                    </button>
+                  ))}
+                </div>
+              )}
+              {setup.goal.length > 1 && (
+                <div className="flex gap-1 self-start rounded-lg border border-border bg-bg-2 p-0.5 text-[11px]" role="radiogroup" aria-label="Quante carte dell'obiettivo">
+                  {(
+                    [
+                      [true, "tutte"],
+                      [false, "almeno una"],
+                    ] as const
+                  ).map(([all, label]) => (
+                    <button
+                      key={label}
+                      type="button"
+                      role="radio"
+                      aria-checked={setup.goalAll === all}
+                      onClick={() => setSetup((s) => ({ ...s, goalAll: all }))}
+                      className={`rounded-md px-2 py-0.5 font-semibold ${setup.goalAll === all ? "bg-sec text-bg" : "text-muted hover:text-text"}`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              )}
+              {setup.goal.length > 0 && (
+                <label className="flex items-center gap-2 text-xs text-muted">
+                  <input type="checkbox" className="accent-[var(--sec)]" checked={setup.goalFirst} onChange={(e) => setSetup((s) => ({ ...s, goalFirst: e.target.checked }))} />
+                  Fermati alla prima linea che ci arriva
+                </label>
+              )}
+            </section>
+
+            <section className="flex flex-col gap-2">
+              <div className="flex items-baseline justify-between">
                 <h3 className="text-sm font-semibold">Il Main Deck</h3>
                 <span className="text-[11px] text-faint">clic destro: vietala al motore</span>
               </div>
@@ -464,7 +658,7 @@ export function Combo({ artReady, onGoForge }: { artReady: boolean; onGoForge: (
               )}
             </section>
 
-            <div className="sticky bottom-0 -mx-4 mt-auto border-t border-border bg-surface/95 px-4 pt-3 pb-1 backdrop-blur">
+            <div className="sticky bottom-0 -mx-4 mt-auto border-t border-border bg-surface px-4 pt-3 pb-4">
               {run.running ? (
                 <button type="button" className="btn btn-ghost w-full justify-center" onClick={stopCombo}>
                   Ferma la ricerca
@@ -487,12 +681,10 @@ export function Combo({ artReady, onGoForge }: { artReady: boolean; onGoForge: (
                     {run.running ? "Il motore sta giocando" : `Ricerca finita: ${STOPS[run.outcome?.stop ?? ""] ?? run.outcome?.stop ?? ""}`}
                     {run.request?.card != null && progress && ` · mano ${Math.min(progress.handIndex + 1, handCount)} di ${handCount}`}
                   </h3>
-                  <span className="text-xs text-faint tabular-nums">
-                    {duration(run.outcome?.elapsedMs ?? doneMs)} di {duration(budgetMs)}
-                  </span>
+                  <span className="text-xs text-faint tabular-nums">{byCard ? (run.outcome ? duration(run.outcome.elapsedMs) : "") : `${duration(doneMs)} di ${duration(budgetMs)}`}</span>
                 </div>
                 <div className="molten-track h-1.5">
-                  <div className="molten-fill h-full transition-[width] duration-300" style={{ width: `${run.outcome ? 100 : Math.min(100, (doneMs / budgetMs) * 100)}%` }} />
+                  <div className="molten-fill h-full transition-[width] duration-300" style={{ width: `${done * 100}%` }} />
                 </div>
                 {progress && (
                   <div className="flex flex-wrap gap-x-5 gap-y-1 text-xs text-muted tabular-nums">
@@ -506,7 +698,34 @@ export function Combo({ artReady, onGoForge }: { artReady: boolean; onGoForge: (
                     {run.running && <span>{count(progress.queued)} strade ancora da provare</span>}
                   </div>
                 )}
+                {run.outcome &&
+                  (run.outcome.complete ? (
+                    <p className="text-xs text-ok">Tutte le linee provate: la ricerca è completa, non ci sono altre board da trovare.</p>
+                  ) : (
+                    <div className="flex flex-wrap items-center gap-3">
+                      <button type="button" className="btn btn-ghost !py-1 text-xs" onClick={() => void goOn()}>
+                        Continua per {BUDGETS.find((b) => b.seconds === options.seconds)?.label ?? `${options.seconds} s`}
+                      </button>
+                      <span className="text-[11px] text-faint">riprende da dove si è fermata, senza ripartire da capo</span>
+                    </div>
+                  ))}
               </section>
+            )}
+
+            {goal && ours && (run.running || run.outcome) && (
+              <GoalBanner
+                goal={goal}
+                running={run.running}
+                byCard={byCard}
+                groups={groups}
+                hands={hands}
+                elapsedMs={run.outcome?.elapsedMs ?? doneMs}
+                name={name}
+                onShow={(b) => {
+                  sound.play("page");
+                  setSelected(b);
+                }}
+              />
             )}
 
             {ours && run.request?.card != null && perHand.length > 0 && (
@@ -537,6 +756,7 @@ export function Combo({ artReady, onGoForge }: { artReady: boolean; onGoForge: (
                         ))}
                       </span>
                       <span className="text-[11px] text-faint tabular-nums">{Math.round(h.weight * 100)}%</span>
+                      {goal && <GoalMark status={h.goal} />}
                       <span className="ml-auto text-xs tabular-nums">
                         {h.best != null ? (
                           <b>{h.best.toFixed(1)}</b>
@@ -576,8 +796,14 @@ export function Combo({ artReady, onGoForge }: { artReady: boolean; onGoForge: (
                       <span className="flex flex-col items-end text-xs whitespace-nowrap text-muted tabular-nums">
                         <b className="text-sm text-text">{b.quickScore.toFixed(1)}</b>
                         <span>
+                          {!b.exact && (
+                            <span className="mr-1 text-faint" title="Letta quando passi il turno: End Phase non ancora giocata">
+                              ≈
+                            </span>
+                          )}
                           {b.cardsUsed} carte · {b.choices} scelte
                         </span>
+                        {goal && (reaches(b, goal) ? <span className="text-[11px] font-semibold text-ok">✓ obiettivo</span> : <span className="text-[11px] text-faint">obiettivo {b.goalHits}/{goal.cards.length}</span>)}
                         {variants > 0 && <span className="text-[11px] text-faint">+{variants} {variants === 1 ? "variante" : "varianti"}</span>}
                       </span>
                     </button>
@@ -590,7 +816,8 @@ export function Combo({ artReady, onGoForge }: { artReady: boolean; onGoForge: (
                 <section className="lab-card mx-auto mt-6 flex max-w-xl flex-col gap-3 p-6 text-sm text-muted">
                   <p className="display text-lg text-text">Come funziona</p>
                   <p>Scegli una mano (o una carta) e premi «Cerca le combo». Il motore di gioco prova da solo tutte le scelte possibili del primo turno: attivazioni, evocazioni, bersagli, ordine delle catene.</p>
-                  <p>Ogni volta che passa il turno con una board nuova la conserva, con la linea più corta per arrivarci. Puoi cambiare sezione mentre cerca: la ricerca continua.</p>
+                  <p>Ogni volta che passa il turno con una board nuova la conserva, con la linea più corta per arrivarci. Puoi cambiare sezione mentre cerca: la ricerca continua, e a ricerca finita puoi farla proseguire da dove si è fermata.</p>
+                  <p>Con un <b className="text-text">obiettivo</b> (per esempio un mostro dell'Extra Deck da avere sul campo) il motore prova prima le linee che ci portano e ti dice se ci arriva, con la linea, o se è impossibile perché nessuna linea ci arriva.</p>
                   <p className="text-faint">La classifica attuale è una stima semplice; la classifica completa per interruzioni, floodgate e resilienza arriva con la Fase 5C.</p>
                 </section>
               )

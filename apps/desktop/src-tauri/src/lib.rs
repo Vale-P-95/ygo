@@ -482,13 +482,20 @@ fn lab_sample_size(p0: f64, p1: f64) -> (u32, u32) {
     ygo_stats::sample_size(p0, p1)
 }
 
-/// The last combo search: what is needed to play its lines again.
+/// The last combo search: what is needed to go on with it and to play its
+/// lines again. A precise hand is a "card + rest" search with one hand.
 struct ComboJob {
-    deck: ygo_engine::DeckList,
-    seed: u64,
-    hands: Vec<Vec<u32>>,
+    deck_id: i64,
+    /// The search settings; the hand is set for each hand searched.
+    config: ygo_solver::SearchConfig,
+    /// Each hand with its weight and where its search stopped.
+    hands: Vec<(Vec<u32>, f64, ygo_solver::Frontier)>,
+    /// Boards kept per hand.
+    keep: usize,
     /// `(hand index, board)`.
     boards: Vec<(usize, ygo_solver::Board)>,
+    /// Per hand: the goal reached, impossible or unknown, and every line tried.
+    status: Vec<(Option<bool>, bool)>,
 }
 
 #[derive(Serialize, Clone)]
@@ -538,11 +545,18 @@ struct BoardView {
     cards_used: usize,
     choices: usize,
     found_after_ms: u64,
+    /// Played to the opponent's turn (else read when the turn was ended).
+    exact: bool,
+    goal_hits: usize,
     monsters: Vec<Option<ZoneCard>>,
     spells: Vec<Option<ZoneCard>>,
     hand_cards: Vec<u32>,
     grave: Vec<u32>,
     banished: Vec<u32>,
+    deck_count: usize,
+    extra_count: usize,
+    /// Face-up Pendulum monsters in the Extra Deck.
+    extra_face_up: Vec<u32>,
 }
 
 fn board_view(hand: usize, b: &ygo_solver::Board) -> BoardView {
@@ -555,11 +569,16 @@ fn board_view(hand: usize, b: &ygo_solver::Board) -> BoardView {
         cards_used: b.cards_used,
         choices: b.line.choices.len(),
         found_after_ms: b.found_after.as_millis() as u64,
+        exact: b.exact,
+        goal_hits: b.goal_hits,
         monsters: me.monsters.iter().map(zone).collect(),
         spells: me.spells.iter().map(zone).collect(),
         hand_cards: me.hand.clone(),
         grave: me.grave.clone(),
         banished: me.banished.iter().map(|&(c, _)| c).collect(),
+        deck_count: me.deck.len(),
+        extra_count: me.extra.len(),
+        extra_face_up: me.extra.iter().filter(|&&(_, up)| up).map(|&(c, _)| c).collect(),
     }
 }
 
@@ -568,6 +587,10 @@ fn board_view(hand: usize, b: &ygo_solver::Board) -> BoardView {
 struct HandView {
     cards: Vec<u32>,
     weight: f64,
+    /// The goal is reached, impossible (`false`), or unknown (`null`).
+    goal: Option<bool>,
+    /// Every line from this hand was tried.
+    complete: bool,
 }
 
 #[derive(Serialize, Clone)]
@@ -594,6 +617,18 @@ struct ComboOutcome {
     hands: Vec<HandView>,
     /// Best first; in "card + rest" the best few of each hand.
     boards: Vec<BoardView>,
+    /// Every line of every hand was tried: going on finds nothing new.
+    complete: bool,
+}
+
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ComboGoal {
+    cards: Vec<u32>,
+    /// All of them (else one is enough).
+    all: bool,
+    /// Stop at the first board that reaches it.
+    first: bool,
 }
 
 #[derive(serde::Deserialize)]
@@ -609,25 +644,33 @@ struct ComboRequest {
     keep: Vec<u32>,
     forbid: Vec<u32>,
     use_handtraps: bool,
+    goal: Option<ComboGoal>,
 }
 
-/// Combo Lab: the engine plays every line from a hand (or from many hands
-/// with a card), sending `combo-progress` events, and returns the boards.
-#[tauri::command(async)]
-fn combo_search(app: tauri::AppHandle, state: State<'_, AppState>, request: ComboRequest) -> Result<ComboOutcome, String> {
-    let engine = state.engine()?;
-    let deck = state.with_user(|u| u.get(request.deck_id))?.ok_or("Il deck non esiste più")?;
-    let list = ygo_engine::DeckList { main: deck.main.clone(), extra: deck.extra.clone(), side: deck.side.clone() };
-    let mut config = ygo_solver::SearchConfig::new(list.clone(), request.hand.clone());
-    config.time_limit = std::time::Duration::from_secs(request.seconds.clamp(5, 3600));
-    config.keep_in_hand = request.keep;
-    config.policy.forbid = request.forbid;
-    if !request.use_handtraps {
-        config.policy.passive = Tag::Handtrap.names().iter().filter_map(|n| engine.cards().find_by_name(n)).map(|c| c.code).collect();
-    }
-    state.combo_cancel.store(false, Ordering::Relaxed);
-    let cancel = &state.combo_cancel;
-    let emit = |hand_index: usize, hands: &[(Vec<u32>, f64)], p: &ygo_solver::Progress| {
+fn hand_views(job: &ComboJob) -> Vec<HandView> {
+    job.hands
+        .iter()
+        .enumerate()
+        .map(|(i, (cards, weight, _))| {
+            let (goal, complete) = job.status.get(i).copied().unwrap_or((None, false));
+            HandView { cards: cards.clone(), weight: *weight, goal, complete }
+        })
+        .collect()
+}
+
+/// Searches (or goes on searching) every hand of `job` for `seconds` in
+/// all, sending `combo-progress` events.
+fn run_combo(app: &tauri::AppHandle, engine: &Engine, job: &mut ComboJob, seconds: u64, cancel: &AtomicBool) -> ComboOutcome {
+    let started = std::time::Instant::now();
+    let count = job.hands.len().max(1) as u32;
+    let what = ygo_solver::CardSearch {
+        card: 0,
+        hands: job.hands.len(),
+        per_hand: std::time::Duration::from_secs(seconds.clamp(5, 3600)) / count,
+        keep: job.keep,
+    };
+    let views = hand_views(job);
+    let emit = |hand_index: usize, _: &[(Vec<u32>, f64)], p: &ygo_solver::Progress| {
         let _ = app.emit(
             "combo-progress",
             ComboProgress {
@@ -638,46 +681,102 @@ fn combo_search(app: tauri::AppHandle, state: State<'_, AppState>, request: Comb
                 queued: p.queued,
                 boards: p.boards,
                 hand_index,
-                hands: hands.iter().map(|(cards, weight)| HandView { cards: cards.clone(), weight: *weight }).collect(),
+                hands: views.clone(),
                 top: p.top.iter().map(|b| board_view(hand_index, b)).collect(),
             },
         );
     };
-    let started = std::time::Instant::now();
-    let (hands, boards, stop, nodes) = match request.card {
-        Some(card) if request.hand.is_empty() => {
-            let count = request.hands.unwrap_or(12).clamp(1, 200);
-            let what = ygo_solver::CardSearch { card, hands: count, per_hand: config.time_limit / count as u32, keep: 5 };
-            let results = ygo_solver::search_card(&engine, &config, &what, cancel, emit);
-            if results.is_empty() {
-                return Err("La carta non è nel Main Deck".into());
-            }
-            let hands: Vec<(Vec<u32>, f64)> = results.iter().map(|r| (r.hand.clone(), r.weight)).collect();
-            let nodes = results.iter().map(|r| r.nodes).sum();
-            let boards: Vec<(usize, ygo_solver::Board)> =
-                results.into_iter().enumerate().flat_map(|(i, r)| r.boards.into_iter().map(move |b| (i, b))).collect();
-            let stop = if cancel.load(Ordering::Relaxed) { "Cancelled" } else { "Finished" };
-            (hands, boards, stop.to_owned(), nodes)
-        }
-        _ => {
-            if request.hand.is_empty() {
-                return Err("Scegli le carte della mano".into());
-            }
-            let hands = vec![(request.hand.clone(), 1.0)];
-            let result = ygo_solver::search(&engine, &config, cancel, |p| emit(0, &hands, p));
-            let boards = result.boards.into_iter().take(200).map(|b| (0, b)).collect();
-            (hands, boards, format!("{:?}", result.stop), result.progress.nodes)
-        }
+    let previous = std::mem::take(&mut job.hands);
+    let results = ygo_solver::resume_card(engine, &job.config, &what, previous, cancel, emit);
+    let nodes = results.iter().map(|r| r.nodes).sum();
+    let stop = match results.as_slice() {
+        [one] => format!("{:?}", one.stop),
+        _ if cancel.load(Ordering::Relaxed) => "Cancelled".to_owned(),
+        _ => "Finished".to_owned(),
     };
-    let outcome = ComboOutcome {
+    job.status = results.iter().map(|r| (r.goal, r.frontier.is_exhausted())).collect();
+    job.boards = results.iter().enumerate().flat_map(|(i, r)| r.boards.iter().map(move |b| (i, b.clone()))).collect();
+    job.hands = results.into_iter().map(|r| (r.hand, r.weight, r.frontier)).collect();
+    ComboOutcome {
         stop,
         elapsed_ms: started.elapsed().as_millis() as u64,
         nodes,
-        hands: hands.iter().map(|(cards, weight)| HandView { cards: cards.clone(), weight: *weight }).collect(),
-        boards: boards.iter().map(|(h, b)| board_view(*h, b)).collect(),
+        hands: hand_views(job),
+        boards: job.boards.iter().map(|(h, b)| board_view(*h, b)).collect(),
+        complete: job.status.iter().all(|&(_, done)| done),
+    }
+}
+
+/// Combo Lab: the engine plays every line from a hand (or from many hands
+/// with a card), sending `combo-progress` events, and returns the boards.
+#[tauri::command(async)]
+fn combo_search(app: tauri::AppHandle, state: State<'_, AppState>, request: ComboRequest) -> Result<ComboOutcome, String> {
+    let engine = state.engine()?;
+    let deck = state.with_user(|u| u.get(request.deck_id))?.ok_or("Il deck non esiste più")?;
+    let list = ygo_engine::DeckList { main: deck.main.clone(), extra: deck.extra.clone(), side: deck.side.clone() };
+    let mut config = ygo_solver::SearchConfig::new(list.clone(), Vec::new());
+    config.keep_in_hand = request.keep;
+    config.policy.forbid = request.forbid;
+    if !request.use_handtraps {
+        config.policy.passive = Tag::Handtrap.names().iter().filter_map(|n| engine.cards().find_by_name(n)).map(|c| c.code).collect();
+    }
+    if let Some(goal) = request.goal.filter(|g| !g.cards.is_empty()) {
+        let db = engine.cards();
+        let in_deck = |code: u32| list.main.iter().chain(&list.extra).any(|&c| db.canonical_code(c) == db.canonical_code(code));
+        if let Some(&missing) = goal.cards.iter().find(|&&c| !in_deck(c)) {
+            return Err(format!("{} non è nel deck: l'obiettivo è impossibile", db.name(missing)));
+        }
+        config.goal = ygo_solver::Goal { on_field: goal.cards, all: goal.all, first_only: goal.first };
+    }
+    let (hands, keep) = match request.card {
+        Some(card) if request.hand.is_empty() => {
+            let count = request.hands.unwrap_or(12).clamp(1, 200);
+            let sampled = ygo_solver::sample_hands(&list.main, card, count, config.seed);
+            if sampled.is_empty() {
+                return Err("La carta non è nel Main Deck".into());
+            }
+            (sampled, 5)
+        }
+        _ if request.hand.is_empty() => return Err("Scegli le carte della mano".into()),
+        _ => {
+            // A hand the engine cannot deal would look like a search with no boards.
+            ygo_engine::Duel::goldfish(&engine, &list, &request.hand, config.seed).map_err(|e| format!("Mano non valida: {e}"))?;
+            (vec![(request.hand.clone(), 1.0)], 200)
+        }
     };
-    if let Ok(mut job) = state.combo.lock() {
-        *job = Some(ComboJob { deck: list, seed: config.seed, hands: hands.into_iter().map(|(h, _)| h).collect(), boards });
+    let mut job = ComboJob {
+        deck_id: request.deck_id,
+        config,
+        hands: hands.into_iter().map(|(h, w)| (h, w, ygo_solver::Frontier::default())).collect(),
+        keep,
+        boards: Vec::new(),
+        status: Vec::new(),
+    };
+    state.combo_cancel.store(false, Ordering::Relaxed);
+    if let Ok(mut slot) = state.combo.lock() {
+        *slot = None;
+    }
+    let outcome = run_combo(&app, &engine, &mut job, request.seconds, &state.combo_cancel);
+    if let Ok(mut slot) = state.combo.lock() {
+        *slot = Some(job);
+    }
+    Ok(outcome)
+}
+
+/// Goes on with the last search for `seconds` more, from where it stopped.
+#[tauri::command(async)]
+fn combo_continue(app: tauri::AppHandle, state: State<'_, AppState>, deck_id: i64, seconds: u64) -> Result<ComboOutcome, String> {
+    let engine = state.engine()?;
+    let mut job = state.combo.lock().map_err(|e| e.to_string())?.take().ok_or("Nessuna ricerca da continuare")?;
+    if job.deck_id != deck_id {
+        return Err("La ricerca da continuare è di un altro deck".into());
+    }
+    // Going on means looking for better lines, not stopping at the next one.
+    job.config.goal.first_only = false;
+    state.combo_cancel.store(false, Ordering::Relaxed);
+    let outcome = run_combo(&app, &engine, &mut job, seconds, &state.combo_cancel);
+    if let Ok(mut slot) = state.combo.lock() {
+        *slot = Some(job);
     }
     Ok(outcome)
 }
@@ -702,8 +801,8 @@ fn combo_explain(state: State<'_, AppState>, hand: usize, key: String) -> Result
     let job = job.as_ref().ok_or("Nessuna ricerca da spiegare")?;
     let board =
         job.boards.iter().find(|(h, b)| *h == hand && format!("{:016x}", b.key) == key).map(|(_, b)| b).ok_or("Board non trovata")?;
-    let cards = job.hands.get(hand).ok_or("Mano non trovata")?;
-    let (_, steps) = ygo_solver::explain(&engine, &job.deck, cards, job.seed, &board.line).map_err(|e| e.to_string())?;
+    let (cards, _, _) = job.hands.get(hand).ok_or("Mano non trovata")?;
+    let (_, steps) = ygo_solver::explain(&engine, &job.config.deck, cards, job.config.seed, &board.line).map_err(|e| e.to_string())?;
     Ok(steps.into_iter().map(|s| ExplainedStepView { choice: s.choice, events: s.events }).collect())
 }
 
@@ -976,6 +1075,7 @@ pub fn run() {
             import_matches,
             lab_sample_size,
             combo_search,
+            combo_continue,
             combo_cancel,
             combo_explain,
             shelf_decks,

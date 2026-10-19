@@ -104,6 +104,15 @@ enum Cmd {
         /// Hands to try with `--card`.
         #[arg(long, default_value_t = 12)]
         hands: usize,
+        /// Goal: cards wanted on the field at the end (semicolon-separated).
+        #[arg(long, default_value = "")]
+        goal: String,
+        /// The goal needs only one of its cards.
+        #[arg(long)]
+        goal_any: bool,
+        /// Stop at the first board that reaches the goal.
+        #[arg(long)]
+        first: bool,
     },
     /// Random duels between random decks; fails on unanswerable or rejected decisions.
     Sweep {
@@ -147,9 +156,11 @@ fn main() -> Result<()> {
         Cmd::Search { query, limit } => search(&cli.data, &query, limit),
         Cmd::Play { setup, steps, verbose } => play(&cli.data, &setup, steps.as_deref(), verbose),
         Cmd::Bench { setup, playouts, max_decisions } => bench(&cli.data, &setup, playouts, max_decisions),
-        Cmd::Combos { setup, seconds, threads, top, lines, use_handtraps, forbid, keep, card, hands } => {
-            combos(&cli.data, &setup, CombosOptions { seconds, threads, top, show_lines: lines, use_handtraps, forbid, keep, card, hands })
-        }
+        Cmd::Combos { setup, seconds, threads, top, lines, use_handtraps, forbid, keep, card, hands, goal, goal_any, first } => combos(
+            &cli.data,
+            &setup,
+            CombosOptions { seconds, threads, top, show_lines: lines, use_handtraps, forbid, keep, card, hands, goal, goal_any, first },
+        ),
         Cmd::Sweep { duels, max_decisions, max_turns, seed, threads, script_errors } => {
             let threads = threads.unwrap_or_else(|| std::thread::available_parallelism().map_or(4, |n| n.get()));
             sweep(&cli.data, &SweepConfig { duels, max_decisions, max_turns, seed, threads }, script_errors)
@@ -167,10 +178,13 @@ struct CombosOptions {
     keep: String,
     card: Option<String>,
     hands: usize,
+    goal: String,
+    goal_any: bool,
+    first: bool,
 }
 
 fn combos(dir: &Path, setup: &Setup, options: CombosOptions) -> Result<()> {
-    let CombosOptions { seconds, threads, top, show_lines, use_handtraps, forbid, keep, card, hands } = options;
+    let CombosOptions { seconds, threads, top, show_lines, use_handtraps, forbid, keep, card, hands, goal, goal_any, first } = options;
     let (engine, deck, hand) = start(dir, setup)?;
     let mut config = ygo_solver::SearchConfig::new(deck, hand);
     config.seed = setup.seed;
@@ -184,6 +198,12 @@ fn combos(dir: &Path, setup: &Setup, options: CombosOptions) -> Result<()> {
     }
     config.policy.forbid = resolve_hand(&engine, &forbid)?;
     config.keep_in_hand = resolve_hand(&engine, &keep)?;
+    config.goal = ygo_solver::Goal { on_field: resolve_hand(&engine, &goal)?, all: !goal_any, first_only: first };
+    let goal_status = |reached: Option<bool>| match reached {
+        Some(true) => "reached",
+        Some(false) => "impossible: no line reaches it",
+        None => "not reached in the time given",
+    };
     let cancel = std::sync::atomic::AtomicBool::new(false);
     if let Some(card) = card {
         let card = *resolve_hand(&engine, &card)?.first().context("--card names no card")?;
@@ -199,10 +219,14 @@ fn combos(dir: &Path, setup: &Setup, options: CombosOptions) -> Result<()> {
             let best = r.boards.first().map_or(0.0, |b| b.quick_score);
             mean += r.weight * best;
             let names: Vec<String> = r.hand.iter().map(|&c| db.name(c)).collect();
-            println!("hand {:>2} ({:>4.1}%) best {best:.1} · {} nodes · {}", i + 1, r.weight * 100.0, r.nodes, names.join(", "));
+            let goal = if config.goal.is_set() { format!(" · goal {}", goal_status(r.goal)) } else { String::new() };
+            println!("hand {:>2} ({:>4.1}%) best {best:.1} · {} nodes{goal} · {}", i + 1, r.weight * 100.0, r.nodes, names.join(", "));
         }
-        let total: f64 = results.iter().map(|r| r.weight).sum();
-        println!("weighted mean of the best boards: {:.2}", mean / total.max(f64::EPSILON));
+        if config.goal.is_set() {
+            let reached: f64 = results.iter().filter(|r| r.goal == Some(true)).map(|r| r.weight).sum();
+            println!("goal reached from {:.1}% of the hands (weighted)", 100.0 * reached / total_weight(&results));
+        }
+        println!("weighted mean of the best boards: {:.2}", mean / total_weight(&results));
         return Ok(());
     }
     if config.hand.is_empty() {
@@ -224,6 +248,9 @@ fn combos(dir: &Path, setup: &Setup, options: CombosOptions) -> Result<()> {
             );
         }
     });
+    if config.goal.is_set() {
+        println!("goal: {}", goal_status(result.goal_reached(&config.goal)));
+    }
     let p = &result.progress;
     println!(
         "{:?} after {:.1} s: {} nodes ({:.0}/s), {} replays, {} duplicates, {} boards, {} interrupted lines",
@@ -242,8 +269,9 @@ fn combos(dir: &Path, setup: &Setup, options: CombosOptions) -> Result<()> {
         let field: Vec<String> = me.monsters.iter().chain(&me.spells).flatten().map(|c| db.name(c.code)).collect();
         let hand: Vec<String> = me.hand.iter().map(|&c| db.name(c)).collect();
         println!(
-            "\n#{} score {:.1} · {} cards used · {} choices · found at {:.1} s\n   field: {}\n   hand: {}",
+            "\n#{}{} score {:.1} · {} cards used · {} choices · found at {:.1} s\n   field: {}\n   hand: {}",
             i + 1,
+            if board.exact { "" } else { " (End Phase not played)" },
             board.quick_score,
             board.cards_used,
             board.line.choices.len(),
@@ -264,6 +292,10 @@ fn combos(dir: &Path, setup: &Setup, options: CombosOptions) -> Result<()> {
         }
     }
     Ok(())
+}
+
+fn total_weight(results: &[ygo_solver::HandResult]) -> f64 {
+    results.iter().map(|r| r.weight).sum::<f64>().max(f64::EPSILON)
 }
 
 fn sweep(dir: &Path, config: &SweepConfig, show_script_errors: bool) -> Result<()> {

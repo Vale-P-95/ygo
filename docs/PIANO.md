@@ -1,4 +1,4 @@
-# DuelForge: piano di progetto (v1.4)
+# DuelForge: piano di progetto (v1.5)
 
 > Nome provvisorio. Il documento è la proposta iniziale: una volta approvate le decisioni aperte (§14) diventa la roadmap di sviluppo.
 >
@@ -11,6 +11,8 @@
 > **v0.5 (18/10/2026)**: Fase 1 realizzata; risultati nella §17.
 >
 > **v0.6 (18/10/2026)**: Fase 2, prima parte: editor dei deck in stile Master Duel; risultati nella §18.
+>
+> **v1.5 (19/10/2026)**: ricerca 2,6 volte più veloce, obiettivo "carte sul campo" (raggiungibile o impossibile), ricerca che riprende da dove si è fermata, campo disposto come il tappeto di Master Duel; §25.
 >
 > **v1.4 (19/10/2026)**: Fase 5B realizzata: la ricerca automatica gira nell'app, da una mano o da una carta; risultati nella §24.
 >
@@ -853,4 +855,40 @@ La ricerca in background: mano precisa e «carta + resto», tabella delle traspo
 ### 24.4 Ancora da fare
 - **5C**: il punteggio misurato con il turno di prova (§22.4), che sostituisce la stima provvisoria, profili e pesi, frontiera, confronti, riproduzione animata.
 - Salvare le ricerche per deck e mano; eventi casuali (più ordini del Deck per le carte che pescano).
+
+## 25. Velocità, obiettivo e campo (19/10/2026)
+
+### 25.1 Le board trovate sono le più forti?
+Non ancora con certezza, per due motivi:
+- **La ricerca ha un tempo limite.** Con mani forti le linee del primo turno sono molte migliaia; in uno o tre minuti il motore non le prova tutte. Lo dice: "tutte le linee provate" compare solo quando la ricerca è completa, altrimenti si può farla proseguire.
+- **La classifica è ancora una stima** (mostri, Magie e Trappole, carte in mano). La classifica misurata con il turno di prova (§22.4) è la Fase 5C.
+
+Le regole invece ci sono tutte: il motore propone ogni effetto attivabile, anche dal Cimitero e dalle carte bandite. Verificato: con Invocation nel Cimitero e Aleister the Invoker bandito, tra le scelte compare "Attiva Invocation (Cimitero)", e la ricerca la usa (per esempio nella linea Baybarron, Sorath, Raidjin, S:P Little Knight e Meltdown). Aleister the Reminiscent viene giocato quando è nella mano di partenza: non può essere cercato da Meltdown, che aggiunge solo Aleister the Invoker.
+
+### 25.2 Dove va il tempo, e cosa è cambiato
+Profilo di una ricerca (callgrind, un thread): il 68% è il motore che rigioca le mosse (il 42% sono i controlli di Evocazione Fusion di Invocation, ripetuti a ogni scelta), il 20% è creare una partita nuova a ogni ritorno indietro. Il motore non sa copiare una partita, quindi il guadagno sta nel fare meno ritorni indietro:
+- **Copie identiche una volta sola**: due Invocation in mano offrivano due "Attiva Invocation" equivalenti; ora una.
+- **Niente Set inutili**: andando per primo, mettere coperta una Magia normale, Terreno, Continua o Equipaggiamento toglie solo la carta dalla mano; restano le Trappole e le Magie Rapide.
+- **Rispondere alla propria catena** con effetti dalla mano (come scartare Aleister per dare ATK) viene provato dopo "non concatenare".
+- **Fine turno senza rigiocare**: a ogni momento libero "termina il turno" è una scelta, e prima costava una partita intera rigiocata solo per leggere la board. Ora la board si legge subito (provvisoria, segnata con ≈), la End Phase si gioca per ultima e, quando la ricerca si ferma, le 40 board migliori vengono giocate fino al turno avversario, così contano anche gli effetti della End Phase.
+
+| Mano Invoked di prova, 60 s, 4 core | Prima | Ora |
+|---|---|---|
+| Scelte reali esplorate | 3.349 | ~8.900 |
+| Scelte al secondo | 56 | ~147 |
+
+- **Ricerca che riprende**: a ricerca finita "Continua" la fa proseguire da dove si è fermata (stati già visti, strade ancora da provare e board trovate restano), invece di ripartire da capo. Funziona anche con "carta + resto", mano per mano; le mani esplorate completamente non si rigiocano.
+- Su un PC con più core la ricerca scala con il numero di core.
+
+### 25.3 Obiettivo: carte sul campo a fine turno
+Si scelgono fino a cinque carte (dall'Extra Deck o dal Main Deck), tutte o almeno una, e facoltativamente "fermati alla prima linea che ci arriva". Il motore:
+- prova per prime le scelte che prendono o giocano una carta dell'obiettivo (per esempio Invoked Mechaba nella lista delle Fusion che Invocation offre) e le linee che la portano sul campo;
+- mette in cima le board che hanno l'obiettivo, e per le altre dice quante carte dell'obiettivo hanno;
+- risponde in tre modi: **raggiunto** (con la linea, rigiocata e raccontata in italiano), **impossibile** (solo se ha provato tutte le linee senza perderne nessuna), **non ancora trovato** (tempo finito: non è dimostrato che sia impossibile, si può continuare). Una carta che non è nel deck viene segnalata subito.
+- In "carta + resto" dice per ogni mano se ci arriva, e la quota pesata delle mani che ci arrivano.
+
+Misure: dalla mano Aleister the Invoker, Magical Meltdown, Invocation, Ash Blossom, Mulcharmy Fuwalos, Invoked Mechaba e Invoked Mechaba + Invoked Oceanus si trovano in 0,3 secondi (prima della guida non erano trovati in 30 secondi); da una mano di sole handtrap il motore prova tutte le linee in 0,3 secondi e risponde "impossibile". Riga di comando: `--goal "Invoked Mechaba;Invoked Oceanus" [--goal-any] [--first]`.
+
+### 25.4 Il campo come in Master Duel
+La board si vede disposta come il tappeto di Master Duel: Zone Mostri Extra in alto; Zona Terreno a sinistra delle Zone Mostri, Extra Deck sotto di lei; bandite, Cimitero e Deck a destra; le Zone Magie e Trappole esterne segnate come Zone Pendulum. Cimitero, bandite ed Extra Deck mostrano la carta in cima e quante sono, e un tocco ne elenca il contenuto; sotto il campo la mano. Le etichette dei mostri mostrano livello o Link e l'ATK (la DEF se in difesa).
 

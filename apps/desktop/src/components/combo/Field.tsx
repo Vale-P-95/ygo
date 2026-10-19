@@ -34,9 +34,8 @@ function ZoneSlot({ z, getCard, onHover, onHoverEnd, monster }: { z: ZoneCard | 
         {z.negated && <span className="combo-negated" title="Effetti annullati" />}
       </div>
       {monster && z.faceUp && (
-        <span className="combo-stat">
-          {stars(z)} {z.attack}
-          {!z.link && `/${z.def}`}
+        <span className="combo-stat" title={z.link ? `ATK ${z.attack}` : `ATK ${z.attack} / DEF ${z.def}`}>
+          {stars(z)} {z.defense && !z.link ? z.def : z.attack}
         </span>
       )}
       {z.overlay.length > 0 && (
@@ -53,36 +52,114 @@ function ZoneSlot({ z, getCard, onHover, onHoverEnd, monster }: { z: ZoneCard | 
   );
 }
 
+export type Pile = "grave" | "banished" | "deck" | "extra";
+
 interface FieldProps {
   board: ComboBoard;
   getCard: (id: number) => Card | undefined;
   onHover?: HoverCard;
   onHoverEnd?: () => void;
+  /** The pile shown below the field, and how to change it. */
+  pile?: Pile | null;
+  onPile?: (pile: Pile) => void;
+}
+
+/** A face-down card, drawn (no card artwork is bundled with the app). */
+function CardBack({ className = "" }: { className?: string }) {
+  return <span className={`combo-back ${className}`} aria-hidden />;
 }
 
 /**
- * The player's side of the field as in Master Duel: the Extra Monster
- * Zones on top, then the Main Monster Zones, then the Spell & Trap Zones
- * with the Field Zone on their left. It fills the width it is given.
+ * A pile beside the field: the top card (or the back of the Deck), how
+ * many cards, and a click to list them below.
  */
-export function Field({ board, getCard, onHover, onHoverEnd }: FieldProps) {
-  const zone = (z: ZoneCard | null | undefined, monster: boolean) => <ZoneSlot z={z} getCard={getCard} onHover={onHover} onHoverEnd={onHoverEnd} monster={monster} />;
+function PileSlot({ label, codes, count, back, active, getCard, onHover, onHoverEnd, onClick }: {
+  label: string;
+  codes: number[];
+  count: number;
+  back?: boolean;
+  active: boolean;
+  getCard: (id: number) => Card | undefined;
+  onHover?: HoverCard;
+  onHoverEnd?: () => void;
+  onClick?: () => void;
+}) {
+  const top = codes[codes.length - 1];
   return (
-    <div className="combo-field">
-      <div />
-      <div />
-      {zone(board.monsters[5], true)}
-      <div />
-      {zone(board.monsters[6], true)}
-      <div />
-      <div />
+    <button
+      type="button"
+      className={`combo-zone combo-pile ${active ? "combo-pile--active" : ""}`}
+      onClick={onClick}
+      disabled={!onClick || count === 0}
+      aria-pressed={active}
+      title={`${label}: ${count}`}
+      onPointerEnter={(e) => top != null && !back && onHover?.(top, e.currentTarget)}
+      onPointerLeave={onHoverEnd}
+    >
+      {count > 0 ? (
+        <span className="combo-card">{back || top == null ? <CardBack className="h-full w-full" /> : <CardImage code={top} card={getCard(top)} className="h-full w-full" />}</span>
+      ) : (
+        <span className="combo-zone-label">{label}</span>
+      )}
+      {count > 0 && <span className="combo-count">{count}</span>}
+    </button>
+  );
+}
+
+/**
+ * The player's side of the field laid out as the Master Duel mat:
+ *
+ *              [EMZ]      [EMZ]           [Bandite]
+ *   [Terreno]  [M] [M] [M] [M] [M]        [Cimitero]
+ *   [Extra]    [P] [S] [S] [S] [P]        [Deck]
+ *
+ * The outer Spell & Trap Zones are also the Pendulum Zones. It fills the
+ * width it is given.
+ */
+export function Field({ board, getCard, onHover, onHoverEnd, pile, onPile }: FieldProps) {
+  const zone = (z: ZoneCard | null | undefined, monster: boolean, label?: string) =>
+    z ? <ZoneSlot z={z} getCard={getCard} onHover={onHover} onHoverEnd={onHoverEnd} monster={monster} /> : <div className="combo-zone">{label && <span className="combo-zone-label">{label}</span>}</div>;
+  const piles = {
+    grave: { label: "Cimitero", codes: board.grave, count: board.grave.length },
+    banished: { label: "Bandite", codes: board.banished, count: board.banished.length },
+    deck: { label: "Deck", codes: [], count: board.deckCount, back: true },
+    extra: { label: "Extra Deck", codes: board.extraFaceUp, count: board.extraCount, back: board.extraFaceUp.length === 0 },
+  };
+  const pileSlot = (kind: Pile) => (
+    <PileSlot {...piles[kind]} active={pile === kind} getCard={getCard} onHover={onHover} onHoverEnd={onHoverEnd} onClick={onPile && (() => onPile(kind))} />
+  );
+  // Columns: the left side, a gap, the five zones, a gap, the right side.
+  const at = (column: number, row: number) => ({ gridColumn: column, gridRow: row });
+  return (
+    <div className="combo-field" role="group" aria-label="Il tuo campo a fine turno">
+      <div className="combo-emz" style={at(4, 1)}>
+        {zone(board.monsters[5], true, "EMZ")}
+      </div>
+      <div className="combo-emz" style={at(6, 1)}>
+        {zone(board.monsters[6], true, "EMZ")}
+      </div>
+      <div style={at(9, 1)}>{pileSlot("banished")}</div>
+
+      <div style={at(1, 2)}>{zone(board.spells[5], false, "Terreno")}</div>
       {[0, 1, 2, 3, 4].map((i) => (
-        <div key={`m${i}`}>{zone(board.monsters[i], true)}</div>
+        <div key={`m${i}`} style={at(3 + i, 2)}>
+          {zone(board.monsters[i], true)}
+        </div>
       ))}
-      <div>{zone(board.spells[5], false)}</div>
+      <div style={at(9, 2)}>{pileSlot("grave")}</div>
+
+      <div style={at(1, 3)}>{pileSlot("extra")}</div>
       {[0, 1, 2, 3, 4].map((i) => (
-        <div key={`s${i}`}>{zone(board.spells[i], false)}</div>
+        <div key={`s${i}`} className="relative" style={at(3 + i, 3)}>
+          {zone(board.spells[i], false)}
+          {(i === 0 || i === 4) && (
+            <span className="combo-pendulum" title="Zona Pendulum">
+              P
+            </span>
+          )}
+        </div>
       ))}
+      <div style={at(9, 3)}>{pileSlot("deck")}</div>
     </div>
   );
 }

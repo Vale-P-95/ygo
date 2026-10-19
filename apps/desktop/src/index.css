@@ -1079,9 +1079,75 @@ body {
 .combo-field {
   display: grid;
   width: 100%;
-  max-width: 520px;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: 6px;
+  max-width: 560px;
+  /* The side zones sit a little apart from the five columns. */
+  grid-template-columns: minmax(0, 1fr) 4px repeat(5, minmax(0, 1fr)) 4px minmax(0, 1fr);
+  gap: 6px 5px;
+}
+.combo-emz .combo-zone {
+  border-color: color-mix(in oklab, var(--sec-2) 40%, var(--df-border));
+  background: color-mix(in oklab, var(--sec-2) 8%, transparent);
+}
+.combo-zone-label {
+  padding: 0 2px;
+  text-align: center;
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--df-faint);
+}
+.combo-pendulum {
+  position: absolute;
+  left: 3px;
+  bottom: 3px;
+  display: grid;
+  place-items: center;
+  width: 14px;
+  height: 14px;
+  border-radius: 4px;
+  font-size: 9px;
+  font-weight: 800;
+  color: #fff;
+  background: linear-gradient(135deg, #e0752d, #2fa38a);
+  opacity: 0.85;
+  pointer-events: none;
+}
+.combo-pile {
+  width: 100%;
+  border-style: solid;
+  background: color-mix(in oklab, var(--df-surface-3) 70%, transparent);
+  cursor: pointer;
+}
+.combo-pile:disabled {
+  cursor: default;
+}
+.combo-pile:not(:disabled):hover,
+.combo-pile--active {
+  border-color: var(--sec);
+}
+.combo-count {
+  position: absolute;
+  right: 2px;
+  bottom: 2px;
+  min-width: 16px;
+  border-radius: 999px;
+  padding: 0 4px;
+  font-size: 9px;
+  font-weight: 800;
+  line-height: 15px;
+  text-align: center;
+  color: #fff;
+  background: rgb(10 8 8 / 0.85);
+  font-variant-numeric: tabular-nums;
+}
+.combo-back {
+  display: block;
+  border-radius: 3px;
+  background:
+    radial-gradient(ellipse 30% 22% at 50% 50%, #e8b04a 0 45%, #6b3a12 50% 60%, transparent 64%),
+    linear-gradient(160deg, #4a2a14, #2a170b 55%, #3d2210);
+  box-shadow: inset 0 0 0 2px #1c0f06, inset 0 0 0 3px #8a5a2a;
 }
 .combo-zone {
   position: relative;
@@ -1121,10 +1187,10 @@ body {
   transform: translate(-50%, 50%);
   white-space: nowrap;
   border-radius: 999px;
-  padding: 0 6px;
-  font-size: 9px;
+  padding: 0 5px;
+  font-size: 8.5px;
   font-weight: 700;
-  line-height: 15px;
+  line-height: 14px;
   color: #fff;
   background: rgb(10 8 8 / 0.85);
   font-variant-numeric: tabular-nums;

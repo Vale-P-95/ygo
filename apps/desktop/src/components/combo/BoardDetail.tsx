@@ -1,5 +1,6 @@
+import { useState } from "react";
 import type { Card, ComboBoard, ComboStep } from "../../lib/api";
-import { CardImage, Field, type HoverCard } from "./Field";
+import { CardImage, Field, type HoverCard, type Pile as PileKind } from "./Field";
 
 interface Props {
   board: ComboBoard;
@@ -12,6 +13,8 @@ interface Props {
   onHover: HoverCard;
   onHoverEnd: () => void;
 }
+
+const PILE_TITLES: Record<PileKind, string> = { grave: "Cimitero", banished: "Bandite", deck: "Deck", extra: "Extra Deck (scoperte)" };
 
 function Pile({ title, codes, getCard, onHover, onHoverEnd }: { title: string; codes: number[]; getCard: (id: number) => Card | undefined; onHover: HoverCard; onHoverEnd: () => void }) {
   return (
@@ -39,15 +42,26 @@ const PHASE = /^(Inizia il |Draw Phase|Standby Phase|Main Phase|Battle Phase|End
 
 /** A board of the search: the field, the other piles and the line that builds it, told in Italian. */
 export function BoardDetail({ board, hand, steps, stepsNote, getCard, onHover, onHoverEnd }: Props) {
+  const [pile, setPile] = useState<PileKind | null>(null);
+  const pileCodes: Record<PileKind, number[]> = { grave: board.grave, banished: board.banished, deck: [], extra: board.extraFaceUp };
   return (
     <div className="flex flex-col gap-4">
-      <section className="lab-card flex flex-col items-center gap-4 p-4">
-        <Field board={board} getCard={getCard} onHover={onHover} onHoverEnd={onHoverEnd} />
-        <div className="grid w-full grid-cols-3 gap-4">
+      <section className="lab-card flex flex-col items-center gap-3 p-4">
+        {!board.exact && (
+          <p className="w-full rounded-lg bg-surface-3 px-2.5 py-1.5 text-[11px] text-muted">
+            Board letta quando passi il turno: gli effetti della End Phase non sono ancora stati giocati.
+          </p>
+        )}
+        <Field board={board} getCard={getCard} onHover={onHover} onHoverEnd={onHoverEnd} pile={pile} onPile={(p) => setPile((cur) => (cur === p ? null : p))} />
+        <div className="w-full border-t border-border pt-3">
           <Pile title="Mano" codes={board.handCards} getCard={getCard} onHover={onHover} onHoverEnd={onHoverEnd} />
-          <Pile title="Cimitero" codes={board.grave} getCard={getCard} onHover={onHover} onHoverEnd={onHoverEnd} />
-          <Pile title="Bandite" codes={board.banished} getCard={getCard} onHover={onHover} onHoverEnd={onHoverEnd} />
         </div>
+        {pile && (
+          <div className="w-full anim-fade">
+            <Pile title={PILE_TITLES[pile]} codes={pileCodes[pile]} getCard={getCard} onHover={onHover} onHoverEnd={onHoverEnd} />
+          </div>
+        )}
+        {!pile && <p className="w-full text-[11px] text-faint">Tocca Cimitero, bandite o Extra Deck per vedere le carte.</p>}
       </section>
 
       <section className="lab-card flex flex-col gap-3 p-4">

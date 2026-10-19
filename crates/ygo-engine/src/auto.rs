@@ -4,7 +4,7 @@
 
 use crate::actions::{Action, ActionKind};
 use crate::carddb::CardDb;
-use crate::consts::{location, position};
+use crate::consts::{card_type, location, position};
 use crate::duel::{Duel, Step};
 use crate::message::Decision;
 use crate::Error;
@@ -23,11 +23,14 @@ pub struct AutoPolicy {
     /// and which of your Link arrows point to it. Zones that differ only by
     /// position are taken as the same (faster, rarely loses a line).
     pub zones: bool,
+    /// Only Traps and Quick-Play Spells are Set: any other Spell can be
+    /// activated straight from the hand, and Set it only leaves the hand.
+    pub useful_sets_only: bool,
 }
 
 impl Default for AutoPolicy {
     fn default() -> Self {
-        Self { positions: true, skip_battle: true, forbid: Vec::new(), passive: Vec::new(), zones: true }
+        Self { positions: true, skip_battle: true, forbid: Vec::new(), passive: Vec::new(), zones: true, useful_sets_only: true }
     }
 }
 
@@ -40,8 +43,13 @@ pub fn choices(decision: &Decision, actions: Vec<Action>, policy: &AutoPolicy, d
         let code = db.canonical_code(code);
         list.iter().any(|&c| db.canonical_code(c) == code)
     };
+    let pointless_set = |a: &Action| {
+        let Some(c) = a.card.filter(|_| policy.useful_sets_only && a.kind == ActionKind::SetSpellTrap) else { return false };
+        let type_ = db.get(c.code).map_or(0, |d| d.type_);
+        type_ & card_type::SPELL != 0 && type_ & card_type::QUICKPLAY == 0
+    };
     let keep = |a: &Action| {
-        if skip_battle && a.kind == ActionKind::ToBattlePhase {
+        if skip_battle && a.kind == ActionKind::ToBattlePhase || pointless_set(a) {
             return false;
         }
         match a.card {

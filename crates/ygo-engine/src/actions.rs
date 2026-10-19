@@ -273,6 +273,38 @@ pub fn actions(decision: &Decision, db: &CardDb) -> Vec<Action> {
 /// (typically the cards in the duel) that may be declared, falling back to
 /// any declarable card when none of them may.
 pub fn actions_with(decision: &Decision, db: &CardDb, known: &[u32]) -> Vec<Action> {
+    let mut out = all_actions(decision, db, known);
+    if matches!(decision, Decision::IdleCmd { .. } | Decision::BattleCmd { .. } | Decision::SelectChain { .. }) {
+        drop_copies(decision, &mut out);
+    }
+    out
+}
+
+/// What an action does, for telling apart two copies of a card: the kind,
+/// the card and where it is, and the effect for activations.
+fn action_key(decision: &Decision, a: &Action) -> Option<(ActionKind, u32, u8, u32, u64)> {
+    let card = a.card.as_ref().filter(|c| is_interchangeable(c))?;
+    let description = match decision {
+        Decision::IdleCmd { activatable, .. }
+        | Decision::BattleCmd { activatable, .. }
+        | Decision::SelectChain { chains: activatable, .. }
+            if a.kind == ActionKind::Activate =>
+        {
+            activatable.iter().find(|x| x.card == *card).map_or(0, |x| x.description)
+        }
+        _ => 0,
+    };
+    Some((a.kind, card.code, card.location, card.position, description))
+}
+
+/// Keeps one of the actions that do the same thing with copies of a card
+/// in the hand, Deck, Graveyard or banishment: either leads to the same game.
+fn drop_copies(decision: &Decision, out: &mut Vec<Action>) {
+    let mut seen = HashSet::new();
+    out.retain(|a| action_key(decision, a).is_none_or(|key| seen.insert(key)));
+}
+
+fn all_actions(decision: &Decision, db: &CardDb, known: &[u32]) -> Vec<Action> {
     use ActionKind as K;
     let mut out = Vec::new();
     match decision {
@@ -352,7 +384,8 @@ pub fn actions_with(decision: &Decision, db: &CardDb, known: &[u32]) -> Vec<Acti
         Decision::SelectCard { cancelable, min, max, cards, .. } => {
             for pick in combinations(cards, *min as usize, *max as usize, |_| true) {
                 let names: Vec<_> = pick.iter().map(|&i| describe_card(db, &cards[i])).collect();
-                out.push(Action::new(K::Choose, format!("Select {}", names.join(" + ")), indices_response(&pick)));
+                let action = Action::new(K::Choose, format!("Select {}", names.join(" + ")), indices_response(&pick));
+                out.push(if let [one] = pick[..] { action.on(&cards[one]) } else { action });
             }
             if *cancelable {
                 out.push(Action::new(K::Cancel, "Cancel", i32_bytes(-1)));
@@ -364,7 +397,7 @@ pub fn actions_with(decision: &Decision, db: &CardDb, known: &[u32]) -> Vec<Acti
                 if seen.insert(combination_key(selectable, &[i])) {
                     let mut resp = i32_bytes(1);
                     resp.extend_from_slice(&(i as i32).to_le_bytes());
-                    out.push(Action::new(K::Choose, format!("Select {}", describe_card(db, c)), resp));
+                    out.push(Action::new(K::Choose, format!("Select {}", describe_card(db, c)), resp).on(c));
                 }
             }
             for (j, c) in unselectable.iter().enumerate() {

@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
-use crate::search::{search, Board, Progress, SearchConfig, Stop};
+use crate::search::{resume, Board, Frontier, Progress, SearchConfig, Stop};
 
 /// One sampled hand and what the search found from it.
 #[derive(Debug, Clone)]
@@ -17,6 +17,11 @@ pub struct HandResult {
     pub boards: Vec<Board>,
     pub stop: Stop,
     pub nodes: u64,
+    /// The goal is reached (`Some(true)`), cannot be (`Some(false)`, every
+    /// line tried) or is still unknown.
+    pub goal: Option<bool>,
+    /// To go on with this hand ([`resume_card`]).
+    pub frontier: Frontier,
 }
 
 /// SplitMix64.
@@ -80,22 +85,45 @@ pub fn search_card(
     base: &SearchConfig,
     what: &CardSearch,
     cancel: &AtomicBool,
+    progress: impl FnMut(usize, &[(Vec<u32>, f64)], &Progress),
+) -> Vec<HandResult> {
+    let sampled = sample_hands(&base.deck.main, what.card, what.hands, base.seed);
+    let previous = sampled.into_iter().map(|(hand, weight)| (hand, weight, Frontier::default())).collect();
+    resume_card(engine, base, what, previous, cancel, progress)
+}
+
+/// Goes on with each hand of a "card + rest" search for `per_hand` more:
+/// `previous` holds the hands, their weights and where each search stopped.
+/// Hands already explored completely are not searched again.
+pub fn resume_card(
+    engine: &ygo_engine::Engine,
+    base: &SearchConfig,
+    what: &CardSearch,
+    previous: Vec<(Vec<u32>, f64, Frontier)>,
+    cancel: &AtomicBool,
     mut progress: impl FnMut(usize, &[(Vec<u32>, f64)], &Progress),
 ) -> Vec<HandResult> {
-    let CardSearch { card, hands, per_hand, keep } = *what;
-    let sampled = sample_hands(&base.deck.main, card, hands, base.seed);
+    let hands: Vec<(Vec<u32>, f64)> = previous.iter().map(|(h, w, _)| (h.clone(), *w)).collect();
     let mut out = Vec::new();
-    for (i, (hand, weight)) in sampled.iter().enumerate() {
-        if cancel.load(Ordering::Relaxed) {
-            break;
-        }
+    for (i, (hand, weight, frontier)) in previous.into_iter().enumerate() {
         let mut config = base.clone();
         config.hand = hand.clone();
-        config.time_limit = per_hand;
-        let result = search(engine, &config, cancel, |p| progress(i, &sampled, p));
+        config.time_limit = what.per_hand;
+        let done = frontier.is_exhausted() || cancel.load(Ordering::Relaxed);
+        let result = if done {
+            // Nothing left to try (or stopped): read what was found.
+            let mut config = config.clone();
+            config.time_limit = Duration::ZERO;
+            let stop_now = AtomicBool::new(true);
+            resume(engine, &config, frontier, &stop_now, |_| {})
+        } else {
+            resume(engine, &config, frontier, cancel, |p| progress(i, &hands, p))
+        };
+        let goal = result.goal_reached(&config.goal);
+        let stop = if done && !cancel.load(Ordering::Relaxed) { Stop::Exhausted } else { result.stop };
         let mut boards = result.boards;
-        boards.truncate(keep);
-        out.push(HandResult { hand: hand.clone(), weight: *weight, boards, stop: result.stop, nodes: result.progress.nodes });
+        boards.truncate(what.keep);
+        out.push(HandResult { hand, weight, boards, stop, nodes: result.progress.nodes, goal, frontier: result.frontier });
     }
     out
 }

@@ -6,6 +6,6 @@ pub mod card;
 pub mod explain;
 pub mod search;
 
-pub use card::{sample_hands, search_card, CardSearch, HandResult};
+pub use card::{resume_card, sample_hands, search_card, CardSearch, HandResult};
 pub use explain::{explain, ExplainedStep};
-pub use search::{search, Board, Line, Progress, SearchConfig, SearchResult, Stop};
+pub use search::{quick_score, resume, search, Board, Frontier, Goal, Line, Progress, SearchConfig, SearchResult, Stop};

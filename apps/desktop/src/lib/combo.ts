@@ -40,10 +40,38 @@ export function useCombo(): ComboRun {
 export async function startCombo(request: ComboRequest): Promise<ComboRun> {
   if (run.running) return run;
   set({ ...IDLE, running: true, request });
-  const unlisten = await api.onComboProgress((p) => set({ progress: p, live: { ...run.live, [p.handIndex]: p.top } }));
+  return follow(() => api.comboSearch(request));
+}
+
+/**
+ * Goes on with the last search for `seconds` more, from where it stopped:
+ * the boards found stay, and the new ones join them.
+ */
+export async function continueCombo(seconds: number): Promise<ComboRun> {
+  if (run.running || !run.request || !run.outcome) return run;
+  const previous = run.outcome;
+  set({ running: true, error: null, request: { ...run.request, seconds: run.request.seconds + seconds }, outcome: null, live: liveOf(previous) });
+  return follow(() => api.comboContinue(run.request!.deckId, seconds));
+}
+
+/** The boards of an outcome by hand, as the live view keeps them. */
+function liveOf(outcome: ComboOutcome): Record<number, ComboBoard[]> {
+  const live: Record<number, ComboBoard[]> = {};
+  for (const b of outcome.boards) (live[b.hand] ??= []).push(b);
+  return live;
+}
+
+/** The boards seen so far for a hand, with the newest best ones. */
+function merge(seen: ComboBoard[] = [], top: ComboBoard[]): ComboBoard[] {
+  const keys = new Set(top.map((b) => b.key));
+  return [...top, ...seen.filter((b) => !keys.has(b.key))].slice(0, 200);
+}
+
+async function follow(call: () => Promise<ComboOutcome>): Promise<ComboRun> {
+  const unlisten = await api.onComboProgress((p) => set({ progress: p, live: { ...run.live, [p.handIndex]: merge(run.live[p.handIndex], p.top) } }));
   try {
-    const outcome = await api.comboSearch(request);
-    set({ outcome });
+    const outcome = await call();
+    set({ outcome, live: {} });
   } catch (e) {
     set({ error: String(e) });
   } finally {
