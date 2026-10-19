@@ -161,6 +161,8 @@ struct KitStep {
     option: usize,
     /// Its own triggers to activate (Speedroid Terrortop's search).
     triggers: Vec<u32>,
+    /// Then attack with every monster that can, at the `picks` first.
+    attack: bool,
     goals: Vec<(Probe, Want)>,
     /// A probe that must have worked for this step to make sense.
     needs: Option<Probe>,
@@ -188,7 +190,7 @@ pub struct Breaker {
     pub name: String,
     /// How often it matters: the average over breakers is weighted by it.
     pub weight: f64,
-    step: KitStep,
+    steps: Vec<KitStep>,
 }
 
 /// The opponent's cards and what it does with them.
@@ -222,6 +224,7 @@ impl Kit {
             take_max: false,
             option: 0,
             triggers: Vec::new(),
+            attack: false,
             goals,
             needs,
         };
@@ -312,7 +315,7 @@ impl Kit {
             let mut s = step(act, vec![], vec![], None);
             s.option = option;
             s.take_max = take_max;
-            breakers.push(Breaker { name: label.to_owned(), weight, step: s });
+            breakers.push(Breaker { name: label.to_owned(), weight, steps: vec![s] });
         };
         breaker("Dark Hole", "Dark Hole", 1.0, false, 0, false);
         breaker("Raigeki", "Raigeki", 1.0, false, 0, false);
@@ -323,6 +326,20 @@ impl Kit {
         breaker("Dark Ruler No More", "Dark Ruler No More", 1.0, false, 0, false);
         breaker("Book of Eclipse", "Book of Eclipse", 0.6, false, 0, false);
         breaker("Gameciel, the Sea Turtle Kaiju", "Kaiju (Gameciel)", 0.8, true, 0, false);
+        // An attack: Cyber Dragon (it comes from the hand while only you
+        // control monsters) with Limiter Removal, 4200 ATK, at the monster
+        // worth the most it may attack. Battle protections count here (Invoked
+        // Oceanus in a Main Monster Zone draws the attack).
+        if let (Some(cyber), Some(limiter)) = (code("Cyber Dragon"), code("Limiter Removal")) {
+            hand.extend([cyber, limiter]);
+            let mut attack = step(Act::Activate(limiter, location::HAND), vec![], vec![], None);
+            attack.attack = true;
+            breakers.push(Breaker {
+                name: "Attacco da 4200 ATK".to_owned(),
+                weight: 0.6,
+                steps: vec![step(Act::SpecialSummon(cyber), vec![], vec![], None), attack],
+            });
+        }
 
         // The last cards of the Deck are drawn first (at the start of the
         // turn and by Pot of Greed): plain ones, so the cards to search stay.
@@ -615,6 +632,25 @@ impl<'a> Prober<'a> {
         };
         let all_worked = worked(&all);
 
+        // Floodgates: what works on an empty board but not here, with no answer.
+        let mut floodgates = Vec::new();
+        for (step, (run, base_run)) in self.kit.steps.iter().zip(all.steps.iter().zip(&base.steps)) {
+            let prerequisite = step.needs.is_none_or(|p| all_worked.get(&p) == Some(&true) || floodgates.contains(&p));
+            if !prerequisite {
+                continue;
+            }
+            for (i, (probe, _)) in step.goals.iter().enumerate() {
+                let possible = base_run.available && base_run.worked.get(i) == Some(&true);
+                let here = run.available && run.worked.get(i) == Some(&true);
+                if possible && !here {
+                    floodgates.push(*probe);
+                }
+            }
+        }
+        // Coverage is of what the opponent can still do: what a floodgate
+        // already stops is counted there, not against your other effects.
+        let reference = activation_weight() - floodgates.iter().filter(|p| p.is_activation()).map(|p| p.weight()).sum::<f64>();
+
         // Responders: every effect offered while nothing is answered.
         // Each effect with the probes it could answer: an activation once the
         // opponent's card is chained, a summon before.
@@ -674,7 +710,7 @@ impl<'a> Prober<'a> {
                 }
                 covers.sort();
                 covers.dedup();
-                let coverage = (covers.iter().map(|p| p.weight()).sum::<f64>() / activation_weight()).min(1.0);
+                let coverage = if reference > 0.0 { (covers.iter().map(|p| p.weight()).sum::<f64>() / reference).min(1.0) } else { 0.0 };
                 let counter = self.engine.cards().get(id.code).is_some_and(|c| c.type_ & 0x10_0000 != 0);
                 let value = effect.value() * if targeted { 0.85 } else { 1.0 } * coverage * uses as f64 * if counter { 1.05 } else { 1.0 };
                 interruptions.push(Interruption {
@@ -708,29 +744,20 @@ impl<'a> Prober<'a> {
             }
         }
 
-        // Floodgates: what works on an empty board but not here, with no answer.
-        let mut floodgates = Vec::new();
-        for (step, (run, base_run)) in self.kit.steps.iter().zip(all.steps.iter().zip(&base.steps)) {
-            let prerequisite = step.needs.is_none_or(|p| all_worked.get(&p) == Some(&true) || floodgates.contains(&p));
-            if !prerequisite {
-                continue;
-            }
-            for (i, (probe, _)) in step.goals.iter().enumerate() {
-                let possible = base_run.available && base_run.worked.get(i) == Some(&true);
-                let here = run.available && run.worked.get(i) == Some(&true);
-                if possible && !here {
-                    floodgates.push(*probe);
-                }
-            }
-        }
-
         // Board breakers, each in a run of its own.
         let total = interruptions.iter().map(|i| i.value).sum::<f64>() + 0.0;
         let mut breakers = Vec::new();
+        // The breakers go for the monster worth the most first (the attack,
+        // the monster a Kaiju takes).
+        let targets: Vec<u32> = interruptions.iter().filter(|i| i.location == location::MZONE).map(|i| i.responder.code).collect();
         for breaker in &self.kit.breakers {
-            let steps = [&breaker.step];
+            let mut owned = breaker.steps.clone();
+            for s in &mut owned {
+                s.picks = targets.clone();
+            }
+            let steps: Vec<&KitStep> = owned.iter().collect();
             let run = match self.run(Prelude::Line(line), &steps, Policy::Pass) {
-                Ok(run) if run.steps[0].available => run,
+                Ok(run) if run.steps.iter().all(|s| s.available) => run,
                 _ => {
                     breakers.push(BreakerResult {
                         name: breaker.name.clone(),
@@ -742,16 +769,6 @@ impl<'a> Prober<'a> {
                     continue;
                 }
             };
-            if !run.steps[0].available {
-                breakers.push(BreakerResult {
-                    name: breaker.name.clone(),
-                    weight: breaker.weight,
-                    not_applicable: true,
-                    stopped_by: None,
-                    remaining: total,
-                });
-                continue;
-            }
             let mut result = BreakerResult {
                 name: breaker.name.clone(),
                 weight: breaker.weight,
@@ -759,7 +776,7 @@ impl<'a> Prober<'a> {
                 stopped_by: None,
                 remaining: self.left(&run.state, &interruptions),
             };
-            // A negation offered against it: try it.
+            // A negation offered against it: try it (it spends one use).
             let negators: Vec<&Interruption> = interruptions
                 .iter()
                 .filter(|i| i.effect.negates() && run.windows.iter().any(|w| w.options.iter().any(|(o, _)| *o == i.responder)))
@@ -767,8 +784,8 @@ impl<'a> Prober<'a> {
             for negator in negators {
                 let none = HashSet::new();
                 let Ok(tried) = self.run(Prelude::Line(line), &steps, Policy::Use(negator.responder, &none)) else { continue };
-                if tried.steps[0].negated {
-                    let left = total - negator.value / negator.uses as f64;
+                if tried.steps.iter().any(|s| s.negated) {
+                    let left = self.left(&tried.state, &interruptions) - negator.value / negator.uses as f64;
                     if left > result.remaining {
                         result.remaining = left;
                         result.stopped_by = Some(negator.responder);
@@ -835,6 +852,8 @@ impl<'a> Prober<'a> {
         let mut next = 0usize;
         let mut current: Option<(usize, DuelState)> = None;
         let mut windows_in_step = 0usize;
+        // The step being played went to the Battle Phase already.
+        let mut battled = false;
         // The opponent got back to choose after its last step.
         let mut complete = false;
         let verbose = std::env::var("DUELFORGE_DEBUG_PROBE").is_ok_and(|v| v == "2");
@@ -910,6 +929,14 @@ impl<'a> Prober<'a> {
             match decision.player() {
                 Some(1) => {
                     if let Decision::IdleCmd { .. } = decision {
+                        // A step that attacks is over after the Battle Phase.
+                        if current.as_ref().is_some_and(|(i, _)| steps[*i].attack) && !battled {
+                            battled = true;
+                            if let Some(a) = actions.iter().find(|a| a.kind == ActionKind::ToBattlePhase) {
+                                duel.respond(&a.response);
+                                continue;
+                            }
+                        }
                         if let Some((i, before)) = current.take() {
                             let after = duel.state();
                             if verbose {
@@ -939,6 +966,7 @@ impl<'a> Prober<'a> {
                                 current = Some((i, duel.state()));
                                 observer.new_step();
                                 windows_in_step = 0;
+                                battled = false;
                                 duel.respond(&answer);
                             }
                             None => {
@@ -1096,6 +1124,9 @@ fn opponent_answer(engine: &Engine, decision: &Decision, actions: &[Action], ste
         Decision::SelectChain { forced, .. } => {
             let own = actions.iter().find(|a| a.kind == ActionKind::Activate && a.card.is_some_and(|c| listed(triggers, c.code)));
             own.or_else(|| if *forced { first(&[ActionKind::Activate]) } else { first(&[ActionKind::Pass]) })
+        }
+        Decision::BattleCmd { .. } if step.is_some_and(|s| s.attack) => {
+            first(&[ActionKind::Attack, ActionKind::ToMainPhase2, ActionKind::EndTurn])
         }
         Decision::BattleCmd { .. } => first(&[ActionKind::ToMainPhase2, ActionKind::EndTurn]),
         Decision::Option { .. } => actions.get(step.map_or(0, |s| s.option)).or(actions.first()),

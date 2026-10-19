@@ -5,7 +5,7 @@ use std::sync::atomic::AtomicBool;
 use std::time::Duration;
 
 use ygo_engine::{DeckList, Engine};
-use ygo_solver::{explain, search, Goal, SearchConfig, Stop};
+use ygo_solver::{explain, search, Goal, GoalCard, GoalZone, Kit, Probe, Prober, SearchConfig, Stop};
 
 const ALEISTER: u32 = 86120751;
 const CHALICE: u32 = 76334960;
@@ -93,4 +93,48 @@ fn a_goal_is_reached_or_proved_impossible() {
     assert_eq!(result.stop, Stop::Exhausted);
     assert_eq!(result.goal_reached(&goal), Some(false));
     assert!(result.frontier.is_exhausted());
+}
+
+#[test]
+fn the_probe_turn_tells_the_zones_of_oceanus_apart() {
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let data = std::env::var_os("DUELFORGE_DATA").map(PathBuf::from).unwrap_or_else(|| root.join("data"));
+    if !data.join("scripts/constant.lua").is_file() {
+        eprintln!("skipped: no game data in {}", data.display());
+        return;
+    }
+    let engine = Engine::load(&data).expect("game data loads");
+    let deck = DeckList::from_ydk(&std::fs::read_to_string(root.join("tests/fixtures/decks/invoked-siracusa-md.ydk")).unwrap()).unwrap();
+    let code = |name: &str| engine.cards().find_by_name(name).expect(name).code;
+    let (oceanus, mechaba) = (code("Invoked Oceanus"), code("Invoked Mechaba"));
+    let kit = Kit::standard(&engine);
+    let hand = vec![ALEISTER, CHALICE, MELTDOWN, ASH, FUWALOS];
+
+    // Invoked Mechaba with Invoked Oceanus in a Main Monster Zone, then in the Extra Monster Zone.
+    let measure = |zone: GoalZone| {
+        let mut config = SearchConfig::new(deck.clone(), hand.clone());
+        config.threads = 2;
+        config.time_limit = Duration::from_secs(20);
+        config.policy.passive = vec![ASH, FUWALOS];
+        config.hand_traps = vec![ASH, FUWALOS];
+        config.goal = Goal {
+            on_field: vec![GoalCard { code: oceanus, zone }, GoalCard { code: mechaba, zone: GoalZone::Any }],
+            all: true,
+            first_only: true,
+        };
+        let result = search(&engine, &config, &AtomicBool::new(false), |_| {});
+        assert_eq!(result.stop, Stop::GoalReached, "{zone:?}");
+        let mut prober = Prober::new(&engine, &deck, &hand, config.seed, &kit);
+        prober.measure(&result.boards[0].line).unwrap()
+    };
+    let main = measure(GoalZone::Main);
+    let extra = measure(GoalZone::Extra);
+    // Only from the Extra Monster Zone it banishes what goes to the opponent's GY.
+    assert!(main.floodgates.is_empty(), "{:?}", main.floodgates);
+    assert!(extra.floodgates.contains(&Probe::SendToGrave), "{:?}", extra.floodgates);
+    // The opponent attacks both boards (Oceanus in a Main Monster Zone draws the attack).
+    for m in [&main, &extra] {
+        let attack = m.breakers.iter().find(|b| b.name.starts_with("Attacco")).expect("the attack");
+        assert!(!attack.not_applicable);
+    }
 }

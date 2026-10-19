@@ -148,10 +148,10 @@ impl Goal {
         hits
     }
 
-    /// The goal wants this card in an Extra Monster Zone.
-    fn wants_extra_zone(&self, engine: &Engine, code: u32) -> bool {
+    /// The zone the goal wants this card in, if it names one.
+    fn zone_of(&self, engine: &Engine, code: u32) -> Option<GoalZone> {
         let db = engine.cards();
-        self.on_field.iter().any(|g| g.zone == GoalZone::Extra && db.canonical_code(g.code) == db.canonical_code(code))
+        self.on_field.iter().find(|g| g.zone != GoalZone::Any && db.canonical_code(g.code) == db.canonical_code(code)).map(|g| g.zone)
     }
 
     pub fn reached(&self, hits: usize) -> bool {
@@ -648,12 +648,10 @@ pub fn quick_score(engine: &Engine, state: &DuelState, hand_traps: &[u32]) -> f6
 /// ATK or turning your own monster face-down), so there not chaining comes
 /// first. Triggers of the same moment are put on the chain first.
 ///
-/// Answers that pick or play a card of the goal come before everything;
-/// `hold` answers come after the others that do something.
-fn dive_order(actions: &mut [Action], responding: bool, wanted: impl Fn(&Action) -> bool, hold: impl Fn(&Action) -> bool) {
+/// Answers that pick or play a card of the goal come before everything.
+fn dive_order(actions: &mut [Action], responding: bool, wanted: impl Fn(&Action) -> bool) {
     let rank = |a: &Action| match a.kind {
         _ if wanted(a) => -1,
-        _ if hold(a) => 1,
         ActionKind::Activate if responding => 2,
         ActionKind::Pass if responding => 1,
         ActionKind::EndTurn => 4,
@@ -677,9 +675,11 @@ fn cards_used(hand: &[u32], state: &DuelState) -> usize {
 }
 
 /// The cards to keep are still in the hand.
-fn keeps_hand(config: &SearchConfig, state: &DuelState) -> bool {
-    let mut hand = state.players[0].hand.clone();
-    config.keep_in_hand.iter().all(|code| match hand.iter().position(|c| c == code) {
+/// The cards to keep are still in the hand (any artwork of them).
+fn keeps_hand(engine: &Engine, config: &SearchConfig, state: &DuelState) -> bool {
+    let db = engine.cards();
+    let mut hand: Vec<u32> = state.players[0].hand.iter().map(|&c| db.canonical_code(c)).collect();
+    config.keep_in_hand.iter().all(|&code| match hand.iter().position(|&c| c == db.canonical_code(code)) {
         Some(i) => {
             hand.swap_remove(i);
             true
@@ -719,7 +719,7 @@ fn work(shared: &Shared, edge: Edge) -> Result<(), Error> {
             // The opponent's turn (or the end of the duel): the board is done.
             _ => {
                 let state = duel.state();
-                if keeps_hand(config, &state) {
+                if keeps_hand(shared.engine, config, &state) {
                     shared.record(shared.board(state, line, true), edge.confirms);
                 }
                 return Ok(());
@@ -733,7 +733,7 @@ fn work(shared: &Shared, edge: Edge) -> Result<(), Error> {
         }
         if line.choices.len() >= config.max_choices {
             // Too long: end the turn, or close what is pending as fast as possible.
-            dive_order(&mut actions, false, |_| false, |_| false);
+            dive_order(&mut actions, false, |_| false);
             let wrap_up = |a: &Action| {
                 matches!(a.kind, ActionKind::EndTurn | ActionKind::Pass | ActionKind::No | ActionKind::Cancel | ActionKind::Finish)
             };
@@ -745,21 +745,21 @@ fn work(shared: &Shared, edge: Edge) -> Result<(), Error> {
             return Ok(());
         }
         let wanted = |a: &Action| config.goal.involves(shared.engine, a);
-        // While a goal card wants the free Extra Monster Zone, other Extra
-        // Deck monsters (which would take it) are summoned last.
-        let keep_extra_zone =
-            config.goal.on_field.iter().any(|g| g.zone == GoalZone::Extra) && state.players[0].monsters[5..].iter().all(Option::is_none);
-        let hold = |a: &Action| {
-            keep_extra_zone && a.kind == ActionKind::SpecialSummon && a.card.is_some_and(|c| c.location == location::EXTRA) && !wanted(a)
-        };
         let responding = matches!(decision, Decision::SelectChain { triggers: false, .. }) && duel.open_chain() > 0;
-        dive_order(&mut actions, responding, wanted, hold);
-        // A goal card wanted in an Extra Monster Zone goes there; other
-        // monsters leave it free when they can.
+        dive_order(&mut actions, responding, wanted);
+        // A goal card wanted in a kind of zone goes there; while one wants
+        // an Extra Monster Zone, other monsters leave it free when they can
+        // (holding back the other Extra Deck summons instead would also hold
+        // back the Link monsters used as material on the way, like Artemis
+        // for Invoked Mechaba).
         if let (Decision::SelectPlace { .. }, Some(code)) = (&decision, placing) {
-            if config.goal.on_field.iter().any(|g| g.zone == GoalZone::Extra) {
+            let first = match config.goal.zone_of(shared.engine, code) {
+                Some(zone) => Some(zone == GoalZone::Extra),
+                None if config.goal.on_field.iter().any(|g| g.zone == GoalZone::Extra) => Some(false),
+                None => None,
+            };
+            if let Some(first) = first {
                 let extra = |a: &Action| matches!(*a.response.as_slice(), [0, location::MZONE, seq] if seq >= 5);
-                let first = config.goal.wants_extra_zone(shared.engine, code);
                 actions.sort_by_key(|a| extra(a) != first);
             }
         }
@@ -772,7 +772,7 @@ fn work(shared: &Shared, edge: Edge) -> Result<(), Error> {
             if let Some(i) = actions.iter().position(|a| a.kind == ActionKind::EndTurn) {
                 let end = actions.remove(i);
                 let label = italian::choice(&end);
-                if keeps_hand(config, &state) {
+                if keeps_hand(shared.engine, config, &state) {
                     let mut ended = line.clone();
                     ended.choose(end.response.clone(), label.clone());
                     let board = shared.board(state.clone(), ended, false);
@@ -929,7 +929,7 @@ fn zone_variants_of(shared: &Shared, line: &Line) -> Result<(), Error> {
                 continue;
             }
             let state = duel.state();
-            if keeps_hand(config, &state) {
+            if keeps_hand(shared.engine, config, &state) {
                 let mut variant = line.clone();
                 variant.answers[i] = other.response.clone();
                 variant.choices[k] = italian::choice(&other);
