@@ -1,4 +1,4 @@
-# DuelForge: piano di progetto (v1.5)
+# DuelForge: piano di progetto (v1.6)
 
 > Nome provvisorio. Il documento è la proposta iniziale: una volta approvate le decisioni aperte (§14) diventa la roadmap di sviluppo.
 >
@@ -11,6 +11,8 @@
 > **v0.5 (18/10/2026)**: Fase 1 realizzata; risultati nella §17.
 >
 > **v0.6 (18/10/2026)**: Fase 2, prima parte: editor dei deck in stile Master Duel; risultati nella §18.
+>
+> **v1.6 (19/10/2026)**: Fase 5C, prima parte: il turno di prova misura le board e la classifica dell'app usa il punteggio misurato, con profili e pesi; zone dei mostri (Invoked Oceanus) valutate; §26.
 >
 > **v1.5 (19/10/2026)**: ricerca 2,6 volte più veloce, obiettivo "carte sul campo" (raggiungibile o impossibile), ricerca che riprende da dove si è fermata, campo disposto come il tappeto di Master Duel; §25.
 >
@@ -891,4 +893,54 @@ Misure: dalla mano Aleister the Invoker, Magical Meltdown, Invocation, Ash Bloss
 
 ### 25.4 Il campo come in Master Duel
 La board si vede disposta come il tappeto di Master Duel: Zone Mostri Extra in alto; Zona Terreno a sinistra delle Zone Mostri, Extra Deck sotto di lei; bandite, Cimitero e Deck a destra; le Zone Magie e Trappole esterne segnate come Zone Pendulum. Cimitero, bandite ed Extra Deck mostrano la carta in cima e quante sono, e un tocco ne elenca il contenuto; sotto il campo la mano. Le etichette dei mostri mostrano livello o Link e l'ATK (la DEF se in difesa).
+
+## 26. Risultati della Fase 5C: il turno di prova e la classifica misurata (19/10/2026)
+
+### 26.1 Il turno di prova
+Le board migliori di ogni ricerca (le prime 30 diverse) vengono rigiocate e passano il turno a un avversario con un kit di carte semplici (§22.4): Pot of Greed, Reinforcement of the Army, Thunder Dragon, Foolish Burial con Glow-Up Bulb, Speedroid Terrortop, Evocazione Normale ed Evocazione Link. L'avversario prova ogni azione; il motore misura:
+- **interruzioni**: ogni tuo effetto offerto, usato da solo in una partita sua, con cosa fa (nega e bandisce, nega l'attivazione, nega l'effetto, bandisce, distrugge...), se ha un bersaglio, quante volte, e la **copertura**: quanta parte di ciò che l'avversario riesce ancora a fare può fermare;
+- **floodgate**: le azioni che funzionano con il campo vuoto e non con la tua board, senza che tu risponda;
+- **board breaker**: Dark Hole, Raigeki, Harpie's Feather Duster, Lightning Storm (due modi), Forbidden Droplet, Dark Ruler No More, Book of Eclipse, Gameciel e **un attacco** (Cyber Dragon con Limiter Removal, 4200 ATK, contro il mostro che vale di più tra quelli che può attaccare); per ognuno, quanto valore di interruzione resta, anche provando a negarlo con le tue negazioni.
+
+Ogni board si misura in 0,1–0,4 secondi; l'app ne misura più insieme, una per core.
+
+### 26.2 Effetti che si contendono le stesse risorse
+Misurati uno alla volta, due effetti possono sommarsi anche quando non si possono usare entrambi: Invoked Mechaba deve mandare al Cimitero una carta dalla mano, e quella carta può essere proprio l'handtrap già contata; con Invoked Caliga ogni giocatore attiva un solo effetto di mostro nel turno. Per questo il turno di prova li gioca anche tutti insieme, dal più forte: un effetto che il motore non offre più quando gli altri sono stati usati conta solo per le volte che si è potuto usare, e la scheda della board lo spiega ("da sola varrebbe...").
+
+### 26.3 Le zone: Invoked Oceanus
+Invoked Oceanus fa cose diverse secondo la zona: nella Zona Mostri Extra bandisce i mostri che vanno al Cimitero dell'avversario (un floodgate), in una Zona Mostri principale costringe l'avversario ad attaccare solo lui (una protezione). Il motore:
+- tiene distinte le board con Oceanus nella zona Extra o in una zona principale (non distingue invece quale delle cinque zone principali, che nel turno avversario non conta quasi mai: le board uguali a meno di questo prima erano quasi la metà);
+- per le board migliori rigioca le scelte di zona nell'altro modo, così entrambe le versioni arrivano in classifica;
+- accetta un obiettivo con la zona (`Invoked Oceanus@extra`, nell'app l'interruttore "zona Extra / principale");
+- misura floodgate e protezione nella stessa unità, il valore di interruzione: il floodgate direttamente, la protezione come valore che resta dopo l'attacco.
+
+Dalla mano Aleister the Invoker, Magical Meltdown, Invocation, Ash Blossom, Mulcharmy Fuwalos (Ash e Fuwalos restano in mano):
+
+| Invoked Mechaba + Invoked Oceanus | Oceanus in zona principale | Oceanus in zona Extra |
+|---|---|---|
+| Interruzioni dal campo (Mechaba) | 0,39 | 0,36 |
+| Interruzioni dalla mano (Ash) | 0,80 | 0,80 |
+| Floodgate | 0 | 0,60 (Foolish Burial, effetti dal Cimitero) |
+| Resta dopo l'attacco da 4200 ATK | 1,19 (attacca Oceanus, Mechaba resta) | 0,80 (Mechaba distrutto) |
+| Resilienza media | 0,90 | 0,87 |
+| **Bilanciato** | 1,65 | **2,08** |
+| **Controllo e floodgate** | 1,41 | **2,33** |
+| **A prova di board breaker** | 2,38 | **2,67** |
+
+(Totali senza risorse, follow-up e costo, uguali nelle due board.) Con tutti i profili vince Oceanus nella zona Extra; la zona principale passa davanti solo se il peso dei floodgate è vicino a zero. La protezione conta poco perché ferma un solo attacco, dopo che le giocate dell'avversario sono già avvenute; il floodgate pesa su tutto il turno.
+
+### 26.4 Nell'app
+- Finita la ricerca parte il turno di prova; la classifica passa dalla stima al **punteggio misurato**, con una barra che mostra quanto pesa ogni metrica.
+- **Profili**: Bilanciato, Più negazioni, Controllo e floodgate, A prova di board breaker, Risorse e follow-up; "Personalizza i pesi" li regola uno per uno (restano salvati). La classifica cambia subito, senza rifare la ricerca.
+- La scheda della board ha la sezione **Il punteggio**: ogni metrica con il suo peso, cosa ferma ogni effetto e quanto copre, i floodgate, cosa resta dopo ogni board breaker, risorse e follow-up.
+
+### 26.5 Correzioni alla ricerca
+- La stima rapida (che ordina la ricerca e sceglie le board da misurare) dà più valore alle **handtrap tenute in mano** (1,5 invece di 0,3): prima le linee migliori usavano Ash Blossom e Fuwalos come materiali, e le board che le tenevano non arrivavano al turno di prova.
+- Obiettivi con la zona Extra: rimandare le altre Evocazioni dall'Extra Deck rimandava anche Artemis, il materiale per Mechaba; ora si sceglie solo la zona. Mechaba + Oceanus@extra: da "non trovato in 10 s" a 0,4 s. Un mostro voluto in zona principale va in zona principale.
+- "Tieni in mano" riconosce le illustrazioni alternative (Ash Blossom 14558128).
+
+### 26.6 Limiti e prossimi passi
+- Il kit è generico: misura cosa la board ferma contro azioni tipiche, non contro un deck preciso. Un kit per matchup (le carte chiave del deck avversario) è un'estensione naturale.
+- L'attacco è uno solo: protezioni che reggono più attacchi valgono di più di quanto misurato.
+- Da fare nella 5C: frontiera di Pareto (le board che nessun'altra batte in tutte le metriche), confronto affiancato di due board, pesi imparati dalle preferenze dell'utente (Bradley-Terry), replay animato passo per passo.
 
