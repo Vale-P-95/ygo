@@ -3,22 +3,8 @@
 //! in the card data; the game terms are the Italian ones of the TCG.
 
 use crate::carddb::CardDb;
-use crate::consts::{card_type, location, phase};
+use crate::consts::{card_type, location, phase, reason};
 use crate::message::{CardRef, Event};
-
-mod reason {
-    pub const DESTROY: u32 = 0x1;
-    pub const RELEASE: u32 = 0x2;
-    pub const MATERIAL: u32 = 0x8;
-    pub const BATTLE: u32 = 0x20;
-    pub const COST: u32 = 0x80;
-    pub const DISCARD: u32 = 0x4000;
-    pub const FUSION: u32 = 0x4_0000;
-    pub const SYNCHRO: u32 = 0x8_0000;
-    pub const RITUAL: u32 = 0x10_0000;
-    pub const XYZ: u32 = 0x20_0000;
-    pub const LINK: u32 = 0x1000_0000;
-}
 
 fn who(player: u8) -> &'static str {
     if player == 0 {

@@ -623,8 +623,16 @@ struct ComboOutcome {
 
 #[derive(serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
+struct GoalCardRequest {
+    code: u32,
+    /// "any", "extra" (Extra Monster Zone) or "main".
+    zone: String,
+}
+
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
 struct ComboGoal {
-    cards: Vec<u32>,
+    cards: Vec<GoalCardRequest>,
     /// All of them (else one is enough).
     all: bool,
     /// Stop at the first board that reaches it.
@@ -723,10 +731,16 @@ fn combo_search(app: tauri::AppHandle, state: State<'_, AppState>, request: Comb
     if let Some(goal) = request.goal.filter(|g| !g.cards.is_empty()) {
         let db = engine.cards();
         let in_deck = |code: u32| list.main.iter().chain(&list.extra).any(|&c| db.canonical_code(c) == db.canonical_code(code));
-        if let Some(&missing) = goal.cards.iter().find(|&&c| !in_deck(c)) {
-            return Err(format!("{} non è nel deck: l'obiettivo è impossibile", db.name(missing)));
+        if let Some(missing) = goal.cards.iter().find(|c| !in_deck(c.code)) {
+            return Err(format!("{} non è nel deck: l'obiettivo è impossibile", db.name(missing.code)));
         }
-        config.goal = ygo_solver::Goal { on_field: goal.cards, all: goal.all, first_only: goal.first };
+        let zone = |z: &str| match z {
+            "extra" => ygo_solver::GoalZone::Extra,
+            "main" => ygo_solver::GoalZone::Main,
+            _ => ygo_solver::GoalZone::Any,
+        };
+        let on_field = goal.cards.iter().map(|c| ygo_solver::GoalCard { code: c.code, zone: zone(&c.zone) }).collect();
+        config.goal = ygo_solver::Goal { on_field, all: goal.all, first_only: goal.first };
     }
     let (hands, keep) = match request.card {
         Some(card) if request.hand.is_empty() => {

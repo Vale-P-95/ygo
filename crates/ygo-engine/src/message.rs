@@ -129,6 +129,9 @@ pub enum Decision {
     SelectChain {
         player: u8,
         forced: bool,
+        /// The window that puts simultaneous trigger effects on a chain
+        /// (not a chance to respond with quick effects).
+        triggers: bool,
         chains: Vec<Activatable>,
     },
     SelectPlace {
@@ -470,11 +473,12 @@ fn parse_decision(kind: u8, r: &mut Reader, hint: u64) -> Option<Decision> {
             Decision::SelectUnselectCard { player, finishable, cancelable, min, max, selectable, unselectable, hint }
         }
         msg::SELECT_CHAIN => {
-            let _spe_count = r.u8()?;
+            // The engine marks the trigger windows with this count.
+            let triggers = r.u8()? == 0x7f;
             let forced = r.u8()? != 0;
             let _hint_timing = (r.u32()?, r.u32()?);
             let n = r.u32()?;
-            Decision::SelectChain { player, forced, chains: activatables(r, n, false)? }
+            Decision::SelectChain { player, forced, triggers, chains: activatables(r, n, false)? }
         }
         msg::SELECT_PLACE | msg::SELECT_DISFIELD => {
             Decision::SelectPlace { player, count: r.u8()?, blocked: r.u32()?, disable_field: kind == msg::SELECT_DISFIELD }

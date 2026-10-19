@@ -393,8 +393,16 @@ export interface ComboOutcome {
   complete: boolean;
 }
 
+/** Where a monster of the goal must be. */
+export type GoalZone = "any" | "extra" | "main";
+
+export interface GoalCard {
+  code: number;
+  zone: GoalZone;
+}
+
 export interface ComboGoal {
-  cards: number[];
+  cards: GoalCard[];
   /** All of them (else one is enough). */
   all: boolean;
   /** Stop at the first board that reaches it. */

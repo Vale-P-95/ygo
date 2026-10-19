@@ -5,7 +5,7 @@ import { CardPreview } from "../components/CardPreview";
 import { CardTile } from "../components/CardTile";
 import { DeckMenu } from "../components/DeckMenu";
 import { SectionHeader } from "../components/SectionHeader";
-import { api, type ComboBoard, type ComboGoal, type ComboHand, type ComboStep, type Deck, type DeckSummary, type ZoneCard } from "../lib/api";
+import { api, type ComboBoard, type ComboGoal, type ComboHand, type ComboStep, type GoalCard, type GoalZone, type Deck, type DeckSummary, type ZoneCard } from "../lib/api";
 import { useCardCache } from "../lib/cards";
 import { continueCombo, startCombo, stopCombo, useCombo } from "../lib/combo";
 import { lastDeck, rememberDeck } from "../lib/deck";
@@ -25,7 +25,7 @@ interface Setup {
   /** Cards the engine must not use. */
   forbid: number[];
   /** Cards wanted on the field at the end (the goal), all or one of them. */
-  goal: number[];
+  goal: GoalCard[];
   goalAll: boolean;
   /** Stop at the first line that reaches the goal. */
   goalFirst: boolean;
@@ -70,11 +70,27 @@ function store(key: string, value: unknown) {
 
 const boardId = (b: ComboBoard) => `${b.hand}:${b.key}`;
 
-/** What the player sees of a board: the field and the hand (the piles may differ). */
+const ZONES: { zone: GoalZone; label: string; hint: string }[] = [
+  { zone: "any", label: "ovunque", hint: "in qualsiasi zona" },
+  { zone: "extra", label: "Zona Extra", hint: "nella Zona Mostri Extra" },
+  { zone: "main", label: "zona principale", hint: "in una Zona Mostri principale" },
+];
+
+/** A goal as saved before zones existed (plain codes) still loads. */
+function goalCards(saved: unknown): GoalCard[] {
+  if (!Array.isArray(saved)) return [];
+  return saved.map((g) => (typeof g === "number" ? { code: g, zone: "any" as GoalZone } : (g as GoalCard)));
+}
+
+/**
+ * What the player sees of a board: the field (with the Extra Monster Zone
+ * apart, since some monsters work differently there) and the hand; the
+ * piles and the main zones may differ.
+ */
 function lookKey(b: ComboBoard): string {
-  const zone = (z: ZoneCard | null) => (z ? `${z.code}${z.faceUp ? "u" : "d"}${z.defense ? "d" : "a"}${z.overlay.length}` : "");
+  const zone = (z: ZoneCard | null, i: number) => (z ? `${i >= 5 ? "E" : ""}${z.code}${z.faceUp ? "u" : "d"}${z.defense ? "d" : "a"}${z.overlay.length}` : "");
   const sorted = (list: string[]) => list.filter(Boolean).sort().join(",");
-  return [b.hand, sorted(b.monsters.map(zone)), sorted(b.spells.slice(0, 6).map(zone)), sorted(b.handCards.map(String))].join("|");
+  return [b.hand, sorted(b.monsters.map(zone)), sorted(b.spells.slice(0, 6).map((z) => zone(z, 0))), sorted(b.handCards.map(String))].join("|");
 }
 
 const byRank = (a: ComboBoard, b: ComboBoard) => b.goalHits - a.goalHits || b.quickScore - a.quickScore || a.cardsUsed - b.cardsUsed || a.choices - b.choices;
@@ -126,7 +142,7 @@ function GoalBanner(props: {
   onShow: (b: ComboBoard) => void;
 }) {
   const { goal, running, byCard, groups, hands, elapsedMs, name, onShow } = props;
-  const names = goal.cards.map(name);
+  const names = goal.cards.map((g) => `${name(g.code)}${g.zone === "extra" ? " (Zona Extra)" : g.zone === "main" ? " (zona principale)" : ""}`);
   const wanted = names.length === 1 ? names[0] : goal.all ? names.join(" + ") : `una tra ${names.join(", ")}`;
   const best = groups.map((g) => g.board).find((b) => reaches(b, goal));
   let tone = "border-border";
@@ -208,7 +224,8 @@ export function Combo({ artReady, onGoForge }: { artReady: boolean; onGoForge: (
       if (!d) return;
       rememberDeck(id);
       setDeck(d);
-      setSetupState(load(`duelforge.combo.${id}`, NO_SETUP));
+      const saved = load(`duelforge.combo.${id}`, NO_SETUP);
+      setSetupState({ ...saved, goal: goalCards(saved.goal) });
       setPicker(null);
       request([...new Set([...d.main, ...d.extra])]);
     },
@@ -345,9 +362,9 @@ export function Combo({ artReady, onGoForge }: { artReady: boolean; onGoForge: (
 
   const addToGoal = (id: number) => {
     const max = (deck?.main.filter((c) => c === id).length ?? 0) + (deck?.extra.filter((c) => c === id).length ?? 0);
-    if (setup.goal.filter((c) => c === id).length >= max || setup.goal.length >= 5) return sound.play("error");
+    if (setup.goal.filter((g) => g.code === id).length >= max || setup.goal.length >= 5) return sound.play("error");
     sound.play("select");
-    setSetup((s) => ({ ...s, goal: [...s.goal, id] }));
+    setSetup((s) => ({ ...s, goal: [...s.goal, { code: id, zone: "any" }] }));
   };
 
   const addToHand = (id: number) => {
@@ -525,10 +542,24 @@ export function Combo({ artReady, onGoForge }: { artReady: boolean; onGoForge: (
               <p className="text-[11px] leading-relaxed text-faint">Carte da avere sul campo a fine turno: il motore cerca la linea che ci arriva, o prova che non esiste.</p>
               {setup.goal.length > 0 && (
                 <div className="flex flex-wrap gap-1.5">
-                  {setup.goal.map((id, i) => (
+                  {setup.goal.map(({ code: id, zone }, i) => (
                     <span key={i} className="chip !py-0.5 !pl-1 text-xs" onPointerEnter={(e) => onHover(id, e.currentTarget)} onPointerLeave={onHoverEnd}>
                       <CardImage code={id} card={cards.get(id)} className="h-[22px] w-[15px]" />
-                      <span className="max-w-36 truncate">{name(id)}</span>
+                      <span className="max-w-32 truncate">{name(id)}</span>
+                      {extraUnique.includes(id) && (
+                        <button
+                          type="button"
+                          className={`rounded px-1 text-[10px] font-semibold ${zone === "any" ? "text-faint hover:text-text" : "bg-sec text-bg"}`}
+                          title={`Sul campo ${ZONES.find((z) => z.zone === zone)?.hint}: tocca per cambiare`}
+                          onClick={() => {
+                            sound.play("toggle");
+                            const next = ZONES[(ZONES.findIndex((z) => z.zone === zone) + 1) % ZONES.length].zone;
+                            setSetup((s) => ({ ...s, goal: s.goal.map((g, j) => (j === i ? { ...g, zone: next } : g)) }));
+                          }}
+                        >
+                          {ZONES.find((z) => z.zone === zone)?.label}
+                        </button>
+                      )}
                       <button
                         type="button"
                         aria-label={`Togli ${name(id)} dall'obiettivo`}

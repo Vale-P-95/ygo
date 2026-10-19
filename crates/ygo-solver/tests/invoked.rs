@@ -66,7 +66,7 @@ fn a_goal_is_reached_or_proved_impossible() {
     let engine = Engine::load(&data).expect("game data loads");
     let deck = DeckList::from_ydk(&std::fs::read_to_string(root.join("tests/fixtures/decks/invoked-siracusa-md.ydk")).unwrap()).unwrap();
     let mechaba = engine.cards().find_by_name("Invoked Mechaba").expect("Mechaba").code;
-    let goal = Goal { on_field: vec![mechaba], all: true, first_only: true };
+    let goal = Goal::cards(&[mechaba], true, true);
 
     // From the Invoked hand the goal leads the search to Mechaba at once.
     let mut config = SearchConfig::new(deck.clone(), vec![ALEISTER, CHALICE, MELTDOWN, ASH, FUWALOS]);

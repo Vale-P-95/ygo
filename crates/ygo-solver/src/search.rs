@@ -48,6 +48,8 @@ pub struct SearchConfig {
     pub live_top: usize,
     /// Provisional boards played to the end of the turn when the search stops.
     pub confirm_top: usize,
+    /// Best boards whose zone choices are tried the other ways at the end.
+    pub zone_top: usize,
 }
 
 impl SearchConfig {
@@ -65,16 +67,36 @@ impl SearchConfig {
             policy: AutoPolicy::default(),
             live_top: 10,
             confirm_top: 40,
+            zone_top: 20,
         }
     }
+}
+
+/// Where a monster of the goal must be.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum GoalZone {
+    #[default]
+    Any,
+    /// An Extra Monster Zone (some monsters work differently there, like
+    /// Invoked Oceanus).
+    Extra,
+    /// A Main Monster Zone.
+    Main,
+}
+
+/// A card wanted on the field, and where.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct GoalCard {
+    pub code: u32,
+    pub zone: GoalZone,
 }
 
 /// Cards wanted on your field at the end of the turn. The search favours
 /// the lines that bring them, and ranks the boards that have them first.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Goal {
-    /// A code listed twice wants two copies.
-    pub on_field: Vec<u32>,
+    /// A card listed twice wants two copies.
+    pub on_field: Vec<GoalCard>,
     /// All of them; otherwise at least one.
     pub all: bool,
     /// Stop at the first board that reaches the goal.
@@ -86,22 +108,46 @@ impl Goal {
         !self.on_field.is_empty()
     }
 
-    /// How many of the wanted cards are on your field (alternate artworks count).
+    /// Any zone for each of `codes`.
+    pub fn cards(codes: &[u32], all: bool, first_only: bool) -> Goal {
+        Goal { on_field: codes.iter().map(|&code| GoalCard { code, zone: GoalZone::Any }).collect(), all, first_only }
+    }
+
+    /// How many of the wanted cards are on your field, in their zone
+    /// (alternate artworks count).
     pub fn hits(&self, engine: &Engine, state: &DuelState) -> usize {
         if !self.is_set() {
             return 0;
         }
         let db = engine.cards();
         let me = &state.players[0];
-        let mut field: Vec<u32> = me.monsters.iter().chain(&me.spells).flatten().map(|c| db.canonical_code(c.code)).collect();
+        // (code, zone kind): Main Monster Zones 0-4, Extra 5-6, others.
+        let mut field: Vec<(u32, GoalZone)> = me
+            .monsters
+            .iter()
+            .enumerate()
+            .filter_map(|(i, c)| {
+                c.as_ref()
+                    .filter(|c| c.is_face_up())
+                    .map(|c| (db.canonical_code(c.code), if i >= 5 { GoalZone::Extra } else { GoalZone::Main }))
+            })
+            .chain(me.spells.iter().flatten().map(|c| (db.canonical_code(c.code), GoalZone::Any)))
+            .collect();
         let mut hits = 0;
-        for &code in &self.on_field {
-            if let Some(i) = field.iter().position(|&c| c == db.canonical_code(code)) {
+        for wanted in &self.on_field {
+            let code = db.canonical_code(wanted.code);
+            if let Some(i) = field.iter().position(|&(c, z)| c == code && (wanted.zone == GoalZone::Any || wanted.zone == z)) {
                 field.swap_remove(i);
                 hits += 1;
             }
         }
         hits
+    }
+
+    /// The goal wants this card in an Extra Monster Zone.
+    fn wants_extra_zone(&self, engine: &Engine, code: u32) -> bool {
+        let db = engine.cards();
+        self.on_field.iter().any(|g| g.zone == GoalZone::Extra && db.canonical_code(g.code) == db.canonical_code(code))
     }
 
     pub fn reached(&self, hits: usize) -> bool {
@@ -112,7 +158,7 @@ impl Goal {
     /// choosing it in a list such as the Fusion Monsters offered).
     fn involves(&self, engine: &Engine, action: &Action) -> bool {
         let db = engine.cards();
-        action.card.is_some_and(|c| self.on_field.iter().any(|&g| db.canonical_code(g) == db.canonical_code(c.code)))
+        action.card.is_some_and(|c| self.on_field.iter().any(|g| db.canonical_code(g.code) == db.canonical_code(c.code)))
     }
 }
 
@@ -148,7 +194,7 @@ impl Line {
 /// A board reached at the end of the turn, with the best line found to it.
 #[derive(Debug, Clone)]
 pub struct Board {
-    /// Identity of the board (same cards in the same places).
+    /// Identity of the board (same cards in the same zones, up to a mirror image).
     pub key: u64,
     pub line: Line,
     /// The duel when the opponent's turn begins; for a provisional board,
@@ -491,25 +537,26 @@ fn node_key(state: &DuelState, decision: &Decision) -> u64 {
     h.finish()
 }
 
-/// Identity of an end board as a player sees it: the same cards on the
-/// field (face-up or not, with their materials and counters), in the hand,
-/// in the Graveyard, banished and in the Extra Deck, whatever the zones.
+/// Identity of an end board: the same cards in the same zones (a mirror
+/// image counts as the same board), with the same materials and counters,
+/// and the same hand, Graveyard, banished cards and Extra Deck. Zones are
+/// part of it: a monster can do something else in the Extra Monster Zone
+/// (Invoked Oceanus banishes instead of sending to the GY only there), and
+/// Link arrows point to some zones only.
 fn board_key(state: &DuelState) -> u64 {
+    board_hash(state).min(board_hash(&state.mirrored()))
+}
+
+fn board_hash(state: &DuelState) -> u64 {
     let mut h = DefaultHasher::new();
     for p in &state.players {
-        let mut field: Vec<_> = p
-            .monsters
-            .iter()
-            .chain(&p.spells)
-            .flatten()
-            .map(|c| {
-                let mut overlay = c.overlay.clone();
-                overlay.sort_unstable();
-                (c.code, c.is_face_up(), c.position & 0xc != 0, overlay, c.counters.clone())
-            })
-            .collect();
-        field.sort();
-        field.hash(&mut h);
+        let zones = p.monsters.iter().enumerate().chain(p.spells.iter().enumerate().map(|(i, c)| (10 + i, c)));
+        for (zone, c) in zones {
+            let Some(c) = c else { continue };
+            let mut overlay = c.overlay.clone();
+            overlay.sort_unstable();
+            (zone, c.code, c.is_face_up(), c.position & 0xc != 0, c.link.1, overlay, &c.counters).hash(&mut h);
+        }
         for pile in [&p.hand, &p.grave] {
             let mut v = pile.clone();
             v.sort_unstable();
@@ -533,7 +580,12 @@ pub fn quick_score(engine: &Engine, state: &DuelState) -> f64 {
     let mut score = 0.0;
     for c in me.monsters.iter().flatten() {
         let extra = engine.cards().get(c.code).is_some_and(|d| d.type_ & card_type::EXTRA != 0);
-        score += if extra { 2.0 } else { 1.0 };
+        // A face-down monster applies no effect (a set Extra Deck monster almost never flips).
+        score += match (extra, c.is_face_up()) {
+            (true, true) => 2.0,
+            (true, false) => 0.3,
+            (false, _) => 1.0,
+        };
     }
     for c in me.spells.iter().flatten() {
         let type_ = engine.cards().get(c.code).map_or(0, |d| d.type_);
@@ -556,17 +608,18 @@ pub fn quick_score(engine: &Engine, state: &DuelState) -> f64 {
 /// the turn, and Sets (which give up a Normal Summon or a card's use this
 /// turn) after the rest.
 ///
-/// When responding to your own chain, effects of cards on the field or in
-/// the Graveyard (often other triggers of the same moment) still come
-/// first, but effects from the hand come after not chaining: they mostly
-/// spend a card for little, like discarding one for ATK.
+/// Responding to your own chain with quick effects is rarely what a combo
+/// needs (it spends a card or an effect for little, like discarding one for
+/// ATK or turning your own monster face-down), so there not chaining comes
+/// first. Triggers of the same moment are put on the chain first.
 ///
-/// Answers that pick or play a card of the goal come before everything.
-fn dive_order(actions: &mut [Action], responding: bool, wanted: impl Fn(&Action) -> bool) {
-    let in_hand = |a: &Action| a.card.is_some_and(|c| c.location == location::HAND);
+/// Answers that pick or play a card of the goal come before everything;
+/// `hold` answers come after the others that do something.
+fn dive_order(actions: &mut [Action], responding: bool, wanted: impl Fn(&Action) -> bool, hold: impl Fn(&Action) -> bool) {
     let rank = |a: &Action| match a.kind {
         _ if wanted(a) => -1,
-        ActionKind::Activate if responding && in_hand(a) => 2,
+        _ if hold(a) => 1,
+        ActionKind::Activate if responding => 2,
         ActionKind::Pass if responding => 1,
         ActionKind::EndTurn => 4,
         ActionKind::Pass | ActionKind::No | ActionKind::Cancel | ActionKind::Finish => 3,
@@ -617,6 +670,9 @@ fn work(shared: &Shared, edge: Edge) -> Result<(), Error> {
         duel.respond(&answer);
         line.choose(answer, label);
     }
+    // The card last taken from the Extra Deck: the one a Monster Zone is
+    // asked for next (only those go to the Extra Monster Zone).
+    let mut placing: Option<u32> = None;
     loop {
         if shared.halted() {
             return Ok(());
@@ -642,7 +698,7 @@ fn work(shared: &Shared, edge: Edge) -> Result<(), Error> {
         }
         if line.choices.len() >= config.max_choices {
             // Too long: end the turn, or close what is pending as fast as possible.
-            dive_order(&mut actions, false, |_| false);
+            dive_order(&mut actions, false, |_| false, |_| false);
             let wrap_up = |a: &Action| {
                 matches!(a.kind, ActionKind::EndTurn | ActionKind::Pass | ActionKind::No | ActionKind::Cancel | ActionKind::Finish)
             };
@@ -654,7 +710,24 @@ fn work(shared: &Shared, edge: Edge) -> Result<(), Error> {
             return Ok(());
         }
         let wanted = |a: &Action| config.goal.involves(shared.engine, a);
-        dive_order(&mut actions, matches!(decision, Decision::SelectChain { .. }) && duel.open_chain() > 0, wanted);
+        // While a goal card wants the free Extra Monster Zone, other Extra
+        // Deck monsters (which would take it) are summoned last.
+        let keep_extra_zone =
+            config.goal.on_field.iter().any(|g| g.zone == GoalZone::Extra) && state.players[0].monsters[5..].iter().all(Option::is_none);
+        let hold = |a: &Action| {
+            keep_extra_zone && a.kind == ActionKind::SpecialSummon && a.card.is_some_and(|c| c.location == location::EXTRA) && !wanted(a)
+        };
+        let responding = matches!(decision, Decision::SelectChain { triggers: false, .. }) && duel.open_chain() > 0;
+        dive_order(&mut actions, responding, wanted, hold);
+        // A goal card wanted in an Extra Monster Zone goes there; other
+        // monsters leave it free when they can.
+        if let (Decision::SelectPlace { .. }, Some(code)) = (&decision, placing) {
+            if config.goal.on_field.iter().any(|g| g.zone == GoalZone::Extra) {
+                let extra = |a: &Action| matches!(*a.response.as_slice(), [0, location::MZONE, seq] if seq >= 5);
+                let first = config.goal.wants_extra_zone(shared.engine, code);
+                actions.sort_by_key(|a| extra(a) != first);
+            }
+        }
         let goal = 3.0 * config.goal.hits(shared.engine, &state) as f64;
         let priority = quick_score(shared.engine, &state) + 0.3 * line.choices.len() as f64 + goal;
         let prefix = Arc::new(line.clone());
@@ -684,6 +757,9 @@ fn work(shared: &Shared, edge: Edge) -> Result<(), Error> {
         }));
         shared.push(rest);
         let first = &actions[0];
+        if let Some(c) = first.card.filter(|c| c.location == location::EXTRA) {
+            placing = Some(c.code);
+        }
         duel.respond(&first.response);
         line.choose(first.response.clone(), italian::choice(first));
     }
@@ -752,6 +828,83 @@ fn confirm_best(shared: &Shared) {
     shared.confirming.store(false, Ordering::Relaxed);
 }
 
+/// Boards that differ only by the zone a monster was put in can do
+/// different things: Invoked Oceanus banishes what goes to the opponent's
+/// GY only from the Extra Monster Zone. The search may not get back to such
+/// a choice in time, so for the best boards each zone choice of the line is
+/// played the other ways (Extra Monster Zone or not, pointed by a Link
+/// arrow or not), keeping the rest of the line.
+fn zone_variants(shared: &Shared) {
+    let mut best: Vec<Board> = shared.boards.lock().map(|b| b.values().filter(|b| b.exact).cloned().collect()).unwrap_or_default();
+    best.sort_by(rank);
+    best.truncate(shared.config.zone_top);
+    let next = AtomicU64::new(0);
+    std::thread::scope(|s| {
+        for _ in 0..shared.config.threads.max(1) {
+            s.spawn(|| loop {
+                let i = next.fetch_add(1, Ordering::Relaxed) as usize;
+                let Some(board) = best.get(i) else { break };
+                if shared.cancel.load(Ordering::Relaxed) {
+                    break;
+                }
+                let _ = zone_variants_of(shared, &board.line);
+            });
+        }
+    });
+}
+
+fn zone_variants_of(shared: &Shared, line: &Line) -> Result<(), Error> {
+    let config = shared.config;
+    // The zone choices of the line that had other kinds of zones.
+    let mut spots = Vec::new();
+    let mut duel = Duel::goldfish(shared.engine, &config.deck, &config.hand, config.seed)?;
+    for (i, answer) in line.answers.iter().enumerate() {
+        let Step::Decision { decision, .. } = duel.advance()? else { break };
+        if let Decision::SelectPlace { player: 0, count: 1, .. } = decision {
+            if let Some(k) = line.choice_at.iter().position(|&at| at == i) {
+                let kinds = ygo_engine::auto::distinct_zones(&duel.state(), 0, duel.actions(&decision));
+                let others: Vec<Action> = kinds.into_iter().filter(|a| a.response != *answer).collect();
+                if !others.is_empty() {
+                    spots.push((i, k, others));
+                }
+            }
+        }
+        duel.respond(answer);
+    }
+    if std::env::var_os("DUELFORGE_DEBUG_SEARCH").is_some() {
+        eprintln!("zone variants: {} spots in a line of {} choices", spots.len(), line.choices.len());
+    }
+    for (i, k, others) in spots {
+        for other in others {
+            let mut duel = Duel::goldfish(shared.engine, &config.deck, &config.hand, config.seed)?;
+            let mut played = true;
+            for (j, answer) in line.answers.iter().enumerate() {
+                if !matches!(duel.advance(), Ok(Step::Decision { .. })) {
+                    played = false;
+                    break;
+                }
+                duel.respond(if j == i { &other.response } else { answer });
+            }
+            // The rest of the line must still play and end the turn.
+            let ended = played && matches!(duel.advance(), Ok(Step::End { .. }));
+            if std::env::var_os("DUELFORGE_DEBUG_SEARCH").is_some() {
+                eprintln!("  {} -> {}", other.label, if ended { "ok" } else { "the rest of the line does not play" });
+            }
+            if !ended {
+                continue;
+            }
+            let state = duel.state();
+            if keeps_hand(config, &state) {
+                let mut variant = line.clone();
+                variant.answers[i] = other.response.clone();
+                variant.choices[k] = italian::choice(&other);
+                shared.record(shared.board(state, variant, true), None);
+            }
+        }
+    }
+    Ok(())
+}
+
 /// Runs the search on `config.threads` threads. `progress` is called about
 /// four times a second from the calling thread.
 pub fn search(engine: &Engine, config: &SearchConfig, cancel: &AtomicBool, progress: impl FnMut(&Progress)) -> SearchResult {
@@ -794,6 +947,7 @@ pub fn resume(
     let mut stop = shared.stop.lock().ok().and_then(|s| *s).unwrap_or(Stop::Exhausted);
     if stop != Stop::Cancelled {
         confirm_best(&shared);
+        zone_variants(&shared);
     }
     let final_progress = shared.progress();
     progress(&final_progress);

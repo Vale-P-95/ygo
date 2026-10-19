@@ -104,7 +104,8 @@ enum Cmd {
         /// Hands to try with `--card`.
         #[arg(long, default_value_t = 12)]
         hands: usize,
-        /// Goal: cards wanted on the field at the end (semicolon-separated).
+        /// Goal: cards wanted on the field at the end (semicolon-separated;
+        /// "Name@extra" or "Name@main" for a monster's zone).
         #[arg(long, default_value = "")]
         goal: String,
         /// The goal needs only one of its cards.
@@ -113,6 +114,9 @@ enum Cmd {
         /// Stop at the first board that reaches the goal.
         #[arg(long)]
         first: bool,
+        /// Put the best boards listed to the probe turn and print what it measures.
+        #[arg(long)]
+        probe: bool,
     },
     /// Random duels between random decks; fails on unanswerable or rejected decisions.
     Sweep {
@@ -156,11 +160,27 @@ fn main() -> Result<()> {
         Cmd::Search { query, limit } => search(&cli.data, &query, limit),
         Cmd::Play { setup, steps, verbose } => play(&cli.data, &setup, steps.as_deref(), verbose),
         Cmd::Bench { setup, playouts, max_decisions } => bench(&cli.data, &setup, playouts, max_decisions),
-        Cmd::Combos { setup, seconds, threads, top, lines, use_handtraps, forbid, keep, card, hands, goal, goal_any, first } => combos(
-            &cli.data,
-            &setup,
-            CombosOptions { seconds, threads, top, show_lines: lines, use_handtraps, forbid, keep, card, hands, goal, goal_any, first },
-        ),
+        Cmd::Combos { setup, seconds, threads, top, lines, use_handtraps, forbid, keep, card, hands, goal, goal_any, first, probe } => {
+            combos(
+                &cli.data,
+                &setup,
+                CombosOptions {
+                    seconds,
+                    threads,
+                    top,
+                    show_lines: lines,
+                    use_handtraps,
+                    forbid,
+                    keep,
+                    card,
+                    hands,
+                    goal,
+                    goal_any,
+                    first,
+                    probe,
+                },
+            )
+        }
         Cmd::Sweep { duels, max_decisions, max_turns, seed, threads, script_errors } => {
             let threads = threads.unwrap_or_else(|| std::thread::available_parallelism().map_or(4, |n| n.get()));
             sweep(&cli.data, &SweepConfig { duels, max_decisions, max_turns, seed, threads }, script_errors)
@@ -181,10 +201,12 @@ struct CombosOptions {
     goal: String,
     goal_any: bool,
     first: bool,
+    probe: bool,
 }
 
 fn combos(dir: &Path, setup: &Setup, options: CombosOptions) -> Result<()> {
-    let CombosOptions { seconds, threads, top, show_lines, use_handtraps, forbid, keep, card, hands, goal, goal_any, first } = options;
+    let CombosOptions { seconds, threads, top, show_lines, use_handtraps, forbid, keep, card, hands, goal, goal_any, first, probe } =
+        options;
     let (engine, deck, hand) = start(dir, setup)?;
     let mut config = ygo_solver::SearchConfig::new(deck, hand);
     config.seed = setup.seed;
@@ -198,7 +220,18 @@ fn combos(dir: &Path, setup: &Setup, options: CombosOptions) -> Result<()> {
     }
     config.policy.forbid = resolve_hand(&engine, &forbid)?;
     config.keep_in_hand = resolve_hand(&engine, &keep)?;
-    config.goal = ygo_solver::Goal { on_field: resolve_hand(&engine, &goal)?, all: !goal_any, first_only: first };
+    // "Name@extra" or "Name@main" asks for a Monster Zone.
+    let mut on_field = Vec::new();
+    for item in goal.split(';').map(str::trim).filter(|s| !s.is_empty()) {
+        let (name, zone) = match item.rsplit_once('@') {
+            Some((name, "extra")) => (name, ygo_solver::GoalZone::Extra),
+            Some((name, "main")) => (name, ygo_solver::GoalZone::Main),
+            _ => (item, ygo_solver::GoalZone::Any),
+        };
+        let code = *resolve_hand(&engine, name)?.first().context("empty goal card")?;
+        on_field.push(ygo_solver::GoalCard { code, zone });
+    }
+    config.goal = ygo_solver::Goal { on_field, all: !goal_any, first_only: first };
     let goal_status = |reached: Option<bool>| match reached {
         Some(true) => "reached",
         Some(false) => "impossible: no line reaches it",
@@ -264,9 +297,25 @@ fn combos(dir: &Path, setup: &Setup, options: CombosOptions) -> Result<()> {
         result.interrupted
     );
     let db = engine.cards();
+    let kit = ygo_solver::Kit::standard(&engine);
+    let mut prober = ygo_solver::Prober::new(&engine, &config.deck, &config.hand, config.seed, &kit);
     for (i, board) in result.boards.iter().take(top).enumerate() {
         let me = &board.state.players[0];
-        let field: Vec<String> = me.monsters.iter().chain(&me.spells).flatten().map(|c| db.name(c.code)).collect();
+        let zone = |(z, c): (usize, &ygo_engine::FieldCard)| {
+            if (5..=6).contains(&z) {
+                format!("{} [EMZ]", db.name(c.code))
+            } else {
+                db.name(c.code)
+            }
+        };
+        let field: Vec<String> = me
+            .monsters
+            .iter()
+            .enumerate()
+            .filter_map(|(z, c)| c.as_ref().map(|c| (z, c)))
+            .map(zone)
+            .chain(me.spells.iter().flatten().map(|c| db.name(c.code)))
+            .collect();
         let hand: Vec<String> = me.hand.iter().map(|&c| db.name(c)).collect();
         println!(
             "\n#{}{} score {:.1} · {} cards used · {} choices · found at {:.1} s\n   field: {}\n   hand: {}",
@@ -279,6 +328,13 @@ fn combos(dir: &Path, setup: &Setup, options: CombosOptions) -> Result<()> {
             field.join(", "),
             hand.join(", ")
         );
+        if probe {
+            let started = std::time::Instant::now();
+            match prober.measure(&board.line) {
+                Ok(m) => print_measure(&engine, &m, started.elapsed()),
+                Err(e) => println!("   probe turn failed: {e}"),
+            }
+        }
         if show_lines {
             let (_, steps) = ygo_solver::explain(&engine, &config.deck, &config.hand, config.seed, &board.line)?;
             for (k, step) in steps.iter().enumerate() {
@@ -292,6 +348,45 @@ fn combos(dir: &Path, setup: &Setup, options: CombosOptions) -> Result<()> {
         }
     }
     Ok(())
+}
+
+fn print_measure(engine: &Engine, m: &ygo_solver::Measure, took: std::time::Duration) {
+    let db = engine.cards();
+    println!(
+        "   probe turn ({:.1} s): field {:.2} · hand {:.2} · floodgates {:.2} · resilience {:.2}",
+        took.as_secs_f64(),
+        m.field_value,
+        m.hand_value,
+        m.floodgate_value,
+        m.resilience
+    );
+    for i in &m.interruptions {
+        let covers: Vec<&str> = i.covers.iter().map(|p| p.label()).collect();
+        println!(
+            "     {} ({}): {}{} ×{} · coverage {:.0}% · {:.2}  [{}]",
+            db.name(i.responder.code),
+            ygo_engine::consts::location::name(i.location),
+            i.effect.label(),
+            if i.targeted { ", with a target" } else { "" },
+            i.uses,
+            i.coverage * 100.0,
+            i.value,
+            covers.join(", ")
+        );
+    }
+    for p in &m.floodgates {
+        println!("     floodgate: the opponent cannot {}", p.label());
+    }
+    for b in &m.breakers {
+        let how = if b.not_applicable {
+            "not applicable".to_owned()
+        } else if let Some(r) = b.stopped_by {
+            format!("negated by {} · {:.2} left", db.name(r.code), b.remaining)
+        } else {
+            format!("{:.2} left", b.remaining)
+        };
+        println!("     {}: {how}", b.name);
+    }
 }
 
 fn total_weight(results: &[ygo_solver::HandResult]) -> f64 {

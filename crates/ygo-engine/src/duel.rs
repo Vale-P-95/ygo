@@ -147,6 +147,16 @@ pub struct Duel {
     activity: TurnActivity,
     /// Links of the chain being built (0 once it starts to resolve).
     open_chain: usize,
+    /// The duel ends ([`Step::End`]) as soon as a later turn begins.
+    last_turn: Option<u32>,
+}
+
+/// The opponent's cards in [`Duel::goldfish_vs`].
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Opponent {
+    pub hand: Vec<u32>,
+    pub deck: Vec<u32>,
+    pub extra: Vec<u32>,
 }
 
 // Each duel is a self-contained engine instance (its own Lua state); the
@@ -194,6 +204,7 @@ impl Duel {
             phase: 0,
             activity: TurnActivity::default(),
             open_chain: 0,
+            last_turn: None,
         };
         for base in ["constant.lua", "utility.lua"] {
             if !duel.load_script(base) {
@@ -205,8 +216,25 @@ impl Duel {
 
     /// Creates a duel for solitaire testing ("goldfishing"): player 0 starts
     /// with exactly `hand` and the rest of `deck` in a seeded random order;
-    /// the opponent has no cards and answers any prompt automatically.
+    /// the opponent has no cards and answers any prompt automatically. The
+    /// duel ends when the opponent's turn begins: the state then is the
+    /// board you pass with (not after your next draw).
     pub fn goldfish(engine: &Engine, deck: &DeckList, hand: &[u32], seed: u64) -> Result<Self, Error> {
+        let mut duel = Self::solitaire(engine, deck, hand, seed, None)?;
+        duel.last_turn = Some(1);
+        Ok(duel)
+    }
+
+    /// Like [`Duel::goldfish`], with the same Deck order and random numbers
+    /// (so the same answers play the same turn), but the opponent has
+    /// `opponent`'s cards and its decisions are asked like yours. The
+    /// opponent's cards are dealt in the order given: the last card of its
+    /// Deck is drawn first.
+    pub fn goldfish_vs(engine: &Engine, deck: &DeckList, hand: &[u32], seed: u64, opponent: &Opponent) -> Result<Self, Error> {
+        Self::solitaire(engine, deck, hand, seed, Some(opponent))
+    }
+
+    fn solitaire(engine: &Engine, deck: &DeckList, hand: &[u32], seed: u64, opponent: Option<&Opponent>) -> Result<Self, Error> {
         let mut main = deck.main.clone();
         let mut hand_codes = Vec::with_capacity(hand.len());
         for &code in hand {
@@ -221,7 +249,7 @@ impl Duel {
         shuffle(&mut main, seed);
         let config = DuelConfig {
             seed: [seed ^ 0x9e37_79b9_7f4a_7c15, seed.rotate_left(17) | 1, 0xdead_beef, 0x1234_5678],
-            flags: duel_flags::MODE_MR5 | duel_flags::PSEUDO_SHUFFLE | duel_flags::SIMPLE_AI,
+            flags: duel_flags::MODE_MR5 | duel_flags::PSEUDO_SHUFFLE | if opponent.is_none() { duel_flags::SIMPLE_AI } else { 0 },
             starting_lp: 8000,
         };
         let mut duel = Duel::new(engine, &config)?;
@@ -234,8 +262,21 @@ impl Duel {
         for (i, &code) in hand_codes.iter().enumerate() {
             duel.add_card(0, code, location::HAND, i as u32, position::FACEDOWN_DEFENSE);
         }
+        if let Some(o) = opponent {
+            for (cards, loc) in [(&o.deck, location::DECK), (&o.extra, location::EXTRA), (&o.hand, location::HAND)] {
+                for (i, &code) in cards.iter().enumerate() {
+                    duel.add_card(1, code, loc, i as u32, position::FACEDOWN_DEFENSE);
+                }
+            }
+        }
         duel.start();
         Ok(duel)
+    }
+
+    /// Runs a script of the script folder in this duel (for diagnostics).
+    #[doc(hidden)]
+    pub fn run_lua(&self, name: &str) -> bool {
+        self.load_script(name)
     }
 
     fn load_script(&self, name: &str) -> bool {
@@ -281,6 +322,10 @@ impl Duel {
                     Parsed::SelectHint(hint) => self.select_hint = hint,
                     Parsed::Ignored => {}
                 }
+            }
+            if self.last_turn.is_some_and(|last| self.turn > last) {
+                self.pending = None;
+                return Ok(Step::End { events });
             }
             if let Some(decision) = decision {
                 self.select_hint = 0;

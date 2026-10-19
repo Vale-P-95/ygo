@@ -107,7 +107,7 @@ fn arrow_targets(from: usize) -> &'static [(u32, usize)] {
 
 /// One zone per kind among the offered places of `player`'s own field;
 /// other places (the opponent's field) stay as they are.
-fn distinct_zones(state: &crate::state::DuelState, player: u8, actions: Vec<Action>) -> Vec<Action> {
+pub fn distinct_zones(state: &crate::state::DuelState, player: u8, actions: Vec<Action>) -> Vec<Action> {
     let me = &state.players[player as usize];
     let pointed = |zone: usize| -> Vec<(usize, u32)> {
         let mut by = Vec::new();

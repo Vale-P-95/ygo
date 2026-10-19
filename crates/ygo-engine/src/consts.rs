@@ -44,6 +44,22 @@ pub mod position {
     }
 }
 
+/// Why a card moved (`Event::Move::reason`).
+pub mod reason {
+    pub const DESTROY: u32 = 0x1;
+    pub const RELEASE: u32 = 0x2;
+    pub const MATERIAL: u32 = 0x8;
+    pub const EFFECT: u32 = 0x40;
+    pub const BATTLE: u32 = 0x20;
+    pub const COST: u32 = 0x80;
+    pub const DISCARD: u32 = 0x4000;
+    pub const FUSION: u32 = 0x4_0000;
+    pub const SYNCHRO: u32 = 0x8_0000;
+    pub const RITUAL: u32 = 0x10_0000;
+    pub const XYZ: u32 = 0x20_0000;
+    pub const LINK: u32 = 0x1000_0000;
+}
+
 pub mod card_type {
     pub const MONSTER: u32 = 0x1;
     pub const SPELL: u32 = 0x2;
