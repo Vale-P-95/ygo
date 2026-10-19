@@ -83,3 +83,81 @@ fn meltdown_aleister_chalice_into_baybarron() {
     assert!(!chosen.iter().any(|label| label.contains("Invoked Baybarron (Monster Zone")), "{chosen:#?}");
     assert_eq!(duel.count(0, location::DECK), 32);
 }
+
+#[test]
+fn state_and_fingerprint_follow_the_line() {
+    let Some((engine, deck)) = setup() else { return };
+    let hand = [ALEISTER, CHALICE, MELTDOWN, ASH_ALT_ART, FUWALOS];
+    let mut a = Duel::goldfish(&engine, &deck, &hand, 1).unwrap();
+    let mut b = Duel::goldfish(&engine, &deck, &hand, 1).unwrap();
+    a.advance().unwrap();
+    b.advance().unwrap();
+    let start = a.state();
+    assert_eq!((start.turn, start.turn_player), (1, 0));
+    assert_eq!(start.players[0].lp, 8000);
+    assert_eq!(start.players[0].hand.len(), 5);
+    assert_eq!(start.players[0].deck.len(), 35);
+    assert_eq!(start.players[0].monsters.len(), 7);
+    assert_eq!(start.players[0].spells.len(), 8);
+    assert_eq!(a.fingerprint(), b.fingerprint(), "same state, same fingerprint");
+
+    run_script(
+        &mut a,
+        &[
+            "activate magical meltdown",
+            "yes",
+            "select aleister the invoker (deck)",
+            "normal summon aleister the invoker",
+            "yes",
+            "select invocation (deck)",
+        ],
+        |_| {},
+    )
+    .unwrap();
+    let after = a.state();
+    assert_ne!(a.fingerprint(), b.fingerprint());
+    let aleister = after.players[0].monsters.iter().flatten().find(|c| c.code == ALEISTER).expect("Aleister on the field");
+    assert!(aleister.is_face_up() && aleister.attack > 0);
+    assert!(after.players[0].spells.iter().flatten().any(|c| c.code == MELTDOWN));
+    assert!(after.activity.normal_summon_used);
+    assert!(after.activity.activations.iter().any(|&(code, _)| code == MELTDOWN));
+    assert!(after.activity.activations.iter().any(|&(code, _)| code == ALEISTER));
+}
+
+#[test]
+fn the_line_told_in_italian() {
+    let Some((engine, deck)) = setup() else { return };
+    let mut duel = Duel::goldfish(&engine, &deck, &[ALEISTER, CHALICE, MELTDOWN, ASH_ALT_ART, FUWALOS], 1).unwrap();
+    let mut lines = Vec::new();
+    run_script(
+        &mut duel,
+        &[
+            "activate magical meltdown",
+            "yes",
+            "select aleister the invoker (deck)",
+            "normal summon aleister the invoker",
+            "yes",
+            "select invocation (deck)",
+            "activate invocation - \"chalice\"",
+            "option: fusion summon",
+            "select invoked baybarron",
+            "select aleister the invoker (monster zone 1)",
+            "select virakam",
+        ],
+        |trace| {
+            if let Trace::Events(events) = trace {
+                lines.extend(events.iter().filter_map(|e| ygo_engine::italian::describe(engine.cards(), e)));
+            }
+        },
+    )
+    .unwrap();
+    for expected in [
+        "Catena 1: Magical Meltdown",
+        "Aleister the Invoker viene aggiunta alla mano dal Deck",
+        "Evochi normalmente Aleister the Invoker",
+        "Invocation viene aggiunta alla mano dal Deck",
+        "Invoked Baybarron viene evocato tramite Evocazione Fusion",
+    ] {
+        assert!(lines.iter().any(|l| l.starts_with(expected)), "missing {expected:?} in {lines:#?}");
+    }
+}

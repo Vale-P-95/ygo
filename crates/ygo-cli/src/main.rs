@@ -4,6 +4,8 @@
 //! - `info`: engine version and loaded data.
 //! - `play`: play a starting hand from a deck, interactively or by script.
 //! - `bench`: measure duel creation, playout and replay speed.
+//! - `sweep`: random duels between random decks, reporting any decision
+//!   that cannot be answered or any answer the engine rejects.
 
 use std::io::{BufRead, Write};
 use std::path::{Path, PathBuf};
@@ -14,6 +16,7 @@ use anyhow::{bail, Context, Result};
 use clap::{Parser, Subcommand};
 use ygo_data::{sync, CardStore};
 use ygo_engine::consts::{location, phase, position};
+use ygo_engine::sweep::SweepConfig;
 use ygo_engine::{actions, describe_card, run_script, Action, ActionKind, DeckList, Duel, Engine, Event, ScriptEnd, Step, Trace};
 
 #[derive(Parser)]
@@ -68,6 +71,24 @@ enum Cmd {
         #[arg(long, default_value_t = 60)]
         max_decisions: u32,
     },
+    /// Random duels between random decks; fails on unanswerable or rejected decisions.
+    Sweep {
+        #[arg(long, default_value_t = 200)]
+        duels: u32,
+        /// Decisions per duel (both players).
+        #[arg(long, default_value_t = 400)]
+        max_decisions: u32,
+        #[arg(long, default_value_t = 4)]
+        max_turns: u32,
+        #[arg(long, default_value_t = 1)]
+        seed: u64,
+        /// Worker threads (default: all cores).
+        #[arg(long)]
+        threads: Option<usize>,
+        /// Also list the script errors logged by the engine.
+        #[arg(long)]
+        script_errors: bool,
+    },
 }
 
 #[derive(clap::Args)]
@@ -92,7 +113,42 @@ fn main() -> Result<()> {
         Cmd::Search { query, limit } => search(&cli.data, &query, limit),
         Cmd::Play { setup, steps, verbose } => play(&cli.data, &setup, steps.as_deref(), verbose),
         Cmd::Bench { setup, playouts, max_decisions } => bench(&cli.data, &setup, playouts, max_decisions),
+        Cmd::Sweep { duels, max_decisions, max_turns, seed, threads, script_errors } => {
+            let threads = threads.unwrap_or_else(|| std::thread::available_parallelism().map_or(4, |n| n.get()));
+            sweep(&cli.data, &SweepConfig { duels, max_decisions, max_turns, seed, threads }, script_errors)
+        }
     }
+}
+
+fn sweep(dir: &Path, config: &SweepConfig, show_script_errors: bool) -> Result<()> {
+    let engine = load_engine(dir)?;
+    let report = ygo_engine::sweep::sweep(&engine, config);
+    let secs = report.elapsed.as_secs_f64();
+    println!(
+        "{} duels, {} decisions in {:.1} s ({:.0} decisions/s), {} threads",
+        report.duels,
+        report.decisions,
+        secs,
+        report.decisions as f64 / secs.max(1e-9),
+        config.threads
+    );
+    for (kind, n) in &report.by_decision {
+        println!("  {kind:<22} {n}");
+    }
+    println!("script errors logged by the engine: {} distinct", report.script_errors.len());
+    if show_script_errors {
+        for (line, n) in &report.script_errors {
+            println!("  ×{n} {line}");
+        }
+    }
+    for p in &report.problems {
+        println!("{:?} in duel {} at decision {}: {}\n    {}", p.kind, p.duel, p.step, p.decision, p.detail);
+    }
+    if !report.problems.is_empty() {
+        bail!("{} problems", report.problems.len());
+    }
+    println!("no problems");
+    Ok(())
 }
 
 const SOURCES: &[(&str, &str)] =

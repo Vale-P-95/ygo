@@ -116,6 +116,10 @@ cargo run --release -p ygo-cli -- play --deck tests/fixtures/decks/invoked-sirac
 
 # Misura le prestazioni del motore
 cargo run --release -p ygo-cli -- bench --deck tests/fixtures/decks/invoked-siracusa-md.ydk --hand "..."
+
+# Collaudo a tappeto: duelli tra deck casuali con scelte casuali; segnala ogni
+# scelta senza risposte o risposta rifiutata dal motore
+cargo run --release -p ygo-cli -- sweep --duels 6000 --max-decisions 600 --max-turns 10
 ```
 
 Le carte della mano si indicano per nome inglese (come nel database di EDOPro) o per passcode.

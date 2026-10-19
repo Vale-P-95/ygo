@@ -157,6 +157,19 @@ impl CardDb {
         }
     }
 
+    /// Every card, in no particular order.
+    pub fn iter(&self) -> impl Iterator<Item = &Card> {
+        self.cards.values()
+    }
+
+    /// Codes the engine accepts for a card declaration with filter `opcodes`,
+    /// sorted by code.
+    pub fn declarable(&self, opcodes: &[u64]) -> Vec<u32> {
+        let mut codes: Vec<u32> = self.cards.values().filter(|c| crate::announce::is_declarable(c, opcodes)).map(|c| c.code).collect();
+        codes.sort_unstable();
+        codes
+    }
+
     pub fn len(&self) -> usize {
         self.cards.len()
     }

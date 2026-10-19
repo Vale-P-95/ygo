@@ -3,6 +3,7 @@
 
 use std::collections::HashSet;
 
+use crate::announce::is_declarable;
 use crate::carddb::CardDb;
 use crate::consts::{location, position};
 use crate::message::{Activatable, CardRef, Decision};
@@ -46,6 +47,14 @@ impl Action {
 
 /// Upper bound on enumerated card combinations for a single selection.
 const MAX_COMBINATIONS: usize = 5000;
+
+/// Names offered for a card declaration when none of the cards in the duel
+/// may be declared (the first ones by passcode).
+pub const MAX_ANNOUNCE: usize = 100;
+
+/// Up to this many cards to order, every order is offered; above it, the
+/// default order and its reverse.
+const MAX_SORTED: usize = 5;
 
 fn i32_bytes(v: i32) -> Vec<u8> {
     v.to_le_bytes().to_vec()
@@ -134,6 +143,76 @@ fn combinations(cards: &[CardRef], min: usize, max: usize, mut keep: impl FnMut(
     out
 }
 
+/// Index combinations of exactly `k` out of `n`, in lexicographic order.
+fn index_combinations(n: usize, k: usize) -> Vec<Vec<usize>> {
+    let mut out = Vec::new();
+    if k == 0 || k > n {
+        return out;
+    }
+    let mut idx: Vec<usize> = (0..k).collect();
+    loop {
+        out.push(idx.clone());
+        if out.len() >= MAX_COMBINATIONS {
+            return out;
+        }
+        let Some(i) = (0..k).rev().find(|&i| idx[i] != i + n - k) else { return out };
+        idx[i] += 1;
+        for j in i + 1..k {
+            idx[j] = idx[j - 1] + 1;
+        }
+    }
+}
+
+/// Every order of `0..n`.
+fn permutations(n: usize) -> Vec<Vec<usize>> {
+    fn rec(current: &mut Vec<usize>, used: &mut [bool], out: &mut Vec<Vec<usize>>) {
+        if current.len() == used.len() {
+            out.push(current.clone());
+            return;
+        }
+        for i in 0..used.len() {
+            if !used[i] {
+                used[i] = true;
+                current.push(i);
+                rec(current, used, out);
+                current.pop();
+                used[i] = false;
+            }
+        }
+    }
+    let mut out = Vec::new();
+    rec(&mut Vec::with_capacity(n), &mut vec![false; n], &mut out);
+    out
+}
+
+/// Ways to take `count` counters from cards holding at most `caps[i]` each.
+fn counter_splits(caps: &[u16], count: u16) -> Vec<Vec<u16>> {
+    fn rec(caps: &[u16], remaining: u16, current: &mut Vec<u16>, out: &mut Vec<Vec<u16>>) {
+        if out.len() >= MAX_COMBINATIONS {
+            return;
+        }
+        let Some((&cap, rest)) = caps.split_first() else {
+            if remaining == 0 {
+                out.push(current.clone());
+            }
+            return;
+        };
+        // What the remaining cards can still take.
+        let room: u32 = rest.iter().map(|&c| c as u32).sum();
+        for k in 0..=cap.min(remaining) {
+            if (remaining - k) as u32 > room {
+                continue;
+            }
+            current.push(k);
+            rec(rest, remaining - k, current, out);
+            current.pop();
+        }
+    }
+    let mut out = Vec::new();
+    rec(caps, count, &mut Vec::with_capacity(caps.len()), &mut out);
+    out
+}
+
 /// Port of `field::select_sum_check1`: can the parameters reach exactly `acc`?
 fn sum_check_exact(params: &[u32], acc: i64) -> bool {
     fn rec(params: &[u32], index: usize, acc: i64) -> bool {
@@ -177,7 +256,16 @@ fn zone_name(location: u8, sequence: u8) -> String {
     }
 }
 
+/// Every legal answer to `decision`. Card declarations offer every card that
+/// may be declared, up to [`MAX_ANNOUNCE`]; see [`actions_with`].
 pub fn actions(decision: &Decision, db: &CardDb) -> Vec<Action> {
+    actions_with(decision, db, &[])
+}
+
+/// Like [`actions`], but a card declaration offers the cards of `known`
+/// (typically the cards in the duel) that may be declared, falling back to
+/// any declarable card when none of them may.
+pub fn actions_with(decision: &Decision, db: &CardDb, known: &[u32]) -> Vec<Action> {
     use ActionKind as K;
     let mut out = Vec::new();
     match decision {
@@ -304,10 +392,16 @@ pub fn actions(decision: &Decision, db: &CardDb) -> Vec<Action> {
                     let owner = if side == *player { "your" } else { "opponent's" };
                     out.push(Action::new(K::Place, format!("Place in {owner} {}", zone_name(loc, seq)), vec![side, loc, seq]));
                 }
-            } else if zones.len() >= *count as usize {
-                let chosen = &zones[..*count as usize];
-                let label = chosen.iter().map(|&(_, l, s)| zone_name(l, s)).collect::<Vec<_>>().join(", ");
-                out.push(Action::new(K::Place, format!("Choose zones {label}"), chosen.iter().flat_map(|&(p, l, s)| [p, l, s]).collect()));
+            } else {
+                for pick in index_combinations(zones.len(), *count as usize) {
+                    let chosen: Vec<_> = pick.iter().map(|&i| zones[i]).collect();
+                    let label = chosen.iter().map(|&(_, l, s)| zone_name(l, s)).collect::<Vec<_>>().join(", ");
+                    out.push(Action::new(
+                        K::Place,
+                        format!("Choose zones {label}"),
+                        chosen.iter().flat_map(|&(p, l, s)| [p, l, s]).collect(),
+                    ));
+                }
             }
         }
         Decision::SelectPosition { positions, .. } => {
@@ -346,19 +440,39 @@ pub fn actions(decision: &Decision, db: &CardDb) -> Vec<Action> {
                 out.push(Action::new(K::Choose, format!("Select {}", names.join(" + ")), indices_response(&pick)));
             }
         }
-        Decision::Sort { .. } => out.push(Action::new(K::Order, "Keep the default order", vec![0xff])),
-        Decision::AnnounceRace { count, available, .. } => {
-            if *count == 1 {
-                for bit in (0..64).filter(|b| available & (1u64 << b) != 0) {
-                    out.push(Action::new(K::Announce, format!("Declare monster type #{bit}"), (1u64 << bit).to_le_bytes().to_vec()));
+        Decision::Sort { cards, .. } => {
+            out.push(Action::new(K::Order, "Keep the default order", vec![0xff]));
+            let n = cards.len();
+            let orders: Vec<Vec<usize>> = if n <= MAX_SORTED { permutations(n) } else { vec![(0..n).rev().collect()] };
+            let mut seen = HashSet::new();
+            seen.insert(cards.iter().map(|c| c.code).collect::<Vec<_>>());
+            for order in orders {
+                // Orders of identical cards are the same order.
+                if !seen.insert(order.iter().map(|&i| cards[i].code).collect::<Vec<_>>()) {
+                    continue;
                 }
+                let mut response = vec![0u8; n];
+                for (pos, &i) in order.iter().enumerate() {
+                    response[i] = pos as u8;
+                }
+                let names: Vec<_> = order.iter().map(|&i| db.name(cards[i].code)).collect();
+                out.push(Action::new(K::Order, format!("Order: {}", names.join(", ")), response));
+            }
+        }
+        Decision::AnnounceRace { count, available, .. } => {
+            let bits: Vec<u32> = (0..64).filter(|b| available & (1u64 << b) != 0).collect();
+            for pick in index_combinations(bits.len(), *count as usize) {
+                let mask = pick.iter().fold(0u64, |m, &i| m | 1u64 << bits[i]);
+                let label = pick.iter().map(|&i| format!("#{}", bits[i])).collect::<Vec<_>>().join(" + ");
+                out.push(Action::new(K::Announce, format!("Declare monster type {label}"), mask.to_le_bytes().to_vec()));
             }
         }
         Decision::AnnounceAttribute { count, available, .. } => {
-            if *count == 1 {
-                for bit in (0..32).filter(|b| available & (1u32 << b) != 0) {
-                    out.push(Action::new(K::Announce, format!("Declare attribute #{bit}"), (1u32 << bit).to_le_bytes().to_vec()));
-                }
+            let bits: Vec<u32> = (0..32).filter(|b| available & (1u32 << b) != 0).collect();
+            for pick in index_combinations(bits.len(), *count as usize) {
+                let mask = pick.iter().fold(0u32, |m, &i| m | 1u32 << bits[i]);
+                let label = pick.iter().map(|&i| format!("#{}", bits[i])).collect::<Vec<_>>().join(" + ");
+                out.push(Action::new(K::Announce, format!("Declare attribute {label}"), mask.to_le_bytes().to_vec()));
             }
         }
         Decision::AnnounceNumber { options, .. } => {
@@ -366,7 +480,46 @@ pub fn actions(decision: &Decision, db: &CardDb) -> Vec<Action> {
                 out.push(Action::new(K::Announce, format!("Declare {o}"), i32_bytes(i as i32)));
             }
         }
-        Decision::AnnounceCard { .. } | Decision::Unsupported { .. } => {}
+        Decision::AnnounceCard { opcodes, .. } => {
+            let mut codes: Vec<u32> = Vec::new();
+            for &code in known {
+                for code in [code, db.canonical_code(code)] {
+                    if !codes.contains(&code) && db.get(code).is_some_and(|c| is_declarable(c, opcodes)) {
+                        codes.push(code);
+                    }
+                }
+            }
+            if codes.is_empty() {
+                codes = db.declarable(opcodes);
+                codes.truncate(MAX_ANNOUNCE);
+            }
+            for code in codes {
+                out.push(Action::new(K::Announce, format!("Declare {}", db.name(code)), i32_bytes(code as i32)));
+            }
+        }
+        Decision::SelectCounter { count, cards, .. } => {
+            let caps: Vec<u16> = cards.iter().map(|&(_, n)| n).collect();
+            for split in counter_splits(&caps, *count) {
+                let label = split
+                    .iter()
+                    .zip(cards)
+                    .filter(|(&k, _)| k > 0)
+                    .map(|(k, (c, _))| format!("{k} from {}", describe_card(db, c)))
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                out.push(Action::new(
+                    K::Choose,
+                    format!("Counters: {label}"),
+                    split.iter().flat_map(|&k| (k as i16).to_le_bytes()).collect(),
+                ));
+            }
+        }
+        Decision::RockPaperScissors { .. } => {
+            for (value, name) in [(1, "scissors"), (2, "rock"), (3, "paper")] {
+                out.push(Action::new(K::Choose, format!("Rock-paper-scissors: {name}"), i32_bytes(value)));
+            }
+        }
+        Decision::Unsupported { .. } => {}
     }
     out
 }
@@ -417,5 +570,63 @@ mod tests {
     fn idle_command_encoding() {
         // Activate (type 5) the effect at index 3.
         assert_eq!(cmd(5, 3), ((3i32 << 16) | 5).to_le_bytes().to_vec());
+    }
+
+    #[test]
+    fn every_order_of_a_few_cards() {
+        let db = CardDb::default();
+        let decision = Decision::Sort {
+            player: 0,
+            chain: false,
+            cards: vec![card(1, location::DECK, 0), card(2, location::DECK, 1), card(3, location::DECK, 2)],
+        };
+        let list = actions(&decision, &db);
+        // Default order plus the 5 other orders.
+        assert_eq!(list.len(), 6);
+        assert_eq!(list[0].response, vec![0xff]);
+        assert!(list.iter().skip(1).all(|a| a.response.len() == 3));
+        // Identical cards: only distinct orders.
+        let decision = Decision::Sort {
+            player: 0,
+            chain: false,
+            cards: vec![card(1, location::DECK, 0), card(1, location::DECK, 1), card(2, location::DECK, 2)],
+        };
+        assert_eq!(actions(&decision, &db).len(), 3);
+    }
+
+    #[test]
+    fn counters_are_split_every_way() {
+        assert_eq!(counter_splits(&[2, 1], 2), vec![vec![1, 1], vec![2, 0]]);
+        assert_eq!(counter_splits(&[1, 1, 1], 2).len(), 3);
+        let db = CardDb::default();
+        let decision = Decision::SelectCounter {
+            player: 0,
+            counter_type: 1,
+            count: 1,
+            cards: vec![(card(1, location::SZONE, 0), 1), (card(2, location::MZONE, 0), 3)],
+        };
+        let list = actions(&decision, &db);
+        assert_eq!(list.len(), 2);
+        assert_eq!(list[0].response, [0, 0, 1, 0]);
+    }
+
+    #[test]
+    fn several_types_or_attributes_at_once() {
+        let db = CardDb::default();
+        let two_of_three = Decision::AnnounceAttribute { player: 0, count: 2, available: 0b111 };
+        let list = actions(&two_of_three, &db);
+        assert_eq!(list.iter().map(|a| u32::from_le_bytes(a.response[..4].try_into().unwrap())).collect::<Vec<_>>(), [0b011, 0b101, 0b110]);
+        assert_eq!(actions(&Decision::AnnounceRace { player: 0, count: 1, available: 0b1010 }, &db).len(), 2);
+        assert_eq!(actions(&Decision::RockPaperScissors { player: 0 }, &db).len(), 3);
+    }
+
+    #[test]
+    fn several_zones_at_once() {
+        // Everything blocked except your Main Monster Zones 1-3: two of them, three ways.
+        let free: u32 = 0b111;
+        let decision = Decision::SelectPlace { player: 0, count: 2, blocked: !free, disable_field: true };
+        let list = actions(&decision, &CardDb::default());
+        assert_eq!(list.len(), 3);
+        assert_eq!(list[0].response, [0, location::MZONE, 0, 0, location::MZONE, 1]);
     }
 }

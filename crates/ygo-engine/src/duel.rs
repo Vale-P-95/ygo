@@ -12,6 +12,7 @@ use crate::deck::DeckList;
 use crate::ffi::*;
 use crate::message::{self, Decision, Event, Parsed};
 use crate::scripts::ScriptStore;
+use crate::state::TurnActivity;
 use crate::Error;
 
 /// Card data and scripts shared by every duel. Cheap to clone.
@@ -135,6 +136,15 @@ pub struct Duel {
     raw: OCG_Duel,
     ctx: Box<Context>,
     select_hint: u64,
+    /// The decision waiting for an answer: after a rejected answer the engine
+    /// does not ask again, so another answer must be given to this one.
+    pending: Option<Decision>,
+    /// Every card code put in the duel, for card declarations.
+    known: Vec<u32>,
+    turn: u32,
+    turn_player: u8,
+    phase: u16,
+    activity: TurnActivity,
 }
 
 // Each duel is a self-contained engine instance (its own Lua state); the
@@ -171,7 +181,17 @@ impl Duel {
         if status != OCG_DUEL_CREATION_SUCCESS || raw.is_null() {
             return Err(Error::Engine(format!("duel creation failed (status {status})")));
         }
-        let duel = Duel { raw, ctx, select_hint: 0 };
+        let duel = Duel {
+            raw,
+            ctx,
+            select_hint: 0,
+            pending: None,
+            known: Vec::new(),
+            turn: 0,
+            turn_player: 0,
+            phase: 0,
+            activity: TurnActivity::default(),
+        };
         for base in ["constant.lua", "utility.lua"] {
             if !duel.load_script(base) {
                 return Err(Error::Engine(format!("cannot load {base}: {}", duel.log().join("; "))));
@@ -222,6 +242,9 @@ impl Duel {
     }
 
     pub fn add_card(&mut self, owner: u8, code: u32, location: u8, sequence: u32, position: u32) {
+        if !self.known.contains(&code) {
+            self.known.push(code);
+        }
         let info = OCG_NewCardInfo { team: owner, duelist: 0, code, con: owner, loc: location as u32, seq: sequence, pos: position };
         unsafe { OCG_DuelNewCard(self.raw, &info) };
     }
@@ -247,7 +270,10 @@ impl Duel {
             let mut decision = None;
             for record in message::split(&buffer) {
                 match message::parse(record, self.select_hint) {
-                    Parsed::Event(event) => events.push(event),
+                    Parsed::Event(event) => {
+                        self.track(&event);
+                        events.push(event)
+                    }
                     Parsed::Decision(d) => decision = Some(d),
                     Parsed::SelectHint(hint) => self.select_hint = hint,
                     Parsed::Ignored => {}
@@ -255,11 +281,14 @@ impl Duel {
             }
             if let Some(decision) = decision {
                 self.select_hint = 0;
+                self.pending = Some(decision.clone());
                 return Ok(Step::Decision { decision, events });
             }
             if events.contains(&Event::Retry) {
+                // The engine still waits for an answer to `pending`.
                 return Err(Error::Rejected(self.log().join("; ")));
             }
+            self.pending = None;
             match status {
                 OCG_DUEL_STATUS_END => return Ok(Step::End { events }),
                 OCG_DUEL_STATUS_AWAITING => {
@@ -270,6 +299,78 @@ impl Duel {
         }
     }
 
+    /// Keeps turn, phase and this turn's activity up to date.
+    fn track(&mut self, event: &Event) {
+        let a = &mut self.activity;
+        match event {
+            Event::NewTurn { player } => {
+                self.turn += 1;
+                self.turn_player = *player;
+                *a = TurnActivity::default();
+            }
+            Event::NewPhase { phase } => self.phase = *phase,
+            Event::NormalSummoning { card } if card.controller == self.turn_player => a.normal_summon_used = true,
+            Event::Set { card } if card.location == location::MZONE && card.controller == self.turn_player => a.normal_summon_used = true,
+            Event::SpecialSummoning { card } => {
+                a.special_summons.push(card.code);
+                a.special_summons.sort_unstable();
+            }
+            Event::Chaining { card, description, .. } => {
+                a.activations.push((card.code, *description));
+                a.activations.sort_unstable();
+            }
+            _ => {}
+        }
+    }
+
+    /// `(turn, turn player, phase)`; turn 1 is the first.
+    pub fn turn_info(&self) -> (u32, u8, u16) {
+        (self.turn, self.turn_player, self.phase)
+    }
+
+    /// What was done this turn.
+    pub fn activity(&self) -> &TurnActivity {
+        &self.activity
+    }
+
+    pub(crate) fn raw_query_location(&self, player: u8, loc: u8, flags: u32) -> Vec<u8> {
+        let info = OCG_QueryInfo { flags, con: player, loc: loc as u32, seq: 0, overlay_seq: 0 };
+        unsafe {
+            let mut len = 0u32;
+            let ptr = OCG_DuelQueryLocation(self.raw, &mut len, &info);
+            if ptr.is_null() {
+                return Vec::new();
+            }
+            std::slice::from_raw_parts(ptr as *const u8, len as usize).to_vec()
+        }
+    }
+
+    pub(crate) fn raw_query_field(&self) -> Vec<u8> {
+        unsafe {
+            let mut len = 0u32;
+            let ptr = OCG_DuelQueryField(self.raw, &mut len);
+            if ptr.is_null() {
+                return Vec::new();
+            }
+            std::slice::from_raw_parts(ptr as *const u8, len as usize).to_vec()
+        }
+    }
+
+    /// The decision waiting for an answer, also after a rejected answer.
+    pub fn pending(&self) -> Option<&Decision> {
+        self.pending.as_ref()
+    }
+
+    /// Codes of every card put in the duel (first seen first).
+    pub fn known_codes(&self) -> &[u32] {
+        &self.known
+    }
+
+    /// Legal answers to `decision`; card declarations offer the cards in this duel first.
+    pub fn actions(&self, decision: &Decision) -> Vec<crate::Action> {
+        crate::actions_with(decision, &self.ctx.cards, &self.known)
+    }
+
     pub fn respond(&mut self, response: &[u8]) {
         unsafe { OCG_DuelSetResponse(self.raw, response.as_ptr() as *const c_void, response.len() as u32) };
     }
@@ -277,51 +378,7 @@ impl Duel {
     /// Cards in one location of one player, in engine order (zones may be
     /// empty). Each entry is `(code, position)`.
     pub fn query_location(&self, player: u8, loc: u8) -> Vec<Option<(u32, u32)>> {
-        const QUERY_CODE: u32 = 0x1;
-        const QUERY_POSITION: u32 = 0x2;
-        const QUERY_END: u32 = 0x8000_0000;
-        let info = OCG_QueryInfo { flags: QUERY_CODE | QUERY_POSITION, con: player, loc: loc as u32, seq: 0, overlay_seq: 0 };
-        let buffer = unsafe {
-            let mut len = 0u32;
-            let ptr = OCG_DuelQueryLocation(self.raw, &mut len, &info);
-            if ptr.is_null() {
-                return Vec::new();
-            }
-            std::slice::from_raw_parts(ptr as *const u8, len as usize).to_vec()
-        };
-        let mut r = message::Reader::new(&buffer);
-        let mut out = Vec::new();
-        let Some(_total) = r.u32() else { return out };
-        while r.remaining() >= 2 {
-            let Some(size) = r.u16() else { break };
-            if size == 0 {
-                out.push(None);
-                continue;
-            }
-            let (mut code, mut pos) = (0, 0);
-            let mut size = size;
-            loop {
-                let Some(flag) = r.u32() else { return out };
-                match flag {
-                    QUERY_CODE => code = r.u32().unwrap_or_default(),
-                    QUERY_POSITION => pos = r.u32().unwrap_or_default(),
-                    _ => {
-                        if r.skip(size as usize - 4).is_none() {
-                            return out;
-                        }
-                    }
-                }
-                if flag == QUERY_END {
-                    break;
-                }
-                match r.u16() {
-                    Some(s) => size = s,
-                    None => return out,
-                }
-            }
-            out.push(Some((code, pos)));
-        }
-        out
+        self.query_cards(player, loc, 0x1 | 0x2).into_iter().map(|c| c.map(|c| (c.code, c.position))).collect()
     }
 
     pub fn count(&self, player: u8, loc: u8) -> u32 {
@@ -350,7 +407,7 @@ impl Drop for Duel {
 }
 
 /// Deterministic Fisher-Yates shuffle (SplitMix64).
-fn shuffle<T>(items: &mut [T], seed: u64) {
+pub(crate) fn shuffle<T>(items: &mut [T], seed: u64) {
     let mut state = seed;
     let mut next = || {
         state = state.wrapping_add(0x9e37_79b9_7f4a_7c15);

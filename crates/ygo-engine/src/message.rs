@@ -183,6 +183,17 @@ pub enum Decision {
         player: u8,
         opcodes: Vec<u64>,
     },
+    /// Remove (or place) `count` counters of `counter_type`, spread over
+    /// cards that each have at most the given number.
+    SelectCounter {
+        player: u8,
+        counter_type: u16,
+        count: u16,
+        cards: Vec<(CardRef, u16)>,
+    },
+    RockPaperScissors {
+        player: u8,
+    },
     /// A decision this crate does not handle yet.
     Unsupported {
         message: u8,
@@ -209,7 +220,9 @@ impl Decision {
             | AnnounceRace { player, .. }
             | AnnounceAttribute { player, .. }
             | AnnounceNumber { player, .. }
-            | AnnounceCard { player, .. } => Some(*player),
+            | AnnounceCard { player, .. }
+            | SelectCounter { player, .. }
+            | RockPaperScissors { player } => Some(*player),
             Unsupported { .. } => None,
         }
     }
@@ -245,10 +258,62 @@ pub enum Event {
         description: u64,
         chain_link: u32,
     },
+    ChainSolving {
+        chain_link: u8,
+    },
     ChainSolved {
         chain_link: u8,
     },
     ChainEnd,
+    /// The activation of a chain link was negated.
+    ChainNegated {
+        chain_link: u8,
+    },
+    /// The effect of a chain link was negated.
+    ChainDisabled {
+        chain_link: u8,
+    },
+    /// Cards targeted by the chain link being activated.
+    BecomeTarget {
+        cards: Vec<CardRef>,
+    },
+    Set {
+        card: CardRef,
+    },
+    FlipSummoning {
+        card: CardRef,
+    },
+    PositionChange {
+        card: CardRef,
+        from: u8,
+        to: u8,
+    },
+    Damage {
+        player: u8,
+        amount: u32,
+    },
+    Recover {
+        player: u8,
+        amount: u32,
+    },
+    PayLpCost {
+        player: u8,
+        amount: u32,
+    },
+    LpUpdate {
+        player: u8,
+        lp: u32,
+    },
+    Attack {
+        attacker: CardRef,
+        target: Option<CardRef>,
+    },
+    /// Counters placed (positive) or removed (negative) on a card.
+    Counter {
+        card: CardRef,
+        counter_type: u16,
+        delta: i32,
+    },
     Win {
         player: u8,
         reason: u8,
@@ -281,8 +346,7 @@ const DECISIONS: &[u8] = &[
     msg::ANNOUNCE_ATTRIB,
     msg::ANNOUNCE_CARD,
     msg::ANNOUNCE_NUMBER,
-    // Rock-paper-scissors.
-    132,
+    msg::ROCK_PAPER_SCISSORS,
 ];
 
 pub(crate) enum Parsed {
@@ -438,6 +502,17 @@ fn parse_decision(kind: u8, r: &mut Reader, hint: u64) -> Option<Decision> {
                 .collect::<Option<_>>()?;
             Decision::Sort { player, chain: kind == msg::SORT_CHAIN, cards }
         }
+        msg::SELECT_COUNTER => {
+            let (counter_type, count, n) = (r.u16()?, r.u16()?, r.u32()?);
+            let cards = (0..n)
+                .map(|_| {
+                    let card = CardRef { code: r.u32()?, controller: r.u8()?, location: r.u8()?, sequence: r.u8()? as u32, position: 0 };
+                    Some((card, r.u16()?))
+                })
+                .collect::<Option<_>>()?;
+            Decision::SelectCounter { player, counter_type, count, cards }
+        }
+        msg::ROCK_PAPER_SCISSORS => Decision::RockPaperScissors { player },
         msg::ANNOUNCE_RACE => Decision::AnnounceRace { player, count: r.u8()?, available: r.u64()? },
         msg::ANNOUNCE_ATTRIB => Decision::AnnounceAttribute { player, count: r.u8()?, available: r.u32()? },
         msg::ANNOUNCE_NUMBER | msg::ANNOUNCE_CARD => {
@@ -490,8 +565,38 @@ fn parse_event(kind: u8, r: &mut Reader) -> Option<Parsed> {
             let description = r.u64()?;
             Event::Chaining { card, description, chain_link: r.u32()? }
         }
+        msg::CHAIN_SOLVING => Event::ChainSolving { chain_link: r.u8()? },
         msg::CHAIN_SOLVED => Event::ChainSolved { chain_link: r.u8()? },
         msg::CHAIN_END => Event::ChainEnd,
+        msg::CHAIN_NEGATED => Event::ChainNegated { chain_link: r.u8()? },
+        msg::CHAIN_DISABLED => Event::ChainDisabled { chain_link: r.u8()? },
+        msg::BECOME_TARGET => {
+            let n = r.u32()?;
+            Event::BecomeTarget { cards: (0..n).map(|_| r.loc_info(0)).collect::<Option<_>>()? }
+        }
+        msg::SET => Event::Set { card: r.card_with_info()? },
+        msg::FLIPSUMMONING => Event::FlipSummoning { card: r.card_with_info()? },
+        msg::POS_CHANGE => {
+            let card = CardRef { code: r.u32()?, controller: r.u8()?, location: r.u8()?, sequence: r.u8()? as u32, position: 0 };
+            let from = r.u8()?;
+            let to = r.u8()?;
+            Event::PositionChange { card: CardRef { position: to as u32, ..card }, from, to }
+        }
+        msg::DAMAGE => Event::Damage { player: r.u8()?, amount: r.u32()? },
+        msg::RECOVER => Event::Recover { player: r.u8()?, amount: r.u32()? },
+        msg::PAY_LPCOST => Event::PayLpCost { player: r.u8()?, amount: r.u32()? },
+        msg::LPUPDATE => Event::LpUpdate { player: r.u8()?, lp: r.u32()? },
+        msg::ATTACK => {
+            let attacker = r.loc_info(0)?;
+            let target = r.loc_info(0)?;
+            Event::Attack { attacker, target: (target.location != 0).then_some(target) }
+        }
+        msg::ADD_COUNTER | msg::REMOVE_COUNTER => {
+            let counter_type = r.u16()?;
+            let card = CardRef { code: 0, controller: r.u8()?, location: r.u8()?, sequence: r.u8()? as u32, position: 0 };
+            let n = r.u16()? as i32;
+            Event::Counter { card, counter_type, delta: if kind == msg::ADD_COUNTER { n } else { -n } }
+        }
         msg::WIN => Event::Win { player: r.u8()?, reason: r.u8()? },
         _ => return Some(Parsed::Ignored),
     };

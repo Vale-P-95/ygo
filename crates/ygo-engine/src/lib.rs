@@ -16,22 +16,28 @@
 //! ```
 
 mod actions;
+mod announce;
 mod carddb;
 pub mod consts;
 mod deck;
 mod duel;
 mod ffi;
+pub mod italian;
 mod message;
 mod script;
 mod scripts;
+pub mod state;
+pub mod sweep;
 
-pub use actions::{actions, describe_card, Action, ActionKind};
+pub use actions::{actions, actions_with, describe_card, Action, ActionKind, MAX_ANNOUNCE};
+pub use announce::is_declarable;
 pub use carddb::{Card, CardDb};
 pub use deck::DeckList;
 pub use duel::{Duel, DuelConfig, Engine, Step};
 pub use message::{Activatable, CardRef, Decision, Event};
 pub use script::{run_script, ScriptEnd, Trace};
 pub use scripts::ScriptStore;
+pub use state::{fingerprint, DuelState, FieldCard, PlayerState, TurnActivity};
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
