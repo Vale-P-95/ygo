@@ -40,10 +40,13 @@ pub enum Probe {
     GraveEffect,
     NormalSummon,
     ExtraSummon,
+    /// The effect of a monster already on the field (not a trigger of its summon).
+    FieldIgnition,
+    DeckSummon,
 }
 
 impl Probe {
-    pub const ALL: [Probe; 9] = [
+    pub const ALL: [Probe; 11] = [
         Probe::Spell,
         Probe::Search,
         Probe::HandEffect,
@@ -53,6 +56,8 @@ impl Probe {
         Probe::GraveEffect,
         Probe::NormalSummon,
         Probe::ExtraSummon,
+        Probe::FieldIgnition,
+        Probe::DeckSummon,
     ];
 
     pub fn label(self) -> &'static str {
@@ -62,10 +67,12 @@ impl Probe {
             Probe::HandEffect => "attivare un effetto di mostro dalla mano",
             Probe::SendToGrave => "mandare un mostro dal Deck al Cimitero",
             Probe::SpecialFromHand => "Evocare Specialmente dalla mano",
-            Probe::FieldEffect => "attivare l'effetto di un mostro sul campo",
+            Probe::FieldEffect => "attivare l'effetto di un mostro appena evocato",
             Probe::GraveEffect => "attivare un effetto dal Cimitero",
             Probe::NormalSummon => "Evocare Normalmente",
             Probe::ExtraSummon => "Evocare dall'Extra Deck",
+            Probe::FieldIgnition => "attivare l'effetto di un mostro già sul campo",
+            Probe::DeckSummon => "Evocare Specialmente dal Deck",
         }
     }
 
@@ -76,6 +83,8 @@ impl Probe {
             Probe::HandEffect | Probe::SendToGrave | Probe::SpecialFromHand | Probe::FieldEffect | Probe::GraveEffect => 0.3,
             Probe::NormalSummon => 0.2,
             Probe::ExtraSummon => 0.6,
+            Probe::FieldIgnition => 0.3,
+            Probe::DeckSummon => 0.3,
         }
     }
 
@@ -217,6 +226,7 @@ impl Kit {
         let terrortop = code("Speedroid Terrortop");
         let taketomborg = code("Speedroid Taketomborg");
         let spider = code("Link Spider");
+        let dice = code("Speedroid Red-Eyed Dice");
         let filler = code("Alexandrite Dragon");
 
         let step = |act: Act, picks: Vec<u32>, goals: Vec<(Probe, Want)>, needs: Option<Probe>| KitStep {
@@ -303,7 +313,30 @@ impl Kit {
                     vec![(Probe::ExtraSummon, want(Some(spider), location::MZONE, 1))],
                     Some(Probe::NormalSummon),
                 ));
+                // Link Spider's own effect: a Normal Monster from the hand
+                // (the plain cards drawn at the start of the turn).
+                if let Some(filler) = filler {
+                    steps.push(step(
+                        Act::Activate(spider, location::MZONE),
+                        vec![filler],
+                        vec![(Probe::FieldIgnition, want(Some(filler), location::MZONE, 1))],
+                        Some(Probe::ExtraSummon),
+                    ));
+                }
             }
+        }
+        // Taketomborg (searched by Terrortop) comes from the hand, then is
+        // tributed for a Speedroid Tuner from the Deck. Last: after it only
+        // WIND monsters can be Special Summoned.
+        if let (Some(taketomborg), Some(dice)) = (taketomborg, dice) {
+            deck.push(dice);
+            steps.push(step(Act::SpecialSummon(taketomborg), vec![], vec![], Some(Probe::FieldEffect)));
+            steps.push(step(
+                Act::Activate(taketomborg, location::MZONE),
+                vec![dice],
+                vec![(Probe::DeckSummon, want(Some(dice), location::MZONE, 1))],
+                Some(Probe::FieldEffect),
+            ));
         }
 
         let mut breakers = Vec::new();
@@ -342,9 +375,10 @@ impl Kit {
             });
         }
 
-        // The last cards of the Deck are drawn first (at the start of the
-        // turn and by Pot of Greed): plain ones, so the cards to search stay.
-        deck.extend([filler; 3].into_iter().flatten());
+        // The last cards of the Deck are drawn or sent first (the draw of the
+        // turn, Pot of Greed, the top card Glow-Up Bulb sends): plain ones,
+        // so the cards to search stay.
+        deck.extend([filler; 6].into_iter().flatten());
         Kit { opponent: Opponent { hand, deck, extra }, steps, breakers }
     }
 
@@ -551,6 +585,34 @@ impl Observer {
         self.step_negated = false;
         self.summoning = None;
     }
+}
+
+/// The cards of `deck` that can be used from the hand during the
+/// opponent's turn (handtraps): those the probe turn offers from your hand
+/// while the kit's opponent plays against your empty board. Read from the
+/// engine, so it holds for any card, old or new.
+pub fn hand_traps(engine: &Engine, deck: &DeckList, seed: u64, kit: &Kit) -> Vec<u32> {
+    let db = engine.cards();
+    // One copy of each card (any artwork), five at a time.
+    let mut cards: Vec<u32> = Vec::new();
+    for &c in &deck.main {
+        if !cards.iter().any(|&k| db.canonical_code(k) == db.canonical_code(c)) {
+            cards.push(c);
+        }
+    }
+    let steps: Vec<&KitStep> = kit.steps.iter().collect();
+    let mut found: Vec<u32> = Vec::new();
+    for hand in cards.chunks(5) {
+        let prober = Prober::new(engine, deck, hand, seed, kit);
+        let Ok(trace) = prober.run(Prelude::EndAtOnce, &steps, Policy::Pass) else { continue };
+        for (id, loc) in trace.windows.iter().flat_map(|w| &w.options) {
+            if *loc == location::HAND && !found.contains(&id.code) {
+                found.push(id.code);
+            }
+        }
+    }
+    found.sort_unstable();
+    found
 }
 
 /// Puts boards to the test for one deck and hand.
@@ -884,6 +946,10 @@ impl<'a> Prober<'a> {
         let mut windows_in_step = 0usize;
         // The step being played went to the Battle Phase already.
         let mut battled = false;
+        // Your last use in the step being played: the triggers of your cards
+        // that follow it are part of it (a Labrynth Trap resolving, then
+        // Lady Labrynth destroying a card).
+        let mut last_use: Option<usize> = None;
         // The opponent got back to choose after its last step.
         let mut complete = false;
         let verbose = std::env::var("DUELFORGE_DEBUG_PROBE").is_ok_and(|v| v == "2");
@@ -1009,6 +1075,7 @@ impl<'a> Prober<'a> {
                                 observer.new_step();
                                 windows_in_step = 0;
                                 battled = false;
+                                last_use = None;
                                 duel.respond(&answer);
                             }
                             None => {
@@ -1051,8 +1118,9 @@ impl<'a> Prober<'a> {
                                 _ => None,
                             };
                             trace.windows.push(Window { step: *step, options: options.clone() });
-                            match pick {
-                                Some(i) => {
+                            let follow_up = matches!(decision, Decision::SelectChain { triggers: true, .. } | Decision::EffectYesNo { .. });
+                            match (pick, last_use) {
+                                (Some(i), _) => {
                                     trace.uses.push(Use {
                                         responder: options[i].0,
                                         step: *step,
@@ -1060,10 +1128,15 @@ impl<'a> Prober<'a> {
                                         effect: None,
                                         targeted: false,
                                     });
-                                    observer.waiting = Some(trace.uses.len() - 1);
+                                    last_use = Some(trace.uses.len() - 1);
+                                    observer.waiting = last_use;
                                     duel.respond(&window_answer(&decision, Some(i)));
                                 }
-                                None => duel.respond(&window_answer(&decision, None)),
+                                (None, Some(u)) if follow_up => {
+                                    observer.waiting = Some(u);
+                                    duel.respond(&window_answer(&decision, Some(0)));
+                                }
+                                (None, _) => duel.respond(&window_answer(&decision, None)),
                             }
                         }
                         (Some(_), None) => duel.respond(&window_answer(&decision, None)),
@@ -1177,6 +1250,15 @@ fn opponent_answer(engine: &Engine, decision: &Decision, actions: &[Action], ste
         }
         Decision::BattleCmd { .. } => first(&[ActionKind::ToMainPhase2, ActionKind::EndTurn]),
         Decision::Option { .. } => actions.get(step.map_or(0, |s| s.option)).or(actions.first()),
+        // Outer Main Monster Zones first: the ones under the Extra Monster
+        // Zones stay free for what a Link arrow (Link Spider's) summons there.
+        Decision::SelectPlace { .. } => {
+            let rank = |a: &Action| match *a.response.as_slice() {
+                [_, location::MZONE, seq] => [0, 4, 2, 1, 3, 5, 6].iter().position(|&s| s == seq).unwrap_or(7),
+                _ => 0,
+            };
+            actions.iter().min_by_key(|a| rank(a))
+        }
         Decision::EffectYesNo { .. } | Decision::YesNo { .. } => first(&[ActionKind::Yes]),
         _ => {
             let picked = actions.iter().find(|a| a.card.is_some_and(|c| listed(picks, c.code)));

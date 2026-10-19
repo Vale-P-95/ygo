@@ -9,7 +9,7 @@ pub mod search;
 
 pub use card::{resume_card, sample_hands, search_card, CardSearch, HandResult};
 pub use explain::{explain, ExplainedStep};
-pub use probe::{BreakerResult, Effect, Interruption, Kit, Measure, Probe, Prober, ResponderId};
+pub use probe::{hand_traps, BreakerResult, Effect, Interruption, Kit, Measure, Probe, Prober, ResponderId};
 pub use search::{
     look_key, quick_score, resume, search, Board, Frontier, Goal, GoalCard, GoalZone, Line, Progress, SearchConfig, SearchResult, Stop,
 };

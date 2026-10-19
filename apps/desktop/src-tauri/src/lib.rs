@@ -869,10 +869,14 @@ fn combo_search(app: tauri::AppHandle, state: State<'_, AppState>, request: Comb
     config.keep_in_hand = request.keep;
     config.policy.forbid = request.forbid;
     // The search plays against the probe turn's opponent: its lines play the same there.
-    config.opponent = Some(ygo_solver::Kit::standard(&engine).opponent().clone());
-    config.hand_traps = Tag::Handtrap.names().iter().filter_map(|n| engine.cards().find_by_name(n)).map(|c| c.code).collect();
+    let kit = ygo_solver::Kit::standard(&engine);
+    config.opponent = Some(kit.opponent().clone());
+    // Handtraps, read from the engine: kept in hand they are worth more.
+    config.hand_traps = ygo_solver::hand_traps(&engine, &list, config.seed, &kit);
     if !request.use_handtraps {
-        config.policy.passive = config.hand_traps.clone();
+        // Not played from the hand on your own turn: the well-known handtraps
+        // (an archetype's quick effects from the hand are often combo pieces too).
+        config.policy.passive = Tag::Handtrap.names().iter().filter_map(|n| engine.cards().find_by_name(n)).map(|c| c.code).collect();
     }
     if let Some(goal) = request.goal.filter(|g| !g.cards.is_empty()) {
         let db = engine.cards();

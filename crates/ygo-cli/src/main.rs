@@ -122,6 +122,13 @@ enum Cmd {
         #[arg(long)]
         probe: bool,
     },
+    /// The handtraps of a deck, read from the engine: cards it can use from
+    /// the hand during the opponent's turn.
+    HandTraps {
+        /// Deck in .ydk format.
+        #[arg(long)]
+        deck: PathBuf,
+    },
     /// Random duels between random decks; fails on unanswerable or rejected decisions.
     Sweep {
         #[arg(long, default_value_t = 200)]
@@ -200,6 +207,7 @@ fn main() -> Result<()> {
                 probe,
             },
         ),
+        Cmd::HandTraps { deck } => hand_traps(&cli.data, &deck),
         Cmd::Sweep { duels, max_decisions, max_turns, seed, threads, script_errors } => {
             let threads = threads.unwrap_or_else(|| std::thread::available_parallelism().map_or(4, |n| n.get()));
             sweep(&cli.data, &SweepConfig { duels, max_decisions, max_turns, seed, threads }, script_errors)
@@ -240,9 +248,13 @@ fn combos(dir: &Path, setup: &Setup, options: CombosOptions) -> Result<()> {
     // The search plays against the probe turn's opponent: its lines play the same there.
     let kit = ygo_solver::Kit::standard(&engine);
     config.opponent = Some(kit.opponent().clone());
-    config.hand_traps = ygo_data::Tag::Handtrap.names().iter().filter_map(|n| engine.cards().find_by_name(n)).map(|c| c.code).collect();
+    // Handtraps, read from the engine: kept in hand they are worth more.
+    config.hand_traps = ygo_solver::hand_traps(&engine, &config.deck, config.seed, &kit);
     if !use_handtraps {
-        config.policy.passive = config.hand_traps.clone();
+        // Not played from the hand on your own turn: the well-known handtraps
+        // (an archetype's quick effects from the hand are often combo pieces too).
+        config.policy.passive =
+            ygo_data::Tag::Handtrap.names().iter().filter_map(|n| engine.cards().find_by_name(n)).map(|c| c.code).collect();
     }
     config.policy.forbid = resolve_hand(&engine, &forbid)?;
     config.keep_in_hand = resolve_hand(&engine, &keep)?;
@@ -526,6 +538,17 @@ fn search(dir: &Path, text: &str, limit: usize) -> Result<()> {
         println!("{:>9}  {} [{}]{stats}", card.id, card.name, card.human_type);
     }
     println!("{} results in {:.1} ms", ids.len(), elapsed.as_secs_f64() * 1000.0);
+    Ok(())
+}
+
+fn hand_traps(dir: &Path, deck: &Path) -> Result<()> {
+    let engine = load_engine(dir)?;
+    let text = std::fs::read_to_string(deck).with_context(|| format!("cannot read {}", deck.display()))?;
+    let deck = DeckList::from_ydk(&text)?;
+    let kit = ygo_solver::Kit::standard(&engine);
+    for code in ygo_solver::hand_traps(&engine, &deck, 1, &kit) {
+        println!("{code}\t{}", engine.cards().name(code));
+    }
     Ok(())
 }
 
