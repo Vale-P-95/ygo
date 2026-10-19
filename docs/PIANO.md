@@ -1,4 +1,4 @@
-# DuelForge: piano di progetto (v0.9)
+# DuelForge: piano di progetto (v1.0)
 
 > Nome provvisorio. Il documento è la proposta iniziale: una volta approvate le decisioni aperte (§14) diventa la roadmap di sviluppo.
 >
@@ -11,6 +11,8 @@
 > **v0.5 (18/10/2026)**: Fase 1 realizzata; risultati nella §17.
 >
 > **v0.6 (18/10/2026)**: Fase 2, prima parte: editor dei deck in stile Master Duel; risultati nella §18.
+>
+> **v1.0 (19/10/2026)**: Fase 4 realizzata: il Laboratorio statistico; risultati nella §21.
 >
 > **v0.9 (18/10/2026)**: piano dettagliato della Fase 4 (Laboratorio statistico) nella §20, da approvare prima di iniziare.
 >
@@ -663,4 +665,28 @@ Nuovo crate `ygo-stats` (calcolo esatto, Monte Carlo, ottimizzatore, statistiche
 - **4B** Simulatore e Ottimizzatore.
 - **4C** Registro partite.
 Il Monte Carlo guidato dal motore resta nella Fase 7.
+
+## 21. Risultati della Fase 4: il Laboratorio (19/10/2026)
+
+### 21.1 Motore statistico (`ygo-stats`)
+- **Calcolo esatto**: ipergeometrica multivariata sui gruppi di carte con gli stessi ruoli; condizioni composte (almeno / al massimo / esattamente, E / O / NON) su ruoli o singole carte. I test riproducono i numeri della §20.5 (starter 87,7% / 92,3%, mano ideale 67,0% / 77,1%, mano solida 63,4% per primo). Le condizioni troppo grandi per il calcolo esatto lo dicono e rimandano al simulatore.
+- **Monte Carlo**: xoshiro256** con seed, blocchi da 4.096 mani su più thread; il risultato non cambia con il numero di thread. Effetti: pesca (Desires, Extravagance, Upstart, Allure, Pot of Greed), scava e aggiunge (Prosperity, Duality), ricerca di carte; una sola Normal Summon ed effetti una volta per turno. **Un milione di mani in 0,15–0,3 secondi**, intervallo di Wilson al 95%.
+- **Ottimizzatore**: valore esatto di ±1 copia per ruolo e per carta, curva da 40 a 45 carte, mappa di due ruoli, ricerca per simulated annealing che rispetta banlist e numero di carte e può usare la Maybe board. Sul deck di prova propone +8,9 punti sull'obiettivo pesato.
+- **Partite**: win-rate con intervallo di Wilson e intervallo bayesiano Beta(1+V, 1+S); test esatto di Fisher; probabilità che la versione nuova sia migliore (campionamento delle due Beta); numero di partite necessarie (55% contro 50%: 783; due versioni: 1.565 ciascuna).
+
+### 21.2 Interfaccia
+Cinque schede (Panoramica, Calcolatore, Simulatore, Ottimizzatore, Registro partite) con il pannello dei Ruoli a destra; nel Registro il pannello diventa l'inserimento della partita. Indicatori ad ampolla, grafici SVG propri (barre, linee con mirino, convergenza, tornado, mappa di calore, forest plot, matrice), ogni grafico con tooltip e tabella dei dati; la condizione scelta nel Calcolatore vale anche per Simulatore e Ottimizzatore; le proposte dell'ottimizzatore si applicano al deck spostando le copie tolte nella Maybe board.
+
+### 21.3 Registro partite
+- **Inserimento**: avversario (con i più frequenti a un clic), turno, partita singola (come il ranked di Master Duel) o al meglio di 3 con il game 3 che compare sull'1–1, tag, note, data (adesso o un'altra); Ctrl+Invio registra.
+- **Versioni**: ogni partita salva la lista giocata (Main, Extra, Side) e la sua impronta; quando il deck cambia nasce la versione successiva (v1, v2...) e il registro mostra le carte cambiate e il confronto tra le ultime due versioni.
+- **Statistiche**: win-rate, forma recente e serie, per primo e per secondo (con Fisher), forest plot per avversario, meta incontrato, andamento sulle ultime 20 partite, matrice avversario × turno, game 1 contro game dopo il side, versioni, tag, calcolatore delle partite necessarie, elenco con eliminazione. Vista per un deck o per tutti i deck (allora il confronto è tra deck).
+- **Win-rate atteso contro il meta recente**: i matchup pesati su quanto spesso sono usciti nelle ultime 30 partite, con i matchup giocati poco avvicinati alla media. Pesarli su tutto il registro restituirebbe esattamente il win-rate complessivo, quindi non direbbe nulla.
+- **CSV**: esportazione in `Download/DuelForge` (UTF-8 per i fogli di calcolo) e importazione da file di DuelForge o fatti a mano: intestazioni in italiano o inglese, separati da virgola, punto e virgola o tabulazione; risultati V/S/P o W/L/D.
+
+### 21.4 Verifica
+Test Rust su valori noti (ipergeometrica, Fisher, Beta, numero di partite, impronta delle versioni, CSV). Nell'app vera sotto Xvfb con 74 partite d'esempio su due versioni del deck Invoked: inserimento Bo1 e Bo3, vista di tutti i deck, esportazione e importazione CSV, stato vuoto.
+
+### 21.5 Prossimo passo: Fase 5
+Motore e sandbox: stato canonico della partita, sandbox goldfish con undo e rami, editor di scenario e suite di ruling (§11).
 

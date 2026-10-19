@@ -194,7 +194,7 @@ export function CalculatorTab({ deckId, main, roles, hand, getCard, root, setRoo
         <section className="lab-card flex flex-col items-center gap-2 p-5 text-center">
           <FlaskMeter value={shown ?? 0} size={64} bubbling />
           {result?.error ? (
-            <p className="text-sm text-warn">{result.error}. Il simulatore della Fase 4B la potrà stimare.</p>
+            <p className="text-sm text-warn">{result.error}. Puoi stimarla nella scheda Simulatore, che usa la stessa condizione.</p>
           ) : (
             <>
               <p className="text-4xl font-semibold">{shown == null ? "…" : pct(shown)}</p>

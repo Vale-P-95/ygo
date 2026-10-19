@@ -4,14 +4,15 @@ Suite desktop per Yu-Gi-Oh!: deck builder con carte e banlist sempre aggiornate,
 
 Il piano di progetto completo è in [`docs/PIANO.md`](docs/PIANO.md).
 
-**Stato**: Fasi 0–3 completate. L'app scarica da sola carte e dati del motore. Nella Fucina si costruiscono i deck in stile Master Duel (Main, Extra, Side e Maybe board al centro, catalogo a destra), con banlist di Master Duel, TCG e OCG, costo di creazione in Master Duel, filtri rapidi e preferiti, mano di prova con probabilità esatte, salvataggio automatico, import/export `.ydk`/`ydke://` e immagine PNG del deck. Nella Bottega ogni deck è un deck box 3D personalizzabile (colore, materiale, forma, tre carte vetrina) con la legalità sempre aggiornata.
+**Stato**: Fasi 0–4 completate. L'app scarica da sola carte e dati del motore. Nella Fucina si costruiscono i deck in stile Master Duel (Main, Extra, Side e Maybe board al centro, catalogo a destra), con banlist di Master Duel, TCG e OCG, costo di creazione in Master Duel, filtri rapidi e preferiti, mano di prova con probabilità esatte, salvataggio automatico, import/export `.ydk`/`ydke://` e immagine PNG del deck. Nella Bottega ogni deck è un deck box 3D personalizzabile (colore, materiale, forma, tre carte vetrina) con la legalità sempre aggiornata. Nel Laboratorio si calcolano le probabilità esatte delle mani in base ai ruoli delle carte, si simulano milioni di mani con Pot e ricerche, si ottimizza il numero di copie e si registrano le partite per vedere win-rate, matchup e l'effetto di ogni modifica del deck.
 
 ## Struttura
 
 ```
 apps/desktop/          app desktop: React + TypeScript (src/) e Tauri 2 (src-tauri/)
 crates/ygo-engine/     collegamento Rust al motore EDOPro: partite, carte, script, deck .ydk
-crates/ygo-data/       database delle carte (SQLite + ricerca full-text), linguaggio di ricerca, immagini, download
+crates/ygo-data/       database delle carte (SQLite + ricerca full-text), linguaggio di ricerca, immagini, download, dati utente
+crates/ygo-stats/      statistiche: calcolo esatto, Monte Carlo, ottimizzatore, statistiche delle partite
 crates/ygo-cli/        duelforge-cli: scarica i dati, gioca mani, benchmark
 vendor/ygopro-core/    motore EDOPro (submodule git, AGPL-3.0)
 tests/fixtures/decks/  deck di prova (Invoked di Siracusa, versione Master Duel)
@@ -86,6 +87,20 @@ I deck si salvano da soli in `user.db` nella cartella dati dell'app. Le carte Fu
 ## La Bottega
 
 Ogni deck salvato sta su uno scaffale, nel suo deck box. Clic su un box per personalizzarlo: colore, materiale (pelle, metallo, legno, olografico, opaco), forma (deck box, latta, cofanetto) e fino a tre carte vetrina. Il sigillo verde o rosso sul box dice se il deck è legale con le banlist in vigore. Dal pannello si apre il deck nella Fucina, lo si duplica o lo si elimina.
+
+## Il Laboratorio
+
+Il laboratorio lavora sui deck salvati. Nel pannello **Ruoli** si segna cosa fa ogni carta (Starter, Estensore, Handtrap, Board breaker, Brick e fino a tre ruoli personali; «Suggerisci» segna da solo handtrap e board breaker). Poi, per primo (5 carte) o per secondo (6):
+
+| Scheda | Cosa fa |
+|---|---|
+| Panoramica | Probabilità esatte delle mani principali (starter, handtrap, mano ideale, mano che resiste a un'interruzione, mano bloccata), distribuzioni, curva delle carte viste, probabilità che l'avversario abbia una handtrap |
+| Calcolatore | Condizioni composte su ruoli e carte (almeno, al massimo, esattamente; E, O, NON) con calcolo esatto; ricette salvate |
+| Simulatore | Monte Carlo multi-thread con seed: Pot of Desires, Prosperity, Extravagance, Duality, Upstart Goblin, Allure, ricerche, una sola Normal Summon e effetti una volta per turno; intervallo al 95% e convergenza in diretta |
+| Ottimizzatore | Valore di una copia in più o in meno per ruolo e per carta, 40 carte o più, mappa di due ruoli, ricerca automatica del deck migliore (anche con le carte della Maybe board) |
+| Registro partite | Inserimento rapido (avversario, turno, Bo1 o Bo3, tag, note); win-rate con intervalli, matchup, primo e secondo, game 1 e side, meta incontrato, andamento, versioni del deck a confronto, quante partite servono; CSV |
+
+Ogni partita ricorda la lista con cui è stata giocata: quando il deck cambia nasce una nuova versione, e il registro confronta le versioni dicendo quali carte sono cambiate.
 
 ## CLI
 

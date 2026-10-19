@@ -5,12 +5,12 @@ import { SectionHeader } from "../components/SectionHeader";
 import { formatDate, type DataStatus } from "../lib/api";
 import { sectionById, type SectionId } from "../sections";
 
-const ROADMAP = [
+const ROADMAP: { phase: number; title: string; state: "done" | "now" | "next" }[] = [
   { phase: 0, title: "Fondamenta e prova del motore", state: "done" },
   { phase: 1, title: "Database carte, visualizzatore, suoni ed effetti", state: "done" },
   { phase: 2, title: "Deck Builder e banlist (Master Duel)", state: "done" },
   { phase: 3, title: "La Bottega: deck box 3D", state: "done" },
-  { phase: 4, title: "Il Laboratorio statistico", state: "now" },
+  { phase: 4, title: "Il Laboratorio statistico", state: "done" },
   { phase: 5, title: "Motore e sandbox", state: "next" },
   { phase: 6, title: "Circolo Arcano: esplorazione delle combo", state: "next" },
   { phase: 7, title: "Classifica delle board, handtrap, turno avversario", state: "next" },
