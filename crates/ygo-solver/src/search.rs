@@ -42,6 +42,9 @@ pub struct SearchConfig {
     pub max_choices: usize,
     /// Cards that must still be in the hand at the end (e.g. a handtrap).
     pub keep_in_hand: Vec<u32>,
+    /// Handtraps: kept in hand they stop the opponent, so the estimate
+    /// values them more than other cards in hand.
+    pub hand_traps: Vec<u32>,
     pub goal: Goal,
     pub policy: AutoPolicy,
     /// Best boards included in each progress report.
@@ -63,6 +66,7 @@ impl SearchConfig {
             threads: std::thread::available_parallelism().map_or(4, |n| n.get()),
             max_choices: 60,
             keep_in_hand: Vec::new(),
+            hand_traps: Vec::new(),
             goal: Goal::default(),
             policy: AutoPolicy::default(),
             live_top: 10,
@@ -508,7 +512,7 @@ impl Shared<'_> {
         Board {
             key: board_key(&state),
             cards_used: cards_used(&self.config.hand, &state),
-            quick_score: quick_score(self.engine, &state),
+            quick_score: quick_score(self.engine, &state, &self.config.hand_traps),
             goal_hits: self.config.goal.hits(self.engine, &state),
             exact,
             line,
@@ -537,31 +541,16 @@ fn node_key(state: &DuelState, decision: &Decision) -> u64 {
     h.finish()
 }
 
-/// Identity of an end board: the same cards in the same zones (a mirror
-/// image counts as the same board), with the same materials and counters,
-/// and the same hand, Graveyard, banished cards and Extra Deck. Zones are
-/// part of it: a monster can do something else in the Extra Monster Zone
-/// (Invoked Oceanus banishes instead of sending to the GY only there), and
-/// Link arrows point to some zones only.
+/// Identity of an end board: the same cards on the field, with the same
+/// positions, materials and counters, and the same hand, Graveyard,
+/// banished cards and Extra Deck.
 fn board_key(state: &DuelState) -> u64 {
-    board_hash(state).min(board_hash(&state.mirrored()))
-}
-
-fn board_hash(state: &DuelState) -> u64 {
     let mut h = DefaultHasher::new();
+    look_key(state).hash(&mut h);
     for p in &state.players {
-        let zones = p.monsters.iter().enumerate().chain(p.spells.iter().enumerate().map(|(i, c)| (10 + i, c)));
-        for (zone, c) in zones {
-            let Some(c) = c else { continue };
-            let mut overlay = c.overlay.clone();
-            overlay.sort_unstable();
-            (zone, c.code, c.is_face_up(), c.position & 0xc != 0, c.link.1, overlay, &c.counters).hash(&mut h);
-        }
-        for pile in [&p.hand, &p.grave] {
-            let mut v = pile.clone();
-            v.sort_unstable();
-            v.hash(&mut h);
-        }
+        let mut grave = p.grave.clone();
+        grave.sort_unstable();
+        grave.hash(&mut h);
         for pile in [&p.banished, &p.extra] {
             let mut v = pile.clone();
             v.sort_unstable();
@@ -572,10 +561,54 @@ fn board_hash(state: &DuelState) -> u64 {
     h.finish()
 }
 
+/// What a board shows: the cards on the field and in hand. Which of the
+/// five Main Monster Zones (or Spell & Trap Zones) holds a card is left
+/// out, since on the opponent's turn it almost never matters; the Extra
+/// Monster Zone is not: Invoked Oceanus banishes what goes to the
+/// opponent's GY only from there.
+pub fn look_key(state: &DuelState) -> u64 {
+    let mut h = DefaultHasher::new();
+    for p in &state.players {
+        let mut cards: Vec<u64> = Vec::new();
+        for (zone, c) in p.monsters.iter().enumerate() {
+            if let Some(c) = c {
+                cards.push(card_hash(state, (0, zone >= 5), c));
+            }
+        }
+        for (zone, c) in p.spells.iter().enumerate() {
+            if let Some(c) = c {
+                // The Field Zone and the old Pendulum Zones are kinds of their own.
+                cards.push(card_hash(state, (zone.saturating_sub(4), false), c));
+            }
+        }
+        cards.sort_unstable();
+        cards.hash(&mut h);
+        let mut hand = p.hand.clone();
+        hand.sort_unstable();
+        hand.hash(&mut h);
+    }
+    h.finish()
+}
+
+/// A card on the field and the kind of zone it is in. An equipped card
+/// names the card it is equipped to, not that card's zone.
+fn card_hash(state: &DuelState, kind: (usize, bool), c: &ygo_engine::FieldCard) -> u64 {
+    let mut h = DefaultHasher::new();
+    let mut overlay = c.overlay.clone();
+    overlay.sort_unstable();
+    let equipped_to = c.equipped_to.and_then(|(ctrl, loc, seq)| {
+        let p = state.players.get(ctrl as usize)?;
+        let zones = if loc == location::MZONE { &p.monsters } else { &p.spells };
+        zones.get(seq as usize)?.as_ref().map(|t| (ctrl, t.code))
+    });
+    (kind, c.code, c.is_face_up(), c.position & 0xc != 0, c.link, overlay, &c.counters, equipped_to).hash(&mut h);
+    h.finish()
+}
+
 /// A rough value of a state for ordering the search (Phase 5C replaces it
 /// at the end with the real score): monsters on the field, more for Extra
-/// Deck monsters, set cards, cards kept in hand.
-pub fn quick_score(engine: &Engine, state: &DuelState) -> f64 {
+/// Deck monsters, set cards, cards kept in hand, more for `hand_traps`.
+pub fn quick_score(engine: &Engine, state: &DuelState, hand_traps: &[u32]) -> f64 {
     let me = &state.players[0];
     let mut score = 0.0;
     for c in me.monsters.iter().flatten() {
@@ -601,7 +634,9 @@ pub fn quick_score(engine: &Engine, state: &DuelState) -> f64 {
             0.1
         };
     }
-    score + 0.3 * me.hand.len() as f64
+    let db = engine.cards();
+    let hand_trap = |c: u32| hand_traps.iter().any(|&h| db.canonical_code(h) == db.canonical_code(c));
+    score + me.hand.iter().map(|&c| if hand_trap(c) { 1.5 } else { 0.3 }).sum::<f64>()
 }
 
 /// Answers that do something come first: the dive tries them before ending
@@ -729,7 +764,7 @@ fn work(shared: &Shared, edge: Edge) -> Result<(), Error> {
             }
         }
         let goal = 3.0 * config.goal.hits(shared.engine, &state) as f64;
-        let priority = quick_score(shared.engine, &state) + 0.3 * line.choices.len() as f64 + goal;
+        let priority = quick_score(shared.engine, &state, &shared.config.hand_traps) + 0.3 * line.choices.len() as f64 + goal;
         let prefix = Arc::new(line.clone());
         let mut rest = Vec::with_capacity(actions.len());
         // Ending the turn here: read the board now, play the End Phase later.

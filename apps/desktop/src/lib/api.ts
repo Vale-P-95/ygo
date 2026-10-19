@@ -422,6 +422,47 @@ export interface ComboRequest {
   goal: ComboGoal | null;
 }
 
+/** One of your effects that stops the opponent in the probe turn. */
+export interface ComboInterruption {
+  code: number;
+  /** "mano", "campo", "Cimitero", "bandita". */
+  place: string;
+  effect: string;
+  targeted: boolean;
+  uses: number;
+  coverage: number;
+  /** With your other effects; `alone` with none of them used (less when they share a cost). */
+  value: number;
+  alone: number;
+  covers: string[];
+}
+
+export interface ComboBreaker {
+  name: string;
+  notApplicable: boolean;
+  stoppedBy: number | null;
+  remaining: number;
+}
+
+/** What the probe turn measured on a board (mirrors `ScoreView`). */
+export interface ComboScore {
+  hand: number;
+  key: string;
+  interruptions: number;
+  handTraps: number;
+  floodgates: number;
+  resilience: number;
+  resources: number;
+  followup: number;
+  cost: number;
+  details: ComboInterruption[];
+  floodgateList: string[];
+  breakers: ComboBreaker[];
+  resourcesNote: string;
+  followupNote: string;
+  error: string | null;
+}
+
 export interface ComboStep {
   choice: string | null;
   events: string[];
@@ -473,6 +514,9 @@ export const api = {
   exportDeck: (deck: Deck) => invoke<{ ydk: string; ydke: string }>("export_deck", { deck }),
   comboSearch: (request: ComboRequest) => invoke<ComboOutcome>("combo_search", { request }),
   comboContinue: (deckId: number, seconds: number) => invoke<ComboOutcome>("combo_continue", { deckId, seconds }),
+  comboScore: () => invoke<number>("combo_score"),
+  comboScores: () => invoke<ComboScore[]>("combo_scores"),
+  onComboScore: (handler: (s: ComboScore) => void): Promise<UnlistenFn> => listen<ComboScore>("combo-score", (e) => handler(e.payload)),
   comboCancel: () => invoke<void>("combo_cancel"),
   comboExplain: (hand: number, key: string) => invoke<ComboStep[]>("combo_explain", { hand, key }),
   onComboProgress: (handler: (p: ComboProgress) => void): Promise<UnlistenFn> => listen<ComboProgress>("combo-progress", (e) => handler(e.payload)),

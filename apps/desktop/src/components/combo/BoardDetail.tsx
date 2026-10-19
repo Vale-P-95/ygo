@@ -1,9 +1,15 @@
 import { useState } from "react";
-import type { Card, ComboBoard, ComboStep } from "../../lib/api";
+import type { Card, ComboBoard, ComboScore, ComboStep } from "../../lib/api";
+import type { Weights } from "../../lib/scoring";
 import { CardImage, Field, type HoverCard, type Pile as PileKind } from "./Field";
+import { ScoreBreakdown } from "./Score";
 
 interface Props {
   board: ComboBoard;
+  /** The probe turn's result, when measured. */
+  score: ComboScore | null;
+  scoring: boolean;
+  weights: Weights;
   /** The hand the line starts from. */
   hand: number[];
   /** `null` while loading; empty when the steps cannot be told yet. */
@@ -41,7 +47,7 @@ function Pile({ title, codes, getCard, onHover, onHoverEnd }: { title: string; c
 const PHASE = /^(Inizia il |Draw Phase|Standby Phase|Main Phase|Battle Phase|End Phase)/;
 
 /** A board of the search: the field, the other piles and the line that builds it, told in Italian. */
-export function BoardDetail({ board, hand, steps, stepsNote, getCard, onHover, onHoverEnd }: Props) {
+export function BoardDetail({ board, score, scoring, weights, hand, steps, stepsNote, getCard, onHover, onHoverEnd }: Props) {
   const [pile, setPile] = useState<PileKind | null>(null);
   const pileCodes: Record<PileKind, number[]> = { grave: board.grave, banished: board.banished, deck: [], extra: board.extraFaceUp };
   return (
@@ -62,6 +68,15 @@ export function BoardDetail({ board, hand, steps, stepsNote, getCard, onHover, o
           </div>
         )}
         {!pile && <p className="w-full text-[11px] text-faint">Tocca Cimitero, bandite o Extra Deck per vedere le carte.</p>}
+      </section>
+
+      <section className="lab-card flex flex-col gap-3 p-4">
+        <h3 className="text-sm font-semibold">Il punteggio</h3>
+        {score ? (
+          <ScoreBreakdown s={score} weights={weights} getCard={getCard} />
+        ) : (
+          <p className="text-xs text-faint">{scoring ? "Il turno di prova sta mettendo alla prova le board…" : "Questa board non è tra quelle messe alla prova (le migliori 30 della ricerca)."}</p>
+        )}
       </section>
 
       <section className="lab-card flex flex-col gap-3 p-4">

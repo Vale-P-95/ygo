@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
@@ -496,6 +496,135 @@ struct ComboJob {
     boards: Vec<(usize, ygo_solver::Board)>,
     /// Per hand: the goal reached, impossible or unknown, and every line tried.
     status: Vec<(Option<bool>, bool)>,
+    /// The deck's card roles (starters and extenders left in hand count for follow-up).
+    roles: BTreeMap<String, Vec<u32>>,
+    /// Boards already put to the probe turn, by `(hand, key)`.
+    scores: HashMap<(usize, u64), ScoreView>,
+}
+
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct InterruptionView {
+    code: u32,
+    /// "mano", "campo", "Cimitero", "bandita".
+    place: String,
+    effect: String,
+    targeted: bool,
+    uses: u32,
+    coverage: f64,
+    /// With your other effects; `alone` with none of them used.
+    value: f64,
+    alone: f64,
+    /// What it stops, in Italian.
+    covers: Vec<String>,
+}
+
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct BreakerView {
+    name: String,
+    not_applicable: bool,
+    stopped_by: Option<u32>,
+    remaining: f64,
+}
+
+/// What the probe turn measured on a board, metric by metric (the page
+/// weighs them); all in interruptions but resources, follow-up and cost.
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct ScoreView {
+    hand: usize,
+    key: String,
+    interruptions: f64,
+    hand_traps: f64,
+    floodgates: f64,
+    resilience: f64,
+    resources: f64,
+    followup: f64,
+    cost: f64,
+    details: Vec<InterruptionView>,
+    floodgate_list: Vec<String>,
+    breakers: Vec<BreakerView>,
+    resources_note: String,
+    followup_note: String,
+    /// The probe turn could not be played (the board is left out of the ranking).
+    error: Option<String>,
+}
+
+fn place_name(loc: u8) -> &'static str {
+    match loc {
+        ygo_engine::consts::location::HAND => "mano",
+        ygo_engine::consts::location::GRAVE => "Cimitero",
+        ygo_engine::consts::location::REMOVED => "bandita",
+        _ => "campo",
+    }
+}
+
+/// The metrics of a board from its measure and its state.
+fn score_view(
+    hand: usize,
+    board: &ygo_solver::Board,
+    measured: Result<ygo_solver::Measure, String>,
+    roles: &BTreeMap<String, Vec<u32>>,
+) -> ScoreView {
+    let me = &board.state.players[0];
+    let resources = me.hand.len() as f64 + 0.1 * me.grave.len() as f64;
+    let count_role = |role: &str| me.hand.iter().filter(|c| roles.get(role).is_some_and(|ids| ids.contains(c))).count();
+    let (starters, extenders) = (count_role("starter"), count_role("extender"));
+    let followup = starters as f64 + 0.5 * extenders as f64;
+    let mut view = ScoreView {
+        hand,
+        key: format!("{:016x}", board.key),
+        interruptions: 0.0,
+        hand_traps: 0.0,
+        floodgates: 0.0,
+        resilience: 0.0,
+        resources,
+        followup,
+        cost: board.cards_used.saturating_sub(1) as f64,
+        details: Vec::new(),
+        floodgate_list: Vec::new(),
+        breakers: Vec::new(),
+        resources_note: format!("{} in mano, {} nel Cimitero", me.hand.len(), me.grave.len()),
+        followup_note: format!("{starters} starter e {extenders} estensori in mano"),
+        error: None,
+    };
+    match measured {
+        Ok(m) => {
+            view.interruptions = m.field_value;
+            view.hand_traps = m.hand_value;
+            view.floodgates = m.floodgate_value;
+            view.resilience = m.resilience;
+            view.details = m
+                .interruptions
+                .iter()
+                .map(|i| InterruptionView {
+                    code: i.responder.code,
+                    place: place_name(i.location).to_owned(),
+                    effect: i.effect.label().to_owned(),
+                    targeted: i.targeted,
+                    uses: i.uses,
+                    coverage: i.coverage,
+                    value: i.value,
+                    alone: i.alone,
+                    covers: i.covers.iter().map(|p| p.label().to_owned()).collect(),
+                })
+                .collect();
+            view.floodgate_list = m.floodgates.iter().map(|p| p.label().to_owned()).collect();
+            view.breakers = m
+                .breakers
+                .iter()
+                .map(|b| BreakerView {
+                    name: b.name.clone(),
+                    not_applicable: b.not_applicable,
+                    stopped_by: b.stopped_by.map(|r| r.code),
+                    remaining: b.remaining,
+                })
+                .collect();
+        }
+        Err(e) => view.error = Some(e),
+    }
+    view
 }
 
 #[derive(Serialize, Clone)]
@@ -725,8 +854,9 @@ fn combo_search(app: tauri::AppHandle, state: State<'_, AppState>, request: Comb
     let mut config = ygo_solver::SearchConfig::new(list.clone(), Vec::new());
     config.keep_in_hand = request.keep;
     config.policy.forbid = request.forbid;
+    config.hand_traps = Tag::Handtrap.names().iter().filter_map(|n| engine.cards().find_by_name(n)).map(|c| c.code).collect();
     if !request.use_handtraps {
-        config.policy.passive = Tag::Handtrap.names().iter().filter_map(|n| engine.cards().find_by_name(n)).map(|c| c.code).collect();
+        config.policy.passive = config.hand_traps.clone();
     }
     if let Some(goal) = request.goal.filter(|g| !g.cards.is_empty()) {
         let db = engine.cards();
@@ -765,6 +895,8 @@ fn combo_search(app: tauri::AppHandle, state: State<'_, AppState>, request: Comb
         keep,
         boards: Vec::new(),
         status: Vec::new(),
+        roles: deck.roles.clone(),
+        scores: HashMap::new(),
     };
     state.combo_cancel.store(false, Ordering::Relaxed);
     if let Ok(mut slot) = state.combo.lock() {
@@ -793,6 +925,78 @@ fn combo_continue(app: tauri::AppHandle, state: State<'_, AppState>, deck_id: i6
         *slot = Some(job);
     }
     Ok(outcome)
+}
+
+/// Boards put to the probe turn after a search: the best of a precise hand,
+/// all those kept in "card + rest".
+const SCORED_BOARDS: usize = 30;
+
+/// Puts the best boards of the last search to the probe turn, on all cores,
+/// sending each result as a `combo-score` event; boards already measured
+/// are not measured again. Returns how many boards have a score.
+#[tauri::command(async)]
+fn combo_score(app: tauri::AppHandle, state: State<'_, AppState>) -> Result<usize, String> {
+    let engine = state.engine()?;
+    // What is needed, copied out so the search state stays free meanwhile.
+    let (config, hands, todo, roles) = {
+        let job = state.combo.lock().map_err(|e| e.to_string())?;
+        let job = job.as_ref().ok_or("Nessuna ricerca da valutare")?;
+        let limit = if job.hands.len() == 1 { SCORED_BOARDS } else { usize::MAX };
+        // One board per look: boards that differ only in the Graveyard or the banished cards score the same.
+        let mut looks: HashSet<(usize, u64)> = HashSet::new();
+        for (h, b) in &job.boards {
+            if job.scores.contains_key(&(*h, b.key)) {
+                looks.insert((*h, ygo_solver::look_key(&b.state)));
+            }
+        }
+        let todo: Vec<(usize, ygo_solver::Board)> = job
+            .boards
+            .iter()
+            .filter(|(h, b)| !job.scores.contains_key(&(*h, b.key)) && looks.insert((*h, ygo_solver::look_key(&b.state))))
+            .take(limit)
+            .cloned()
+            .collect();
+        (job.config.clone(), job.hands.iter().map(|(h, _, _)| h.clone()).collect::<Vec<_>>(), todo, job.roles.clone())
+    };
+    state.combo_cancel.store(false, Ordering::Relaxed);
+    let kit = ygo_solver::Kit::standard(&engine);
+    let next = std::sync::atomic::AtomicUsize::new(0);
+    let results = Mutex::new(Vec::new());
+    let threads = std::thread::available_parallelism().map_or(4, |n| n.get());
+    std::thread::scope(|s| {
+        for _ in 0..threads {
+            s.spawn(|| {
+                // One prober per hand: it keeps the empty board of that hand.
+                let mut probers: HashMap<usize, ygo_solver::Prober> = HashMap::new();
+                loop {
+                    let i = next.fetch_add(1, Ordering::Relaxed);
+                    let Some((hand, board)) = todo.get(i) else { break };
+                    if state.combo_cancel.load(Ordering::Relaxed) {
+                        break;
+                    }
+                    let prober = probers
+                        .entry(*hand)
+                        .or_insert_with(|| ygo_solver::Prober::new(&engine, &config.deck, &hands[*hand], config.seed, &kit));
+                    let view = score_view(*hand, board, prober.measure(&board.line).map_err(|e| e.to_string()), &roles);
+                    let _ = app.emit("combo-score", view.clone());
+                    if let Ok(mut r) = results.lock() {
+                        r.push(((*hand, board.key), view));
+                    }
+                }
+            });
+        }
+    });
+    let mut job = state.combo.lock().map_err(|e| e.to_string())?;
+    let job = job.as_mut().ok_or("La ricerca è cambiata")?;
+    job.scores.extend(results.into_inner().unwrap_or_default());
+    Ok(job.scores.len())
+}
+
+/// The scores already measured for the last search.
+#[tauri::command]
+fn combo_scores(state: State<'_, AppState>) -> Result<Vec<ScoreView>, String> {
+    let job = state.combo.lock().map_err(|e| e.to_string())?;
+    Ok(job.as_ref().map(|j| j.scores.values().cloned().collect()).unwrap_or_default())
 }
 
 #[tauri::command]
@@ -1090,6 +1294,8 @@ pub fn run() {
             lab_sample_size,
             combo_search,
             combo_continue,
+            combo_score,
+            combo_scores,
             combo_cancel,
             combo_explain,
             shelf_decks,

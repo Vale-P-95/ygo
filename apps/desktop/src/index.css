@@ -77,6 +77,16 @@
   --lab-second: #7445b8;
 }
 
+:root {
+  /* Combo Lab score metrics, from the role colors. */
+  --metric-interruptions: var(--role-starter);
+  --metric-hand: var(--role-handtrap);
+  --metric-floodgates: var(--role-extender);
+  --metric-resilience: var(--role-breaker);
+  --metric-followup: var(--role-custom-1);
+  --metric-resources: var(--role-custom-2);
+}
+
 [data-section] {
   --sec: var(--df-gold);
   --sec-2: var(--df-ember);
@@ -1100,7 +1110,7 @@ body {
 .combo-pendulum {
   position: absolute;
   left: 3px;
-  bottom: 3px;
+  top: 3px;
   display: grid;
   place-items: center;
   width: 14px;
@@ -1263,6 +1273,20 @@ body {
 .combo-banned {
   opacity: 0.45;
   filter: grayscale(0.8);
+}
+
+/* Score bar of a board: one segment per metric. */
+.score-bar {
+  display: flex;
+  height: 6px;
+  gap: 2px;
+  overflow: hidden;
+  border-radius: 3px;
+  background: color-mix(in oklab, var(--df-surface-3) 60%, transparent);
+}
+.score-bar > span {
+  height: 100%;
+  border-radius: 2px;
 }
 
 @media (prefers-reduced-motion: reduce) {

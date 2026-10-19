@@ -354,6 +354,8 @@ enum Policy<'a> {
     /// Use this effect whenever it is offered, except at the windows listed
     /// (`(step, window in the step)`).
     Use(ResponderId, &'a HashSet<(usize, usize)>),
+    /// Use any of these whenever offered, the first listed first.
+    UseAll(&'a [ResponderId]),
 }
 
 /// A moment you could respond, and with what.
@@ -369,6 +371,7 @@ struct Window {
 /// One use of the responder of a run.
 #[derive(Debug, Clone)]
 struct Use {
+    responder: ResponderId,
     step: usize,
     window: usize,
     effect: Option<Effect>,
@@ -535,7 +538,12 @@ pub struct Interruption {
     /// Probes it can answer (offered) or stopped.
     pub covers: Vec<Probe>,
     pub coverage: f64,
+    /// Counted with your other effects: less than `alone` when they share
+    /// what it needs (Invoked Mechaba sends a card from your hand, and that
+    /// card may be the handtrap counted on its own).
     pub value: f64,
+    /// Measured with no other effect used.
+    pub alone: f64,
 }
 
 #[derive(Debug, Clone)]
@@ -669,11 +677,36 @@ impl<'a> Prober<'a> {
                 let coverage = (covers.iter().map(|p| p.weight()).sum::<f64>() / activation_weight()).min(1.0);
                 let counter = self.engine.cards().get(id.code).is_some_and(|c| c.type_ & 0x10_0000 != 0);
                 let value = effect.value() * if targeted { 0.85 } else { 1.0 } * coverage * uses as f64 * if counter { 1.05 } else { 1.0 };
-                interruptions.push(Interruption { responder: *id, location: *loc, effect, targeted, uses, covers, coverage, value });
+                interruptions.push(Interruption {
+                    responder: *id,
+                    location: *loc,
+                    effect,
+                    targeted,
+                    uses,
+                    covers,
+                    coverage,
+                    value,
+                    alone: value,
+                });
                 break;
             }
         }
         interruptions.sort_by(|a, b| b.value.total_cmp(&a.value));
+
+        // All together, the strongest first: an effect the engine no longer
+        // offers once the others are used (its cost is gone) counts less.
+        if interruptions.len() > 1 {
+            let order: Vec<ResponderId> = interruptions.iter().map(|i| i.responder).collect();
+            if let Ok(run) = self.run(Prelude::Line(line), &all_steps, Policy::UseAll(&order)) {
+                for i in &mut interruptions {
+                    let used = run.uses.iter().filter(|u| u.responder == i.responder).count() as u32;
+                    if used < i.uses {
+                        i.value = i.alone * used as f64 / i.uses as f64;
+                    }
+                }
+                interruptions.sort_by(|a, b| b.value.total_cmp(&a.value));
+            }
+        }
 
         // Floodgates: what works on an empty board but not here, with no answer.
         let mut floodgates = Vec::new();
@@ -943,12 +976,19 @@ impl<'a> Prober<'a> {
                             windows_in_step += 1;
                             let pick = match policy {
                                 Policy::Use(id, skip) if !skip.contains(&(*step, at)) => options.iter().position(|(o, _)| *o == id),
+                                Policy::UseAll(ids) => ids.iter().find_map(|id| options.iter().position(|(o, _)| o == id)),
                                 _ => None,
                             };
                             trace.windows.push(Window { step: *step, chained: !observer.step_links.is_empty(), options: options.clone() });
                             match pick {
                                 Some(i) => {
-                                    trace.uses.push(Use { step: *step, window: at, effect: None, targeted: false });
+                                    trace.uses.push(Use {
+                                        responder: options[i].0,
+                                        step: *step,
+                                        window: at,
+                                        effect: None,
+                                        targeted: false,
+                                    });
                                     observer.waiting = Some(trace.uses.len() - 1);
                                     duel.respond(&window_answer(&decision, Some(i)));
                                 }

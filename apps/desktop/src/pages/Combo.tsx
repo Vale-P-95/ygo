@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BoardDetail } from "../components/combo/BoardDetail";
 import { BoardStrip, CardImage } from "../components/combo/Field";
+import { ScoreBar, WeightsPanel } from "../components/combo/Score";
 import { CardPreview } from "../components/CardPreview";
 import { CardTile } from "../components/CardTile";
 import { DeckMenu } from "../components/DeckMenu";
@@ -8,6 +9,7 @@ import { SectionHeader } from "../components/SectionHeader";
 import { api, type ComboBoard, type ComboGoal, type ComboHand, type ComboStep, type GoalCard, type GoalZone, type Deck, type DeckSummary, type ZoneCard } from "../lib/api";
 import { useCardCache } from "../lib/cards";
 import { continueCombo, startCombo, stopCombo, useCombo } from "../lib/combo";
+import { score, useWeights } from "../lib/scoring";
 import { lastDeck, rememberDeck } from "../lib/deck";
 import { sound } from "../lib/sound";
 import { toast } from "../lib/toast";
@@ -198,10 +200,12 @@ export function Combo({ artReady, onGoForge }: { artReady: boolean; onGoForge: (
   const [selected, setSelected] = useState<ComboBoard | null>(null);
   const [steps, setSteps] = useState<ComboStep[] | null>(null);
   const [handFilter, setHandFilter] = useState<number | null>(null);
-  const [hover, setHover] = useState<{ code: number; rect: DOMRect } | null>(null);
+  const [hover, setHover] = useState<{ code: number; rect: DOMRect; el: HTMLElement } | null>(null);
   const [picker, setPicker] = useState<"extra" | "main" | null>(null);
   const explained = useRef(new Map<string, ComboStep[]>());
   const run = useCombo();
+  const { profile, weights } = useWeights();
+  const [weightsOpen, setWeightsOpen] = useState(false);
   const cards = useCardCache();
   const { request } = cards;
 
@@ -257,8 +261,17 @@ export function Combo({ artReady, onGoForge }: { artReady: boolean; onGoForge: (
   const boards = useMemo(() => {
     if (!ours) return [];
     const list = run.outcome ? run.outcome.boards : Object.values(run.live).flat();
-    return list.filter((b) => handFilter == null || b.hand === handFilter).sort(byRank);
-  }, [ours, run.outcome, run.live, handFilter]);
+    // Measured boards by their score, the others after them by the quick estimate.
+    const value = (b: ComboBoard) => {
+      const s = run.scores[boardId(b)];
+      return s && !s.error ? score(s, weights) : null;
+    };
+    return list
+      .filter((b) => handFilter == null || b.hand === handFilter)
+      .map((b) => ({ b, v: value(b) }))
+      .sort((x, y) => y.b.goalHits - x.b.goalHits || (y.v ?? -1e9) - (x.v ?? -1e9) || byRank(x.b, y.b))
+      .map((x) => x.b);
+  }, [ours, run.outcome, run.live, run.scores, weights, handFilter]);
   // Boards that look the same (they differ only in the Graveyard, the banished cards or the zones) are one entry.
   const groups = useMemo(() => {
     const out: { board: ComboBoard; variants: number }[] = [];
@@ -274,6 +287,12 @@ export function Combo({ artReady, onGoForge }: { artReady: boolean; onGoForge: (
     return out;
   }, [boards]);
   const hands = (ours && (run.outcome?.hands ?? run.progress?.hands)) || [];
+  const scoreOf = (b: ComboBoard) => {
+    const s = run.scores[boardId(b)];
+    return s && !s.error ? s : null;
+  };
+  const scale = Math.max(0.01, ...groups.map(({ board }) => scoreOf(board)).filter((s) => s != null).map((s) => score(s!, weights)));
+  const measured = groups.filter(({ board }) => run.scores[boardId(board)]).length;
 
   // Card data for everything the boards show.
   useEffect(() => {
@@ -400,8 +419,21 @@ export function Combo({ artReady, onGoForge }: { artReady: boolean; onGoForge: (
     setSetup((s) => ({ ...s, [list]: s[list].includes(id) ? s[list].filter((c) => c !== id) : [...s[list], id] }));
   };
 
-  const onHover = useCallback((code: number, el: HTMLElement) => setHover({ code, rect: el.getBoundingClientRect() }), []);
+  const onHover = useCallback((code: number, el: HTMLElement) => setHover({ code, rect: el.getBoundingClientRect(), el }), []);
   const onHoverEnd = useCallback(() => setHover(null), []);
+  // A card removed under the pointer never fires pointerleave: drop its preview on the next move.
+  useEffect(() => {
+    if (!hover) return;
+    const check = (e: PointerEvent) => {
+      if (!hover.el.isConnected || !(e.target instanceof Node && hover.el.contains(e.target))) setHover(null);
+    };
+    window.addEventListener("pointermove", check);
+    window.addEventListener("pointerdown", check);
+    return () => {
+      window.removeEventListener("pointermove", check);
+      window.removeEventListener("pointerdown", check);
+    };
+  }, [hover]);
   const hoverCard = hover ? cards.get(hover.code) : undefined;
   const name = (id: number) => cards.get(id)?.name ?? String(id);
 
@@ -808,8 +840,17 @@ export function Combo({ artReady, onGoForge }: { artReady: boolean; onGoForge: (
               <section className="flex flex-col gap-1.5">
                 <div className="flex items-baseline justify-between px-1">
                   <h3 className="text-sm font-semibold">{run.running ? "Le migliori board finora" : "Le board finali"}</h3>
-                  <span className="text-[11px] text-faint">stima provvisoria: mostri, magie/trappole e carte rimaste in mano</span>
+                  <span className="text-[11px] text-faint" aria-live="polite">
+                    {run.running
+                      ? "stima provvisoria finché la ricerca gira"
+                      : run.scoring
+                        ? `turno di prova in corso: ${measured} board misurate…`
+                        : measured
+                          ? "punteggio misurato con il turno di prova"
+                          : "stima provvisoria"}
+                  </span>
                 </div>
+                {!run.running && measured > 0 && <WeightsPanel profile={profile} weights={weights} open={weightsOpen} onToggle={() => setWeightsOpen((v) => !v)} />}
                 {groups.slice(0, 60).map(({ board: b, variants }, i) => {
                   const active = selected && boardId(selected) === boardId(b);
                   return (
@@ -823,9 +864,20 @@ export function Combo({ artReady, onGoForge }: { artReady: boolean; onGoForge: (
                       className={`lab-card grid grid-cols-[28px_minmax(0,1fr)_auto] items-center gap-3 px-3 py-2 text-left transition-colors hover:border-border-strong ${active ? "!border-[var(--sec)]" : ""}`}
                     >
                       <span className="display text-center text-sm text-faint">{i + 1}</span>
-                      <BoardStrip board={b} width={26} getCard={cards.get} />
+                      <span className="flex min-w-0 flex-col gap-1.5">
+                        <BoardStrip board={b} width={26} getCard={cards.get} />
+                        {scoreOf(b) && <ScoreBar s={scoreOf(b)!} weights={weights} scale={scale} />}
+                      </span>
                       <span className="flex flex-col items-end text-xs whitespace-nowrap text-muted tabular-nums">
-                        <b className="text-sm text-text">{b.quickScore.toFixed(1)}</b>
+                        {scoreOf(b) ? (
+                          <b className="text-sm text-text" title="Punteggio misurato">
+                            {score(scoreOf(b)!, weights).toFixed(2)}
+                          </b>
+                        ) : (
+                          <span title="Stima provvisoria (mostri, magie e trappole, carte in mano)">
+                            <b className="text-sm text-faint">{b.quickScore.toFixed(1)}</b> <span className="text-[10px]">stima</span>
+                          </span>
+                        )}
                         <span>
                           {!b.exact && (
                             <span className="mr-1 text-faint" title="Letta quando passi il turno: End Phase non ancora giocata">
@@ -849,7 +901,9 @@ export function Combo({ artReady, onGoForge }: { artReady: boolean; onGoForge: (
                   <p>Scegli una mano (o una carta) e premi «Cerca le combo». Il motore di gioco prova da solo tutte le scelte possibili del primo turno: attivazioni, evocazioni, bersagli, ordine delle catene.</p>
                   <p>Ogni volta che passa il turno con una board nuova la conserva, con la linea più corta per arrivarci. Puoi cambiare sezione mentre cerca: la ricerca continua, e a ricerca finita puoi farla proseguire da dove si è fermata.</p>
                   <p>Con un <b className="text-text">obiettivo</b> (per esempio un mostro dell'Extra Deck da avere sul campo) il motore prova prima le linee che ci portano e ti dice se ci arriva, con la linea, o se è impossibile perché nessuna linea ci arriva.</p>
-                  <p className="text-faint">La classifica attuale è una stima semplice; la classifica completa per interruzioni, floodgate e resilienza arriva con la Fase 5C.</p>
+                  <p>
+                    A ricerca finita le board migliori passano il <b className="text-text">turno di prova</b>: un avversario con carte vere prova a giocare (Magie, ricerche, effetti dalla mano e dal Cimitero, Evocazioni) e a smontarle con Dark Hole, Raigeki, Kaiju e altri. La classifica conta interruzioni, floodgate e resilienza misurati così, con pesi che puoi cambiare.
+                  </p>
                 </section>
               )
             )}
@@ -866,6 +920,9 @@ export function Combo({ artReady, onGoForge }: { artReady: boolean; onGoForge: (
               </div>
               <BoardDetail
                 board={selected}
+                score={run.scores[boardId(selected)] ?? null}
+                scoring={run.scoring}
+                weights={weights}
                 hand={selectedHand}
                 steps={run.running ? [] : steps}
                 stepsNote={run.running ? "La linea sarà raccontata appena la ricerca finisce." : null}

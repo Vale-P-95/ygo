@@ -214,9 +214,9 @@ fn combos(dir: &Path, setup: &Setup, options: CombosOptions) -> Result<()> {
     if let Some(t) = threads {
         config.threads = t;
     }
+    config.hand_traps = ygo_data::Tag::Handtrap.names().iter().filter_map(|n| engine.cards().find_by_name(n)).map(|c| c.code).collect();
     if !use_handtraps {
-        config.policy.passive =
-            ygo_data::Tag::Handtrap.names().iter().filter_map(|n| engine.cards().find_by_name(n)).map(|c| c.code).collect();
+        config.policy.passive = config.hand_traps.clone();
     }
     config.policy.forbid = resolve_hand(&engine, &forbid)?;
     config.keep_in_hand = resolve_hand(&engine, &keep)?;
@@ -362,8 +362,9 @@ fn print_measure(engine: &Engine, m: &ygo_solver::Measure, took: std::time::Dura
     );
     for i in &m.interruptions {
         let covers: Vec<&str> = i.covers.iter().map(|p| p.label()).collect();
+        let shared = if i.value < i.alone { format!(" (alone {:.2})", i.alone) } else { String::new() };
         println!(
-            "     {} ({}): {}{} ×{} · coverage {:.0}% · {:.2}  [{}]",
+            "     {} ({}): {}{} ×{} · coverage {:.0}% · {:.2}{shared}  [{}]",
             db.name(i.responder.code),
             ygo_engine::consts::location::name(i.location),
             i.effect.label(),

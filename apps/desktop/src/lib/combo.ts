@@ -1,5 +1,5 @@
 import { useSyncExternalStore } from "react";
-import { api, type ComboBoard, type ComboOutcome, type ComboProgress, type ComboRequest } from "./api";
+import { api, type ComboBoard, type ComboOutcome, type ComboProgress, type ComboRequest, type ComboScore } from "./api";
 
 /**
  * The Combo Lab's search runs in the backend while the player does other
@@ -14,9 +14,13 @@ export interface ComboRun {
   live: Record<number, ComboBoard[]>;
   outcome: ComboOutcome | null;
   error: string | null;
+  /** Probe turn results, by board (`hand:key`). */
+  scores: Record<string, ComboScore>;
+  /** The probe turn is running on the best boards. */
+  scoring: boolean;
 }
 
-const IDLE: ComboRun = { running: false, request: null, progress: null, live: {}, outcome: null, error: null };
+const IDLE: ComboRun = { running: false, request: null, progress: null, live: {}, outcome: null, error: null, scores: {}, scoring: false };
 
 let run: ComboRun = IDLE;
 const listeners = new Set<() => void>();
@@ -50,7 +54,7 @@ export async function startCombo(request: ComboRequest): Promise<ComboRun> {
 export async function continueCombo(seconds: number): Promise<ComboRun> {
   if (run.running || !run.request || !run.outcome) return run;
   const previous = run.outcome;
-  set({ running: true, error: null, request: { ...run.request, seconds: run.request.seconds + seconds }, outcome: null, live: liveOf(previous) });
+  set({ running: true, error: null, request: { ...run.request, seconds: run.request.seconds + seconds }, outcome: null, live: liveOf(previous), scores: run.scores });
   return follow(() => api.comboContinue(run.request!.deckId, seconds));
 }
 
@@ -69,16 +73,34 @@ function merge(seen: ComboBoard[] = [], top: ComboBoard[]): ComboBoard[] {
 
 async function follow(call: () => Promise<ComboOutcome>): Promise<ComboRun> {
   const unlisten = await api.onComboProgress((p) => set({ progress: p, live: { ...run.live, [p.handIndex]: merge(run.live[p.handIndex], p.top) } }));
+  let finished = false;
   try {
     const outcome = await call();
     set({ outcome, live: {} });
+    finished = outcome.stop !== "Cancelled";
   } catch (e) {
     set({ error: String(e) });
   } finally {
     unlisten();
     set({ running: false });
   }
+  if (finished) void scoreBoards();
   return run;
+}
+
+/** Puts the best boards to the probe turn; scores arrive one by one. */
+export async function scoreBoards() {
+  if (run.scoring || run.running) return;
+  set({ scoring: true });
+  const unlisten = await api.onComboScore((s) => set({ scores: { ...run.scores, [`${s.hand}:${s.key}`]: s } }));
+  try {
+    await api.comboScore();
+  } catch (e) {
+    set({ error: String(e) });
+  } finally {
+    unlisten();
+    set({ scoring: false });
+  }
 }
 
 export function stopCombo() {

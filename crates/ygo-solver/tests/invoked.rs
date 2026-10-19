@@ -29,6 +29,7 @@ fn finds_invoked_boards_by_itself() {
     config.time_limit = Duration::from_secs(25);
     // Handtraps stay in the hand on your own turn.
     config.policy.passive = vec![ASH, FUWALOS];
+    config.hand_traps = vec![ASH, FUWALOS];
     let result = search(&engine, &config, &AtomicBool::new(false), |_| {});
     assert!(matches!(result.stop, Stop::TimeLimit | Stop::Exhausted));
     assert_eq!(result.interrupted, 0);
@@ -73,6 +74,7 @@ fn a_goal_is_reached_or_proved_impossible() {
     config.threads = 2;
     config.time_limit = Duration::from_secs(20);
     config.policy.passive = vec![ASH, FUWALOS];
+    config.hand_traps = vec![ASH, FUWALOS];
     config.goal = goal.clone();
     let result = search(&engine, &config, &AtomicBool::new(false), |_| {});
     assert_eq!(result.stop, Stop::GoalReached);
