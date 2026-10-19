@@ -1,4 +1,4 @@
-# DuelForge: piano di progetto (v1.6)
+# DuelForge: piano di progetto (v1.7)
 
 > Nome provvisorio. Il documento è la proposta iniziale: una volta approvate le decisioni aperte (§14) diventa la roadmap di sviluppo.
 >
@@ -11,6 +11,8 @@
 > **v0.5 (18/10/2026)**: Fase 1 realizzata; risultati nella §17.
 >
 > **v0.6 (18/10/2026)**: Fase 2, prima parte: editor dei deck in stile Master Duel; risultati nella §18.
+>
+> **v1.7 (19/10/2026)**: valutazione del lavoro in parallelo con sub-agenti (§27); caccia ai bug su 37 deck di Master Duel Meta (§28).
 >
 > **v1.6 (19/10/2026)**: Fase 5C, prima parte: il turno di prova misura le board e la classifica dell'app usa il punteggio misurato, con profili e pesi; zone dei mostri (Invoked Oceanus) valutate; §26.
 >
@@ -944,3 +946,130 @@ Dalla mano Aleister the Invoker, Magical Meltdown, Invocation, Ash Blossom, Mulc
 - L'attacco è uno solo: protezioni che reggono più attacchi valgono di più di quanto misurato.
 - Da fare nella 5C: frontiera di Pareto (le board che nessun'altra batte in tutte le metriche), confronto affiancato di due board, pesi imparati dalle preferenze dell'utente (Bradley-Terry), replay animato passo per passo.
 
+## 27. Lavoro in parallelo con sub-agenti: valutazione e piano (19/10/2026)
+
+Valutazione fatta con un workflow di 10 agenti in sola lettura: 3 analisi (accoppiamento dei file, infrastruttura, backlog), 3 strategie progettate in modo indipendente, 3 giudici con punti di vista diversi, una sintesi; le affermazioni di fatto sono state poi verificate a mano (commit, CI, toolchain, visibilità del repository).
+
+### 27.1 Tre agenti fissi adesso? No
+La proposta (agenti fissi su GUI, Laboratorio e motore) oggi costa più di quanto rende:
+- **Il limite è la quota, non il lavoro.** 47 commit in due giorni e due volte il limite d'uso: quattro sessioni consumano la quota 3–4 volte più in fretta e si fermano insieme a metà lavoro. Il percorso critico del Combo Lab sono le decisioni dell'utente (#43, #44), che nessun agente accelera.
+- **Il Combo Lab è verticale.** 4 dei 5 commit del Combo Lab hanno cambiato insieme crate, `src-tauri/src/lib.rs`, `api.ts` e `Combo.tsx`; 20 dei 34 commit di codice toccano `lib.rs`, `api.ts` o `index.css`. Agente GUI e agente motore lavorerebbero sugli stessi file.
+- **La macchina non regge un secondo agente che compila**: 4 core, e ricerche e test a tempo (`invoked.rs`, 20–25 s) che una build in parallelo altera. Il disco non è più il limite (liberati i 19 GB di `target/debug`, ora 26 GB liberi), la CPU sì.
+- **Manca il lavoro.** Il Laboratorio è chiuso (§21), la rifinitura della GUI non ha una lista (Fase 7 vuota): gli agenti inventerebbero lavoro da rivedere.
+- **Sulla priorità il guadagno è ~1x** anche nella versione migliore: l'agente del motore ripartirebbe senza il contesto della caccia ai bug.
+
+Conviene più avanti e ridotta: **un** agente in sessione cloud, a ticket, su lavoro indipendente, dopo la §27.4.
+
+### 27.2 Le tre strategie
+Medie dei voti di tre giudici, da 1 a 10; più alto è meglio, anche per rischio e costo.
+
+| | Tre agenti fissi (proposta) | Un pilota su una fetta | Seriale con fan-out brevi |
+|---|---|---|---|
+| Throughput | 3,0 | 4,0 | 5,3 |
+| Rischio di integrazione | 3,0 | 6,3 | 9,0 |
+| Qualità | 4,3 | 6,3 | 7,7 |
+| Costo in quota | 1,7 | 4,7 | 5,7 |
+| Carico di revisione | 3,7 | 6,7 | 8,0 |
+| Aderenza alla priorità | 2,3 | 4,3 | 8,3 |
+| **Media** | **3,0** | **5,4** | **7,3** |
+| Guadagno realistico | ≤1,1x, negativo sul Combo Lab | 1,0–1,1x, 0x sul percorso critico | 1,05–1,15x |
+
+**Scelta: la terza**, con innesti: dalla seconda il pilota in sessione cloud con file vietati e criteri go/no-go (§27.8), dalla prima proprietà dei file e regole di arresto, dai giudici il budget a nodi e la caccia ai bug come regressione.
+
+### 27.3 Come si lavora da ora
+- **Un solo agente scrive, compila e misura**: il principale, sul Combo Lab.
+- **Fan-out in sola lettura**, 2–3 agenti, a CPU libera, su compiti disgiunti: handtrap dal testo delle carte contro la lista di `tags.rs` (#41), opzioni di design per #44, audit di `search.rs` e `probe.rs`, triage dei mazzi anomali già raggruppati per causa. Kashtira, Veiler come "lock" e il crash di D/D/D sono stati risolti in seriale (§28): cause diverse, nessuna parallelizzabile senza riprodurre nel motore.
+- **Formato fisso**: risultato / prova (`file:riga`, log) / confidenza / diff ≤40 righe; test solo come file nuovi, in un `.patch` sullo SHA di base. Ogni risultato è un'ipotesi finché l'agente principale non lo riproduce; patch che non passano `git apply --check` scartate.
+- **Decisioni chieste subito, in un messaggio**: pesi predefiniti e board di riferimento (#43, §22.4, §22.7.2), design del matchup probe (#44), formato dei report del Laboratorio.
+
+### 27.4 Preparazione
+Quasi tutti i passi servono anche senza sub-agenti: proteggono il lavoro da limiti d'uso e perdita del contesto.
+
+| # | Passo | Dimensione |
+|---|---|---|
+| P1 | Commit del lavoro in corso e SHA nel prompt, prima di ogni fan-out o refactor (fatto) | minuti |
+| P2 | `CLAUDE.md`: le 12 regole già scritte; solo l'agente principale misura e lancia `update-cards`; `DUELFORGE_DATA` e `DUELFORGE_USER_DB`; build altrui con `nice -n 19`, `CARGO_BUILD_JOBS=1` | ~30 min |
+| P3 | Budget a nodi: `--nodes` nella CLI (`max_nodes` c'è già, `search.rs:39`); test di `invoked.rs` a un thread, con nodi invece di 20–25 s | ~1 h |
+| P4 | `scripts/`: download delle liste MDM e runner sui 37 mazzi, una riga per mazzo (board, punteggio, errore del probe); la tabella va in PIANO e fa da regressione | 1–2 h |
+| P5 | `scripts/ui-shot.sh`: display come argomento, binario release, `DUELFORGE_USER_DB` temporaneo, Chromium per il 3D | ~1 h |
+| P6 | Metriche di `score_view` (`lib.rs` 564–630) in `ygo-solver`, con test (serve a #43) | ~70 righe + test |
+| P7 | Toolchain Rust fissata (il 18/10 cinque push rossi, fino ad a98c163); clippy di `duelforge-desktop` su Linux (oggi lo compila solo il job Windows); poi installer Windows solo sul branch principale | S |
+| P8 | Disco: liberati i 19 GB di `target/debug` (fatto) | minuti |
+| P9 | Solo con un agente che scrive in programma: `lib.rs` in moduli per sezione (con `ComboState` separato) e `api.ts` dietro un re-export. `index.css` resta: l'agente aggiunge un foglio suo, importato per ultimo | 2–2,5 h |
+| P10 | Setup della sessione cloud (submodule, `fetch-data`, `update-cards`, `pnpm install`), verificando rete, `nproc` e disco | ~1 h |
+
+### 27.5 Proprietà dei file
+- **Agente principale**: tutto il resto; solo lui tocca `lib.rs` (`run()`, `generate_handler!`), il re-export di `api.ts`, `index.css`, `App.tsx`, `Overview.tsx`, `sections.ts`, documentazione e `CLAUDE.md`, lockfile, `.github/` e tutto il Combo Lab.
+- **Agenti fan-out**: niente nel repository; scrivono solo in `<scratchpad>/fanout/<run>/`.
+- **Pilota**: solo i file del ticket (per la §27.8: `ygo-stats/src/sim.rs` e test, `SimulatorTab.tsx`, `SimEffect` in `api.ts`, `DeckBuilder.tsx`, i nuovi `QuickStats.tsx` e `deck.css`).
+- **Vietati agli altri agenti**: `tags.rs` (#41), il significato dei ruoli starter/extender (li legge il follow-up), le migrazioni di `userdb`, nuove dipendenze. Se servono, una richiesta di modifica nel messaggio finale.
+
+### 27.6 Coordinamento e merge
+1. L'agente principale crea la sessione dallo HEAD (`outcome_branch=claude/pilot-<tema>`, proprietà dei file nel prompt) con **un ticket** e i suoi criteri di accettazione. Il pilota fa commit piccoli e push frequenti.
+2. Prima di consegnare: fmt, clippy `-D warnings` anche di `duelforge-desktop`, `cargo test` con `DUELFORGE_DATA` (nessun "skipped: no game data"), `pnpm typecheck && pnpm build`, `ui-shot` nei due temi. Poi un messaggio fisso: commit, esito dei controlli, screenshot, bozza per PIANO, domande, "file fuori proprietà: nessuno".
+3. Una sessione cloud non può scrivere all'agente principale: questo la controlla con `get_session` tra una ricerca e l'altra.
+4. Merge solo dell'agente principale, `--no-ff`, con la CI del pilota verde; hunk fuori proprietà scartati; poi controlli, build release e screenshot **suoi**.
+5. Un push per gruppo verificato: cancel-in-progress annulla la corsa precedente, che costa ~22 minuti fatturati (repo privato, Windows doppio).
+
+### 27.7 Come rivede l'utente
+Segue solo la sessione principale: dopo un fan-out un messaggio breve (risultati accettati e scartati, commit), dopo un merge una nota (cosa è entrato, screenshot, test, decisioni richieste). I risultati vanno in un § di PIANO (per la caccia ai bug una tabella per mazzo), i report grezzi nello scratchpad.
+
+### 27.8 Il pilota
+**Quando**: a una pausa del Combo Lab (caccia ai bug chiusa o attesa di #43/#44), dopo P1–P5, P7, P9 e P10, se l'utente vuole avanzamenti fuori dal Combo Lab; eventualmente con un modello più economico.
+
+**Cosa**: due ticket già specificati.
+- Triple Tactics Talent e Card of Demise nel simulatore (§20.4, §7.2). TTT si risolve solo se l'avversario ha attivato un effetto di mostro nella tua Main Phase: va dichiarato come ipotesi, non è un "pesca 2". Demise richiede la variante "pesca fino a N" di `SimEffect` (Rust e TypeScript). `ygo-stats` non dipende da altri crate: test senza motore C++.
+- Statistiche rapide nella Fucina (§4.2): tipi, curva dei livelli, P(starter), con i comandi esistenti `lab_overview` e `lab_probability`.
+
+| Criterio | Go (secondo ticket o seconda fetta) | No-go (si torna al seriale) |
+|---|---|---|
+| Conflitti | al massimo uno banale, nessun hunk fuori proprietà | un file condiviso da risolvere a mano |
+| CI | verde entro 2 tentativi, sul pilota e sul principale dopo il merge | una regressione arriva sul principale |
+| Rilavoro | al massimo un giro di correzioni, nessuna misura combo da rifare | il pilota tocca `tags.rs`, ruoli o solver |
+| Coordinamento | ≤1 h dell'agente principale in tutto | integrare costa più del lavoro integrato |
+| Quota | nessun avviso di limite durante il pilota | limite raggiunto durante il pilota |
+| Consegnato | 2 ticket chiusi con test e screenshot, approvati in un passaggio | revisioni accumulate per l'utente |
+| Combo Lab | almeno un commit verificato nel frattempo | Combo Lab fermo |
+
+### 27.9 Costi, rischi e mitigazioni
+| Rischio | Mitigazione |
+|---|---|
+| Quota: un fan-out costa 1,3–2 volte i token dell'analisi seriale, un pilota raddoppia il consumo | un fan-out per sessione di lavoro; estratti di log, non file interi; ticket, mai obiettivi aperti |
+| Risultati convincenti ma sbagliati (chi legge non esegue il motore né gli script Lua) | riprodurre prima di agire; contare i risultati accettati |
+| Misure disturbate | budget a nodi (P3); pilota in cloud, mai build in questo container durante una misura |
+| Accoppiamento di significato (ruoli, handtrap), convenzioni che derivano | file vietati, richieste di modifica, `CLAUDE.md`, controllo al merge |
+| CI: ~22 minuti fatturati a corsa, ~450 già usati in 2 giorni | un push per gruppo, P7, controllare il piano GitHub Actions |
+| Limite d'uso a metà lavoro | commit e push prima di ogni ricerca lunga; tag sull'ultimo commit con CI e riepilogo dei 37 mazzi verdi |
+
+### 27.10 Quando allargare o fermarsi
+**Allargare** a una seconda fetta (visualizzatore delle carte §5.1 o Bottega §6), un agente alla volta, solo con tutti i criteri go e una coda di ticket scritta. Mai un secondo agente che compila in questo container, né un agente sulla ricerca delle combo.
+
+**Fermarsi** (prima il pilota, poi i fan-out) quando:
+- compare l'avviso del limite d'uso;
+- i risultati accettati sono sotto ~35% per due fan-out, o si ripetono;
+- un fan-out richiede build o run della CLI;
+- per due merge di fila integrare costa più del lavoro integrato;
+- scatta un criterio no-go della §27.8;
+- la coda del pilota è vuota o aspetta l'utente: la sessione si archivia.
+
+## 28. Caccia ai bug su 37 deck di Master Duel Meta (19/10/2026)
+
+### 28.1 Il banco di prova
+`scripts/mdm_decks.py` scarica le top deck più recenti dall'API di masterduelmeta.com (una lista per archetipo: Dracotail, Elfnote, Maliss, Artmage, Branded, Invoked, Tearlaments, DoomZ, Clown Crew, Mitsurugi, Kashtira, D/D/D e altri 25) e le converte in `.ydk` con il database delle carte; le liste non entrano nel repository. `scripts/combo_hunt.py` gioca ricerca e turno di prova su ogni deck, con mani estratte sempre uguali, e stampa una riga per mano. Con `--nodes` (nuovo nella CLI) e un thread la ricerca è riproducibile: stesso codice, stesse board, a prescindere dal carico della macchina (prima gli spareggi tra board a pari punteggio dipendevano dall'ordine casuale delle tabelle hash).
+
+Prima tornata, 37 deck × 2 mani: 71 corse pulite, 2 crash, 1 turno di prova fallito. Più 8 archetipi provati a parte (Snake-Eye, Tenpai, Labrynth, Kashtira, Sky Striker, Branded, Spright, Yubel). Le regole corrette sono tutte generali: nessuna eccezione per singole carte.
+
+### 28.2 Bug trovati e corretti
+- **Crash del motore con D/D/D** (segmentation fault, l'app si sarebbe chiusa). AddressSanitizer: lettura di memoria già liberata in `field::reset_phase` del core EDOPro. Quando a fine fase scade un effetto concesso ad altre carte (grant effect), toglierlo toglie anche gli effetti concessi, mentre il ciclo li sta ancora scorrendo. Il bug è anche nell'ultima versione upstream. `build.rs` compila `field.cpp` da una copia corretta (`reset_phase` e `reset_chain` raccolgono prima gli effetti scaduti, poi tolgono quelli ancora presenti) e si ferma se upstream cambia quel codice. Verificato con AddressSanitizer sulle due mani D/D/D (prima: lettura dopo la liberazione; dopo: nessun errore); la passata AddressSanitizer su tutti i deck è in corso. Va segnalato a edo9300/ygopro-core.
+- **Turno di prova fallito con Kashtira.** La ricerca giocava contro un avversario senza carte, il turno di prova contro uno con carte vere: le carte che guardano Deck, mano o Extra Deck avversario offrivano scelte diverse e la linea non si rigiocava. Ora ricerca, spiegazione e turno di prova usano lo stesso avversario; le sue risposte (passa) fanno parte della linea. Effetto collaterale: la mano Kashtira trova la sua vera board (Shangri-Ira + Arise-Heart, floodgate 0,90), prima invisibile perché i suoi effetti non avevano nulla da colpire.
+- **Effect Veiler e Infinite Impermanence contati come "blocca le azioni dopo".** Annullano gli effetti di una carta, e il motore lo segnala solo quando la catena arriva all'effetto avversario, dopo che il loro è già risolto: l'attribuzione si perdeva. Ora la negazione va all'ultimo effetto tuo risolto nella stessa catena.
+- **Copertura gonfiata.** Si assumeva che un effetto fermasse tutto ciò che c'era nelle finestre in cui veniva offerto (Veiler è offerto mentre l'avversario evoca, ma non ferma un'Evocazione). Ora per ogni finestra in cui è offerto si gioca una partita che lo usa solo lì e si conta ciò che ferma davvero. Veiler: dal 67% gonfiato al 14% reale (in questo kit può fermare solo l'effetto di Terrortop). Invoked Mechaba è ora riconosciuto come "nega l'attivazione e toglie la carta". Ogni board costa 0,4–0,9 s invece di 0,1–0,3 s.
+- **Board provvisorie e End Phase** (Mitsurugi): la linea si ferma a "termina il turno" e la End Phase chiedeva scelte che la linea non aveva. Il turno di prova ora la gioca come la ricerca, facendo qualcosa per primo.
+- Un errore del motore ("risposta rifiutata") ora dice quale scelta e quale risposta.
+
+### 28.3 Ancora aperto
+- **Il kit sottostima gli effetti di mostro sul campo**: ha una sola giocata di quel tipo (Terrortop), mentre nei combo moderni sono le più frequenti. Va allargato (per esempio l'effetto di Link Spider) e vanno rivisti i pesi delle giocate (#43). Per questo Veiler vale ancora poco.
+- **Board di Trappole** (Labrynth) misurate basse: da capire se è il kit o la misura.
+- **Handtrap** riconosciute da una lista di nomi (`tags.rs`) invece che dal motore (#41).
+- **Matchup**: provare le board contro un deck avversario scelto dall'utente (#44).
+- Tabella di regressione per deck, con `combo_hunt.py` a budget di nodi, da tenere aggiornata qui.

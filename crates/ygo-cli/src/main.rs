@@ -79,6 +79,10 @@ enum Cmd {
         /// Time limit in seconds.
         #[arg(long, default_value_t = 60)]
         seconds: u64,
+        /// Stop after this many choices explored instead (with --threads 1 the
+        /// result does not depend on the machine's load).
+        #[arg(long)]
+        nodes: Option<u64>,
         /// Worker threads (default: all cores).
         #[arg(long)]
         threads: Option<usize>,
@@ -160,27 +164,42 @@ fn main() -> Result<()> {
         Cmd::Search { query, limit } => search(&cli.data, &query, limit),
         Cmd::Play { setup, steps, verbose } => play(&cli.data, &setup, steps.as_deref(), verbose),
         Cmd::Bench { setup, playouts, max_decisions } => bench(&cli.data, &setup, playouts, max_decisions),
-        Cmd::Combos { setup, seconds, threads, top, lines, use_handtraps, forbid, keep, card, hands, goal, goal_any, first, probe } => {
-            combos(
-                &cli.data,
-                &setup,
-                CombosOptions {
-                    seconds,
-                    threads,
-                    top,
-                    show_lines: lines,
-                    use_handtraps,
-                    forbid,
-                    keep,
-                    card,
-                    hands,
-                    goal,
-                    goal_any,
-                    first,
-                    probe,
-                },
-            )
-        }
+        Cmd::Combos {
+            setup,
+            seconds,
+            nodes,
+            threads,
+            top,
+            lines,
+            use_handtraps,
+            forbid,
+            keep,
+            card,
+            hands,
+            goal,
+            goal_any,
+            first,
+            probe,
+        } => combos(
+            &cli.data,
+            &setup,
+            CombosOptions {
+                seconds,
+                nodes,
+                threads,
+                top,
+                show_lines: lines,
+                use_handtraps,
+                forbid,
+                keep,
+                card,
+                hands,
+                goal,
+                goal_any,
+                first,
+                probe,
+            },
+        ),
         Cmd::Sweep { duels, max_decisions, max_turns, seed, threads, script_errors } => {
             let threads = threads.unwrap_or_else(|| std::thread::available_parallelism().map_or(4, |n| n.get()));
             sweep(&cli.data, &SweepConfig { duels, max_decisions, max_turns, seed, threads }, script_errors)
@@ -190,6 +209,7 @@ fn main() -> Result<()> {
 
 struct CombosOptions {
     seconds: u64,
+    nodes: Option<u64>,
     threads: Option<usize>,
     top: usize,
     show_lines: bool,
@@ -205,12 +225,15 @@ struct CombosOptions {
 }
 
 fn combos(dir: &Path, setup: &Setup, options: CombosOptions) -> Result<()> {
-    let CombosOptions { seconds, threads, top, show_lines, use_handtraps, forbid, keep, card, hands, goal, goal_any, first, probe } =
+    let CombosOptions { seconds, nodes, threads, top, show_lines, use_handtraps, forbid, keep, card, hands, goal, goal_any, first, probe } =
         options;
     let (engine, deck, hand) = start(dir, setup)?;
     let mut config = ygo_solver::SearchConfig::new(deck, hand);
     config.seed = setup.seed;
     config.time_limit = std::time::Duration::from_secs(seconds);
+    if let Some(nodes) = nodes {
+        config.max_nodes = nodes;
+    }
     if let Some(t) = threads {
         config.threads = t;
     }

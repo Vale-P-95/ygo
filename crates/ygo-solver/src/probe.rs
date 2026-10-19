@@ -372,24 +372,26 @@ enum Prelude<'a> {
     EndAtOnce,
 }
 
+/// A moment to respond in a run: `(step, window in the step)`.
+type WindowAt = (usize, usize);
+
 /// How you answer the opponent's actions in a run.
 #[derive(Clone, Copy)]
 enum Policy<'a> {
     Pass,
     /// Use this effect whenever it is offered, except at the windows listed
     /// (`(step, window in the step)`).
-    Use(ResponderId, &'a HashSet<(usize, usize)>),
+    Use(ResponderId, &'a HashSet<WindowAt>),
     /// Use any of these whenever offered, the first listed first.
     UseAll(&'a [ResponderId]),
+    /// Use this effect only at one window: `(step, window in the step)`.
+    UseAt(ResponderId, WindowAt),
 }
 
 /// A moment you could respond, and with what.
 #[derive(Debug, Clone)]
 struct Window {
     step: usize,
-    /// The opponent's step already activated something (else it is
-    /// summoning): tells which probe of the step the window answers.
-    chained: bool,
     options: Vec<(ResponderId, u8)>,
 }
 
@@ -430,6 +432,10 @@ struct Observer {
     use_of_link: HashMap<u32, usize>,
     targeting: Option<usize>,
     solving: Option<usize>,
+    /// Uses already resolved in the current chain: a card whose effects
+    /// they negated (Effect Veiler, Infinite Impermanence) only shows it
+    /// when its own link resolves later.
+    resolved: Vec<usize>,
     /// The use resolving negated this card of the opponent.
     negated_code: Option<u32>,
     /// The step's opponent chain links (to tell if its card was negated).
@@ -476,11 +482,16 @@ impl Observer {
                 self.solving = self.use_of_link.get(&(*chain_link as u32)).copied();
                 self.negated_code = None;
             }
-            Event::ChainSolved { .. } => self.solving = None,
+            Event::ChainSolved { .. } => {
+                if let Some(u) = self.solving.take() {
+                    self.resolved.push(u);
+                }
+            }
             Event::ChainEnd => {
                 self.links.clear();
                 self.use_of_link.clear();
                 self.solving = None;
+                self.resolved.clear();
             }
             Event::ChainNegated { chain_link } | Event::ChainDisabled { chain_link } => {
                 let negated = matches!(event, Event::ChainNegated { .. });
@@ -491,6 +502,9 @@ impl Observer {
                 if let (Some(u), Some(&(1, code))) = (self.solving, self.links.get(&link)) {
                     better(uses, u, if negated { Effect::NegateActivation } else { Effect::NegateEffect });
                     self.negated_code = Some(db.canonical_code(code));
+                } else if let (None, Some(&u), Some((1, _))) = (self.solving, self.resolved.last(), self.links.get(&link)) {
+                    // Negated by one of your effects resolved before it in this chain.
+                    better(uses, u, Effect::NegateEffect);
                 }
             }
             Event::Move { code, from, to, reason: why } => {
@@ -659,81 +673,84 @@ impl<'a> Prober<'a> {
         // already stops is counted there, not against your other effects.
         let reference = activation_weight() - floodgates.iter().filter(|p| p.is_activation()).map(|p| p.weight()).sum::<f64>();
 
-        // Responders: every effect offered while nothing is answered.
-        // Each effect with the probes it could answer: an activation once the
-        // opponent's card is chained, a summon before.
-        let mut offered: Vec<(ResponderId, u8, HashSet<Probe>)> = Vec::new();
+        // Responders: every effect offered while nothing is answered, and
+        // the windows (step, window in the step) where it is offered.
+        let mut offered: Vec<(ResponderId, u8, Vec<WindowAt>)> = Vec::new();
+        let mut in_step: HashMap<usize, usize> = HashMap::new();
         for w in &all.windows {
-            let probes: Vec<Probe> =
-                self.kit.steps[w.step].goals.iter().map(|(p, _)| *p).filter(|p| p.is_activation() == w.chained).collect();
+            let at = in_step.entry(w.step).or_default();
             for &(id, loc) in &w.options {
                 match offered.iter_mut().find(|(o, _, _)| *o == id) {
-                    Some((_, _, answered)) => answered.extend(probes.iter().copied()),
-                    None => offered.push((id, loc, probes.iter().copied().collect())),
+                    Some((_, _, windows)) => windows.push((w.step, *at)),
+                    None => offered.push((id, loc, vec![(w.step, *at)])),
                 }
             }
+            *at += 1;
         }
+        let debug = std::env::var_os("DUELFORGE_DEBUG_PROBE").is_some();
+        let stopped_by = |run: &RunTrace| -> Vec<Probe> {
+            let now = worked(run);
+            all_worked.iter().filter(|(p, ok)| **ok && now.get(p) != Some(&true)).map(|(p, _)| *p).collect()
+        };
         let mut interruptions = Vec::new();
-        for (id, loc, answered) in &offered {
-            let mut skip = HashSet::new();
-            for _ in 0..3 {
-                // A run that cannot be played through says nothing about this effect.
-                let Ok(run) = self.run(Prelude::Line(line), &all_steps, Policy::Use(*id, &skip)) else { break };
-                let now = worked(&run);
-                if std::env::var_os("DUELFORGE_DEBUG_PROBE").is_some() {
-                    let db = self.engine.cards();
-                    eprintln!("-- using {} ({} uses)", db.name(id.code), run.uses.len());
-                    for (step, r) in self.kit.steps.iter().zip(&run.steps) {
-                        eprintln!(
-                            "   {:?}: available {} worked {:?}",
-                            step.goals.iter().map(|g| g.0).collect::<Vec<_>>(),
-                            r.available,
-                            r.worked
-                        );
-                    }
-                    let st = &run.state.players[0];
-                    eprintln!(
-                        "   your field after: {}",
-                        st.monsters.iter().chain(&st.spells).flatten().map(|c| db.name(c.code)).collect::<Vec<_>>().join(", ")
-                    );
+        for (id, loc, windows) in &offered {
+            // What it stops, tried at each window where it is offered (being
+            // offered is not being able to stop that action: Effect Veiler is
+            // offered while a monster is summoned, but cannot stop the summon).
+            let mut covers: Vec<Probe> = Vec::new();
+            let mut effect: Option<Effect> = None;
+            let mut targeted = false;
+            for &window in windows.iter().take(12) {
+                let Ok(run) = self.run(Prelude::Line(line), &all_steps, Policy::UseAt(*id, window)) else { continue };
+                let stopped = stopped_by(&run);
+                if debug {
+                    eprintln!("-- {} at {window:?}: stops {stopped:?}", self.engine.cards().name(id.code));
                 }
-                let stopped: Vec<Probe> = all_worked.iter().filter(|(p, ok)| **ok && now.get(p) != Some(&true)).map(|(p, _)| *p).collect();
                 if stopped.is_empty() {
-                    // Used where it did nothing: try again keeping it for later.
-                    let wasted: Vec<(usize, usize)> = run.uses.iter().filter(|u| u.effect.is_none()).map(|u| (u.step, u.window)).collect();
-                    if wasted.is_empty() || wasted.iter().all(|w| skip.contains(w)) {
-                        break;
-                    }
-                    skip.extend(wasted);
                     continue;
                 }
-                let effect = run.uses.iter().filter_map(|u| u.effect).min().unwrap_or(Effect::Lock);
-                let targeted = run.uses.iter().any(|u| u.targeted);
-                let uses = (run.uses.iter().filter(|u| u.effect.is_some()).count() as u32).max(1);
-                // What it hits directly it can hit whenever it is offered; an
-                // effect that only blocks later actions covers what it blocked.
-                let mut covers: Vec<Probe> = stopped.clone();
-                if effect != Effect::Lock {
-                    covers.extend(answered.iter().copied().filter(|p| all_worked.get(p) == Some(&true)));
+                covers.extend(stopped);
+                for u in &run.uses {
+                    targeted |= u.targeted;
+                    effect = match (effect, u.effect) {
+                        (Some(a), Some(b)) => Some(a.min(b)),
+                        (a, b) => a.or(b),
+                    };
                 }
-                covers.sort();
-                covers.dedup();
-                let coverage = if reference > 0.0 { (covers.iter().map(|p| p.weight()).sum::<f64>() / reference).min(1.0) } else { 0.0 };
-                let counter = self.engine.cards().get(id.code).is_some_and(|c| c.type_ & 0x10_0000 != 0);
-                let value = effect.value() * if targeted { 0.85 } else { 1.0 } * coverage * uses as f64 * if counter { 1.05 } else { 1.0 };
-                interruptions.push(Interruption {
-                    responder: *id,
-                    location: *loc,
-                    effect,
-                    targeted,
-                    uses,
-                    covers,
-                    coverage,
-                    value,
-                    alone: value,
-                });
-                break;
             }
+            if covers.is_empty() {
+                continue;
+            }
+            covers.sort();
+            covers.dedup();
+            // How many times in a row: used whenever offered, keeping it for
+            // later where it does nothing.
+            let mut uses = 1;
+            let mut skip = HashSet::new();
+            for _ in 0..3 {
+                let Ok(run) = self.run(Prelude::Line(line), &all_steps, Policy::Use(*id, &skip)) else { break };
+                uses = uses.max(run.uses.iter().filter(|u| u.effect.is_some()).count() as u32);
+                let wasted: Vec<(usize, usize)> = run.uses.iter().filter(|u| u.effect.is_none()).map(|u| (u.step, u.window)).collect();
+                if wasted.is_empty() || wasted.iter().all(|w| skip.contains(w)) {
+                    break;
+                }
+                skip.extend(wasted);
+            }
+            let effect = effect.unwrap_or(Effect::Lock);
+            let coverage = if reference > 0.0 { (covers.iter().map(|p| p.weight()).sum::<f64>() / reference).min(1.0) } else { 0.0 };
+            let counter = self.engine.cards().get(id.code).is_some_and(|c| c.type_ & 0x10_0000 != 0);
+            let value = effect.value() * if targeted { 0.85 } else { 1.0 } * coverage * uses as f64 * if counter { 1.05 } else { 1.0 };
+            interruptions.push(Interruption {
+                responder: *id,
+                location: *loc,
+                effect,
+                targeted,
+                uses,
+                covers,
+                coverage,
+                value,
+                alone: value,
+            });
         }
         interruptions.sort_by(|a, b| b.value.total_cmp(&a.value));
 
@@ -876,6 +893,17 @@ impl<'a> Prober<'a> {
             for e in &events {
                 observer.see(engine, e, &mut trace.uses);
                 if verbose {
+                    if matches!(
+                        e,
+                        Event::Chaining { .. }
+                            | Event::ChainSolving { .. }
+                            | Event::ChainSolved { .. }
+                            | Event::ChainNegated { .. }
+                            | Event::ChainDisabled { .. }
+                            | Event::BecomeTarget { .. }
+                    ) {
+                        eprintln!("       {e:?}");
+                    }
                     if let Event::Move { code, from, to, reason: why } = e {
                         eprintln!(
                             "       move {} {:?}/{} -> {:?}/{} reason {why:#x}",
@@ -892,11 +920,14 @@ impl<'a> Prober<'a> {
             let actions = duel.actions(&decision);
             // Your turn: the line's answers; the opponent passes.
             if turn <= 1 {
-                // The line has every answer of your turn, the opponent's passes included.
+                // The line has every answer of your turn, the opponent's passes
+                // included. A provisional board's line stops at "end the turn":
+                // its End Phase is played like the search would (doing something first).
                 match prelude {
                     Prelude::Line(_) => match answers.next() {
                         Some(a) => duel.respond(a),
-                        None => return Err(Error::Engine("the line does not end the turn here".into())),
+                        None if decision.player() == Some(1) => duel.respond(&passive_answer(&decision, &actions)),
+                        None => duel.respond(&end_phase_answer(&decision, &actions)),
                     },
                     Prelude::EndAtOnce if decision.player() == Some(1) => duel.respond(&passive_answer(&decision, &actions)),
                     Prelude::EndAtOnce => duel.respond(&end_turn(&decision, &actions)),
@@ -1011,9 +1042,10 @@ impl<'a> Prober<'a> {
                             let pick = match policy {
                                 Policy::Use(id, skip) if !skip.contains(&(*step, at)) => options.iter().position(|(o, _)| *o == id),
                                 Policy::UseAll(ids) => ids.iter().find_map(|id| options.iter().position(|(o, _)| o == id)),
+                                Policy::UseAt(id, window) if window == (*step, at) => options.iter().position(|(o, _)| *o == id),
                                 _ => None,
                             };
-                            trace.windows.push(Window { step: *step, chained: !observer.step_links.is_empty(), options: options.clone() });
+                            trace.windows.push(Window { step: *step, options: options.clone() });
                             match pick {
                                 Some(i) => {
                                     trace.uses.push(Use {
@@ -1063,6 +1095,16 @@ impl<'a> Prober<'a> {
         run.worked = step.goals.iter().map(|(_, want)| count(after, want) - count(before, want) >= want.delta).collect();
         run.negated = observer.step_negated;
     }
+}
+
+/// Your End Phase after a provisional line: optional effects are used,
+/// lists are picked forward.
+fn end_phase_answer(decision: &Decision, actions: &[Action]) -> Vec<u8> {
+    if let Some(answer) = forward(decision, actions, |_| true) {
+        return answer;
+    }
+    let act = actions.iter().find(|a| !matches!(a.kind, ActionKind::Pass | ActionKind::No | ActionKind::Cancel | ActionKind::Finish));
+    act.or(actions.first()).map(|a| a.response.clone()).unwrap_or_else(|| window_answer(decision, None))
 }
 
 /// Ends your turn at once (the empty board).

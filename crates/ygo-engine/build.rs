@@ -52,6 +52,68 @@ fn main() {
     } else {
         core_build.flag("-fno-rtti");
     }
-    core_build.files(sources(&core, "cpp")).files(sources(&core.join("RNG"), "cpp"));
+    // field.cpp is compiled from a patched copy (see `patch_field`).
+    let field = core.join("field.cpp");
+    let patched = PathBuf::from(std::env::var("OUT_DIR").expect("OUT_DIR")).join("field.cpp");
+    let text = std::fs::read_to_string(&field).expect("field.cpp");
+    std::fs::write(&patched, patch_field(&text)).expect("patched field.cpp");
+    core_build.files(sources(&core, "cpp").into_iter().filter(|p| *p != field)).file(&patched);
+    core_build.files(sources(&core.join("RNG"), "cpp"));
     core_build.compile("ocgcore");
+}
+
+/// Upstream bug: `reset_phase` and `reset_chain` remove effects while
+/// iterating over the set that holds them, and removing a grant effect also
+/// removes the effects it granted, which can be the next ones in the set:
+/// the loop then reads freed memory (a crash at the End Phase, seen with
+/// D/D/D lines). The fixed loops collect the effects first and remove those
+/// still there. Panics if upstream changed the code, so the patch is
+/// looked at again.
+fn patch_field(text: &str) -> String {
+    const RESET_PHASE: &str = "void field::reset_phase(uint32_t phase) {
+\tfor(auto eit = effects.pheff.begin(); eit != effects.pheff.end();) {
+\t\tauto rm = eit++;
+\t\tif((*rm)->reset(phase, RESET_PHASE)) {
+\t\t\tif((*rm)->is_flag(EFFECT_FLAG_FIELD_ONLY))
+\t\t\t\tremove_effect((*rm));
+\t\t\telse
+\t\t\t\t(*rm)->handler->remove_effect((*rm));
+\t\t}
+\t}
+}";
+    const RESET_PHASE_FIXED: &str = "void field::reset_phase(uint32_t phase) {
+\tstd::vector<effect*> expired;
+\tfor(auto* peffect : effects.pheff)
+\t\tif(peffect->reset(phase, RESET_PHASE))
+\t\t\texpired.push_back(peffect);
+\tfor(auto* peffect : expired) {
+\t\tif(effects.pheff.find(peffect) == effects.pheff.end())
+\t\t\tcontinue;
+\t\tif(peffect->is_flag(EFFECT_FLAG_FIELD_ONLY))
+\t\t\tremove_effect(peffect);
+\t\telse
+\t\t\tpeffect->handler->remove_effect(peffect);
+\t}
+}";
+    const RESET_CHAIN: &str = "\tfor(auto eit = effects.cheff.begin(); eit != effects.cheff.end();) {
+\t\tauto rm = eit++;
+\t\tif((*rm)->is_flag(EFFECT_FLAG_FIELD_ONLY))
+\t\t\tremove_effect((*rm));
+\t\telse
+\t\t\t(*rm)->handler->remove_effect((*rm));
+\t}";
+    const RESET_CHAIN_FIXED: &str = "\tstd::vector<effect*> expired(effects.cheff.begin(), effects.cheff.end());
+\tfor(auto* peffect : expired) {
+\t\tif(effects.cheff.find(peffect) == effects.cheff.end())
+\t\t\tcontinue;
+\t\tif(peffect->is_flag(EFFECT_FLAG_FIELD_ONLY))
+\t\t\tremove_effect(peffect);
+\t\telse
+\t\t\tpeffect->handler->remove_effect(peffect);
+\t}";
+    let text = text.replace("\r\n", "\n");
+    for old in [RESET_PHASE, RESET_CHAIN] {
+        assert_eq!(text.matches(old).count(), 1, "vendor/ygopro-core/field.cpp changed: check the reset loops patch in build.rs");
+    }
+    text.replace(RESET_PHASE, RESET_PHASE_FIXED).replace(RESET_CHAIN, RESET_CHAIN_FIXED)
 }

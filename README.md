@@ -137,6 +137,12 @@ cargo run --release -p ygo-cli -- combos --deck tests/fixtures/decks/invoked-sir
 cargo run --release -p ygo-cli -- combos --deck tests/fixtures/decks/invoked-siracusa-md.ydk \
   --card "Aleister the Invoker" --hands 12 --seconds 120
 
+# Collaudo del Combo Lab sulle liste più recenti di Master Duel Meta:
+# scarica le liste (non vengono salvate nel repository) e gioca ricerca e
+# turno di prova su ognuna, a budget di nodi (risultati riproducibili)
+python3 scripts/mdm_decks.py --out /tmp/mdm
+python3 scripts/combo_hunt.py /tmp/mdm --hands 2 --nodes 3000
+
 # Collaudo a tappeto: duelli tra deck casuali con scelte casuali; segnala ogni
 # scelta senza risposte o risposta rifiutata dal motore
 cargo run --release -p ygo-cli -- sweep --duels 6000 --max-decisions 600 --max-turns 10

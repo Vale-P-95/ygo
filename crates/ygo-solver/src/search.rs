@@ -528,13 +528,15 @@ impl Shared<'_> {
 }
 
 /// Best first: the goal, then a higher estimate, then fewer cards from the
-/// hand, then a shorter line.
+/// hand, then a shorter line; ties by the board's key, so the same search
+/// keeps the same boards.
 fn rank(a: &Board, b: &Board) -> CmpOrdering {
     b.goal_hits
         .cmp(&a.goal_hits)
         .then(b.quick_score.total_cmp(&a.quick_score))
         .then(a.cards_used.cmp(&b.cards_used))
         .then(a.line.choices.len().cmp(&b.line.choices.len()))
+        .then(a.key.cmp(&b.key))
 }
 
 /// Key of a node: the state and the choice being asked (two steps of the
