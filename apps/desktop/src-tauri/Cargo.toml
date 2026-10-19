@@ -19,6 +19,7 @@ serde = { version = "1", features = ["derive"] }
 ygo-engine = { path = "../../../crates/ygo-engine" }
 ygo-data = { path = "../../../crates/ygo-data" }
 ygo-stats = { path = "../../../crates/ygo-stats" }
+ygo-solver = { path = "../../../crates/ygo-solver" }
 serde_json = "1"
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
 tokio = { version = "1", features = ["sync"] }

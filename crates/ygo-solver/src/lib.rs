@@ -2,8 +2,10 @@
 //! itself and collects the boards reached at the end of the turn, each with
 //! the shortest line that reaches it.
 
+pub mod card;
 pub mod explain;
 pub mod search;
 
+pub use card::{sample_hands, search_card, CardSearch, HandResult};
 pub use explain::{explain, ExplainedStep};
 pub use search::{search, Board, Line, Progress, SearchConfig, SearchResult, Stop};

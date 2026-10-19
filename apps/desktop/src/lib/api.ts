@@ -319,6 +319,83 @@ export interface Imported {
   unknown: number[];
 }
 
+/** A card on the field at the end of a combo (mirrors `ZoneCard`). */
+export interface ZoneCard {
+  code: number;
+  faceUp: boolean;
+  defense: boolean;
+  link: number;
+  arrows: number;
+  level: number;
+  rank: number;
+  attack: number;
+  def: number;
+  overlay: number[];
+  counters: number;
+  negated: boolean;
+}
+
+/** A board reached by the combo search, with what it took. */
+export interface ComboBoard {
+  /** With `hand`, names the board for `comboExplain`. */
+  key: string;
+  hand: number;
+  quickScore: number;
+  cardsUsed: number;
+  choices: number;
+  foundAfterMs: number;
+  /** Main Monster Zones 0-4, then the Extra Monster Zones. */
+  monsters: (ZoneCard | null)[];
+  /** Spell & Trap Zones 0-4, then the Field Zone. */
+  spells: (ZoneCard | null)[];
+  handCards: number[];
+  grave: number[];
+  banished: number[];
+}
+
+export interface ComboHand {
+  cards: number[];
+  /** Share of the hands with the card that this one stands for. */
+  weight: number;
+}
+
+export interface ComboProgress {
+  elapsedMs: number;
+  nodes: number;
+  replays: number;
+  duplicates: number;
+  queued: number;
+  boards: number;
+  handIndex: number;
+  hands: ComboHand[];
+  top: ComboBoard[];
+}
+
+export interface ComboOutcome {
+  stop: string;
+  elapsedMs: number;
+  nodes: number;
+  hands: ComboHand[];
+  boards: ComboBoard[];
+}
+
+export interface ComboRequest {
+  deckId: number;
+  /** A precise hand, or empty with `card` for "card + rest". */
+  hand: number[];
+  card: number | null;
+  seconds: number;
+  hands: number | null;
+  keep: number[];
+  forbid: number[];
+  useHandtraps: boolean;
+}
+
+export interface ComboStep {
+  choice: string | null;
+  events: string[];
+}
+
 export const api = {
   dataStatus: () => invoke<DataStatus>("data_status"),
   updateData: (force = false) => invoke<DataStatus>("update_data", { force }),
@@ -363,6 +440,10 @@ export const api = {
   validateDeck: (deck: Deck) => invoke<Legality>("validate_deck", { deck }),
   importDeck: (text: string) => invoke<Imported>("import_deck", { text }),
   exportDeck: (deck: Deck) => invoke<{ ydk: string; ydke: string }>("export_deck", { deck }),
+  comboSearch: (request: ComboRequest) => invoke<ComboOutcome>("combo_search", { request }),
+  comboCancel: () => invoke<void>("combo_cancel"),
+  comboExplain: (hand: number, key: string) => invoke<ComboStep[]>("combo_explain", { hand, key }),
+  onComboProgress: (handler: (p: ComboProgress) => void): Promise<UnlistenFn> => listen<ComboProgress>("combo-progress", (e) => handler(e.payload)),
 };
 
 export type ImageSize = "small" | "full" | "cropped";

@@ -97,6 +97,13 @@ enum Cmd {
         /// Cards to keep in hand (semicolon-separated names or passcodes).
         #[arg(long, default_value = "")]
         keep: String,
+        /// "Card + rest": instead of one hand, many hands with this card
+        /// (the time is split among them).
+        #[arg(long)]
+        card: Option<String>,
+        /// Hands to try with `--card`.
+        #[arg(long, default_value_t = 12)]
+        hands: usize,
     },
     /// Random duels between random decks; fails on unanswerable or rejected decisions.
     Sweep {
@@ -124,7 +131,7 @@ struct Setup {
     #[arg(long)]
     deck: PathBuf,
     /// Starting hand: semicolon-separated card names or passcodes.
-    #[arg(long)]
+    #[arg(long, default_value = "")]
     hand: String,
     /// Seed for the deck order and the engine's random number generator.
     #[arg(long, default_value_t = 1)]
@@ -140,8 +147,8 @@ fn main() -> Result<()> {
         Cmd::Search { query, limit } => search(&cli.data, &query, limit),
         Cmd::Play { setup, steps, verbose } => play(&cli.data, &setup, steps.as_deref(), verbose),
         Cmd::Bench { setup, playouts, max_decisions } => bench(&cli.data, &setup, playouts, max_decisions),
-        Cmd::Combos { setup, seconds, threads, top, lines, use_handtraps, forbid, keep } => {
-            combos(&cli.data, &setup, CombosOptions { seconds, threads, top, show_lines: lines, use_handtraps, forbid, keep })
+        Cmd::Combos { setup, seconds, threads, top, lines, use_handtraps, forbid, keep, card, hands } => {
+            combos(&cli.data, &setup, CombosOptions { seconds, threads, top, show_lines: lines, use_handtraps, forbid, keep, card, hands })
         }
         Cmd::Sweep { duels, max_decisions, max_turns, seed, threads, script_errors } => {
             let threads = threads.unwrap_or_else(|| std::thread::available_parallelism().map_or(4, |n| n.get()));
@@ -158,10 +165,12 @@ struct CombosOptions {
     use_handtraps: bool,
     forbid: String,
     keep: String,
+    card: Option<String>,
+    hands: usize,
 }
 
 fn combos(dir: &Path, setup: &Setup, options: CombosOptions) -> Result<()> {
-    let CombosOptions { seconds, threads, top, show_lines, use_handtraps, forbid, keep } = options;
+    let CombosOptions { seconds, threads, top, show_lines, use_handtraps, forbid, keep, card, hands } = options;
     let (engine, deck, hand) = start(dir, setup)?;
     let mut config = ygo_solver::SearchConfig::new(deck, hand);
     config.seed = setup.seed;
@@ -176,6 +185,29 @@ fn combos(dir: &Path, setup: &Setup, options: CombosOptions) -> Result<()> {
     config.policy.forbid = resolve_hand(&engine, &forbid)?;
     config.keep_in_hand = resolve_hand(&engine, &keep)?;
     let cancel = std::sync::atomic::AtomicBool::new(false);
+    if let Some(card) = card {
+        let card = *resolve_hand(&engine, &card)?.first().context("--card names no card")?;
+        let hands = hands.max(1);
+        let what = ygo_solver::CardSearch { card, hands, per_hand: config.time_limit / hands as u32, keep: top.max(1) };
+        let results = ygo_solver::search_card(&engine, &config, &what, &cancel, |_, _, _| {});
+        if results.is_empty() {
+            bail!("{} is not in the Main Deck", engine.cards().name(card));
+        }
+        let db = engine.cards();
+        let mut mean = 0.0;
+        for (i, r) in results.iter().enumerate() {
+            let best = r.boards.first().map_or(0.0, |b| b.quick_score);
+            mean += r.weight * best;
+            let names: Vec<String> = r.hand.iter().map(|&c| db.name(c)).collect();
+            println!("hand {:>2} ({:>4.1}%) best {best:.1} · {} nodes · {}", i + 1, r.weight * 100.0, r.nodes, names.join(", "));
+        }
+        let total: f64 = results.iter().map(|r| r.weight).sum();
+        println!("weighted mean of the best boards: {:.2}", mean / total.max(f64::EPSILON));
+        return Ok(());
+    }
+    if config.hand.is_empty() {
+        bail!("give --hand, or --card for \"card + rest\"");
+    }
     let mut last = 0;
     let result = ygo_solver::search(&engine, &config, &cancel, |p| {
         if p.elapsed.as_secs() >= last + 5 {

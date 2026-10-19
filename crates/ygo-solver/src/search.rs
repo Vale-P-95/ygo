@@ -36,6 +36,8 @@ pub struct SearchConfig {
     /// Cards that must be on the field at the end.
     pub require_on_field: Vec<u32>,
     pub policy: AutoPolicy,
+    /// Best boards included in each progress report.
+    pub live_top: usize,
 }
 
 impl SearchConfig {
@@ -51,6 +53,7 @@ impl SearchConfig {
             keep_in_hand: Vec::new(),
             require_on_field: Vec::new(),
             policy: AutoPolicy::default(),
+            live_top: 10,
         }
     }
 }
@@ -115,6 +118,8 @@ pub struct Progress {
     pub queued: usize,
     pub boards: usize,
     pub best_quick_score: f64,
+    /// The best boards so far (see [`SearchConfig::live_top`]).
+    pub top: Vec<Board>,
 }
 
 #[derive(Debug, Clone)]
@@ -264,8 +269,16 @@ impl Shared<'_> {
     }
 
     fn progress(&self) -> Progress {
-        let (boards, best) =
-            self.boards.lock().map(|b| (b.len(), b.values().map(|b| b.quick_score).fold(0.0, f64::max))).unwrap_or_default();
+        let (boards, best, top) = self
+            .boards
+            .lock()
+            .map(|b| {
+                let mut top: Vec<&Board> = b.values().collect();
+                top.sort_by(|x, y| rank(x, y));
+                let top = top.into_iter().take(self.config.live_top).cloned().collect();
+                (b.len(), b.values().map(|b| b.quick_score).fold(0.0, f64::max), top)
+            })
+            .unwrap_or_default();
         Progress {
             elapsed: self.start.elapsed(),
             nodes: self.nodes.load(Ordering::Relaxed),
@@ -274,8 +287,14 @@ impl Shared<'_> {
             queued: self.queue.lock().map(|q| q.edges.len()).unwrap_or(0),
             boards,
             best_quick_score: best,
+            top,
         }
     }
+}
+
+/// Best first: higher estimate, then fewer cards from the hand, then a shorter line.
+fn rank(a: &Board, b: &Board) -> CmpOrdering {
+    b.quick_score.total_cmp(&a.quick_score).then(a.cards_used.cmp(&b.cards_used)).then(a.line.choices.len().cmp(&b.line.choices.len()))
 }
 
 /// Key of a node: the state and the choice being asked (two steps of the
@@ -332,7 +351,18 @@ pub fn quick_score(engine: &Engine, state: &DuelState) -> f64 {
         score += if extra { 2.0 } else { 1.0 };
     }
     for c in me.spells.iter().flatten() {
-        score += if c.is_face_up() { 0.5 } else { 1.0 };
+        let type_ = engine.cards().get(c.code).map_or(0, |d| d.type_);
+        // A set Trap or Quick-Play Spell can be used on the opponent's turn;
+        // setting any other Spell only takes it out of the hand.
+        score += if c.is_face_up() {
+            0.5
+        } else if type_ & card_type::TRAP != 0 {
+            1.0
+        } else if type_ & card_type::QUICKPLAY != 0 {
+            0.6
+        } else {
+            0.1
+        };
     }
     score + 0.3 * me.hand.len() as f64
 }
@@ -489,9 +519,7 @@ pub fn search(engine: &Engine, config: &SearchConfig, cancel: &AtomicBool, mut p
     let final_progress = shared.progress();
     progress(&final_progress);
     let mut boards: Vec<Board> = shared.boards.into_inner().map(|b| b.into_values().collect()).unwrap_or_default();
-    boards.sort_by(|a, b| {
-        b.quick_score.total_cmp(&a.quick_score).then(a.cards_used.cmp(&b.cards_used)).then(a.line.choices.len().cmp(&b.line.choices.len()))
-    });
+    boards.sort_by(rank);
     SearchResult {
         boards,
         progress: final_progress,

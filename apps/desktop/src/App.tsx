@@ -5,6 +5,7 @@ import { Sidebar } from "./components/Sidebar";
 import { api, isDesktop, type DataStatus } from "./lib/api";
 import { rememberDeck, requestNewDeck } from "./lib/deck";
 import { useSettings } from "./lib/settings";
+import { Combo } from "./pages/Combo";
 import { DeckBuilder } from "./pages/DeckBuilder";
 import { Lab } from "./pages/Lab";
 import { Overview } from "./pages/Overview";
@@ -57,7 +58,7 @@ export default function App() {
 
   return (
     <div className="flex h-full">
-      <Sidebar active={active} onSelect={setActive} compact={(active === "deck-builder" || active === "shelf" || active === "stats") && !!status?.cards} />
+      <Sidebar active={active} onSelect={setActive} compact={(active === "deck-builder" || active === "shelf" || active === "stats" || active === "combo") && !!status?.cards} />
       <main data-section={active} className="relative min-w-0 flex-1">
         <Embers color={EMBER_COLORS[active] ?? "#ffc65c"} />
         <div key={active} className="relative h-full anim-fade">
@@ -77,8 +78,9 @@ export default function App() {
             />
           )}
           {active === "stats" && <Lab artReady={artReady} onGoForge={() => setActive("deck-builder")} />}
+          {active === "combo" && <Combo artReady={artReady} onGoForge={() => setActive("deck-builder")} />}
           {active === "settings" && <Settings onStatus={setStatus} />}
-          {!["overview", "deck-builder", "shelf", "stats", "settings"].includes(active) && <Upcoming section={section} artReady={artReady} />}
+          {!["overview", "deck-builder", "shelf", "stats", "combo", "settings"].includes(active) && <Upcoming section={section} artReady={artReady} />}
         </div>
       </main>
       <DragLayer />

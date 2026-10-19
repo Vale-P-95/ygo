@@ -1,4 +1,4 @@
-# DuelForge: piano di progetto (v1.3)
+# DuelForge: piano di progetto (v1.4)
 
 > Nome provvisorio. Il documento è la proposta iniziale: una volta approvate le decisioni aperte (§14) diventa la roadmap di sviluppo.
 >
@@ -11,6 +11,8 @@
 > **v0.5 (18/10/2026)**: Fase 1 realizzata; risultati nella §17.
 >
 > **v0.6 (18/10/2026)**: Fase 2, prima parte: editor dei deck in stile Master Duel; risultati nella §18.
+>
+> **v1.4 (19/10/2026)**: Fase 5B realizzata: la ricerca automatica gira nell'app, da una mano o da una carta; risultati nella §24.
 >
 > **v1.3 (19/10/2026)**: Fase 5A realizzata: il motore è pronto per la ricerca automatica; risultati nella §23.
 >
@@ -825,4 +827,30 @@ Con `DUELFORGE_LUA_SOURCE=1` si caricano i sorgenti, i cui errori indicano il nu
 
 ### 23.5 Prossimo passo: 5B
 La ricerca in background: mano precisa e «carta + resto», tabella delle trasposizioni sull'impronta canonica, eventi casuali, risultati in diretta.
+
+## 24. Risultati della Fase 5B: la ricerca in background (19/10/2026)
+
+### 24.1 La ricerca (`ygo-solver`)
+- **Una mano precisa**: il motore gioca da solo il primo turno su tutti i core. Ogni thread si tuffa lungo una linea (prima le azioni che fanno qualcosa, poi passare il turno) e lascia le alternative in una coda con priorità; per tornare a una scelta lasciata indietro ricrea la partita e rigioca le risposte (il motore non sa copiare una partita).
+- **Niente lavoro doppio**: ogni scelta reale è riconosciuta dall'impronta canonica dello stato più la domanda posta; una situazione già vista da un'altra linea non si esplora di nuovo.
+- **Board finali**: quando il turno passa, la board si salva con la linea migliore per arrivarci (meno carte della mano, poi meno scelte). Due board che differiscono solo per le zone usate sono la stessa.
+- **Vincoli**: carte da tenere in mano a fine turno, carte vietate, handtrap lasciate in mano (attivabili su richiesta), tempo massimo.
+- **"Carta + resto"**: si estraggono mani da 5 con la carta scelta più 4 carte casuali dal resto del deck, tutte diverse; una mano con k copie della carta esce k volte più spesso, quindi pesa 1/k. Il tempo si divide tra le mani e per ognuna si tengono le board migliori; la media pesata dice quanto vale la carta in apertura.
+- **Stima provvisoria** delle board, finché non arriva il punteggio della 5C: mostri (quelli dell'Extra Deck valgono il doppio), Trappole e Magie Rapide coperte, Magie Continue o Terreno, carte rimaste in mano. Mettere coperta una Magia normale non conta: la ricerca smette di farlo per gonfiare la stima.
+
+### 24.2 Nell'app: il Circolo Arcano
+- A sinistra il deck, la modalità (**Mano precisa** o **Carta + resto**), la mano composta toccando le carte del Main Deck (copie rimaste in vista, "Mano casuale"), il lucchetto per tenere una carta in mano, il clic destro per vietarla, le opzioni (tempo, handtrap) e **Cerca le combo / Ferma la ricerca**. Le scelte si ricordano per deck.
+- Al centro l'avanzamento in diretta (scelte giocate, board diverse, scelte al secondo, strade ancora da provare) e la classifica che si aggiorna mentre il motore gioca. Le board identiche a vista (stesso campo e stessa mano, Cimitero o zone diversi) sono una voce sola con il numero di varianti. In "Carta + resto" c'è anche l'elenco delle mani provate, con peso, miglior stima e media pesata; toccando una mano si vedono solo le sue board.
+- A destra la board scelta sul campo come in Master Duel (Zone Mostri Extra, Zone Mostri, Magie e Trappole con la Zona Terreno; posizione di difesa, carte coperte, materiali Xyz, segnalini, effetti annullati), mano, Cimitero e bandite, e la **linea raccontata in italiano** passo per passo, rigiocata dal motore.
+- La ricerca vive fuori dalla pagina: si può cambiare sezione e tornare, continua e i risultati restano.
+- CLI: `duelforge-cli combos --deck … --hand …` oppure `--card "Aleister the Invoker" --hands 12`.
+
+### 24.3 Misure (4 core)
+- Dalla mano Aleister the Invoker, Invocation - "Chalice", Magical Meltdown, Ash Blossom, Mulcharmy Fuwalos (test automatico, 25 secondi su 2 thread) la ricerca ritrova da sola una board con un mostro Fusione "Invoked" e la linea che ci arriva.
+- In 60 secondi: circa 3.300 scelte reali e 950 board diverse; le linee lunghe costano perché ogni ritorno indietro rigioca la partita dall'inizio (~30 ms per una linea di 50 scelte).
+- "Carta + resto" con Aleister the Invoker, 12 mani in 120 secondi: 2.000–4.300 scelte per mano; media pesata della stima migliore 8,1.
+
+### 24.4 Ancora da fare
+- **5C**: il punteggio misurato con il turno di prova (§22.4), che sostituisce la stima provvisoria, profili e pesi, frontiera, confronti, riproduzione animata.
+- Salvare le ricerche per deck e mano; eventi casuali (più ordini del Deck per le carte che pescano).
 

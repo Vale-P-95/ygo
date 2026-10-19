@@ -25,6 +25,12 @@ struct AppState {
     user: Mutex<UserStore>,
     /// Set to stop the lab's running simulation.
     sim_cancel: AtomicBool,
+    /// Duel engine data, loaded on the first combo search.
+    engine: Mutex<Option<Engine>>,
+    /// The last combo search, to explain its boards.
+    combo: Mutex<Option<ComboJob>>,
+    /// Set to stop the running combo search.
+    combo_cancel: AtomicBool,
 }
 
 impl AppState {
@@ -52,6 +58,18 @@ impl AppState {
         let guard = self.store.lock().map_err(|e| e.to_string())?;
         let store = guard.as_ref().ok_or("Database delle carte non ancora scaricato")?;
         f(store).map_err(|e| e.to_string())
+    }
+
+    /// The duel engine with its card data and scripts (loaded once).
+    fn engine(&self) -> Result<Engine, String> {
+        let mut guard = self.engine.lock().map_err(|e| e.to_string())?;
+        if let Some(engine) = guard.as_ref() {
+            return Ok(engine.clone());
+        }
+        let engine =
+            Engine::load(&self.data_dir).map_err(|e| format!("Dati del motore non disponibili ({e}): aggiornali dalla Panoramica"))?;
+        *guard = Some(engine.clone());
+        Ok(engine)
     }
 
     fn with_user<T>(&self, f: impl FnOnce(&UserStore) -> Result<T, ygo_data::Error>) -> Result<T, String> {
@@ -464,6 +482,231 @@ fn lab_sample_size(p0: f64, p1: f64) -> (u32, u32) {
     ygo_stats::sample_size(p0, p1)
 }
 
+/// The last combo search: what is needed to play its lines again.
+struct ComboJob {
+    deck: ygo_engine::DeckList,
+    seed: u64,
+    hands: Vec<Vec<u32>>,
+    /// `(hand index, board)`.
+    boards: Vec<(usize, ygo_solver::Board)>,
+}
+
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct ZoneCard {
+    code: u32,
+    face_up: bool,
+    defense: bool,
+    /// Link rating and arrows.
+    link: u32,
+    arrows: u32,
+    level: u32,
+    rank: u32,
+    attack: i32,
+    def: i32,
+    overlay: Vec<u32>,
+    counters: u32,
+    negated: bool,
+}
+
+impl ZoneCard {
+    fn of(c: &ygo_engine::FieldCard) -> Self {
+        ZoneCard {
+            code: c.code,
+            face_up: c.is_face_up(),
+            defense: c.position & 0xc != 0,
+            link: c.link.0,
+            arrows: c.link.1,
+            level: c.level,
+            rank: c.rank,
+            attack: c.attack,
+            def: c.defense,
+            overlay: c.overlay.clone(),
+            counters: c.counters.iter().map(|&(_, n)| n as u32).sum(),
+            negated: c.is_negated(),
+        }
+    }
+}
+
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct BoardView {
+    /// Hex of the board's key; with `hand`, names the board for `combo_explain`.
+    key: String,
+    hand: usize,
+    quick_score: f64,
+    cards_used: usize,
+    choices: usize,
+    found_after_ms: u64,
+    monsters: Vec<Option<ZoneCard>>,
+    spells: Vec<Option<ZoneCard>>,
+    hand_cards: Vec<u32>,
+    grave: Vec<u32>,
+    banished: Vec<u32>,
+}
+
+fn board_view(hand: usize, b: &ygo_solver::Board) -> BoardView {
+    let me = &b.state.players[0];
+    let zone = |z: &Option<ygo_engine::FieldCard>| z.as_ref().map(ZoneCard::of);
+    BoardView {
+        key: format!("{:016x}", b.key),
+        hand,
+        quick_score: b.quick_score,
+        cards_used: b.cards_used,
+        choices: b.line.choices.len(),
+        found_after_ms: b.found_after.as_millis() as u64,
+        monsters: me.monsters.iter().map(zone).collect(),
+        spells: me.spells.iter().map(zone).collect(),
+        hand_cards: me.hand.clone(),
+        grave: me.grave.clone(),
+        banished: me.banished.iter().map(|&(c, _)| c).collect(),
+    }
+}
+
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct HandView {
+    cards: Vec<u32>,
+    weight: f64,
+}
+
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct ComboProgress {
+    elapsed_ms: u64,
+    nodes: u64,
+    replays: u64,
+    duplicates: u64,
+    queued: usize,
+    boards: usize,
+    /// Hand being searched ("card + rest"), with all the hands.
+    hand_index: usize,
+    hands: Vec<HandView>,
+    top: Vec<BoardView>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ComboOutcome {
+    stop: String,
+    elapsed_ms: u64,
+    nodes: u64,
+    hands: Vec<HandView>,
+    /// Best first; in "card + rest" the best few of each hand.
+    boards: Vec<BoardView>,
+}
+
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ComboRequest {
+    deck_id: i64,
+    /// A precise hand, or empty with `card` set for "card + rest".
+    hand: Vec<u32>,
+    card: Option<u32>,
+    seconds: u64,
+    /// Hands to try in "card + rest".
+    hands: Option<usize>,
+    keep: Vec<u32>,
+    forbid: Vec<u32>,
+    use_handtraps: bool,
+}
+
+/// Combo Lab: the engine plays every line from a hand (or from many hands
+/// with a card), sending `combo-progress` events, and returns the boards.
+#[tauri::command(async)]
+fn combo_search(app: tauri::AppHandle, state: State<'_, AppState>, request: ComboRequest) -> Result<ComboOutcome, String> {
+    let engine = state.engine()?;
+    let deck = state.with_user(|u| u.get(request.deck_id))?.ok_or("Il deck non esiste più")?;
+    let list = ygo_engine::DeckList { main: deck.main.clone(), extra: deck.extra.clone(), side: deck.side.clone() };
+    let mut config = ygo_solver::SearchConfig::new(list.clone(), request.hand.clone());
+    config.time_limit = std::time::Duration::from_secs(request.seconds.clamp(5, 3600));
+    config.keep_in_hand = request.keep;
+    config.policy.forbid = request.forbid;
+    if !request.use_handtraps {
+        config.policy.passive = Tag::Handtrap.names().iter().filter_map(|n| engine.cards().find_by_name(n)).map(|c| c.code).collect();
+    }
+    state.combo_cancel.store(false, Ordering::Relaxed);
+    let cancel = &state.combo_cancel;
+    let emit = |hand_index: usize, hands: &[(Vec<u32>, f64)], p: &ygo_solver::Progress| {
+        let _ = app.emit(
+            "combo-progress",
+            ComboProgress {
+                elapsed_ms: p.elapsed.as_millis() as u64,
+                nodes: p.nodes,
+                replays: p.replays,
+                duplicates: p.duplicates,
+                queued: p.queued,
+                boards: p.boards,
+                hand_index,
+                hands: hands.iter().map(|(cards, weight)| HandView { cards: cards.clone(), weight: *weight }).collect(),
+                top: p.top.iter().map(|b| board_view(hand_index, b)).collect(),
+            },
+        );
+    };
+    let started = std::time::Instant::now();
+    let (hands, boards, stop, nodes) = match request.card {
+        Some(card) if request.hand.is_empty() => {
+            let count = request.hands.unwrap_or(12).clamp(1, 200);
+            let what = ygo_solver::CardSearch { card, hands: count, per_hand: config.time_limit / count as u32, keep: 5 };
+            let results = ygo_solver::search_card(&engine, &config, &what, cancel, emit);
+            if results.is_empty() {
+                return Err("La carta non è nel Main Deck".into());
+            }
+            let hands: Vec<(Vec<u32>, f64)> = results.iter().map(|r| (r.hand.clone(), r.weight)).collect();
+            let nodes = results.iter().map(|r| r.nodes).sum();
+            let boards: Vec<(usize, ygo_solver::Board)> =
+                results.into_iter().enumerate().flat_map(|(i, r)| r.boards.into_iter().map(move |b| (i, b))).collect();
+            let stop = if cancel.load(Ordering::Relaxed) { "Cancelled" } else { "Finished" };
+            (hands, boards, stop.to_owned(), nodes)
+        }
+        _ => {
+            if request.hand.is_empty() {
+                return Err("Scegli le carte della mano".into());
+            }
+            let hands = vec![(request.hand.clone(), 1.0)];
+            let result = ygo_solver::search(&engine, &config, cancel, |p| emit(0, &hands, p));
+            let boards = result.boards.into_iter().take(200).map(|b| (0, b)).collect();
+            (hands, boards, format!("{:?}", result.stop), result.progress.nodes)
+        }
+    };
+    let outcome = ComboOutcome {
+        stop,
+        elapsed_ms: started.elapsed().as_millis() as u64,
+        nodes,
+        hands: hands.iter().map(|(cards, weight)| HandView { cards: cards.clone(), weight: *weight }).collect(),
+        boards: boards.iter().map(|(h, b)| board_view(*h, b)).collect(),
+    };
+    if let Ok(mut job) = state.combo.lock() {
+        *job = Some(ComboJob { deck: list, seed: config.seed, hands: hands.into_iter().map(|(h, _)| h).collect(), boards });
+    }
+    Ok(outcome)
+}
+
+#[tauri::command]
+fn combo_cancel(state: State<'_, AppState>) {
+    state.combo_cancel.store(true, Ordering::Relaxed);
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ExplainedStepView {
+    choice: Option<String>,
+    events: Vec<String>,
+}
+
+/// The line of a board of the last search, played again and told in Italian.
+#[tauri::command(async)]
+fn combo_explain(state: State<'_, AppState>, hand: usize, key: String) -> Result<Vec<ExplainedStepView>, String> {
+    let engine = state.engine()?;
+    let job = state.combo.lock().map_err(|e| e.to_string())?;
+    let job = job.as_ref().ok_or("Nessuna ricerca da spiegare")?;
+    let board =
+        job.boards.iter().find(|(h, b)| *h == hand && format!("{:016x}", b.key) == key).map(|(_, b)| b).ok_or("Board non trovata")?;
+    let cards = job.hands.get(hand).ok_or("Mano non trovata")?;
+    let (_, steps) = ygo_solver::explain(&engine, &job.deck, cards, job.seed, &board.line).map_err(|e| e.to_string())?;
+    Ok(steps.into_iter().map(|s| ExplainedStepView { choice: s.choice, events: s.events }).collect())
+}
+
 #[tauri::command(async)]
 fn list_decks(state: State<'_, AppState>) -> Result<Vec<DeckSummary>, String> {
     state.with_user(|u| u.list())
@@ -675,6 +918,9 @@ pub fn run() {
                 client,
                 updating: tokio::sync::Mutex::new(()),
                 sim_cancel: AtomicBool::new(false),
+                engine: Mutex::new(None),
+                combo: Mutex::new(None),
+                combo_cancel: AtomicBool::new(false),
             };
             state.open_store();
             app.manage(state);
@@ -729,6 +975,9 @@ pub fn run() {
             export_matches,
             import_matches,
             lab_sample_size,
+            combo_search,
+            combo_cancel,
+            combo_explain,
             shelf_decks,
             set_deck_box,
             duplicate_deck,

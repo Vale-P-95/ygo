@@ -7,13 +7,12 @@ import { OptimizerTab } from "../components/lab/OptimizerTab";
 import { OverviewTab } from "../components/lab/OverviewTab";
 import { RolesPanel } from "../components/lab/RolesPanel";
 import { SimulatorTab } from "../components/lab/SimulatorTab";
-import { Popover, useOutsideClose } from "../components/Popover";
+import { DeckMenu } from "../components/DeckMenu";
 import { SectionHeader } from "../components/SectionHeader";
 import { api, type Deck, type DeckSummary, type LabOverview, type MatchLog, type Recipe } from "../lib/api";
-import { resolveLook } from "../lib/boxes";
 import { useCardCache } from "../lib/cards";
 import { BUILTIN_RECIPES, fromCond, toCond, type Group } from "../lib/conditions";
-import { FORMAT_LABELS, lastDeck, rememberDeck, sortIds } from "../lib/deck";
+import { lastDeck, rememberDeck, sortIds } from "../lib/deck";
 import { sound } from "../lib/sound";
 import { toast } from "../lib/toast";
 import { sectionById } from "../sections";
@@ -36,7 +35,6 @@ export function Lab({ artReady, onGoForge }: { artReady: boolean; onGoForge: () 
   const [overview, setOverview] = useState<LabOverview | null>(null);
   const [hand, setHand] = useState<"first" | "second">("first");
   const [tab, setTab] = useState<Tab>("overview");
-  const [menu, setMenu] = useState(false);
   // The condition is shared by Calcolatore, Simulatore and Ottimizzatore.
   const [root, setRootState] = useState<Group>(() => fromCond(BUILTIN_RECIPES[2].cond));
   const setRoot = useCallback((update: (g: Group) => Group) => setRootState((r) => update(structuredClone(r))), []);
@@ -44,7 +42,6 @@ export function Lab({ artReady, onGoForge }: { artReady: boolean; onGoForge: () 
   const setRecipes = useCallback((update: (list: Recipe[]) => Recipe[]) => setRecipesState(update), []);
   const [log, setLog] = useState<MatchLog | null>(null);
   const [logScope, setLogScope] = useState<"deck" | "all">("deck");
-  const menuRef = useOutsideClose(menu, () => setMenu(false));
   const saveTimer = useRef<number>(undefined);
   const cards = useCardCache();
   const { request } = cards;
@@ -149,51 +146,12 @@ export function Lab({ artReady, onGoForge }: { artReady: boolean; onGoForge: () 
 
   const cond = toCond(root);
   const section = sectionById("stats");
-  const current = decks?.find((d) => d.id === deck?.id);
 
   return (
     <div className="flex h-full flex-col">
       <SectionHeader section={section} artReady={artReady} />
       <div className="relative z-20 flex flex-wrap items-center gap-3 border-b border-border bg-surface/70 px-6 py-2.5 backdrop-blur">
-        <div ref={menuRef} className="relative">
-          <button
-            type="button"
-            className="btn btn-ghost !py-1.5"
-            onClick={() => {
-              sound.play(menu ? "close" : "open");
-              setMenu((v) => !v);
-            }}
-            aria-expanded={menu}
-            disabled={!decks?.length}
-          >
-            {current && <span className="h-5 w-4 rounded-[3px] shadow-[inset_0_0_0_1px_rgb(255_255_255/0.25)]" style={{ background: resolveLook(current.box, current.id).color }} />}
-            <span className="max-w-64 truncate">{current?.name ?? "Scegli un deck"}</span>
-            {current && <span className="text-xs text-faint">{FORMAT_LABELS[current.format]}</span>}
-            <span className="text-faint">▾</span>
-          </button>
-          <Popover open={menu} width={320}>
-            {decks?.map((d) => (
-              <button
-                key={d.id}
-                type="button"
-                onClick={() => {
-                  setMenu(false);
-                  sound.play("page");
-                  void open(d.id);
-                }}
-                className={`flex w-full items-center gap-3 rounded-lg px-2 py-1.5 text-left hover:bg-surface-3 ${d.id === deck?.id ? "bg-surface-3" : ""}`}
-              >
-                <span className="h-7 w-5 shrink-0 rounded-[3px] shadow-[inset_0_0_0_1px_rgb(255_255_255/0.25)]" style={{ background: resolveLook(d.box, d.id).color }} />
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-medium">{d.name}</span>
-                  <span className="text-[11px] text-faint">
-                    {FORMAT_LABELS[d.format]} · {d.mainCount}/{d.extraCount}/{d.sideCount}
-                  </span>
-                </span>
-              </button>
-            ))}
-          </Popover>
-        </div>
+        <DeckMenu decks={decks} current={deck?.id} onPick={(id) => void open(id)} />
         <div className={`flex gap-1 rounded-xl border border-border bg-bg-2 p-1 ${tab === "log" ? "invisible" : ""}`}>
           {(["first", "second"] as const).map((h) => (
             <button

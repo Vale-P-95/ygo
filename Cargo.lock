@@ -848,6 +848,7 @@ dependencies = [
  "tokio",
  "ygo-data",
  "ygo-engine",
+ "ygo-solver",
  "ygo-stats",
 ]
 

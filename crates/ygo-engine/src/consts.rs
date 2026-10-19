@@ -49,6 +49,7 @@ pub mod card_type {
     pub const SPELL: u32 = 0x2;
     pub const TRAP: u32 = 0x4;
     pub const FUSION: u32 = 0x40;
+    pub const QUICKPLAY: u32 = 0x1_0000;
     pub const RITUAL: u32 = 0x80;
     pub const SYNCHRO: u32 = 0x2000;
     pub const TOKEN: u32 = 0x4000;

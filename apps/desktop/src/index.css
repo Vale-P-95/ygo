@@ -1075,6 +1075,130 @@ body {
   animation: fade-in 200ms ease both;
 }
 
+/* Combo Lab: the field of a board, as in Master Duel. */
+.combo-field {
+  display: grid;
+  width: 100%;
+  max-width: 520px;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 6px;
+}
+.combo-zone {
+  position: relative;
+  display: flex;
+  aspect-ratio: 1;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  border: 1px dashed color-mix(in oklab, var(--sec) 28%, var(--df-border));
+  background: color-mix(in oklab, var(--sec) 5%, transparent);
+}
+.combo-zone--full {
+  border-style: solid;
+  border-color: color-mix(in oklab, var(--sec) 45%, var(--df-border));
+  background: color-mix(in oklab, var(--sec) 10%, var(--df-surface-2));
+}
+.combo-card {
+  position: relative;
+  height: 94%;
+  aspect-ratio: 59 / 86;
+}
+.combo-set {
+  filter: grayscale(0.55) brightness(0.62);
+}
+.combo-negated {
+  position: absolute;
+  inset: 0;
+  border-radius: 3px;
+  background:
+    linear-gradient(45deg, transparent 46%, rgb(255 90 90 / 0.85) 46% 54%, transparent 54%),
+    rgb(80 0 0 / 0.25);
+}
+.combo-stat {
+  position: absolute;
+  bottom: -1px;
+  left: 50%;
+  transform: translate(-50%, 50%);
+  white-space: nowrap;
+  border-radius: 999px;
+  padding: 0 6px;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 15px;
+  color: #fff;
+  background: rgb(10 8 8 / 0.85);
+  font-variant-numeric: tabular-nums;
+}
+.combo-badge {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  border-radius: 999px;
+  padding: 0 4px;
+  font-size: 9px;
+  font-weight: 800;
+  line-height: 14px;
+  color: #fff;
+  background: color-mix(in oklab, var(--sec) 75%, #000);
+}
+.combo-badge--left {
+  right: auto;
+  left: 2px;
+}
+.combo-slot {
+  display: flex;
+  aspect-ratio: 59 / 86;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  border: 1px dashed var(--df-border-strong);
+  font-size: 11px;
+  color: var(--df-faint);
+}
+.combo-lock {
+  position: absolute;
+  right: 2px;
+  bottom: 2px;
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  color: #fff;
+  background: rgb(10 8 8 / 0.7);
+  opacity: 0.75;
+}
+.combo-lock:hover {
+  opacity: 1;
+}
+.combo-lock--on {
+  opacity: 1;
+  color: var(--df-bg);
+  background: var(--sec);
+}
+.combo-passive {
+  position: absolute;
+  left: 2px;
+  top: 2px;
+  border-radius: 4px;
+  padding: 0 3px;
+  font-size: 8px;
+  font-weight: 800;
+  line-height: 13px;
+  color: #fff;
+  background: rgb(10 8 8 / 0.8);
+}
+.combo-picked {
+  border-radius: 6px;
+  box-shadow:
+    0 0 0 2px var(--sec),
+    0 0 14px color-mix(in oklab, var(--sec) 60%, transparent);
+}
+.combo-banned {
+  opacity: 0.45;
+  filter: grayscale(0.8);
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
