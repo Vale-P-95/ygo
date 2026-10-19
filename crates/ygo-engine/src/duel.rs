@@ -153,6 +153,17 @@ pub struct Duel {
     last_turn: Option<u32>,
 }
 
+/// A card put on the field before the duel starts.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct Placement {
+    pub code: u32,
+    pub location: u8,
+    pub sequence: u32,
+    pub position: u32,
+    /// Xyz Materials attached to it: that many copies of a card.
+    pub overlay: Option<(u32, u8)>,
+}
+
 /// The opponent's cards in [`Duel::goldfish_vs`].
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Opponent {
@@ -223,7 +234,7 @@ impl Duel {
     /// duel ends when the opponent's turn begins: the state then is the
     /// board you pass with (not after your next draw).
     pub fn goldfish(engine: &Engine, deck: &DeckList, hand: &[u32], seed: u64) -> Result<Self, Error> {
-        let mut duel = Self::solitaire(engine, deck, hand, seed, None)?;
+        let mut duel = Self::solitaire(engine, deck, hand, seed, None, &[])?;
         duel.last_turn = Some(1);
         Ok(duel)
     }
@@ -234,8 +245,20 @@ impl Duel {
     /// that look at the opponent's Deck, hand or Extra Deck offer the same
     /// choices in both. The opponent's decisions are asked like yours.
     pub fn goldfish_against(engine: &Engine, deck: &DeckList, hand: &[u32], seed: u64, opponent: Option<&Opponent>) -> Result<Self, Error> {
-        let Some(opponent) = opponent else { return Self::goldfish(engine, deck, hand, seed) };
-        let mut duel = Self::solitaire(engine, deck, hand, seed, Some(opponent))?;
+        Self::goldfish_against_placed(engine, deck, hand, seed, opponent, &[])
+    }
+
+    /// Like [`Duel::goldfish_against`], with cards of yours already where
+    /// `placed` puts them when the duel starts.
+    pub fn goldfish_against_placed(
+        engine: &Engine,
+        deck: &DeckList,
+        hand: &[u32],
+        seed: u64,
+        opponent: Option<&Opponent>,
+        placed: &[Placement],
+    ) -> Result<Self, Error> {
+        let mut duel = Self::solitaire(engine, deck, hand, seed, opponent, placed)?;
         duel.last_turn = Some(1);
         Ok(duel)
     }
@@ -246,10 +269,31 @@ impl Duel {
     /// opponent's cards are dealt in the order given: the last card of its
     /// Deck is drawn first.
     pub fn goldfish_vs(engine: &Engine, deck: &DeckList, hand: &[u32], seed: u64, opponent: &Opponent) -> Result<Self, Error> {
-        Self::solitaire(engine, deck, hand, seed, Some(opponent))
+        Self::solitaire(engine, deck, hand, seed, Some(opponent), &[])
     }
 
-    fn solitaire(engine: &Engine, deck: &DeckList, hand: &[u32], seed: u64, opponent: Option<&Opponent>) -> Result<Self, Error> {
+    /// Like [`Duel::goldfish_vs`], with cards of yours already on the field
+    /// when the duel starts (as if Summoned or Set properly): a board to
+    /// put to the test without playing the turn that makes it.
+    pub fn goldfish_vs_placed(
+        engine: &Engine,
+        deck: &DeckList,
+        hand: &[u32],
+        seed: u64,
+        opponent: &Opponent,
+        placed: &[Placement],
+    ) -> Result<Self, Error> {
+        Self::solitaire(engine, deck, hand, seed, Some(opponent), placed)
+    }
+
+    fn solitaire(
+        engine: &Engine,
+        deck: &DeckList,
+        hand: &[u32],
+        seed: u64,
+        opponent: Option<&Opponent>,
+        placed: &[Placement],
+    ) -> Result<Self, Error> {
         let mut main = deck.main.clone();
         let mut hand_codes = Vec::with_capacity(hand.len());
         for &code in hand {
@@ -284,6 +328,19 @@ impl Duel {
                 }
             }
         }
+        for p in placed {
+            duel.add_card(0, p.code, p.location, p.sequence, p.position);
+            if let Some((material, count)) = p.overlay {
+                // A card added to a taken Monster Zone becomes a material of the monster there.
+                let lua = format!(
+                    "for i=1,{count} do Debug.AddCard({material},0,0,{},{},{}) end",
+                    location::MZONE,
+                    p.sequence,
+                    position::FACEUP_ATTACK
+                );
+                duel.run_lua_source("placement.lua", &lua);
+            }
+        }
         duel.start();
         Ok(duel)
     }
@@ -292,6 +349,12 @@ impl Duel {
     #[doc(hidden)]
     pub fn run_lua(&self, name: &str) -> bool {
         self.load_script(name)
+    }
+
+    /// Runs Lua code in this duel (the `Debug` library included).
+    fn run_lua_source(&self, name: &str, source: &str) -> bool {
+        let name = CString::new(name).expect("script name without NUL");
+        unsafe { OCG_LoadScript(self.raw, source.as_ptr() as *const c_char, source.len() as u32, name.as_ptr()) != 0 }
     }
 
     fn load_script(&self, name: &str) -> bool {

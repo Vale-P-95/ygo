@@ -5,7 +5,17 @@
 //! down to the end of the turn, and leaves the other answers in a shared
 //! queue for later. A table of the states already seen (by their canonical
 //! fingerprint, plus the choice being asked) makes sure that lines reaching
-//! the same situation in a different order are explored once.
+//! the same situation in a different order are explored once; answers that
+//! could only lead back to where the search has been (taking a card out of
+//! a selection, cancelling what was just started, picking the same cards
+//! in another order) are not tried at all, since each try costs a replay.
+//!
+//! Which answer is tried next: the one whose line led to the best board
+//! after it, less a little for each answer of its line that is not the
+//! dive's. So the search works around its best lines first, at every
+//! depth, instead of going over the last choices of the deepest line. The
+//! boards are estimated by what their cards stop, measured once per card
+//! ([`crate::value`]).
 //!
 //! Ending the turn is an answer at every free moment, and playing it means a
 //! whole replay just to read a board. So the board is read on the spot,
@@ -20,12 +30,18 @@ use std::collections::hash_map::DefaultHasher;
 use std::collections::{BinaryHeap, HashMap, HashSet};
 use std::hash::{Hash, Hasher};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-use std::sync::{Arc, Condvar, Mutex};
+use std::sync::{Arc, Condvar, Mutex, RwLock};
 use std::time::{Duration, Instant};
 
 use ygo_engine::auto::AutoPolicy;
 use ygo_engine::consts::{card_type, location};
-use ygo_engine::{canonical_fingerprint, italian, Action, ActionKind, Decision, DeckList, Duel, DuelState, Engine, Error, Opponent, Step};
+use ygo_engine::{
+    canonical_fingerprint, fingerprint, italian, Action, ActionKind, CardRef, Decision, DeckList, Duel, DuelState, Engine, Error, Opponent,
+    Placement, Step,
+};
+
+use crate::probe::{Kit, Prober};
+use crate::value::{CardValues, Spot};
 
 #[derive(Debug, Clone)]
 pub struct SearchConfig {
@@ -57,6 +73,16 @@ pub struct SearchConfig {
     pub confirm_top: usize,
     /// Best boards whose zone choices are tried the other ways at the end.
     pub zone_top: usize,
+    /// What the cards are worth alone on the field ([`crate::card_values`]):
+    /// the estimate counts them, so the search goes after boards that stop
+    /// the opponent. Empty: only how many cards are where.
+    pub values: Arc<CardValues>,
+    /// The probe turn's kit, to learn during the search what cards are
+    /// worth together (`None`: the values above stay as they are).
+    pub learn: Option<Arc<Kit>>,
+    /// Cards of yours already on the field (or in the GY) when the turn
+    /// starts, to try a hand on a board (empty: the usual duel).
+    pub placed: Vec<Placement>,
 }
 
 impl SearchConfig {
@@ -77,6 +103,9 @@ impl SearchConfig {
             live_top: 10,
             confirm_top: 40,
             zone_top: 20,
+            values: Arc::default(),
+            learn: None,
+            placed: Vec::new(),
         }
     }
 }
@@ -284,8 +313,15 @@ impl SearchResult {
 /// An answer to try and its label.
 type Answer = (Vec<u8>, String);
 
-/// An edge to queue: prefix, answer, priority, provisional board it confirms.
-type NewEdge = (Arc<Line>, Option<Answer>, f64, Option<u64>);
+/// An edge to queue (see [`Edge`]).
+struct NewEdge {
+    prefix: Arc<Line>,
+    answer: Option<Answer>,
+    priority: f64,
+    confirms: Option<u64>,
+    value: f64,
+    discrepancies: u32,
+}
 
 /// A choice left for later: the line to its node and the answer to try.
 #[derive(Clone)]
@@ -296,6 +332,11 @@ struct Edge {
     order: u64,
     /// The provisional board this edge plays to the end of the turn.
     confirms: Option<u64>,
+    /// Estimate of the best board of the line this edge leaves.
+    value: f64,
+    /// Answers of the line, this one included, that are not the one the
+    /// dive would have given.
+    discrepancies: u32,
 }
 
 impl PartialEq for Edge {
@@ -330,6 +371,10 @@ pub struct Frontier {
     interrupted: u64,
     elapsed: Duration,
     started: bool,
+    /// The card values with what the search learned.
+    values: Option<CardValues>,
+    /// Cards (and kinds of zones) on the boards measured to learn from.
+    measured: HashSet<u64>,
 }
 
 impl std::fmt::Debug for Frontier {
@@ -371,6 +416,12 @@ struct Shared<'a> {
     stop: Mutex<Option<Stop>>,
     /// Playing the best provisional boards to the end: only cancelling stops it.
     confirming: AtomicBool,
+    /// The card values the estimate uses, raised by what the search learns.
+    values: RwLock<CardValues>,
+    /// Cards (and kinds of zones) on the boards measured to learn from.
+    measured: Mutex<HashSet<u64>>,
+    /// Nodes after which the next boards are measured.
+    next_learning: AtomicU64,
 }
 
 struct Queue {
@@ -427,10 +478,18 @@ impl Shared<'_> {
             return;
         }
         if let Ok(mut q) = self.queue.lock() {
-            for (prefix, answer, priority, confirms) in edges {
+            for e in edges {
                 let order = q.next_order;
                 q.next_order += 1;
-                q.edges.push(Edge { prefix, answer, priority, order, confirms });
+                q.edges.push(Edge {
+                    prefix: e.prefix,
+                    answer: e.answer,
+                    priority: e.priority,
+                    order,
+                    confirms: e.confirms,
+                    value: e.value,
+                    discrepancies: e.discrepancies,
+                });
             }
         }
         self.wake.notify_all();
@@ -480,6 +539,8 @@ impl Shared<'_> {
         }
         let replace = match boards.get(&board.key) {
             None => true,
+            // Its own End Phase played: the same line, with the End Phase's answers.
+            Some(old) if !old.exact && board.exact && confirms == Some(board.key) => true,
             Some(old) if old.exact == board.exact => board.better_line_than(old),
             // The real reading wins unless the provisional one has a better line.
             Some(old) if board.exact => !old.better_line_than(&board),
@@ -517,7 +578,7 @@ impl Shared<'_> {
         Board {
             key: board_key(&state),
             cards_used: cards_used(&self.config.hand, &state),
-            quick_score: quick_score(self.engine, &state, &self.config.hand_traps),
+            quick_score: self.values.read().map_or(0.0, |v| quick_score(self.engine, &state, &self.config.hand_traps, &v)),
             goal_hits: self.config.goal.hits(self.engine, &state),
             exact,
             line,
@@ -525,6 +586,11 @@ impl Shared<'_> {
             found_after: self.elapsed(),
         }
     }
+}
+
+/// What the search steers by: the quick estimate, and the cards of the goal.
+fn estimate(board: &Board) -> f64 {
+    board.quick_score + 3.0 * board.goal_hits as f64
 }
 
 /// Best first: the goal, then a higher estimate, then fewer cards from the
@@ -540,12 +606,40 @@ fn rank(a: &Board, b: &Board) -> CmpOrdering {
 }
 
 /// Key of a node: the state and the choice being asked (two steps of the
-/// same selection share the state but not the choice).
-fn node_key(state: &DuelState, decision: &Decision) -> u64 {
+/// same selection share the state but not the choice). Inside something
+/// being done (an activation, a summon, an effect resolving), the answers
+/// since your last free moment count too: the state does not say yet what
+/// is being done, and choosing Aleister the Invoker as material for
+/// Salamangreat Almiraj or for Artemis is the same choice of the same state.
+fn node_key(state: &DuelState, decision: &Decision, pending: &Pending) -> u64 {
     let mut h = DefaultHasher::new();
     canonical_fingerprint(state).hash(&mut h);
     decision.hash(&mut h);
+    if !is_free(decision) {
+        pending.0.hash(&mut h);
+    }
     h.finish()
+}
+
+/// A moment where you choose what to do next (not a step of something
+/// already started).
+fn is_free(decision: &Decision) -> bool {
+    decision.player() == Some(0) && matches!(decision, Decision::IdleCmd { .. } | Decision::BattleCmd { .. } | Decision::SelectChain { .. })
+}
+
+/// The answers given since your last free moment, hashed.
+#[derive(Clone, Copy, Default)]
+struct Pending(u64);
+
+impl Pending {
+    fn answered(&mut self, decision: &Decision, answer: &[u8]) {
+        let mut h = DefaultHasher::new();
+        if !is_free(decision) {
+            self.0.hash(&mut h);
+        }
+        answer.hash(&mut h);
+        self.0 = h.finish();
+    }
 }
 
 /// Identity of an end board: the same cards on the field, with the same
@@ -612,10 +706,11 @@ fn card_hash(state: &DuelState, kind: (usize, bool), c: &ygo_engine::FieldCard) 
     h.finish()
 }
 
-/// A rough value of a state for ordering the search (Phase 5C replaces it
-/// at the end with the real score): monsters on the field, more for Extra
-/// Deck monsters, set cards, cards kept in hand, more for `hand_traps`.
-pub fn quick_score(engine: &Engine, state: &DuelState, hand_traps: &[u32]) -> f64 {
+/// A rough value of a state for ordering the search (the probe turn
+/// replaces it at the end with the real score): monsters on the field,
+/// more for Extra Deck monsters, set cards, cards kept in hand, more for
+/// `hand_traps`, and what the cards on the field stop alone (`values`).
+pub fn quick_score(engine: &Engine, state: &DuelState, hand_traps: &[u32], values: &CardValues) -> f64 {
     let me = &state.players[0];
     let mut score = 0.0;
     for c in me.monsters.iter().flatten() {
@@ -643,8 +738,26 @@ pub fn quick_score(engine: &Engine, state: &DuelState, hand_traps: &[u32]) -> f6
     }
     let db = engine.cards();
     let hand_trap = |c: u32| hand_traps.iter().any(|&h| db.canonical_code(h) == db.canonical_code(c));
-    score + me.hand.iter().map(|&c| if hand_trap(c) { 1.5 } else { 0.3 }).sum::<f64>()
+    // A handtrap counts what it stops from the hand with this field (some
+    // only work while you control no cards), when it was measured.
+    score += me
+        .hand
+        .iter()
+        .map(|&c| match values.in_hand(engine, c, state) {
+            Some(v) => (VALUE_WEIGHT * v).max(0.3),
+            None if hand_trap(c) => 1.5,
+            None => 0.3,
+        })
+        .sum::<f64>();
+    score + VALUE_WEIGHT * values.of_field(engine, state)
 }
+
+/// Weight in the estimate of what the cards on the field stop, alone
+/// (1 = an interruption that negates anything once): an Invoked Mechaba
+/// counts as much as three more monsters that do nothing on the opponent's
+/// turn, Ash Blossom kept in hand a little less than it. Tried on 16 hands
+/// of Master Duel Meta decks: 2 and 3 found weaker boards than 5.
+const VALUE_WEIGHT: f64 = 5.0;
 
 /// Answers that do something come first: the dive tries them before ending
 /// the turn, and Sets (which give up a Normal Summon or a card's use this
@@ -695,46 +808,184 @@ fn keeps_hand(engine: &Engine, config: &SearchConfig, state: &DuelState) -> bool
     })
 }
 
-/// Plays one edge: replays its line, gives its answer, then dives.
-fn work(shared: &Shared, edge: Edge) -> Result<(), Error> {
+const PHASE_END: u16 = 0x200;
+
+fn new_duel(shared: &Shared) -> Result<Duel, Error> {
     let config = shared.config;
-    let mut duel = Duel::goldfish_against(shared.engine, &config.deck, &config.hand, config.seed, config.opponent.as_ref())?;
+    Duel::goldfish_against_placed(shared.engine, &config.deck, &config.hand, config.seed, config.opponent.as_ref(), &config.placed)
+}
+
+/// Drops the answers that lead back where the search has been or goes
+/// anyway, which would cost a replay of the whole line each:
+/// - taking a card out of a selection (picking the others directly gets
+///   the same sets);
+/// - cancelling what was just started at a free moment, before anything
+///   happened (it is the free moment again; a cancel in the middle of an
+///   effect, like choosing no card, stays);
+/// - picking a card that makes a selection another line has already made
+///   in another order (the same cards picked, out of the same ones).
+fn without_returns(
+    shared: &Shared,
+    state: &DuelState,
+    decision: &Decision,
+    pending: &Pending,
+    mut actions: Vec<Action>,
+    undoable: bool,
+) -> Vec<Action> {
+    let only_answer = actions.len() == 1;
+    if undoable && !only_answer && actions.iter().any(|a| a.kind != ActionKind::Cancel) {
+        actions.retain(|a| a.kind != ActionKind::Cancel);
+    }
+    let Decision::SelectUnselectCard { selectable, unselectable, hint, min, max, .. } = decision else { return actions };
+    let pick = |a: &Action| -> Option<usize> {
+        if a.kind != ActionKind::Choose {
+            return None;
+        }
+        let bytes: [u8; 4] = a.response.get(4..8)?.try_into().ok()?;
+        Some(i32::from_le_bytes(bytes) as usize)
+    };
+    // The cards of the selection, picked or not: two orders of picking the
+    // same cards out of the same ones meet at the same selection.
+    let mut base = DefaultHasher::new();
+    // What the selection is for: the answers since your last free moment.
+    ("selection", fingerprint(state), pending.0, hint, min, max).hash(&mut base);
+    let mut all: Vec<&CardRef> = selectable.iter().chain(unselectable).collect();
+    all.sort_by_key(|c| card_order(c));
+    all.iter().for_each(|c| card_order(c).hash(&mut base));
+    actions
+        .into_iter()
+        .filter(|a| match pick(a) {
+            // Taking a card out.
+            Some(i) if i >= selectable.len() => false,
+            Some(i) => {
+                let mut picked: Vec<_> = unselectable.iter().chain(std::iter::once(&selectable[i])).map(card_order).collect();
+                picked.sort_unstable();
+                let mut h = base.clone();
+                picked.hash(&mut h);
+                shared.first_visit(h.finish())
+            }
+            None => true,
+        })
+        .collect()
+}
+
+fn card_order(c: &CardRef) -> (u8, u8, u32, u32, u32) {
+    (c.controller, c.location, c.sequence, c.code, c.position)
+}
+
+/// Priority taken off an answer for each answer of its line that is not
+/// the dive's: the lines near the best ones are tried first, the ones that
+/// differ in many choices later.
+const DISCREPANCY: f64 = 0.6;
+
+/// Plays one edge: replays its line, gives its answer, then dives. The
+/// other answers met on the way are queued when the dive is over, at the
+/// estimate of the best board the line reached after them (the boards
+/// before an answer do not depend on it), less [`DISCREPANCY`] for each
+/// answer of their line that is not the dive's.
+fn work(shared: &Shared, edge: Edge) -> Result<(), Error> {
+    let mut dive = Dive { left: Vec::new(), boards: Vec::new() };
+    let result = play(shared, &edge, &mut dive);
+    let discrepancies = edge.discrepancies + 1;
+    // Best board estimate from each depth of the line on.
+    let mut after: Vec<(usize, f64)> = dive.boards.clone();
+    after.sort_by_key(|&(depth, _)| std::cmp::Reverse(depth));
+    let mut best = f64::NEG_INFINITY;
+    let suffix: Vec<(usize, f64)> = after
+        .into_iter()
+        .map(|(depth, value)| {
+            best = best.max(value);
+            (depth, best)
+        })
+        .collect();
+    let fallback = dive.boards.iter().map(|b| b.1).fold(edge.value, f64::max);
+    let edges = dive
+        .left
+        .into_iter()
+        .map(|left| {
+            // The last board reading at this depth or deeper.
+            let value = suffix.iter().rev().find(|(d, _)| *d >= left.depth).map_or(fallback, |&(_, v)| v);
+            let bonus = if left.wanted { 10.0 } else { 0.0 };
+            NewEdge {
+                prefix: left.prefix,
+                answer: Some(left.answer),
+                priority: value - DISCREPANCY * discrepancies as f64 + bonus,
+                confirms: None,
+                value,
+                discrepancies,
+            }
+        })
+        .collect();
+    shared.push(edges);
+    result
+}
+
+/// What a dive leaves behind: the answers it did not give, and the
+/// estimates of the boards it read, by depth (choices made).
+struct Dive {
+    left: Vec<LeftAnswer>,
+    boards: Vec<(usize, f64)>,
+}
+
+struct LeftAnswer {
+    prefix: Arc<Line>,
+    answer: Answer,
+    depth: usize,
+    wanted: bool,
+}
+
+fn play(shared: &Shared, edge: &Edge, dive: &mut Dive) -> Result<(), Error> {
+    let config = shared.config;
+    let mut duel = new_duel(shared)?;
     let mut line = (*edge.prefix).clone();
+    let mut pending = Pending::default();
     for answer in &line.answers {
-        duel.advance()?;
+        if let Step::Decision { decision, .. } = duel.advance()? {
+            pending.answered(&decision, answer);
+        }
         duel.respond(answer);
     }
     if !line.answers.is_empty() || edge.answer.is_some() {
         shared.replays.fetch_add(1, Ordering::Relaxed);
     }
-    if let Some((answer, label)) = edge.answer {
-        duel.advance()?;
+    if let Some((answer, label)) = edge.answer.clone() {
+        if let Step::Decision { decision, .. } = duel.advance()? {
+            pending.answered(&decision, &answer);
+        }
         duel.respond(&answer);
         line.choose(answer, label);
     }
     // The card last taken from the Extra Deck: the one a Monster Zone is
     // asked for next (only those go to the Extra Monster Zone).
     let mut placing: Option<u32> = None;
+    // Something was started at a free moment (an idle or chain window) and
+    // nothing has happened since: cancelling only goes back to that moment.
+    let mut undoable = false;
     loop {
         if shared.halted() {
             return Ok(());
         }
-        let (step, mut actions) = duel.advance_auto(&config.policy, &mut line.answers)?;
-        let (turn, _, _) = duel.turn_info();
+        let (step, mut actions) = duel.advance_auto_seen(&config.policy, &mut line.answers, |d, a| pending.answered(d, a))?;
+        let (turn, _, phase) = duel.turn_info();
+        if let Step::Decision { events, .. } = &step {
+            undoable &= events.is_empty();
+        }
         let decision = match step {
             Step::Decision { decision, .. } if decision.player() == Some(0) && turn <= 1 => decision,
             // The opponent's turn (or the end of the duel): the board is done.
             _ => {
                 let state = duel.state();
                 if keeps_hand(shared.engine, config, &state) {
-                    shared.record(shared.board(state, line, true), edge.confirms);
+                    let board = shared.board(state, line, true);
+                    dive.boards.push((board.line.choices.len(), estimate(&board)));
+                    shared.record(board, edge.confirms);
                 }
                 return Ok(());
             }
         };
         let state = duel.state();
         shared.nodes.fetch_add(1, Ordering::Relaxed);
-        if !shared.first_visit(node_key(&state, &decision)) {
+        if !shared.first_visit(node_key(&state, &decision, &pending)) {
             shared.duplicates.fetch_add(1, Ordering::Relaxed);
             return Ok(());
         }
@@ -751,8 +1002,20 @@ fn work(shared: &Shared, edge: Edge) -> Result<(), Error> {
             shared.interrupted.fetch_add(1, Ordering::Relaxed);
             return Ok(());
         }
+        if actions.len() > 1 {
+            actions = without_returns(shared, &state, &decision, &pending, actions, undoable);
+            if actions.is_empty() {
+                // Every pick leads where another line already goes.
+                shared.duplicates.fetch_add(1, Ordering::Relaxed);
+                return Ok(());
+            }
+        }
         let wanted = |a: &Action| config.goal.involves(shared.engine, a);
-        let responding = matches!(decision, Decision::SelectChain { triggers: false, .. }) && duel.open_chain() > 0;
+        // Quick effects in your own End Phase rarely help a combo (Hyperinvoked
+        // Aeon's Attribute change, a negation of your own effect): not
+        // activating them comes first there too, like when responding.
+        let window = matches!(decision, Decision::SelectChain { triggers: false, .. });
+        let responding = window && (duel.open_chain() > 0 || phase == PHASE_END);
         dive_order(&mut actions, responding, wanted);
         // A goal card wanted in a kind of zone goes there; while one wants
         // an Extra Monster Zone, other monsters leave it free when they can
@@ -770,10 +1033,8 @@ fn work(shared: &Shared, edge: Edge) -> Result<(), Error> {
                 actions.sort_by_key(|a| extra(a) != first);
             }
         }
-        let goal = 3.0 * config.goal.hits(shared.engine, &state) as f64;
-        let priority = quick_score(shared.engine, &state, &shared.config.hand_traps) + 0.3 * line.choices.len() as f64 + goal;
         let prefix = Arc::new(line.clone());
-        let mut rest = Vec::with_capacity(actions.len());
+        let depth = line.choices.len();
         // Ending the turn here: read the board now, play the End Phase later.
         if actions.len() > 1 {
             if let Some(i) = actions.iter().position(|a| a.kind == ActionKind::EndTurn) {
@@ -784,24 +1045,36 @@ fn work(shared: &Shared, edge: Edge) -> Result<(), Error> {
                     ended.choose(end.response.clone(), label.clone());
                     let board = shared.board(state.clone(), ended, false);
                     let key = board.key;
+                    let value = estimate(&board);
+                    dive.boards.push((depth, value));
                     // A board that reaches the goal is played to the end at once.
-                    let end_priority =
-                        if config.goal.reached(board.goal_hits) { priority + END_PHASE_LAST } else { priority - END_PHASE_LAST };
+                    let priority = if config.goal.reached(board.goal_hits) { value + END_PHASE_LAST } else { value - END_PHASE_LAST };
                     shared.record(board, None);
-                    rest.push((prefix.clone(), Some((end.response, label)), end_priority, Some(key)));
+                    shared.push(vec![NewEdge {
+                        prefix: prefix.clone(),
+                        answer: Some((end.response, label)),
+                        priority,
+                        confirms: Some(key),
+                        value,
+                        discrepancies: edge.discrepancies,
+                    }]);
                 }
             }
         }
         // Lines that pick a card of the goal are tried before the others.
-        rest.extend(actions[1..].iter().map(|a| {
-            let bonus = if wanted(a) { 10.0 } else { 0.0 };
-            (prefix.clone(), Some((a.response.clone(), italian::choice(a))), priority + bonus, None)
+        dive.left.extend(actions[1..].iter().map(|a| LeftAnswer {
+            prefix: prefix.clone(),
+            answer: (a.response.clone(), italian::choice(a)),
+            depth,
+            wanted: wanted(a),
         }));
-        shared.push(rest);
         let first = &actions[0];
         if let Some(c) = first.card.filter(|c| c.location == location::EXTRA) {
             placing = Some(c.code);
         }
+        let free = matches!(decision, Decision::IdleCmd { .. } | Decision::BattleCmd { .. } | Decision::SelectChain { .. });
+        undoable = (free && first.kind != ActionKind::Pass) || (undoable && !free);
+        pending.answered(&decision, &first.response);
         duel.respond(&first.response);
         line.choose(first.response.clone(), italian::choice(first));
     }
@@ -821,6 +1094,7 @@ fn run_workers(shared: &Shared, threads: usize, mut progress: impl FnMut(&Progre
                     }
                     shared.done_with_edge();
                     shared.check_limits();
+                    learn(shared);
                 }
             });
         }
@@ -830,6 +1104,111 @@ fn run_workers(shared: &Shared, threads: usize, mut progress: impl FnMut(&Progre
             progress(&shared.progress());
         }
     });
+}
+
+/// Nodes between two rounds of learning.
+const LEARN_EVERY: u64 = 1500;
+/// Boards measured in a round.
+const LEARN_BOARDS: usize = 2;
+/// Best boards a round looks at.
+const LEARN_AMONG: usize = 200;
+/// Boards measured in the round at the end of the search.
+const LEARN_LAST: usize = 4;
+
+/// Your cards on the field of `state`, by kind of zone, as keys, with a
+/// weight: 2 for a monster from the Extra Deck, else 1.
+fn field_spots(state: &DuelState) -> Vec<(u64, u32)> {
+    let me = &state.players[0];
+    let key = |code: u32, spot: Spot| {
+        let mut h = DefaultHasher::new();
+        (code, spot).hash(&mut h);
+        h.finish()
+    };
+    let monsters = me.monsters.iter().enumerate().filter_map(|(z, c)| {
+        let c = c.as_ref().filter(|c| c.is_face_up())?;
+        let weight = if c.type_ & card_type::EXTRA != 0 { 2 } else { 1 };
+        Some((key(c.code, if z >= 5 { Spot::Extra } else { Spot::Main }), weight))
+    });
+    let spells = me.spells.iter().flatten().map(|c| (key(c.code, if c.is_face_up() { Spot::FaceUp } else { Spot::Set }), 1));
+    monsters.chain(spells).collect()
+}
+
+/// Every [`LEARN_EVERY`] nodes, the best boards not measured yet are put to
+/// the probe turn, and each card of yours that stopped something there is
+/// worth at least that from then on. A card alone on the field may be worth
+/// nothing and a lot next to another one (Allied Code Talker @Ignister
+/// negates by Tributing a Link Monster it points to): the search learns it
+/// the first time such a board comes up, and the boards already found are
+/// estimated again. With one thread the rounds come at the same nodes, so
+/// the search stays the same from run to run.
+fn learn(shared: &Shared) {
+    let next = shared.next_learning.load(Ordering::Relaxed);
+    if shared.nodes.load(Ordering::Relaxed) < next
+        || shared.next_learning.compare_exchange(next, next + LEARN_EVERY, Ordering::Relaxed, Ordering::Relaxed).is_err()
+    {
+        return;
+    }
+    learn_round(shared, LEARN_BOARDS);
+}
+
+/// One round of [`learn`]: up to `count` boards measured.
+fn learn_round(shared: &Shared, count: usize) {
+    let Some(kit) = shared.config.learn.as_deref() else { return };
+    // Among the best boards, the ones with the most cards on the field not
+    // measured on a board yet, Extra Deck monsters counting double (the
+    // first boards are often the same cards but one).
+    let picked: Vec<Board> = {
+        let Ok(boards) = shared.boards.lock() else { return };
+        let Ok(mut measured) = shared.measured.lock() else { return };
+        let mut best: Vec<&Board> = boards.values().collect();
+        best.sort_by(|a, b| rank(a, b));
+        best.truncate(LEARN_AMONG);
+        let mut picked = Vec::new();
+        while picked.len() < count {
+            let new = |b: &Board| field_spots(&b.state).iter().filter(|(k, _)| !measured.contains(k)).map(|&(_, w)| w).sum::<u32>();
+            let Some((i, _)) =
+                best.iter().enumerate().map(|(i, b)| (i, new(b))).filter(|&(_, n)| n > 0).max_by_key(|&(i, n)| (n, std::cmp::Reverse(i)))
+            else {
+                break;
+            };
+            let b = best.remove(i);
+            measured.extend(field_spots(&b.state).into_iter().map(|(k, _)| k));
+            picked.push(b.clone());
+        }
+        picked
+    };
+    let config = shared.config;
+    let mut prober = Prober::new(shared.engine, &config.deck, &config.hand, config.seed, kit);
+    let mut raised = false;
+    for board in &picked {
+        let Ok(measure) = prober.measure(&board.line) else { continue };
+        let me = &board.state.players[0];
+        for i in measure.interruptions.iter().filter(|i| i.alone > 0.0) {
+            let code = i.responder.code;
+            let spot = match i.location {
+                location::MZONE => match me.monsters.iter().position(|c| c.as_ref().is_some_and(|c| c.code == code)) {
+                    Some(z) if z >= 5 => Spot::Extra,
+                    Some(_) => Spot::Main,
+                    None => continue,
+                },
+                location::SZONE => match me.spells.iter().flatten().find(|c| c.code == code) {
+                    Some(c) if c.is_face_up() => Spot::FaceUp,
+                    Some(_) => Spot::Set,
+                    None => continue,
+                },
+                _ => continue,
+            };
+            if let Ok(mut values) = shared.values.write() {
+                raised |= values.raise(shared.engine, code, spot, i.alone);
+            }
+        }
+    }
+    if raised {
+        let (Ok(values), Ok(mut boards)) = (shared.values.read(), shared.boards.lock()) else { return };
+        for b in boards.values_mut() {
+            b.quick_score = quick_score(shared.engine, &b.state, &config.hand_traps, &values);
+        }
+    }
 }
 
 /// Plays to the end of the turn the best provisional boards (and those
@@ -844,7 +1223,15 @@ fn confirm_best(shared: &Shared) {
         .filter(|(i, b)| *i < shared.config.confirm_top || goal.reached(b.goal_hits))
         .filter_map(|(_, b)| {
             let (prefix, answer) = b.line.split_last()?;
-            Some(Edge { prefix: Arc::new(prefix), answer: Some(answer), priority: 0.0, order: 0, confirms: Some(b.key) })
+            Some(Edge {
+                prefix: Arc::new(prefix),
+                answer: Some(answer),
+                priority: 0.0,
+                order: 0,
+                confirms: Some(b.key),
+                value: b.quick_score,
+                discrepancies: 0,
+            })
         })
         .collect();
     if picked.is_empty() {
@@ -899,7 +1286,7 @@ fn zone_variants_of(shared: &Shared, line: &Line) -> Result<(), Error> {
     let config = shared.config;
     // The zone choices of the line that had other kinds of zones.
     let mut spots = Vec::new();
-    let mut duel = Duel::goldfish_against(shared.engine, &config.deck, &config.hand, config.seed, config.opponent.as_ref())?;
+    let mut duel = new_duel(shared)?;
     for (i, answer) in line.answers.iter().enumerate() {
         let Step::Decision { decision, .. } = duel.advance()? else { break };
         if let Decision::SelectPlace { player: 0, count: 1, .. } = decision {
@@ -918,7 +1305,7 @@ fn zone_variants_of(shared: &Shared, line: &Line) -> Result<(), Error> {
     }
     for (i, k, others) in spots {
         for other in others {
-            let mut duel = Duel::goldfish_against(shared.engine, &config.deck, &config.hand, config.seed, config.opponent.as_ref())?;
+            let mut duel = new_duel(shared)?;
             let mut played = true;
             for (j, answer) in line.answers.iter().enumerate() {
                 if !matches!(duel.advance(), Ok(Step::Decision { .. })) {
@@ -962,7 +1349,8 @@ pub fn resume(
     cancel: &AtomicBool,
     mut progress: impl FnMut(&Progress),
 ) -> SearchResult {
-    let Frontier { edges, mut seen, boards, next_order, nodes, replays, duplicates, interrupted, elapsed, started } = frontier;
+    let Frontier { edges, mut seen, boards, next_order, nodes, replays, duplicates, interrupted, elapsed, started, values, measured } =
+        frontier;
     seen.resize_with(SEEN_SHARDS, HashSet::new);
     let shared = Shared {
         engine,
@@ -980,14 +1368,26 @@ pub fn resume(
         interrupted: AtomicU64::new(interrupted),
         stop: Mutex::new(None),
         confirming: AtomicBool::new(false),
+        values: RwLock::new(values.unwrap_or_else(|| (*config.values).clone())),
+        measured: Mutex::new(measured),
+        next_learning: AtomicU64::new(nodes + LEARN_EVERY),
     };
     if !started {
-        shared.push(vec![(Arc::new(Line::default()), None, 0.0, None)]);
+        shared.push(vec![NewEdge {
+            prefix: Arc::new(Line::default()),
+            answer: None,
+            priority: 0.0,
+            confirms: None,
+            value: 0.0,
+            discrepancies: 0,
+        }]);
     }
     shared.check_limits();
     run_workers(&shared, config.threads, &mut progress);
     let mut stop = shared.stop.lock().ok().and_then(|s| *s).unwrap_or(Stop::Exhausted);
     if stop != Stop::Cancelled {
+        // What the last boards found teach, before the best ones are picked.
+        learn_round(&shared, LEARN_LAST);
         confirm_best(&shared);
         zone_variants(&shared);
     }
@@ -1013,6 +1413,8 @@ pub fn resume(
         interrupted,
         elapsed: final_progress.elapsed,
         started: true,
+        values: shared.values.into_inner().ok(),
+        measured: shared.measured.into_inner().unwrap_or_else(|e| e.into_inner()),
     };
     SearchResult { boards: sorted, progress: final_progress, stop, interrupted, frontier }
 }

@@ -463,9 +463,49 @@ export interface ComboScore {
   error: string | null;
 }
 
+/** What a choice of the line does (its icon). */
+export type ComboStepKind = "normalSummon" | "specialSummon" | "activate" | "set" | "choose" | "place" | "pass" | "endTurn" | "other";
+
+export type ComboHappeningKind =
+  | "phase"
+  | "draw"
+  | "summon"
+  | "activate"
+  | "negate"
+  | "set"
+  | "toHand"
+  | "toGrave"
+  | "banish"
+  | "toDeck"
+  | "toExtra"
+  | "material"
+  | "toField"
+  | "other";
+
+/** Something that happened to a card after a choice. */
+export interface ComboHappening {
+  kind: ComboHappeningKind;
+  /** 0 when there is no card (a new phase). */
+  code: number;
+  chainLink: number;
+  mine: boolean;
+  text: string;
+}
+
+/** The roles the engine found for a card, and why (Italian, one line per role). */
+export interface RoleGuess {
+  code: number;
+  roles: string[];
+  reasons: string[];
+}
+
 export interface ComboStep {
   choice: string | null;
   events: string[];
+  kind: ComboStepKind | null;
+  /** The card the choice is about. */
+  card: number | null;
+  happened: ComboHappening[];
 }
 
 export const api = {
@@ -485,6 +525,9 @@ export const api = {
   labProbability: (main: number[], roles: Record<string, number[]>, cond: Cond, hand: number) =>
     invoke<{ p: number | null; error: string | null }>("lab_probability", { main, roles, cond, hand }),
   setDeckRoles: (id: number, roles: Record<string, number[]>) => invoke<void>("set_deck_roles", { id, roles }),
+  guessDeckRoles: (id: number) => invoke<RoleGuess[]>("guess_deck_roles", { id }),
+  onRolesProgress: (handler: (p: { done: number; total: number }) => void): Promise<UnlistenFn> =>
+    listen<{ done: number; total: number }>("lab-roles-progress", (e) => handler(e.payload)),
   labSimulate: (main: number[], roles: Record<string, number[]>, cond: Cond, hand: number, rules: SimRule[], hands: number, seed: number) =>
     invoke<SimResult>("lab_simulate", { main, roles, cond, hand, rules, hands, seed }),
   labCancelSimulation: () => invoke<void>("lab_cancel_simulation"),

@@ -23,7 +23,7 @@ use std::collections::{HashMap, HashSet};
 
 use ygo_engine::auto::passive_answer;
 use ygo_engine::consts::{location, reason};
-use ygo_engine::{Action, ActionKind, CardRef, Decision, DeckList, Duel, DuelState, Engine, Error, Event, Opponent, Step};
+use ygo_engine::{Action, ActionKind, CardRef, Decision, DeckList, Duel, DuelState, Engine, Error, Event, Opponent, Placement, Step};
 
 use crate::search::Line;
 
@@ -404,6 +404,8 @@ impl Kit {
 enum Prelude<'a> {
     Line(&'a Line),
     EndAtOnce,
+    /// These cards on the field from the start, then the turn ends.
+    Placed(&'a [Placement]),
 }
 
 /// A moment to respond in a run: `(step, window in the step)`.
@@ -683,12 +685,22 @@ impl<'a> Prober<'a> {
 
     /// Measures the board reached by `line`.
     pub fn measure(&mut self, line: &Line) -> Result<Measure, Error> {
+        self.measure_from(Prelude::Line(line))
+    }
+
+    /// Measures a board put straight on the field (with the hand of the
+    /// prober), without playing the turn that makes it.
+    pub fn measure_placed(&mut self, placed: &[Placement]) -> Result<Measure, Error> {
+        self.measure_from(Prelude::Placed(placed))
+    }
+
+    fn measure_from(&mut self, prelude: Prelude) -> Result<Measure, Error> {
         let all_steps: Vec<&KitStep> = self.kit.steps.iter().collect();
         if self.baseline.is_none() {
             self.baseline = Some(self.run(Prelude::EndAtOnce, &all_steps, Policy::Pass)?);
         }
         let base = self.baseline.clone().expect("baseline");
-        let all = self.run(Prelude::Line(line), &all_steps, Policy::Pass)?;
+        let all = self.run(prelude, &all_steps, Policy::Pass)?;
         if std::env::var_os("DUELFORGE_DEBUG_PROBE").is_some() {
             let db = self.engine.cards();
             for (label, t) in [("empty board", &base), ("this board", &all)] {
@@ -764,7 +776,7 @@ impl<'a> Prober<'a> {
             let mut effect: Option<Effect> = None;
             let mut targeted = false;
             for &window in windows.iter().take(12) {
-                let Ok(run) = self.run(Prelude::Line(line), &all_steps, Policy::UseAt(*id, window)) else { continue };
+                let Ok(run) = self.run(prelude, &all_steps, Policy::UseAt(*id, window)) else { continue };
                 let stopped = stopped_by(&run);
                 if debug {
                     eprintln!("-- {} at {window:?}: stops {stopped:?}", self.engine.cards().name(id.code));
@@ -791,7 +803,7 @@ impl<'a> Prober<'a> {
             let mut uses = 1;
             let mut skip = HashSet::new();
             for _ in 0..3 {
-                let Ok(run) = self.run(Prelude::Line(line), &all_steps, Policy::Use(*id, &skip)) else { break };
+                let Ok(run) = self.run(prelude, &all_steps, Policy::Use(*id, &skip)) else { break };
                 uses = uses.max(run.uses.iter().filter(|u| u.effect.is_some()).count() as u32);
                 let wasted: Vec<(usize, usize)> = run.uses.iter().filter(|u| u.effect.is_none()).map(|u| (u.step, u.window)).collect();
                 if wasted.is_empty() || wasted.iter().all(|w| skip.contains(w)) {
@@ -821,7 +833,7 @@ impl<'a> Prober<'a> {
         // offers once the others are used (its cost is gone) counts less.
         if interruptions.len() > 1 {
             let order: Vec<ResponderId> = interruptions.iter().map(|i| i.responder).collect();
-            if let Ok(run) = self.run(Prelude::Line(line), &all_steps, Policy::UseAll(&order)) {
+            if let Ok(run) = self.run(prelude, &all_steps, Policy::UseAll(&order)) {
                 for i in &mut interruptions {
                     let used = run.uses.iter().filter(|u| u.responder == i.responder).count() as u32;
                     if used < i.uses {
@@ -846,7 +858,7 @@ impl<'a> Prober<'a> {
                 s.picks = targets.clone();
             }
             let steps: Vec<&KitStep> = owned.iter().collect();
-            let run = match self.run(Prelude::Line(line), &steps, Policy::Pass) {
+            let run = match self.run(prelude, &steps, Policy::Pass) {
                 Ok(run) if run.steps.iter().all(|s| s.available) => run,
                 _ => {
                     breakers.push(BreakerResult {
@@ -873,7 +885,7 @@ impl<'a> Prober<'a> {
                 .collect();
             for negator in negators {
                 let none = HashSet::new();
-                let Ok(tried) = self.run(Prelude::Line(line), &steps, Policy::Use(negator.responder, &none)) else { continue };
+                let Ok(tried) = self.run(prelude, &steps, Policy::Use(negator.responder, &none)) else { continue };
                 if tried.steps.iter().any(|s| s.negated) {
                     let spent = if negator.location == location::HAND { 0.0 } else { negator.value / negator.uses as f64 };
                     let left = self.left(&tried.state, &interruptions) - spent;
@@ -932,11 +944,14 @@ impl<'a> Prober<'a> {
     /// Plays your turn, then the opponent's steps, answering as `policy` says.
     fn run(&self, prelude: Prelude, steps: &[&KitStep], policy: Policy) -> Result<RunTrace, Error> {
         let engine = self.engine;
-        let mut duel = Duel::goldfish_vs(engine, self.deck, self.hand, self.seed, &self.kit.opponent)?;
+        let mut duel = match prelude {
+            Prelude::Placed(placed) => Duel::goldfish_vs_placed(engine, self.deck, self.hand, self.seed, &self.kit.opponent, placed)?,
+            _ => Duel::goldfish_vs(engine, self.deck, self.hand, self.seed, &self.kit.opponent)?,
+        };
         const NO_ANSWERS: &[Vec<u8>] = &[];
         let mut answers = match prelude {
             Prelude::Line(line) => line.answers.iter(),
-            Prelude::EndAtOnce => NO_ANSWERS.iter(),
+            Prelude::EndAtOnce | Prelude::Placed(_) => NO_ANSWERS.iter(),
         };
         let mut trace =
             RunTrace { steps: vec![StepRun::default(); steps.len()], windows: Vec::new(), uses: Vec::new(), state: DuelState::default() };
@@ -1000,8 +1015,10 @@ impl<'a> Prober<'a> {
                         None if decision.player() == Some(1) => duel.respond(&passive_answer(&decision, &actions)),
                         None => duel.respond(&end_phase_answer(&decision, &actions)),
                     },
-                    Prelude::EndAtOnce if decision.player() == Some(1) => duel.respond(&passive_answer(&decision, &actions)),
-                    Prelude::EndAtOnce => duel.respond(&end_turn(&decision, &actions)),
+                    Prelude::EndAtOnce | Prelude::Placed(_) if decision.player() == Some(1) => {
+                        duel.respond(&passive_answer(&decision, &actions))
+                    }
+                    Prelude::EndAtOnce | Prelude::Placed(_) => duel.respond(&end_turn(&decision, &actions)),
                 }
                 continue;
             }
@@ -1175,11 +1192,16 @@ impl<'a> Prober<'a> {
     }
 }
 
-/// Your End Phase after a provisional line: optional effects are used,
-/// lists are picked forward.
+/// Your End Phase after a provisional line: optional triggers are used,
+/// lists are picked forward, quick effects are not (activating Hyperinvoked
+/// Aeon there, then negating it with your own Invoked Mechaba, would undo
+/// the board). The search plays the End Phase the same way first.
 fn end_phase_answer(decision: &Decision, actions: &[Action]) -> Vec<u8> {
     if let Some(answer) = forward(decision, actions, |_| true) {
         return answer;
+    }
+    if let Decision::SelectChain { triggers: false, forced: false, .. } = decision {
+        return window_answer(decision, None);
     }
     let act = actions.iter().find(|a| !matches!(a.kind, ActionKind::Pass | ActionKind::No | ActionKind::Cancel | ActionKind::Finish));
     act.or(actions.first()).map(|a| a.response.clone()).unwrap_or_else(|| window_answer(decision, None))
@@ -1252,9 +1274,15 @@ fn opponent_answer(engine: &Engine, decision: &Decision, actions: &[Action], ste
         Decision::Option { .. } => actions.get(step.map_or(0, |s| s.option)).or(actions.first()),
         // Outer Main Monster Zones first: the ones under the Extra Monster
         // Zones stay free for what a Link arrow (Link Spider's) summons there.
+        // A monster that may go to an Extra Monster Zone comes from the Extra
+        // Deck: it goes there, where its Link arrows point to your zones
+        // (a Main Monster Zone it is offered because your Link Monster
+        // points to it would leave its arrows pointing at nothing).
         Decision::SelectPlace { .. } => {
+            let extra = actions.iter().any(|a| matches!(*a.response.as_slice(), [_, location::MZONE, seq] if seq >= 5));
+            let order: &[u8] = if extra { &[5, 6, 0, 4, 2, 1, 3] } else { &[0, 4, 2, 1, 3, 5, 6] };
             let rank = |a: &Action| match *a.response.as_slice() {
-                [_, location::MZONE, seq] => [0, 4, 2, 1, 3, 5, 6].iter().position(|&s| s == seq).unwrap_or(7),
+                [_, location::MZONE, seq] => order.iter().position(|&s| s == seq).unwrap_or(7),
                 _ => 0,
             };
             actions.iter().min_by_key(|a| rank(a))

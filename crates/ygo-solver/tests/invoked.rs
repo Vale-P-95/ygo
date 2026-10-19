@@ -5,7 +5,7 @@ use std::sync::atomic::AtomicBool;
 use std::time::Duration;
 
 use ygo_engine::{DeckList, Engine};
-use ygo_solver::{explain, search, Goal, GoalCard, GoalZone, Kit, Probe, Prober, SearchConfig, Stop};
+use ygo_solver::{card_values, explain, search, Goal, GoalCard, GoalZone, Kit, Probe, Prober, SearchConfig, Spot, Stop};
 
 const ALEISTER: u32 = 86120751;
 const CHALICE: u32 = 76334960;
@@ -144,4 +144,61 @@ fn the_probe_turn_tells_the_zones_of_oceanus_apart() {
         let attack = m.breakers.iter().find(|b| b.name.starts_with("Attacco")).expect("the attack");
         assert!(!attack.not_applicable);
     }
+}
+
+#[test]
+fn cards_alone_on_the_field_are_worth_what_they_stop() {
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let data = std::env::var_os("DUELFORGE_DATA").map(PathBuf::from).unwrap_or_else(|| root.join("data"));
+    if !data.join("scripts/constant.lua").is_file() {
+        eprintln!("skipped: no game data in {}", data.display());
+        return;
+    }
+    let engine = Engine::load(&data).expect("game data loads");
+    let deck = DeckList::from_ydk(&std::fs::read_to_string(root.join("tests/fixtures/decks/invoked-siracusa-md.ydk")).unwrap()).unwrap();
+    let code = |name: &str| engine.cards().find_by_name(name).expect(name).code;
+    let kit = Kit::standard(&engine);
+    let hand_traps = ygo_solver::hand_traps(&engine, &deck, 1, &kit);
+    let values = card_values(&engine, &deck, 1, &kit, &hand_traps, 2);
+    let value = |name: &str, spot: Spot| values.get(&engine, code(name), spot);
+    // A negation that pays with a card of the same kind from the hand.
+    assert!(value("Invoked Mechaba", Spot::Main) >= 0.9);
+    // A floodgate only from the Extra Monster Zone.
+    assert!(value("Invoked Oceanus", Spot::Extra) > 0.3);
+    assert_eq!(value("Invoked Oceanus", Spot::Main), 0.0);
+    // The searcher of the deck does nothing on the opponent's turn.
+    assert_eq!(value("Aleister the Invoker", Spot::Main), 0.0);
+    // A handtrap from the hand, with your field empty or not.
+    assert!(value("Ash Blossom & Joyous Spring", Spot::Hand) > 0.5);
+    assert!(value("Ash Blossom & Joyous Spring", Spot::HandWithField) > 0.5);
+}
+
+#[test]
+fn every_summon_is_tried_even_when_its_materials_are_chosen_alike() {
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let data = std::env::var_os("DUELFORGE_DATA").map(PathBuf::from).unwrap_or_else(|| root.join("data"));
+    if !data.join("scripts/constant.lua").is_file() {
+        eprintln!("skipped: no game data in {}", data.display());
+        return;
+    }
+    let engine = Engine::load(&data).expect("game data loads");
+    let mut deck =
+        DeckList::from_ydk(&std::fs::read_to_string(root.join("tests/fixtures/decks/invoked-siracusa-md.ydk")).unwrap()).unwrap();
+    let code = |name: &str| engine.cards().find_by_name(name).expect(name).code;
+    // Aleister the Invoker and four cards that do nothing.
+    let blank = code("Black Luster Ritual");
+    deck.main.extend([blank; 4]);
+    let mut config = SearchConfig::new(deck, vec![ALEISTER, blank, blank, blank, blank]);
+    config.threads = 1;
+    config.max_nodes = 3000;
+    config.time_limit = Duration::from_secs(300);
+    config.opponent = Some(Kit::standard(&engine).opponent().clone());
+    let result = search(&engine, &config, &AtomicBool::new(false), |_| {});
+    // Choosing Aleister as material for Salamangreat Almiraj or for Artemis
+    // is the same choice of the same state: the second must not be taken
+    // for the first (Artemis is the LIGHT monster Invoked Mechaba needs).
+    let mechaba = code("Invoked Mechaba");
+    let has =
+        |b: &ygo_solver::Board| b.state.players[0].monsters.iter().flatten().any(|c| engine.cards().canonical_code(c.code) == mechaba);
+    assert!(result.boards.iter().any(has), "{} boards, none with Invoked Mechaba", result.boards.len());
 }

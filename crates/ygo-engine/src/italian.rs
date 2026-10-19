@@ -235,7 +235,16 @@ pub fn choice(action: &crate::actions::Action) -> String {
                 format!("Ordine: {}", rest("Order: "))
             }
         }
-        K::Announce => format!("Dichiari {}", rest("Declare ")),
+        K::Announce => {
+            if let Some(names) = label.strip_prefix("Declare attribute ") {
+                let it: Vec<&str> = names.split(" + ").map(attribute_it).collect();
+                format!("Dichiari l'Attributo {}", it.join(" + "))
+            } else if let Some(names) = label.strip_prefix("Declare monster type ") {
+                format!("Dichiari il Tipo {names}")
+            } else {
+                format!("Dichiari {}", rest("Declare "))
+            }
+        }
         K::Choose => {
             for (en, it) in [
                 ("Select ", "Scegli "),
@@ -259,6 +268,19 @@ fn position_it(position: &str) -> &str {
         "face-down Attack" => "Attacco coperto",
         "face-up Defense" => "Difesa scoperta",
         "face-down Defense" => "Difesa coperta",
+        other => other,
+    }
+}
+
+fn attribute_it(name: &str) -> &str {
+    match name {
+        "EARTH" => "TERRA",
+        "WATER" => "ACQUA",
+        "FIRE" => "FUOCO",
+        "WIND" => "VENTO",
+        "LIGHT" => "LUCE",
+        "DARK" => "OSCURITÀ",
+        "DIVINE" => "DIVINO",
         other => other,
     }
 }
@@ -312,5 +334,6 @@ mod tests {
         );
         assert_eq!(choice(&a(ActionKind::Pass, "Don't chain")), "Non concateni");
         assert_eq!(choice(&a(ActionKind::EndTurn, "End turn")), "Termini il turno");
+        assert_eq!(choice(&a(ActionKind::Announce, "Declare attribute LIGHT")), "Dichiari l'Attributo LUCE");
     }
 }

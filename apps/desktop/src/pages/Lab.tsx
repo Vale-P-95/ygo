@@ -12,6 +12,7 @@ import { SectionHeader } from "../components/SectionHeader";
 import { api, type Deck, type DeckSummary, type LabOverview, type MatchLog, type Recipe } from "../lib/api";
 import { useCardCache } from "../lib/cards";
 import { BUILTIN_RECIPES, fromCond, toCond, type Group } from "../lib/conditions";
+import { BUILTIN_ROLES } from "../lib/roles";
 import { lastDeck, rememberDeck, sortIds } from "../lib/deck";
 import { sound } from "../lib/sound";
 import { toast } from "../lib/toast";
@@ -32,6 +33,9 @@ export function Lab({ artReady, onGoForge }: { artReady: boolean; onGoForge: () 
   const [decks, setDecks] = useState<DeckSummary[] | null>(null);
   const [deck, setDeck] = useState<Deck | null>(null);
   const [roles, setRoles] = useState<Record<string, number[]>>({});
+  const [guessing, setGuessing] = useState<{ done: number; total: number } | null>(null);
+  const [reasons, setReasons] = useState<Record<number, string[]>>({});
+  const [previousRoles, setPreviousRoles] = useState<Record<string, number[]> | null>(null);
   const [overview, setOverview] = useState<LabOverview | null>(null);
   const [hand, setHand] = useState<"first" | "second">("first");
   const [tab, setTab] = useState<Tab>("overview");
@@ -101,17 +105,40 @@ export function Lab({ artReady, onGoForge }: { artReady: boolean; onGoForge: () 
     }, 400);
   };
 
+  // The engine plays each card to find its role: the built-in roles of
+  // the cards it tried are replaced (the previous ones can be restored),
+  // custom roles stay.
   const suggest = async () => {
-    if (!deck) return;
-    const inDeck = new Set(deck.main);
-    const [ht, br] = await Promise.all([api.search("tag:handtrap"), api.search("tag:breaker")]);
-    const pick = (ids: number[]) => ids.filter((id) => inDeck.has(id));
-    const merge = (key: string, ids: number[]) => [...new Set([...(roles[key] ?? []), ...ids])];
-    const handtraps = pick(ht.ids);
-    const breakers = pick(br.ids);
-    changeRoles({ ...roles, handtrap: merge("handtrap", handtraps), breaker: merge("breaker", breakers) });
-    sound.play("glass");
-    toast(`Segnate ${handtraps.length} handtrap e ${breakers.length} board breaker`, "ok");
+    if (deck?.id == null || guessing) return;
+    const id = deck.id;
+    setGuessing({ done: 0, total: 0 });
+    const unlisten = await api.onRolesProgress((p) => setGuessing(p));
+    try {
+      const guesses = await api.guessDeckRoles(id);
+      const tried = new Set(guesses.map((g) => g.code));
+      const next: Record<string, number[]> = { ...roles };
+      for (const r of BUILTIN_ROLES) next[r.key] = (roles[r.key] ?? []).filter((c) => !tried.has(c));
+      for (const g of guesses) for (const r of g.roles) next[r] = [...(next[r] ?? []), g.code];
+      setPreviousRoles(roles);
+      setReasons(Object.fromEntries(guesses.map((g) => [g.code, g.reasons])));
+      changeRoles(next);
+      sound.play("glass");
+      const count = (key: string) => guesses.filter((g) => g.roles.includes(key)).length;
+      toast(`Ruoli riconosciuti: ${count("starter")} starter, ${count("extender")} estensori, ${count("handtrap")} handtrap, ${count("breaker")} board breaker, ${count("brick")} brick`, "ok");
+    } catch (e) {
+      toast(`Ruoli non riconosciuti: ${e}`, "error");
+    } finally {
+      unlisten();
+      setGuessing(null);
+    }
+  };
+
+  const undoSuggest = () => {
+    if (!previousRoles) return;
+    changeRoles(previousRoles);
+    setPreviousRoles(null);
+    setReasons({});
+    sound.play("toggle");
   };
 
   const applyChanges = async (changes: { id: number; from: number; to: number }[]) => {
@@ -234,7 +261,16 @@ export function Lab({ artReady, onGoForge }: { artReady: boolean; onGoForge: () 
                 onLogged={reloadLog}
               />
             ) : (
-              <RolesPanel main={deck.main} roles={roles} getCard={cards.get} onChange={changeRoles} onSuggest={() => void suggest()} />
+              <RolesPanel
+                main={deck.main}
+                roles={roles}
+                getCard={cards.get}
+                onChange={changeRoles}
+                onSuggest={() => void suggest()}
+                guessing={guessing}
+                reasons={reasons}
+                onUndo={previousRoles ? undoSuggest : null}
+              />
             ))}
         </div>
       )}

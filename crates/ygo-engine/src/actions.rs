@@ -52,6 +52,45 @@ impl Action {
     }
 }
 
+/// The name of the Attribute at bit `bit` of the engine's mask.
+pub fn attribute_name(bit: u32) -> String {
+    const NAMES: [&str; 7] = ["EARTH", "WATER", "FIRE", "WIND", "LIGHT", "DARK", "DIVINE"];
+    NAMES.get(bit as usize).map_or_else(|| format!("#{bit}"), |n| (*n).to_owned())
+}
+
+/// The name of the Monster Type at bit `bit` of the engine's mask.
+pub fn race_name(bit: u32) -> String {
+    const NAMES: [&str; 26] = [
+        "Warrior",
+        "Spellcaster",
+        "Fairy",
+        "Fiend",
+        "Zombie",
+        "Machine",
+        "Aqua",
+        "Pyro",
+        "Rock",
+        "Winged Beast",
+        "Plant",
+        "Insect",
+        "Thunder",
+        "Dragon",
+        "Beast",
+        "Beast-Warrior",
+        "Dinosaur",
+        "Fish",
+        "Sea Serpent",
+        "Reptile",
+        "Psychic",
+        "Divine-Beast",
+        "Creator God",
+        "Wyrm",
+        "Cyberse",
+        "Illusion",
+    ];
+    NAMES.get(bit as usize).map_or_else(|| format!("#{bit}"), |n| (*n).to_owned())
+}
+
 /// Upper bound on enumerated card combinations for a single selection.
 const MAX_COMBINATIONS: usize = 5000;
 
@@ -506,7 +545,7 @@ fn all_actions(decision: &Decision, db: &CardDb, known: &[u32]) -> Vec<Action> {
             let bits: Vec<u32> = (0..64).filter(|b| available & (1u64 << b) != 0).collect();
             for pick in index_combinations(bits.len(), *count as usize) {
                 let mask = pick.iter().fold(0u64, |m, &i| m | 1u64 << bits[i]);
-                let label = pick.iter().map(|&i| format!("#{}", bits[i])).collect::<Vec<_>>().join(" + ");
+                let label = pick.iter().map(|&i| race_name(bits[i])).collect::<Vec<_>>().join(" + ");
                 out.push(Action::new(K::Announce, format!("Declare monster type {label}"), mask.to_le_bytes().to_vec()));
             }
         }
@@ -514,7 +553,7 @@ fn all_actions(decision: &Decision, db: &CardDb, known: &[u32]) -> Vec<Action> {
             let bits: Vec<u32> = (0..32).filter(|b| available & (1u32 << b) != 0).collect();
             for pick in index_combinations(bits.len(), *count as usize) {
                 let mask = pick.iter().fold(0u32, |m, &i| m | 1u32 << bits[i]);
-                let label = pick.iter().map(|&i| format!("#{}", bits[i])).collect::<Vec<_>>().join(" + ");
+                let label = pick.iter().map(|&i| attribute_name(bits[i])).collect::<Vec<_>>().join(" + ");
                 out.push(Action::new(K::Announce, format!("Declare attribute {label}"), mask.to_le_bytes().to_vec()));
             }
         }

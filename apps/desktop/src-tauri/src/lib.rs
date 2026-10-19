@@ -346,6 +346,49 @@ fn set_deck_roles(state: State<'_, AppState>, id: i64, roles: BTreeMap<String, V
     state.with_user(|u| u.set_roles(id, &roles))
 }
 
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct RoleGuessView {
+    code: u32,
+    roles: Vec<&'static str>,
+    reasons: Vec<String>,
+}
+
+#[derive(Serialize, Clone)]
+struct RolesProgress {
+    done: usize,
+    total: usize,
+}
+
+/// The role of each Main Deck card, found by playing it with the engine
+/// (alone in hand, next to the best starter, from the hand on the
+/// opponent's turn); sends `lab-roles-progress` events on the way.
+#[tauri::command(async)]
+fn guess_deck_roles(app: tauri::AppHandle, state: State<'_, AppState>, id: i64) -> Result<Vec<RoleGuessView>, String> {
+    let engine = state.engine()?;
+    let deck = state.with_user(|u| u.get(id))?.ok_or("Il deck non esiste più")?;
+    if deck.main.is_empty() {
+        return Ok(Vec::new());
+    }
+    let list = ygo_engine::DeckList { main: deck.main.clone(), extra: deck.extra.clone(), side: deck.side.clone() };
+    let kit = ygo_solver::Kit::standard(&engine);
+    let threads = std::thread::available_parallelism().map_or(4, |n| n.get());
+    let hand_traps = ygo_solver::hand_traps(&engine, &list, 1, &kit);
+    let values = std::sync::Arc::new(ygo_solver::card_values(&engine, &list, 1, &kit, &hand_traps, threads));
+    let guesses = ygo_solver::guess_roles(&engine, &list, &kit, &hand_traps, values, threads, |done, total| {
+        let _ = app.emit("lab-roles-progress", RolesProgress { done, total });
+    });
+    // The deck's own copies (any artwork) get the guess of their card.
+    let db = engine.cards();
+    let mut out = Vec::new();
+    for code in deck.main.iter().copied().collect::<std::collections::BTreeSet<_>>() {
+        if let Some(g) = guesses.iter().find(|g| g.code == db.canonical_code(code)) {
+            out.push(RoleGuessView { code, roles: g.roles.clone(), reasons: g.reasons.clone() });
+        }
+    }
+    Ok(out)
+}
+
 #[tauri::command(async)]
 fn list_recipes(state: State<'_, AppState>, deck_id: i64) -> Result<Vec<Recipe>, String> {
     state.with_user(|u| u.recipes(deck_id))
@@ -873,6 +916,10 @@ fn combo_search(app: tauri::AppHandle, state: State<'_, AppState>, request: Comb
     config.opponent = Some(kit.opponent().clone());
     // Handtraps, read from the engine: kept in hand they are worth more.
     config.hand_traps = ygo_solver::hand_traps(&engine, &list, config.seed, &kit);
+    // What each card stops alone on the field: the search steers by it,
+    // and learns on the way what cards stop together.
+    config.values = std::sync::Arc::new(ygo_solver::card_values(&engine, &list, config.seed, &kit, &config.hand_traps, config.threads));
+    config.learn = Some(std::sync::Arc::new(kit.clone()));
     if !request.use_handtraps {
         // Not played from the hand on your own turn: the well-known handtraps
         // (an archetype's quick effects from the hand are often combo pieces too).
@@ -1029,6 +1076,59 @@ fn combo_cancel(state: State<'_, AppState>) {
 struct ExplainedStepView {
     choice: Option<String>,
     events: Vec<String>,
+    /// What the choice does, for its icon: "normalSummon", "specialSummon",
+    /// "activate", "set", "choose", "place", "pass", "endTurn", "other".
+    kind: Option<&'static str>,
+    card: Option<u32>,
+    happened: Vec<HappeningView>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct HappeningView {
+    /// "phase", "draw", "summon", "activate", "negate", "set", "toHand",
+    /// "toGrave", "banish", "toDeck", "toExtra", "material", "toField", "other".
+    kind: &'static str,
+    code: u32,
+    chain_link: u32,
+    mine: bool,
+    text: String,
+}
+
+fn action_kind_name(kind: ygo_engine::ActionKind) -> &'static str {
+    use ygo_engine::ActionKind as K;
+    match kind {
+        K::NormalSummon => "normalSummon",
+        K::SpecialSummon => "specialSummon",
+        K::Activate => "activate",
+        K::SetMonster | K::SetSpellTrap => "set",
+        K::Choose | K::Yes | K::Announce | K::Order | K::Position => "choose",
+        K::Place => "place",
+        K::Pass | K::No | K::Cancel | K::Finish => "pass",
+        K::EndTurn => "endTurn",
+        _ => "other",
+    }
+}
+
+fn happening_view(h: ygo_solver::Happening) -> HappeningView {
+    use ygo_solver::HappeningKind as H;
+    let kind = match h.kind {
+        H::Phase => "phase",
+        H::Draw => "draw",
+        H::Summon => "summon",
+        H::Activate => "activate",
+        H::Negate => "negate",
+        H::Set => "set",
+        H::ToHand => "toHand",
+        H::ToGrave => "toGrave",
+        H::Banish => "banish",
+        H::ToDeck => "toDeck",
+        H::ToExtra => "toExtra",
+        H::Material => "material",
+        H::ToField => "toField",
+        H::Other => "other",
+    };
+    HappeningView { kind, code: h.code, chain_link: h.chain_link, mine: h.mine, text: h.text }
 }
 
 /// The line of a board of the last search, played again and told in Italian.
@@ -1042,7 +1142,16 @@ fn combo_explain(state: State<'_, AppState>, hand: usize, key: String) -> Result
     let (cards, _, _) = job.hands.get(hand).ok_or("Mano non trovata")?;
     let (_, steps) = ygo_solver::explain(&engine, &job.config.deck, cards, job.config.seed, job.config.opponent.as_ref(), &board.line)
         .map_err(|e| e.to_string())?;
-    Ok(steps.into_iter().map(|s| ExplainedStepView { choice: s.choice, events: s.events }).collect())
+    Ok(steps
+        .into_iter()
+        .map(|s| ExplainedStepView {
+            choice: s.choice,
+            events: s.events,
+            kind: s.kind.map(action_kind_name),
+            card: s.card,
+            happened: s.happened.into_iter().map(happening_view).collect(),
+        })
+        .collect())
 }
 
 #[tauri::command(async)]
@@ -1303,6 +1412,7 @@ pub fn run() {
             lab_analyze,
             lab_optimize,
             set_deck_roles,
+            guess_deck_roles,
             list_recipes,
             save_recipe,
             delete_recipe,

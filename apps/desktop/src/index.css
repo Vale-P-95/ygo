@@ -1297,3 +1297,138 @@ body {
     animation-duration: 0ms !important;
   }
 }
+
+/* The line of a board, told with pictures: a dot per choice on a thread,
+   the card it is about, and what happened to which cards. */
+.combo-timeline {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-left: 30px;
+}
+.combo-timeline::before {
+  content: "";
+  position: absolute;
+  left: 11px;
+  top: 6px;
+  bottom: 6px;
+  width: 2px;
+  border-radius: 2px;
+  background: linear-gradient(var(--df-border-strong), var(--df-border));
+}
+.combo-timeline-step {
+  position: relative;
+  display: flex;
+  min-height: 24px;
+}
+.combo-timeline-dot {
+  position: absolute;
+  left: -30px;
+  top: 0;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  border: 1.5px solid color-mix(in oklab, var(--kind, var(--df-muted)) 70%, transparent);
+  background: color-mix(in oklab, var(--kind, var(--df-muted)) 18%, var(--df-surface));
+  color: var(--kind, var(--df-muted));
+}
+.combo-timeline-dot:empty {
+  top: 8px;
+  left: -23px;
+  width: 10px;
+  height: 10px;
+}
+.combo-timeline-phase {
+  position: relative;
+  margin-left: -30px;
+  padding: 2px 0 2px 30px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--df-faint);
+}
+.combo-timeline-phase::before {
+  content: "";
+  position: absolute;
+  left: 6px;
+  top: 50%;
+  width: 12px;
+  height: 12px;
+  margin-top: -6px;
+  border-radius: 3px;
+  transform: rotate(45deg);
+  border: 1.5px solid var(--df-border-strong);
+  background: var(--df-surface);
+}
+.combo-timeline [data-kind="normalSummon"],
+.combo-timeline [data-kind="specialSummon"],
+.combo-timeline [data-kind="summon"] {
+  --kind: var(--df-gold);
+}
+.combo-timeline [data-kind="activate"] {
+  --kind: var(--role-extender);
+}
+.combo-timeline [data-kind="negate"] {
+  --kind: var(--df-danger);
+}
+.combo-timeline [data-kind="toHand"],
+.combo-timeline [data-kind="draw"] {
+  --kind: var(--df-ok);
+}
+.combo-timeline [data-kind="banish"] {
+  --kind: var(--lab-second);
+}
+.combo-timeline [data-kind="toDeck"],
+.combo-timeline [data-kind="toExtra"] {
+  --kind: var(--role-starter);
+}
+.combo-timeline [data-kind="material"] {
+  --kind: var(--df-ember);
+}
+.combo-timeline [data-kind="set"],
+.combo-timeline [data-kind="toField"] {
+  --kind: var(--role-breaker);
+}
+.combo-happened {
+  position: relative;
+  display: inline-flex;
+  min-width: 26px;
+  min-height: 22px;
+  border-radius: 4px;
+  outline: 1.5px solid color-mix(in oklab, var(--kind, var(--df-muted)) 65%, transparent);
+  outline-offset: 1px;
+}
+.combo-happened--theirs {
+  opacity: 0.6;
+  outline-style: dashed;
+}
+.combo-happened-icon {
+  position: absolute;
+  right: -5px;
+  bottom: -5px;
+  display: grid;
+  place-items: center;
+  width: 15px;
+  height: 15px;
+  border-radius: 999px;
+  color: var(--df-bg);
+  background: var(--kind, var(--df-muted));
+  box-shadow: 0 0 0 1.5px var(--df-surface);
+}
+.combo-happened-link {
+  position: absolute;
+  left: -4px;
+  top: -5px;
+  padding: 0 3px;
+  border-radius: 4px;
+  font-size: 8.5px;
+  font-weight: 800;
+  line-height: 13px;
+  color: var(--df-bg);
+  background: var(--role-extender);
+  box-shadow: 0 0 0 1.5px var(--df-surface);
+}

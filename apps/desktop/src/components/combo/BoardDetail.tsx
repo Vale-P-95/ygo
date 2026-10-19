@@ -3,6 +3,18 @@ import type { Card, ComboBoard, ComboScore, ComboStep } from "../../lib/api";
 import type { Weights } from "../../lib/scoring";
 import { CardImage, Field, type HoverCard, type Pile as PileKind } from "./Field";
 import { ScoreBreakdown } from "./Score";
+import { ComboSteps } from "./Steps";
+
+type StepsView = "visual" | "text";
+const VIEW_KEY = "duelforge.combo.stepsView";
+
+function savedView(): StepsView {
+  try {
+    return localStorage.getItem(VIEW_KEY) === "text" ? "text" : "visual";
+  } catch {
+    return "visual";
+  }
+}
 
 interface Props {
   board: ComboBoard;
@@ -49,6 +61,15 @@ const PHASE = /^(Inizia il |Draw Phase|Standby Phase|Main Phase|Battle Phase|End
 /** A board of the search: the field, the other piles and the line that builds it, told in Italian. */
 export function BoardDetail({ board, score, scoring, weights, hand, steps, stepsNote, getCard, onHover, onHoverEnd }: Props) {
   const [pile, setPile] = useState<PileKind | null>(null);
+  const [view, setView] = useState<StepsView>(savedView);
+  const pickView = (v: StepsView) => {
+    setView(v);
+    try {
+      localStorage.setItem(VIEW_KEY, v);
+    } catch {
+      // Only a convenience.
+    }
+  };
   const pileCodes: Record<PileKind, number[]> = { grave: board.grave, banished: board.banished, deck: [], extra: board.extraFaceUp };
   return (
     <div className="flex flex-col gap-4">
@@ -86,6 +107,13 @@ export function BoardDetail({ board, score, scoring, weights, hand, steps, steps
             {board.choices} scelte · {board.cardsUsed} {board.cardsUsed === 1 ? "carta usata" : "carte usate"} dalla mano
           </span>
         </div>
+        <div className="flex gap-1" role="tablist" aria-label="Come mostrare la linea">
+          {(["visual", "text"] as const).map((v) => (
+            <button key={v} type="button" role="tab" aria-selected={view === v} className={`chip !py-0.5 text-[11px] ${view === v ? "chip-active" : ""}`} onClick={() => pickView(v)}>
+              {v === "visual" ? "Visuale" : "Testo"}
+            </button>
+          ))}
+        </div>
         <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted">
           Dalla mano:
           {hand.map((c, i) => (
@@ -98,6 +126,8 @@ export function BoardDetail({ board, score, scoring, weights, hand, steps, steps
           <p className="text-sm text-muted">Il motore rigioca la linea…</p>
         ) : steps.length === 0 ? (
           <p className="text-sm text-faint">{stepsNote ?? "Nessun passo."}</p>
+        ) : view === "visual" ? (
+          <ComboSteps steps={steps} getCard={getCard} onHover={onHover} onHoverEnd={onHoverEnd} />
         ) : (
           <ol className="combo-steps flex flex-col gap-2.5">
             {steps.map((s, i) => (

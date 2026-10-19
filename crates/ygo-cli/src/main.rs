@@ -129,6 +129,20 @@ enum Cmd {
         #[arg(long)]
         deck: PathBuf,
     },
+    /// What each card of a deck is worth alone on the field, measured by the
+    /// probe turn (what the search steers by).
+    CardValues {
+        /// Deck in .ydk format.
+        #[arg(long)]
+        deck: PathBuf,
+    },
+    /// The role of each card of a deck (starter, extender, handtrap,
+    /// board breaker, brick), found by playing it.
+    Roles {
+        /// Deck in .ydk format.
+        #[arg(long)]
+        deck: PathBuf,
+    },
     /// Random duels between random decks; fails on unanswerable or rejected decisions.
     Sweep {
         #[arg(long, default_value_t = 200)]
@@ -208,6 +222,8 @@ fn main() -> Result<()> {
             },
         ),
         Cmd::HandTraps { deck } => hand_traps(&cli.data, &deck),
+        Cmd::CardValues { deck } => card_values(&cli.data, &deck),
+        Cmd::Roles { deck } => roles(&cli.data, &deck),
         Cmd::Sweep { duels, max_decisions, max_turns, seed, threads, script_errors } => {
             let threads = threads.unwrap_or_else(|| std::thread::available_parallelism().map_or(4, |n| n.get()));
             sweep(&cli.data, &SweepConfig { duels, max_decisions, max_turns, seed, threads }, script_errors)
@@ -250,6 +266,11 @@ fn combos(dir: &Path, setup: &Setup, options: CombosOptions) -> Result<()> {
     config.opponent = Some(kit.opponent().clone());
     // Handtraps, read from the engine: kept in hand they are worth more.
     config.hand_traps = ygo_solver::hand_traps(&engine, &config.deck, config.seed, &kit);
+    // What each card stops alone on the field: the search steers by it,
+    // and learns on the way what cards stop together.
+    config.values =
+        std::sync::Arc::new(ygo_solver::card_values(&engine, &config.deck, config.seed, &kit, &config.hand_traps, config.threads));
+    config.learn = Some(std::sync::Arc::new(kit.clone()));
     if !use_handtraps {
         // Not played from the hand on your own turn: the well-known handtraps
         // (an archetype's quick effects from the hand are often combo pieces too).
@@ -549,6 +570,39 @@ fn hand_traps(dir: &Path, deck: &Path) -> Result<()> {
     for code in ygo_solver::hand_traps(&engine, &deck, 1, &kit) {
         println!("{code}\t{}", engine.cards().name(code));
     }
+    Ok(())
+}
+
+fn card_values(dir: &Path, deck: &Path) -> Result<()> {
+    let engine = load_engine(dir)?;
+    let text = std::fs::read_to_string(deck).with_context(|| format!("cannot read {}", deck.display()))?;
+    let deck = DeckList::from_ydk(&text)?;
+    let kit = ygo_solver::Kit::standard(&engine);
+    let started = std::time::Instant::now();
+    let threads = std::thread::available_parallelism().map_or(4, |n| n.get());
+    let hand_traps = ygo_solver::hand_traps(&engine, &deck, 1, &kit);
+    let values = ygo_solver::card_values(&engine, &deck, 1, &kit, &hand_traps, threads);
+    for (code, spot, value) in values.list() {
+        println!("{value:.2}\t{spot:?}\t{}", engine.cards().name(code));
+    }
+    println!("measured in {:.1} s", started.elapsed().as_secs_f64());
+    Ok(())
+}
+
+fn roles(dir: &Path, deck: &Path) -> Result<()> {
+    let engine = load_engine(dir)?;
+    let text = std::fs::read_to_string(deck).with_context(|| format!("cannot read {}", deck.display()))?;
+    let deck = DeckList::from_ydk(&text)?;
+    let kit = ygo_solver::Kit::standard(&engine);
+    let started = std::time::Instant::now();
+    let threads = std::thread::available_parallelism().map_or(4, |n| n.get());
+    let hand_traps = ygo_solver::hand_traps(&engine, &deck, 1, &kit);
+    let values = std::sync::Arc::new(ygo_solver::card_values(&engine, &deck, 1, &kit, &hand_traps, threads));
+    let guesses = ygo_solver::guess_roles(&engine, &deck, &kit, &hand_traps, values, threads, |_, _| {});
+    for g in &guesses {
+        println!("{:<12} {:<45} {}", g.roles.join(","), engine.cards().name(g.code), g.reasons.join("; "));
+    }
+    println!("found in {:.1} s", started.elapsed().as_secs_f64());
     Ok(())
 }
 
