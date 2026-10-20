@@ -1,5 +1,7 @@
 # Classificazione delle board: progetto di una misura più profonda e validata
 
+> **Decisione del proprietario (20/10/2026):** niente ordinamenti fatti a mano. Dove il progetto dice "il proprietario ordina" (C3, C5.4, C5.5, D17), il giudizio lo dà un **pannello di agenti-giudici**: tre agenti indipendenti ordinano alla cieca le prime board distinte di ogni deck, con le carte e le linee ma senza punteggi. Una coppia diventa "sicura" quando tutti e tre sono d'accordo.
+
 *Combo Lab, turno di prova. Documento per il proprietario e lo sviluppatore. Si basa su tre studi (audit del codice, criteri competitivi, evidenze su 45 deck) e sul codice attuale.*
 
 ---
