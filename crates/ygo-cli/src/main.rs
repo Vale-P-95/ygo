@@ -337,10 +337,7 @@ fn combos(dir: &Path, setup: &Setup, options: CombosOptions) -> Result<()> {
         std::sync::Arc::new(ygo_solver::card_values(&engine, &config.deck, config.seed, &kit, &config.hand_traps, config.threads));
     config.learn = Some(std::sync::Arc::new(kit.clone()));
     if !use_handtraps {
-        // Not played from the hand on your own turn: the well-known handtraps
-        // (an archetype's quick effects from the hand are often combo pieces too).
-        config.policy.passive =
-            ygo_data::Tag::Handtrap.names().iter().filter_map(|n| engine.cards().find_by_name(n)).map(|c| c.code).collect();
+        config.policy.passive = known_hand_traps(&engine);
     }
     config.policy.forbid = resolve_hand(&engine, &forbid)?;
     config.keep_in_hand = resolve_hand(&engine, &keep)?;
@@ -905,6 +902,12 @@ fn card_values(dir: &Path, deck: &Path) -> Result<()> {
     Ok(())
 }
 
+/// Not played from the hand on your own turn: the well-known handtraps (an
+/// archetype's quick effects from the hand are often combo pieces too).
+fn known_hand_traps(engine: &Engine) -> Vec<u32> {
+    ygo_data::Tag::Handtrap.names().iter().filter_map(|n| engine.cards().find_by_name(n)).map(|c| c.code).collect()
+}
+
 fn roles(dir: &Path, deck: &Path) -> Result<()> {
     let engine = load_engine(dir)?;
     let text = std::fs::read_to_string(deck).with_context(|| format!("cannot read {}", deck.display()))?;
@@ -914,7 +917,7 @@ fn roles(dir: &Path, deck: &Path) -> Result<()> {
     let threads = std::thread::available_parallelism().map_or(4, |n| n.get());
     let hand_traps = ygo_solver::hand_traps(&engine, &deck, 1, &kit);
     let values = std::sync::Arc::new(ygo_solver::card_values(&engine, &deck, 1, &kit, &hand_traps, threads));
-    let guesses = ygo_solver::guess_roles(&engine, &deck, &kit, &hand_traps, values, threads, |_, _| {});
+    let guesses = ygo_solver::guess_roles(&engine, &deck, &kit, &hand_traps, &known_hand_traps(&engine), values, threads, |_, _| {});
     for g in &guesses {
         println!("{:<12} {:<45} {}", g.roles.join(","), engine.cards().name(g.code), g.reasons.join("; "));
     }
@@ -938,7 +941,7 @@ fn coverage(dir: &Path, deck: &Path, nodes: u64, threads: Option<usize>, seed: u
     base.time_limit = std::time::Duration::from_secs(600);
     base.opponent = Some(kit.opponent().clone());
     base.hand_traps = ygo_solver::hand_traps(&engine, &deck, seed, &kit);
-    base.policy.passive = base.hand_traps.clone();
+    base.policy.passive = known_hand_traps(&engine);
     base.values = std::sync::Arc::new(ygo_solver::card_values(&engine, &deck, seed, &kit, &base.hand_traps, threads));
     base.learn = Some(std::sync::Arc::new(kit.clone()));
     base.coverage = true;

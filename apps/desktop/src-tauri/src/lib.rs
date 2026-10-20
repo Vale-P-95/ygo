@@ -360,6 +360,12 @@ struct RolesProgress {
     total: usize,
 }
 
+/// Not played from the hand on your own turn: the well-known handtraps (an
+/// archetype's quick effects from the hand are often combo pieces too).
+fn known_hand_traps(engine: &Engine) -> Vec<u32> {
+    Tag::Handtrap.names().iter().filter_map(|n| engine.cards().find_by_name(n)).map(|c| c.code).collect()
+}
+
 /// The role of each Main Deck card, found by playing it with the engine
 /// (alone in hand, next to the best starter, from the hand on the
 /// opponent's turn); sends `lab-roles-progress` events on the way.
@@ -375,7 +381,7 @@ fn guess_deck_roles(app: tauri::AppHandle, state: State<'_, AppState>, id: i64) 
     let threads = std::thread::available_parallelism().map_or(4, |n| n.get());
     let hand_traps = ygo_solver::hand_traps(&engine, &list, 1, &kit);
     let values = std::sync::Arc::new(ygo_solver::card_values(&engine, &list, 1, &kit, &hand_traps, threads));
-    let guesses = ygo_solver::guess_roles(&engine, &list, &kit, &hand_traps, values, threads, |done, total| {
+    let guesses = ygo_solver::guess_roles(&engine, &list, &kit, &hand_traps, &known_hand_traps(&engine), values, threads, |done, total| {
         let _ = app.emit("lab-roles-progress", RolesProgress { done, total });
     });
     // The deck's own copies (any artwork) get the guess of their card.
@@ -1002,9 +1008,7 @@ fn combo_search(app: tauri::AppHandle, state: State<'_, AppState>, request: Comb
     config.values = std::sync::Arc::new(ygo_solver::card_values(&engine, &list, config.seed, &kit, &config.hand_traps, config.threads));
     config.learn = Some(std::sync::Arc::new(kit.clone()));
     if !request.use_handtraps {
-        // Not played from the hand on your own turn: the well-known handtraps
-        // (an archetype's quick effects from the hand are often combo pieces too).
-        config.policy.passive = Tag::Handtrap.names().iter().filter_map(|n| engine.cards().find_by_name(n)).map(|c| c.code).collect();
+        config.policy.passive = known_hand_traps(&engine);
     }
     if let Some(goal) = request.goal.filter(|g| !g.cards.is_empty()) {
         let db = engine.cards();
