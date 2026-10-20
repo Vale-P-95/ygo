@@ -176,20 +176,20 @@ export function BoardStrip({ board, width, getCard }: { board: ComboBoard; width
     </span>
   );
   return (
-    <span className="flex min-w-0 items-center gap-1 overflow-hidden">
+    <span className="flex min-w-0 flex-wrap items-center gap-x-1 gap-y-1">
       {monsters.map(tile)}
       {monsters.length > 0 && spells.length > 0 && <span className="mx-1 h-6 w-px shrink-0 bg-border-strong" />}
       {spells.map(tile)}
       {monsters.length + spells.length === 0 && <span className="text-xs text-faint">campo vuoto</span>}
       {board.handCards.length > 0 && (
-        <>
+        <span className="inline-flex items-center gap-1">
           <span className="mx-1 shrink-0 text-[10px] text-faint">mano</span>
           {board.handCards.map((c, i) => (
             <span key={`h${i}`} className="shrink-0 opacity-80" style={{ width: Math.round(width * 0.8), height: Math.round(height * 0.8) }} title={getCard(c)?.name}>
               <CardImage code={c} card={getCard(c)} className="h-full w-full" />
             </span>
           ))}
-        </>
+        </span>
       )}
     </span>
   );

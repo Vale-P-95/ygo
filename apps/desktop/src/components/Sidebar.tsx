@@ -3,7 +3,17 @@ import { sections, type SectionId } from "../sections";
 import { EmblemIcon } from "./Emblems";
 
 /** `compact`: an icon rail, to leave room to the deck editor. */
-export function Sidebar({ active, onSelect, compact = false }: { active: SectionId; onSelect: (id: SectionId) => void; compact?: boolean }) {
+export function Sidebar({
+  active,
+  onSelect,
+  onOpenGuide,
+  compact = false,
+}: {
+  active: SectionId;
+  onSelect: (id: SectionId) => void;
+  onOpenGuide?: () => void;
+  compact?: boolean;
+}) {
   return (
     <nav
       className={`relative z-10 flex shrink-0 flex-col border-r border-border bg-surface/80 py-5 backdrop-blur transition-[width] duration-300 ${compact ? "w-[68px] px-2" : "w-52 px-3"}`}
@@ -54,7 +64,30 @@ export function Sidebar({ active, onSelect, compact = false }: { active: Section
           );
         })}
       </ul>
-      {!compact && <p className="mt-auto px-2 text-[10px] leading-relaxed text-faint">DuelForge 0.1 · progetto non ufficiale, non affiliato a Konami</p>}
+
+      <div className="mt-auto flex flex-col gap-2.5 pt-3">
+        {onOpenGuide && (
+          <button
+            type="button"
+            onPointerEnter={() => sound.play("hover")}
+            onClick={() => {
+              sound.play("open");
+              onOpenGuide();
+            }}
+            title={compact ? "Guida rapida" : undefined}
+            aria-label="Guida rapida"
+            className={`group flex w-full items-center gap-2.5 rounded-xl border border-border bg-surface-2/70 py-2 text-left text-xs font-medium text-muted transition hover:border-border-strong hover:bg-surface-3 hover:text-text ${
+              compact ? "justify-center px-0" : "px-3"
+            }`}
+          >
+            <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full border border-border-strong bg-bg-2 text-[11px] font-bold text-gold group-hover:border-gold/60">
+              ?
+            </span>
+            {!compact && <span>Guida rapida</span>}
+          </button>
+        )}
+        {!compact && <p className="px-2 text-[10px] leading-relaxed text-faint">DuelForge 0.1 · progetto non ufficiale, non affiliato a Konami</p>}
+      </div>
     </nav>
   );
 }

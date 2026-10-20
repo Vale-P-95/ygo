@@ -29,7 +29,7 @@ function YGrid({ y, ticks, x0, x1, fmt }: { y: (v: number) => number; ticks: num
     <g>
       {ticks.map((t) => (
         <g key={t}>
-          <line x1={x0} x2={x1} y1={y(t)} y2={y(t)} className="stroke-[var(--df-surface-3)]" strokeWidth={1} />
+          <line x1={x0} x2={x1} y1={y(t)} y2={y(t)} className="stroke-[var(--df-border)]" strokeWidth={1} />
           <text x={x0 - 8} y={y(t) + 4} textAnchor="end" className="chart-axis">
             {fmt(t)}
           </text>
@@ -248,11 +248,11 @@ export function ChartCard({ title, note, legend, table, children }: { title: str
       {table && (
         <details className="text-xs text-muted">
           <summary className="cursor-pointer text-faint hover:text-muted">Dati</summary>
-          <table className="mt-1.5 tabular-nums">
+          <table className="mt-1.5 w-full tabular-nums">
             <thead>
               <tr>
                 {table.head.map((h) => (
-                  <th key={h} className="border-b border-border pr-4 pb-1 text-left font-semibold">
+                  <th key={h} className="border-b border-border pr-4 pb-1 text-left font-semibold whitespace-nowrap">
                     {h}
                   </th>
                 ))}
@@ -262,7 +262,7 @@ export function ChartCard({ title, note, legend, table, children }: { title: str
               {table.rows.map((r, i) => (
                 <tr key={i}>
                   {r.map((c, j) => (
-                    <td key={j} className="border-b border-border/60 py-0.5 pr-4">
+                    <td key={j} className="border-b border-border/60 py-1 pr-4 whitespace-nowrap">
                       {c}
                     </td>
                   ))}
@@ -336,9 +336,9 @@ export function ConvergenceChart({ points, exact, ariaLabel }: { points: { hands
 
 /** Horizontal bars around zero: what one copy more (right) or less (left) changes. */
 export function TornadoChart({ rows, ariaLabel }: { rows: { label: string; plus: number | null; minus: number | null }[]; ariaLabel: string }) {
-  const w = 460;
+  const w = 490;
   const rowH = 30;
-  const m = { l: 150, r: 44, t: 6, b: 22 };
+  const m = { l: 184, r: 44, t: 6, b: 22 };
   const h = m.t + rows.length * rowH + m.b;
   // Room past the longest bar for its value label.
   const max = Math.max(0.01, ...rows.flatMap((r) => [Math.abs(r.plus ?? 0), Math.abs(r.minus ?? 0)])) * 1.45;
@@ -358,7 +358,8 @@ export function TornadoChart({ rows, ariaLabel }: { rows: { label: string; plus:
         return (
           <g key={r.label}>
             <text x={m.l - 10} y={cy + 4} textAnchor="end" className="chart-label">
-              {r.label.length > 22 ? `${r.label.slice(0, 21)}…` : r.label}
+              <title>{r.label}</title>
+              {r.label.length > 27 ? `${r.label.slice(0, 26)}…` : r.label}
             </text>
             {(
               [
@@ -502,7 +503,7 @@ export function ForestPlot({ rows, reference, width = 460, ariaLabel }: { rows: 
     <svg viewBox={`0 0 ${w} ${h}`} role="img" aria-label={ariaLabel} className="block h-auto w-full overflow-visible">
       {[0, 0.25, 0.5, 0.75, 1].map((t) => (
         <g key={t}>
-          <line x1={x(t)} x2={x(t)} y1={m.t - 4} y2={h - m.b} className="stroke-[var(--df-surface-3)]" strokeDasharray={t === 0.5 ? "4 3" : undefined} strokeWidth={t === 0.5 ? 1.5 : 1} />
+          <line x1={x(t)} x2={x(t)} y1={m.t - 4} y2={h - m.b} className={t === 0.5 ? "stroke-[var(--df-border-strong)]" : "stroke-[var(--df-border)]"} strokeDasharray={t === 0.5 ? "4 3" : undefined} strokeWidth={t === 0.5 ? 1.5 : 1} />
           <text x={x(t)} y={m.t - 10} textAnchor="middle" className="chart-axis">
             {pct(t, 0)}
           </text>
@@ -526,7 +527,8 @@ export function ForestPlot({ rows, reference, width = 460, ariaLabel }: { rows: 
           <g key={`${r.label}-${i}`} tabIndex={0} data-tip={recordTip(r.sub ? `${r.label} · ${r.sub}` : r.label, rec)} className="forest-row">
             <rect x={0} y={cy - rowH / 2} width={w} height={rowH} rx={6} className="forest-hit" />
             <text x={m.l - 12} y={r.sub ? cy - 1 : cy + 4} textAnchor="end" className="chart-label">
-              {r.label.length > 17 ? `${r.label.slice(0, 16)}…` : r.label}
+              <title>{r.label}</title>
+              {r.label.length > 18 ? `${r.label.slice(0, 17)}…` : r.label}
             </text>
             {r.sub && (
               <text x={m.l - 12} y={cy + 11} textAnchor="end" className="chart-note">

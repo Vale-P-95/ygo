@@ -498,9 +498,9 @@ export function Combo({ artReady, onGoForge }: { artReady: boolean; onGoForge: (
           </button>
         </div>
       ) : (
-        <div className={`grid min-h-0 flex-1 ${selected ? "grid-cols-[330px_minmax(0,1fr)_460px]" : "grid-cols-[330px_minmax(0,1fr)]"}`}>
+        <div className={`grid min-h-0 flex-1 ${selected ? "grid-cols-[292px_minmax(0,1fr)_396px] xl:grid-cols-[330px_minmax(0,1fr)_460px]" : "grid-cols-[292px_minmax(0,1fr)] xl:grid-cols-[330px_minmax(0,1fr)]"}`}>
           {/* The setup: hand or card, options, search. */}
-          <aside className="flex min-h-0 flex-col gap-4 overflow-y-auto border-r border-border bg-surface/60 px-4 pt-4">
+          <aside className="flex min-h-0 flex-col gap-3 xl:gap-4 overflow-y-auto border-r border-border bg-surface/60 px-3.5 pt-3.5 xl:px-4 xl:pt-4">
             {setup.mode === "hand" ? (
               <section className="flex flex-col gap-2">
                 <div className="flex items-baseline justify-between">
@@ -676,7 +676,7 @@ export function Combo({ artReady, onGoForge }: { artReady: boolean; onGoForge: (
                   const left = (copies.get(id) ?? 0) - setup.hand.filter((c) => c === id).length;
                   const banned = setup.forbid.includes(id);
                   return (
-                    <div key={id} className={`relative ${setup.mode === "card" && setup.card === id ? "combo-picked" : ""} ${banned ? "combo-banned" : ""} ${setup.mode === "hand" && left === 0 ? "opacity-40" : ""}`}>
+                    <div key={id} className={`relative ${setup.mode === "card" && setup.card === id ? "combo-picked" : ""} ${banned ? "combo-banned" : ""} ${setup.mode === "hand" && left === 0 ? "combo-exhausted" : ""}`}>
                       <CardTile
                         id={id}
                         card={cards.get(id)}
@@ -721,7 +721,7 @@ export function Combo({ artReady, onGoForge }: { artReady: boolean; onGoForge: (
               )}
             </section>
 
-            <div className="sticky bottom-0 -mx-4 mt-auto border-t border-border bg-surface px-4 pt-3 pb-4">
+            <div className="sticky bottom-0 -mx-3.5 xl:-mx-4 mt-auto border-t border-border bg-surface px-3.5 pt-2.5 pb-3.5 xl:px-4 xl:pt-3 xl:pb-4">
               {run.running ? (
                 <button type="button" className="btn btn-ghost w-full justify-center" onClick={stopCombo}>
                   Ferma la ricerca
@@ -735,16 +735,16 @@ export function Combo({ artReady, onGoForge }: { artReady: boolean; onGoForge: (
           </aside>
 
           {/* The boards found, best first. */}
-          <div className="bg-blueprint flex min-h-0 flex-col gap-4 overflow-y-auto px-6 py-5">
+          <div className="bg-blueprint flex min-h-0 flex-col gap-3.5 xl:gap-4 overflow-y-auto px-4 py-4 xl:px-6 xl:py-5">
             {run.running && !ours && <p className="text-sm text-muted">Una ricerca su un altro deck è in corso.</p>}
             {(progress || run.running) && ours && (
               <section className="lab-card flex flex-col gap-2.5 p-4" aria-live="polite">
                 <div className="flex items-baseline justify-between gap-3">
-                  <h3 className="text-sm font-semibold">
+                  <h3 className="min-w-0 text-sm font-semibold">
                     {run.running ? "Il motore sta giocando" : `Ricerca finita: ${STOPS[run.outcome?.stop ?? ""] ?? run.outcome?.stop ?? ""}`}
                     {run.request?.card != null && progress && ` · mano ${Math.min(progress.handIndex + 1, handCount)} di ${handCount}`}
                   </h3>
-                  <span className="text-xs text-faint tabular-nums">{byCard ? (run.outcome ? duration(run.outcome.elapsedMs) : "") : `${duration(doneMs)} di ${duration(budgetMs)}`}</span>
+                  <span className="shrink-0 whitespace-nowrap text-xs text-faint tabular-nums">{byCard ? (run.outcome ? duration(run.outcome.elapsedMs) : "") : `${duration(doneMs)} di ${duration(budgetMs)}`}</span>
                 </div>
                 <div className="molten-track h-1.5">
                   <div className="molten-fill h-full transition-[width] duration-300" style={{ width: `${done * 100}%` }} />
@@ -850,7 +850,7 @@ export function Combo({ artReady, onGoForge }: { artReady: boolean; onGoForge: (
                           : "stima provvisoria"}
                   </span>
                 </div>
-                {!run.running && measured > 0 && <WeightsPanel profile={profile} weights={weights} open={weightsOpen} onToggle={() => setWeightsOpen((v) => !v)} />}
+                {!run.running && measured > 0 && <WeightsPanel profile={profile} weights={weights} open={weightsOpen} compact={!!selected} onToggle={() => setWeightsOpen((v) => !v)} />}
                 {groups.slice(0, 60).map(({ board: b, variants }, i) => {
                   const active = selected && boardId(selected) === boardId(b);
                   return (
@@ -861,7 +861,8 @@ export function Combo({ artReady, onGoForge }: { artReady: boolean; onGoForge: (
                         sound.play("page");
                         setSelected(active ? null : b);
                       }}
-                      className={`lab-card grid grid-cols-[28px_minmax(0,1fr)_auto] items-center gap-3 px-3 py-2 text-left transition-colors hover:border-border-strong ${active ? "!border-[var(--sec)]" : ""}`}
+                      style={i < 12 ? { animationDelay: `${i * 22}ms` } : undefined}
+                      className={`lab-card grid grid-cols-[28px_minmax(0,1fr)_auto] items-center gap-3 px-3 py-2 text-left transition-colors hover:border-border-strong ${i < 12 ? "anim-rise" : ""} ${active ? "combo-board-active" : ""}`}
                     >
                       <span className="display text-center text-sm text-faint">{i + 1}</span>
                       <span className="flex min-w-0 flex-col gap-1.5">
@@ -911,7 +912,7 @@ export function Combo({ artReady, onGoForge }: { artReady: boolean; onGoForge: (
           </div>
 
           {selected && (
-            <div className="min-h-0 overflow-y-auto border-l border-border bg-surface/60 p-4">
+            <div key={boardId(selected)} className="min-h-0 overflow-y-auto border-l border-border bg-surface/60 p-3.5 xl:p-4 anim-fade">
               <div className="mb-3 flex items-center justify-between">
                 <h3 className="display text-base">Board {groups.findIndex((g) => boardId(g.board) === boardId(selected)) + 1 || ""}</h3>
                 <button type="button" className="text-xs text-muted hover:text-text" onClick={() => setSelected(null)}>
