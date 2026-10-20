@@ -1,8 +1,10 @@
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 
+const isMock = import.meta.env.VITE_MOCK === "1" || import.meta.env.VITE_MOCK === "true";
+
 /** False when the UI runs in a plain browser (vite dev without Tauri). */
-export const isDesktop = isTauri();
+export const isDesktop = isTauri() || isMock;
 
 export type CardKind = "monster" | "spell" | "trap" | "skill" | "token";
 
@@ -512,7 +514,7 @@ export interface ComboStep {
   happened: ComboHappening[];
 }
 
-export const api = {
+const tauriApi = {
   dataStatus: () => invoke<DataStatus>("data_status"),
   updateData: (force = false) => invoke<DataStatus>("update_data", { force }),
   search: (query: string) => invoke<SearchResult>("search_cards", { query }),
@@ -569,11 +571,39 @@ export const api = {
   onComboProgress: (handler: (p: ComboProgress) => void): Promise<UnlistenFn> => listen<ComboProgress>("combo-progress", (e) => handler(e.payload)),
 };
 
+type Api = typeof tauriApi;
+
+let mockMod: typeof import("./mock") | null = null;
+let mockLoad: Promise<typeof import("./mock")> | null = null;
+
+function loadMock(): Promise<typeof import("./mock")> {
+  if (import.meta.env.VITE_MOCK === "1" || import.meta.env.VITE_MOCK === "true") {
+    return (mockLoad ??= import("./mock").then((m) => (mockMod = m)));
+  }
+  throw new Error("Mock disabled");
+}
+
+if (import.meta.env.VITE_MOCK === "1" || import.meta.env.VITE_MOCK === "true") {
+  void loadMock();
+}
+
+export const api: Api = isMock
+  ? (new Proxy({} as Api, {
+      get(_target, prop: keyof Api) {
+        return (...args: unknown[]) => loadMock().then((m) => (m.mockApi[prop] as (...a: unknown[]) => unknown)(...args));
+      },
+    }) as Api)
+  : tauriApi;
+
 export type ImageSize = "small" | "full" | "cropped";
 
 const windowsHost = typeof navigator !== "undefined" && navigator.userAgent.includes("Windows");
 
 /** URL of a card image served (and cached on first use) by the backend. */
 export function cardImage(id: number, size: ImageSize): string {
+  if (import.meta.env.VITE_MOCK === "1" || import.meta.env.VITE_MOCK === "true") {
+    if (mockMod) return mockMod.mockCardImage(id, size);
+    return `data:image/svg+xml;utf8,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 350"><rect width="240" height="350" rx="10" fill="#2d160d"/><text x="120" y="180" text-anchor="middle" fill="#ff9d5c" font-family="sans-serif" font-size="14">#${id}</text></svg>`)}`;
+  }
   return windowsHost ? `http://cardimg.localhost/${size}/${id}` : `cardimg://localhost/${size}/${id}`;
 }
