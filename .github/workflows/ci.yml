@@ -1,10 +1,21 @@
 name: CI
 
+# The private repository has a monthly budget of Actions minutes: pull
+# requests run once (not again for the push to their branch) and only the
+# jobs of the areas they change; main runs everything after a merge; the
+# Windows installer (whose minutes count double) is built on main or when
+# asked for.
 on:
   push:
+    branches: [main]
     paths-ignore: ["docs/**", "**/*.md"]
   pull_request:
   workflow_dispatch:
+    inputs:
+      installer:
+        description: Also build the Windows installer
+        type: boolean
+        default: false
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -14,8 +25,37 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  changes:
+    name: Changed areas
+    runs-on: ubuntu-latest
+    outputs:
+      rust: ${{ steps.areas.outputs.rust }}
+      frontend: ${{ steps.areas.outputs.frontend }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: areas
+        run: |
+          if [ "${{ github.event_name }}" != "pull_request" ]; then
+            echo "rust=true" >> "$GITHUB_OUTPUT"
+            echo "frontend=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          files=$(git diff --name-only "origin/${{ github.base_ref }}...HEAD")
+          echo "$files"
+          rust=false
+          frontend=false
+          if echo "$files" | grep -qE '^(crates/|apps/desktop/src-tauri/|Cargo\.(toml|lock)$|rustfmt\.toml$|vendor/|tests/|\.gitmodules$|\.github/workflows/)'; then rust=true; fi
+          if echo "$files" | grep -E '^apps/desktop/' | grep -qvE '^apps/desktop/src-tauri/'; then frontend=true; fi
+          if echo "$files" | grep -qE '^\.github/workflows/'; then frontend=true; fi
+          echo "rust=$rust" >> "$GITHUB_OUTPUT"
+          echo "frontend=$frontend" >> "$GITHUB_OUTPUT"
+
   rust:
     name: Engine and CLI (Rust)
+    needs: changes
+    if: needs.changes.outputs.rust == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -29,6 +69,14 @@ jobs:
         run: cargo fmt --all -- --check
       - name: Clippy
         run: cargo clippy -p ygo-engine -p ygo-data -p ygo-stats -p ygo-solver -p ygo-cli --all-targets -- -D warnings
+      # The app backend is otherwise built only with the Windows installer
+      # (on main), and a change to the crates can break it.
+      - name: App backend
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev
+          mkdir -p apps/desktop/dist && touch apps/desktop/dist/index.html
+          cargo clippy -p duelforge-desktop --all-targets -- -D warnings
       - name: Cache game data
         uses: actions/cache@v4
         with:
@@ -48,6 +96,8 @@ jobs:
 
   frontend:
     name: Frontend (TypeScript)
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -69,6 +119,7 @@ jobs:
   windows-installer:
     name: Windows installer
     needs: [rust, frontend]
+    if: github.event_name == 'push' || inputs.installer
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
