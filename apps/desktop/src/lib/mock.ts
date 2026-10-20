@@ -8,11 +8,13 @@ import type {
   ComboOutcome,
   ComboProgress,
   ComboScore,
+  Cond,
   DataStatus,
   Deck,
   DeckBox,
   DeckSummary,
   Facets,
+  HandStats,
   ImageSize,
   Imported,
   LabAnalysis,
@@ -20,6 +22,7 @@ import type {
   Legality,
   MatchEntry,
   MatchLog,
+  NamedRecord,
   OptimizeResult,
   Progress,
   Recipe,
@@ -27,7 +30,10 @@ import type {
   SavedSearch,
   SearchResult,
   ShelfDeck,
+  SimRule,
+  WinRecord,
 } from "./api";
+import { pAtLeastOne, pBoth } from "./probability";
 
 type Api = typeof ApiType;
 
@@ -756,6 +762,10 @@ let statusState: DataStatus = {
 };
 
 const progressListeners = new Set<(p: Progress) => void>();
+const rolesProgressListeners = new Set<(p: { done: number; total: number }) => void>();
+const simProgressListeners = new Set<(c: Checkpoint) => void>();
+let simCancelled = false;
+
 const favoritesState = new Set<number>([98159737, 72270339, 27548199, 29301450]);
 let savedSearchesState: SavedSearch[] = [
   { name: "Starter Fuoco Lv.1", query: "attr:fire level:1 kind:monster" },
@@ -768,7 +778,7 @@ let decksState: Deck[] = [
     name: "Snake-Eye Fire King",
     format: "md",
     main: [
-      // Engine & starters (22)
+      // Engine & starters (23)
       98159737,
       81674782,
       81674782,
@@ -1056,6 +1066,345 @@ function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+// --- Hypergeometric helpers for Lab ---
+
+function binom(n: number, k: number): number {
+  if (k < 0 || k > n) return 0;
+  if (k === 0 || k === n) return 1;
+  const m = Math.min(k, n - k);
+  let res = 1;
+  for (let i = 1; i <= m; i++) {
+    res = (res * (n - m + i)) / i;
+  }
+  return res;
+}
+
+function hypergeomPmf(N: number, K: number, n: number, k: number): number {
+  const denom = binom(N, n);
+  if (denom === 0) return 0;
+  return (binom(K, k) * binom(N - K, n - k)) / denom;
+}
+
+function dist6(N: number, K: number, hand: number): number[] {
+  const out = [0, 0, 0, 0, 0, 0];
+  for (let k = 0; k <= hand; k++) {
+    const p = hypergeomPmf(N, K, hand, k);
+    out[Math.min(5, k)] += p;
+  }
+  return out;
+}
+
+function countRoleCopies(main: number[], roleIds: number[] = []): number {
+  const set = new Set(roleIds);
+  let count = 0;
+  for (const id of main) if (set.has(id)) count++;
+  return count;
+}
+
+function countUnionCopies(main: number[], a: number[] = [], b: number[] = []): number {
+  const set = new Set([...a, ...b]);
+  let count = 0;
+  for (const id of main) if (set.has(id)) count++;
+  return count;
+}
+
+function buildHandStats(main: number[], roles: Record<string, number[]>, hand: number): HandStats {
+  const N = Math.max(1, main.length);
+  const kStarter = countRoleCopies(main, roles.starter);
+  const kExt = countRoleCopies(main, roles.extender);
+  const kHt = countRoleCopies(main, roles.handtrap);
+  const kBrk = countRoleCopies(main, roles.breaker);
+  const kBrick = countRoleCopies(main, roles.brick);
+  const starterDist = dist6(N, kStarter, hand);
+  const handtrapDist = dist6(N, kHt, hand);
+
+  const starter = 1 - starterDist[0];
+  const starter2 = Math.max(0, 1 - starterDist[0] - starterDist[1]);
+  const handtrap = 1 - handtrapDist[0];
+  const ideal = pBoth(N, kStarter, kHt, countUnionCopies(main, roles.starter, roles.handtrap), hand);
+  const starterAndExt = pBoth(N, kStarter, kExt, countUnionCopies(main, roles.starter, roles.extender), hand);
+  const resist = Math.min(1, Math.max(starter2, starterAndExt));
+  const solid = Math.min(resist, ideal) * 0.92;
+  const brick = starterDist[0];
+  const garnet = pAtLeastOne(N, kBrick, hand);
+  const breaker = pAtLeastOne(N, kBrk, hand);
+
+  const expected: Record<string, number> = {};
+  for (const [key, list] of Object.entries(roles)) {
+    expected[key] = (countRoleCopies(main, list) * hand) / N;
+  }
+
+  return {
+    hand,
+    starter,
+    starter2,
+    handtrap,
+    ideal,
+    resist,
+    solid,
+    brick,
+    garnet,
+    breaker,
+    expected,
+    starterDist,
+    handtrapDist,
+  };
+}
+
+function evalCondProb(main: number[], roles: Record<string, number[]>, cond: Cond, hand: number): number {
+  const N = Math.max(1, main.length);
+  switch (cond.type) {
+    case "count": {
+      const K =
+        cond.target.kind === "role"
+          ? countRoleCopies(main, roles[cond.target.value])
+          : main.filter((id) => id === cond.target.value).length;
+      let p = 0;
+      for (let k = 0; k <= hand; k++) {
+        const match = cond.op === "atLeast" ? k >= cond.n : cond.op === "atMost" ? k <= cond.n : k === cond.n;
+        if (match) p += hypergeomPmf(N, K, hand, k);
+      }
+      return Math.max(0, Math.min(1, p));
+    }
+    case "not":
+      return Math.max(0, Math.min(1, 1 - evalCondProb(main, roles, cond.item, hand)));
+    case "all": {
+      if (cond.items.length === 0) return 1;
+      let prod = 1;
+      for (const item of cond.items) prod *= evalCondProb(main, roles, item, hand);
+      return Math.max(0, Math.min(1, prod));
+    }
+    case "any": {
+      if (cond.items.length === 0) return 0;
+      let fail = 1;
+      for (const item of cond.items) fail *= 1 - evalCondProb(main, roles, item, hand);
+      return Math.max(0, Math.min(1, 1 - fail));
+    }
+  }
+}
+
+// --- Recipes & Match Log state ---
+
+let recipesState: Recipe[] = [
+  {
+    id: 1,
+    deckId: 1,
+    name: "Starter + Handtrap + Estensore",
+    cond: {
+      type: "all",
+      items: [
+        { type: "count", target: { kind: "role", value: "starter" }, op: "atLeast", n: 1 },
+        { type: "count", target: { kind: "role", value: "extender" }, op: "atLeast", n: 1 },
+        { type: "count", target: { kind: "role", value: "handtrap" }, op: "atLeast", n: 1 },
+      ],
+    },
+  },
+];
+let nextRecipeId = 2;
+
+let matchesState: MatchEntry[] = [
+  { id: 1, deckId: 1, deckName: "Snake-Eye Fire King", version: "v1", playedAt: "2026-10-12 18:15", opponent: "Tenpai Dragon", first: true, games: "WW", result: "W", tags: ["Master Duel", "Master I"], notes: "Promethean + Apollousa hanno fermato Sangen Summoning." },
+  { id: 2, deckId: 1, deckName: "Snake-Eye Fire King", version: "v1", playedAt: "2026-10-12 18:45", opponent: "Yubel Fiendsmith", first: false, games: "LWL", result: "L", tags: ["Master Duel", "Master I"], notes: "Phantom of Yubel + Apollousa difficile da forzare senza Droplet." },
+  { id: 3, deckId: 1, deckName: "Snake-Eye Fire King", version: "v1", playedAt: "2026-10-13 20:10", opponent: "Tearlaments", first: true, games: "W", result: "W", tags: ["Master Duel", "Master I"], notes: "Abyss Dweller / Kirin su Kitkallos." },
+  { id: 4, deckId: 1, deckName: "Snake-Eye Fire King", version: "v1", playedAt: "2026-10-14 21:00", opponent: "Branded Despia", first: false, games: "W", result: "W", tags: ["Master Duel", "Master I"], notes: "Ash Blossom su Branded Fusion." },
+  { id: 5, deckId: 1, deckName: "Snake-Eye Fire King", version: "v1", playedAt: "2026-10-15 19:30", opponent: "Tenpai Dragon", first: false, games: "L", result: "L", tags: ["Master Duel", "Master I"], notes: "Harpie's Feather Duster + Paidra." },
+  { id: 6, deckId: 1, deckName: "Snake-Eye Fire King", version: "v2", playedAt: "2026-10-16 17:20", opponent: "Yubel Fiendsmith", first: true, games: "W", result: "W", tags: ["Master Duel", "Master I"], notes: "Aggiunta seconda Forbidden Droplet: ottimo impatto." },
+  { id: 7, deckId: 1, deckName: "Snake-Eye Fire King", version: "v2", playedAt: "2026-10-17 18:05", opponent: "Centur-Ion", first: true, games: "W", result: "W", tags: ["Master Duel", "Rating"], notes: "Impermanence su Auxila, poi OTK con Flamberge + Raging Phoenix." },
+  { id: 8, deckId: 1, deckName: "Snake-Eye Fire King", version: "v2", playedAt: "2026-10-18 15:40", opponent: "Tenpai Dragon", first: true, games: "W", result: "W", tags: ["Master Duel", "Rating"], notes: "Kirin in Battle Phase evita Trident Dragion." },
+  { id: 9, deckId: 1, deckName: "Snake-Eye Fire King", version: "v2", playedAt: "2026-10-18 16:15", opponent: "Yubel Fiendsmith", first: false, games: "W", result: "W", tags: ["Master Duel", "Rating"], notes: "Maxx C risolta, pescati 3 extender." },
+  { id: 10, deckId: 1, deckName: "Snake-Eye Fire King", version: "v2", playedAt: "2026-10-19 21:10", opponent: "Branded Despia", first: true, games: "L", result: "L", tags: ["Master Duel", "Rating"], notes: "Super Polymerization su Apollousa + Promethean." },
+  { id: 11, deckId: 1, deckName: "Snake-Eye Fire King", version: "v2", playedAt: "2026-10-20 11:30", opponent: "Tearlaments", first: false, games: "W", result: "W", tags: ["Master Duel", "Rating"], notes: "Called by the Grave su Havnis." },
+  { id: 12, deckId: 2, deckName: "Fiendsmith Invoked Control", version: "v1", playedAt: "2026-10-19 19:00", opponent: "Tenpai Dragon", first: true, games: "W", result: "W", tags: ["Master Duel", "Master I"], notes: "Mechaba bandisce Chundra." },
+];
+let nextMatchId = 13;
+
+function makeWinRecord(wins: number, losses: number, draws = 0): WinRecord {
+  const n = wins + losses;
+  const p = n > 0 ? wins / n : 0;
+  // Wilson 95% interval approximation
+  const z = 1.96;
+  const denom = 1 + (z * z) / Math.max(1, n);
+  const center = n > 0 ? (p + (z * z) / (2 * n)) / denom : 0.5;
+  const half = n > 0 ? (z * Math.sqrt((p * (1 - p) + (z * z) / (4 * n)) / n)) / denom : 0.5;
+  const lo = n > 0 ? Math.max(0, center - half) : 0;
+  const hi = n > 0 ? Math.min(1, center + half) : 1;
+  return {
+    wins,
+    losses,
+    draws,
+    p,
+    lo,
+    hi,
+    betaLo: Math.max(0, lo * 0.96),
+    betaHi: Math.min(1, hi * 1.02),
+  };
+}
+
+function outcomeOf(m: MatchEntry): "W" | "L" | "D" {
+  if (m.result === "W" || m.result === "L" || m.result === "D") return m.result;
+  let w = 0;
+  let l = 0;
+  for (const ch of m.games.toUpperCase()) {
+    if (ch === "W") w++;
+    else if (ch === "L") l++;
+  }
+  return w > l ? "W" : l > w ? "L" : "D";
+}
+
+function tallyRecord(list: MatchEntry[]): WinRecord {
+  let w = 0;
+  let l = 0;
+  let d = 0;
+  for (const m of list) {
+    const out = outcomeOf(m);
+    if (out === "W") w++;
+    else if (out === "L") l++;
+    else d++;
+  }
+  return makeWinRecord(w, l, d);
+}
+
+function buildMatchLog(deckId: number | null): MatchLog {
+  const filtered = deckId == null ? [...matchesState] : matchesState.filter((m) => m.deckId === deckId);
+  const total = tallyRecord(filtered);
+  const first = tallyRecord(filtered.filter((m) => m.first === true));
+  const second = tallyRecord(filtered.filter((m) => m.first === false));
+
+  let g1w = 0,
+    g1l = 0,
+    psw = 0,
+    psl = 0;
+  for (const m of filtered) {
+    const g = m.games.toUpperCase();
+    if (g[0] === "W") g1w++;
+    else if (g[0] === "L") g1l++;
+    for (let i = 1; i < g.length; i++) {
+      if (g[i] === "W") psw++;
+      else if (g[i] === "L") psl++;
+    }
+  }
+
+  const byOpp = new Map<string, MatchEntry[]>();
+  for (const m of filtered) {
+    const k = m.opponent || "Sconosciuto";
+    byOpp.set(k, [...(byOpp.get(k) ?? []), m]);
+  }
+  const opponents: NamedRecord[] = [...byOpp.entries()]
+    .map(([name, list]) => ({
+      name,
+      record: tallyRecord(list),
+      share: filtered.length > 0 ? list.length / filtered.length : 0,
+    }))
+    .sort((a, b) => b.share - a.share);
+
+  const matrix: [string, WinRecord, WinRecord][] = opponents.map((o) => {
+    const list = byOpp.get(o.name) ?? [];
+    return [
+      o.name,
+      tallyRecord(list.filter((m) => m.first === true)),
+      tallyRecord(list.filter((m) => m.first === false)),
+    ];
+  });
+
+  let cumWins = 0;
+  let cumDecided = 0;
+  const recentOutcomes: number[] = [];
+  const trend = filtered.map((m, idx) => {
+    const out = outcomeOf(m);
+    if (out === "W" || out === "L") {
+      const val = out === "W" ? 1 : 0;
+      cumWins += val;
+      cumDecided++;
+      recentOutcomes.push(val);
+    }
+    const windowSlice = recentOutcomes.slice(-5);
+    const rolling = windowSlice.length > 0 ? windowSlice.reduce((a, b) => a + b, 0) / windowSlice.length : 0.5;
+    const cumulative = cumDecided > 0 ? cumWins / cumDecided : 0.5;
+    return {
+      index: idx + 1,
+      playedAt: m.playedAt ?? "2026-10-20 12:00",
+      rolling,
+      cumulative,
+    };
+  });
+
+  const byTag = new Map<string, MatchEntry[]>();
+  for (const m of filtered) {
+    for (const t of m.tags) {
+      byTag.set(t, [...(byTag.get(t) ?? []), m]);
+    }
+  }
+  const tags: NamedRecord[] = [...byTag.entries()].map(([name, list]) => ({
+    name,
+    record: tallyRecord(list),
+    share: filtered.length > 0 ? list.length / filtered.length : 0,
+  }));
+
+  const v1List = filtered.filter((m) => m.version === "v1");
+  const v2List = filtered.filter((m) => (m.version ?? "v2") === "v2");
+  const versionsReport = [
+    ...(v1List.length > 0
+      ? [
+          {
+            version: "v1",
+            name: "v1 · Lista iniziale",
+            firstPlayed: v1List[0].playedAt ?? "2026-10-12",
+            lastPlayed: v1List[v1List.length - 1].playedAt ?? "2026-10-15",
+            record: tallyRecord(v1List),
+          },
+        ]
+      : []),
+    ...(v2List.length > 0
+      ? [
+          {
+            version: "v2",
+            name: "v2 · +1 Forbidden Droplet",
+            firstPlayed: v2List[0].playedAt ?? "2026-10-16",
+            lastPlayed: v2List[v2List.length - 1].playedAt ?? "2026-10-20",
+            record: tallyRecord(v2List),
+          },
+        ]
+      : []),
+  ];
+
+  const logVersions = [
+    { version: "v1", name: "v1 · Lista iniziale", changes: null },
+    {
+      version: "v2",
+      name: "v2 · +1 Forbidden Droplet",
+      changes: [
+        { id: 54693926, zone: "main" as const, delta: 1 },
+        { id: 94145021, zone: "main" as const, delta: -1 },
+      ],
+    },
+  ];
+
+  return {
+    matches: filtered,
+    report: {
+      matches: filtered.length,
+      total,
+      first,
+      second,
+      orderFisherP: 0.34,
+      game1: makeWinRecord(g1w, g1l),
+      postSide: makeWinRecord(psw, psl),
+      opponents,
+      matrix,
+      metaExpected: total.p,
+      trend,
+      versions: versionsReport,
+      latestComparison: versionsReport.length >= 2 ? { fisherP: 0.28, probNewerBetter: 0.79 } : null,
+      tags,
+    },
+    versions: logVersions,
+    current: logVersions[1],
+    currentIsNew: false,
+    opponents: ["Tenpai Dragon", "Yubel Fiendsmith", "Tearlaments", "Branded Despia", "Centur-Ion"],
+    tags: ["Master Duel", "Master I", "Rating", "Torneo"],
+  };
+}
+
 export const mockApi: Api = {
   dataStatus: async () => structuredClone(statusState),
 
@@ -1218,108 +1567,302 @@ export const mockApi: Api = {
     };
   },
 
-  // Step 2 & Step 3 stubs (populated in full in the next commits)
-  labOverview: async (main: number[], roles: Record<string, number[]>): Promise<LabOverview> => ({
-    size: main.length || 40,
-    roles: Object.fromEntries(Object.entries(roles).map(([k, v]) => [k, v.length])),
-    first: {
-      hand: 5,
-      starter: 0.85,
-      starter2: 0.48,
-      handtrap: 0.78,
-      ideal: 0.67,
-      resist: 0.62,
-      solid: 0.54,
-      brick: 0.11,
-      garnet: 0.04,
-      breaker: 0.22,
-      expected: { starter: 1.45, extender: 1.15, handtrap: 1.35, breaker: 0.25, brick: 0.35 },
-      starterDist: [0.15, 0.42, 0.31, 0.1, 0.02, 0],
-      handtrapDist: [0.22, 0.43, 0.25, 0.08, 0.02, 0],
-    },
-    second: {
-      hand: 6,
-      starter: 0.91,
-      starter2: 0.61,
-      handtrap: 0.85,
-      ideal: 0.76,
-      resist: 0.73,
-      solid: 0.66,
-      brick: 0.09,
-      garnet: 0.05,
-      breaker: 0.26,
-      expected: { starter: 1.74, extender: 1.38, handtrap: 1.62, breaker: 0.3, brick: 0.42 },
-      starterDist: [0.09, 0.34, 0.36, 0.16, 0.04, 0.01, 0],
-      handtrapDist: [0.15, 0.37, 0.31, 0.13, 0.03, 0.01, 0],
-    },
-    cards: [],
-    seen: [0.85, 0.91, 0.94, 0.96, 0.98],
-    byCopies: [
-      [0.125, 0.15, 0.175, 0.2, 0.225],
-      [0.237, 0.279, 0.319, 0.356, 0.391],
-      [0.337, 0.391, 0.44, 0.485, 0.525],
-    ],
-    opponent: [0.22, 0.43, 0.25, 0.08, 0.02, 0],
+  labOverview: async (main: number[], roles: Record<string, number[]>): Promise<LabOverview> => {
+    const N = Math.max(1, main.length);
+    const roleCounts: Record<string, number> = {};
+    for (const [k, list] of Object.entries(roles)) {
+      roleCounts[k] = countRoleCopies(main, list);
+    }
+    const copyMap = new Map<number, number>();
+    for (const id of main) copyMap.set(id, (copyMap.get(id) ?? 0) + 1);
+    const cards = [...copyMap.entries()].map(([id, copies]) => ({
+      id,
+      copies,
+      first: pAtLeastOne(N, copies, 5),
+      second: pAtLeastOne(N, copies, 6),
+    }));
+    const seen = [5, 6, 7, 8, 9, 10];
+    const byCopies = [1, 2, 3].map((copies) => seen.map((s) => pAtLeastOne(N, copies, s)));
+    const opponent = Array.from({ length: 21 }, (_, k) => pAtLeastOne(40, k, 5));
+
+    return {
+      size: main.length,
+      roles: roleCounts,
+      first: buildHandStats(main, roles, 5),
+      second: buildHandStats(main, roles, 6),
+      cards,
+      seen,
+      byCopies,
+      opponent,
+    };
+  },
+
+  labProbability: async (main: number[], roles: Record<string, number[]>, cond: Cond, hand: number) => ({
+    p: evalCondProb(main, roles, cond, hand),
+    error: null,
   }),
-  labProbability: async () => ({ p: 0.842, error: null }),
+
   setDeckRoles: async (id: number, roles: Record<string, number[]>) => {
     const d = decksState.find((x) => x.id === id);
     if (d) d.roles = structuredClone(roles);
   },
-  guessDeckRoles: async (): Promise<RoleGuess[]> => [],
-  onRolesProgress: async (_handler: (p: { done: number; total: number }) => void): Promise<UnlistenFn> => () => {},
-  labSimulate: async (): Promise< ReturnType<Api["labSimulate"]> extends Promise<infer R> ? R : never > => ({
-    hands: 50000,
-    hits: 42100,
-    p: 0.842,
-    lo: 0.838,
-    hi: 0.846,
-    checkpoints: [],
-    effects: [],
-    cancelled: false,
-  }),
-  labCancelSimulation: async () => {},
-  onSimProgress: async (_handler: (c: Checkpoint) => void): Promise<UnlistenFn> => () => {},
-  labAnalyze: async (): Promise<LabAnalysis> => ({ sensitivity: null, size: [], heatmap: null, error: null }),
-  labOptimize: async (): Promise<OptimizeResult> => ({
-    before: { first: 0.82, second: 0.88, objective: 0.84 },
-    after: { first: 0.86, second: 0.91, objective: 0.88 },
-    changes: [],
-    size: 40,
-  }),
-  listRecipes: async (): Promise<Recipe[]> => [],
-  saveRecipe: async (deckId, name, cond): Promise<Recipe> => ({ id: 1, deckId, name, cond }),
-  deleteRecipe: async () => {},
-  matchLog: async (): Promise<MatchLog> => ({
-    matches: [],
-    report: {
-      matches: 0,
-      total: { wins: 0, losses: 0, draws: 0, p: 0, lo: 0, hi: 1, betaLo: 0, betaHi: 1 },
-      first: { wins: 0, losses: 0, draws: 0, p: 0, lo: 0, hi: 1, betaLo: 0, betaHi: 1 },
-      second: { wins: 0, losses: 0, draws: 0, p: 0, lo: 0, hi: 1, betaLo: 0, betaHi: 1 },
-      orderFisherP: null,
-      game1: { wins: 0, losses: 0, draws: 0, p: 0, lo: 0, hi: 1, betaLo: 0, betaHi: 1 },
-      postSide: { wins: 0, losses: 0, draws: 0, p: 0, lo: 0, hi: 1, betaLo: 0, betaHi: 1 },
-      opponents: [],
-      matrix: [],
-      metaExpected: 0.5,
-      trend: [],
-      versions: [],
-      latestComparison: null,
-      tags: [],
-    },
-    versions: [],
-    current: null,
-    currentIsNew: false,
-    opponents: [],
-    tags: [],
-  }),
-  logMatch: async (entry: MatchEntry) => entry,
-  updateMatch: async (entry: MatchEntry) => entry,
-  deleteMatch: async () => {},
-  exportMatches: async () => "",
-  importMatches: async () => 0,
-  sampleSize: async () => [85, 190],
+
+  guessDeckRoles: async (id: number): Promise<RoleGuess[]> => {
+    const d = decksState.find((x) => x.id === id) ?? decksState[0];
+    const unique = [...new Set(d.main)];
+    for (let i = 1; i <= unique.length; i++) {
+      rolesProgressListeners.forEach((fn) => fn({ done: i, total: unique.length }));
+      await delay(20);
+    }
+    return unique.map((code) => {
+      const assigned: string[] = [];
+      const reasons: string[] = [];
+      if (d.roles.starter?.includes(code)) {
+        assigned.push("starter");
+        reasons.push("Starter: da sola avvia la linea principale e porta alle interruzioni a fine turno.");
+      }
+      if (d.roles.extender?.includes(code)) {
+        assigned.push("extender");
+        reasons.push("Estensore: permette di continuare la giocata dopo che lo starter viene negato.");
+      }
+      if (d.roles.handtrap?.includes(code) || HANDTRAP_IDS.has(code)) {
+        if (!assigned.includes("handtrap")) assigned.push("handtrap");
+        reasons.push("Handtrap: si attiva dalla mano durante il primo turno avversario.");
+      }
+      if (d.roles.breaker?.includes(code)) {
+        assigned.push("breaker");
+        reasons.push("Board breaker: neutralizza o rimuove più minacce su una board già stabilita.");
+      }
+      if (d.roles.brick?.includes(code)) {
+        assigned.push("brick");
+        reasons.push("Brick: carta del motore che preferisci evocare o mandare dal Deck invece di pescare.");
+      }
+      return { code, roles: assigned, reasons };
+    });
+  },
+
+  onRolesProgress: async (handler: (p: { done: number; total: number }) => void): Promise<UnlistenFn> => {
+    rolesProgressListeners.add(handler);
+    return () => {
+      rolesProgressListeners.delete(handler);
+    };
+  },
+
+  labSimulate: async (main: number[], roles: Record<string, number[]>, cond: Cond, hand: number, rules: SimRule[], hands: number) => {
+    simCancelled = false;
+    const baseP = evalCondProb(main, roles, cond, hand);
+    const boost = Math.min(0.11, rules.filter((r) => r.effect != null).length * 0.032);
+    const targetP = Math.min(0.985, baseP + boost);
+    const steps = 5;
+    const checkpoints: Checkpoint[] = [];
+
+    for (let i = 1; i <= steps; i++) {
+      if (simCancelled) break;
+      await delay(55);
+      const n = Math.round((hands * i) / steps);
+      const jitter = (steps - i) * 0.0018;
+      const p = Math.max(0, Math.min(1, targetP + (i % 2 === 0 ? jitter : -jitter)));
+      const half = 1.96 * Math.sqrt((p * (1 - p)) / Math.max(1, n));
+      const cp: Checkpoint = { hands: n, p, lo: Math.max(0, p - half), hi: Math.min(1, p + half) };
+      checkpoints.push(cp);
+      simProgressListeners.forEach((fn) => fn(cp));
+    }
+
+    const last = checkpoints[checkpoints.length - 1] ?? { hands, p: targetP, lo: targetP - 0.003, hi: targetP + 0.003 };
+    const effects: [number, number][] = rules
+      .filter((r) => r.effect != null)
+      .map((r, idx) => [r.id, Math.max(0.08, 0.28 - idx * 0.05)]);
+
+    return {
+      ...last,
+      hits: Math.round(last.hands * last.p),
+      checkpoints,
+      effects,
+      cancelled: simCancelled,
+    };
+  },
+
+  labCancelSimulation: async () => {
+    simCancelled = true;
+  },
+
+  onSimProgress: async (handler: (c: Checkpoint) => void): Promise<UnlistenFn> => {
+    simProgressListeners.add(handler);
+    return () => {
+      simProgressListeners.delete(handler);
+    };
+  },
+
+  labAnalyze: async (
+    main: number[],
+    roles: Record<string, number[]>,
+    cond: Cond,
+    hand: number,
+    roleKeys: string[],
+    limits: Record<number, number>,
+    roleA: string | null,
+    roleB: string | null,
+  ): Promise<LabAnalysis> => {
+    const N = Math.max(40, main.length);
+    const base = evalCondProb(main, roles, cond, hand);
+
+    const roleDeltas = roleKeys.map((key) => {
+      const k = countRoleCopies(main, roles[key]);
+      const weight = key === "starter" ? 0.034 : key === "handtrap" ? 0.026 : key === "extender" ? 0.019 : -0.008;
+      return {
+        key,
+        plus: k < N ? weight : null,
+        minus: k > 0 ? -weight * 1.08 : null,
+      };
+    });
+
+    const uniqueIds = [...new Set(main)];
+    const cardDeltas = uniqueIds.map((id) => {
+      const copies = main.filter((c) => c === id).length;
+      const limit = limits[id] ?? 3;
+      const isStarter = roles.starter?.includes(id);
+      const isHt = roles.handtrap?.includes(id);
+      const isExt = roles.extender?.includes(id);
+      const delta = isStarter ? 0.032 : isHt ? 0.024 : isExt ? 0.016 : -0.011;
+      return {
+        key: String(id),
+        plus: copies < limit ? delta : null,
+        minus: copies > 0 ? -delta * 1.05 : null,
+      };
+    });
+
+    const size = Array.from({ length: Math.max(1, 61 - N) }, (_, i) => {
+      const sz = N + i;
+      return Math.max(0.05, base * (N / sz));
+    });
+
+    let heatmap: LabAnalysis["heatmap"] = null;
+    if (roleA && roleB && roleA !== roleB) {
+      const curA = countRoleCopies(main, roles[roleA]);
+      const curB = countRoleCopies(main, roles[roleB]);
+      const aVals = Array.from({ length: 7 }, (_, i) => Math.max(0, curA - 3 + i));
+      const bVals = Array.from({ length: 7 }, (_, i) => Math.max(0, curB - 3 + i));
+      const pGrid = aVals.map((ka) =>
+        bVals.map((kb) => {
+          if (ka + kb > N) return null;
+          return pBoth(N, ka, kb, Math.min(N, ka + kb), hand);
+        }),
+      );
+      heatmap = { a: aVals, b: bVals, p: pGrid, current: [curA, curB] };
+    }
+
+    return {
+      sensitivity: {
+        base,
+        roles: roleDeltas,
+        cards: cardDeltas,
+        grew: false,
+      },
+      size,
+      heatmap,
+      error: null,
+    };
+  },
+
+  labOptimize: async (args): Promise<OptimizeResult> => {
+    await delay(120);
+    const beforeFirst = evalCondProb(args.main, args.roles, args.cond, 5);
+    const beforeSecond = evalCondProb(args.main, args.roles, args.cond, 6);
+    const w = args.weightFirst;
+    const beforeObj = w * beforeFirst + (1 - w) * beforeSecond;
+
+    const addId = args.maybe[0] ?? 94145021;
+    const removeId = args.main.find((id) => args.roles.brick?.includes(id)) ?? args.main[args.main.length - 1] ?? 11264180;
+    const fromAdd = args.main.filter((id) => id === addId).length;
+    const fromRem = args.main.filter((id) => id === removeId).length;
+
+    const afterFirst = Math.min(0.98, beforeFirst + 0.031);
+    const afterSecond = Math.min(0.99, beforeSecond + 0.027);
+    const afterObj = w * afterFirst + (1 - w) * afterSecond;
+
+    return {
+      before: { first: beforeFirst, second: beforeSecond, objective: beforeObj },
+      after: { first: afterFirst, second: afterSecond, objective: afterObj },
+      changes:
+        addId !== removeId
+          ? [
+              { id: addId, from: fromAdd, to: fromAdd + 1 },
+              { id: removeId, from: fromRem, to: Math.max(0, fromRem - 1) },
+            ]
+          : [],
+      size: args.main.length,
+    };
+  },
+
+  listRecipes: async (deckId: number): Promise<Recipe[]> =>
+    structuredClone(recipesState.filter((r) => r.deckId == null || r.deckId === deckId)),
+
+  saveRecipe: async (deckId, name, cond): Promise<Recipe> => {
+    const rec: Recipe = { id: nextRecipeId++, deckId, name, cond: structuredClone(cond) };
+    recipesState = [...recipesState, rec];
+    return structuredClone(rec);
+  },
+
+  deleteRecipe: async (id: number) => {
+    recipesState = recipesState.filter((r) => r.id !== id);
+  },
+
+  matchLog: async (deckId: number | null): Promise<MatchLog> => buildMatchLog(deckId),
+
+  logMatch: async (entry: MatchEntry): Promise<MatchEntry> => {
+    const deck = decksState.find((d) => d.id === entry.deckId);
+    const saved: MatchEntry = {
+      ...structuredClone(entry),
+      id: nextMatchId++,
+      deckName: entry.deckName ?? deck?.name ?? "Snake-Eye Fire King",
+      version: entry.version || "v2",
+      playedAt: entry.playedAt || new Date().toISOString().slice(0, 16).replace("T", " "),
+      result: outcomeOf(entry),
+    };
+    matchesState = [...matchesState, saved];
+    return structuredClone(saved);
+  },
+
+  updateMatch: async (entry: MatchEntry): Promise<MatchEntry> => {
+    const updated: MatchEntry = { ...structuredClone(entry), result: outcomeOf(entry) };
+    matchesState = matchesState.map((m) => (m.id === updated.id ? updated : m));
+    return structuredClone(updated);
+  },
+
+  deleteMatch: async (id: number) => {
+    matchesState = matchesState.filter((m) => m.id !== id);
+  },
+
+  exportMatches: async (_deckId: number | null, name: string) => `C:\\Users\\valer\\Downloads\\DuelForge\\${name.replace(/\s+/g, "-").toLowerCase()}-matches.csv`,
+
+  importMatches: async (deckId: number, text: string) => {
+    const lines = text.split(/\r?\n/).filter((l) => l.trim().length > 0);
+    const added = Math.max(1, lines.length - 1);
+    const deck = decksState.find((d) => d.id === deckId);
+    matchesState.push({
+      id: nextMatchId++,
+      deckId,
+      deckName: deck?.name ?? "Deck",
+      version: "v2",
+      playedAt: "2026-10-20 16:00",
+      opponent: "Tenpai Dragon",
+      first: true,
+      games: "WW",
+      result: "W",
+      tags: ["Importato"],
+      notes: "Partita importata da CSV",
+    });
+    return added;
+  },
+
+  sampleSize: async (p0: number, p1: number): Promise<[number, number]> => {
+    const diff = Math.max(0.02, Math.abs(p1 - p0));
+    const n80 = Math.round((0.5 / (diff * diff)) * 3.1);
+    const n90 = Math.round((0.5 / (diff * diff)) * 4.2);
+    return [n80, n90];
+  },
+
+  // Step 3 stubs (populated in full in Step 3)
   comboSearch: async (): Promise<ComboOutcome> => ({
     stop: "Exhausted",
     elapsedMs: 1200,
