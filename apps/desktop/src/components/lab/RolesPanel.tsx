@@ -110,13 +110,13 @@ export function RolesPanel({ main, roles, getCard, onChange, onSuggest, guessing
         {ids.map((id) => {
           const card = getCard(id);
           return (
-            <div key={id} className="flex items-center gap-2 rounded-lg px-2 py-1 hover:bg-surface-3">
+            <div key={id} className="flex items-center gap-1.5 xl:gap-2 rounded-lg px-1.5 xl:px-2 py-1 hover:bg-surface-3">
               <img src={cardImage(id, "small")} alt="" loading="lazy" className="h-9 w-[25px] shrink-0 rounded-[2px] object-cover" />
               <span className="min-w-0 flex-1 truncate text-xs" title={[card?.name, ...(reasons[id] ?? [])].filter(Boolean).join("\n")}>
                 {card?.name ?? id} <span className="text-faint">×{copies(id)}</span>
                 {reasons[id]?.length ? <span className="ml-1 text-[9px] text-faint" aria-label="ruoli trovati dal motore">✦</span> : null}
               </span>
-              <span className="flex shrink-0 gap-1">
+              <span className="flex shrink-0 gap-0.5 xl:gap-1">
                 {defs.map((d) => {
                   const on = roles[d.key]?.includes(id) ?? false;
                   return (
@@ -126,7 +126,7 @@ export function RolesPanel({ main, roles, getCard, onChange, onSuggest, guessing
                       onClick={() => toggle(d.key, id)}
                       aria-pressed={on}
                       title={`${d.label}${on ? " ✓" : ""}`}
-                      className="grid h-5 w-5 place-items-center rounded-full border text-[9px] font-bold transition-transform hover:scale-110"
+                      className="grid h-[18px] w-[18px] xl:h-5 xl:w-5 place-items-center rounded-full border text-[8.5px] xl:text-[9px] font-bold transition-transform hover:scale-110"
                       style={on ? { background: d.color, borderColor: d.color, color: "#fff" } : { borderColor: "var(--df-border-strong)", color: "var(--df-faint)" }}
                     >
                       {d.letter}

@@ -344,14 +344,18 @@ export function LogTab({ deck, log, scope, setScope, getCard, onChanged }: Props
                 <td className="py-1.5 pr-3">
                   <span className="flex items-center gap-1">
                     {[...m.games].map((g, i) => (
-                      <i key={i} className="grid h-5 w-5 place-items-center rounded-md text-[10px] font-bold text-bg not-italic" style={{ background: OUTCOME[g]?.tone }} title={`Game ${i + 1}: ${OUTCOME[g]?.long}`}>
+                      <i key={i} className="grid h-5 w-5 place-items-center rounded-md text-[10px] font-bold text-white not-italic" style={{ background: OUTCOME[g]?.tone }} title={`Game ${i + 1}: ${OUTCOME[g]?.long}`}>
                         {OUTCOME[g]?.short}
                       </i>
                     ))}
                     {m.games.length > 1 && <span className="ml-1 font-semibold" style={{ color: OUTCOME[m.result ?? "D"]?.tone }}>{OUTCOME[m.result ?? "D"]?.long}</span>}
                   </span>
                 </td>
-                {scope === "deck" && <td className="py-1.5 pr-3 text-muted">{versionInfo.get(m.version ?? "")?.name ?? "—"}</td>}
+                {scope === "deck" && (
+                  <td className="max-w-36 truncate py-1.5 pr-3 whitespace-nowrap text-muted" title={versionInfo.get(m.version ?? "")?.name}>
+                    {versionInfo.get(m.version ?? "")?.name ?? "—"}
+                  </td>
+                )}
                 <td className="max-w-72 py-1.5 pr-3">
                   <span className="flex flex-wrap items-center gap-1">
                     {m.tags.map((t) => (
@@ -400,8 +404,8 @@ function ShareBars({ rows }: { rows: { name: string; share: number; record: WinR
   return (
     <div className="flex flex-col gap-1.5">
       {items.map((i, k) => (
-        <div key={i.name} className="grid grid-cols-[7.5rem_minmax(0,1fr)_3rem] items-center gap-2 text-xs" tabIndex={0} data-tip={`${i.name}\n${pct(i.share)} delle partite${i.record ? `\n${score(i.record)}` : ""}`}>
-          <span className="truncate text-muted">{i.name}</span>
+        <div key={i.name} className="grid grid-cols-[8.5rem_minmax(0,1fr)_3rem] items-center gap-2 text-xs" tabIndex={0} data-tip={`${i.name}\n${pct(i.share)} delle partite${i.record ? `\n${score(i.record)}` : ""}`}>
+          <span className="truncate text-muted" title={i.name}>{i.name}</span>
           <span className="h-3.5 overflow-hidden rounded-r-[4px]">
             <span className="share-bar block h-full rounded-r-[4px]" style={{ width: `${(i.share / max) * 100}%`, background: i.record ? "var(--sec)" : "var(--df-faint)", animationDelay: `${k * 40}ms` }} />
           </span>

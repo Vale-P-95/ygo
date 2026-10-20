@@ -241,8 +241,8 @@ export function Lab({ artReady, onGoForge }: { artReady: boolean; onGoForge: () 
           </button>
         </div>
       ) : (
-        <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_330px]">
-          <div key={tab} className="bg-blueprint min-h-0 overflow-y-auto px-6 py-5">
+        <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_312px] xl:grid-cols-[minmax(0,1fr)_336px]">
+          <div key={tab} className="bg-blueprint min-h-0 overflow-y-auto px-4 py-4 xl:px-6 xl:py-5">
             {!deck || !overview ? (
               <p className="text-sm text-muted">Carico il deck…</p>
             ) : tab === "overview" ? (

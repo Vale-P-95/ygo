@@ -4,7 +4,7 @@ Regole in `AGENTS.md`. Per prendere un task, spostalo in "In corso" con agente, 
 
 ## In corso
 - [ ] Audit della copertura delle meccaniche su 45 deck: analisi dei risultati e correzioni generali (PIANO §30.2–30.3) — agente: claude-code — branch: claude/yugioh-deck-builder-simulator-cax0ya — file: crates/ygo-solver/src/search.rs, coverage.rs
-- [ ] Revisione dell'interfaccia (parte 2): Laboratorio statistico, grafici SVG, Bottega e Fucina su schermi piccoli (1280×800). — agente: antigravity — branch: gemini/lab-shelf-polish — file: apps/desktop/src/components/lab/CalculatorTab.tsx, apps/desktop/src/components/lab/RolesPanel.tsx, apps/desktop/src/components/lab/MatchEntryPanel.tsx, apps/desktop/src/components/lab/LogTab.tsx, apps/desktop/src/components/charts/TornadoChart.tsx, apps/desktop/src/components/charts/ConvergenceChart.tsx, apps/desktop/src/components/shelf/BoxEditor.tsx, apps/desktop/src/components/deck/DeckToolbar.tsx
+- [ ] Revisione dell'interfaccia (parte 2): Laboratorio statistico, grafici SVG, Bottega e Fucina su schermi piccoli (1280×800). — agente: antigravity — branch: gemini/lab-shelf-polish — file: apps/desktop/src/pages/Lab.tsx, apps/desktop/src/components/lab/OverviewTab.tsx, apps/desktop/src/components/lab/CalculatorTab.tsx, apps/desktop/src/components/lab/RolesPanel.tsx, apps/desktop/src/components/lab/MatchEntryPanel.tsx, apps/desktop/src/components/lab/LogTab.tsx, apps/desktop/src/components/charts.tsx, apps/desktop/src/components/BoxEditor.tsx, apps/desktop/src/components/DeckToolbar.tsx
 
 ## Da fare (in ordine di priorità)
 
