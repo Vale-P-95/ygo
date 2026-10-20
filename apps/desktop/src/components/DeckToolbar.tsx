@@ -46,7 +46,7 @@ export function DeckToolbar(p: Props) {
 
   return (
     <div className="relative z-20 border-b border-border bg-surface/70 backdrop-blur">
-      <div className="flex items-center gap-4 px-6 pt-3 pb-2">
+      <div className="flex items-center gap-3 xl:gap-4 px-4 xl:px-6 pt-2.5 xl:pt-3 pb-2">
         <div ref={menuRef} className="relative">
           <button
             type="button"
@@ -175,7 +175,7 @@ export function DeckToolbar(p: Props) {
           )}
         </div>
       </div>
-      <div className="flex items-center gap-4 px-6 pb-2.5">
+      <div className="flex items-center gap-3 xl:gap-4 px-4 xl:px-6 pb-2 xl:pb-2.5">
         <div className="flex gap-1 rounded-xl border border-border bg-bg-2 p-1">
           {(["md", "tcg", "ocg"] as const).map((f) => (
             <button
@@ -234,7 +234,7 @@ export function DeckToolbar(p: Props) {
             ))}
           </div>
         )}
-        <span className="ml-auto text-[11px] text-faint">Trascina le carte · clic destro su una carta del deck per toglierla · Ctrl+Z annulla</span>
+        <span className="ml-auto truncate text-[11px] text-faint"><span className="hidden xl:inline">Trascina le carte · </span>clic destro su una carta del deck per toglierla · Ctrl+Z annulla</span>
       </div>
     </div>
   );

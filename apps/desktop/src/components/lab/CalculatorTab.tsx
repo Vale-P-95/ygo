@@ -76,9 +76,11 @@ export function CalculatorTab({ deckId, main, roles, hand, getCard, root, setRoo
   const targetValue = (t: LabTarget) => `${t.kind}:${t.value}`;
   const parseTarget = (v: string): LabTarget => (v.startsWith("card:") ? { kind: "card", value: Number(v.slice(5)) } : { kind: "role", value: v.slice(5) });
 
-  const renderClause = (c: Clause) => (
+  const renderClause = (c: Clause) => {
+    const targetTitle = c.target.kind === "card" ? (getCard(c.target.value)?.name ?? String(c.target.value)) : roleLabel(c.target.value);
+    return (
     <div key={c.id} className="flex items-center gap-1.5">
-      <select className="field !w-32 shrink-0 !py-1 text-sm" value={c.op} onChange={(e) => edit(c.id, (n) => ((n as Clause).op = e.target.value as LabOp))} aria-label="Confronto">
+      <select className="field !w-28 xl:!w-32 shrink-0 !py-1 text-sm" value={c.op} onChange={(e) => edit(c.id, (n) => ((n as Clause).op = e.target.value as LabOp))} aria-label="Confronto">
         {OPS.map((o) => (
           <option key={o.op} value={o.op}>
             {o.label}
@@ -89,12 +91,12 @@ export function CalculatorTab({ deckId, main, roles, hand, getCard, root, setRoo
         type="number"
         min={0}
         max={10}
-        className="field !w-14 shrink-0 !py-1 text-center text-sm tabular-nums"
+        className="field !w-12 xl:!w-14 shrink-0 !py-1 text-center text-sm tabular-nums"
         value={c.n}
         onChange={(e) => edit(c.id, (n) => ((n as Clause).n = Math.max(0, Math.min(10, Number(e.target.value) || 0))))}
         aria-label="Numero di carte"
       />
-      <select className="field min-w-0 flex-1 !py-1 text-sm" value={targetValue(c.target)} onChange={(e) => edit(c.id, (n) => ((n as Clause).target = parseTarget(e.target.value)))} aria-label="Ruolo o carta">
+      <select className="field min-w-0 flex-1 !py-1 text-sm" title={targetTitle} value={targetValue(c.target)} onChange={(e) => edit(c.id, (n) => ((n as Clause).target = parseTarget(e.target.value)))} aria-label="Ruolo o carta">
         <optgroup label="Ruoli">
           {defs.map((d) => (
             <option key={d.key} value={`role:${d.key}`}>
@@ -114,10 +116,11 @@ export function CalculatorTab({ deckId, main, roles, hand, getCard, root, setRoo
         ✕
       </button>
     </div>
-  );
+    );
+  };
 
   const renderGroup = (g: Group, depth: number): ReactNode => (
-    <div key={g.id} className={`flex flex-col gap-2 ${depth ? "rounded-xl border border-dashed border-border-strong p-3" : ""}`}>
+    <div key={g.id} className={`flex flex-col gap-2 ${depth ? "rounded-xl border border-dashed border-border-strong p-2.5 xl:p-3" : ""}`}>
       <div className="flex flex-wrap items-center gap-2">
         <div className="flex gap-1 rounded-lg border border-border bg-bg-2 p-0.5">
           {(["all", "any"] as const).map((m) => (
@@ -167,7 +170,7 @@ export function CalculatorTab({ deckId, main, roles, hand, getCard, root, setRoo
   };
 
   return (
-    <div className="grid grid-cols-[minmax(0,1fr)_300px] gap-4">
+    <div className="grid grid-cols-[minmax(0,1fr)_272px] xl:grid-cols-[minmax(0,1fr)_300px] gap-4">
       <div className="flex min-w-0 flex-col gap-4">
         <section className="lab-card flex flex-col gap-3 p-4">
           <div className="flex items-baseline justify-between">

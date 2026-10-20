@@ -121,7 +121,7 @@ export function MatchEntryPanel({ deck, log, getCard, onLogged }: Props) {
   return (
     <aside className="flex min-h-0 flex-col border-l border-border bg-surface/80 backdrop-blur">
       <form
-        className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-4 pt-4 pb-4"
+        className="flex min-h-0 flex-1 flex-col gap-2.5 xl:gap-4 overflow-y-auto px-3.5 pt-3 pb-0 xl:px-4 xl:pt-4"
         onSubmit={(e) => {
           e.preventDefault();
           void submit();
@@ -238,8 +238,8 @@ export function MatchEntryPanel({ deck, log, getCard, onLogged }: Props) {
                     disabled={i > games.length}
                     aria-pressed={on}
                     onClick={() => setGame(i, g)}
-                    className={`rounded-lg border px-2 text-xs font-semibold transition-all disabled:opacity-35 ${g === "D" ? "py-1.5" : "flex-1 py-1.5"} ${bo === "bo1" && g !== "D" ? "!py-2.5 text-sm" : ""}`}
-                    style={on ? { background: o.tone, borderColor: o.tone, color: "var(--df-bg)" } : { borderColor: "var(--df-border)", color: "var(--df-muted)" }}
+                    className={`rounded-lg border px-2 text-xs font-semibold transition-all disabled:opacity-35 ${g === "D" ? "py-1.5" : "flex-1 py-1.5"} ${bo === "bo1" && g !== "D" ? "!py-1.5 xl:!py-2.5 text-sm" : ""}`}
+                    style={on ? { background: o.tone, borderColor: o.tone, color: "#fff" } : { borderColor: "var(--df-border)", color: "var(--df-muted)" }}
                     title={o.long}
                   >
                     {g === "D" ? o.short : o.long}
@@ -317,10 +317,12 @@ export function MatchEntryPanel({ deck, log, getCard, onLogged }: Props) {
           )}
         </div>
 
-        <button type="submit" className="btn btn-molten mt-auto justify-center" disabled={!ready}>
-          {busy ? "Registro…" : "Registra partita"}
-        </button>
-        <p className="-mt-2 text-center text-[11px] text-faint">Ctrl+Invio per registrare</p>
+        <div className="sticky bottom-0 -mx-3.5 xl:-mx-4 mt-auto flex flex-col gap-1 border-t border-border bg-surface/95 px-3.5 pt-2.5 pb-3 xl:px-4 xl:pt-3 xl:pb-3.5 backdrop-blur">
+          <button type="submit" className="btn btn-molten w-full justify-center" disabled={!ready}>
+            {busy ? "Registro…" : "Registra partita"}
+          </button>
+          <p className="text-center text-[11px] text-faint">Ctrl+Invio per registrare</p>
+        </div>
       </form>
     </aside>
   );

@@ -157,12 +157,12 @@ export function OverviewTab({ overview: o, hand, roles, getCard }: Props) {
       </div>
 
       <ChartCard title="Probabilità per carta" note={`Almeno una copia nella mano iniziale, ${hand === "first" ? "per primo (5 carte)" : "per secondo (6 carte)"}.`}>
-        <div className="grid grid-cols-2 gap-x-8 gap-y-1">
+        <div className="grid grid-cols-2 gap-x-5 xl:gap-x-8 gap-y-1.5">
           {cards.map((c) => {
             const v = c[hand];
             const card = getCard(c.id);
             return (
-              <div key={c.id} className="grid grid-cols-[22px_minmax(0,1fr)_120px_48px] items-center gap-2 text-xs" data-tip={`${card?.name ?? c.id}\nPer primo ${pct(c.first)} · per secondo ${pct(c.second)}`}>
+              <div key={c.id} className="grid grid-cols-[22px_minmax(0,1fr)_72px_42px] xl:grid-cols-[22px_minmax(0,1fr)_110px_46px] items-center gap-2 text-xs" data-tip={`${card?.name ?? c.id}\nPer primo ${pct(c.first)} · per secondo ${pct(c.second)}`}>
                 <img src={cardImage(c.id, "small")} alt="" loading="lazy" className="h-[30px] w-[22px] rounded-[2px] object-cover" />
                 <span className="flex min-w-0 items-center gap-1.5">
                   <span className="truncate">{card?.name ?? c.id}</span>
