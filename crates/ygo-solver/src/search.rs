@@ -36,8 +36,8 @@ use std::time::{Duration, Instant};
 use ygo_engine::auto::AutoPolicy;
 use ygo_engine::consts::{card_type, location};
 use ygo_engine::{
-    canonical_fingerprint, fingerprint, italian, Action, ActionKind, CardRef, Decision, DeckList, Duel, DuelState, Engine, Error, Opponent,
-    Placement, Step,
+    canonical_fingerprint, fingerprint, italian, Action, ActionKind, CardRef, Decision, DeckList, Duel, DuelState, Engine, Error, Event,
+    Opponent, Placement, Step,
 };
 
 use crate::coverage::{self, Audit, Coverage, Links, Mechanic};
@@ -702,6 +702,27 @@ fn loop_key(decision: &Decision, events: usize) -> u64 {
     h.finish()
 }
 
+/// The card an answer to your idle choice Sets (monsters first). Sets
+/// made one after the other change nothing but the cards set, so they are
+/// made in one order only: a line that Sets A then B reaches the state of
+/// the one that Sets B then A, and would cost a replay to find it out.
+fn set_key(decision: &Decision, answer: &[u8]) -> Option<(u8, u32)> {
+    let Decision::IdleCmd { monster_settable, spell_settable, .. } = decision else { return None };
+    let v = i32::from_le_bytes(answer.get(..4)?.try_into().ok()?);
+    match v & 0xffff {
+        3 => monster_settable.get((v >> 16) as usize).map(|c| (0, c.code)),
+        4 => spell_settable.get((v >> 16) as usize).map(|c| (1, c.code)),
+        _ => None,
+    }
+}
+
+/// The Set made at your last free moment, if nothing happened since.
+fn after_answer(last_set: &mut Option<(u8, u32)>, decision: &Decision, answer: &[u8]) {
+    if is_free(decision) {
+        *last_set = set_key(decision, answer);
+    }
+}
+
 /// The situations met since your last free moment ([`loop_key`]).
 #[derive(Default)]
 struct SinceFree {
@@ -1029,10 +1050,15 @@ fn play(shared: &Shared, edge: &Edge, dive: &mut Dive) -> Result<(), Error> {
     // Your chain links, to tell which of your effects negates another.
     let mut links = Links::default();
     let db = shared.engine.cards();
+    let mut last_set: Option<(u8, u32)> = None;
     for answer in &line.answers {
         if let Step::Decision { decision, events } = duel.advance()? {
             since_free.meet(&decision, events.len());
             pending.answered(&decision, answer);
+            if events.iter().any(|e| matches!(e, Event::Chaining { .. })) {
+                last_set = None;
+            }
+            after_answer(&mut last_set, &decision, answer);
             for e in &events {
                 let _ = links.follow(db, e);
             }
@@ -1046,6 +1072,10 @@ fn play(shared: &Shared, edge: &Edge, dive: &mut Dive) -> Result<(), Error> {
         if let Step::Decision { decision, events } = duel.advance()? {
             since_free.meet(&decision, events.len());
             pending.answered(&decision, &answer);
+            if events.iter().any(|e| matches!(e, Event::Chaining { .. })) {
+                last_set = None;
+            }
+            after_answer(&mut last_set, &decision, &answer);
             for e in &events {
                 let _ = links.follow(db, e);
             }
@@ -1066,7 +1096,10 @@ fn play(shared: &Shared, edge: &Edge, dive: &mut Dive) -> Result<(), Error> {
         if shared.halted() {
             return Ok(());
         }
-        let (step, mut actions) = duel.advance_auto_seen(&config.policy, &mut line.answers, |d, a| pending.answered(d, a))?;
+        let (step, mut actions) = duel.advance_auto_seen(&config.policy, &mut line.answers, |d, a| {
+            pending.answered(d, a);
+            after_answer(&mut last_set, d, a);
+        })?;
         let (turn, _, phase) = duel.turn_info();
         let (Step::Decision { events, .. } | Step::End { events }) = &step;
         let mut negated = false;
@@ -1086,6 +1119,9 @@ fn play(shared: &Shared, edge: &Edge, dive: &mut Dive) -> Result<(), Error> {
             }
         }
         drop(cover);
+        if events.iter().any(|e| matches!(e, Event::Chaining { .. })) {
+            last_set = None;
+        }
         // On your turn the opponent never answers: an activation negated, or
         // its effect, was negated by one of your own cards (Invoked Mechaba
         // on your own Hyperinvoked Aeon). Such a line only loses.
@@ -1136,6 +1172,10 @@ fn play(shared: &Shared, edge: &Edge, dive: &mut Dive) -> Result<(), Error> {
                     });
                 }
             }
+        }
+        // Sets in a row in one order only (left out like the answer policy's).
+        if let Some(k) = last_set.filter(|_| matches!(decision, Decision::IdleCmd { .. })) {
+            actions.retain(|a| set_key(&decision, &a.response).is_none_or(|s| s >= k));
         }
         let mut audit = shared.coverage.as_ref().map(|_| Audit::new(duel.actions(&decision), &actions));
         let record = |audit: Option<Audit>, chosen: Option<&[u8]>| {
@@ -1237,6 +1277,7 @@ fn play(shared: &Shared, edge: &Edge, dive: &mut Dive) -> Result<(), Error> {
         }
         undoable = (free && first.kind != ActionKind::Pass) || (undoable && !free);
         pending.answered(&decision, &first.response);
+        after_answer(&mut last_set, &decision, &first.response);
         duel.respond(&first.response);
         line.choose(first.response.clone(), italian::choice(first));
     }
@@ -1611,5 +1652,58 @@ mod tests {
         assert_eq!(prefix.answers, vec![vec![1], vec![2], vec![3]]);
         assert_eq!(prefix.choices, vec!["a".to_owned()]);
         assert_eq!((answer, label.as_str()), (vec![4], "b"));
+    }
+
+    fn card(code: u32, sequence: u32) -> CardRef {
+        CardRef { code, controller: 0, location: location::HAND, sequence, position: 0 }
+    }
+
+    fn pick(index: i32) -> Vec<u8> {
+        [1i32, index].iter().flat_map(|v| v.to_le_bytes()).collect()
+    }
+
+    #[test]
+    fn the_same_cards_picked_in_another_order_meet() {
+        let (a, b, c) = (card(10, 0), card(20, 1), card(30, 2));
+        let select = |picked: Vec<CardRef>| Decision::SelectUnselectCard {
+            player: 0,
+            finishable: false,
+            cancelable: false,
+            min: 2,
+            max: 2,
+            selectable: [a, b, c].into_iter().filter(|x| !picked.contains(x)).collect(),
+            unselectable: picked,
+            hint: 7,
+        };
+        let mut ab = Pending::default();
+        ab.answered(&select(vec![]), &pick(0));
+        ab.answered(&select(vec![a]), &pick(0));
+        let mut ba = Pending::default();
+        ba.answered(&select(vec![]), &pick(1));
+        ba.answered(&select(vec![b]), &pick(0));
+        assert_eq!(ab.value(), ba.value());
+        let mut ac = Pending::default();
+        ac.answered(&select(vec![]), &pick(0));
+        ac.answered(&select(vec![a]), &pick(1));
+        assert_ne!(ab.value(), ac.value());
+    }
+
+    #[test]
+    fn sets_are_read_from_idle_answers() {
+        let idle = Decision::IdleCmd {
+            player: 0,
+            summonable: vec![],
+            special_summonable: vec![],
+            repositionable: vec![],
+            monster_settable: vec![card(5, 0)],
+            spell_settable: vec![card(7, 1), card(3, 2)],
+            activatable: vec![],
+            to_battle_phase: false,
+            to_end_phase: true,
+        };
+        let cmd = |kind: i32, i: i32| ((i << 16) | kind).to_le_bytes().to_vec();
+        assert_eq!(set_key(&idle, &cmd(3, 0)), Some((0, 5)));
+        assert_eq!(set_key(&idle, &cmd(4, 1)), Some((1, 3)));
+        assert_eq!(set_key(&idle, &cmd(7, 0)), None);
     }
 }

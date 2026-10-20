@@ -154,6 +154,13 @@ cargo run --release -p ygo-cli -- hand-traps --deck tests/fixtures/decks/invoked
 # trovati giocandole: da sole, sulla board dello starter migliore
 cargo run --release -p ygo-cli -- roles --deck tests/fixtures/decks/invoked-siracusa-md.ydk
 
+# Copertura delle meccaniche: una mano per ogni carta del Main Deck; per ogni
+# Evocazione, Set ed effetto delle carte del deck dice quante volte il motore
+# lo offre, lo scarta (e per quale regola), lo prova, lo attiva davvero, e se
+# viene negato da un'altra tua carta. Serve a trovare carte che la ricerca non
+# gioca. DUELFORGE_DEBUG_NEGATION=1 stampa le linee scartate per auto-negazione.
+cargo run --release -p ygo-cli -- coverage --deck tests/fixtures/decks/invoked-siracusa-md.ydk --nodes 2000
+
 # Collaudo a tappeto: duelli tra deck casuali con scelte casuali; segnala ogni
 # scelta senza risposte o risposta rifiutata dal motore
 cargo run --release -p ygo-cli -- sweep --duels 6000 --max-decisions 600 --max-turns 10

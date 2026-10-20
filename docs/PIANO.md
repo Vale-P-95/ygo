@@ -1,4 +1,4 @@
-# DuelForge: piano di progetto (v1.8)
+# DuelForge: piano di progetto (v1.9)
 
 > Nome provvisorio. Il documento è la proposta iniziale: una volta approvate le decisioni aperte (§14) diventa la roadmap di sviluppo.
 >
@@ -11,6 +11,8 @@
 > **v0.5 (18/10/2026)**: Fase 1 realizzata; risultati nella §17.
 >
 > **v0.6 (18/10/2026)**: Fase 2, prima parte: editor dei deck in stile Master Duel; risultati nella §18.
+>
+> **v1.9 (20/10/2026)**: revisione del lavoro della v1.8 (21 difetti confermati e corretti); nuovo strumento di copertura delle meccaniche (`duelforge-cli coverage`) passato su 45 deck; bug di meccanica e inefficienze trovati con i dati e corretti; piano per lavorare con due agenti (§30).
 >
 > **v1.8 (19/10/2026)**: la ricerca non perde più linee (chiave dei nodi, cicli, doppioni), è guidata dal valore misurato delle carte e impara durante la ricerca; ruoli automatici e confronto tra deck nel Laboratorio; linea della combo in forma visuale; ordine dei prossimi lavori (§29).
 >
@@ -1204,3 +1206,61 @@ Esempi, Invoked:
 - **Board breaker** riconosciuti dal testo: vanno misurati con il motore (giocandoli contro una board).
 - **Velocità del motore.** Creare il duello per ogni replay vale circa il 45% del tempo; gli script sono già in bytecode, quindi il margine è nel numero di replay, non nel caricamento.
 
+
+## 30. Revisione, copertura delle meccaniche e lavoro con due agenti (20/10/2026)
+
+### 30.1 Revisione del lavoro della v1.8
+Una revisione a più agenti, con ogni segnalazione verificata da un secondo agente che provava a smentirla, ha confermato 21 difetti (4 smentiti). Tutti corretti:
+- **Ricerca**
+  - Un "Annulla" che torna a un passo precedente della stessa procedura (scegliere un Mostro Fusione, annullare la scelta dei materiali) moltiplicava le linee a ogni giro: la guardia anti-ciclo vedeva solo la parte giocata dal vivo, non quella rigiocata. Ora la chiave di ciclo è "stessa scelta, nessun evento in mezzo" e si calcola anche durante il replay, senza costo.
+  - Le carte scelte in una selezione sono un insieme: gli stessi materiali scelti in un altro ordine sono di nuovo un nodo solo, e il filtro delle scelte già fatte da un'altra linea funziona.
+  - Una board provvisoria viene sostituita solo dalla End Phase della sua linea.
+  - Niente giro di apprendimento dopo lo stop.
+- **Turno di prova**: un trigger della End Phase offerto nella stessa finestra di effetti rapidi ora si usa. Gli effetti rapidi sono quelli già offerti nella Main Phase.
+- **Valori delle carte**
+  - Un turno di prova che non si è potuto giocare lascia la carta non misurata, invece di dichiararla morta.
+  - Una handtrap è morta solo se è il campo a fermarla. Si misura con campo e Cimitero non vuoti: Dimension Shifter non si usa dopo una combo.
+- **Carte piazzate** (ruoli, valori)
+  - Una carta Pendulum nelle zone 0 o 4 diventa una Scala.
+  - Un mostro dell'Extra Deck conta come Evocato con la sua evocazione ("se è stato Evocato tramite Link").
+  - I materiali Xyz sono quelli veri, e la carta piazzata è una delle copie del deck.
+- **Esposizione**
+  - Le carte pescate da un effetto contano per Ash e Droll.
+  - Mostri Evocati insieme contano una volta per Maxx "C": si legge il messaggio di fine Evocazione del motore.
+- **App**
+  - L'analisi dei ruoli avviata su un deck non finisce più su un altro deck.
+  - Il Confronto riparte quando cambia il deck.
+  - Stop durante la misura dei valori ferma la ricerca.
+  - "Termina la selezione" appare come scelta.
+  - Il conteggio dei passi nascosti è giusto.
+
+### 30.2 Lo strumento di copertura
+`duelforge-cli coverage --deck X` gioca una mano per ogni carta del Main Deck (la carta e altre quattro). Per ogni Evocazione, Set ed effetto delle carte del deck conta quante volte il motore:
+- lo offre;
+- lo scarta, e per quale regola: policy delle risposte, ritorno su linee già viste, linea troppo lunga;
+- lo prova;
+- lo attiva davvero.
+
+Conta anche le negazioni: quando un'altra tua carta lo nega, quando la carta era disabilitata mentre si risolveva, e quando nega un tuo anello. Le azioni ora portano la descrizione dell'effetto, quindi due effetti della stessa carta si distinguono. È passato su 45 deck (37 di Master Duel Meta e 8 archetipi): nessuna linea interrotta da errori del motore.
+
+### 30.3 Bug di meccanica e inefficienze trovati con i dati
+- **Linee valide scartate (Pendulum).** Il motore manda lo stesso messaggio "effetto annullato" sia quando un tuo effetto ne nega un altro, sia quando la carta è disabilitata nel momento in cui il suo anello si risolve. Attivare una carta Pendulum come Scala dà il secondo messaggio, ma la Scala resta al suo posto. La regola "nessuna auto-negazione" (§29.8) scartava quindi linee buone: nel deck Power Patron fino al 79% delle attivazioni di una carta. Ora la linea si scarta solo se la nega un altro tuo anello mentre si risolve (Invoked Mechaba). L'altro caso si conta a parte.
+- **Negazioni delle proprie catene imparate.** Mechaba, Red-Eyes Dark Dragoon e Cyber Dragon Infinity venivano provati in risposta alle proprie catene: ogni prova costava un replay, poi la linea veniva scartata. Ora il primo caso insegna alla ricerca che quell'effetto nega i tuoi anelli, e da lì non viene più concatenato alle tue catene.
+  - Invoked: le linee scartate per l'effetto di Aleister scendono da 283 a 67 su 19 mani.
+- **I Set provati in tutti gli ordini.** Mettere A poi B o B poi A porta allo stesso stato, ma lo si scopriva solo dopo un replay. Nei deck con molte Trappole i Set erano una buona parte di tutte le scelte (Branded: 8228 su 26237). Ora i Set uno dopo l'altro si fanno in un ordine solo.
+- **Effetti che sembrano inutili ma non lo sono.** L'effetto di Aleister che dà 1000 ATK al primo turno compare nelle linee migliori: serve a mandare Aleister al Cimitero, da dove Invocation lo bandisce come materiale. Una regola "niente cambi di ATK al primo turno" avrebbe perso queste linee, quindi non è stata aggiunta.
+- **Carte mai offerte.** Sono quasi sempre carte che al primo turno non si possono usare (Lava Golem, PSY-Framegear Gamma, handtrap) o mostri dell'Extra Deck non raggiunti con il budget della prova.
+
+### 30.4 Limiti rimasti
+- **Ruoli, prova dell'estensore.** La board dello starter viene ricreata in un turno nuovo: l'Evocazione Normale e gli effetti "una volta per turno" tornano disponibili. È un'approssimazione: l'estensore può sembrare migliore di quanto sia.
+- **Carte piazzate.**
+  - Le carte Equipaggiamento sono piazzate senza il mostro equipaggiato.
+  - Un mostro dell'Extra Deck piazzato risulta Evocato, ma senza i suoi materiali: Apollousa ha 0 ATK. Si corregge quando una board vera con quella carta passa il turno di prova (apprendimento, §29.4).
+- **Messaggio "effetto annullato" ambiguo.** Una carta disabilitata da un effetto duraturo tuo (Crossout Designator sul proprio nome) non fa più scartare la linea. Quella linea ha solo sprecato una carta, e la stima la mette comunque più in basso.
+
+### 30.5 Due agenti sullo stesso repository
+Piano e prompt per far lavorare Claude Code e Google Antigravity (Gemini) sullo stesso repository, a turno e con revisione incrociata, sono stati consegnati in chat il 20/10/2026. In sintesi:
+- `main` protetto e un branch per agente;
+- `AGENTS.md` con le regole comuni (letto da Antigravity e, tramite `@AGENTS.md`, da Claude Code);
+- `docs/TASKS.md` come bacheca con il lock dei file;
+- protocollo di misura obbligatorio per chi tocca il motore.
