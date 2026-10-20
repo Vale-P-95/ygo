@@ -3,7 +3,7 @@
 Regole in `AGENTS.md`. Per prendere un task, spostalo in "In corso" con agente, branch e file che tocchi (è il lock), poi committa e pusha questa modifica prima di cominciare.
 
 ## In corso
-- [ ] Audit della copertura delle meccaniche su 45 deck: analisi dei risultati e correzioni generali (PIANO §30.2–30.3) — agente: claude-code — branch: claude/yugioh-deck-builder-simulator-cax0ya — file: crates/ygo-solver/src/search.rs, coverage.rs
+- [ ] Classificazione delle board più profonda, con criteri validati sui deck di Master Duel Meta (#47) — agente: claude-code — branch: claude/yugioh-deck-builder-simulator-cax0ya — file: crates/ygo-solver/src/probe.rs, value.rs, explain.rs, apps/desktop/src-tauri/src/lib.rs (score_view)
 
 ## Da fare (in ordine di priorità)
 
@@ -13,7 +13,6 @@ Regole in `AGENTS.md`. Per prendere un task, spostalo in "In corso" con agente, 
 - [ ] Guida per chi usa l'app per la prima volta (prima apertura: scaricare i dati, creare un deck, cercare le combo), in italiano.
 
 ### Motore e ricerca (Claude)
-- [ ] Classificazione delle board più profonda, con criteri validati sui deck di Master Duel Meta (#47; PIANO §29.10).
 - [ ] Linee del video Invoked: come si classificano, correzioni generali (#45).
 - [ ] Scale e pesi delle metriche del punteggio (#43).
 - [ ] Turno di prova contro un deck avversario scelto dall'utente (#44).
@@ -25,6 +24,7 @@ Regole in `AGENTS.md`. Per prendere un task, spostalo in "In corso" con agente, 
 (Gemini scrive qui i dati nuovi che gli servono; li aggiunge Claude in backend e `api.ts`.)
 
 ## Completati (recenti; lo storico è in `docs/PIANO.md`)
+- [x] Audit della copertura delle meccaniche su 45 deck: nessuna linea interrotta da errori del motore (PIANO §30.2–30.3).
 - [x] Revisione della v1.8: 21 difetti confermati e corretti (PIANO §30.1).
 - [x] Strumento `duelforge-cli coverage`; linee Pendulum non più scartate; negazioni delle proprie catene imparate; Set in un solo ordine (PIANO §30.2–30.3).
 - [x] Punteggio leggibile con i tasti "i"; handtrap morte come carte da scartare; metrica di esposizione (PIANO §29).
