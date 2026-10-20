@@ -50,7 +50,19 @@ const PROFILES_INFO = [
 ];
 
 /** Profiles and one slider per metric; a change ranks the boards again at once. */
-export function WeightsPanel({ profile, weights, open, onToggle }: { profile: string; weights: Weights; open: boolean; onToggle: () => void }) {
+export function WeightsPanel({
+  profile,
+  weights,
+  open,
+  compact = false,
+  onToggle,
+}: {
+  profile: string;
+  weights: Weights;
+  open: boolean;
+  compact?: boolean;
+  onToggle: () => void;
+}) {
   return (
     <div className="flex flex-col gap-2">
       <div className="flex flex-wrap items-center gap-1.5 text-xs">
@@ -77,8 +89,8 @@ export function WeightsPanel({ profile, weights, open, onToggle }: { profile: st
         </button>
       </div>
       {open && (
-        <div className="lab-card grid grid-cols-2 gap-x-5 gap-y-2 p-3 anim-fade">
-          <p className="col-span-2 text-[11px] text-muted">
+        <div className={`lab-card grid ${compact ? "grid-cols-1 2xl:grid-cols-2" : "grid-cols-1 xl:grid-cols-2"} gap-x-5 gap-y-2 p-3 anim-fade`}>
+          <p className={`${compact ? "2xl:col-span-2" : "xl:col-span-2"} text-[11px] text-muted`}>
             Più il peso è alto, più la voce conta. Le voci in rosso tolgono punti: più il peso è vicino a −1, più pesano contro la board.
           </p>
           {METRICS.map((m) => (
@@ -96,9 +108,9 @@ export function WeightsPanel({ profile, weights, open, onToggle }: { profile: st
                 value={weights[m.key]}
                 onChange={(e) => setWeight(m.key, Number(e.target.value))}
                 aria-label={`Peso di ${m.label}`}
-                className="min-w-0 flex-1 accent-[var(--sec)]"
+                className="min-w-[80px] flex-1 accent-[var(--sec)]"
               />
-              <span className="w-9 text-right tabular-nums">{weights[m.key].toFixed(2)}</span>
+              <span className="w-9 shrink-0 text-right tabular-nums">{weights[m.key].toFixed(2)}</span>
             </div>
           ))}
         </div>
@@ -278,7 +290,7 @@ function Risk({ name, text, counts }: { name: string; text: string; counts: bool
       <span className={counts ? "text-danger" : "text-faint"} aria-hidden>
         {counts ? "●" : "○"}
       </span>
-      <span className="w-36 shrink-0 font-medium">{name}</span>
+      <span className="w-32 xl:w-36 shrink-0 font-medium">{name}</span>
       <span className={`min-w-0 text-[11px] ${counts ? "text-muted" : "text-faint"}`}>{text}</span>
     </li>
   );
