@@ -98,7 +98,7 @@ pub struct UserStore {
 }
 
 /// Brings databases created by older versions up to the current schema.
-fn migrate(conn: &Connection) -> Result<(), Error> {
+pub(crate) fn migrate(conn: &Connection) -> Result<(), Error> {
     conn.execute_batch(SCHEMA)?;
     // Columns added after the first release, with their defaults.
     for (column, default) in [("maybe", "'[]'"), ("roles", "'{}'"), ("deck_box", "'{}'")] {
@@ -106,6 +106,18 @@ fn migrate(conn: &Connection) -> Result<(), Error> {
             conn.query_row("SELECT COUNT(*) FROM pragma_table_info('decks') WHERE name = ?", [column], |r| r.get::<_, i64>(0))? > 0;
         if !present {
             conn.execute_batch(&format!("ALTER TABLE decks ADD COLUMN {column} TEXT NOT NULL DEFAULT {default}"))?;
+        }
+    }
+    // Dates imported from CSV were once kept as typed (31/12/2026), and the
+    // log is sorted by this text: bring them to one form. Dates that cannot
+    // be read stay as they are.
+    let mut stmt = conn.prepare(
+        "SELECT id, played_at FROM matches WHERE played_at NOT GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9] [0-9][0-9]:[0-9][0-9]'",
+    )?;
+    let odd: Vec<(i64, String)> = stmt.query_map([], |r| Ok((r.get(0)?, r.get(1)?)))?.collect::<Result<_, _>>()?;
+    for (id, date) in odd {
+        if let Some(date) = crate::matchlog::canonical_date(&date) {
+            conn.execute("UPDATE matches SET played_at = ?2 WHERE id = ?1", rusqlite::params![id, date])?;
         }
     }
     Ok(())
