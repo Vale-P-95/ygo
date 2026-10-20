@@ -8,7 +8,8 @@ Regole in `AGENTS.md`. Per prendere un task, spostalo in "In corso" con agente, 
 ## Da fare (in ordine di priorità)
 
 ### Interfaccia (Gemini)
-- [ ] Guida per chi usa l'app per la prima volta (prima apertura: scaricare i dati, creare un deck, cercare le combo), in italiano.
+- [ ] Navigazione da tastiera e palette dei comandi rapida (`Ctrl+1..5` per le sezioni, `?` per la guida e le scorciatoie).
+- [ ] Confronto affiancato tra due board nel Circolo Arcano (differenze su campo, interruzioni, resilienza e punteggio).
 
 ### Motore e ricerca (Claude)
 - [ ] Classificazione delle board più profonda, con criteri validati sui deck di Master Duel Meta (#47; PIANO §29.10).
@@ -23,7 +24,8 @@ Regole in `AGENTS.md`. Per prendere un task, spostalo in "In corso" con agente, 
 (Gemini scrive qui i dati nuovi che gli servono; li aggiunge Claude in backend e `api.ts`.)
 
 ## Completati (recenti; lo storico è in `docs/PIANO.md`)
-- [x] Revisione dell'interfaccia (parte 2): Laboratorio statistico, grafici SVG, Bottega e Fucina su schermi piccoli (`1280×800`).
+- [x] Guida per chi usa l'app per la prima volta (prima apertura: scaricare i dati, creare un deck, cercare le combo), in italiano (`WelcomeModal`, checklist in `Overview`, pulsante `Guida rapida`).
+- [x] Revisione dell'interfaccia (parte 2): Laboratorio statistico, grafici SVG, Bottega e Fucina su schermi piccoli (`1280×800`, PR #3).
 - [x] Revisione dell'interfaccia (parte 1): tema chiaro "Pergamena" e Circolo Arcano su schermi piccoli (`1280×800`, PR #2).
 - [x] Backend finto per sviluppare l'interfaccia nel browser (`VITE_MOCK=1` in `src/lib/api.ts` e `src/lib/mock.ts`, PR #1).
 - [x] Revisione della v1.8: 21 difetti confermati e corretti (PIANO §30.1).
