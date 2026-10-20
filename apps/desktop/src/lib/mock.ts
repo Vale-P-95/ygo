@@ -66,6 +66,13 @@ interface CardSeed {
   handtrap?: boolean;
 }
 
+const RARITY_MAP: Record<string, string> = {
+  UR: "Ultra Rare",
+  SR: "Super Rare",
+  R: "Rare",
+  N: "Common",
+};
+
 function makeCard(s: CardSeed): Card {
   return {
     id: s.id,
@@ -85,7 +92,7 @@ function makeCard(s: CardSeed): Card {
     scale: null,
     linkRating: s.linkRating ?? null,
     linkMarkers: s.linkMarkers ?? [],
-    mdRarity: s.mdRarity ?? "UR",
+    mdRarity: RARITY_MAP[s.mdRarity ?? "UR"] ?? s.mdRarity ?? "Ultra Rare",
     formats: ["Master Duel", "TCG", "OCG"],
     tcgDate: "2023-10-20",
     ocgDate: "2023-07-22",
