@@ -9,6 +9,7 @@ interface Props {
   hand: "first" | "second";
   roles: Record<string, number[]>;
   getCard: (id: number) => Card | undefined;
+  onExploreCombo?: (cardId: number) => void;
 }
 
 const METRICS: { key: keyof HandStats; name: string; def: string; count?: boolean }[] = [
@@ -26,7 +27,7 @@ const METRICS: { key: keyof HandStats; name: string; def: string; count?: boolea
 const DIST_LABELS = ["0", "1", "2", "3", "4", "5+"];
 
 /** Panoramica: the deck's main odds at a glance. */
-export function OverviewTab({ overview: o, hand, roles, getCard }: Props) {
+export function OverviewTab({ overview: o, hand, roles, getCard, onExploreCombo }: Props) {
   const [oppHandtraps, setOppHandtraps] = useState(10);
   const cur = o[hand];
   const other = hand === "first" ? o.second : o.first;
@@ -162,7 +163,11 @@ export function OverviewTab({ overview: o, hand, roles, getCard }: Props) {
             const v = c[hand];
             const card = getCard(c.id);
             return (
-              <div key={c.id} className="grid grid-cols-[22px_minmax(0,1fr)_72px_42px] xl:grid-cols-[22px_minmax(0,1fr)_110px_46px] items-center gap-2 text-xs" data-tip={`${card?.name ?? c.id}\nPer primo ${pct(c.first)} · per secondo ${pct(c.second)}`}>
+              <div
+                key={c.id}
+                className="group grid grid-cols-[22px_minmax(0,1fr)_auto_64px_42px] xl:grid-cols-[22px_minmax(0,1fr)_auto_100px_46px] items-center gap-2 text-xs"
+                data-tip={`${card?.name ?? c.id}\nPer primo ${pct(c.first)} · per secondo ${pct(c.second)}`}
+              >
                 <img src={cardImage(c.id, "small")} alt="" loading="lazy" className="h-[30px] w-[22px] rounded-[2px] object-cover" />
                 <span className="flex min-w-0 items-center gap-1.5">
                   <span className="truncate">{card?.name ?? c.id}</span>
@@ -175,6 +180,16 @@ export function OverviewTab({ overview: o, hand, roles, getCard }: Props) {
                       </i>
                     ))}
                 </span>
+                {onExploreCombo && (
+                  <button
+                    type="button"
+                    onClick={() => onExploreCombo(c.id)}
+                    title={`Cerca nel Circolo Arcano le combo che partono da ${card?.name ?? c.id}`}
+                    className="opacity-0 group-hover:opacity-100 focus:opacity-100 rounded px-1.5 py-0.5 text-[10px] font-medium border border-sec/40 bg-sec/15 text-text hover:border-sec hover:bg-sec/25 transition shrink-0"
+                  >
+                    ✦ Combo
+                  </button>
+                )}
                 <span className="h-1.5 overflow-hidden rounded-full bg-surface-3">
                   <span className="block h-full rounded-full bg-sec transition-[width] duration-500" style={{ width: `${Math.min(100, (v / 0.65) * 100)}%` }} />
                 </span>

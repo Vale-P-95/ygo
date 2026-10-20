@@ -3,6 +3,7 @@ import { api, cardImage, type DeckBox, type ShelfDeck } from "../lib/api";
 import { MATERIALS, PALETTE, resolveLook, SHAPES } from "../lib/boxes";
 import { useCardCache } from "../lib/cards";
 import { FORMAT_LABELS } from "../lib/deck";
+import { roleDefs } from "../lib/roles";
 import { sound } from "../lib/sound";
 import { DeckBox3D } from "./DeckBox3D";
 
@@ -11,14 +12,17 @@ interface Props {
   onBox: (box: DeckBox) => void;
   onRename: (name: string) => void;
   onOpen: () => void;
+  onOpenLab?: () => void;
+  onOpenCombo?: () => void;
   onDuplicate: () => void;
   onDelete: () => void;
   onClose: () => void;
 }
 
 /** Side panel to customise a deck box: color, material, shape and showcase cards. */
-export function BoxEditor({ deck, onBox, onRename, onOpen, onDuplicate, onDelete, onClose }: Props) {
+export function BoxEditor({ deck, onBox, onRename, onOpen, onOpenLab, onOpenCombo, onDuplicate, onDelete, onClose }: Props) {
   const [cards, setCards] = useState<number[]>([]);
+  const [roles, setRoles] = useState<Record<string, number[]>>({});
   const [confirm, setConfirm] = useState(false);
   const cache = useCardCache();
   const { request } = cache;
@@ -31,6 +35,7 @@ export function BoxEditor({ deck, onBox, onRename, onOpen, onDuplicate, onDelete
       if (cancelled || !d) return;
       const ids = [...new Set([...d.main, ...d.extra, ...d.side])];
       setCards(ids);
+      setRoles(d.roles ?? {});
       request(ids);
     });
     return () => {
@@ -50,6 +55,14 @@ export function BoxEditor({ deck, onBox, onRename, onOpen, onDuplicate, onDelete
     sound.play(current.includes(id) ? "toggle" : "select");
     onBox({ ...box, showcase: next });
   };
+
+  const defs = roleDefs(roles);
+  const activeRoles = defs
+    .map((def) => ({
+      def,
+      count: (roles[def.key] ?? []).length,
+    }))
+    .filter((r) => r.count > 0);
 
   const label = "eyebrow mb-2";
   return (
@@ -96,6 +109,53 @@ export function BoxEditor({ deck, onBox, onRename, onOpen, onDuplicate, onDelete
             )}
           </p>
         </div>
+
+        {/* Ruoli del deck nel Laboratorio */}
+        <section>
+          <div className="mb-2 flex items-baseline justify-between">
+            <p className={label}>Ruoli nel Laboratorio</p>
+            {onOpenLab && (
+              <button
+                type="button"
+                onClick={onOpenLab}
+                className="text-[11px] text-sec hover:underline"
+              >
+                Apri ↗
+              </button>
+            )}
+          </div>
+          {activeRoles.length > 0 ? (
+            <div className="flex flex-wrap gap-1.5">
+              {activeRoles.map(({ def, count }) => (
+                <span
+                  key={def.key}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-border bg-bg-2/80 px-2 py-0.5 text-xs text-text"
+                  title={def.hint}
+                >
+                  <span
+                    className="inline-block h-2 w-2 rounded-full shrink-0"
+                    style={{ background: def.color }}
+                  />
+                  <span>{def.label}</span>
+                  <span className="font-mono text-[10px] text-muted">({count})</span>
+                </span>
+              ))}
+            </div>
+          ) : (
+            <p className="text-xs text-muted">
+              Nessun ruolo assegnato.{" "}
+              {onOpenLab && (
+                <button
+                  type="button"
+                  onClick={onOpenLab}
+                  className="text-sec hover:underline"
+                >
+                  Configura nel Laboratorio
+                </button>
+              )}
+            </p>
+          )}
+        </section>
 
         <section>
           <p className={label}>Colore</p>
@@ -195,26 +255,52 @@ export function BoxEditor({ deck, onBox, onRename, onOpen, onDuplicate, onDelete
           </div>
         </section>
       </div>
-      <div className="flex gap-2 border-t border-border px-5 py-3">
-        <button type="button" className="btn btn-molten flex-1" onClick={onOpen}>
-          Apri nella Fucina
-        </button>
-        <button type="button" className="btn btn-ghost" onClick={onDuplicate}>
-          Duplica
-        </button>
-        <button
-          type="button"
-          className={`btn ${confirm ? "bg-danger text-white" : "btn-ghost"}`}
-          onClick={() => {
-            if (confirm) onDelete();
-            else {
-              sound.play("toggle");
-              setConfirm(true);
-            }
-          }}
-        >
-          {confirm ? "Conferma" : "Elimina"}
-        </button>
+      <div className="flex flex-col gap-2 border-t border-border px-5 py-3">
+        {(onOpenLab || onOpenCombo) && (
+          <div className="grid grid-cols-2 gap-2">
+            {onOpenLab && (
+              <button
+                type="button"
+                className="btn btn-ghost !py-1.5 text-xs font-semibold flex items-center justify-center gap-1.5"
+                onClick={onOpenLab}
+                title="Analizza ruoli e probabilità nel Laboratorio"
+              >
+                <span>🧪</span> Laboratorio
+              </button>
+            )}
+            {onOpenCombo && (
+              <button
+                type="button"
+                className="btn btn-ghost !py-1.5 text-xs font-semibold flex items-center justify-center gap-1.5"
+                onClick={onOpenCombo}
+                title="Cerca combo e linee di gioco nel Circolo Arcano"
+              >
+                <span>🔮</span> Circolo Arcano
+              </button>
+            )}
+          </div>
+        )}
+        <div className="flex gap-2">
+          <button type="button" className="btn btn-molten flex-1" onClick={onOpen}>
+            Apri nella Fucina
+          </button>
+          <button type="button" className="btn btn-ghost" onClick={onDuplicate}>
+            Duplica
+          </button>
+          <button
+            type="button"
+            className={`btn ${confirm ? "bg-danger text-white" : "btn-ghost"}`}
+            onClick={() => {
+              if (confirm) onDelete();
+              else {
+                sound.play("toggle");
+                setConfirm(true);
+              }
+            }}
+          >
+            {confirm ? "Conferma" : "Elimina"}
+          </button>
+        </div>
       </div>
     </aside>
   );

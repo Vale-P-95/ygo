@@ -15,10 +15,11 @@ interface Props {
   reasons: Record<number, string[]>;
   /** Puts back the roles from before the automatic ones. */
   onUndo: (() => void) | null;
+  onExploreCombo?: (cardId: number) => void;
 }
 
 /** Side panel: every Main Deck card with a toggle per role. */
-export function RolesPanel({ main, roles, getCard, onChange, onSuggest, guessing, reasons, onUndo }: Props) {
+export function RolesPanel({ main, roles, getCard, onChange, onSuggest, guessing, reasons, onUndo, onExploreCombo }: Props) {
   const [custom, setCustom] = useState("");
   const defs = roleDefs(roles);
   const ids = [...new Set(main)];
@@ -110,12 +111,22 @@ export function RolesPanel({ main, roles, getCard, onChange, onSuggest, guessing
         {ids.map((id) => {
           const card = getCard(id);
           return (
-            <div key={id} className="flex items-center gap-1.5 xl:gap-2 rounded-lg px-1.5 xl:px-2 py-1 hover:bg-surface-3">
+            <div key={id} className="group flex items-center gap-1.5 xl:gap-2 rounded-lg px-1.5 xl:px-2 py-1 hover:bg-surface-3">
               <img src={cardImage(id, "small")} alt="" loading="lazy" className="h-9 w-[25px] shrink-0 rounded-[2px] object-cover" />
               <span className="min-w-0 flex-1 truncate text-xs" title={[card?.name, ...(reasons[id] ?? [])].filter(Boolean).join("\n")}>
                 {card?.name ?? id} <span className="text-faint">×{copies(id)}</span>
                 {reasons[id]?.length ? <span className="ml-1 text-[9px] text-faint" aria-label="ruoli trovati dal motore">✦</span> : null}
               </span>
+              {onExploreCombo && (
+                <button
+                  type="button"
+                  onClick={() => onExploreCombo(id)}
+                  title={`Cerca nel Circolo Arcano le combo con ${card?.name ?? id}`}
+                  className="hidden xl:inline-grid h-4 w-4 shrink-0 place-items-center rounded text-[10px] text-faint hover:text-sec hover:bg-sec/15 transition"
+                >
+                  ✦
+                </button>
+              )}
               <span className="flex shrink-0 gap-0.5 xl:gap-1">
                 {defs.map((d) => {
                   const on = roles[d.key]?.includes(id) ?? false;

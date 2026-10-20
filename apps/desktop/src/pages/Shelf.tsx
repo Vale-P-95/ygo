@@ -26,11 +26,13 @@ const slot = (d: ShelfDeck) => SIZES[resolveLook(d.box, d.id).shape].w + 70;
 interface Props {
   artReady: boolean;
   onOpenDeck: (id: number) => void;
+  onOpenLab?: (id: number) => void;
+  onOpenCombo?: (id: number) => void;
   onNewDeck: () => void;
 }
 
 /** La Bottega: every deck as a 3D deck box on wooden shelves. */
-export function Shelf({ artReady, onOpenDeck, onNewDeck }: Props) {
+export function Shelf({ artReady, onOpenDeck, onOpenLab, onOpenCombo, onNewDeck }: Props) {
   const [decks, setDecks] = useState<ShelfDeck[] | null>(null);
   const [selected, setSelected] = useState<number | null>(null);
   const [query, setQuery] = useState("");
@@ -238,6 +240,8 @@ export function Shelf({ artReady, onOpenDeck, onNewDeck }: Props) {
             onBox={(box) => setBox(current, box)}
             onRename={(name) => rename(current, name)}
             onOpen={() => onOpenDeck(current.id)}
+            onOpenLab={onOpenLab ? () => onOpenLab(current.id) : undefined}
+            onOpenCombo={onOpenCombo ? () => onOpenCombo(current.id) : undefined}
             onDuplicate={() => void duplicate(current)}
             onDelete={() => void remove(current)}
             onClose={() => {
