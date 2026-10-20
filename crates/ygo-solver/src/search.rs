@@ -36,10 +36,11 @@ use std::time::{Duration, Instant};
 use ygo_engine::auto::AutoPolicy;
 use ygo_engine::consts::{card_type, location};
 use ygo_engine::{
-    canonical_fingerprint, fingerprint, italian, Action, ActionKind, CardRef, Decision, DeckList, Duel, DuelState, Engine, Error, Event,
-    Opponent, Placement, Step,
+    canonical_fingerprint, fingerprint, italian, Action, ActionKind, CardRef, Decision, DeckList, Duel, DuelState, Engine, Error, Opponent,
+    Placement, Step,
 };
 
+use crate::coverage::{self, Audit, Coverage, Links, Mechanic};
 use crate::probe::{Kit, Prober};
 use crate::value::{CardValues, InHand, Spot};
 
@@ -83,6 +84,9 @@ pub struct SearchConfig {
     /// Cards of yours already on the field (or in the GY) when the turn
     /// starts, to try a hand on a board (empty: the usual duel).
     pub placed: Vec<Placement>,
+    /// Record what the search does with each action of your cards
+    /// ([`SearchResult::coverage`]); it costs a little time.
+    pub coverage: bool,
 }
 
 impl SearchConfig {
@@ -106,6 +110,7 @@ impl SearchConfig {
             values: Arc::default(),
             learn: None,
             placed: Vec::new(),
+            coverage: false,
         }
     }
 }
@@ -293,6 +298,8 @@ pub struct SearchResult {
     pub interrupted: u64,
     /// Where the search stopped, to go on with [`resume`].
     pub frontier: Frontier,
+    /// What the search did with each action of your cards, when asked.
+    pub coverage: Option<Coverage>,
 }
 
 impl SearchResult {
@@ -422,6 +429,11 @@ struct Shared<'a> {
     measured: Mutex<HashSet<u64>>,
     /// Nodes after which the next boards are measured.
     next_learning: AtomicU64,
+    coverage: Option<Mutex<Coverage>>,
+    /// Your effects that negated one of your own chain links: on your turn
+    /// the opponent never answers, so chained to your own chain they only
+    /// lose (Invoked Mechaba on your Aleister). Not tried again.
+    own_negators: RwLock<HashSet<Mechanic>>,
 }
 
 struct Queue {
@@ -540,7 +552,9 @@ impl Shared<'_> {
         let replace = match boards.get(&board.key) {
             None => true,
             // Its own End Phase played: the same line, with the End Phase's answers.
-            Some(old) if !old.exact && board.exact && confirms == Some(board.key) => true,
+            Some(old) if !old.exact && board.exact && confirms == Some(board.key) && board.line.answers.starts_with(&old.line.answers) => {
+                true
+            }
             Some(old) if old.exact == board.exact => board.better_line_than(old),
             // The real reading wins unless the provisional one has a better line.
             Some(old) if board.exact => !old.better_line_than(&board),
@@ -616,7 +630,7 @@ fn node_key(state: &DuelState, decision: &Decision, pending: &Pending) -> u64 {
     canonical_fingerprint(state).hash(&mut h);
     decision.hash(&mut h);
     if !is_free(decision) {
-        pending.0.hash(&mut h);
+        pending.value().hash(&mut h);
     }
     h.finish()
 }
@@ -627,18 +641,85 @@ fn is_free(decision: &Decision) -> bool {
     decision.player() == Some(0) && matches!(decision, Decision::IdleCmd { .. } | Decision::BattleCmd { .. } | Decision::SelectChain { .. })
 }
 
-/// The answers given since your last free moment, hashed.
+/// The answers given since your last free moment, hashed. The cards picked
+/// in the selection being made are a set: picking A then B is picking B
+/// then A (the same materials, chosen in another order).
 #[derive(Clone, Copy, Default)]
-struct Pending(u64);
+struct Pending {
+    /// The answers before the selection being made.
+    before: u64,
+    /// The cards picked in it, each hashed, summed.
+    picks: u64,
+}
 
 impl Pending {
+    fn value(&self) -> u64 {
+        if self.picks == 0 {
+            return self.before;
+        }
+        let mut h = DefaultHasher::new();
+        (self.before, self.picks).hash(&mut h);
+        h.finish()
+    }
+
     fn answered(&mut self, decision: &Decision, answer: &[u8]) {
+        if let Decision::SelectUnselectCard { selectable, unselectable, hint, .. } = decision {
+            // A new selection (nothing picked yet) starts a new set.
+            if unselectable.is_empty() {
+                *self = Pending { before: self.value(), picks: 0 };
+            }
+            let index = answer.get(4..8).and_then(|b| b.try_into().ok()).map(i32::from_le_bytes).filter(|&i| i >= 0);
+            if let Some(i) = index.map(|i| i as usize) {
+                let (card, picked) = match selectable.get(i) {
+                    Some(c) => (Some(c), true),
+                    None => (unselectable.get(i - selectable.len()), false),
+                };
+                if let Some(card) = card {
+                    let mut h = DefaultHasher::new();
+                    (hint, card_order(card)).hash(&mut h);
+                    self.picks = if picked { self.picks.wrapping_add(h.finish()) } else { self.picks.wrapping_sub(h.finish()) };
+                    return;
+                }
+            }
+        }
         let mut h = DefaultHasher::new();
         if !is_free(decision) {
-            self.0.hash(&mut h);
+            self.value().hash(&mut h);
         }
         answer.hash(&mut h);
-        self.0 = h.finish();
+        *self = Pending { before: h.finish(), picks: 0 };
+    }
+}
+
+/// Key of a situation met since your last free moment, to find a line
+/// going round in circles: the same choice asked again with nothing
+/// happened in between (choosing a Fusion Monster whose materials cannot
+/// be chosen, cancelling, choosing it again). Its state is the same, and
+/// it costs nothing to compute while a line is replayed.
+fn loop_key(decision: &Decision, events: usize) -> u64 {
+    let mut h = DefaultHasher::new();
+    ("loop", decision, events).hash(&mut h);
+    h.finish()
+}
+
+/// The situations met since your last free moment ([`loop_key`]).
+#[derive(Default)]
+struct SinceFree {
+    seen: HashSet<u64>,
+    events: usize,
+}
+
+impl SinceFree {
+    /// Notes a decision and the events before it; false when it was
+    /// already met since the last free moment.
+    fn meet(&mut self, decision: &Decision, events: usize) -> bool {
+        self.events += events;
+        if is_free(decision) {
+            self.seen.clear();
+            self.events = 0;
+            return true;
+        }
+        self.seen.insert(loop_key(decision, self.events))
     }
 }
 
@@ -797,7 +878,6 @@ fn cards_used(hand: &[u32], state: &DuelState) -> usize {
     hand.len() - kept
 }
 
-/// The cards to keep are still in the hand.
 /// The cards to keep are still in the hand (any artwork of them).
 fn keeps_hand(engine: &Engine, config: &SearchConfig, state: &DuelState) -> bool {
     let db = engine.cards();
@@ -851,7 +931,7 @@ fn without_returns(
     // same cards out of the same ones meet at the same selection.
     let mut base = DefaultHasher::new();
     // What the selection is for: the answers since your last free moment.
-    ("selection", fingerprint(state), pending.0, hint, min, max).hash(&mut base);
+    ("selection", fingerprint(state), pending.before, hint, min, max).hash(&mut base);
     let mut all: Vec<&CardRef> = selectable.iter().chain(unselectable).collect();
     all.sort_by_key(|c| card_order(c));
     all.iter().for_each(|c| card_order(c).hash(&mut base));
@@ -942,9 +1022,20 @@ fn play(shared: &Shared, edge: &Edge, dive: &mut Dive) -> Result<(), Error> {
     let mut duel = new_duel(shared)?;
     let mut line = (*edge.prefix).clone();
     let mut pending = Pending::default();
+    // The situations met since your last free moment: meeting one again
+    // means going round in circles. The line replayed counts too: the
+    // answer of this edge can lead back to a choice made in it.
+    let mut since_free = SinceFree::default();
+    // Your chain links, to tell which of your effects negates another.
+    let mut links = Links::default();
+    let db = shared.engine.cards();
     for answer in &line.answers {
-        if let Step::Decision { decision, .. } = duel.advance()? {
+        if let Step::Decision { decision, events } = duel.advance()? {
+            since_free.meet(&decision, events.len());
             pending.answered(&decision, answer);
+            for e in &events {
+                let _ = links.follow(db, e);
+            }
         }
         duel.respond(answer);
     }
@@ -952,8 +1043,15 @@ fn play(shared: &Shared, edge: &Edge, dive: &mut Dive) -> Result<(), Error> {
         shared.replays.fetch_add(1, Ordering::Relaxed);
     }
     if let Some((answer, label)) = edge.answer.clone() {
-        if let Step::Decision { decision, .. } = duel.advance()? {
+        if let Step::Decision { decision, events } = duel.advance()? {
+            since_free.meet(&decision, events.len());
             pending.answered(&decision, &answer);
+            for e in &events {
+                let _ = links.follow(db, e);
+            }
+            if let Some(Ok(mut c)) = shared.coverage.as_ref().map(Mutex::lock) {
+                coverage::chosen(shared.engine.cards(), &decision, &duel.actions(&decision), &answer, &mut c);
+            }
         }
         duel.respond(&answer);
         line.choose(answer, label);
@@ -964,10 +1062,6 @@ fn play(shared: &Shared, edge: &Edge, dive: &mut Dive) -> Result<(), Error> {
     // Something was started at a free moment (an idle or chain window) and
     // nothing has happened since: cancelling only goes back to that moment.
     let mut undoable = false;
-    // The situations met since your last free moment: meeting one again
-    // means going round in circles (choosing a Fusion Monster whose
-    // materials cannot be chosen, cancelling, choosing it again).
-    let mut since_free: HashSet<u64> = HashSet::new();
     loop {
         if shared.halted() {
             return Ok(());
@@ -975,14 +1069,30 @@ fn play(shared: &Shared, edge: &Edge, dive: &mut Dive) -> Result<(), Error> {
         let (step, mut actions) = duel.advance_auto_seen(&config.policy, &mut line.answers, |d, a| pending.answered(d, a))?;
         let (turn, _, phase) = duel.turn_info();
         let (Step::Decision { events, .. } | Step::End { events }) = &step;
+        let mut negated = false;
+        let mut cover = shared.coverage.as_ref().and_then(|c| c.lock().ok());
+        for e in events {
+            let negation = links.follow(db, e);
+            if let Some(c) = cover.as_mut() {
+                coverage::count(db, e, negation.as_ref(), c);
+            }
+            if let Some(n) = negation {
+                negated = true;
+                if let (Some(by), Ok(mut negators)) = (n.by, shared.own_negators.write()) {
+                    negators.insert(by);
+                }
+            }
+        }
+        drop(cover);
         // On your turn the opponent never answers: an activation negated, or
         // its effect, was negated by one of your own cards (Invoked Mechaba
         // on your own Hyperinvoked Aeon). Such a line only loses.
-        if events.iter().any(|e| matches!(e, Event::ChainNegated { .. } | Event::ChainDisabled { .. })) {
+        if negated {
             return Ok(());
         }
+        let happened = events.len();
         if let Step::Decision { .. } = &step {
-            undoable &= events.is_empty();
+            undoable &= happened == 0;
         }
         let decision = match step {
             Step::Decision { decision, .. } if decision.player() == Some(0) && turn <= 1 => decision,
@@ -1000,9 +1110,9 @@ fn play(shared: &Shared, edge: &Edge, dive: &mut Dive) -> Result<(), Error> {
         let state = duel.state();
         shared.nodes.fetch_add(1, Ordering::Relaxed);
         let free = is_free(&decision);
-        if free {
-            since_free.clear();
-        } else if !since_free.insert(node_key(&state, &decision, &Pending::default())) {
+        // The same state met again since the last free moment, by the
+        // same choice with nothing happened in between or by its state.
+        if !since_free.meet(&decision, happened) || (!free && !since_free.seen.insert(node_key(&state, &decision, &Pending::default()))) {
             shared.duplicates.fetch_add(1, Ordering::Relaxed);
             return Ok(());
         }
@@ -1010,6 +1120,23 @@ fn play(shared: &Shared, edge: &Edge, dive: &mut Dive) -> Result<(), Error> {
             shared.duplicates.fetch_add(1, Ordering::Relaxed);
             return Ok(());
         }
+        // Your effects known to negate your own chain links are not chained
+        // to it (they are left out like the answer policy's).
+        if matches!(decision, Decision::SelectChain { .. }) && duel.open_chain() > 0 {
+            if let Ok(negators) = shared.own_negators.read() {
+                if !negators.is_empty() {
+                    actions.retain(|a| {
+                        a.kind != ActionKind::Activate || !coverage::mechanic(db, &decision, a).is_some_and(|(m, _)| negators.contains(&m))
+                    });
+                }
+            }
+        }
+        let mut audit = shared.coverage.as_ref().map(|_| Audit::new(duel.actions(&decision), &actions));
+        let record = |audit: Option<Audit>, chosen: Option<&[u8]>| {
+            if let (Some(audit), Some(Ok(mut c))) = (audit, shared.coverage.as_ref().map(Mutex::lock)) {
+                audit.record(shared.engine.cards(), &decision, chosen, &mut c);
+            }
+        };
         if line.choices.len() >= config.max_choices {
             // Too long: end the turn, or close what is pending as fast as possible.
             dive_order(&mut actions, false, |_| false);
@@ -1018,15 +1145,23 @@ fn play(shared: &Shared, edge: &Edge, dive: &mut Dive) -> Result<(), Error> {
             };
             let keep = actions.iter().position(wrap_up).unwrap_or(0);
             actions = vec![actions.swap_remove(keep)];
+            if let Some(a) = &mut audit {
+                a.cut(&actions);
+            }
         }
         if actions.is_empty() {
+            record(audit, None);
             shared.interrupted.fetch_add(1, Ordering::Relaxed);
             return Ok(());
         }
         if actions.len() > 1 {
             actions = without_returns(shared, &state, &decision, &pending, actions, undoable);
+            if let Some(a) = &mut audit {
+                a.returns(&actions);
+            }
             if actions.is_empty() {
                 // Every pick leads where another line already goes.
+                record(audit, None);
                 shared.duplicates.fetch_add(1, Ordering::Relaxed);
                 return Ok(());
             }
@@ -1090,6 +1225,7 @@ fn play(shared: &Shared, edge: &Edge, dive: &mut Dive) -> Result<(), Error> {
             wanted: wanted(a),
         }));
         let first = &actions[0];
+        record(audit, Some(&first.response));
         if let Some(c) = first.card.filter(|c| c.location == location::EXTRA) {
             placing = Some(c.code);
         }
@@ -1162,6 +1298,9 @@ fn field_spots(state: &DuelState) -> Vec<(u64, u32)> {
 /// estimated again. With one thread the rounds come at the same nodes, so
 /// the search stays the same from run to run.
 fn learn(shared: &Shared) {
+    if shared.stopped() {
+        return;
+    }
     let next = shared.next_learning.load(Ordering::Relaxed);
     if shared.nodes.load(Ordering::Relaxed) < next
         || shared.next_learning.compare_exchange(next, next + LEARN_EVERY, Ordering::Relaxed, Ordering::Relaxed).is_err()
@@ -1174,6 +1313,12 @@ fn learn(shared: &Shared) {
 /// One round of [`learn`]: up to `count` boards measured.
 fn learn_round(shared: &Shared, count: usize) {
     let Some(kit) = shared.config.learn.as_deref() else { return };
+    // The lines are measured again in a duel of their own: only the same
+    // duel as the search's (no cards placed, the kit's opponent) gives
+    // their answers the same meaning.
+    if !shared.config.placed.is_empty() || shared.config.opponent.as_ref() != Some(kit.opponent()) {
+        return;
+    }
     // Among the best boards, the ones with the most cards on the field not
     // measured on a board yet, Extra Deck monsters counting double (the
     // first boards are often the same cards but one).
@@ -1201,6 +1346,9 @@ fn learn_round(shared: &Shared, count: usize) {
     let mut prober = Prober::new(shared.engine, &config.deck, &config.hand, config.seed, kit);
     let mut raised = false;
     for board in &picked {
+        if shared.cancel.load(Ordering::Relaxed) {
+            break;
+        }
         let Ok(measure) = prober.measure(&board.line) else { continue };
         let me = &board.state.players[0];
         for i in measure.interruptions.iter().filter(|i| i.alone > 0.0) {
@@ -1391,6 +1539,8 @@ pub fn resume(
         values: RwLock::new(values.unwrap_or_else(|| (*config.values).clone())),
         measured: Mutex::new(measured),
         next_learning: AtomicU64::new(nodes + LEARN_EVERY),
+        coverage: config.coverage.then(Mutex::default),
+        own_negators: RwLock::default(),
     };
     if !started {
         shared.push(vec![NewEdge {
@@ -1422,6 +1572,7 @@ pub fn resume(
     let mut sorted: Vec<Board> = boards.values().cloned().collect();
     sorted.sort_by(rank);
     let interrupted = shared.interrupted.load(Ordering::Relaxed);
+    let coverage = shared.coverage.map(|c| c.into_inner().unwrap_or_else(|e| e.into_inner()));
     let frontier = Frontier {
         edges: queue.edges.into_vec(),
         seen: shared.seen.into_iter().map(|s| s.into_inner().unwrap_or_else(|e| e.into_inner())).collect(),
@@ -1436,7 +1587,7 @@ pub fn resume(
         values: shared.values.into_inner().ok(),
         measured: shared.measured.into_inner().unwrap_or_else(|e| e.into_inner()),
     };
-    SearchResult { boards: sorted, progress: final_progress, stop, interrupted, frontier }
+    SearchResult { boards: sorted, progress: final_progress, stop, interrupted, frontier, coverage }
 }
 
 #[cfg(test)]

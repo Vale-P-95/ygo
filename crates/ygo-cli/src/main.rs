@@ -143,6 +143,26 @@ enum Cmd {
         #[arg(long)]
         deck: PathBuf,
     },
+    /// What the search does with each action of a deck's cards, over one
+    /// hand per card of the Main Deck (the card and four others): how often
+    /// each summon, Set and effect is offered, left out (and why), chosen
+    /// and really activated.
+    Coverage {
+        /// Deck in .ydk format.
+        #[arg(long)]
+        deck: PathBuf,
+        /// Choices explored per hand.
+        #[arg(long, default_value_t = 2000)]
+        nodes: u64,
+        /// Hands searched at once (each on one thread).
+        #[arg(long)]
+        threads: Option<usize>,
+        #[arg(long, default_value_t = 1)]
+        seed: u64,
+        /// Print every mechanic, not only the ones never chosen or activated.
+        #[arg(long)]
+        all: bool,
+    },
     /// Random duels between random decks; fails on unanswerable or rejected decisions.
     Sweep {
         #[arg(long, default_value_t = 200)]
@@ -224,6 +244,7 @@ fn main() -> Result<()> {
         Cmd::HandTraps { deck } => hand_traps(&cli.data, &deck),
         Cmd::CardValues { deck } => card_values(&cli.data, &deck),
         Cmd::Roles { deck } => roles(&cli.data, &deck),
+        Cmd::Coverage { deck, nodes, threads, seed, all } => coverage(&cli.data, &deck, nodes, threads, seed, all),
         Cmd::Sweep { duels, max_decisions, max_turns, seed, threads, script_errors } => {
             let threads = threads.unwrap_or_else(|| std::thread::available_parallelism().map_or(4, |n| n.get()));
             sweep(&cli.data, &SweepConfig { duels, max_decisions, max_turns, seed, threads }, script_errors)
@@ -357,7 +378,23 @@ fn combos(dir: &Path, setup: &Setup, options: CombosOptions) -> Result<()> {
     );
     let db = engine.cards();
     let mut prober = ygo_solver::Prober::new(&engine, &config.deck, &config.hand, config.seed, &kit);
-    for (i, board) in result.boards.iter().take(top).enumerate() {
+    // Boards with the same field and hand (other cards in the GY, other
+    // zones) are variants of one: listed once, as the Combo Lab does.
+    let mut looks: Vec<(u64, usize)> = Vec::new();
+    let mut listed: Vec<&ygo_solver::Board> = Vec::new();
+    for board in &result.boards {
+        let look = ygo_solver::look_key(&board.state);
+        match looks.iter_mut().find(|(l, _)| *l == look) {
+            Some((_, n)) => *n += 1,
+            None if listed.len() < top => {
+                looks.push((look, 0));
+                listed.push(board);
+            }
+            None => {}
+        }
+    }
+    for (i, board) in listed.into_iter().enumerate() {
+        let variants = looks[i].1;
         let me = &board.state.players[0];
         let zone = |(z, c): (usize, &ygo_engine::FieldCard)| {
             if (5..=6).contains(&z) {
@@ -376,9 +413,10 @@ fn combos(dir: &Path, setup: &Setup, options: CombosOptions) -> Result<()> {
             .collect();
         let hand: Vec<String> = me.hand.iter().map(|&c| db.name(c)).collect();
         println!(
-            "\n#{}{} score {:.1} · {} cards used · {} choices · found at {:.1} s\n   field: {}\n   hand: {}",
+            "\n#{}{}{} score {:.1} · {} cards used · {} choices · found at {:.1} s\n   field: {}\n   hand: {}",
             i + 1,
             if board.exact { "" } else { " (End Phase not played)" },
+            if variants > 0 { format!(" (+{variants} variants)") } else { String::new() },
             board.quick_score,
             board.cards_used,
             board.line.choices.len(),
@@ -615,6 +653,151 @@ fn roles(dir: &Path, deck: &Path) -> Result<()> {
         println!("{:<12} {:<45} {}", g.roles.join(","), engine.cards().name(g.code), g.reasons.join("; "));
     }
     println!("found in {:.1} s", started.elapsed().as_secs_f64());
+    Ok(())
+}
+
+fn coverage(dir: &Path, deck: &Path, nodes: u64, threads: Option<usize>, seed: u64, all: bool) -> Result<()> {
+    let engine = load_engine(dir)?;
+    let text = std::fs::read_to_string(deck).with_context(|| format!("cannot read {}", deck.display()))?;
+    let deck = DeckList::from_ydk(&text)?;
+    let db = engine.cards();
+    let threads = threads.unwrap_or_else(|| std::thread::available_parallelism().map_or(4, |n| n.get()));
+    let started = Instant::now();
+    // The search as the Combo Lab sets it up.
+    let kit = ygo_solver::Kit::standard(&engine);
+    let mut base = ygo_solver::SearchConfig::new(deck.clone(), Vec::new());
+    base.seed = seed;
+    base.threads = 1;
+    base.max_nodes = nodes;
+    base.time_limit = std::time::Duration::from_secs(600);
+    base.opponent = Some(kit.opponent().clone());
+    base.hand_traps = ygo_solver::hand_traps(&engine, &deck, seed, &kit);
+    base.policy.passive = base.hand_traps.clone();
+    base.values = std::sync::Arc::new(ygo_solver::card_values(&engine, &deck, seed, &kit, &base.hand_traps, threads));
+    base.learn = Some(std::sync::Arc::new(kit.clone()));
+    base.coverage = true;
+    // One hand per card of the Main Deck: that card and four others.
+    let mut cards: Vec<u32> = Vec::new();
+    for &c in &deck.main {
+        if !cards.contains(&c) {
+            cards.push(c);
+        }
+    }
+    // A seed of its own for each hand: the other four cards differ.
+    let hands: Vec<Vec<u32>> = cards
+        .iter()
+        .enumerate()
+        .filter_map(|(i, &c)| {
+            ygo_solver::sample_hands(&deck.main, c, 1, seed.wrapping_add(7919 * i as u64)).into_iter().next().map(|(h, _)| h)
+        })
+        .collect();
+    let next = std::sync::atomic::AtomicUsize::new(0);
+    let results = std::sync::Mutex::new(Vec::new());
+    std::thread::scope(|s| {
+        for _ in 0..threads.clamp(1, hands.len().max(1)) {
+            s.spawn(|| loop {
+                let i = next.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                let Some(hand) = hands.get(i) else { break };
+                let mut config = base.clone();
+                config.hand = hand.clone();
+                let result = ygo_solver::search(&engine, &config, &std::sync::atomic::AtomicBool::new(false), |_| {});
+                if let Ok(mut r) = results.lock() {
+                    r.push((i, result));
+                }
+            });
+        }
+    });
+    let mut results = results.into_inner().unwrap_or_default();
+    results.sort_by_key(|(i, _)| *i);
+    let mut total = ygo_solver::Coverage::default();
+    for (i, r) in &results {
+        let names: Vec<String> = hands[*i].iter().map(|&c| db.name(c)).collect();
+        println!(
+            "hand {:>2}: {} nodes, {} boards, best {:.1}, {} interrupted · {}",
+            i + 1,
+            r.progress.nodes,
+            r.progress.boards,
+            r.boards.first().map_or(0.0, |b| b.quick_score),
+            r.interrupted,
+            names.join(", ")
+        );
+        if let Some(c) = &r.coverage {
+            total.merge(c);
+        }
+    }
+    let place = |bits: u8| -> String {
+        let names = [
+            (location::DECK, "Deck"),
+            (location::HAND, "hand"),
+            (location::MZONE, "M.Zone"),
+            (location::SZONE, "S/T Zone"),
+            (location::GRAVE, "GY"),
+            (location::REMOVED, "banished"),
+            (location::EXTRA, "Extra"),
+        ];
+        names.iter().filter(|(b, _)| bits & *b != 0).map(|(_, n)| *n).collect::<Vec<_>>().join("+")
+    };
+    let entries = total.sorted();
+    let mut listed: Vec<u32> = Vec::new();
+    for &c in deck.main.iter().chain(&deck.extra) {
+        let c = db.canonical_code(c);
+        if !listed.contains(&c) {
+            listed.push(c);
+        }
+    }
+    println!("\noffered / left out by policy / as a return / cut / kept / chosen / activated or summoned / negated by your own card / negated one of your own");
+    for &code in &listed {
+        let mine: Vec<&(ygo_solver::Mechanic, ygo_solver::Counts)> = entries.iter().filter(|(m, _)| m.code == code).collect();
+        let flagged: Vec<&&(ygo_solver::Mechanic, ygo_solver::Counts)> = mine
+            .iter()
+            .filter(|(m, c)| {
+                all || c.chosen + c.activated + c.summoned == 0
+                    || (m.kind == ygo_solver::MechanicKind::Activate && c.activated == 0)
+                    || c.self_negated + c.negated_own > 0
+            })
+            .collect();
+        if mine.is_empty() {
+            println!("\n{} ({code}): never offered, summoned nor activated", db.name(code));
+            continue;
+        }
+        if flagged.is_empty() {
+            continue;
+        }
+        println!("\n{} ({code})", db.name(code));
+        for (m, c) in flagged {
+            let text = db.describe(m.description);
+            println!(
+                "  {:<17} {:<48} {:<16} {:>5} {:>5} {:>5} {:>4} {:>5} {:>5} {:>5} {:>4} {:>4}",
+                m.kind.label(),
+                if text.is_empty() { format!("#{}", m.description & 0xf_ffff) } else { text.chars().take(48).collect() },
+                place(c.locations),
+                c.offered,
+                c.policy,
+                c.returns,
+                c.cut,
+                c.kept,
+                c.chosen,
+                c.activated + c.summoned,
+                c.self_negated,
+                c.negated_own
+            );
+        }
+    }
+    let others: Vec<&(ygo_solver::Mechanic, ygo_solver::Counts)> = entries.iter().filter(|(m, _)| !listed.contains(&m.code)).collect();
+    if !others.is_empty() {
+        println!("\nOther cards (tokens, cards of another code):");
+        for (m, c) in others {
+            println!(
+                "  {:<40} {:<17} offered {} chosen {} activated {}",
+                db.name(m.code),
+                m.kind.label(),
+                c.offered,
+                c.chosen,
+                c.activated
+            );
+        }
+    }
+    println!("\n{} hands in {:.1} s", results.len(), started.elapsed().as_secs_f64());
     Ok(())
 }
 

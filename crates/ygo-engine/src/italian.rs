@@ -318,7 +318,7 @@ mod tests {
     #[test]
     fn choices_in_italian() {
         use crate::actions::{Action, ActionKind};
-        let a = |kind, label: &str| Action { kind, label: label.to_owned(), response: Vec::new(), card: None };
+        let a = |kind, label: &str| Action { kind, label: label.to_owned(), response: Vec::new(), card: None, description: 0 };
         assert_eq!(
             choice(&a(ActionKind::NormalSummon, "Normal Summon Aleister the Invoker (Hand)")),
             "Evochi normalmente Aleister the Invoker (mano)"
