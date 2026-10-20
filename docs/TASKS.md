@@ -4,7 +4,6 @@ Regole in `AGENTS.md`. Per prendere un task, spostalo in "In corso" con agente, 
 
 ## In corso
 - [ ] Audit della copertura delle meccaniche su 45 deck: analisi dei risultati e correzioni generali (PIANO §30.2–30.3) — agente: claude-code — branch: claude/yugioh-deck-builder-simulator-cax0ya — file: crates/ygo-solver/src/search.rs, coverage.rs
-- [ ] Guida per chi usa l'app per la prima volta (prima apertura: scaricare i dati, creare un deck, cercare le combo), in italiano. — agente: antigravity — branch: gemini/onboarding-guide — file: docs/plans/onboarding-guide.md, apps/desktop/src/components/WelcomeModal.tsx, apps/desktop/src/pages/Overview.tsx, apps/desktop/src/components/Sidebar.tsx, apps/desktop/src/App.tsx
 
 ## Da fare (in ordine di priorità)
 
@@ -25,6 +24,7 @@ Regole in `AGENTS.md`. Per prendere un task, spostalo in "In corso" con agente, 
 (Gemini scrive qui i dati nuovi che gli servono; li aggiunge Claude in backend e `api.ts`.)
 
 ## Completati (recenti; lo storico è in `docs/PIANO.md`)
+- [x] Guida per chi usa l'app per la prima volta (prima apertura: scaricare i dati, creare un deck, cercare le combo), in italiano (`WelcomeModal`, checklist in `Overview`, pulsante `Guida rapida`).
 - [x] Revisione dell'interfaccia (parte 2): Laboratorio statistico, grafici SVG, Bottega e Fucina su schermi piccoli (`1280×800`, PR #3).
 - [x] Revisione dell'interfaccia (parte 1): tema chiaro "Pergamena" e Circolo Arcano su schermi piccoli (`1280×800`, PR #2).
 - [x] Backend finto per sviluppare l'interfaccia nel browser (`VITE_MOCK=1` in `src/lib/api.ts` e `src/lib/mock.ts`, PR #1).

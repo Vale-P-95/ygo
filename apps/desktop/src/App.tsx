@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Embers } from "./components/Embers";
 import { ChartTooltip, DragLayer, Toasts } from "./components/Overlays";
 import { Sidebar } from "./components/Sidebar";
+import { WelcomeModal, hasSeenOnboarding } from "./components/WelcomeModal";
 import { api, isDesktop, type DataStatus } from "./lib/api";
 import { rememberDeck, requestNewDeck } from "./lib/deck";
 import { useSettings } from "./lib/settings";
@@ -43,10 +44,20 @@ export default function App() {
   useTheme();
   const [active, setActive] = useState<SectionId>("deck-builder");
   const [status, setStatus] = useState<DataStatus | null>(null);
+  const [deckCount, setDeckCount] = useState(0);
+  const [guideOpen, setGuideOpen] = useState<boolean>(() => !hasSeenOnboarding());
 
   useEffect(() => {
     if (isDesktop) api.dataStatus().then(setStatus).catch(() => setStatus(null));
   }, []);
+
+  useEffect(() => {
+    if (!isDesktop || !status?.cards) return;
+    api
+      .listDecks()
+      .then((decks) => setDeckCount(decks.length))
+      .catch(() => setDeckCount(0));
+  }, [status?.cards, active, guideOpen]);
 
   // Portals (viewer, previews) live in <body>: give it the section accent too.
   useEffect(() => {
@@ -58,11 +69,18 @@ export default function App() {
 
   return (
     <div className="flex h-full">
-      <Sidebar active={active} onSelect={setActive} compact={(active === "deck-builder" || active === "shelf" || active === "stats" || active === "combo") && !!status?.cards} />
+      <Sidebar
+        active={active}
+        onSelect={setActive}
+        onOpenGuide={() => setGuideOpen(true)}
+        compact={(active === "deck-builder" || active === "shelf" || active === "stats" || active === "combo") && !!status?.cards}
+      />
       <main data-section={active} className="relative min-w-0 flex-1">
         <Embers color={EMBER_COLORS[active] ?? "#ffc65c"} />
         <div key={active} className="relative h-full anim-fade">
-          {active === "overview" && <Overview status={status} onStatus={setStatus} go={setActive} />}
+          {active === "overview" && (
+            <Overview status={status} deckCount={deckCount} onStatus={setStatus} go={setActive} onOpenGuide={() => setGuideOpen(true)} />
+          )}
           {active === "deck-builder" && <DeckBuilder status={status} onStatus={setStatus} />}
           {active === "shelf" && (
             <Shelf
@@ -83,6 +101,7 @@ export default function App() {
           {!["overview", "deck-builder", "shelf", "stats", "combo", "settings"].includes(active) && <Upcoming section={section} artReady={artReady} />}
         </div>
       </main>
+      <WelcomeModal open={guideOpen} status={status} deckCount={deckCount} onClose={() => setGuideOpen(false)} onGo={setActive} />
       <DragLayer />
       <Toasts />
       <ChartTooltip />
