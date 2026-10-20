@@ -123,6 +123,7 @@ pub struct Report {
     pub second: Record,
     /// Going first against going second.
     pub order_fisher_p: Option<f64>,
+    /// Game 1 of the matches with more than one game (Bo3), before siding.
     pub game1: Record,
     /// Games 2 and 3, after siding.
     pub post_side: Record,
@@ -146,8 +147,10 @@ pub fn report(matches: &[MatchInput]) -> Report {
     let second = record(matches.iter().filter(|m| m.first == Some(false)).map(|m| m.result));
     let order_fisher_p =
         (first.decided() > 0 && second.decided() > 0).then(|| fisher_exact(first.wins, first.losses, second.wins, second.losses));
-    let game1 = record(matches.iter().filter_map(|m| m.games.first().copied()));
-    let post_side = record(matches.iter().flat_map(|m| m.games.iter().skip(1).copied()));
+    // Only Bo3 games 1: the same matches as the games after siding.
+    let bo3 = || matches.iter().filter(|m| m.games.len() > 1);
+    let game1 = record(bo3().filter_map(|m| m.games.first().copied()));
+    let post_side = record(bo3().flat_map(|m| m.games.iter().skip(1).copied()));
 
     let mut by_opp: BTreeMap<String, Vec<&MatchInput>> = BTreeMap::new();
     for m in matches {
@@ -428,6 +431,9 @@ pub fn sample_size(p0: f64, p1: f64) -> (u32, u32) {
     let one = ((z * (p0 * (1.0 - p0)).sqrt() + zb * (p1 * (1.0 - p1)).sqrt()) / d).powi(2);
     let pbar = (p0 + p1) / 2.0;
     let two = ((z * (2.0 * pbar * (1.0 - pbar)).sqrt() + zb * (p0 * (1.0 - p0) + p1 * (1.0 - p1)).sqrt()) / d).powi(2);
+    // Versions are compared with Fisher's exact test, more cautious than the
+    // z-test of the formula: Fleiss' continuity correction gives it its 80%.
+    let two = two / 4.0 * (1.0 + (1.0 + 4.0 / (two * d)).sqrt()).powi(2);
     (one.ceil() as u32, two.ceil() as u32)
 }
 
@@ -465,7 +471,7 @@ mod tests {
         // Fisher's tea tasting: [[3, 1], [1, 3]] → p = 0.4857.
         assert!((fisher_exact(3, 1, 1, 3) - 0.4857).abs() < 1e-3);
         assert!((fisher_exact(10, 0, 0, 10) - 1.0825e-5).abs() < 1e-7);
-        assert_eq!(sample_size(0.5, 0.55), (783, 1565));
+        assert_eq!(sample_size(0.5, 0.55), (783, 1605));
         assert_eq!(sample_size(0.5, 0.6).0, 194);
         let p = prob_better(70, 30, 50, 50, 100_000, 1);
         assert!(p > 0.99, "{p}");
@@ -485,7 +491,7 @@ mod tests {
         let r = report(&matches);
         assert_eq!((r.matches, r.total.wins, r.total.losses), (6, 4, 2));
         assert_eq!((r.first.wins, r.first.losses, r.second.wins, r.second.losses), (3, 0, 1, 2));
-        assert_eq!((r.game1.wins, r.game1.losses), (4, 2));
+        assert_eq!((r.game1.wins, r.game1.losses), (2, 1));
         assert_eq!((r.post_side.wins, r.post_side.losses), (2, 2));
         assert_eq!(r.opponents[0].name, "Snake-Eye");
         assert_eq!(r.versions.len(), 2);
@@ -493,6 +499,40 @@ mod tests {
         assert_eq!(r.trend.len(), 6);
         assert!((r.trend[5].cumulative - 4.0 / 6.0).abs() < 1e-12);
         assert!(r.total.lo < r.total.p && r.total.p < r.total.hi && r.total.beta_lo < r.total.beta_hi);
+    }
+
+    #[test]
+    fn game_1_counts_only_bo3_matches() {
+        // 20 Bo1 wins, 5 Bo3 matches lost game 1 and won after siding.
+        let mut matches: Vec<MatchInput> = (0..20).map(|_| m("Yubel", true, "W", "a")).collect();
+        matches.extend((0..5).map(|_| m("Tenpai", true, "LWW", "a")));
+        let r = report(&matches);
+        assert_eq!((r.game1.wins, r.game1.losses), (0, 5));
+        assert_eq!((r.post_side.wins, r.post_side.losses), (10, 0));
+    }
+
+    #[test]
+    fn versions_need_this_many_matches_for_fishers_test() {
+        // Exact power of the comparison the app runs (Fisher's test, p < 0.05)
+        // with the per-version number of matches: at least 80%.
+        let power = |p0: f64, p1: f64, n: u32| {
+            let pmf = |p: f64, k: u32| crate::exact::binom(n, k) * p.powi(k as i32) * (1.0 - p).powi((n - k) as i32);
+            let (a, b): (Vec<f64>, Vec<f64>) = ((0..=n).map(|k| pmf(p0, k)).collect(), (0..=n).map(|k| pmf(p1, k)).collect());
+            let mut power = 0.0;
+            for x in 0..=n {
+                for y in 0..=n {
+                    if fisher_exact(x, n - x, y, n - y) < 0.05 {
+                        power += a[x as usize] * b[y as usize];
+                    }
+                }
+            }
+            power
+        };
+        for (p0, p1) in [(0.3, 0.5), (0.7, 0.9)] {
+            let n = sample_size(p0, p1).1;
+            let p = power(p0, p1, n);
+            assert!(p >= 0.8, "{p0} vs {p1}: {n} matches per version give {p}");
+        }
     }
 
     #[test]
