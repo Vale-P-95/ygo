@@ -1,9 +1,11 @@
 import { useState } from "react";
 import type { Card, ComboBoard, ComboScore, ComboStep } from "../../lib/api";
 import type { Weights } from "../../lib/scoring";
+import { sound } from "../../lib/sound";
+import { toast } from "../../lib/toast";
 import { CardImage, Field, type HoverCard, type Pile as PileKind } from "./Field";
 import { ScoreBreakdown } from "./Score";
-import { ComboSteps } from "./Steps";
+import { ComboSteps, formatComboGuide } from "./Steps";
 
 type StepsView = "visual" | "text";
 const VIEW_KEY = "duelforge.combo.stepsView";
@@ -34,7 +36,21 @@ interface Props {
 
 const PILE_TITLES: Record<PileKind, string> = { grave: "Cimitero", banished: "Bandite", deck: "Deck", extra: "Extra Deck (scoperte)" };
 
-function Pile({ title, codes, getCard, onHover, onHoverEnd }: { title: string; codes: number[]; getCard: (id: number) => Card | undefined; onHover: HoverCard; onHoverEnd: () => void }) {
+function Pile({
+  title,
+  codes,
+  highlightedCodes,
+  getCard,
+  onHover,
+  onHoverEnd,
+}: {
+  title: string;
+  codes: number[];
+  highlightedCodes?: Set<number> | null;
+  getCard: (id: number) => Card | undefined;
+  onHover: HoverCard;
+  onHoverEnd: () => void;
+}) {
   return (
     <div className="min-w-0">
       <p className="eyebrow mb-1.5 text-faint">
@@ -44,11 +60,19 @@ function Pile({ title, codes, getCard, onHover, onHoverEnd }: { title: string; c
         <p className="text-xs text-faint">—</p>
       ) : (
         <div className="flex flex-wrap gap-1">
-          {codes.map((c, i) => (
-            <span key={i} onPointerEnter={(e) => onHover(c, e.currentTarget)} onPointerLeave={onHoverEnd}>
-              <CardImage code={c} card={getCard(c)} className="h-[44px] w-[30px]" />
-            </span>
-          ))}
+          {codes.map((c, i) => {
+            const hl = !!highlightedCodes && highlightedCodes.has(c);
+            return (
+              <span
+                key={i}
+                className={hl ? "rounded-[3px] ring-2 ring-[var(--sec)] shadow-[0_0_10px_var(--sec)]" : ""}
+                onPointerEnter={(e) => onHover(c, e.currentTarget)}
+                onPointerLeave={onHoverEnd}
+              >
+                <CardImage code={c} card={getCard(c)} className="h-[44px] w-[30px]" />
+              </span>
+            );
+          })}
         </div>
       )}
     </div>
@@ -62,6 +86,7 @@ const PHASE = /^(Inizia il |Draw Phase|Standby Phase|Main Phase|Battle Phase|End
 export function BoardDetail({ board, score, scoring, weights, hand, steps, stepsNote, getCard, onHover, onHoverEnd }: Props) {
   const [pile, setPile] = useState<PileKind | null>(null);
   const [view, setView] = useState<StepsView>(savedView);
+  const [activeCards, setActiveCards] = useState<Set<number> | null>(null);
   const pickView = (v: StepsView) => {
     setView(v);
     try {
@@ -70,6 +95,19 @@ export function BoardDetail({ board, score, scoring, weights, hand, steps, steps
       // Only a convenience.
     }
   };
+
+  const copyGuide = async () => {
+    if (!steps || steps.length === 0) return;
+    const text = formatComboGuide(board, hand, steps, getCard);
+    try {
+      await navigator.clipboard.writeText(text);
+      sound.play("select");
+      toast("Guida combo copiata negli appunti", "ok");
+    } catch {
+      toast("Impossibile copiare negli appunti", "error");
+    }
+  };
+
   const pileCodes: Record<PileKind, number[]> = { grave: board.grave, banished: board.banished, deck: [], extra: board.extraFaceUp };
   return (
     <div className="flex flex-col gap-4">
@@ -79,13 +117,21 @@ export function BoardDetail({ board, score, scoring, weights, hand, steps, steps
             Board letta quando passi il turno: gli effetti della End Phase non sono ancora stati giocati.
           </p>
         )}
-        <Field board={board} getCard={getCard} onHover={onHover} onHoverEnd={onHoverEnd} pile={pile} onPile={(p) => setPile((cur) => (cur === p ? null : p))} />
+        <Field
+          board={board}
+          getCard={getCard}
+          onHover={onHover}
+          onHoverEnd={onHoverEnd}
+          pile={pile}
+          onPile={(p) => setPile((cur) => (cur === p ? null : p))}
+          highlightedCodes={activeCards}
+        />
         <div className="w-full border-t border-border pt-3">
-          <Pile title="Mano" codes={board.handCards} getCard={getCard} onHover={onHover} onHoverEnd={onHoverEnd} />
+          <Pile title="Mano" codes={board.handCards} highlightedCodes={activeCards} getCard={getCard} onHover={onHover} onHoverEnd={onHoverEnd} />
         </div>
         {pile && (
           <div className="w-full anim-fade">
-            <Pile title={PILE_TITLES[pile]} codes={pileCodes[pile]} getCard={getCard} onHover={onHover} onHoverEnd={onHoverEnd} />
+            <Pile title={PILE_TITLES[pile]} codes={pileCodes[pile]} highlightedCodes={activeCards} getCard={getCard} onHover={onHover} onHoverEnd={onHoverEnd} />
           </div>
         )}
         {!pile && <p className="w-full text-[11px] text-faint">Tocca Cimitero, bandite o Extra Deck per vedere le carte.</p>}
@@ -101,23 +147,40 @@ export function BoardDetail({ board, score, scoring, weights, hand, steps, steps
       </section>
 
       <section className="lab-card flex flex-col gap-3 p-4">
-        <div className="flex items-baseline justify-between gap-3">
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
           <h3 className="text-sm font-semibold">La linea</h3>
           <span className="text-xs text-faint tabular-nums">
             {board.choices} scelte · {board.cardsUsed} {board.cardsUsed === 1 ? "carta usata" : "carte usate"} dalla mano
           </span>
         </div>
-        <div className="flex gap-1" role="tablist" aria-label="Come mostrare la linea">
-          {(["visual", "text"] as const).map((v) => (
-            <button key={v} type="button" role="tab" aria-selected={view === v} className={`chip !py-0.5 text-[11px] ${view === v ? "chip-active" : ""}`} onClick={() => pickView(v)}>
-              {v === "visual" ? "Visuale" : "Testo"}
+        <div className="flex flex-wrap items-center gap-1.5">
+          <div className="flex gap-1" role="tablist" aria-label="Come mostrare la linea">
+            {(["visual", "text"] as const).map((v) => (
+              <button key={v} type="button" role="tab" aria-selected={view === v} className={`chip !py-0.5 text-[11px] ${view === v ? "chip-active" : ""}`} onClick={() => pickView(v)}>
+                {v === "visual" ? "Visuale" : "Testo"}
+              </button>
+            ))}
+          </div>
+          {steps && steps.length > 0 && (
+            <button
+              type="button"
+              onClick={() => void copyGuide()}
+              className="btn btn-ghost ml-auto !px-2.5 !py-0.5 text-[11px]"
+              title="Copia negli appunti la guida testuale con i nomi delle carte e i passi della linea"
+            >
+              📋 Copia guida
             </button>
-          ))}
+          )}
         </div>
         <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted">
           Dalla mano:
           {hand.map((c, i) => (
-            <span key={i} className="chip !py-0.5" onPointerEnter={(e) => onHover(c, e.currentTarget)} onPointerLeave={onHoverEnd}>
+            <span
+              key={i}
+              className={`chip !py-0.5 ${activeCards?.has(c) ? "border-sec bg-sec/20 text-text" : ""}`}
+              onPointerEnter={(e) => onHover(c, e.currentTarget)}
+              onPointerLeave={onHoverEnd}
+            >
               {getCard(c)?.name ?? c}
             </span>
           ))}
@@ -127,7 +190,7 @@ export function BoardDetail({ board, score, scoring, weights, hand, steps, steps
         ) : steps.length === 0 ? (
           <p className="text-sm text-faint">{stepsNote ?? "Nessun passo."}</p>
         ) : view === "visual" ? (
-          <ComboSteps steps={steps} getCard={getCard} onHover={onHover} onHoverEnd={onHoverEnd} />
+          <ComboSteps steps={steps} getCard={getCard} onHover={onHover} onHoverEnd={onHoverEnd} onActiveCards={setActiveCards} />
         ) : (
           <ol className="combo-steps flex flex-col gap-2.5">
             {steps.map((s, i) => (
