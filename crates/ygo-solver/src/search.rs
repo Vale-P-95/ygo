@@ -434,6 +434,11 @@ struct Shared<'a> {
     /// the opponent never answers, so chained to your own chain they only
     /// lose (Invoked Mechaba on your Aleister). Not tried again.
     own_negators: RwLock<HashSet<Mechanic>>,
+    /// Your handtraps whose effect resolved with nothing happening (Maxx
+    /// "C", the Mulcharmy): they wait for the opponent's moves, which never
+    /// come on your turn, so activating them only loses the card. Not
+    /// activated again from the hand.
+    idle_hand_traps: RwLock<HashSet<u32>>,
 }
 
 struct Queue {
@@ -1092,6 +1097,9 @@ fn play(shared: &Shared, edge: &Edge, dive: &mut Dive) -> Result<(), Error> {
     // Something was started at a free moment (an idle or chain window) and
     // nothing has happened since: cancelling only goes back to that moment.
     let mut undoable = false;
+    // What resolved quietly in the part replayed is not news.
+    let _ = links.take_silent();
+    let hand_trap = |code: u32| config.hand_traps.iter().any(|&h| db.canonical_code(h) == code);
     loop {
         if shared.halted() {
             return Ok(());
@@ -1117,6 +1125,15 @@ fn play(shared: &Shared, edge: &Edge, dive: &mut Dive) -> Result<(), Error> {
                     negators.insert(by);
                 }
             }
+            // A handtrap that did nothing: the same line without it keeps
+            // the card in hand (to discard for a cost, or for the
+            // opponent's turn), so this one only loses.
+            if let Some(m) = links.take_silent().filter(|m| hand_trap(m.code)) {
+                negated = true;
+                if let Ok(mut idle) = shared.idle_hand_traps.write() {
+                    idle.insert(m.code);
+                }
+            }
         }
         drop(cover);
         if events.iter().any(|e| matches!(e, Event::Chaining { .. })) {
@@ -1124,7 +1141,8 @@ fn play(shared: &Shared, edge: &Edge, dive: &mut Dive) -> Result<(), Error> {
         }
         // On your turn the opponent never answers: an activation negated, or
         // its effect, was negated by one of your own cards (Invoked Mechaba
-        // on your own Hyperinvoked Aeon). Such a line only loses.
+        // on your own Hyperinvoked Aeon), or a handtrap did nothing. Such a
+        // line only loses.
         if negated {
             if std::env::var_os("DUELFORGE_DEBUG_NEGATION").is_some() {
                 let told: Vec<String> = events.iter().filter_map(|e| italian::describe(db, e)).collect();
@@ -1171,6 +1189,15 @@ fn play(shared: &Shared, edge: &Edge, dive: &mut Dive) -> Result<(), Error> {
                         a.kind != ActionKind::Activate || !coverage::mechanic(db, &decision, a).is_some_and(|(m, _)| negators.contains(&m))
                     });
                 }
+            }
+        }
+        // Handtraps known to do nothing on your turn stay in the hand.
+        if let Ok(idle) = shared.idle_hand_traps.read() {
+            if !idle.is_empty() {
+                actions.retain(|a| {
+                    a.kind != ActionKind::Activate
+                        || !a.card.is_some_and(|c| c.location == location::HAND && idle.contains(&db.canonical_code(c.code)))
+                });
             }
         }
         // Sets in a row in one order only (left out like the answer policy's).
@@ -1588,6 +1615,7 @@ pub fn resume(
         next_learning: AtomicU64::new(nodes + LEARN_EVERY),
         coverage: config.coverage.then(Mutex::default),
         own_negators: RwLock::default(),
+        idle_hand_traps: RwLock::default(),
     };
     if !started {
         shared.push(vec![NewEdge {
