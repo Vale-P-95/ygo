@@ -1,0 +1,23 @@
+# Mani fisse del banco di prova della ricerca (scripts/bench.py).
+# nome<TAB>deck<TAB>mano (nomi inglesi o passcode, separati da ;)
+# Il deck è il nome di un file .ydk nella cartella --decks (le liste di Master
+# Duel Meta scaricate con scripts/mdm_decks.py, mai committate). "random5" al
+# posto della mano: 5 carte del Main Deck estratte con un seme fisso.
+# Le mani inv-r* ricostruiscono quelle del video Invoked (PIANO §29.2) con
+# Aleister the Reminiscent e quattro carte che la linea può scartare.
+inv-remi	invoked	Aleister the Reminiscent;Droll & Lock Bird;Droll & Lock Bird;Maxx "C";Ghost Ogre & Snow Rabbit
+inv-aleister	invoked	Aleister the Invoker;Droll & Lock Bird;Droll & Lock Bird;Maxx "C";Ghost Ogre & Snow Rabbit
+inv-r1	invoked	Aleister the Reminiscent;Aleister the Invoker;Invocation - "Sword";Ash Blossom & Joyous Spring;Crowley, the Gifted Magistus
+inv-r2	invoked	Aleister the Reminiscent;Ghost Ogre & Snow Rabbit;Ash Blossom & Joyous Spring;Invocation;Aleister the Invoker
+inv-r3	invoked	Aleister the Reminiscent;Mulcharmy Purulia;Invocation - "Sword";The Book of the Law;Aleister the Invoker
+inv-r4	invoked	Aleister the Reminiscent;Mulcharmy Purulia;Aiwass, Divine Spirit of the Law;Ash Blossom & Joyous Spring;76334960
+inv-r5	invoked	Aleister the Reminiscent;Crowley, the Gifted Magistus;Invocation;Super Polymerization;Droll & Lock Bird
+inv-r6	invoked	Aleister the Reminiscent;Invocation - "Sword";Ash Blossom & Joyous Spring;Magical Meltdown;Crowley, the Gifted Magistus
+branded	branded	random5
+labrynth	labrynth	random5
+tearlaments	tearlaments	random5
+mitsurugi	mitsurugi	random5
+yummy_mimighoul	yummy_mimighoul	random5
+maliss	maliss	random5
+dracotail	dracotail	random5
+ignister	ignister	random5
