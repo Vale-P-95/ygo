@@ -64,9 +64,11 @@ def main():
     p.add_argument("--jobs", type=int, default=4, help="hands searched at once")
     p.add_argument("--top", type=int, default=10, help="boards put through the probe turn")
     p.add_argument("--only", default="", help="only the hands whose name contains this")
+    p.add_argument("--shard", default="0/1", help="K/N: only every Nth hand from the Kth, to split the hands over N machines")
     a = p.parse_args()
     os.makedirs(a.out, exist_ok=True)
-    todo = [c for c in cases(a.decks) if a.only in c[0]]
+    k, n = map(int, a.shard.split("/"))
+    todo = [c for i, c in enumerate(cases(a.decks)) if a.only in c[0] and i % n == k]
     with cf.ThreadPoolExecutor(a.jobs) as ex:
         res = list(ex.map(lambda c: run(a.cli, c, a.nodes, a.top, a.out), todo))
     json.dump(res, open(os.path.join(a.out, "results.json"), "w"), indent=1)

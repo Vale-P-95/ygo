@@ -1,0 +1,137 @@
+name: Bench
+
+# Compares the combo search of two versions on the hands of
+# tests/fixtures/hands/bench.tsv (scripts/bench.py): each hand on one thread
+# with a node budget, so the boards do not depend on the runner, and the
+# hands split over several runners. Started by hand: one run costs more
+# than an hour of Actions minutes. The Master Duel Meta decklists are
+# downloaded once per run, so both versions play the same decks; they are
+# never committed.
+on:
+  workflow_dispatch:
+    inputs:
+      base:
+        description: Version before (branch, tag or commit)
+        default: main
+      head:
+        description: Version after (empty for the branch the workflow is started on)
+        default: ""
+      nodes:
+        description: Nodes per hand
+        default: "4000"
+      shards:
+        description: Runners the hands are split over
+        default: "6"
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    name: Build ${{ matrix.side }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        side: [base, head]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ matrix.side == 'base' && inputs.base || inputs.head || github.ref }}
+          submodules: recursive
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: bench
+      - run: cargo build --release -p ygo-cli
+      - run: |
+          mkdir out
+          cp target/release/duelforge-cli out/
+          git log -1 --format='%h %s' > out/version.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cli-${{ matrix.side }}
+          path: out
+          retention-days: 3
+
+  decks:
+    name: Decklists
+    needs: build
+    runs-on: ubuntu-latest
+    outputs:
+      shards: ${{ steps.shards.outputs.list }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.head || github.ref }}
+      - uses: actions/download-artifact@v4
+        with:
+          name: cli-head
+          path: cli
+      - run: |
+          chmod +x cli/duelforge-cli
+          cli/duelforge-cli --data data update-cards
+          python3 scripts/mdm_decks.py --out decks --db data/cards.db
+      - uses: actions/upload-artifact@v4
+        with:
+          name: decks
+          path: decks
+          retention-days: 3
+      - id: shards
+        run: python3 -c "import json; print('list=' + json.dumps(list(range(int('${{ inputs.shards }}')))))" >> "$GITHUB_OUTPUT"
+
+  hands:
+    name: Hands ${{ matrix.shard }}
+    needs: decks
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ${{ fromJSON(needs.decks.outputs.shards) }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.head || github.ref }}
+      - uses: actions/download-artifact@v4
+        with:
+          path: art
+      - name: Game data
+        uses: actions/cache/restore@v4
+        with:
+          path: data
+          key: game-data-bench
+          restore-keys: game-data-
+      - run: |
+          chmod +x art/cli-base/duelforge-cli art/cli-head/duelforge-cli
+          art/cli-head/duelforge-cli --data data fetch-data
+      - name: Search
+        run: |
+          shard="${{ matrix.shard }}/${{ inputs.shards }}"
+          python3 scripts/bench.py out/base --decks art/decks --cli art/cli-base/duelforge-cli --nodes ${{ inputs.nodes }} --jobs 2 --shard "$shard"
+          python3 scripts/bench.py out/head --decks art/decks --cli art/cli-head/duelforge-cli --nodes ${{ inputs.nodes }} --jobs 2 --shard "$shard"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: results-${{ matrix.shard }}
+          path: out
+          retention-days: 7
+
+  report:
+    name: Report
+    needs: hands
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.head || github.ref }}
+      - uses: actions/download-artifact@v4
+        with:
+          path: art
+      - run: |
+          title="Bench: $(cat art/cli-base/version.txt) → $(cat art/cli-head/version.txt), ${{ inputs.nodes }} nodi"
+          python3 scripts/bench_compare.py --title "$title" --base art/results-*/base/results.json --head art/results-*/head/results.json | tee report.md
+          cat report.md >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: report
+          path: report.md
+          retention-days: 30
