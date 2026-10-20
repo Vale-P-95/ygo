@@ -149,8 +149,20 @@ pub struct Duel {
     activity: TurnActivity,
     /// Links of the chain being built (0 once it starts to resolve).
     open_chain: usize,
+    /// The links on the chain not resolved yet, first link first.
+    chain: Vec<ChainLink>,
     /// The duel ends ([`Step::End`]) as soon as a later turn begins.
     last_turn: Option<u32>,
+}
+
+/// A link on the chain: whose, which effect of which card (the original
+/// code of an alternate artwork), and from where it was activated.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct ChainLink {
+    pub controller: u8,
+    pub code: u32,
+    pub description: u64,
+    pub location: u8,
 }
 
 /// A card put on the field before the duel starts.
@@ -221,6 +233,7 @@ impl Duel {
             phase: 0,
             activity: TurnActivity::default(),
             open_chain: 0,
+            chain: Vec::new(),
             last_turn: None,
         };
         for base in ["constant.lua", "utility.lua"] {
@@ -484,8 +497,17 @@ impl Duel {
                 a.activations.push((card.code, *description));
                 a.activations.sort_unstable();
                 self.open_chain += 1;
+                let code = self.ctx.cards.canonical_code(card.code);
+                self.chain.push(ChainLink { controller: card.controller, code, description: *description, location: card.location });
             }
-            Event::ChainSolving { .. } | Event::ChainEnd => self.open_chain = 0,
+            Event::ChainSolving { .. } => self.open_chain = 0,
+            Event::ChainSolved { .. } => {
+                self.chain.pop();
+            }
+            Event::ChainEnd => {
+                self.open_chain = 0;
+                self.chain.clear();
+            }
             _ => {}
         }
     }
@@ -504,6 +526,12 @@ impl Duel {
     /// open asks for a response, one without starts a new chain.
     pub fn open_chain(&self) -> usize {
         self.open_chain
+    }
+
+    /// The links on the chain not resolved yet, first link first: what the
+    /// field does not show of a chain being built or resolved.
+    pub fn chain(&self) -> &[ChainLink] {
+        &self.chain
     }
 
     pub(crate) fn raw_query_location(&self, player: u8, loc: u8, flags: u32) -> Vec<u8> {

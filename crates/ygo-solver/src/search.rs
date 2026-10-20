@@ -36,8 +36,8 @@ use std::time::{Duration, Instant};
 use ygo_engine::auto::AutoPolicy;
 use ygo_engine::consts::{card_type, location};
 use ygo_engine::{
-    canonical_fingerprint, fingerprint, italian, Action, ActionKind, CardDb, CardRef, Decision, DeckList, Duel, DuelState, Engine, Error,
-    Event, Opponent, Placement, Step,
+    canonical_fingerprint, fingerprint, italian, Action, ActionKind, CardDb, CardRef, ChainLink, Decision, DeckList, Duel, DuelState,
+    Engine, Error, Event, Opponent, Placement, Step,
 };
 
 use crate::coverage::{self, Audit, Coverage, Links, Mechanic};
@@ -636,9 +636,14 @@ fn rank(a: &Board, b: &Board) -> CmpOrdering {
 /// since your last free moment count too: the state does not say yet what
 /// is being done, and choosing Aleister the Invoker as material for
 /// Salamangreat Almiraj or for Artemis is the same choice of the same state.
-fn node_key(state: &DuelState, decision: &Decision, pending: &Pending) -> u64 {
+fn node_key(state: &DuelState, chain: &[ChainLink], decision: &Decision, pending: &Pending) -> u64 {
     let mut h = DefaultHasher::new();
     canonical_fingerprint(state).hash(&mut h);
+    // The chain not resolved yet: the same field with A chained to B, B to
+    // A, or A still to resolve is not the same moment.
+    if !chain.is_empty() {
+        chain.hash(&mut h);
+    }
     decision.hash(&mut h);
     if !is_free(decision) {
         pending.value().hash(&mut h);
@@ -1265,11 +1270,13 @@ fn play(shared: &Shared, edge: &Edge, dive: &mut Dive) -> Result<(), Error> {
         let free = is_free(&decision);
         // The same state met again since the last free moment, by the
         // same choice with nothing happened in between or by its state.
-        if !since_free.meet(&decision, happened) || (!free && !since_free.seen.insert(node_key(&state, &decision, &Pending::default()))) {
+        if !since_free.meet(&decision, happened)
+            || (!free && !since_free.seen.insert(node_key(&state, duel.chain(), &decision, &Pending::default())))
+        {
             shared.duplicates.fetch_add(1, Ordering::Relaxed);
             return Ok(());
         }
-        if !shared.first_visit(node_key(&state, &decision, &pending)) {
+        if !shared.first_visit(node_key(&state, duel.chain(), &decision, &pending)) {
             shared.duplicates.fetch_add(1, Ordering::Relaxed);
             return Ok(());
         }
