@@ -144,13 +144,27 @@ export default function App() {
                 rememberDeck(id);
                 setActive("deck-builder");
               }}
+              onOpenLab={(id) => {
+                rememberDeck(id);
+                setActive("stats");
+              }}
+              onOpenCombo={(id) => {
+                rememberDeck(id);
+                setActive("combo");
+              }}
               onNewDeck={() => {
                 requestNewDeck();
                 setActive("deck-builder");
               }}
             />
           )}
-          {active === "stats" && <Lab artReady={artReady} onGoForge={() => setActive("deck-builder")} />}
+          {active === "stats" && (
+            <Lab
+              artReady={artReady}
+              onGoForge={() => setActive("deck-builder")}
+              onGoCombo={() => setActive("combo")}
+            />
+          )}
           {active === "combo" && <Combo artReady={artReady} onGoForge={() => setActive("deck-builder")} />}
           {active === "settings" && <Settings onStatus={setStatus} />}
           {!["overview", "deck-builder", "shelf", "stats", "combo", "settings"].includes(active) && <Upcoming section={section} artReady={artReady} />}

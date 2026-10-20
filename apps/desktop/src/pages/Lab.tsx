@@ -31,7 +31,15 @@ const TABS: { id: Tab; label: string }[] = [
 ];
 
 /** Il Laboratorio: statistics on a deck, built on the roles of its cards. */
-export function Lab({ artReady, onGoForge }: { artReady: boolean; onGoForge: () => void }) {
+export function Lab({
+  artReady,
+  onGoForge,
+  onGoCombo,
+}: {
+  artReady: boolean;
+  onGoForge: () => void;
+  onGoCombo?: (cardId?: number) => void;
+}) {
   const [decks, setDecks] = useState<DeckSummary[] | null>(null);
   const [deck, setDeck] = useState<Deck | null>(null);
   const [roles, setRoles] = useState<Record<string, number[]>>({});
@@ -187,6 +195,34 @@ export function Lab({ artReady, onGoForge }: { artReady: boolean; onGoForge: () 
     }
   };
 
+  const exploreCombo = useCallback(
+    (cardId: number) => {
+      if (!deck?.id) return;
+      let existing: Record<string, unknown> = {};
+      try {
+        const raw = localStorage.getItem(`duelforge.combo.${deck.id}`);
+        if (raw) existing = JSON.parse(raw);
+      } catch {
+        existing = {};
+      }
+      const nextSetup = {
+        mode: "card" as const,
+        hand: Array.isArray(existing.hand) ? existing.hand : [],
+        card: cardId,
+        keep: Array.isArray(existing.keep) ? existing.keep : [],
+        forbid: Array.isArray(existing.forbid) ? existing.forbid : [],
+        goal: Array.isArray(existing.goal) ? existing.goal : [],
+        goalAll: typeof existing.goalAll === "boolean" ? existing.goalAll : true,
+        goalFirst: typeof existing.goalFirst === "boolean" ? existing.goalFirst : true,
+      };
+      localStorage.setItem(`duelforge.combo.${deck.id}`, JSON.stringify(nextSetup));
+      rememberDeck(deck.id);
+      sound.play("forge");
+      onGoCombo?.(cardId);
+    },
+    [deck?.id, onGoCombo],
+  );
+
   const cond = toCond(root);
   const section = sectionById("stats");
 
@@ -246,7 +282,7 @@ export function Lab({ artReady, onGoForge }: { artReady: boolean; onGoForge: () 
             {!deck || !overview ? (
               <p className="text-sm text-muted">Carico il deck…</p>
             ) : tab === "overview" ? (
-              <OverviewTab overview={overview} hand={hand} roles={roles} getCard={cards.get} />
+              <OverviewTab overview={overview} hand={hand} roles={roles} getCard={cards.get} onExploreCombo={onGoCombo ? exploreCombo : undefined} />
             ) : tab === "compare" ? (
               <CompareTab key={deck.id} deck={deck} overview={overview} decks={decks ?? []} hand={hand} getCard={cards.get} request={request} />
             ) : tab === "calculator" ? (
@@ -292,6 +328,7 @@ export function Lab({ artReady, onGoForge }: { artReady: boolean; onGoForge: () 
                 guessing={guessing}
                 reasons={reasons}
                 onUndo={previousRoles ? undoSuggest : null}
+                onExploreCombo={onGoCombo ? exploreCombo : undefined}
               />
             ))}
         </div>

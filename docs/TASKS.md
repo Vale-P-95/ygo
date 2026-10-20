@@ -26,7 +26,6 @@ Regole in `AGENTS.md`. Per prendere un task, spostalo in "In corso" con agente, 
   - `SimulatorTab.tsx`: il seme accetta al massimo `Number.MAX_SAFE_INTEGER` (oltre, la simulazione fallisce).
   - `lib/matches.ts` (`pValue`): sotto 0,05 non mostrare mai «0,050»: «p < 0,05» o arrotondare per difetto.
   - `LogTab.tsx` (grafico «Per tag»): nessuna linea «media 0%» quando non ci sono partite decise. Facoltativo: la riga «Game 1» può chiamarsi «Game 1 (Bo3)».
-- [ ] Ponte rapido tra Laboratorio, Bottega e Circolo Arcano (avvio ricerca combo 1-carta dal Laboratorio, apertura diretta di un Deck Box in Laboratorio o Circolo Arcano dalla Bottega).
 - [ ] Visore Carta (`CardViewer`) interattivo: aggiunta/rimozione copie (`+ Main`, `+ Side`, `+ Maybe`, `−`) e assegnazione rapida dei ruoli senza chiudere il visore.
 - [ ] Pagina «Il Banditore» (`Novità`): confronto tra banlist (Master Duel, TCG, OCG) e impatto immediato sui deck salvati in bottega.
 
@@ -42,6 +41,7 @@ Regole in `AGENTS.md`. Per prendere un task, spostalo in "In corso" con agente, 
 - [ ] Stato del campo e della mano a ogni passo della linea in `ComboStep` (con la stessa forma del campo della board) per collegare il tappetino al riproduttore passo per passo.
 
 ## Completati (recenti; lo storico è in `docs/PIANO.md`)
+- [x] Ponte rapido tra Laboratorio, Bottega e Circolo Arcano: avvio combo 1-carta dai ruoli e dalla panoramica del Laboratorio, apertura diretta dei Deck Box in Laboratorio o Circolo Arcano dalla Bottega con riassunto ruoli (PR #10).
 - [x] Riproduttore passo-passo della linea (controlli, evidenziazione del passo e delle carte coinvolte), frecce Link sul campo e «Copia guida» (solo nomi e passi) nel Circolo Arcano (PR #8). Il tappetino passo per passo si collega quando arriva lo stato per passo in `ComboStep`.
 - [x] Filtri rapidi per ruolo, riconoscimento ruoli, distribuzione della curva e Mano di prova collegata al Circolo Arcano nella Fucina (PR #7).
 - [x] Confronto affiancato tra due board nel Circolo Arcano (differenze su campo, interruzioni, resilienza e punteggio, PR #6).
