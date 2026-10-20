@@ -4,10 +4,13 @@ Regole in `AGENTS.md`. Per prendere un task, spostalo in "In corso" con agente, 
 
 ## In corso
 - [ ] Audit della copertura delle meccaniche su 45 deck: analisi dei risultati e correzioni generali (PIANO §30.2–30.3) — agente: claude-code — branch: claude/yugioh-deck-builder-simulator-cax0ya — file: crates/ygo-solver/src/search.rs, coverage.rs
+- [ ] Riproduttore passo-passo della linea, frecce Link sul campo ed esportazione guida combo nel Circolo Arcano — agente: antigravity — branch: gemini/combo-step-player — file: docs/plans/combo-step-player.md, apps/desktop/src/components/combo/Field.tsx, apps/desktop/src/components/combo/Steps.tsx, apps/desktop/src/components/combo/BoardDetail.tsx, apps/desktop/src/lib/mock.ts
 
 ## Da fare (in ordine di priorità)
 
 ### Interfaccia (Gemini)
+- [ ] Ponte rapido tra Laboratorio, Bottega e Circolo Arcano (avvio ricerca combo 1-carta dal Laboratorio, apertura diretta di un Deck Box in Laboratorio o Circolo Arcano dalla Bottega).
+- [ ] Visore Carta (`CardViewer`) interattivo: aggiunta/rimozione copie (`+ Main`, `+ Side`, `+ Maybe`, `−`) e assegnazione rapida dei ruoli senza chiudere il visore.
 - [ ] Pagina «Il Banditore» (`Novità`): confronto tra banlist (Master Duel, TCG, OCG) e impatto immediato sui deck salvati in bottega.
 
 ### Motore e ricerca (Claude)
@@ -20,7 +23,7 @@ Regole in `AGENTS.md`. Per prendere un task, spostalo in "In corso" con agente, 
 - [ ] Limiti noti delle carte piazzate: equipaggiamenti, materiali dei mostri dell'Extra Deck (PIANO §30.4).
 
 ### Richieste dal backend per l'interfaccia
-(Gemini scrive qui i dati nuovi che gli servono; li aggiunge Claude in backend e `api.ts`.)
+- [ ] Stato del campo e della mano a ogni passo della linea in `ComboStep` (con la stessa forma del campo della board) per collegare il tappetino al riproduttore passo per passo.
 
 ## Completati (recenti; lo storico è in `docs/PIANO.md`)
 - [x] Filtri rapidi per ruolo, riconoscimento ruoli, distribuzione della curva e Mano di prova collegata al Circolo Arcano nella Fucina (PR #7).
