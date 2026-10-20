@@ -490,6 +490,20 @@ impl Shared<'_> {
         }
     }
 
+    /// A handtrap did nothing on your turn: after [`IDLE_STRIKES`] times, and
+    /// unless it was seen to give something to do, it stays in the hand.
+    fn strike(&self, code: u32) {
+        let useful = self.useful_hand_traps.read().is_ok_and(|u| u.contains(&code));
+        let strikes = self.idle_strikes.lock().map_or(0, |mut s| {
+            let n = s.entry(code).or_default();
+            *n += 1;
+            *n
+        });
+        if let (false, true, Ok(mut idle)) = (useful, strikes >= IDLE_STRIKES, self.idle_hand_traps.write()) {
+            idle.insert(code);
+        }
+    }
+
     /// True the first time `key` is seen.
     fn first_visit(&self, key: u64) -> bool {
         let shard = &self.seen[(key as usize) % SEEN_SHARDS];
@@ -965,6 +979,10 @@ fn hand_trap_trial(
     hand_trap(code).then(|| (code, offered(db, actions)))
 }
 
+const PHASE_DRAW: u16 = 0x1;
+const PHASE_STANDBY: u16 = 0x2;
+const PHASE_END: u16 = 0x200;
+
 /// Times a handtrap does nothing at your idle moment before it is left in
 /// the hand for the rest of the search.
 const IDLE_STRIKES: u32 = 3;
@@ -1139,6 +1157,18 @@ fn play(shared: &Shared, edge: &Edge, dive: &mut Dive) -> Result<(), Error> {
             for e in &events {
                 let _ = links.follow(db, e);
             }
+            // Queued before the handtrap was learned to do nothing here.
+            if shared.idle_hand_traps.read().is_ok_and(|idle| {
+                !idle.is_empty()
+                    && duel.actions(&decision).iter().any(|a| {
+                        a.response == answer
+                            && a.kind == ActionKind::Activate
+                            && a.card.is_some_and(|c| c.location == location::HAND && idle.contains(&db.canonical_code(c.code)))
+                    })
+            }) {
+                shared.duplicates.fetch_add(1, Ordering::Relaxed);
+                return Ok(());
+            }
             if let Some(Ok(mut c)) = shared.coverage.as_ref().map(Mutex::lock) {
                 coverage::chosen(shared.engine.cards(), &decision, &duel.actions(&decision), &answer, &mut c);
             }
@@ -1179,7 +1209,7 @@ fn play(shared: &Shared, edge: &Edge, dive: &mut Dive) -> Result<(), Error> {
             pending.answered(d, a);
             after_answer(&mut last_set, d, a);
         })?;
-        let (turn, _, _) = duel.turn_info();
+        let (turn, _, phase) = duel.turn_info();
         let (Step::Decision { events, .. } | Step::End { events }) = &step;
         let mut negated = false;
         let mut cover = shared.coverage.as_ref().and_then(|c| c.lock().ok());
@@ -1200,11 +1230,15 @@ fn play(shared: &Shared, edge: &Edge, dive: &mut Dive) -> Result<(), Error> {
             // the card in hand (to discard for a cost, or for the
             // opponent's turn), so this one only loses. Activated at your
             // idle moment, it is judged at the next one by what it gave to
-            // do; chained to something, the line goes.
+            // do; chained to something, the line goes. Either way it counts
+            // towards leaving it in the hand.
             if let Some(m) = links.take_silent().filter(|m| hand_trap(m.code)) {
                 match &trial {
                     Some((code, _)) if *code == m.code => quiet = true,
-                    _ => negated = true,
+                    _ => {
+                        negated = true;
+                        shared.strike(m.code);
+                    }
                 }
             }
         }
@@ -1221,15 +1255,7 @@ fn play(shared: &Shared, edge: &Edge, dive: &mut Dive) -> Result<(), Error> {
                     }
                 } else {
                     negated = true;
-                    let useful = shared.useful_hand_traps.read().is_ok_and(|u| u.contains(&code));
-                    let strikes = shared.idle_strikes.lock().map_or(0, |mut s| {
-                        let n = s.entry(code).or_default();
-                        *n += 1;
-                        *n
-                    });
-                    if let (false, true, Ok(mut idle)) = (useful, strikes >= IDLE_STRIKES, shared.idle_hand_traps.write()) {
-                        idle.insert(code);
-                    }
+                    shared.strike(code);
                 }
             }
             quiet = false;
@@ -1361,10 +1387,12 @@ fn play(shared: &Shared, edge: &Edge, dive: &mut Dive) -> Result<(), Error> {
         // Quick effects in your own End Phase rarely help a combo (Hyperinvoked
         // Aeon's Attribute change, a negation of your own effect): not
         // activating them comes first there too, like when responding.
-        // An empty chain window too: what can be activated there is offered
-        // again at your next idle moment, while a quick card used at the
-        // Draw Phase is gone for every line after it.
-        let responding = matches!(decision, Decision::SelectChain { triggers: false, .. });
+        // An empty chain window outside the Main Phase too: what can be
+        // activated there is offered again at your idle moments, while a
+        // quick card used at the Draw Phase is gone for every line after it.
+        // (In the Main Phase, combos often go on from such a window.)
+        let responding = matches!(decision, Decision::SelectChain { triggers: false, .. })
+            && (duel.open_chain() > 0 || phase & (PHASE_DRAW | PHASE_STANDBY | PHASE_END) != 0);
         let held = |a: &Action| {
             let c = a.card?;
             if c.location == location::HAND && hand_trap(db.canonical_code(c.code)) {
