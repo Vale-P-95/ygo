@@ -6,11 +6,13 @@ import { EmblemIcon } from "./Emblems";
 export function Sidebar({
   active,
   onSelect,
+  onOpenPalette,
   onOpenGuide,
   compact = false,
 }: {
   active: SectionId;
   onSelect: (id: SectionId) => void;
+  onOpenPalette?: () => void;
   onOpenGuide?: () => void;
   compact?: boolean;
 }) {
@@ -65,7 +67,34 @@ export function Sidebar({
         })}
       </ul>
 
-      <div className="mt-auto flex flex-col gap-2.5 pt-3">
+      <div className="mt-auto flex flex-col gap-2 pt-3">
+        {onOpenPalette && (
+          <button
+            type="button"
+            onPointerEnter={() => sound.play("hover")}
+            onClick={() => {
+              sound.play("open");
+              onOpenPalette();
+            }}
+            title={compact ? "Palette dei comandi (Ctrl+K)" : undefined}
+            aria-label="Palette dei comandi"
+            className={`group flex w-full items-center gap-2.5 rounded-xl border border-border bg-surface-2/70 py-2 text-left text-xs font-medium text-muted transition hover:border-border-strong hover:bg-surface-3 hover:text-text ${
+              compact ? "justify-center px-0" : "px-3"
+            }`}
+          >
+            <span className="grid h-5 w-5 shrink-0 place-items-center rounded-md border border-border-strong bg-bg-2 font-mono text-[10px] font-bold text-gold group-hover:border-gold/60">
+              ⌘
+            </span>
+            {!compact && (
+              <>
+                <span className="truncate">Comandi</span>
+                <kbd className="ml-auto rounded border border-border-strong bg-bg-2 px-1.5 py-0.5 font-mono text-[10px] text-faint">
+                  Ctrl+K
+                </kbd>
+              </>
+            )}
+          </button>
+        )}
         {onOpenGuide && (
           <button
             type="button"
@@ -74,7 +103,7 @@ export function Sidebar({
               sound.play("open");
               onOpenGuide();
             }}
-            title={compact ? "Guida rapida" : undefined}
+            title={compact ? "Guida rapida (?)" : undefined}
             aria-label="Guida rapida"
             className={`group flex w-full items-center gap-2.5 rounded-xl border border-border bg-surface-2/70 py-2 text-left text-xs font-medium text-muted transition hover:border-border-strong hover:bg-surface-3 hover:text-text ${
               compact ? "justify-center px-0" : "px-3"
@@ -83,7 +112,14 @@ export function Sidebar({
             <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full border border-border-strong bg-bg-2 text-[11px] font-bold text-gold group-hover:border-gold/60">
               ?
             </span>
-            {!compact && <span>Guida rapida</span>}
+            {!compact && (
+              <>
+                <span className="truncate">Guida rapida</span>
+                <kbd className="ml-auto rounded border border-border-strong bg-bg-2 px-1.5 py-0.5 font-mono text-[10px] text-faint">
+                  ?
+                </kbd>
+              </>
+            )}
           </button>
         )}
         {!compact && <p className="px-2 text-[10px] leading-relaxed text-faint">DuelForge 0.1 · progetto non ufficiale, non affiliato a Konami</p>}
