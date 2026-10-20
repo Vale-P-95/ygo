@@ -5,9 +5,14 @@ import type {
   CardKind,
   Checkpoint,
   Chip,
+  ComboBoard,
+  ComboGoal,
+  ComboHand,
   ComboOutcome,
   ComboProgress,
+  ComboRequest,
   ComboScore,
+  ComboStep,
   Cond,
   DataStatus,
   Deck,
@@ -32,6 +37,7 @@ import type {
   ShelfDeck,
   SimRule,
   WinRecord,
+  ZoneCard,
 } from "./api";
 import { pAtLeastOne, pBoth } from "./probability";
 
@@ -746,6 +752,44 @@ export function mockCardImage(id: number, size: ImageSize): string {
   return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
 }
 
+// Seed default Combo Lab hand in localStorage when absent so browser testing works immediately.
+if (typeof localStorage !== "undefined") {
+  try {
+    if (!localStorage.getItem("duelforge.combo.1")) {
+      localStorage.setItem(
+        "duelforge.combo.1",
+        JSON.stringify({
+          mode: "hand",
+          hand: [98159737, 72270339, 42370001, 14558127, 10045474],
+          card: 98159737,
+          keep: [14558127],
+          forbid: [],
+          goal: [],
+          goalAll: true,
+          goalFirst: true,
+        }),
+      );
+    }
+    if (!localStorage.getItem("duelforge.combo.2")) {
+      localStorage.setItem(
+        "duelforge.combo.2",
+        JSON.stringify({
+          mode: "hand",
+          hand: [60764609, 86120752, 72270339, 14558127, 10045474],
+          card: 60764609,
+          keep: [14558127],
+          forbid: [],
+          goal: [],
+          goalAll: true,
+          goalFirst: true,
+        }),
+      );
+    }
+  } catch {
+    // Ignore storage restrictions.
+  }
+}
+
 let statusState: DataStatus = {
   dataDir: "C:\\dev\\ygo-gemini\\data (mock)",
   cards: { version: "147.37", count: CARDS.size },
@@ -764,7 +808,10 @@ let statusState: DataStatus = {
 const progressListeners = new Set<(p: Progress) => void>();
 const rolesProgressListeners = new Set<(p: { done: number; total: number }) => void>();
 const simProgressListeners = new Set<(c: Checkpoint) => void>();
+const comboProgressListeners = new Set<(p: ComboProgress) => void>();
+const comboScoreListeners = new Set<(s: ComboScore) => void>();
 let simCancelled = false;
+let comboCancelled = false;
 
 const favoritesState = new Set<number>([98159737, 72270339, 27548199, 29301450]);
 let savedSearchesState: SavedSearch[] = [
@@ -1221,7 +1268,6 @@ let nextMatchId = 13;
 function makeWinRecord(wins: number, losses: number, draws = 0): WinRecord {
   const n = wins + losses;
   const p = n > 0 ? wins / n : 0;
-  // Wilson 95% interval approximation
   const z = 1.96;
   const denom = 1 + (z * z) / Math.max(1, n);
   const center = n > 0 ? (p + (z * z) / (2 * n)) / denom : 0.5;
@@ -1404,6 +1450,508 @@ function buildMatchLog(deckId: number | null): MatchLog {
     tags: ["Master Duel", "Master I", "Rating", "Torneo"],
   };
 }
+
+// --- Combo Lab mock builders ---
+
+function zMonster(code: number, opts: Partial<ZoneCard> = {}): ZoneCard {
+  const c = CARDS.get(code);
+  return {
+    code,
+    faceUp: opts.faceUp ?? true,
+    defense: opts.defense ?? false,
+    link: opts.link ?? c?.linkRating ?? 0,
+    arrows: opts.arrows ?? 0,
+    level: opts.level ?? (c?.frame === "xyz" ? 0 : (c?.level ?? 0)),
+    rank: opts.rank ?? (c?.frame === "xyz" ? (c?.level ?? 8) : 0),
+    attack: opts.attack ?? c?.atk ?? 0,
+    def: opts.def ?? c?.def ?? 0,
+    overlay: opts.overlay ?? [],
+    counters: opts.counters ?? 0,
+    negated: opts.negated ?? false,
+  };
+}
+
+function zSpell(code: number, faceUp = true): ZoneCard {
+  return {
+    code,
+    faceUp,
+    defense: false,
+    link: 0,
+    arrows: 0,
+    level: 0,
+    rank: 0,
+    attack: 0,
+    def: 0,
+    overlay: [],
+    counters: 0,
+    negated: false,
+  };
+}
+
+function countGoalHits(monsters: (ZoneCard | null)[], spells: (ZoneCard | null)[], goal: ComboGoal | null): number {
+  if (!goal || goal.cards.length === 0) return 0;
+  let hits = 0;
+  for (const g of goal.cards) {
+    const inMain = monsters.slice(0, 5).some((z) => z?.code === g.code);
+    const inExtra = monsters.slice(5).some((z) => z?.code === g.code);
+    const inSpells = spells.some((z) => z?.code === g.code);
+    const matched = g.zone === "extra" ? inExtra : g.zone === "main" ? inMain : inMain || inExtra || inSpells;
+    if (matched) hits++;
+  }
+  return hits;
+}
+
+function buildMockBoardsForHand(handIdx: number, deckId: number, goal: ComboGoal | null): ComboBoard[] {
+  if (deckId === 2) {
+    const m1: (ZoneCard | null)[] = [
+      zMonster(75286621, { attack: 2500, def: 2100 }),
+      zMonster(84815190, { attack: 3000, def: 2400 }),
+      zMonster(60764609, { defense: true }),
+      null,
+      null,
+      zMonster(29301450),
+      null,
+    ];
+    const s1: (ZoneCard | null)[] = [zSpell(10045474, false), zSpell(24224830, false), null, null, null, null];
+    const m2: (ZoneCard | null)[] = [
+      zMonster(75286621, { attack: 2500, def: 2100 }),
+      zMonster(65741786),
+      null,
+      null,
+      null,
+      zMonster(4280258, { attack: 2400 }),
+      null,
+    ];
+    const s2: (ZoneCard | null)[] = [zSpell(10045474, false), null, null, null, null, null];
+    return [
+      {
+        key: "invoked-mechaba-baronne-sp",
+        hand: handIdx,
+        quickScore: 8.6,
+        cardsUsed: 2,
+        choices: 13,
+        foundAfterMs: 240 + handIdx * 90,
+        exact: true,
+        goalHits: countGoalHits(m1, s1, goal),
+        monsters: m1,
+        spells: s1,
+        handCards: [86120752, 14558127, 97268402],
+        grave: [74063034, 41999284, 72270339, 58074572],
+        banished: [98159737],
+        deckCount: 29,
+        extraCount: 11,
+        extraFaceUp: [],
+      },
+      {
+        key: "invoked-apollousa-ip",
+        hand: handIdx,
+        quickScore: 7.9,
+        cardsUsed: 2,
+        choices: 11,
+        foundAfterMs: 390 + handIdx * 90,
+        exact: true,
+        goalHits: countGoalHits(m2, s2, goal),
+        monsters: m2,
+        spells: s2,
+        handCards: [86120752, 14558127, 23434538],
+        grave: [74063034, 60764609, 41999284],
+        banished: [],
+        deckCount: 31,
+        extraCount: 12,
+        extraFaceUp: [],
+      },
+    ];
+  }
+
+  // Deck 1 (Snake-Eye Fire King): 3 distinct lines (high negates, grind/resilient, low-exposure anti-Nibiru)
+  const mA: (ZoneCard | null)[] = [
+    zMonster(11264180),
+    zMonster(65741786),
+    zMonster(42370001),
+    zMonster(13002461, { defense: true }),
+    null,
+    zMonster(4280258, { attack: 2400 }),
+    null,
+  ];
+  const sA: (ZoneCard | null)[] = [
+    zSpell(45298492, true),
+    zSpell(10045474, false),
+    zSpell(57554544, true),
+    null,
+    null,
+    zSpell(69105797, true),
+  ];
+
+  const mB: (ZoneCard | null)[] = [
+    zMonster(84815190),
+    zMonster(29301450),
+    zMonster(11264180),
+    zMonster(50954680, { overlay: [75392615, 42370001] }),
+    null,
+    zMonster(18940556, { attack: 3400 }),
+    null,
+  ];
+  const sB: (ZoneCard | null)[] = [
+    zSpell(65741786, true),
+    zSpell(10045474, false),
+    null,
+    null,
+    null,
+    zSpell(57554545, true),
+  ];
+
+  const mC: (ZoneCard | null)[] = [
+    zMonster(11264180),
+    zMonster(42370001),
+    null,
+    null,
+    null,
+    zMonster(29301450),
+    null,
+  ];
+  const sC: (ZoneCard | null)[] = [
+    zSpell(65741786, true),
+    zSpell(10045474, false),
+    zSpell(24224830, false),
+    null,
+    null,
+    zSpell(69105797, true),
+  ];
+
+  return [
+    {
+      key: "se-apollousa-princess-kirin",
+      hand: handIdx,
+      quickScore: 9.4,
+      cardsUsed: 2,
+      choices: 18,
+      foundAfterMs: 310 + handIdx * 80,
+      exact: true,
+      goalHits: countGoalHits(mA, sA, goal),
+      monsters: mA,
+      spells: sA,
+      handCards: [14558127, 13002461, 42370001],
+      grave: [27548199, 98159737, 81674782, 75392615, 72270339, 58074572, 41999284],
+      banished: [34267821],
+      deckCount: 26,
+      extraCount: 10,
+      extraFaceUp: [],
+    },
+    {
+      key: "se-amblowhale-baronne-eternity",
+      hand: handIdx,
+      quickScore: 8.9,
+      cardsUsed: 2,
+      choices: 16,
+      foundAfterMs: 480 + handIdx * 80,
+      exact: true,
+      goalHits: countGoalHits(mB, sB, goal),
+      monsters: mB,
+      spells: sB,
+      handCards: [14558127, 23434538, 98159737],
+      grave: [27548199, 45298492, 13002461, 48815792, 87835759],
+      banished: [58074572],
+      deckCount: 27,
+      extraCount: 9,
+      extraFaceUp: [],
+    },
+    {
+      key: "se-safe-4summon-sp-flamberge",
+      hand: handIdx,
+      quickScore: 7.7,
+      cardsUsed: 1,
+      choices: 9,
+      foundAfterMs: 170 + handIdx * 60,
+      exact: true,
+      goalHits: countGoalHits(mC, sC, goal),
+      monsters: mC,
+      spells: sC,
+      handCards: [14558127, 23434538, 42370001, 72270339],
+      grave: [98159737, 45298492, 75392615],
+      banished: [],
+      deckCount: 30,
+      extraCount: 13,
+      extraFaceUp: [],
+    },
+  ];
+}
+
+function buildMockScoreForBoard(b: ComboBoard): ComboScore {
+  if (b.key === "se-safe-4summon-sp-flamberge") {
+    return {
+      hand: b.hand,
+      key: b.key,
+      interruptions: 2.35,
+      handTraps: 1.65,
+      floodgates: 0,
+      resilience: 1.9,
+      resources: 1.4,
+      followup: 2.0,
+      cost: 0,
+      details: [
+        {
+          code: 29301450,
+          place: "campo",
+          effect: "bandisce 2 mostri fino alla End Phase quando l'avversario attiva un effetto",
+          targeted: true,
+          uses: 1,
+          coverage: 0.68,
+          value: 0.78,
+          alone: 0.78,
+          covers: ["Evocazione Speciale", "Effetto sul campo", "Mostro dall'Extra Deck"],
+        },
+        {
+          code: 65741786,
+          place: "campo",
+          effect: "evoca tramite Flamberge e fa Link Summon di S:P Little Knight nel turno avversario",
+          targeted: true,
+          uses: 1,
+          coverage: 0.75,
+          value: 0.85,
+          alone: 0.85,
+          covers: ["Carta sul campo", "Carta nel Cimitero"],
+        },
+        {
+          code: 10045474,
+          place: "campo",
+          effect: "nega gli effetti di un mostro scoperto controllato dall'avversario",
+          targeted: true,
+          uses: 1,
+          coverage: 0.64,
+          value: 0.72,
+          alone: 0.72,
+          covers: ["Effetto di mostro sul campo"],
+        },
+        {
+          code: 14558127,
+          place: "mano",
+          effect: "nega un effetto che aggiunge, evoca o manda carte dal Deck",
+          targeted: false,
+          uses: 1,
+          coverage: 0.82,
+          value: 0.9,
+          alone: 0.9,
+          covers: ["Ricerca dal Deck", "Evocazione dal Deck", "Mandare dal Deck al Cimitero"],
+        },
+        {
+          code: 42370001,
+          place: "mano",
+          effect: "distrugge un mostro FUOCO per evocarsi e innescare Garunix dal Cimitero",
+          targeted: false,
+          uses: 1,
+          coverage: 0.65,
+          value: 0.75,
+          alone: 0.75,
+          covers: ["Distruzione senza bersaglio", "Evocazione nel turno avversario"],
+        },
+      ],
+      floodgateList: [],
+      breakers: [
+        { name: "Dark Hole", notApplicable: false, stoppedBy: null, remaining: 1.9 },
+        { name: "Raigeki", notApplicable: false, stoppedBy: null, remaining: 1.9 },
+        { name: "Harpie's Feather Duster", notApplicable: false, stoppedBy: null, remaining: 1.6 },
+        { name: "Lightning Storm", notApplicable: false, stoppedBy: null, remaining: 1.85 },
+        { name: "Forbidden Droplet", notApplicable: false, stoppedBy: null, remaining: 1.55 },
+        { name: "Evenly Matched", notApplicable: false, stoppedBy: null, remaining: 1.2 },
+        { name: "Gameciel, the Sea Turtle Kaiju", notApplicable: false, stoppedBy: null, remaining: 1.75 },
+      ],
+      resourcesNote: "2 carte extra in mano e 3 nel Cimitero pronte per il turno successivo",
+      followupNote: "1 starter (Diabellstar) e 1 estensore (Kirin) in mano",
+      exposure: 2,
+      exposureNote: "Linea compatta in 4 Evocazioni: non attiva mai Nibiru",
+      exposureDetail: { ash: 1, onField: 1, summons: 4, specialSummons: 3, searches: 1 },
+      error: null,
+    };
+  }
+
+  if (b.key === "se-amblowhale-baronne-eternity" || b.key.startsWith("invoked-")) {
+    return {
+      hand: b.hand,
+      key: b.key,
+      interruptions: 3.45,
+      handTraps: 1.4,
+      floodgates: 0,
+      resilience: 2.85,
+      resources: 1.2,
+      followup: 1.5,
+      cost: 1,
+      details: [
+        {
+          code: 84815190,
+          place: "campo",
+          effect: "nega qualsiasi attivazione e distrugge la carta",
+          targeted: false,
+          uses: 1,
+          coverage: 1.0,
+          value: 1.05,
+          alone: 1.05,
+          covers: ["Magia", "Trappola", "Effetto di mostro", "Evocazione"],
+        },
+        {
+          code: b.key.startsWith("invoked-") ? 75286621 : 50954680,
+          place: "campo",
+          effect: b.key.startsWith("invoked-")
+            ? "manda una carta dello stesso tipo dalla mano per negare e bandire"
+            : "distrugge tutti gli altri mostri sul Terreno o una Magia/Trappola staccando materiale",
+          targeted: false,
+          uses: 1,
+          coverage: 0.88,
+          value: 0.95,
+          alone: 1.0,
+          covers: ["Effetto di mostro", "Magia", "Mostri sul Terreno"],
+        },
+        {
+          code: 29301450,
+          place: "campo",
+          effect: "bandisce 1 carta sul Terreno/Cimitero e rimuove 2 mostri fino alla End Phase",
+          targeted: true,
+          uses: 1,
+          coverage: 0.72,
+          value: 0.8,
+          alone: 0.85,
+          covers: ["Carta sul campo", "Mostro dell'Extra Deck"],
+        },
+        {
+          code: 10045474,
+          place: "campo",
+          effect: "nega gli effetti di un mostro scoperto controllato dall'avversario",
+          targeted: true,
+          uses: 1,
+          coverage: 0.64,
+          value: 0.65,
+          alone: 0.72,
+          covers: ["Effetto di mostro sul campo"],
+        },
+        {
+          code: 14558127,
+          place: "mano",
+          effect: "nega un effetto che aggiunge, evoca o manda carte dal Deck",
+          targeted: false,
+          uses: 1,
+          coverage: 0.82,
+          value: 0.9,
+          alone: 0.9,
+          covers: ["Ricerca dal Deck", "Evocazione dal Deck"],
+        },
+      ],
+      floodgateList: [],
+      breakers: [
+        { name: "Dark Hole", notApplicable: false, stoppedBy: 84815190, remaining: 3.45 },
+        { name: "Raigeki", notApplicable: false, stoppedBy: 84815190, remaining: 3.45 },
+        { name: "Harpie's Feather Duster", notApplicable: false, stoppedBy: 84815190, remaining: 3.45 },
+        { name: "Lightning Storm", notApplicable: false, stoppedBy: 84815190, remaining: 3.45 },
+        { name: "Forbidden Droplet", notApplicable: false, stoppedBy: null, remaining: 1.85 },
+        { name: "Evenly Matched", notApplicable: false, stoppedBy: 84815190, remaining: 3.45 },
+        { name: "Gameciel, the Sea Turtle Kaiju", notApplicable: false, stoppedBy: null, remaining: 2.4 },
+      ],
+      resourcesNote: "3 carte in mano e 5 nel Cimitero con recupero attivo",
+      followupNote: "1 starter garantito in mano per il terzo turno",
+      exposure: 4,
+      exposureNote: "Esposta a Ash Blossom, Veiler/Impermanence, Droll e Nibiru",
+      exposureDetail: { ash: 2, onField: 2, summons: 8, specialSummons: 7, searches: 3 },
+      error: null,
+    };
+  }
+
+  // Default: Board A (se-apollousa-princess-kirin)
+  return {
+    hand: b.hand,
+    key: b.key,
+    interruptions: 3.85,
+    handTraps: 1.55,
+    floodgates: 0,
+    resilience: 2.55,
+    resources: 1.35,
+    followup: 1.5,
+    cost: 1,
+    details: [
+      {
+        code: 4280258,
+        place: "campo",
+        effect: "perde 800 ATK per negare l'attivazione dell'effetto di un mostro avversario",
+        targeted: false,
+        uses: 3,
+        coverage: 0.78,
+        value: 1.65,
+        alone: 1.8,
+        covers: ["Effetto di mostro in mano", "Effetto di mostro sul campo", "Effetto di mostro nel Cimitero"],
+      },
+      {
+        code: 27548199,
+        place: "Cimitero",
+        effect: "distrugge 1 mostro FUOCO che controlli e 1 mostro evocato specialmente dall'avversario, poi si rievoca",
+        targeted: true,
+        uses: 1,
+        coverage: 0.74,
+        value: 0.85,
+        alone: 0.85,
+        covers: ["Evocazione Speciale", "Innesca Ponix/Garunix"],
+      },
+      {
+        code: 65741786,
+        place: "campo",
+        effect: "effettua una Evocazione Link di S:P Little Knight durante la Main Phase avversaria",
+        targeted: true,
+        uses: 1,
+        coverage: 0.72,
+        value: 0.75,
+        alone: 0.82,
+        covers: ["Bandire carta sul Terreno", "Bandire 2 mostri fino a fine turno"],
+      },
+      {
+        code: 10045474,
+        place: "campo",
+        effect: "nega gli effetti di un mostro scoperto controllato dall'avversario",
+        targeted: true,
+        uses: 1,
+        coverage: 0.64,
+        value: 0.6,
+        alone: 0.72,
+        covers: ["Effetto di mostro sul campo"],
+      },
+      {
+        code: 14558127,
+        place: "mano",
+        effect: "nega un effetto che aggiunge, evoca o manda carte dal Deck",
+        targeted: false,
+        uses: 1,
+        coverage: 0.82,
+        value: 0.9,
+        alone: 0.9,
+        covers: ["Ricerca dal Deck", "Evocazione dal Deck", "Mandare dal Deck al Cimitero"],
+      },
+      {
+        code: 42370001,
+        place: "mano",
+        effect: "distrugge un mostro FUOCO dalla mano o Terreno per evocarsi e distruggere una carta quando viene distrutto",
+        targeted: false,
+        uses: 1,
+        coverage: 0.62,
+        value: 0.65,
+        alone: 0.75,
+        covers: ["Schivare bersagli", "Distruzione senza bersaglio"],
+      },
+    ],
+    floodgateList: [],
+    breakers: [
+      { name: "Dark Hole", notApplicable: false, stoppedBy: null, remaining: 2.35 },
+      { name: "Raigeki", notApplicable: false, stoppedBy: null, remaining: 2.35 },
+      { name: "Harpie's Feather Duster", notApplicable: false, stoppedBy: null, remaining: 3.15 },
+      { name: "Lightning Storm", notApplicable: false, stoppedBy: null, remaining: 2.35 },
+      { name: "Forbidden Droplet", notApplicable: false, stoppedBy: null, remaining: 2.1 },
+      { name: "Evenly Matched", notApplicable: false, stoppedBy: null, remaining: 1.55 },
+      { name: "Gameciel, the Sea Turtle Kaiju", notApplicable: false, stoppedBy: null, remaining: 2.2 },
+    ],
+    resourcesNote: "3 carte in mano e 7 nel Cimitero (Flamberge + Promethean + Garunix pronti)",
+    followupNote: "1 starter (Ponix) e 1 estensore (Kirin) in mano",
+    exposure: 4,
+    exposureNote: "Esposta a Ash Blossom, Veiler/Impermanence, Droll e Nibiru (ma Flamberge/Princess permettono di recuperare)",
+    exposureDetail: { ash: 2, onField: 3, summons: 10, specialSummons: 9, searches: 3 },
+    error: null,
+  };
+}
+
+let lastScoredBoards: ComboBoard[] = [];
 
 export const mockApi: Api = {
   dataStatus: async () => structuredClone(statusState),
@@ -1862,27 +2410,258 @@ export const mockApi: Api = {
     return [n80, n90];
   },
 
-  // Step 3 stubs (populated in full in Step 3)
-  comboSearch: async (): Promise<ComboOutcome> => ({
-    stop: "Exhausted",
-    elapsedMs: 1200,
-    nodes: 420,
-    hands: [],
-    boards: [],
-    complete: true,
-  }),
-  comboContinue: async (): Promise<ComboOutcome> => ({
-    stop: "Exhausted",
-    elapsedMs: 1800,
-    nodes: 640,
-    hands: [],
-    boards: [],
-    complete: true,
-  }),
-  comboScore: async () => 0,
-  comboScores: async (): Promise<ComboScore[]> => [],
-  onComboScore: async (_handler: (s: ComboScore) => void): Promise<UnlistenFn> => () => {},
-  comboCancel: async () => {},
-  comboExplain: async () => [],
-  onComboProgress: async (_handler: (p: ComboProgress) => void): Promise<UnlistenFn> => () => {},
+  comboSearch: async (request: ComboRequest): Promise<ComboOutcome> => {
+    comboCancelled = false;
+    const byCard = request.card != null && request.hand.length === 0;
+    const lead = request.card ?? request.hand[0] ?? 98159737;
+
+    const handsList: ComboHand[] = byCard
+      ? [
+          { cards: [lead, 72270339, 42370001, 14558127, 10045474], weight: 0.42, goal: request.goal ? true : null, complete: true },
+          { cards: [lead, 58074572, 13002461, 23434538, 24224830], weight: 0.35, goal: request.goal ? true : null, complete: true },
+          { cards: [lead, 14558127, 23434538, 97268402, 10045474], weight: 0.23, goal: request.goal ? false : null, complete: true },
+        ]
+      : [
+          {
+            cards: request.hand.length > 0 ? request.hand : [98159737, 72270339, 42370001, 14558127, 10045474],
+            weight: 1,
+            goal: request.goal ? true : null,
+            complete: true,
+          },
+        ];
+
+    const allBoards: ComboBoard[] = [];
+    for (let h = 0; h < handsList.length; h++) {
+      if (comboCancelled) break;
+      const hBoards = buildMockBoardsForHand(h, request.deckId, request.goal);
+      allBoards.push(...hBoards);
+      const progress: ComboProgress = {
+        elapsedMs: (h + 1) * 320,
+        nodes: (h + 1) * 480,
+        replays: (h + 1) * 390,
+        duplicates: (h + 1) * 140,
+        queued: Math.max(0, (handsList.length - h - 1) * 120),
+        boards: allBoards.length,
+        handIndex: h,
+        hands: handsList,
+        top: hBoards,
+      };
+      comboProgressListeners.forEach((fn) => fn(progress));
+      await delay(90);
+    }
+
+    lastScoredBoards = allBoards;
+    const goalReached =
+      request.goal != null &&
+      allBoards.some((b) => (request.goal!.all ? b.goalHits >= request.goal!.cards.length : b.goalHits > 0));
+
+    return {
+      stop: comboCancelled ? "Cancelled" : goalReached && request.goal?.first ? "GoalReached" : byCard ? "Finished" : "Exhausted",
+      elapsedMs: handsList.length * 360,
+      nodes: handsList.length * 540,
+      hands: handsList,
+      boards: allBoards,
+      complete: !comboCancelled,
+    };
+  },
+
+  comboContinue: async (deckId: number, _seconds: number): Promise<ComboOutcome> => {
+    await delay(120);
+    const boards = lastScoredBoards.length > 0 ? lastScoredBoards : buildMockBoardsForHand(0, deckId, null);
+    lastScoredBoards = boards;
+    return {
+      stop: "Exhausted",
+      elapsedMs: 1450,
+      nodes: 1820,
+      hands: [{ cards: [98159737, 72270339, 42370001, 14558127, 10045474], weight: 1, goal: null, complete: true }],
+      boards,
+      complete: true,
+    };
+  },
+
+  comboScore: async (): Promise<number> => {
+    for (const b of lastScoredBoards) {
+      await delay(45);
+      const s = buildMockScoreForBoard(b);
+      comboScoreListeners.forEach((fn) => fn(s));
+    }
+    return lastScoredBoards.length;
+  },
+
+  comboScores: async (): Promise<ComboScore[]> => lastScoredBoards.map(buildMockScoreForBoard),
+
+  onComboScore: async (handler: (s: ComboScore) => void): Promise<UnlistenFn> => {
+    comboScoreListeners.add(handler);
+    return () => {
+      comboScoreListeners.delete(handler);
+    };
+  },
+
+  comboCancel: async () => {
+    comboCancelled = true;
+  },
+
+  comboExplain: async (_hand: number, key: string): Promise<ComboStep[]> => {
+    await delay(60);
+    if (key.startsWith("invoked-")) {
+      return [
+        {
+          choice: "Evoca Normalmente Aleister the Invoker",
+          events: ["Main Phase 1", "Evocato Aleister the Invoker in Posizione di Attacco"],
+          kind: "normalSummon",
+          card: 86120752,
+          happened: [
+            { kind: "phase", code: 0, chainLink: 0, mine: true, text: "Main Phase 1" },
+            { kind: "summon", code: 86120752, chainLink: 0, mine: true, text: "Evocato Normalmente Aleister the Invoker" },
+          ],
+        },
+        {
+          choice: "Attiva l'effetto di Aleister the Invoker: aggiungi Invocation dal Deck",
+          events: ["Catena 1: Aleister the Invoker", "Invocation aggiunta alla mano"],
+          kind: "activate",
+          card: 86120752,
+          happened: [
+            { kind: "activate", code: 86120752, chainLink: 1, mine: true, text: "Attivato Aleister the Invoker" },
+            { kind: "toHand", code: 74063034, chainLink: 0, mine: true, text: "Aggiunta Invocation dal Deck alla mano" },
+          ],
+        },
+        {
+          choice: "Scarta Fiendsmith Engraver per cercare e avviare la linea Synchro/Link",
+          events: ["Fiendsmith Engraver mandato al Cimitero", "Evocata Baronne de Fleur"],
+          kind: "activate",
+          card: 60764609,
+          happened: [
+            { kind: "toGrave", code: 60764609, chainLink: 1, mine: true, text: "Mandato al Cimitero Fiendsmith Engraver" },
+            { kind: "summon", code: 84815190, chainLink: 0, mine: true, text: "Evocata Specialmente Baronne de Fleur" },
+          ],
+        },
+        {
+          choice: "Attiva Invocation: bandisci i materiali per evocare Invoked Mechaba",
+          events: ["Attivata Invocation", "Evocato Invoked Mechaba", "Invocation rimischiata per riprendere Aleister in mano"],
+          kind: "activate",
+          card: 74063034,
+          happened: [
+            { kind: "activate", code: 74063034, chainLink: 1, mine: true, text: "Attivata Invocation" },
+            { kind: "summon", code: 75286621, chainLink: 0, mine: true, text: "Evocato tramite Fusione Invoked Mechaba" },
+            { kind: "toHand", code: 86120752, chainLink: 0, mine: true, text: "Aleister the Invoker ritorna in mano" },
+          ],
+        },
+        {
+          choice: "Posiziona Infinite Impermanence e Called by the Grave, poi passa il turno",
+          events: ["Posizionata Infinite Impermanence", "End Phase"],
+          kind: "set",
+          card: 10045474,
+          happened: [
+            { kind: "set", code: 10045474, chainLink: 0, mine: true, text: "Posizionata Infinite Impermanence" },
+            { kind: "set", code: 24224830, chainLink: 0, mine: true, text: "Posizionata Called by the Grave" },
+            { kind: "phase", code: 0, chainLink: 0, mine: true, text: "End Phase" },
+          ],
+        },
+      ];
+    }
+
+    return [
+      {
+        choice: "Evoca Normalmente Snake-Eye Ash e attiva il suo effetto",
+        events: ["Main Phase 1", "Evocato Snake-Eye Ash", "Aggiunto Snake-Eyes Poplar dal Deck alla mano"],
+        kind: "normalSummon",
+        card: 98159737,
+        happened: [
+          { kind: "phase", code: 0, chainLink: 0, mine: true, text: "Main Phase 1" },
+          { kind: "summon", code: 98159737, chainLink: 0, mine: true, text: "Evocato Normalmente Snake-Eye Ash" },
+          { kind: "activate", code: 98159737, chainLink: 1, mine: true, text: "Attivato l'effetto di Snake-Eye Ash" },
+          { kind: "toHand", code: 45298492, chainLink: 0, mine: true, text: "Aggiunto Snake-Eyes Poplar alla mano" },
+        ],
+      },
+      {
+        choice: "Evoca Specialmente Snake-Eyes Poplar dalla mano e cerca Divine Temple of the Snake-Eye",
+        events: ["Evocato Snake-Eyes Poplar", "Aggiunto Divine Temple of the Snake-Eye dal Deck alla mano"],
+        kind: "specialSummon",
+        card: 45298492,
+        happened: [
+          { kind: "summon", code: 45298492, chainLink: 1, mine: true, text: "Evocato Specialmente Snake-Eyes Poplar" },
+          { kind: "activate", code: 45298492, chainLink: 1, mine: true, text: "Attivato Snake-Eyes Poplar" },
+          { kind: "toHand", code: 69105797, chainLink: 0, mine: true, text: "Aggiunto Divine Temple of the Snake-Eye alla mano" },
+        ],
+      },
+      {
+        choice: "Attiva Divine Temple of the Snake-Eye e posiziona Diabellstar nella Zona Magie/Trappole",
+        events: ["Attivato Divine Temple of the Snake-Eye", "Posizionata Diabellstar come Magia Continua"],
+        kind: "activate",
+        card: 69105797,
+        happened: [
+          { kind: "toField", code: 69105797, chainLink: 1, mine: true, text: "Attivato Divine Temple of the Snake-Eye" },
+          { kind: "toField", code: 72270339, chainLink: 0, mine: true, text: "Posizionata Diabellstar the Black Witch nella Zona M/T" },
+        ],
+      },
+      {
+        choice: "Usa Snake-Eyes Poplar per Evocare Linkuriboh e rimettere Poplar nella Zona Magie/Trappole",
+        events: ["Linkuriboh Evocato Link", "Snake-Eyes Poplar si posiziona nella Zona M/T"],
+        kind: "specialSummon",
+        card: 41999284,
+        happened: [
+          { kind: "toGrave", code: 45298492, chainLink: 0, mine: true, text: "Snake-Eyes Poplar mandato al Cimitero come materiale" },
+          { kind: "summon", code: 41999284, chainLink: 0, mine: true, text: "Evocato Linkuriboh nella Zona Mostri Extra" },
+          { kind: "activate", code: 45298492, chainLink: 1, mine: true, text: "Effetto di Snake-Eyes Poplar nel Cimitero" },
+          { kind: "toField", code: 45298492, chainLink: 0, mine: true, text: "Snake-Eyes Poplar posizionato nella Zona M/T" },
+        ],
+      },
+      {
+        choice: "Attiva l'effetto di Snake-Eye Ash: manda Ash e Poplar al Cimitero per evocare Snake-Eyes Flamberge Dragon",
+        events: ["Mandati al Cimitero Snake-Eye Ash e Snake-Eyes Poplar", "Evocato Snake-Eyes Flamberge Dragon dal Deck"],
+        kind: "activate",
+        card: 98159737,
+        happened: [
+          { kind: "toGrave", code: 98159737, chainLink: 0, mine: true, text: "Mandato al Cimitero Snake-Eye Ash" },
+          { kind: "toGrave", code: 45298492, chainLink: 0, mine: true, text: "Mandato al Cimitero Snake-Eyes Poplar" },
+          { kind: "summon", code: 11264180, chainLink: 0, mine: true, text: "Evocato Specialmente Snake-Eyes Flamberge Dragon" },
+        ],
+      },
+      {
+        choice: "Non concatenare altri effetti",
+        events: [],
+        kind: "pass",
+        card: null,
+        happened: [],
+      },
+      {
+        choice: "Evoca tramite Link Promethean Princess, Bestower of Flames e rievoca Flamberge Dragon",
+        events: [
+          "Evocata Promethean Princess",
+          "Flamberge rievoca due mostri FUOCO Lv.1 dal Cimitero",
+          "Promethean Princess rievoca Snake-Eyes Flamberge Dragon",
+        ],
+        kind: "specialSummon",
+        card: 27548199,
+        happened: [
+          { kind: "toGrave", code: 11264180, chainLink: 0, mine: true, text: "Mandato al Cimitero Snake-Eyes Flamberge Dragon" },
+          { kind: "summon", code: 27548199, chainLink: 0, mine: true, text: "Evocata Promethean Princess, Bestower of Flames" },
+          { kind: "activate", code: 11264180, chainLink: 1, mine: true, text: "Effetto di Flamberge Dragon nel Cimitero" },
+          { kind: "summon", code: 98159737, chainLink: 0, mine: true, text: "Rievocato Snake-Eye Ash" },
+          { kind: "summon", code: 81674782, chainLink: 0, mine: true, text: "Rievocato Snakey-Eye Oak" },
+          { kind: "summon", code: 11264180, chainLink: 0, mine: true, text: "Rievocato Snake-Eyes Flamberge Dragon da Promethean Princess" },
+        ],
+      },
+      {
+        choice: "Evoca I:P Masquerena e Apollousa, Bow of the Goddess (3 materiali), poi posiziona Infinite Impermanence",
+        events: ["Evocata I:P Masquerena", "Evocata Apollousa, Bow of the Goddess (2400 ATK)", "Posizionata Infinite Impermanence", "End Phase"],
+        kind: "specialSummon",
+        card: 4280258,
+        happened: [
+          { kind: "summon", code: 65741786, chainLink: 0, mine: true, text: "Evocata I:P Masquerena" },
+          { kind: "toGrave", code: 27548199, chainLink: 0, mine: true, text: "Promethean Princess al Cimitero pronta a interrompere" },
+          { kind: "summon", code: 4280258, chainLink: 0, mine: true, text: "Evocata Apollousa, Bow of the Goddess (2400 ATK)" },
+          { kind: "set", code: 10045474, chainLink: 0, mine: true, text: "Posizionata Infinite Impermanence" },
+          { kind: "phase", code: 0, chainLink: 0, mine: true, text: "End Phase" },
+        ],
+      },
+    ];
+  },
+
+  onComboProgress: async (handler: (p: ComboProgress) => void): Promise<UnlistenFn> => {
+    comboProgressListeners.add(handler);
+    return () => {
+      comboProgressListeners.delete(handler);
+    };
+  },
 };
