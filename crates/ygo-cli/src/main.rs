@@ -121,6 +121,27 @@ enum Cmd {
         /// Put the best boards listed to the probe turn and print what it measures.
         #[arg(long)]
         probe: bool,
+        /// Write the boards listed, measured, to this JSON file (implies --probe).
+        #[arg(long)]
+        json: Option<PathBuf>,
+        /// Write the lines of the boards listed to this JSON file (for probe-line).
+        #[arg(long)]
+        save_lines: Option<PathBuf>,
+    },
+    /// Measure lines saved by `combos --save-lines` with the probe turn,
+    /// without searching (the same boards before and after a change).
+    ProbeLine {
+        #[command(flatten)]
+        setup: Setup,
+        /// File written by `combos --save-lines`.
+        #[arg(long)]
+        lines: PathBuf,
+        /// Only the line at this index.
+        #[arg(long)]
+        index: Option<usize>,
+        /// Write the measures to this JSON file (as `combos --json`).
+        #[arg(long)]
+        json: Option<PathBuf>,
     },
     /// The handtraps of a deck, read from the engine: cards it can use from
     /// the hand during the opponent's turn.
@@ -221,6 +242,8 @@ fn main() -> Result<()> {
             goal_any,
             first,
             probe,
+            json,
+            save_lines,
         } => combos(
             &cli.data,
             &setup,
@@ -238,9 +261,12 @@ fn main() -> Result<()> {
                 goal,
                 goal_any,
                 first,
-                probe,
+                probe: probe || json.is_some(),
+                json,
+                save_lines,
             },
         ),
+        Cmd::ProbeLine { setup, lines, index, json } => probe_line(&cli.data, &setup, &lines, index, json.as_deref()),
         Cmd::HandTraps { deck } => hand_traps(&cli.data, &deck),
         Cmd::CardValues { deck } => card_values(&cli.data, &deck),
         Cmd::Roles { deck } => roles(&cli.data, &deck),
@@ -267,11 +293,29 @@ struct CombosOptions {
     goal_any: bool,
     first: bool,
     probe: bool,
+    json: Option<PathBuf>,
+    save_lines: Option<PathBuf>,
 }
 
 fn combos(dir: &Path, setup: &Setup, options: CombosOptions) -> Result<()> {
-    let CombosOptions { seconds, nodes, threads, top, show_lines, use_handtraps, forbid, keep, card, hands, goal, goal_any, first, probe } =
-        options;
+    let CombosOptions {
+        seconds,
+        nodes,
+        threads,
+        top,
+        show_lines,
+        use_handtraps,
+        forbid,
+        keep,
+        card,
+        hands,
+        goal,
+        goal_any,
+        first,
+        probe,
+        json,
+        save_lines,
+    } = options;
     let (engine, deck, hand) = start(dir, setup)?;
     let mut config = ygo_solver::SearchConfig::new(deck, hand);
     config.seed = setup.seed;
@@ -393,6 +437,8 @@ fn combos(dir: &Path, setup: &Setup, options: CombosOptions) -> Result<()> {
             None => {}
         }
     }
+    let mut measured_boards = Vec::new();
+    let mut saved_lines = Vec::new();
     for (i, board) in listed.into_iter().enumerate() {
         let variants = looks[i].1;
         let me = &board.state.players[0];
@@ -426,11 +472,15 @@ fn combos(dir: &Path, setup: &Setup, options: CombosOptions) -> Result<()> {
         );
         if probe {
             let started = std::time::Instant::now();
-            match prober.measure(&board.line) {
-                Ok(m) => print_measure(&engine, &m, started.elapsed()),
+            let measured = prober.measure(&board.line);
+            let took = started.elapsed();
+            match &measured {
+                Ok(m) => print_measure(&engine, m, took),
                 Err(e) => println!("   probe turn failed: {e}"),
             }
-            if let Ok(x) = ygo_solver::exposure(&engine, &config.deck, &config.hand, config.seed, config.opponent.as_ref(), &board.line) {
+            let exposure =
+                ygo_solver::exposure(&engine, &config.deck, &config.hand, config.seed, config.opponent.as_ref(), &board.line).ok();
+            if let Some(x) = &exposure {
                 println!(
                     "   exposure: {} choke points · Ash {} · on-field negation {} · summons {} (special {}) · searches {}",
                     x.choke_points(),
@@ -441,7 +491,9 @@ fn combos(dir: &Path, setup: &Setup, options: CombosOptions) -> Result<()> {
                     x.searches
                 );
             }
+            measured_boards.push(board_json(&engine, &config, board, i, variants, measured.as_ref().ok(), took, exposure.as_ref()));
         }
+        saved_lines.push(line_json(&board.line));
         if show_lines {
             let (_, steps) = ygo_solver::explain(&engine, &config.deck, &config.hand, config.seed, config.opponent.as_ref(), &board.line)?;
             for (k, step) in steps.iter().enumerate() {
@@ -453,6 +505,217 @@ fn combos(dir: &Path, setup: &Setup, options: CombosOptions) -> Result<()> {
                 }
             }
         }
+    }
+    let header = |kind: &str, items: Vec<serde_json::Value>| {
+        serde_json::json!({
+            "kind": kind,
+            "deck": setup.deck.display().to_string(),
+            "hand": config.hand,
+            "seed": config.seed,
+            "hand_traps": config.hand_traps,
+            "nodes": result.progress.nodes,
+            "boards_found": result.progress.boards,
+            "items": items,
+        })
+    };
+    if let Some(path) = &json {
+        std::fs::write(path, serde_json::to_string_pretty(&header("boards", measured_boards))?)?;
+    }
+    if let Some(path) = &save_lines {
+        std::fs::write(path, serde_json::to_string_pretty(&header("lines", saved_lines))?)?;
+    }
+    Ok(())
+}
+
+/// A board told for scripts: an id from the cards (the same board, whatever
+/// the line), the cards, and what the probe turn measured.
+#[allow(clippy::too_many_arguments)]
+fn board_json(
+    engine: &Engine,
+    config: &ygo_solver::SearchConfig,
+    board: &ygo_solver::Board,
+    index: usize,
+    variants: usize,
+    measured: Option<&ygo_solver::Measure>,
+    took: std::time::Duration,
+    exposure: Option<&ygo_solver::Exposure>,
+) -> serde_json::Value {
+    state_json(
+        engine,
+        &config.hand_traps,
+        &board.state,
+        measured,
+        took,
+        exposure,
+        serde_json::json!({
+            "index": index,
+            "variants": variants,
+            "exact": board.exact,
+            "quick_score": board.quick_score,
+            "cards_used": board.cards_used,
+            "choices": board.line.choices.len(),
+        }),
+    )
+}
+
+fn state_json(
+    engine: &Engine,
+    hand_traps: &[u32],
+    state: &ygo_engine::DuelState,
+    measured: Option<&ygo_solver::Measure>,
+    took: std::time::Duration,
+    exposure: Option<&ygo_solver::Exposure>,
+    mut out: serde_json::Value,
+) -> serde_json::Value {
+    let db = engine.cards();
+    let me = &state.players[0];
+    let mut field: Vec<String> = Vec::new();
+    for (z, c) in me.monsters.iter().enumerate() {
+        if let Some(c) = c {
+            field.push(format!("{}{}", db.name(c.code), if z >= 5 { " [EMZ]" } else { "" }));
+        }
+    }
+    for c in me.spells.iter().flatten() {
+        let target = c.equipped_to.and_then(|(ctrl, loc, seq)| {
+            (loc == location::MZONE)
+                .then(|| state.players.get(ctrl as usize)?.monsters.get(seq as usize)?.as_ref().map(|m| db.name(m.code)))
+                .flatten()
+        });
+        let face = if c.is_face_up() { "" } else { " (set)" };
+        field.push(match target {
+            Some(t) => format!("{}{face} -> {t}", db.name(c.code)),
+            None => format!("{}{face}", db.name(c.code)),
+        });
+    }
+    field.sort();
+    let mut hand: Vec<String> = me.hand.iter().map(|&c| db.name(c)).collect();
+    hand.sort();
+    let signature = format!("{} | hand: {}", field.join(", "), hand.join(", "));
+    let canon = |c: u32| db.canonical_code(c);
+    let hand_trap = |c: u32| hand_traps.iter().any(|&h| canon(h) == canon(c));
+    let mut value = serde_json::json!({
+        "look_key": format!("{:016x}", ygo_solver::look_key(state)),
+        "signature": signature,
+        "field": field,
+        "hand": me.hand,
+        "hand_names": hand,
+        "hand_traps_in_hand": me.hand.iter().filter(|&&c| hand_trap(c)).count(),
+        "grave": me.grave.len(),
+        "banished": me.banished.len(),
+    });
+    if let Some(m) = measured {
+        value["measure"] = serde_json::json!({
+            "seconds": took.as_secs_f64(),
+            "field": m.field_value,
+            "hand": m.hand_value,
+            "floodgates": m.floodgate_value,
+            "resilience": m.resilience,
+            "floodgate_list": m.floodgates.iter().map(|p| p.label()).collect::<Vec<_>>(),
+            "offered": m.offered.iter().map(|&(c, l)| serde_json::json!([c, l])).collect::<Vec<_>>(),
+            "interruptions": m.interruptions.iter().map(|i| serde_json::json!({
+                "card": db.name(i.responder.code),
+                "code": i.responder.code,
+                "location": location::name(i.location),
+                "effect": i.effect.label(),
+                "targeted": i.targeted,
+                "uses": i.uses,
+                "coverage": i.coverage,
+                "value": i.value,
+                "alone": i.alone,
+                "covers": i.covers.iter().map(|p| p.label()).collect::<Vec<_>>(),
+            })).collect::<Vec<_>>(),
+            "breakers": m.breakers.iter().map(|b| serde_json::json!({
+                "name": b.name,
+                "weight": b.weight,
+                "not_applicable": b.not_applicable,
+                "stopped_by": b.stopped_by.map(|r| db.name(r.code)),
+                "remaining": b.remaining,
+            })).collect::<Vec<_>>(),
+        });
+    }
+    if let Some(x) = exposure {
+        value["exposure"] = serde_json::json!({
+            "choke_points": x.choke_points(),
+            "ash": x.ash,
+            "on_field": x.on_field,
+            "summons": x.summons,
+            "special_summons": x.special_summons,
+            "searches": x.searches,
+        });
+    }
+    if let (Some(o), Some(v)) = (out.as_object_mut(), value.as_object()) {
+        o.extend(v.clone());
+    }
+    out
+}
+
+fn line_json(line: &ygo_solver::Line) -> serde_json::Value {
+    serde_json::json!({ "answers": line.answers, "choices": line.choices, "choice_at": line.choice_at })
+}
+
+fn line_from_json(v: &serde_json::Value) -> Result<ygo_solver::Line> {
+    let answers = v["answers"]
+        .as_array()
+        .context("line without answers")?
+        .iter()
+        .map(|a| a.as_array().map(|b| b.iter().filter_map(|x| x.as_u64().map(|x| x as u8)).collect()).context("bad answer"))
+        .collect::<Result<Vec<Vec<u8>>>>()?;
+    let choices = v["choices"].as_array().map(|c| c.iter().filter_map(|x| x.as_str().map(str::to_owned)).collect()).unwrap_or_default();
+    let choice_at =
+        v["choice_at"].as_array().map(|c| c.iter().filter_map(|x| x.as_u64().map(|x| x as usize)).collect()).unwrap_or_default();
+    Ok(ygo_solver::Line { answers, choices, choice_at })
+}
+
+/// Plays saved lines again and measures their boards (no search).
+fn probe_line(dir: &Path, setup: &Setup, lines: &Path, index: Option<usize>, json: Option<&Path>) -> Result<()> {
+    let (engine, deck, mut hand) = start(dir, setup)?;
+    let saved: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(lines)?)?;
+    if hand.is_empty() {
+        hand = saved["hand"].as_array().map(|h| h.iter().filter_map(|c| c.as_u64().map(|c| c as u32)).collect()).unwrap_or_default();
+    }
+    let kit = ygo_solver::Kit::standard(&engine);
+    let opponent = Some(kit.opponent().clone());
+    let hand_traps = ygo_solver::hand_traps(&engine, &deck, setup.seed, &kit);
+    let mut prober = ygo_solver::Prober::new(&engine, &deck, &hand, setup.seed, &kit);
+    let items = saved["items"].as_array().context("no lines in the file")?;
+    let mut out = Vec::new();
+    for (i, item) in items.iter().enumerate().filter(|(i, _)| index.is_none_or(|k| k == *i)) {
+        let line = line_from_json(item)?;
+        let (state, _) = ygo_solver::explain(&engine, &deck, &hand, setup.seed, opponent.as_ref(), &line)?;
+        let started = std::time::Instant::now();
+        let measured = prober.measure(&line);
+        let took = started.elapsed();
+        let exposure = ygo_solver::exposure(&engine, &deck, &hand, setup.seed, opponent.as_ref(), &line).ok();
+        let me = &state.players[0];
+        println!(
+            "#{} field: {}",
+            i + 1,
+            me.monsters.iter().chain(&me.spells).flatten().map(|c| engine.cards().name(c.code)).collect::<Vec<_>>().join(", ")
+        );
+        match &measured {
+            Ok(m) => print_measure(&engine, m, took),
+            Err(e) => println!("   probe turn failed: {e}"),
+        }
+        out.push(state_json(
+            &engine,
+            &hand_traps,
+            &state,
+            measured.as_ref().ok(),
+            took,
+            exposure.as_ref(),
+            serde_json::json!({ "index": i }),
+        ));
+    }
+    if let Some(path) = json {
+        let doc = serde_json::json!({
+            "kind": "boards",
+            "deck": setup.deck.display().to_string(),
+            "hand": hand,
+            "seed": setup.seed,
+            "hand_traps": hand_traps,
+            "items": out,
+        });
+        std::fs::write(path, serde_json::to_string_pretty(&doc)?)?;
     }
     Ok(())
 }
