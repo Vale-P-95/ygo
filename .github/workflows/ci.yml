@@ -39,6 +39,12 @@ jobs:
         run: cargo run --release -p ygo-cli -- fetch-data
       - name: Tests
         run: cargo test -p ygo-engine -p ygo-data -p ygo-stats -p ygo-solver -p ygo-cli
+      # Fixed hands of the Invoked test deck with a node budget: the search
+      # must still reach its known boards without pointless moves (release
+      # only, like the build of fetch-data above; about 2 minutes).
+      - name: Search regression tests
+        timeout-minutes: 15
+        run: cargo test --release -p ygo-solver --test search_regression
 
   frontend:
     name: Frontend (TypeScript)

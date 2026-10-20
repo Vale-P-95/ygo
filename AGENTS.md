@@ -37,6 +37,7 @@ Controlli prima di ogni push (gli stessi della CI):
 cargo fmt --all -- --check
 cargo clippy -p ygo-engine -p ygo-data -p ygo-stats -p ygo-solver -p ygo-cli --all-targets -- -D warnings
 cargo test -p ygo-engine -p ygo-data -p ygo-stats -p ygo-solver -p ygo-cli    # più veloci con --release
+cargo test --release -p ygo-solver --test search_regression                 # regressioni della ricerca (~2 min)
 cd apps/desktop; pnpm typecheck; pnpm build
 ```
 
