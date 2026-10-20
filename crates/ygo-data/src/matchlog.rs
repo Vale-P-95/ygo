@@ -141,8 +141,44 @@ fn parse_games(s: &str) -> Result<String, Error> {
     }
 }
 
+/// A date as "YYYY-MM-DD HH:MM", from that form, ISO ("T", seconds) or the
+/// Italian day first (31/12/2026, 31.12.2026, 31-12-26), with an optional
+/// time: the log is sorted by this text, so every date must have one form.
+pub(crate) fn canonical_date(s: &str) -> Option<String> {
+    let s = s.trim();
+    let (date, time) = match s.split_once([' ', 'T']) {
+        Some((d, t)) => (d, t.trim()),
+        None => (s, ""),
+    };
+    let num = |p: &str| (!p.is_empty() && p.len() <= 4 && p.bytes().all(|b| b.is_ascii_digit())).then(|| p.parse::<u32>().ok()).flatten();
+    let parts: Vec<&str> = date.split(['-', '/', '.']).collect();
+    let [a, b, c] = parts[..] else { return None };
+    let (year, month, day) = if a.len() == 4 { (num(a)?, num(b)?, num(c)?) } else { (num(c)?, num(b)?, num(a)?) };
+    let year = if year < 100 { 2000 + year } else { year };
+    let days = match month {
+        2 if year % 4 == 0 && (year % 100 != 0 || year % 400 == 0) => 29,
+        2 => 28,
+        4 | 6 | 9 | 11 => 30,
+        1..=12 => 31,
+        _ => return None,
+    };
+    if !(1..=days).contains(&day) || !(1900..=9999).contains(&year) {
+        return None;
+    }
+    let (hour, minute) = match time.split(':').collect::<Vec<_>>()[..] {
+        [""] => (0, 0),
+        [h, m] | [h, m, _] => (num(h)?, num(m)?),
+        _ => return None,
+    };
+    (hour < 24 && minute < 60).then(|| format!("{year:04}-{month:02}-{day:02} {hour:02}:{minute:02}"))
+}
+
 /// Checks a match and fills in its result.
 fn normalized(entry: &MatchEntry) -> Result<MatchEntry, Error> {
+    let played_at = match entry.played_at.trim() {
+        "" => String::new(),
+        d => canonical_date(d).ok_or_else(|| Error::Data(format!("data non valida: «{d}» (usa AAAA-MM-GG o GG/MM/AAAA)")))?,
+    };
     let games = parse_games(&entry.games)?;
     let result = match entry.result.trim() {
         "" if games.is_empty() => return Err(Error::Data("indica il risultato della partita".into())),
@@ -159,7 +195,7 @@ fn normalized(entry: &MatchEntry) -> Result<MatchEntry, Error> {
         games,
         result: result.to_string(),
         opponent: entry.opponent.trim().to_owned(),
-        played_at: entry.played_at.trim().to_owned(),
+        played_at,
         notes: entry.notes.trim().to_owned(),
         tags,
         ..entry.clone()
@@ -268,7 +304,9 @@ impl UserStore {
     /// (empty when unknown, e.g. imported from CSV).
     pub fn match_versions(&self, deck_id: i64) -> Result<Vec<(String, DeckList)>, Error> {
         let mut stmt = self.conn.prepare(
-            "SELECT deck_hash, MAX(CASE deck_snapshot WHEN '{}' THEN '' ELSE deck_snapshot END), MIN(played_at) AS since FROM matches WHERE deck_id = ? GROUP BY deck_hash ORDER BY since, MIN(id)",
+            // In the order of each version's first match, as the log lists
+            // matches (by date, then by id for the same date).
+            "SELECT deck_hash, MAX(CASE deck_snapshot WHEN '{}' THEN '' ELSE deck_snapshot END), MIN(played_at || printf('%020d', id)) AS first FROM matches WHERE deck_id = ? GROUP BY deck_hash ORDER BY first",
         )?;
         let rows =
             stmt.query_map([deck_id], |r| Ok((r.get::<_, String>(0)?, serde_json::from_str(&r.get::<_, String>(1)?).unwrap_or_default())))?;
@@ -470,6 +508,52 @@ mod tests {
         assert_eq!(store.matches(Some(id)).unwrap().len(), 2);
         assert_eq!(store.matches(None).unwrap().len(), 2);
         assert_eq!(store.matches(Some(999)).unwrap().len(), 0);
+    }
+
+    #[test]
+    fn dates_take_one_form() {
+        let d = |s: &str| canonical_date(s);
+        assert_eq!(d("2026-10-01 20:00").as_deref(), Some("2026-10-01 20:00"));
+        assert_eq!(d("2026-10-01T20:05:33").as_deref(), Some("2026-10-01 20:05"));
+        assert_eq!(d("2026-10-01").as_deref(), Some("2026-10-01 00:00"));
+        assert_eq!(d("1/2/2026").as_deref(), Some("2026-02-01 00:00"), "day first");
+        assert_eq!(d("31.12.26 9:07").as_deref(), Some("2026-12-31 09:07"));
+        assert_eq!(d("29/02/2024").as_deref(), Some("2024-02-29 00:00"));
+        for bad in ["29/02/2026", "2026-13-01", "32/01/2026", "ieri", "2026-10-01 25:00", "1/2"] {
+            assert_eq!(d(bad), None, "{bad}");
+        }
+        assert!(matches_from_csv("data;risultato\n31/12/2026;W\n").unwrap()[0].played_at == "2026-12-31 00:00");
+        assert!(matches_from_csv("data;risultato\nieri;W\n").is_err(), "a date that cannot be read is an error");
+    }
+
+    #[test]
+    fn dates_stored_as_typed_are_brought_to_one_form() {
+        let store = UserStore::open_in_memory().unwrap();
+        let deck = store.save(&Deck { name: "Invoked".into(), main: vec![1], ..Default::default() }).unwrap();
+        let id = deck.id.unwrap();
+        let m = store.log_match(&MatchEntry { played_at: "2026-10-02 20:00".into(), ..entry(id, "x", true, "W") }).unwrap();
+        // As older versions kept them from a CSV.
+        store.conn.execute("UPDATE matches SET played_at = '1/10/2026' WHERE id = ?", [m.id.unwrap()]).unwrap();
+        crate::userdb::migrate(&store.conn).unwrap();
+        assert_eq!(store.matches(Some(id)).unwrap()[0].played_at, "2026-10-01 00:00");
+    }
+
+    #[test]
+    fn versions_are_in_the_order_of_their_first_match() {
+        let store = UserStore::open_in_memory().unwrap();
+        let deck = store.save(&Deck { name: "Invoked".into(), main: vec![9, 9], ..Default::default() }).unwrap();
+        let id = deck.id.unwrap();
+        let at = |s: &str| MatchEntry { played_at: s.into(), ..entry(id, "x", true, "W") };
+        // Logged out of order: A on the 2nd, then B and A again on the 1st.
+        let a = store.log_match(&at("2026-10-02 20:00")).unwrap().version;
+        store.save(&Deck { main: vec![1, 9], ..deck.clone() }).unwrap();
+        let b = store.log_match(&at("2026-10-01 20:00")).unwrap().version;
+        store.save(&Deck { main: vec![9, 9], ..deck }).unwrap();
+        store.log_match(&at("2026-10-01 20:00")).unwrap();
+        // The log lists B's match first on the 1st (same time, lower id).
+        assert_eq!(store.matches(Some(id)).unwrap()[0].version, b);
+        let versions: Vec<String> = store.match_versions(id).unwrap().into_iter().map(|v| v.0).collect();
+        assert_eq!(versions, [b, a]);
     }
 
     #[test]

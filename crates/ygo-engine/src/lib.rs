@@ -34,7 +34,7 @@ pub use actions::{actions, actions_with, describe_card, Action, ActionKind, MAX_
 pub use announce::is_declarable;
 pub use carddb::{Card, CardDb};
 pub use deck::DeckList;
-pub use duel::{Duel, DuelConfig, Engine, Opponent, Placement, Step};
+pub use duel::{ChainLink, Duel, DuelConfig, Engine, Opponent, Placement, Step};
 pub use message::{Activatable, CardRef, Decision, Event};
 pub use script::{run_script, ScriptEnd, Trace};
 pub use scripts::ScriptStore;

@@ -225,6 +225,10 @@ pub(crate) struct Links {
     mine: HashMap<u32, Mechanic>,
     /// The link resolving.
     solving: Option<u32>,
+    /// Events since it started resolving.
+    happened: usize,
+    /// The last link of yours that resolved with nothing happening.
+    silent: Option<Mechanic>,
 }
 
 /// One of your chain links negated on your turn.
@@ -252,7 +256,16 @@ impl Links {
                 let m = Mechanic { code: db.canonical_code(card.code), kind: Kind::Activate, description: *description };
                 self.mine.insert(*chain_link, m);
             }
-            Event::ChainSolving { chain_link } => self.solving = Some(u32::from(*chain_link)),
+            Event::ChainSolving { chain_link } => {
+                self.solving = Some(u32::from(*chain_link));
+                self.happened = 0;
+            }
+            Event::ChainSolved { chain_link } => {
+                let link = u32::from(*chain_link);
+                if self.happened == 0 && self.solving == Some(link) {
+                    self.silent = self.mine.get(&link).copied();
+                }
+            }
             Event::ChainNegated { chain_link } | Event::ChainDisabled { chain_link } => {
                 let negated = u32::from(*chain_link);
                 return Some(Negation {
@@ -265,9 +278,16 @@ impl Links {
                 self.mine.clear();
                 self.solving = None;
             }
-            _ => {}
+            _ => self.happened += 1,
         }
         None
+    }
+
+    /// A link of yours that resolved with nothing happening, once: an
+    /// effect that waits for the opponent to act (Maxx "C", the Mulcharmy),
+    /// which on your turn never does.
+    pub(crate) fn take_silent(&mut self) -> Option<Mechanic> {
+        self.silent.take()
     }
 }
 

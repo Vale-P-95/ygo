@@ -124,11 +124,15 @@ pub fn distinct_zones(state: &crate::state::DuelState, player: u8, actions: Vec<
         }
         by
     };
+    // A Spell or Trap placed in a middle zone leaves both Pendulum Zones
+    // free for the Scales set after it.
+    let middle = actions.iter().any(|a| matches!(*a.response.as_slice(), [p, loc, 1..=3] if p == player && loc == location::SZONE));
     let mut seen = Vec::new();
     let mut out = Vec::new();
     for a in actions {
         let kind = match *a.response.as_slice() {
             [p, loc, seq] if p == player && loc == location::MZONE => Some((loc, seq >= 5, pointed(seq as usize))),
+            [p, loc, 0 | 4] if p == player && loc == location::SZONE && middle => continue,
             [p, loc, seq] if p == player && loc == location::SZONE && seq < 5 => Some((loc, false, Vec::new())),
             _ => None,
         };

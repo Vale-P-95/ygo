@@ -5,7 +5,8 @@
 //! A card that resolves its effect stops counting for its own roles: it
 //! has turned into what it drew or fetched. Cards can also be limited to
 //! one copy per turn, and cards that need the Normal Summon count one at a
-//! time (the best one for the condition).
+//! time (the best one for the condition): resolving the effect of one of
+//! them uses the summon too.
 //!
 //! Hands are simulated in fixed chunks, each with its own seed derived from
 //! the run's seed, so a run gives the same result on any number of threads.
@@ -15,7 +16,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 
 use serde::{Deserialize, Serialize};
 
-use crate::cond::{Cond, Target};
+use crate::cond::{Cond, Op, Target};
 use crate::exact::DeckModel;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -29,7 +30,8 @@ pub enum Effect {
         #[serde(default)]
         banish_top: u32,
     },
-    /// Looks at the top `n` cards and adds the best one (Pot of Prosperity, Pot of Duality).
+    /// Looks at the top `n` cards and adds the best one (Pot of Prosperity,
+    /// Pot of Duality); the others go to the bottom of the deck.
     Excavate { n: u32 },
     /// Adds one of `targets` from the deck.
     Search { targets: Vec<u32> },
@@ -81,7 +83,7 @@ pub struct SimResult {
     pub lo: f64,
     pub hi: f64,
     pub checkpoints: Vec<Checkpoint>,
-    /// Per card with an effect: how often it resolved, per hand.
+    /// Per card with an effect: share of hands where it resolved.
     pub effects: Vec<(u32, f64)>,
     pub cancelled: bool,
 }
@@ -148,9 +150,87 @@ struct PreparedCard {
     id: u32,
     /// Indices into `targets` this card counts for.
     hits: Vec<usize>,
+    /// How much the card helps when nothing completes the hand: targets the
+    /// condition wants more of, minus those it wants fewer of.
+    worth: i32,
     effect: Option<Effect>,
+    /// What a search can add, as indices into `cards`.
+    search: Vec<u16>,
     once: bool,
     normal_summon: bool,
+}
+
+/// Sign of each target in the condition: +1 when more copies help (at least,
+/// or at most under a "not"), -1 when they hurt, 0 when both or exactly.
+fn polarity(cond: &Cond, sign: i32, targets: &[Target], out: &mut [Option<i32>]) {
+    match cond {
+        Cond::All { items } | Cond::Any { items } => items.iter().for_each(|c| polarity(c, sign, targets, out)),
+        Cond::Not { item } => polarity(item, -sign, targets, out),
+        Cond::Count { target, op, .. } => {
+            let s = match op {
+                Op::AtLeast => sign,
+                Op::AtMost => -sign,
+                Op::Exactly => 0,
+            };
+            if let Some(i) = targets.iter().position(|t| t == target) {
+                out[i] = Some(if out[i].is_none_or(|x| x == s) { s } else { 0 });
+            }
+        }
+    }
+}
+
+/// One hand being played. The deck is split in place: `deck[..top]` has
+/// left it, `deck[top..bottom]` can be drawn, and `deck[bottom..]` was put
+/// at the bottom (excavated, not added): it can be searched, not drawn.
+#[derive(Clone, Default)]
+struct Turn {
+    hand: Vec<u16>,
+    /// Cards of `hand` that resolved their effect.
+    spent: Vec<bool>,
+    /// Cards whose effect resolved, each once.
+    resolved: Vec<u16>,
+    /// Normal Summon cards whose effect the player chose not to use.
+    declined: Vec<u16>,
+    summon_used: bool,
+    top: usize,
+    bottom: usize,
+}
+
+impl Turn {
+    fn draw(&mut self, deck: &mut [u16], rng: &mut Rng) -> Option<u16> {
+        if self.top >= self.bottom {
+            return None;
+        }
+        let j = self.top + rng.below((self.bottom - self.top) as u32) as usize;
+        deck.swap(self.top, j);
+        self.top += 1;
+        Some(deck[self.top - 1])
+    }
+
+    /// Takes the card at `p` (to be drawn or at the bottom) out of the deck.
+    fn take(&mut self, deck: &mut [u16], p: usize) {
+        if p >= self.bottom {
+            deck.swap(p, self.bottom);
+            self.bottom += 1;
+            deck.swap(self.bottom - 1, self.top);
+        } else {
+            deck.swap(p, self.top);
+        }
+        self.top += 1;
+    }
+
+    /// Puts the card at `p`, out of the deck, back at the bottom.
+    fn put_at_bottom(&mut self, deck: &mut [u16], p: usize) {
+        self.top -= 1;
+        deck.swap(p, self.top);
+        self.bottom -= 1;
+        deck.swap(self.top, self.bottom);
+    }
+
+    /// Cards in hand that still count (they did not resolve an effect).
+    fn kept(&self) -> Vec<u16> {
+        self.hand.iter().zip(&self.spent).filter(|(_, s)| !**s).map(|(&c, _)| c).collect()
+    }
 }
 
 impl<'a> Prepared<'a> {
@@ -158,42 +238,52 @@ impl<'a> Prepared<'a> {
         let mut set = BTreeSet::new();
         config.cond.targets(&mut set);
         let targets: Vec<Target> = set.into_iter().collect();
-        let cards: Vec<PreparedCard> = config
+        let mut signs = vec![None; targets.len()];
+        polarity(&config.cond, 1, &targets, &mut signs);
+        let mut cards: Vec<PreparedCard> = config
             .deck
             .cards
             .iter()
             .map(|c| {
                 let rule = config.rules.iter().find(|r| r.id == c.id);
+                let hits: Vec<usize> = targets
+                    .iter()
+                    .enumerate()
+                    .filter(|(_, t)| match t {
+                        Target::Role(r) => c.roles.contains(r),
+                        Target::Card(id) => c.id == *id,
+                    })
+                    .map(|(i, _)| i)
+                    .collect();
                 PreparedCard {
                     id: c.id,
-                    hits: targets
-                        .iter()
-                        .enumerate()
-                        .filter(|(_, t)| match t {
-                            Target::Role(r) => c.roles.contains(r),
-                            Target::Card(id) => c.id == *id,
-                        })
-                        .map(|(i, _)| i)
-                        .collect(),
+                    worth: hits.iter().map(|&t| signs[t].unwrap_or(0)).sum(),
+                    hits,
                     effect: rule.and_then(|r| r.effect.clone()),
+                    search: Vec::new(),
                     once: rule.is_some_and(|r| r.once_per_turn),
                     normal_summon: rule.is_some_and(|r| r.normal_summon),
                 }
             })
             .collect();
+        let ids: Vec<u32> = cards.iter().map(|c| c.id).collect();
+        for card in &mut cards {
+            if let Some(Effect::Search { targets }) = &card.effect {
+                card.search = targets.iter().filter_map(|id| ids.iter().position(|x| x == id)).map(|i| i as u16).collect();
+            }
+        }
         let copies = config.deck.cards.iter().enumerate().flat_map(|(i, c)| std::iter::repeat_n(i as u16, c.copies as usize)).collect();
         Self { cond: &config.cond, targets, copies, cards, hand: config.hand }
     }
 
-    fn index_of(&self, id: u32) -> Option<u16> {
-        self.cards.iter().position(|c| c.id == id).map(|i| i as u16)
-    }
-
     /// Whether the counted cards satisfy the condition, letting the player
-    /// pick which Normal Summon card to count.
-    fn satisfied(&self, counted: &[u16]) -> bool {
+    /// pick which Normal Summon card to count. `resolving` is a card whose
+    /// effect is about to resolve: its name and the summon are taken.
+    fn satisfied(&self, counted: &[u16], turn: &Turn, resolving: Option<u16>) -> bool {
+        let summon_used = turn.summon_used || resolving.is_some_and(|c| self.cards[c as usize].normal_summon);
         let mut base = vec![0u32; self.targets.len()];
-        let mut seen: Vec<u16> = Vec::with_capacity(counted.len());
+        // A once per turn card that resolved has no copy left to count.
+        let mut seen: Vec<u16> = turn.resolved.iter().chain(&resolving).copied().filter(|&c| self.cards[c as usize].once).collect();
         let mut summons: Vec<u16> = Vec::new();
         for &c in counted {
             let card = &self.cards[c as usize];
@@ -204,7 +294,7 @@ impl<'a> Prepared<'a> {
                 seen.push(c);
             }
             if card.normal_summon {
-                if !summons.contains(&c) {
+                if !summon_used && !summons.contains(&c) {
                     summons.push(c);
                 }
                 continue;
@@ -229,91 +319,163 @@ impl<'a> Prepared<'a> {
         })
     }
 
-    /// Simulates one hand on `deck` (a permutation pool reused between hands).
-    fn hand(&self, deck: &mut [u16], rng: &mut Rng, used: &mut [u32]) -> bool {
-        let n = deck.len() as u32;
-        let mut top = 0u32;
-        let mut draw = |deck: &mut [u16], top: &mut u32| -> Option<u16> {
-            if *top >= n {
-                return None;
-            }
-            let j = *top + rng.below(n - *top);
-            deck.swap(*top as usize, j as usize);
-            *top += 1;
-            Some(deck[*top as usize - 1])
-        };
-        let mut hand: Vec<u16> = (0..self.hand).filter_map(|_| draw(deck, &mut top)).collect();
-        // Cards that resolved an effect, and names already resolved (once per turn).
-        let mut spent = vec![false; hand.len()];
-        let mut resolved_names: Vec<u16> = Vec::new();
-        let mut progress = true;
-        while progress {
-            progress = false;
-            for i in 0..hand.len() {
-                if spent.get(i).copied().unwrap_or(false) {
-                    continue;
-                }
-                let c = hand[i];
-                let card = &self.cards[c as usize];
-                let Some(effect) = &card.effect else { continue };
-                if card.once && resolved_names.contains(&c) {
-                    continue;
-                }
-                let added: Vec<u16> = match effect {
-                    Effect::Draw { n: k, banish_top } => {
-                        for _ in 0..*banish_top {
-                            draw(deck, &mut top);
-                        }
-                        (0..*k).filter_map(|_| draw(deck, &mut top)).collect()
-                    }
-                    Effect::Excavate { n: k } => {
-                        let seen: Vec<u16> = (0..*k).filter_map(|_| draw(deck, &mut top)).collect();
-                        let kept: Vec<u16> = hand.iter().enumerate().filter(|(j, _)| !spent[*j] && *j != i).map(|(_, &x)| x).collect();
-                        self.best_of(&seen, &kept).into_iter().collect()
-                    }
-                    Effect::Search { targets } => {
-                        let wanted: Vec<u16> = targets.iter().filter_map(|id| self.index_of(*id)).collect();
-                        // Only cards still in the deck can be added.
-                        let available: Vec<usize> = (top as usize..deck.len()).filter(|&p| wanted.contains(&deck[p])).collect();
-                        if available.is_empty() {
-                            continue;
-                        }
-                        let candidates: Vec<u16> = available.iter().map(|&p| deck[p]).collect();
-                        let kept: Vec<u16> = hand.iter().enumerate().filter(|(j, _)| !spent[*j] && *j != i).map(|(_, &x)| x).collect();
-                        let pick = self.best_of(&candidates, &kept).unwrap_or(candidates[0]);
-                        let p = available[candidates.iter().position(|&x| x == pick).unwrap_or(0)];
-                        deck.swap(top as usize, p);
-                        top += 1;
-                        vec![pick]
-                    }
-                };
-                spent[i] = true;
-                resolved_names.push(c);
-                used[c as usize] += 1;
-                for a in added {
-                    hand.push(a);
-                    spent.push(false);
-                }
-                progress = true;
-            }
-        }
-        let counted: Vec<u16> = hand.iter().zip(&spent).filter(|(_, s)| !**s).map(|(&c, _)| c).collect();
-        self.satisfied(&counted)
+    /// Whether `c`, in hand, could still resolve its effect.
+    fn can_resolve(&self, turn: &Turn, c: u16) -> bool {
+        let card = &self.cards[c as usize];
+        card.effect.is_some()
+            && !(card.once && turn.resolved.contains(&c))
+            && !(card.normal_summon && (turn.summon_used || turn.declined.contains(&c)))
     }
 
-    /// The candidate that best completes `kept`: one that satisfies the
-    /// condition if any, else the one counting for the most targets.
-    fn best_of(&self, candidates: &[u16], kept: &[u16]) -> Option<u16> {
+    /// Where in the deck are the cards that `c` can search (to be drawn or at the bottom).
+    fn searchable(&self, turn: &Turn, deck: &[u16], c: u16) -> Vec<usize> {
+        let wanted = &self.cards[c as usize].search;
+        (turn.top..deck.len()).filter(|&p| wanted.contains(&deck[p])).collect()
+    }
+
+    /// The candidate that completes `kept`, if any.
+    fn completing(&self, candidates: &[u16], kept: &[u16], turn: &Turn, resolving: Option<u16>) -> Option<u16> {
         let mut with = kept.to_vec();
         with.push(0);
         let last = with.len() - 1;
-        for &c in candidates {
+        candidates.iter().copied().find(|&c| {
             with[last] = c;
-            if self.satisfied(&with) {
-                return Some(c);
+            self.satisfied(&with, turn, resolving)
+        })
+    }
+
+    /// The candidate that best completes `kept`: one that satisfies the
+    /// condition if any, else the one that helps most (never one the
+    /// condition wants fewer of when another does no harm), one whose
+    /// effect can still resolve on ties.
+    fn best_of(&self, candidates: &[u16], kept: &[u16], turn: &Turn, resolving: Option<u16>) -> Option<u16> {
+        self.completing(candidates, kept, turn, resolving)
+            .or_else(|| candidates.iter().copied().max_by_key(|&c| (self.cards[c as usize].worth, self.can_resolve(turn, c))))
+    }
+
+    /// The effect to resolve next, in the order a player would pick. A
+    /// search whose pick is already clear goes first, as draws and
+    /// excavations could banish or take its target; then draws, then
+    /// excavations; other searches wait to pick knowing what those gave.
+    fn next_effect(&self, turn: &Turn, deck: &[u16]) -> Option<usize> {
+        let (mut draw, mut dig, mut search) = (None, None, None);
+        for (i, &c) in turn.hand.iter().enumerate() {
+            if turn.spent[i] || !self.can_resolve(turn, c) {
+                continue;
+            }
+            match &self.cards[c as usize].effect {
+                Some(Effect::Draw { .. }) => {
+                    draw.get_or_insert(i);
+                }
+                Some(Effect::Excavate { .. }) => {
+                    dig.get_or_insert(i);
+                }
+                Some(Effect::Search { .. }) => {
+                    let found: Vec<u16> = self.searchable(turn, deck, c).into_iter().map(|p| deck[p]).collect();
+                    let Some(&first) = found.first() else { continue };
+                    let mut kept = turn.kept();
+                    kept.remove(kept.iter().position(|&x| x == c).expect("the searcher is in hand"));
+                    if found.iter().all(|&x| x == first) || self.completing(&found, &kept, turn, Some(c)).is_some() {
+                        return Some(i);
+                    }
+                    search.get_or_insert(i);
+                }
+                None => {}
             }
         }
-        candidates.iter().copied().max_by_key(|&c| self.cards[c as usize].hits.len())
+        draw.or(dig).or(search)
+    }
+
+    /// Resolves the effect of `turn.hand[i]`.
+    fn resolve(&self, turn: &mut Turn, i: usize, deck: &mut [u16], rng: &mut Rng) {
+        let c = turn.hand[i];
+        let card = &self.cards[c as usize];
+        turn.spent[i] = true;
+        if !turn.resolved.contains(&c) {
+            turn.resolved.push(c);
+        }
+        turn.summon_used |= card.normal_summon;
+        let added: Option<u16> = match card.effect.as_ref().expect("a card with an effect") {
+            Effect::Draw { n: k, banish_top } => {
+                for _ in 0..*banish_top {
+                    turn.draw(deck, rng);
+                }
+                for _ in 0..*k {
+                    if let Some(a) = turn.draw(deck, rng) {
+                        turn.hand.push(a);
+                        turn.spent.push(false);
+                    }
+                }
+                None
+            }
+            Effect::Excavate { n: k } => {
+                let start = turn.top;
+                let seen: Vec<u16> = (0..*k).filter_map(|_| turn.draw(deck, rng)).collect();
+                let pick = self.best_of(&seen, &turn.kept(), turn, Some(c));
+                if let Some(pick) = pick {
+                    // The others go to the bottom: still in the deck for a search.
+                    deck.swap(start, start + seen.iter().position(|&x| x == pick).unwrap_or(0));
+                    for _ in 1..seen.len() {
+                        let p = turn.top - 1;
+                        turn.put_at_bottom(deck, p);
+                    }
+                }
+                pick
+            }
+            Effect::Search { .. } => {
+                // Only cards still in the deck can be added.
+                let found = self.searchable(turn, deck, c);
+                let candidates: Vec<u16> = found.iter().map(|&p| deck[p]).collect();
+                let pick = self.best_of(&candidates, &turn.kept(), turn, Some(c));
+                if let Some(pick) = pick {
+                    turn.take(deck, found[candidates.iter().position(|&x| x == pick).unwrap_or(0)]);
+                }
+                pick
+            }
+        };
+        if let Some(a) = added {
+            turn.hand.push(a);
+            turn.spent.push(false);
+        }
+    }
+
+    /// Resolves the effects in hand and tells whether the hand ends up
+    /// meeting the condition. When the effect of a Normal Summon card could
+    /// resolve, the player takes the better of using the summon on it or
+    /// keeping it (for another card).
+    fn play(&self, mut turn: Turn, deck: &mut [u16], rng: &mut Rng) -> (bool, Turn) {
+        while let Some(i) = self.next_effect(&turn, deck) {
+            let c = turn.hand[i];
+            if self.cards[c as usize].normal_summon {
+                let (mut other_deck, mut other_rng) = (deck.to_vec(), rng.clone());
+                let mut keep = turn.clone();
+                keep.declined.push(c);
+                let (kept_ok, kept_turn) = self.play(keep, &mut other_deck, &mut other_rng);
+                self.resolve(&mut turn, i, deck, rng);
+                let (ok, turn) = self.play(turn, deck, rng);
+                if ok || !kept_ok {
+                    return (ok, turn);
+                }
+                deck.copy_from_slice(&other_deck);
+                *rng = other_rng;
+                return (kept_ok, kept_turn);
+            }
+            self.resolve(&mut turn, i, deck, rng);
+        }
+        (self.satisfied(&turn.kept(), &turn, None), turn)
+    }
+
+    /// Simulates one hand on `deck` (a permutation pool reused between hands).
+    fn hand(&self, deck: &mut [u16], rng: &mut Rng, used: &mut [u32]) -> bool {
+        let mut turn = Turn { bottom: deck.len(), ..Turn::default() };
+        turn.hand = (0..self.hand).filter_map(|_| turn.draw(deck, rng)).collect();
+        turn.spent = vec![false; turn.hand.len()];
+        let (ok, turn) = self.play(turn, deck, rng);
+        // A card counts once per hand, however many copies resolved.
+        for &c in &turn.resolved {
+            used[c as usize] += 1;
+        }
+        ok
     }
 }
 
@@ -467,6 +629,87 @@ mod tests {
             CardRule { id: 2, normal_summon: true, ..Default::default() },
         ];
         assert_eq!(run(&config(ns), 1).hits, 0);
+    }
+
+    #[test]
+    fn one_normal_summon_per_hand_even_for_effects() {
+        let ns =
+            |id, targets: Vec<u32>| CardRule { id, effect: Some(Effect::Search { targets }), normal_summon: true, ..Default::default() };
+        let two = Cond::role("starter", Op::AtLeast, 2);
+        // A and B search a Starter when Normal Summoned: of the six hands only {A, B} fails.
+        let d = deck(&[(1, 1, &[]), (2, 1, &[]), (3, 1, &["starter"]), (4, 1, &["starter"])]);
+        let rules = vec![ns(1, vec![3, 4]), ns(2, vec![3, 4])];
+        let r = run(&SimConfig { deck: d, cond: two.clone(), hand: 2, rules, hands: 30_000, seed: 9 }, 2);
+        assert!((r.p - 5.0 / 6.0).abs() < 0.015, "{}", r.p);
+        // A searcher and a Starter that both need the summon: one or the other, so only {N, C} works.
+        let d = deck(&[(1, 1, &[]), (2, 1, &["starter"]), (3, 1, &["starter"])]);
+        let rules = vec![ns(1, vec![3]), CardRule { id: 2, normal_summon: true, ..Default::default() }];
+        let r = run(&SimConfig { deck: d, cond: two, hand: 2, rules, hands: 30_000, seed: 10 }, 2);
+        assert!((r.p - 1.0 / 3.0).abs() < 0.015, "{}", r.p);
+        // 3 + 3 summoned searchers for a Starter and an Extender: 0.247812 by exact enumeration.
+        let d = deck(&[(1, 3, &[]), (2, 3, &[]), (3, 3, &["starter"]), (4, 3, &["extender"]), (5, 28, &[])]);
+        let cond = Cond::all([Cond::role("starter", Op::AtLeast, 1), Cond::role("extender", Op::AtLeast, 1)]);
+        let r = run(&SimConfig { deck: d, cond, hand: 5, rules: vec![ns(1, vec![3]), ns(2, vec![4])], hands: 400_000, seed: 2024 }, 4);
+        assert!(r.lo <= 0.247_812 && 0.247_812 <= r.hi, "{} [{}, {}]", r.p, r.lo, r.hi);
+    }
+
+    #[test]
+    fn effects_resolve_in_the_order_a_player_would_pick() {
+        // The search goes before Pot of Desires, which would banish its only target.
+        let d = deck(&[(1, 1, &[]), (2, 1, &[]), (3, 1, &["starter"])]);
+        let rules = vec![
+            CardRule { id: 1, effect: Some(Effect::Draw { n: 2, banish_top: 10 }), once_per_turn: true, ..Default::default() },
+            CardRule { id: 2, effect: Some(Effect::Search { targets: vec![3] }), ..Default::default() },
+        ];
+        let r = run(&SimConfig { deck: d, cond: Cond::role("starter", Op::AtLeast, 1), hand: 2, rules, hands: 3_000, seed: 4 }, 1);
+        assert_eq!(r.hits, r.hands);
+        // A search for either of two cards waits for the excavation, then takes
+        // the one it left at the bottom of the deck.
+        let d = deck(&[(1, 1, &[]), (2, 1, &[]), (3, 1, &[]), (4, 1, &[])]);
+        let rules = vec![
+            CardRule { id: 1, effect: Some(Effect::Excavate { n: 2 }), ..Default::default() },
+            CardRule { id: 2, effect: Some(Effect::Search { targets: vec![3, 4] }), ..Default::default() },
+        ];
+        let both = Cond::all([Cond::card(3, Op::AtLeast, 1), Cond::card(4, Op::AtLeast, 1)]);
+        let r = run(&SimConfig { deck: d, cond: both, hand: 2, rules, hands: 3_000, seed: 5 }, 1);
+        assert_eq!(r.hits, r.hands);
+    }
+
+    #[test]
+    fn a_once_per_turn_card_that_resolved_counts_no_more() {
+        // S, a Starter, fetches T once per turn: S + S gives one Starter, S + T two (2/3).
+        let d = deck(&[(1, 2, &["starter"]), (2, 1, &["starter"])]);
+        let rules = vec![CardRule { id: 1, effect: Some(Effect::Search { targets: vec![2] }), once_per_turn: true, ..Default::default() }];
+        let r = run(&SimConfig { deck: d, cond: Cond::role("starter", Op::AtLeast, 2), hand: 2, rules, hands: 30_000, seed: 6 }, 2);
+        assert!((r.p - 2.0 / 3.0).abs() < 0.015, "{}", r.p);
+    }
+
+    #[test]
+    fn effects_are_shares_of_hands() {
+        // Both copies of X resolve in {X, X}: still one hand. X resolves in 5 hands of 6.
+        let d = deck(&[(1, 2, &[]), (2, 2, &["starter"])]);
+        let rules = vec![CardRule { id: 1, effect: Some(Effect::Search { targets: vec![2] }), ..Default::default() }];
+        let r = run(&SimConfig { deck: d, cond: Cond::role("starter", Op::AtLeast, 1), hand: 2, rules, hands: 30_000, seed: 8 }, 2);
+        let share = r.effects.iter().find(|(id, _)| *id == 1).unwrap().1;
+        assert!((share - 5.0 / 6.0).abs() < 0.015, "{share}");
+    }
+
+    #[test]
+    fn excavations_avoid_cards_the_condition_wants_fewer_of() {
+        // One-card hands. E excavates 2, U draws 1; with S a Starter and B a Brick, E
+        // seeing U and B adds U, which draws S: E always works, U in 2 cases of 3 (2/3 in all).
+        let rules = vec![
+            CardRule { id: 1, effect: Some(Effect::Excavate { n: 2 }), once_per_turn: true, ..Default::default() },
+            CardRule { id: 2, effect: Some(Effect::Draw { n: 1, banish_top: 0 }), ..Default::default() },
+        ];
+        let no_brick = Cond::all([Cond::role("starter", Op::AtLeast, 1), Cond::negate(Cond::role("brick", Op::AtLeast, 1))]);
+        let d = deck(&[(1, 1, &[]), (2, 1, &[]), (3, 1, &["brick"]), (4, 1, &["starter"])]);
+        let r = run(&SimConfig { deck: d, cond: no_brick, hand: 1, rules: rules.clone(), hands: 60_000, seed: 12 }, 2);
+        assert!((r.p - 2.0 / 3.0).abs() < 0.01, "{}", r.p);
+        // On a tie, the card whose effect can still resolve: U rather than a card without roles.
+        let d = deck(&[(1, 1, &[]), (2, 1, &[]), (3, 1, &[]), (4, 1, &["starter"])]);
+        let r = run(&SimConfig { deck: d, cond: Cond::role("starter", Op::AtLeast, 1), hand: 1, rules, hands: 60_000, seed: 13 }, 2);
+        assert!((r.p - 2.0 / 3.0).abs() < 0.01, "{}", r.p);
     }
 
     #[test]

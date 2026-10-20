@@ -125,12 +125,17 @@ fn placements(state: &DuelState) -> Vec<Placement> {
 }
 
 /// Guesses the roles of the cards of the Main Deck of `deck`.
+/// `passive` are the cards never played from the hand on your turn (the
+/// well-known handtraps, as in the Combo Lab): the other handtraps, often
+/// an archetype's quick effects, are tried as starters and extenders too.
 /// `progress(done, total)` is called after each test.
+#[allow(clippy::too_many_arguments)]
 pub fn guess_roles(
     engine: &Engine,
     deck: &DeckList,
     kit: &Kit,
     hand_traps: &[u32],
+    passive: &[u32],
     values: Arc<CardValues>,
     threads: usize,
     progress: impl Fn(usize, usize) + Sync,
@@ -155,14 +160,14 @@ pub fn guess_roles(
     base.hand_traps = hand_traps.to_vec();
     base.values = values.clone();
     base.opponent = Some(kit.opponent().clone());
-    // Handtraps stay in hand on your turn, as in the Combo Lab.
-    base.policy.passive = hand_traps.to_vec();
+    base.policy.passive = passive.to_vec();
     base.live_top = 0;
     base.confirm_top = 5;
     base.zone_top = 0;
     let tester = Tester { engine, deck: with_blanks, blank, base };
 
-    let tested: Vec<u32> = cards.iter().copied().filter(|&c| !is_hand_trap(c)).collect();
+    let is_passive = |c: u32| passive.iter().any(|&p| db.canonical_code(p) == c);
+    let tested: Vec<u32> = cards.iter().copied().filter(|&c| !is_passive(c)).collect();
     let total = tested.len() * 2 + 1;
     let done = AtomicUsize::new(0);
     let step = || progress(done.fetch_add(1, Ordering::Relaxed) + 1, total);

@@ -36,8 +36,8 @@ use std::time::{Duration, Instant};
 use ygo_engine::auto::AutoPolicy;
 use ygo_engine::consts::{card_type, location};
 use ygo_engine::{
-    canonical_fingerprint, fingerprint, italian, Action, ActionKind, CardRef, Decision, DeckList, Duel, DuelState, Engine, Error, Event,
-    Opponent, Placement, Step,
+    canonical_fingerprint, fingerprint, italian, Action, ActionKind, CardDb, CardRef, ChainLink, Decision, DeckList, Duel, DuelState,
+    Engine, Error, Event, Opponent, Placement, Step,
 };
 
 use crate::coverage::{self, Audit, Coverage, Links, Mechanic};
@@ -434,6 +434,17 @@ struct Shared<'a> {
     /// the opponent never answers, so chained to your own chain they only
     /// lose (Invoked Mechaba on your Aleister). Not tried again.
     own_negators: RwLock<HashSet<Mechanic>>,
+    /// Your handtraps whose effect resolved with nothing happening (Maxx
+    /// "C", the Mulcharmy): they wait for the opponent's moves, which never
+    /// come on your turn, so activating them only loses the card. Not
+    /// activated again from the hand.
+    idle_hand_traps: RwLock<HashSet<u32>>,
+    /// Handtraps seen to give something new to do when activated at your
+    /// idle moment (Labrynth Cooclock): never left in the hand.
+    useful_hand_traps: RwLock<HashSet<u32>>,
+    /// The times each handtrap did nothing at your idle moment: one is not
+    /// enough to leave it in the hand (Labrynth Cooclock before a Trap is Set).
+    idle_strikes: Mutex<HashMap<u32, u32>>,
 }
 
 struct Queue {
@@ -476,6 +487,20 @@ impl Shared<'_> {
             self.set_stop(Stop::TimeLimit);
         } else if self.nodes.load(Ordering::Relaxed) >= self.config.max_nodes {
             self.set_stop(Stop::NodeLimit);
+        }
+    }
+
+    /// A handtrap did nothing on your turn: after [`IDLE_STRIKES`] times, and
+    /// unless it was seen to give something to do, it stays in the hand.
+    fn strike(&self, code: u32) {
+        let useful = self.useful_hand_traps.read().is_ok_and(|u| u.contains(&code));
+        let strikes = self.idle_strikes.lock().map_or(0, |mut s| {
+            let n = s.entry(code).or_default();
+            *n += 1;
+            *n
+        });
+        if let (false, true, Ok(mut idle)) = (useful, strikes >= IDLE_STRIKES, self.idle_hand_traps.write()) {
+            idle.insert(code);
         }
     }
 
@@ -625,9 +650,14 @@ fn rank(a: &Board, b: &Board) -> CmpOrdering {
 /// since your last free moment count too: the state does not say yet what
 /// is being done, and choosing Aleister the Invoker as material for
 /// Salamangreat Almiraj or for Artemis is the same choice of the same state.
-fn node_key(state: &DuelState, decision: &Decision, pending: &Pending) -> u64 {
+fn node_key(state: &DuelState, chain: &[ChainLink], decision: &Decision, pending: &Pending) -> u64 {
     let mut h = DefaultHasher::new();
     canonical_fingerprint(state).hash(&mut h);
+    // The chain not resolved yet: the same field with A chained to B, B to
+    // A, or A still to resolve is not the same moment.
+    if !chain.is_empty() {
+        chain.hash(&mut h);
+    }
     decision.hash(&mut h);
     if !is_free(decision) {
         pending.value().hash(&mut h);
@@ -716,9 +746,12 @@ fn set_key(decision: &Decision, answer: &[u8]) -> Option<(u8, u32)> {
     }
 }
 
-/// The Set made at your last free moment, if nothing happened since.
+/// The Set made at your last free moment, if nothing happened since. The
+/// chain window opened by a Set and passed changes nothing, so the Set
+/// before it still counts.
 fn after_answer(last_set: &mut Option<(u8, u32)>, decision: &Decision, answer: &[u8]) {
-    if is_free(decision) {
+    let passed = matches!(decision, Decision::SelectChain { .. }) && answer.get(..4) == Some(&(-1i32).to_le_bytes()[..]);
+    if is_free(decision) && !passed {
         *last_set = set_key(decision, answer);
     }
 }
@@ -873,12 +906,18 @@ const VALUE_WEIGHT: f64 = 5.0;
 /// ATK or turning your own monster face-down), so there not chaining comes
 /// first. Triggers of the same moment are put on the chain first.
 ///
+/// Cards that can also be used on the opponent's turn are kept for it
+/// longer: Quick-Play Spells and Traps after the other activations, and
+/// handtraps after the Sets (an effect that only lets you do something
+/// more, like Labrynth Cooclock's, needs the cards Set first).
+///
 /// Answers that pick or play a card of the goal come before everything.
-fn dive_order(actions: &mut [Action], responding: bool, wanted: impl Fn(&Action) -> bool) {
+fn dive_order(actions: &mut [Action], responding: bool, wanted: impl Fn(&Action) -> bool, held: impl Fn(&Action) -> Option<i32>) {
     let rank = |a: &Action| match a.kind {
         _ if wanted(a) => -1,
         ActionKind::Activate if responding => 2,
         ActionKind::Pass if responding => 1,
+        ActionKind::Activate => held(a).unwrap_or(0),
         ActionKind::EndTurn => 4,
         ActionKind::Pass | ActionKind::No | ActionKind::Cancel | ActionKind::Finish => 3,
         ActionKind::SetMonster | ActionKind::SetSpellTrap => 2,
@@ -912,7 +951,41 @@ fn keeps_hand(engine: &Engine, config: &SearchConfig, state: &DuelState) -> bool
     })
 }
 
+/// What can be done at a free moment, card by card.
+type Offer = (ActionKind, u32, u8, u64);
+
+fn offered(db: &CardDb, actions: &[Action]) -> HashSet<Offer> {
+    actions
+        .iter()
+        .map(|a| (a.kind, a.card.map_or(0, |c| db.canonical_code(c.code)), a.card.map_or(0, |c| c.location), a.description))
+        .collect()
+}
+
+/// A handtrap activated from the hand at your idle moment, and what could
+/// be done before it: to tell, once its link resolved with nothing
+/// happening, whether it gave something new to do.
+fn hand_trap_trial(
+    db: &CardDb,
+    decision: &Decision,
+    actions: &[Action],
+    answer: &[u8],
+    hand_trap: impl Fn(u32) -> bool,
+) -> Option<(u32, HashSet<Offer>)> {
+    if !matches!(decision, Decision::IdleCmd { .. }) {
+        return None;
+    }
+    let a = actions.iter().find(|a| a.response == answer && a.kind == ActionKind::Activate)?;
+    let code = db.canonical_code(a.card.filter(|c| c.location == location::HAND)?.code);
+    hand_trap(code).then(|| (code, offered(db, actions)))
+}
+
+const PHASE_DRAW: u16 = 0x1;
+const PHASE_STANDBY: u16 = 0x2;
 const PHASE_END: u16 = 0x200;
+
+/// Times a handtrap does nothing at your idle moment before it is left in
+/// the hand for the rest of the search.
+const IDLE_STRIKES: u32 = 3;
 
 fn new_duel(shared: &Shared) -> Result<Duel, Error> {
     let config = shared.config;
@@ -1051,6 +1124,11 @@ fn play(shared: &Shared, edge: &Edge, dive: &mut Dive) -> Result<(), Error> {
     let mut links = Links::default();
     let db = shared.engine.cards();
     let mut last_set: Option<(u8, u32)> = None;
+    let hand_trap = |code: u32| config.hand_traps.iter().any(|&h| db.canonical_code(h) == code);
+    // A handtrap activated at your idle moment, until the next one, and
+    // whether its link resolved with nothing happening.
+    let mut trial: Option<(u32, HashSet<Offer>)> = None;
+    let mut quiet = false;
     for answer in &line.answers {
         if let Step::Decision { decision, events } = duel.advance()? {
             since_free.meet(&decision, events.len());
@@ -1079,8 +1157,23 @@ fn play(shared: &Shared, edge: &Edge, dive: &mut Dive) -> Result<(), Error> {
             for e in &events {
                 let _ = links.follow(db, e);
             }
+            // Queued before the handtrap was learned to do nothing here.
+            if shared.idle_hand_traps.read().is_ok_and(|idle| {
+                !idle.is_empty()
+                    && duel.actions(&decision).iter().any(|a| {
+                        a.response == answer
+                            && a.kind == ActionKind::Activate
+                            && a.card.is_some_and(|c| c.location == location::HAND && idle.contains(&db.canonical_code(c.code)))
+                    })
+            }) {
+                shared.duplicates.fetch_add(1, Ordering::Relaxed);
+                return Ok(());
+            }
             if let Some(Ok(mut c)) = shared.coverage.as_ref().map(Mutex::lock) {
                 coverage::chosen(shared.engine.cards(), &decision, &duel.actions(&decision), &answer, &mut c);
+            }
+            if matches!(decision, Decision::IdleCmd { .. }) {
+                trial = hand_trap_trial(db, &decision, &duel.actions(&decision), &answer, hand_trap);
             }
         }
         duel.respond(&answer);
@@ -1092,8 +1185,24 @@ fn play(shared: &Shared, edge: &Edge, dive: &mut Dive) -> Result<(), Error> {
     // Something was started at a free moment (an idle or chain window) and
     // nothing has happened since: cancelling only goes back to that moment.
     let mut undoable = false;
+    // What resolved quietly in the part replayed is not news.
+    let _ = links.take_silent();
+    // The last answer this dive gave: stopped before its node is read, the
+    // answer goes back in the queue, so a resumed search plays on from it.
+    let mut given: Option<LeftAnswer> = None;
     loop {
         if shared.halted() {
+            match given.take() {
+                Some(left) => dive.left.push(left),
+                None => shared.push(vec![NewEdge {
+                    prefix: edge.prefix.clone(),
+                    answer: edge.answer.clone(),
+                    priority: edge.priority,
+                    confirms: edge.confirms,
+                    value: edge.value,
+                    discrepancies: edge.discrepancies,
+                }]),
+            }
             return Ok(());
         }
         let (step, mut actions) = duel.advance_auto_seen(&config.policy, &mut line.answers, |d, a| {
@@ -1117,14 +1226,47 @@ fn play(shared: &Shared, edge: &Edge, dive: &mut Dive) -> Result<(), Error> {
                     negators.insert(by);
                 }
             }
+            // A handtrap that did nothing: the same line without it keeps
+            // the card in hand (to discard for a cost, or for the
+            // opponent's turn), so this one only loses. Activated at your
+            // idle moment, it is judged at the next one by what it gave to
+            // do; chained to something, the line goes. Either way it counts
+            // towards leaving it in the hand.
+            if let Some(m) = links.take_silent().filter(|m| hand_trap(m.code)) {
+                match &trial {
+                    Some((code, _)) if *code == m.code => quiet = true,
+                    _ => {
+                        negated = true;
+                        shared.strike(m.code);
+                    }
+                }
+            }
         }
         drop(cover);
+        if let Step::Decision { decision: idle @ Decision::IdleCmd { .. }, .. } = &step {
+            if let Some((code, before)) = trial.take().filter(|_| quiet) {
+                let new = offered(db, &duel.actions(idle)).difference(&before).any(|o| o.1 != code);
+                if new {
+                    if let Ok(mut useful) = shared.useful_hand_traps.write() {
+                        useful.insert(code);
+                    }
+                    if let Ok(mut idle) = shared.idle_hand_traps.write() {
+                        idle.remove(&code);
+                    }
+                } else {
+                    negated = true;
+                    shared.strike(code);
+                }
+            }
+            quiet = false;
+        }
         if events.iter().any(|e| matches!(e, Event::Chaining { .. })) {
             last_set = None;
         }
         // On your turn the opponent never answers: an activation negated, or
         // its effect, was negated by one of your own cards (Invoked Mechaba
-        // on your own Hyperinvoked Aeon). Such a line only loses.
+        // on your own Hyperinvoked Aeon), or a handtrap did nothing. Such a
+        // line only loses.
         if negated {
             if std::env::var_os("DUELFORGE_DEBUG_NEGATION").is_some() {
                 let told: Vec<String> = events.iter().filter_map(|e| italian::describe(db, e)).collect();
@@ -1154,11 +1296,13 @@ fn play(shared: &Shared, edge: &Edge, dive: &mut Dive) -> Result<(), Error> {
         let free = is_free(&decision);
         // The same state met again since the last free moment, by the
         // same choice with nothing happened in between or by its state.
-        if !since_free.meet(&decision, happened) || (!free && !since_free.seen.insert(node_key(&state, &decision, &Pending::default()))) {
+        if !since_free.meet(&decision, happened)
+            || (!free && !since_free.seen.insert(node_key(&state, duel.chain(), &decision, &Pending::default())))
+        {
             shared.duplicates.fetch_add(1, Ordering::Relaxed);
             return Ok(());
         }
-        if !shared.first_visit(node_key(&state, &decision, &pending)) {
+        if !shared.first_visit(node_key(&state, duel.chain(), &decision, &pending)) {
             shared.duplicates.fetch_add(1, Ordering::Relaxed);
             return Ok(());
         }
@@ -1173,6 +1317,33 @@ fn play(shared: &Shared, edge: &Edge, dive: &mut Dive) -> Result<(), Error> {
                 }
             }
         }
+        // Handtraps known to do nothing on your turn stay in the hand.
+        if let Ok(idle) = shared.idle_hand_traps.read() {
+            if !idle.is_empty() {
+                actions.retain(|a| {
+                    a.kind != ActionKind::Activate
+                        || !a.card.is_some_and(|c| c.location == location::HAND && idle.contains(&db.canonical_code(c.code)))
+                });
+            }
+        }
+        // The cards to keep in the hand are not played or paid from it
+        // while no other copy is left there (a line that spends them
+        // records no board), unless nothing else can be answered.
+        if !config.keep_in_hand.is_empty() {
+            let spends = |a: &Action| {
+                a.card.is_some_and(|c| {
+                    let code = db.canonical_code(c.code);
+                    let kept = config.keep_in_hand.iter().filter(|&&k| db.canonical_code(k) == code).count();
+                    c.controller == 0
+                        && c.location == location::HAND
+                        && kept > 0
+                        && state.players[0].hand.iter().filter(|&&h| db.canonical_code(h) == code).count() <= kept
+                })
+            };
+            if actions.iter().any(|a| !spends(a)) {
+                actions.retain(|a| !spends(a));
+            }
+        }
         // Sets in a row in one order only (left out like the answer policy's).
         if let Some(k) = last_set.filter(|_| matches!(decision, Decision::IdleCmd { .. })) {
             actions.retain(|a| set_key(&decision, &a.response).is_none_or(|s| s >= k));
@@ -1185,7 +1356,7 @@ fn play(shared: &Shared, edge: &Edge, dive: &mut Dive) -> Result<(), Error> {
         };
         if line.choices.len() >= config.max_choices {
             // Too long: end the turn, or close what is pending as fast as possible.
-            dive_order(&mut actions, false, |_| false);
+            dive_order(&mut actions, false, |_| false, |_| None);
             let wrap_up = |a: &Action| {
                 matches!(a.kind, ActionKind::EndTurn | ActionKind::Pass | ActionKind::No | ActionKind::Cancel | ActionKind::Finish)
             };
@@ -1216,9 +1387,21 @@ fn play(shared: &Shared, edge: &Edge, dive: &mut Dive) -> Result<(), Error> {
         // Quick effects in your own End Phase rarely help a combo (Hyperinvoked
         // Aeon's Attribute change, a negation of your own effect): not
         // activating them comes first there too, like when responding.
-        let window = matches!(decision, Decision::SelectChain { triggers: false, .. });
-        let responding = window && (duel.open_chain() > 0 || phase == PHASE_END);
-        dive_order(&mut actions, responding, wanted);
+        // An empty chain window outside the Main Phase too: what can be
+        // activated there is offered again at your idle moments, while a
+        // quick card used at the Draw Phase is gone for every line after it.
+        // (In the Main Phase, combos often go on from such a window.)
+        let responding = matches!(decision, Decision::SelectChain { triggers: false, .. })
+            && (duel.open_chain() > 0 || phase & (PHASE_DRAW | PHASE_STANDBY | PHASE_END) != 0);
+        let held = |a: &Action| {
+            let c = a.card?;
+            if c.location == location::HAND && hand_trap(db.canonical_code(c.code)) {
+                return Some(3);
+            }
+            let quick = db.get(c.code).is_some_and(|d| d.type_ & (card_type::QUICKPLAY | card_type::TRAP) != 0);
+            (quick && c.location & (location::HAND | location::SZONE) != 0).then_some(1)
+        };
+        dive_order(&mut actions, responding, wanted, held);
         // A goal card wanted in a kind of zone goes there; while one wants
         // an Extra Monster Zone, other monsters leave it free when they can
         // (holding back the other Extra Deck summons instead would also hold
@@ -1271,6 +1454,10 @@ fn play(shared: &Shared, edge: &Edge, dive: &mut Dive) -> Result<(), Error> {
             wanted: wanted(a),
         }));
         let first = &actions[0];
+        if matches!(decision, Decision::IdleCmd { .. }) && first.kind == ActionKind::Activate {
+            trial = hand_trap_trial(db, &decision, &duel.actions(&decision), &first.response, hand_trap);
+        }
+        given = Some(LeftAnswer { prefix, answer: (first.response.clone(), italian::choice(first)), depth, wanted: wanted(first) });
         record(audit, Some(&first.response));
         if let Some(c) = first.card.filter(|c| c.location == location::EXTRA) {
             placing = Some(c.code);
@@ -1588,6 +1775,9 @@ pub fn resume(
         next_learning: AtomicU64::new(nodes + LEARN_EVERY),
         coverage: config.coverage.then(Mutex::default),
         own_negators: RwLock::default(),
+        idle_hand_traps: RwLock::default(),
+        useful_hand_traps: RwLock::default(),
+        idle_strikes: Mutex::default(),
     };
     if !started {
         shared.push(vec![NewEdge {
@@ -1705,5 +1895,27 @@ mod tests {
         assert_eq!(set_key(&idle, &cmd(3, 0)), Some((0, 5)));
         assert_eq!(set_key(&idle, &cmd(4, 1)), Some((1, 3)));
         assert_eq!(set_key(&idle, &cmd(7, 0)), None);
+    }
+
+    #[test]
+    fn a_passed_chain_window_keeps_the_set_before_it() {
+        let idle = Decision::IdleCmd {
+            player: 0,
+            summonable: vec![],
+            special_summonable: vec![],
+            repositionable: vec![],
+            monster_settable: vec![],
+            spell_settable: vec![card(7, 1)],
+            activatable: vec![],
+            to_battle_phase: false,
+            to_end_phase: true,
+        };
+        let window = Decision::SelectChain { player: 0, forced: false, triggers: false, chains: vec![] };
+        let mut last_set = None;
+        after_answer(&mut last_set, &idle, &4i32.to_le_bytes());
+        after_answer(&mut last_set, &window, &(-1i32).to_le_bytes());
+        assert_eq!(last_set, Some((1, 7)));
+        after_answer(&mut last_set, &window, &0i32.to_le_bytes());
+        assert_eq!(last_set, None);
     }
 }

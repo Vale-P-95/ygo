@@ -37,8 +37,10 @@ Controlli prima di ogni push (gli stessi della CI):
 cargo fmt --all -- --check
 cargo clippy -p ygo-engine -p ygo-data -p ygo-stats -p ygo-solver -p ygo-cli --all-targets -- -D warnings
 cargo test -p ygo-engine -p ygo-data -p ygo-stats -p ygo-solver -p ygo-cli    # più veloci con --release
+cargo test --release -p ygo-solver --test search_regression                 # regressioni della ricerca (~2 min)
 cd apps/desktop; pnpm typecheck; pnpm build
 ```
+La CI gira una volta per ogni pull request, solo con i controlli delle parti toccate (Rust, interfaccia), e tutta su `main` dopo il merge; l'installer Windows si compila solo su `main`. I minuti di GitHub Actions del repository privato sono contati.
 
 ## Convenzioni
 - **Lingue**: l'interfaccia è in italiano; i nomi e i testi delle carte restano in inglese; il codice, i commenti e i messaggi di commit sono in inglese; i documenti (`docs/`, README) sono in italiano.

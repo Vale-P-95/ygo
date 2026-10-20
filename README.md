@@ -22,9 +22,9 @@ data/                  dati scaricati (carte, script, database del motore, immag
 
 ## Provare l'app senza installare nulla
 
-A ogni push, GitHub Actions compila l'installer Windows:
+Dopo ogni merge in `main`, GitHub Actions compila l'installer Windows:
 
-1. apri la scheda **Actions** del repository e scegli l'ultima esecuzione di **CI** riuscita;
+1. apri la scheda **Actions** del repository e scegli l'ultima esecuzione di **CI** riuscita su `main`;
 2. in fondo alla pagina, sotto **Artifacts**, scarica `DuelForge-windows-…`;
 3. estrai lo zip ed esegui il file `.exe`.
 
