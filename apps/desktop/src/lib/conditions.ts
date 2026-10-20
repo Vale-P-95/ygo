@@ -51,14 +51,21 @@ export function fromCond(cond: Cond): Group {
 
 const at = (r: string, n = 1): Cond => ({ type: "count", target: role(r), op: "atLeast", n });
 const resist: Cond = { type: "any", items: [at("starter", 2), { type: "all", items: [at("starter"), at("extender")] }] };
+
+export interface BuiltinRecipe {
+  name: string;
+  cond: Cond;
+  hint?: string;
+}
+
 /** Recipes every deck gets. */
-export const BUILTIN_RECIPES: { name: string; cond: Cond }[] = [
-  { name: "Mano ideale", cond: { type: "all", items: [at("starter"), at("handtrap")] } },
-  { name: "Gioca attraverso Ash", cond: resist },
-  { name: "Mano solida", cond: { type: "all", items: [resist, at("handtrap")] } },
-  { name: "Doppio starter", cond: at("starter", 2) },
-  { name: "Starter senza brick", cond: { type: "all", items: [at("starter"), { type: "count", target: role("brick"), op: "exactly", n: 0 }] } },
-  { name: "Breaker per secondo", cond: { type: "all", items: [at("starter"), at("breaker")] } },
+export const BUILTIN_RECIPES: BuiltinRecipe[] = [
+  { name: "Mano ideale", cond: { type: "all", items: [at("starter"), at("handtrap")] }, hint: "Almeno uno Starter e una Handtrap (una carta con due ruoli conta per entrambi)" },
+  { name: "Gioca attraverso Ash", cond: resist, hint: "Due Starter, oppure uno Starter e un Estensore (una carta con due ruoli conta per entrambi)" },
+  { name: "Mano solida", cond: { type: "all", items: [resist, at("handtrap")] }, hint: "Resiste a un'interruzione e almeno una Handtrap (una carta con due ruoli conta per entrambi)" },
+  { name: "Doppio starter", cond: at("starter", 2), hint: "Almeno due carte Starter" },
+  { name: "Starter senza brick", cond: { type: "all", items: [at("starter"), { type: "count", target: role("brick"), op: "exactly", n: 0 }] }, hint: "Almeno uno Starter e nessun Brick" },
+  { name: "Breaker per secondo", cond: { type: "all", items: [at("starter"), at("breaker")] }, hint: "Almeno uno Starter e un Board breaker" },
 ];
 
 export function usedRoles(c: Cond, out: string[] = []): string[] {

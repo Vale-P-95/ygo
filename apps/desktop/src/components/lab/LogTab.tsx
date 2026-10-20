@@ -125,7 +125,7 @@ export function LogTab({ deck, log, scope, setScope, getCard, onChanged }: Props
     { label: "Per secondo", record: r.second },
     ...(decided(r.postSide) > 0
       ? [
-          { label: "Game 1", record: r.game1 },
+          { label: "Game 1 (Bo3)", record: r.game1 },
           { label: "Dopo il side", sub: "game 2 e 3", record: r.postSide },
         ]
       : []),
@@ -306,7 +306,11 @@ export function LogTab({ deck, log, scope, setScope, getCard, onChanged }: Props
         <SampleSize decidedNow={decided(r.total)} start={decided(r.total) >= 20 ? Math.round(r.total.p * 20) / 20 : 0.5} />
         {r.tags.length > 0 ? (
           <ChartCard title="Per tag" note="Win-rate delle partite con ciascun tag.">
-            <ForestPlot rows={r.tags.slice(0, TOP).map((t) => ({ label: t.name, record: t.record }))} reference={{ value: r.total.p, label: `media ${pct(r.total.p, 0)}` }} ariaLabel="Win-rate per tag" />
+            <ForestPlot
+              rows={r.tags.slice(0, TOP).map((t) => ({ label: t.name, record: t.record }))}
+              reference={decided(r.total) > 0 ? { value: r.total.p, label: `media ${pct(r.total.p, 0)}` } : undefined}
+              ariaLabel="Win-rate per tag"
+            />
           </ChartCard>
         ) : (
           <section className="lab-card flex flex-col justify-center gap-1 p-4 text-sm text-muted">

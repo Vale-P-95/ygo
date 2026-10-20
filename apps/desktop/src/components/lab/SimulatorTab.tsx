@@ -260,7 +260,11 @@ export function SimulatorTab({ deckId, main, roles, cond, hand, getCard }: Props
           </div>
           <label className="flex items-center gap-2 text-xs text-muted">
             Seed
-            <input className="field !py-1 font-mono text-xs" value={seed} onChange={(e) => setSeed(Number(e.target.value.replace(/\D/g, "")) || 0)} />
+            <input
+              className="field !py-1 font-mono text-xs"
+              value={seed}
+              onChange={(e) => setSeed(Math.min(Number.MAX_SAFE_INTEGER, Number(e.target.value.replace(/\D/g, "")) || 0))}
+            />
             <button type="button" className="btn btn-ghost shrink-0 !px-2 !py-1" onClick={() => setSeed(Math.floor(Math.random() * 1e9))} title="Nuovo seed" aria-label="Nuovo seed">
               ⟳
             </button>

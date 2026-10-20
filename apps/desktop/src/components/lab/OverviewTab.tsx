@@ -16,9 +16,9 @@ const METRICS: { key: keyof HandStats; name: string; def: string; count?: boolea
   { key: "starter", name: "Apri almeno uno starter", def: "Almeno una carta Starter nella mano iniziale." },
   { key: "starter2", name: "Doppio starter", def: "Almeno due Starter: giochi anche se il primo viene fermato." },
   { key: "handtrap", name: "Almeno una handtrap", def: "Almeno un'interruzione dalla mano." },
-  { key: "ideal", name: "Mano ideale", def: "Almeno uno Starter e almeno una Handtrap." },
-  { key: "resist", name: "Resiste a un'interruzione", def: "Due Starter, oppure uno Starter e un Estensore." },
-  { key: "solid", name: "Mano solida", def: "Resiste a un'interruzione e ha almeno una Handtrap." },
+  { key: "ideal", name: "Mano ideale", def: "Almeno uno Starter e una Handtrap: due carte diverse." },
+  { key: "resist", name: "Resiste a un'interruzione", def: "Due Starter, oppure uno Starter e un Estensore: due carte diverse." },
+  { key: "solid", name: "Mano solida", def: "Resiste a un'interruzione e ha anche una Handtrap: tre carte diverse." },
   { key: "breaker", name: "Board breaker in mano", def: "Almeno un Board breaker: conta soprattutto per secondo." },
   { key: "brick", name: "Mano bloccata", def: "Nessuno Starter: la mano non parte." },
   { key: "garnet", name: "Brick in mano", def: "Almeno una carta segnata come Brick." },
@@ -57,8 +57,9 @@ export function OverviewTab({ overview: o, hand, roles, getCard, onExploreCombo 
       <div className="grid grid-cols-4 gap-3">
         {kpis.map((k) => {
           const v = cur[k.key] as number;
+          const def = METRICS.find((m) => m.key === k.key)?.def;
           return (
-            <div key={k.key} className="lab-card flex items-center gap-3 px-4 py-3 anim-rise">
+            <div key={k.key} className="lab-card flex items-center gap-3 px-4 py-3 anim-rise" title={def}>
               <FlaskMeter value={v} tone={k.warn ? "var(--role-handtrap)" : "var(--sec)"} />
               <div className="min-w-0">
                 <p className="text-2xl leading-tight font-semibold">{pct(v)}</p>
@@ -122,6 +123,9 @@ export function OverviewTab({ overview: o, hand, roles, getCard, onExploreCombo 
               ))}
           </tbody>
         </table>
+        <p className="px-4 py-2 text-[11px] text-faint border-t border-border">
+          Nota: nei preset omonimi del Calcolatore una carta con due ruoli conta per entrambi se non vincolata diversamente.
+        </p>
       </section>
 
       <div className="grid grid-cols-2 gap-4">

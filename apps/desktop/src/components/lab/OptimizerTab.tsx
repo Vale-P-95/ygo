@@ -29,6 +29,7 @@ export function OptimizerTab({ deck, roles, cond, hand, getCard, onApply }: Prop
   const [weight, setWeight] = useState(60);
   const [useMaybe, setUseMaybe] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<OptimizeResult | null>(null);
   const handSize = hand === "first" ? 5 : 6;
   const name = (id: number) => getCard(id)?.name ?? String(id);
@@ -66,6 +67,7 @@ export function OptimizerTab({ deck, roles, cond, hand, getCard, onApply }: Prop
 
   const optimize = async () => {
     setBusy(true);
+    setError(null);
     sound.play("open");
     try {
       const r = await api.labOptimize({
@@ -84,7 +86,9 @@ export function OptimizerTab({ deck, roles, cond, hand, getCard, onApply }: Prop
       sound.play(r.changes.length ? "glass" : "toggle");
     } catch (e) {
       sound.play("error");
-      toast(`Ottimizzazione non riuscita: ${e}`, "error");
+      const msg = e instanceof Error ? e.message : String(e);
+      setError(msg);
+      toast(`Ottimizzazione non riuscita: ${msg}`, "error");
     } finally {
       setBusy(false);
     }
@@ -180,6 +184,11 @@ export function OptimizerTab({ deck, roles, cond, hand, getCard, onApply }: Prop
           </button>
         </div>
         <p className="text-[11px] text-faint">Prova migliaia di varianti del Main Deck con le stesse carte (e quelle della Maybe board), rispettando banlist e numero di carte. Usa il calcolo esatto: gli effetti del simulatore non sono considerati.</p>
+        {error && (
+          <div className="rounded-lg border border-danger/40 bg-danger/10 px-3 py-2 text-xs text-danger">
+            {error}
+          </div>
+        )}
         {result && (
           <div className="flex flex-col gap-2 border-t border-border pt-3">
             <div className="flex flex-wrap items-baseline gap-4 text-sm">
@@ -191,6 +200,11 @@ export function OptimizerTab({ deck, roles, cond, hand, getCard, onApply }: Prop
               </span>
               <span className={result.after.objective > result.before.objective ? "text-ok" : "text-muted"}>{points(result.after.objective - result.before.objective)} punti sull'obiettivo</span>
             </div>
+            {result.size !== deck.main.length && (
+              <p className="text-xs text-muted">
+                Il deck passa da {deck.main.length} a {result.size} carte: il confronto include le carte aggiunte.
+              </p>
+            )}
             {result.changes.length === 0 ? (
               <p className="text-sm text-muted">Nessuna modifica migliora il deck per questa condizione.</p>
             ) : (
