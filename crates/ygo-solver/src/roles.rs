@@ -106,15 +106,20 @@ fn placements(state: &DuelState) -> Vec<Placement> {
     let mut out = Vec::new();
     for (z, c) in me.monsters.iter().enumerate() {
         let Some(c) = c else { continue };
-        let overlay = c.overlay.first().map(|&m| (m, c.overlay.len().min(255) as u8));
-        out.push(Placement { code: c.code, location: location::MZONE, sequence: z as u32, position: c.position, overlay });
+        out.push(Placement {
+            code: c.code,
+            location: location::MZONE,
+            sequence: z as u32,
+            position: c.position,
+            overlay: c.overlay.clone(),
+        });
     }
     for (z, c) in me.spells.iter().enumerate() {
         let Some(c) = c else { continue };
-        out.push(Placement { code: c.code, location: location::SZONE, sequence: z as u32, position: c.position, overlay: None });
+        out.push(Placement { code: c.code, location: location::SZONE, sequence: z as u32, position: c.position, overlay: Vec::new() });
     }
     for (i, &code) in me.grave.iter().enumerate() {
-        out.push(Placement { code, location: location::GRAVE, sequence: i as u32, position: position::FACEUP_ATTACK, overlay: None });
+        out.push(Placement { code, location: location::GRAVE, sequence: i as u32, position: position::FACEUP_ATTACK, overlay: Vec::new() });
     }
     out
 }

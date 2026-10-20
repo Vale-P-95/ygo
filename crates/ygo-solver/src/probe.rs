@@ -979,6 +979,10 @@ impl<'a> Prober<'a> {
         // answer the opponent's, never your own (Invoked Mechaba would
         // negate your own Effect Veiler).
         let mut mine_on_top = false;
+        // The effects you could activate at your last free moment of the
+        // Main Phase: in your End Phase, those are quick effects, the
+        // others are the End Phase's triggers.
+        let mut idle_effects: HashSet<(u32, u64)> = HashSet::new();
         let verbose = std::env::var("DUELFORGE_DEBUG_PROBE").is_ok_and(|v| v == "2");
         let mut shown = false;
         let label =
@@ -1021,6 +1025,9 @@ impl<'a> Prober<'a> {
             }
             let (turn, _, _) = duel.turn_info();
             let actions = duel.actions(&decision);
+            if let Decision::IdleCmd { player: 0, activatable, .. } = &decision {
+                idle_effects = activatable.iter().map(|a| (a.card.code, a.description)).collect();
+            }
             // Your turn: the line's answers; the opponent passes.
             if turn <= 1 {
                 // The line has every answer of your turn, the opponent's passes
@@ -1030,7 +1037,7 @@ impl<'a> Prober<'a> {
                     Prelude::Line(_) => match answers.next() {
                         Some(a) => duel.respond(a),
                         None if decision.player() == Some(1) => duel.respond(&passive_answer(&decision, &actions)),
-                        None => duel.respond(&end_phase_answer(&decision, &actions)),
+                        None => duel.respond(&end_phase_answer(&decision, &actions, &idle_effects)),
                     },
                     Prelude::EndAtOnce | Prelude::Placed(_) if decision.player() == Some(1) => {
                         duel.respond(&passive_answer(&decision, &actions))
@@ -1215,13 +1222,19 @@ impl<'a> Prober<'a> {
 /// Your End Phase after a provisional line: optional triggers are used,
 /// lists are picked forward, quick effects are not (activating Hyperinvoked
 /// Aeon there, then negating it with your own Invoked Mechaba, would undo
-/// the board). The search plays the End Phase the same way first.
-fn end_phase_answer(decision: &Decision, actions: &[Action]) -> Vec<u8> {
+/// the board). The search plays the End Phase the same way first. The
+/// engine can offer an End Phase trigger and quick effects in the same
+/// window: the quick effects are those already offered at your last free
+/// moment of the Main Phase (`idle_effects`).
+fn end_phase_answer(decision: &Decision, actions: &[Action], idle_effects: &HashSet<(u32, u64)>) -> Vec<u8> {
     if let Some(answer) = forward(decision, actions, |_| true) {
         return answer;
     }
     if let Decision::SelectChain { triggers: false, forced: false, .. } = decision {
-        return window_answer(decision, None);
+        let trigger = actions
+            .iter()
+            .find(|a| a.kind == ActionKind::Activate && a.card.is_some_and(|c| !idle_effects.contains(&(c.code, a.description))));
+        return trigger.map_or_else(|| window_answer(decision, None), |a| a.response.clone());
     }
     let act = actions.iter().find(|a| !matches!(a.kind, ActionKind::Pass | ActionKind::No | ActionKind::Cancel | ActionKind::Finish));
     act.or(actions.first()).map(|a| a.response.clone()).unwrap_or_else(|| window_answer(decision, None))

@@ -49,6 +49,11 @@ export function Lab({ artReady, onGoForge }: { artReady: boolean; onGoForge: () 
   const [log, setLog] = useState<MatchLog | null>(null);
   const [logScope, setLogScope] = useState<"deck" | "all">("deck");
   const saveTimer = useRef<number>(undefined);
+  // The deck open now and its roles, for answers that arrive later (an
+  // analysis started on another deck must not land on this one).
+  const deckIdRef = useRef<number | undefined>(undefined);
+  const rolesRef = useRef(roles);
+  rolesRef.current = roles;
   const cards = useCardCache();
   const { request } = cards;
 
@@ -57,6 +62,10 @@ export function Lab({ artReady, onGoForge }: { artReady: boolean; onGoForge: () 
       const d = await api.getDeck(id);
       if (!d) return;
       rememberDeck(id);
+      deckIdRef.current = id;
+      // The last analysis belongs to the deck left.
+      setPreviousRoles(null);
+      setReasons({});
       setDeck(d);
       api.listRecipes(id).then(setRecipesState).catch(() => setRecipesState([]));
       setRoles(d.roles ?? {});
@@ -97,10 +106,9 @@ export function Lab({ artReady, onGoForge }: { artReady: boolean; onGoForge: () 
     if (tab === "log") reloadLog();
   }, [tab, reloadLog, updatedAt]);
 
-  const changeRoles = (next: Record<string, number[]>) => {
+  const changeRoles = (next: Record<string, number[]>, id = deck?.id) => {
     setRoles(next);
-    if (deck?.id == null) return;
-    const id = deck.id;
+    if (id == null) return;
     window.clearTimeout(saveTimer.current);
     saveTimer.current = window.setTimeout(() => {
       api.setDeckRoles(id, next).catch((e) => toast(`Ruoli non salvati: ${e}`, "error"));
@@ -117,13 +125,19 @@ export function Lab({ artReady, onGoForge }: { artReady: boolean; onGoForge: () 
     const unlisten = await api.onRolesProgress((p) => setGuessing(p));
     try {
       const guesses = await api.guessDeckRoles(id);
+      if (deckIdRef.current !== id) {
+        toast("Analisi dei ruoli scartata: nel frattempo hai aperto un altro deck", "info");
+        return;
+      }
+      // The roles as they are now (changed by hand meanwhile, too).
+      const base = rolesRef.current;
       const tried = new Set(guesses.map((g) => g.code));
-      const next: Record<string, number[]> = { ...roles };
-      for (const r of BUILTIN_ROLES) next[r.key] = (roles[r.key] ?? []).filter((c) => !tried.has(c));
+      const next: Record<string, number[]> = { ...base };
+      for (const r of BUILTIN_ROLES) next[r.key] = (base[r.key] ?? []).filter((c) => !tried.has(c));
       for (const g of guesses) for (const r of g.roles) next[r] = [...(next[r] ?? []), g.code];
-      setPreviousRoles(roles);
+      setPreviousRoles(base);
       setReasons(Object.fromEntries(guesses.map((g) => [g.code, g.reasons])));
-      changeRoles(next);
+      changeRoles(next, id);
       sound.play("glass");
       const count = (key: string) => guesses.filter((g) => g.roles.includes(key)).length;
       toast(`Ruoli riconosciuti: ${count("starter")} starter, ${count("extender")} estensori, ${count("handtrap")} handtrap, ${count("breaker")} board breaker, ${count("brick")} brick`, "ok");
@@ -234,7 +248,7 @@ export function Lab({ artReady, onGoForge }: { artReady: boolean; onGoForge: () 
             ) : tab === "overview" ? (
               <OverviewTab overview={overview} hand={hand} roles={roles} getCard={cards.get} />
             ) : tab === "compare" ? (
-              <CompareTab deck={deck} overview={overview} decks={decks ?? []} hand={hand} getCard={cards.get} request={request} />
+              <CompareTab key={deck.id} deck={deck} overview={overview} decks={decks ?? []} hand={hand} getCard={cards.get} request={request} />
             ) : tab === "calculator" ? (
               <CalculatorTab deckId={deck.id!} main={deck.main} roles={roles} hand={hand} getCard={cards.get} root={root} setRoot={setRoot} recipes={recipes} setRecipes={setRecipes} />
             ) : tab === "simulator" || tab === "optimizer" ? (

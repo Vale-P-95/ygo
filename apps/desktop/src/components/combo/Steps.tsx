@@ -84,15 +84,18 @@ function shown(happened: ComboHappening[]): ComboHappening[] {
  * phases as separators (consecutive ones merged). Choices that do nothing
  * ("don't chain") are left out unless `all`.
  */
-function rows(steps: ComboStep[], all: boolean): Row[] {
+function rows(steps: ComboStep[], all: boolean): { list: Row[]; quiet: number } {
   const out: Row[] = [];
   let number = 0;
+  // The choices left out, counted by the same rule that leaves them out.
+  let quiet = 0;
   for (const step of steps) {
     if (step.choice) number += 1;
     let current: Row & { type: "step" } = { type: "step", number: step.choice ? number : null, step: step.choice ? step : null, happened: [] };
     const flush = () => {
-      const quiet = current.step?.kind === "pass" && shown(current.happened).length === 0;
-      if ((current.step && (all || !quiet)) || shown(current.happened).length > 0) out.push(current);
+      const silent = current.step?.kind === "pass" && shown(current.happened).length === 0;
+      if (silent) quiet += 1;
+      if ((current.step && (all || !silent)) || shown(current.happened).length > 0) out.push(current);
     };
     for (const h of step.happened) {
       if (h.kind === "phase") {
@@ -107,7 +110,7 @@ function rows(steps: ComboStep[], all: boolean): Row[] {
     }
     flush();
   }
-  return out;
+  return { list: out, quiet };
 }
 
 function Happened({ h, getCard, onHover, onHoverEnd }: { h: ComboHappening; getCard: (id: number) => Card | undefined; onHover: HoverCard; onHoverEnd: () => void }) {
@@ -132,8 +135,7 @@ function Happened({ h, getCard, onHover, onHoverEnd }: { h: ComboHappening; getC
 /** The line told with pictures: each choice, the card it is about, and what happened to which cards. */
 export function ComboSteps({ steps, getCard, onHover, onHoverEnd }: { steps: ComboStep[]; getCard: (id: number) => Card | undefined; onHover: HoverCard; onHoverEnd: () => void }) {
   const [all, setAll] = useState(false);
-  const list = rows(steps, all);
-  const quiet = steps.filter((s) => s.choice && s.kind === "pass" && shown(s.happened).length === 0).length;
+  const { list, quiet } = rows(steps, all);
   return (
     <div className="flex flex-col gap-2">
       <ol className="combo-timeline">

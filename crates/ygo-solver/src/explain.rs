@@ -145,10 +145,11 @@ pub struct Exposure {
     pub on_field: u32,
     /// Your summons: from the fifth, Nibiru, the Primal Being.
     pub summons: u32,
-    /// Your Special Summons: a card each for Maxx "C".
+    /// Your Special Summons (monsters summoned together count once): a
+    /// card each for Maxx "C".
     pub special_summons: u32,
-    /// Cards added from the Deck to your hand: after the first, Droll &
-    /// Lock Bird stops the rest.
+    /// Cards added from the Deck to your hand, drawn by an effect too:
+    /// after the first, Droll & Lock Bird stops the rest.
     pub searches: u32,
 }
 
@@ -175,7 +176,18 @@ pub fn exposure(
     // Chain links: yours, and already counted for Ash; the link resolving.
     let mut links: std::collections::HashMap<u32, (bool, bool)> = std::collections::HashMap::new();
     let mut solving: Vec<u32> = Vec::new();
+    // Who is Special Summoning (the end of a summon does not say).
+    let mut summoning_mine = false;
     let mut count = |events: &[Event], out: &mut Exposure| {
+        // A link of yours resolving whose effect takes a card from the Deck: one point for Ash Blossom.
+        let from_deck = |solving: &[u32], links: &mut std::collections::HashMap<u32, (bool, bool)>, out: &mut Exposure| {
+            if let Some(link) = solving.last().and_then(|l| links.get_mut(l)) {
+                if link.0 && !link.1 {
+                    link.1 = true;
+                    out.ash += 1;
+                }
+            }
+        };
         for e in events {
             match e {
                 Event::Chaining { card, chain_link, .. } => {
@@ -198,19 +210,21 @@ pub fn exposure(
                         out.searches += 1;
                     }
                     if matches!(to.location, location::HAND | location::MZONE | location::GRAVE) {
-                        if let Some(link) = solving.last().and_then(|l| links.get_mut(l)) {
-                            if link.0 && !link.1 {
-                                link.1 = true;
-                                out.ash += 1;
-                            }
-                        }
+                        from_deck(&solving, &mut links, out);
                     }
                 }
-                Event::NormalSummoning { card } | Event::FlipSummoning { card } if card.controller == 0 => out.summons += 1,
-                Event::SpecialSummoning { card } if card.controller == 0 => {
-                    out.summons += 1;
-                    out.special_summons += 1;
+                // Drawn by an effect (a chain link resolving): Ash Blossom
+                // negates it, Droll & Lock Bird stops it like a search.
+                Event::Draw { player: 0, codes } if !solving.is_empty() => {
+                    out.searches += codes.len() as u32;
+                    from_deck(&solving, &mut links, out);
                 }
+                Event::NormalSummoning { card } | Event::FlipSummoning { card } if card.controller == 0 => out.summons += 1,
+                Event::SpecialSummoning { card } => {
+                    summoning_mine = card.controller == 0;
+                    out.summons += u32::from(summoning_mine);
+                }
+                Event::SpecialSummoned if summoning_mine => out.special_summons += 1,
                 _ => {}
             }
         }

@@ -983,6 +983,9 @@ fn run_combo(app: &tauri::AppHandle, engine: &Engine, job: &mut ComboJob, second
 /// with a card), sending `combo-progress` events, and returns the boards.
 #[tauri::command(async)]
 fn combo_search(app: tauri::AppHandle, state: State<'_, AppState>, request: ComboRequest) -> Result<ComboOutcome, String> {
+    // Reset before the slow setup (the card values): a Stop pressed during
+    // it still stops the search.
+    state.combo_cancel.store(false, Ordering::Relaxed);
     let engine = state.engine()?;
     let deck = state.with_user(|u| u.get(request.deck_id))?.ok_or("Il deck non esiste più")?;
     let list = ygo_engine::DeckList { main: deck.main.clone(), extra: deck.extra.clone(), side: deck.side.clone() };
@@ -1043,7 +1046,6 @@ fn combo_search(app: tauri::AppHandle, state: State<'_, AppState>, request: Comb
         roles: deck.roles.clone(),
         scores: HashMap::new(),
     };
-    state.combo_cancel.store(false, Ordering::Relaxed);
     if let Ok(mut slot) = state.combo.lock() {
         *slot = None;
     }
@@ -1183,9 +1185,10 @@ fn action_kind_name(kind: ygo_engine::ActionKind) -> &'static str {
         K::SpecialSummon => "specialSummon",
         K::Activate => "activate",
         K::SetMonster | K::SetSpellTrap => "set",
-        K::Choose | K::Yes | K::Announce | K::Order | K::Position => "choose",
+        // Ending a selection is a choice too (the cards picked so far).
+        K::Choose | K::Yes | K::Announce | K::Order | K::Position | K::Finish => "choose",
         K::Place => "place",
-        K::Pass | K::No | K::Cancel | K::Finish => "pass",
+        K::Pass | K::No | K::Cancel => "pass",
         K::EndTurn => "endTurn",
         _ => "other",
     }

@@ -7,7 +7,7 @@ use std::path::Path;
 use std::sync::Arc;
 
 use crate::carddb::CardDb;
-use crate::consts::{duel_flags, location, position};
+use crate::consts::{card_type, duel_flags, location, position, summon_type};
 use crate::deck::DeckList;
 use crate::ffi::*;
 use crate::message::{self, Decision, Event, Parsed};
@@ -154,14 +154,17 @@ pub struct Duel {
 }
 
 /// A card put on the field before the duel starts.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct Placement {
     pub code: u32,
+    /// A Pendulum Monster in Spell & Trap Zone 0 or 4 is placed as a
+    /// Pendulum Scale; an Extra Deck monster in a Monster Zone counts as
+    /// Summoned by its own kind of summon (its materials are not known).
     pub location: u8,
     pub sequence: u32,
     pub position: u32,
-    /// Xyz Materials attached to it: that many copies of a card.
-    pub overlay: Option<(u32, u8)>,
+    /// Xyz Materials attached to it.
+    pub overlay: Vec<u32>,
 }
 
 /// The opponent's cards in [`Duel::goldfish_vs`].
@@ -305,6 +308,17 @@ impl Duel {
                 .ok_or_else(|| Error::Data(format!("{} is not in the Main Deck (or not enough copies)", engine.cards.name(code))))?;
             hand_codes.push(main.remove(at));
         }
+        // A card placed is one of the deck's copies when the deck has it
+        // (it is not in the Deck any more).
+        let mut extra = deck.extra.clone();
+        for p in placed {
+            let wanted = engine.cards.canonical_code(p.code);
+            let from_extra = engine.cards.get(p.code).is_some_and(|c| c.type_ & card_type::EXTRA != 0);
+            let pile = if from_extra { &mut extra } else { &mut main };
+            if let Some(at) = pile.iter().position(|&c| engine.cards.canonical_code(c) == wanted) {
+                pile.remove(at);
+            }
+        }
         shuffle(&mut main, seed);
         let config = DuelConfig {
             seed: [seed ^ 0x9e37_79b9_7f4a_7c15, seed.rotate_left(17) | 1, 0xdead_beef, 0x1234_5678],
@@ -315,7 +329,7 @@ impl Duel {
         for (i, &code) in main.iter().enumerate() {
             duel.add_card(0, code, location::DECK, i as u32, position::FACEDOWN_DEFENSE);
         }
-        for (i, &code) in deck.extra.iter().enumerate() {
+        for (i, &code) in extra.iter().enumerate() {
             duel.add_card(0, code, location::EXTRA, i as u32, position::FACEDOWN_DEFENSE);
         }
         for (i, &code) in hand_codes.iter().enumerate() {
@@ -329,15 +343,35 @@ impl Duel {
             }
         }
         for p in placed {
+            let type_ = engine.cards.get(p.code).map_or(0, |c| c.type_);
+            if p.location == location::SZONE && type_ & card_type::PENDULUM != 0 && matches!(p.sequence, 0 | 4) {
+                // A Pendulum Scale: only the Debug library puts a card in a Pendulum Zone.
+                if !duel.known.contains(&p.code) {
+                    duel.known.push(p.code);
+                }
+                // LOCATION_PZONE, the left or right scale.
+                let lua = format!("Debug.AddCard({},0,0,0x200,{},{})", p.code, u32::from(p.sequence == 4), position::FACEUP_ATTACK);
+                duel.run_lua_source("placement.lua", &lua);
+                continue;
+            }
             duel.add_card(0, p.code, p.location, p.sequence, p.position);
-            if let Some((material, count)) = p.overlay {
-                // A card added to a taken Monster Zone becomes a material of the monster there.
-                let lua = format!(
-                    "for i=1,{count} do Debug.AddCard({material},0,0,{},{},{}) end",
-                    location::MZONE,
-                    p.sequence,
-                    position::FACEUP_ATTACK
-                );
+            if p.location == location::MZONE && type_ & card_type::EXTRA != 0 {
+                // Summoned by its own kind of summon ("if this card was Link Summoned").
+                let kind = if type_ & card_type::LINK != 0 {
+                    summon_type::LINK
+                } else if type_ & card_type::XYZ != 0 {
+                    summon_type::XYZ
+                } else if type_ & card_type::SYNCHRO != 0 {
+                    summon_type::SYNCHRO
+                } else {
+                    summon_type::FUSION
+                };
+                let lua = format!("Debug.PreSummon(Duel.GetFieldCard(0,{},{}),{kind},{})", location::MZONE, p.sequence, location::EXTRA);
+                duel.run_lua_source("placement.lua", &lua);
+            }
+            // A card added to a taken Monster Zone becomes a material of the monster there.
+            for material in &p.overlay {
+                let lua = format!("Debug.AddCard({material},0,0,{},{},{})", location::MZONE, p.sequence, position::FACEUP_ATTACK);
                 duel.run_lua_source("placement.lua", &lua);
             }
         }

@@ -95,7 +95,16 @@ impl CardValues {
         let key = (engine.cards().canonical_code(code), if empty { Spot::Hand } else { Spot::HandWithField });
         match self.values.get(&key) {
             None => InHand::Unknown,
-            Some(_) if !self.usable.contains(&key) => InHand::Dead,
+            // Dead only when the field is what stops it (usable with an
+            // empty field, not with cards): alone in the hand some
+            // handtraps cannot pay their cost, which tells nothing.
+            Some(_) if !self.usable.contains(&key) => {
+                if key.1 == Spot::HandWithField && self.usable.contains(&(key.0, Spot::Hand)) {
+                    InHand::Dead
+                } else {
+                    InHand::Unknown
+                }
+            }
             Some(&v) => InHand::Usable(v),
         }
     }
@@ -156,12 +165,12 @@ fn spots(engine: &Engine, deck: &DeckList) -> Vec<(u32, Spot)> {
 /// nothing, for Xyz Materials and for a field that is not empty).
 fn placement(engine: &Engine, code: u32, spot: Spot, filler: u32) -> Vec<Placement> {
     let t = engine.cards().get(code).map_or(0, |c| c.type_);
-    let at = |location, sequence, position| Placement { code, location, sequence, position, overlay: None };
+    let at = |location, sequence, position| Placement { code, location, sequence, position, overlay: Vec::new() };
     match spot {
         Spot::Main | Spot::Extra => {
             let mut p = at(location::MZONE, if spot == Spot::Main { 2 } else { 5 }, position::FACEUP_ATTACK);
             if t & card_type::XYZ != 0 {
-                p.overlay = Some((filler, 2));
+                p.overlay = vec![filler; 2];
             }
             vec![p]
         }
@@ -169,9 +178,11 @@ fn placement(engine: &Engine, code: u32, spot: Spot, filler: u32) -> Vec<Placeme
         Spot::FaceUp if t & card_type::FIELD != 0 => vec![at(location::SZONE, 5, position::FACEUP_ATTACK)],
         Spot::FaceUp => vec![at(location::SZONE, 2, position::FACEUP_ATTACK)],
         Spot::Hand => Vec::new(),
-        Spot::HandWithField => {
-            vec![Placement { code: filler, location: location::MZONE, sequence: 2, position: position::FACEUP_ATTACK, overlay: None }]
-        }
+        // A field and a GY as after a combo (Dimension Shifter needs an empty GY).
+        Spot::HandWithField => vec![
+            Placement { code: filler, location: location::MZONE, sequence: 2, position: position::FACEUP_ATTACK, overlay: Vec::new() },
+            Placement { code: filler, location: location::GRAVE, sequence: 0, position: position::FACEUP_ATTACK, overlay: Vec::new() },
+        ],
     }
 }
 
@@ -226,7 +237,8 @@ pub fn card_values(engine: &Engine, deck: &DeckList, seed: u64, kit: &Kit, hand_
                     } else {
                         prober.measure_placed(&placed).map(|m| (m.field_value + FLOODGATE_WEIGHT * m.floodgate_value, true))
                     };
-                    let (value, usable) = measured.unwrap_or((0.0, false));
+                    // A turn that could not be played tells nothing: left unmeasured.
+                    let Ok((value, usable)) = measured else { continue };
                     if let Ok(mut f) = found.lock() {
                         f.insert((code, spot), (value, usable));
                     }

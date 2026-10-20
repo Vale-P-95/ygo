@@ -323,6 +323,9 @@ pub enum Event {
     },
     /// The previous response was rejected by the engine.
     Retry,
+    /// A Special Summon is done: the monsters of the `SpecialSummoning`
+    /// events before it were summoned together (one summon for Maxx "C").
+    SpecialSummoned,
     Other {
         message: u8,
     },
@@ -563,6 +566,7 @@ fn parse_event(kind: u8, r: &mut Reader) -> Option<Parsed> {
         }
         msg::SUMMONING => Event::NormalSummoning { card: r.card_with_info()? },
         msg::SPSUMMONING => Event::SpecialSummoning { card: r.card_with_info()? },
+        msg::SPSUMMONED => Event::SpecialSummoned,
         msg::CHAINING => {
             let card = r.card_with_info()?;
             let _triggering = (r.u8()?, r.u8()?, r.u32()?);

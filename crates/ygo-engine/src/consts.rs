@@ -60,6 +60,14 @@ pub mod reason {
     pub const LINK: u32 = 0x1000_0000;
 }
 
+/// Kinds of summon (`SUMMON_TYPE_*` of the scripts).
+pub mod summon_type {
+    pub const FUSION: u32 = 0x4300_0000;
+    pub const SYNCHRO: u32 = 0x4600_0000;
+    pub const XYZ: u32 = 0x4900_0000;
+    pub const LINK: u32 = 0x4c00_0000;
+}
+
 pub mod card_type {
     pub const MONSTER: u32 = 0x1;
     pub const SPELL: u32 = 0x2;
@@ -106,6 +114,7 @@ pub mod msg {
     pub const SET: u8 = 54;
     pub const SUMMONING: u8 = 60;
     pub const SPSUMMONING: u8 = 62;
+    pub const SPSUMMONED: u8 = 63;
     pub const FLIPSUMMONING: u8 = 64;
     pub const CHAINING: u8 = 70;
     pub const CHAIN_SOLVING: u8 = 72;

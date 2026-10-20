@@ -632,7 +632,10 @@ fn card_values(dir: &Path, deck: &Path) -> Result<()> {
     let hand_traps = ygo_solver::hand_traps(&engine, &deck, 1, &kit);
     let values = ygo_solver::card_values(&engine, &deck, 1, &kit, &hand_traps, threads);
     for (code, spot, value) in values.list() {
-        let dead = matches!(spot, ygo_solver::Spot::Hand | ygo_solver::Spot::HandWithField) && !values.usable(&engine, code, spot);
+        // Dead: usable with an empty field, not after a combo (the Mulcharmy).
+        let dead = spot == ygo_solver::Spot::HandWithField
+            && values.usable(&engine, code, ygo_solver::Spot::Hand)
+            && !values.usable(&engine, code, spot);
         println!("{value:.2}\t{spot:?}\t{}{}", engine.cards().name(code), if dead { "\t(cannot be used: a free discard)" } else { "" });
     }
     println!("measured in {:.1} s", started.elapsed().as_secs_f64());
