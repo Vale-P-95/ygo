@@ -1283,3 +1283,35 @@ Banco di prova (16 mani, 4000 nodi, stesso turno di prova da entrambe le parti):
 Rimandati: i valori delle carte che dipendono dal contesto (mano vuota, equipaggiamenti) passano nella classificazione delle board (#47). Il punteggio rapido degli handtrap evocati non serve più dopo la correzione dei bersagli.
 
 **Test di regressione in CI.** Quattro mani fisse del deck Invoked di prova, con lo stesso budget di nodi su un thread: ogni linea arriva in fondo, le board migliori si rigiocano uguali, nessun handtrap attivato nel tuo turno, forza minima della board migliore, pezzi noti presenti, apprendimento degli handtrap e delle auto-negazioni. Rompere apposta la ricerca li fa fallire. Durano circa 2 minuti.
+
+### 30.7 Verifica delle statistiche del Laboratorio
+Tre agenti hanno confrontato il Laboratorio con riferimenti indipendenti, e ogni problema trovato è stato riprodotto da un secondo agente (18 confermati, nessuno smentito):
+- enumerazione di tutte le mani su deck piccoli e frazioni esatte su deck da 40 a 60 carte;
+- copertura degli intervalli del Monte Carlo su migliaia di semi;
+- formule dei manuali per il registro partite.
+
+**Corretti**, senza problemi trovati nel calcolo:
+- le probabilità esatte (migliaia di casi casuali, zero differenze);
+- gli intervalli di Wilson e bayesiano;
+- il test esatto di Fisher (tea tasting: 0.4857);
+- il mescolamento (chi quadro su tutte le permutazioni);
+- la riproducibilità del seme con qualunque numero di thread.
+
+**Problemi corretti:**
+- **Heatmap e sensibilità (+1/−1 copia).** Le carte nominate nella condizione venivano accorpate o tolte. La heatmap mostrava 0% ovunque e i delta erano sbagliati.
+- **Mano ideale, resistente e solida.** Una carta con due ruoli contava come due carte. Ora ogni compito vuole una carta diversa (calcolo esatto per combinazione di ruoli).
+- **Ottimizzatore.** Proponeva cambi che non spostano l'obiettivo, diversi a ogni clic: ora li annulla. Un deck sotto il minimo viene prima portato dentro i limiti, oppure un errore spiega perché non si può.
+- **Monte Carlo:**
+  - una sola Evocazione Normale per mano anche per le carte con effetto;
+  - effetti risolti nell'ordine che sceglierebbe un giocatore;
+  - una carta "una volta per turno" già risolta non conta più;
+  - gli scavi evitano le carte che la condizione vuole in meno;
+  - «Effetti usati» è una quota di mani.
+- **Registro partite:**
+  - le date importate da CSV restavano come scritte, e l'ordine (e ogni statistica nel tempo) era sbagliato. Ora hanno un'unica forma, anche quelle già salvate;
+  - le versioni seguono la prima partita di ognuna nel registro;
+  - «Game 1» conta solo i Bo3;
+  - la dimensione del campione vale per il test di Fisher.
+
+**Da fare nell'interfaccia** (testi da allineare): elenco in `docs/TASKS.md`.
+

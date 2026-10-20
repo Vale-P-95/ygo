@@ -19,6 +19,13 @@ Regole in `AGENTS.md`. Per prendere un task, spostalo in "In corso" con agente, 
 ## Da fare (in ordine di priorità)
 
 ### Interfaccia (Gemini)
+- [ ] Testi del Laboratorio da allineare ai calcoli dopo la verifica delle statistiche (PIANO §30.7), piccoli e da fare per primi:
+  - `OverviewTab.tsx`, definizioni. «Mano ideale»: «Almeno uno Starter e una Handtrap: due carte diverse.» «Resiste a un'interruzione»: «Due Starter, oppure uno Starter e un Estensore: due carte diverse.» «Mano solida»: «Resiste a un'interruzione e ha anche una Handtrap: tre carte diverse.» I preset omonimi di `conditions.ts` contano ancora una carta con due ruoli per entrambi: dirlo nel testo («una carta con due ruoli conta per entrambi»).
+  - `OptimizerTab.tsx`: quando `result.size` è diverso da `deck.main.length`, aggiungere «Il deck passa da N a M carte: il confronto include le carte aggiunte.»; mostrare il nuovo errore di dimensione (40 carte non raggiungibili) così com'è.
+  - `CalculatorTab.tsx`: mostrare solo l'errore della mano che si sta guardando (per primo o per secondo) e «—» per l'altra, invece di nascondere la probabilità calcolata.
+  - `SimulatorTab.tsx`: il seme accetta al massimo `Number.MAX_SAFE_INTEGER` (oltre, la simulazione fallisce).
+  - `lib/matches.ts` (`pValue`): sotto 0,05 non mostrare mai «0,050»: «p < 0,05» o arrotondare per difetto.
+  - `LogTab.tsx` (grafico «Per tag»): nessuna linea «media 0%» quando non ci sono partite decise. Facoltativo: la riga «Game 1» può chiamarsi «Game 1 (Bo3)».
 - [ ] Ponte rapido tra Laboratorio, Bottega e Circolo Arcano (avvio ricerca combo 1-carta dal Laboratorio, apertura diretta di un Deck Box in Laboratorio o Circolo Arcano dalla Bottega).
 - [ ] Visore Carta (`CardViewer`) interattivo: aggiunta/rimozione copie (`+ Main`, `+ Side`, `+ Maybe`, `−`) e assegnazione rapida dei ruoli senza chiudere il visore.
 - [ ] Pagina «Il Banditore» (`Novità`): confronto tra banlist (Master Duel, TCG, OCG) e impatto immediato sui deck salvati in bottega.
