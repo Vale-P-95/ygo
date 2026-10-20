@@ -53,15 +53,15 @@ export function BoxEditor({ deck, onBox, onRename, onOpen, onDuplicate, onDelete
 
   const label = "eyebrow mb-2";
   return (
-    <aside className="flex w-[380px] shrink-0 flex-col border-l border-border bg-surface/85 backdrop-blur anim-fade">
-      <div className="flex items-center justify-between px-5 pt-4">
+    <aside className="flex w-[348px] xl:w-[380px] shrink-0 flex-col border-l border-border bg-surface/85 backdrop-blur anim-fade">
+      <div className="flex items-center justify-between px-4 pt-3 xl:px-5 xl:pt-4">
         <p className="display text-sm font-bold tracking-[0.12em] uppercase">Personalizza</p>
         <button type="button" className="btn btn-ghost !px-2.5 !py-1" onClick={onClose} aria-label="Chiudi">
           ✕
         </button>
       </div>
-      <div className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto px-5 pt-3 pb-5">
-        <div className="grid place-items-center rounded-xl border border-border bg-bg-2/80 pt-2">
+      <div className="flex min-h-0 flex-1 flex-col gap-3.5 xl:gap-5 overflow-y-auto px-4 pt-2.5 pb-4 xl:px-5 xl:pt-3 xl:pb-5">
+        <div className="grid shrink-0 place-items-center rounded-xl border border-border bg-bg-2/80 pt-1.5">
           <DeckBox3D
             look={look}
             name={deck.name}
@@ -69,7 +69,7 @@ export function BoxEditor({ deck, onBox, onRename, onOpen, onDuplicate, onDelete
             legal={deck.legal}
             errors={deck.errors}
             cards={deck.box.showcase.length ? deck.box.showcase : deck.preview}
-            scale={1.3}
+            scale={1.08}
             selected
             sway
           />
@@ -112,7 +112,7 @@ export function BoxEditor({ deck, onBox, onRename, onOpen, onDuplicate, onDelete
                   onBox({ ...box, color: p.color });
                 }}
                 className="h-8 rounded-lg border-2 transition-transform hover:scale-110"
-                style={{ background: p.color, borderColor: look.color === p.color ? "var(--sec)" : "rgb(255 255 255 / 0.12)" }}
+                style={{ background: p.color, borderColor: look.color === p.color ? "var(--sec)" : "var(--df-border-strong)" }}
               />
             ))}
             <label
