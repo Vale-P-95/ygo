@@ -392,6 +392,17 @@ fn combos(dir: &Path, setup: &Setup, options: CombosOptions) -> Result<()> {
                 Ok(m) => print_measure(&engine, &m, started.elapsed()),
                 Err(e) => println!("   probe turn failed: {e}"),
             }
+            if let Ok(x) = ygo_solver::exposure(&engine, &config.deck, &config.hand, config.seed, config.opponent.as_ref(), &board.line) {
+                println!(
+                    "   exposure: {} choke points · Ash {} · on-field negation {} · summons {} (special {}) · searches {}",
+                    x.choke_points(),
+                    x.ash,
+                    x.on_field,
+                    x.summons,
+                    x.special_summons,
+                    x.searches
+                );
+            }
         }
         if show_lines {
             let (_, steps) = ygo_solver::explain(&engine, &config.deck, &config.hand, config.seed, config.opponent.as_ref(), &board.line)?;
@@ -583,7 +594,8 @@ fn card_values(dir: &Path, deck: &Path) -> Result<()> {
     let hand_traps = ygo_solver::hand_traps(&engine, &deck, 1, &kit);
     let values = ygo_solver::card_values(&engine, &deck, 1, &kit, &hand_traps, threads);
     for (code, spot, value) in values.list() {
-        println!("{value:.2}\t{spot:?}\t{}", engine.cards().name(code));
+        let dead = matches!(spot, ygo_solver::Spot::Hand | ygo_solver::Spot::HandWithField) && !values.usable(&engine, code, spot);
+        println!("{value:.2}\t{spot:?}\t{}{}", engine.cards().name(code), if dead { "\t(cannot be used: a free discard)" } else { "" });
     }
     println!("measured in {:.1} s", started.elapsed().as_secs_f64());
     Ok(())

@@ -36,12 +36,12 @@ use std::time::{Duration, Instant};
 use ygo_engine::auto::AutoPolicy;
 use ygo_engine::consts::{card_type, location};
 use ygo_engine::{
-    canonical_fingerprint, fingerprint, italian, Action, ActionKind, CardRef, Decision, DeckList, Duel, DuelState, Engine, Error, Opponent,
-    Placement, Step,
+    canonical_fingerprint, fingerprint, italian, Action, ActionKind, CardRef, Decision, DeckList, Duel, DuelState, Engine, Error, Event,
+    Opponent, Placement, Step,
 };
 
 use crate::probe::{Kit, Prober};
-use crate::value::{CardValues, Spot};
+use crate::value::{CardValues, InHand, Spot};
 
 #[derive(Debug, Clone)]
 pub struct SearchConfig {
@@ -744,9 +744,12 @@ pub fn quick_score(engine: &Engine, state: &DuelState, hand_traps: &[u32], value
         .hand
         .iter()
         .map(|&c| match values.in_hand(engine, c, state) {
-            Some(v) => (VALUE_WEIGHT * v).max(0.3),
-            None if hand_trap(c) => 1.5,
-            None => 0.3,
+            InHand::Usable(v) => (VALUE_WEIGHT * v).max(0.3),
+            // A handtrap that cannot be used with this field (the Mulcharmy
+            // going first): worth nothing, the card to discard.
+            InHand::Dead => 0.0,
+            InHand::Unknown if hand_trap(c) => 1.5,
+            InHand::Unknown => 0.3,
         })
         .sum::<f64>();
     score + VALUE_WEIGHT * values.of_field(engine, state)
@@ -971,7 +974,14 @@ fn play(shared: &Shared, edge: &Edge, dive: &mut Dive) -> Result<(), Error> {
         }
         let (step, mut actions) = duel.advance_auto_seen(&config.policy, &mut line.answers, |d, a| pending.answered(d, a))?;
         let (turn, _, phase) = duel.turn_info();
-        if let Step::Decision { events, .. } = &step {
+        let (Step::Decision { events, .. } | Step::End { events }) = &step;
+        // On your turn the opponent never answers: an activation negated, or
+        // its effect, was negated by one of your own cards (Invoked Mechaba
+        // on your own Hyperinvoked Aeon). Such a line only loses.
+        if events.iter().any(|e| matches!(e, Event::ChainNegated { .. } | Event::ChainDisabled { .. })) {
+            return Ok(());
+        }
+        if let Step::Decision { .. } = &step {
             undoable &= events.is_empty();
         }
         let decision = match step {

@@ -1432,3 +1432,64 @@ body {
   background: var(--role-extender);
   box-shadow: 0 0 0 1.5px var(--df-surface);
 }
+
+/* The "i" button next to a metric, and the short explanation it opens. */
+.info-button {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  border: 1px solid var(--df-border-strong);
+  background: var(--df-surface-2);
+  color: var(--df-muted);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 10px;
+  font-style: italic;
+  font-weight: 700;
+  line-height: 1;
+  vertical-align: middle;
+  cursor: pointer;
+  transition:
+    color 0.15s,
+    border-color 0.15s,
+    background 0.15s;
+}
+.info-button:hover,
+.info-button[aria-expanded="true"] {
+  color: var(--df-text);
+  border-color: color-mix(in oklab, var(--sec) 70%, transparent);
+  background: color-mix(in oklab, var(--sec) 16%, var(--df-surface-2));
+}
+.info-button:focus-visible {
+  outline: 2px solid var(--sec);
+  outline-offset: 2px;
+}
+.info-panel {
+  position: fixed;
+  z-index: 60;
+  width: 300px;
+  max-height: min(420px, calc(100vh - 16px));
+  overflow-y: auto;
+  border-radius: 10px;
+  border: 1px solid var(--df-border-strong);
+  background: var(--df-surface);
+  padding: 0.7rem 0.8rem;
+  box-shadow: 0 12px 32px -8px rgb(0 0 0 / 0.45);
+}
+
+/* A thin bar of the breakdown of a score (how much of something is left or covered). */
+.meter {
+  display: block;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--df-surface-3);
+  overflow: hidden;
+}
+.meter > span {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+}

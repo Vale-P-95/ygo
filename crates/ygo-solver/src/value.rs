@@ -12,9 +12,11 @@
 //! the next searches with the same Deck. An Xyz Monster is put there with
 //! two materials to detach. Handtraps are measured in the hand alone, with
 //! your field empty and with a monster on it: some only work while you
-//! control no cards (Infinite Impermanence, the Mulcharmy).
+//! control no cards (Infinite Impermanence, the Mulcharmy). One that cannot
+//! even be used with your field is a dead card going first: discarding it
+//! costs nothing, it is the card to discard.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::hash::{Hash, Hasher};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Mutex, OnceLock};
@@ -45,6 +47,20 @@ pub enum Spot {
 #[derive(Debug, Clone, Default)]
 pub struct CardValues {
     values: HashMap<(u32, Spot), f64>,
+    /// Handtraps the engine let you use from the hand there.
+    usable: HashSet<(u32, Spot)>,
+}
+
+/// What a card in your hand is worth with a given field.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum InHand {
+    /// Not a handtrap measured.
+    Unknown,
+    /// A handtrap that cannot be used with this field (the Mulcharmy while
+    /// you control a card): a free discard.
+    Dead,
+    /// A handtrap that can be used, and what it stops.
+    Usable(f64),
 }
 
 /// Weight of the floodgates in a card's value, next to its interruptions
@@ -72,13 +88,21 @@ impl CardValues {
         monsters.chain(spells).sum()
     }
 
-    /// The value of `code` in your hand with the field of `state`, if it
-    /// was measured there (a handtrap).
-    pub fn in_hand(&self, engine: &Engine, code: u32, state: &DuelState) -> Option<f64> {
+    /// What `code` is worth in your hand with the field of `state`.
+    pub fn in_hand(&self, engine: &Engine, code: u32, state: &DuelState) -> InHand {
         let me = &state.players[0];
         let empty = me.monsters.iter().chain(&me.spells).all(Option::is_none);
-        let code = engine.cards().canonical_code(code);
-        self.values.get(&(code, if empty { Spot::Hand } else { Spot::HandWithField })).copied()
+        let key = (engine.cards().canonical_code(code), if empty { Spot::Hand } else { Spot::HandWithField });
+        match self.values.get(&key) {
+            None => InHand::Unknown,
+            Some(_) if !self.usable.contains(&key) => InHand::Dead,
+            Some(&v) => InHand::Usable(v),
+        }
+    }
+
+    /// Whether the handtrap `code` can be used from the hand at `spot`.
+    pub fn usable(&self, engine: &Engine, code: u32, spot: Spot) -> bool {
+        self.usable.contains(&(engine.cards().canonical_code(code), spot))
     }
 
     /// Raises the value of `code` at `spot` to `value` (what it was seen to
@@ -196,19 +220,25 @@ pub fn card_values(engine: &Engine, deck: &DeckList, seed: u64, kit: &Kit, hand_
                     let measured = if matches!(spot, Spot::Hand | Spot::HandWithField) {
                         // The handtrap alone in the hand (its own Deck copy).
                         let mine = [code];
-                        Prober::new(engine, deck, &mine, seed, kit).measure_placed(&placed).map(|m| m.hand_value)
+                        Prober::new(engine, deck, &mine, seed, kit).measure_placed(&placed).map(|m| {
+                            (m.hand_value, m.offered.iter().any(|&(c, loc)| db.canonical_code(c) == code && loc == location::HAND))
+                        })
                     } else {
-                        prober.measure_placed(&placed).map(|m| m.field_value + FLOODGATE_WEIGHT * m.floodgate_value)
+                        prober.measure_placed(&placed).map(|m| (m.field_value + FLOODGATE_WEIGHT * m.floodgate_value, true))
                     };
-                    let value = measured.unwrap_or(0.0);
+                    let (value, usable) = measured.unwrap_or((0.0, false));
                     if let Ok(mut f) = found.lock() {
-                        f.insert((code, spot), value);
+                        f.insert((code, spot), (value, usable));
                     }
                 }
             });
         }
     });
-    let values = CardValues { values: found.into_inner().unwrap_or_default() };
+    let found: HashMap<(u32, Spot), (f64, bool)> = found.into_inner().unwrap_or_default();
+    let values = CardValues {
+        values: found.iter().map(|(&k, &(v, _))| (k, v)).collect(),
+        usable: found.iter().filter(|(k, &(_, u))| u && matches!(k.1, Spot::Hand | Spot::HandWithField)).map(|(&k, _)| k).collect(),
+    };
     if let Ok(mut c) = cache().lock() {
         c.insert(key, values.clone());
     }

@@ -94,7 +94,7 @@ export function BoardDetail({ board, score, scoring, weights, hand, steps, steps
       <section className="lab-card flex flex-col gap-3 p-4">
         <h3 className="text-sm font-semibold">Il punteggio</h3>
         {score ? (
-          <ScoreBreakdown s={score} weights={weights} getCard={getCard} />
+          <ScoreBreakdown s={score} weights={weights} getCard={getCard} onHover={onHover} onHoverEnd={onHoverEnd} />
         ) : (
           <p className="text-xs text-faint">{scoring ? "Il turno di prova sta mettendo alla prova le board…" : "Questa board non è tra quelle messe alla prova (le migliori 30 della ricerca)."}</p>
         )}

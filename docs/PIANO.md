@@ -1176,9 +1176,31 @@ Nella scheda della board, "La linea" ha due viste: Visuale (predefinita) e Testo
   - Grafici di starter e handtrap aperti, uno accanto all'altro.
   - Carte solo in uno dei due deck e carte con copie diverse.
 
-### 29.8 Limiti e prossimi passi
+### 29.8 Regole generali aggiunte su indicazione dell'utente
+- **Le tue carte non negano le tue.**
+  - Ricerca: nel tuo turno l'avversario del kit passa sempre, quindi una negazione (dell'attivazione o dell'effetto) può venire solo dalle tue carte. La linea viene scartata.
+  - Turno di prova: i tuoi effetti rispondono solo agli anelli di catena dell'avversario. Una finestra in cui l'ultimo anello è tuo non conta come finestra: prima Invoked Mechaba poteva negare la tua Effect Veiler appena attivata. Restano consentiti i tuoi trigger che seguono un tuo effetto.
+- **Handtrap morte = carte da scartare.** Fuwalos e Purulia si attivano solo se non controlli carte: da primo, con una board, sono carte morte e la carta migliore da scartare per un costo. Il turno di prova ora registra quali tue carte il motore ti lascia usare, e per ogni handtrap distingue "usabile ma non interrompe" (Maxx "C", che fa comunque pescare) da "non usabile con questo campo".
+  - Nella stima della ricerca una handtrap morta vale 0, contro 0,3 di una carta qualsiasi.
+  - Nel punteggio non conta tra le risorse; la nota lo dice.
+  - Tra i ruoli è "handtrap solo per secondo".
+
+### 29.9 Un nuovo criterio di forza: l'esposizione alle handtrap
+Due linee che portano alla stessa board non valgono uguale se una si ferma alla prima Ash Blossom. Per ogni board misurata si rigioca la linea e si conta (`ygo_solver::exposure`, riga "exposure" nella CLI con `--probe`):
+- i tuoi effetti che aggiungono, evocano o mandano dal Deck (Ash Blossom);
+- gli effetti di mostri attivati sul campo (Effect Veiler, Infinite Impermanence, Ghost Ogre);
+- le Evocazioni (Nibiru dalla quinta) e le Evocazioni Speciali (le carte che fa pescare Maxx "C");
+- le carte aggiunte dal Deck (Droll & Lock Bird blocca dalla seconda).
+
+I punti di blocco sono una nuova metrica, "Esposizione", con peso negativo regolabile (-0,04 in Bilanciato). C'è un nuovo profilo, "Linee sicure" (-0,15), per chi preferisce una board un po' meno forte ma più difficile da fermare. Nella scheda della board la voce spiega i numeri.
+
+Esempi, Invoked:
+- Caliga + Oceanus: 2 punti di blocco.
+- La board completa con Mechaba, Caliga, Virakam, Endymion, Artemis e Sword: 11 punti (3 Ash, 6 effetti sul campo, 12 Evocazioni).
+
+### 29.10 Limiti e prossimi passi
 - **Geometria dei Link.** Le zone Main non puntate sono considerate equivalenti e la ricerca ne prova una sola. Una disposizione che un Link evocato più tardi punterà (Allied Code Talker con un Link sotto) a volte si trova solo variando le zone alla fine. Distinguere le colonne sotto le EMZ è stato provato: risultati simili, più costo.
-- **Classificazione (#47).** Caliga e Mechaba sulla stessa board: il floodgate di Caliga fa sembrare Mechaba quasi inutile (0,2-0,4 sul campo), mentre Mechaba nega il primo effetto, che Caliga lascia passare. È il prossimo punto, insieme a nuovi criteri: tipo e qualità delle interruzioni, protezione della board, risorse per il turno dopo.
+- **Classificazione (#47).** Caliga e Mechaba sulla stessa board: Mechaba vale 0,2-0,4 sul campo, Caliga 1,2 di floodgate. La misura congiunta è corretta: con Caliga l'avversario si ferma dopo il primo effetto di mostro, quindi a Mechaba resta solo quello (e le Magie, se in mano c'è una Magia da mandare al Cimitero). L'esposizione (§29.9) è il primo criterio nuovo; da valutare poi la protezione della board e le risorse per il turno dopo.
 - **Board breaker** riconosciuti dal testo: vanno misurati con il motore (giocandoli contro una board).
 - **Velocità del motore.** Creare il duello per ogni replay vale circa il 45% del tempo; gli script sono già in bytecode, quindi il margine è nel numero di replay, non nel caricamento.
 

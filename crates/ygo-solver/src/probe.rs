@@ -676,6 +676,10 @@ pub struct Measure {
     /// Interruption value of the field (not the hand) left on average
     /// after a board breaker.
     pub resilience: f64,
+    /// Your cards the engine let you use at least once during the
+    /// opponent's turn, and where (a handtrap missing here cannot be used
+    /// with this board: the Mulcharmy only while you control no cards).
+    pub offered: Vec<(u32, u8)>,
 }
 
 impl<'a> Prober<'a> {
@@ -902,6 +906,9 @@ impl<'a> Prober<'a> {
         let resilience = if weights > 0.0 { breakers.iter().map(|b| b.weight * b.remaining).sum::<f64>() / weights } else { total };
 
         let hand_value = interruptions.iter().filter(|i| i.location == location::HAND).map(|i| i.value).sum::<f64>() + 0.0;
+        let mut offered: Vec<(u32, u8)> = all.windows.iter().flat_map(|w| w.options.iter().map(|(id, loc)| (id.code, *loc))).collect();
+        offered.sort_unstable();
+        offered.dedup();
         Ok(Measure {
             field_value: total,
             hand_value,
@@ -910,6 +917,7 @@ impl<'a> Prober<'a> {
             floodgates,
             breakers,
             resilience,
+            offered,
         })
     }
 
@@ -967,6 +975,10 @@ impl<'a> Prober<'a> {
         let mut last_use: Option<usize> = None;
         // The opponent got back to choose after its last step.
         let mut complete = false;
+        // The last link of the chain being built is yours: your effects
+        // answer the opponent's, never your own (Invoked Mechaba would
+        // negate your own Effect Veiler).
+        let mut mine_on_top = false;
         let verbose = std::env::var("DUELFORGE_DEBUG_PROBE").is_ok_and(|v| v == "2");
         let mut shown = false;
         let label =
@@ -978,6 +990,11 @@ impl<'a> Prober<'a> {
             };
             for e in &events {
                 observer.see(engine, e, &mut trace.uses);
+                match e {
+                    Event::Chaining { card, .. } => mine_on_top = card.controller == 0,
+                    Event::ChainEnd => mine_on_top = false,
+                    _ => {}
+                }
                 if verbose {
                     if matches!(
                         e,
@@ -1124,7 +1141,10 @@ impl<'a> Prober<'a> {
                         )]),
                         _ => None,
                     };
+                    // A chance to answer your own link is not a window at all.
+                    let to_yourself = mine_on_top && matches!(decision, Decision::SelectChain { triggers: false, .. });
                     match (window, current.as_ref()) {
+                        (Some(_), _) if to_yourself => duel.respond(&window_answer(&decision, None)),
                         (Some(options), Some((step, _))) => {
                             let at = windows_in_step;
                             windows_in_step += 1;

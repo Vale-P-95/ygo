@@ -32,7 +32,7 @@ use ygo_engine::{DeckList, DuelState, Engine, Placement};
 
 use crate::probe::Kit;
 use crate::search::{search, Board, SearchConfig};
-use crate::value::CardValues;
+use crate::value::{CardValues, Spot};
 
 /// What the tests found for a card.
 #[derive(Debug, Clone, PartialEq)]
@@ -148,7 +148,7 @@ pub fn guess_roles(
     base.max_nodes = NODES;
     base.time_limit = Duration::from_secs(120);
     base.hand_traps = hand_traps.to_vec();
-    base.values = values;
+    base.values = values.clone();
     base.opponent = Some(kit.opponent().clone());
     // Handtraps stay in hand on your turn, as in the Combo Lab.
     base.policy.passive = hand_traps.to_vec();
@@ -192,7 +192,11 @@ pub fn guess_roles(
             let mut reasons = Vec::new();
             if is_hand_trap(code) {
                 roles.push("handtrap");
-                reasons.push("Si usa dalla mano nel turno dell'avversario".to_owned());
+                reasons.push(if values.usable(engine, code, Spot::Hand) && !values.usable(engine, code, Spot::HandWithField) {
+                    "Si usa dalla mano solo se non controlli carte: per secondo; da primo è la carta da scartare".to_owned()
+                } else {
+                    "Si usa dalla mano nel turno dell'avversario".to_owned()
+                });
             }
             if let Some(&v) = alone.get(&code) {
                 if v - blanks >= STARTER_GAIN {

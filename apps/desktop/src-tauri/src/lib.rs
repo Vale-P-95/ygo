@@ -590,8 +590,23 @@ struct ScoreView {
     breakers: Vec<BreakerView>,
     resources_note: String,
     followup_note: String,
+    /// Moments of the line where a handtrap stops it ([`ygo_solver::Exposure::choke_points`]).
+    exposure: f64,
+    exposure_note: String,
+    exposure_detail: Option<ExposureView>,
     /// The probe turn could not be played (the board is left out of the ranking).
     error: Option<String>,
+}
+
+/// What the line does that the handtraps played most can stop.
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct ExposureView {
+    ash: u32,
+    on_field: u32,
+    summons: u32,
+    special_summons: u32,
+    searches: u32,
 }
 
 fn place_name(loc: u8) -> &'static str {
@@ -603,25 +618,57 @@ fn place_name(loc: u8) -> &'static str {
     }
 }
 
+/// The cards in hand that count as resources, in words.
+fn resources_note(others: usize, grave: usize, dead: usize) -> String {
+    let hand = match others {
+        0 => "nessun'altra carta in mano".to_owned(),
+        1 => "1 altra carta in mano".to_owned(),
+        n => format!("{n} altre carte in mano"),
+    };
+    let grave = if grave == 1 { "1 carta nel Cimitero".to_owned() } else { format!("{grave} carte nel Cimitero") };
+    match dead {
+        0 => format!("{hand}, {grave}"),
+        1 => format!("{hand}, {grave}; 1 handtrap che con questa board non si può usare (solo a campo vuoto): è la carta da scartare"),
+        n => format!(
+            "{hand}, {grave}; {n} handtrap che con questa board non si possono usare (solo a campo vuoto): sono le carte da scartare"
+        ),
+    }
+}
+
 /// The metrics of a board from its measure and its state.
 fn score_view(
     engine: &ygo_engine::Engine,
     hand: usize,
     board: &ygo_solver::Board,
     measured: Result<ygo_solver::Measure, String>,
+    exposure: Option<ygo_solver::Exposure>,
+    hand_traps: &[u32],
     roles: &BTreeMap<String, Vec<u32>>,
 ) -> ScoreView {
     let me = &board.state.players[0];
+    let db = engine.cards();
     // Each card in hand counts once: a handtrap the probe turn measured in
     // its metric, a starter or extender in the follow-up, any other card in
-    // the resources.
+    // the resources. A handtrap that could not even be used with this board
+    // (the Mulcharmy while you control cards) counts nowhere: going first
+    // it is a dead card, the one to discard.
     let mut rest = me.hand.clone();
+    let mut dead = 0;
     if let Ok(m) = &measured {
         for i in m.interruptions.iter().filter(|i| i.location == ygo_engine::consts::location::HAND) {
-            if let Some(at) = rest.iter().position(|&c| engine.cards().canonical_code(c) == i.responder.code) {
+            if let Some(at) = rest.iter().position(|&c| db.canonical_code(c) == i.responder.code) {
                 rest.remove(at);
             }
         }
+        let usable = |c: u32| {
+            m.offered.iter().any(|&(o, loc)| db.canonical_code(o) == db.canonical_code(c) && loc == ygo_engine::consts::location::HAND)
+        };
+        let hand_trap = |c: u32| hand_traps.iter().any(|&h| db.canonical_code(h) == db.canonical_code(c));
+        rest.retain(|&c| {
+            let unusable = hand_trap(c) && !usable(c);
+            dead += usize::from(unusable);
+            !unusable
+        });
     }
     let has_role = |c: u32, role: &str| roles.get(role).is_some_and(|ids| ids.contains(&c));
     let (starters, extenders) =
@@ -642,8 +689,39 @@ fn score_view(
         details: Vec::new(),
         floodgate_list: Vec::new(),
         breakers: Vec::new(),
-        resources_note: format!("{others} altre carte in mano, {} nel Cimitero", me.grave.len()),
-        followup_note: format!("{starters} starter e {extenders} estensori in mano"),
+        resources_note: resources_note(others, me.grave.len(), dead),
+        followup_note: match (starters, extenders) {
+            (0, 0) => "nessuno starter o estensore in mano".to_owned(),
+            (s, 0) => format!("{s} starter in mano"),
+            (0, 1) => "1 estensore in mano".to_owned(),
+            (0, e) => format!("{e} estensori in mano"),
+            (s, 1) => format!("{s} starter e 1 estensore in mano"),
+            (s, e) => format!("{s} starter e {e} estensori in mano"),
+        },
+        exposure: exposure.map_or(0.0, |x| x.choke_points() as f64),
+        exposure_detail: exposure.map(|x| ExposureView {
+            ash: x.ash,
+            on_field: x.on_field,
+            summons: x.summons,
+            special_summons: x.special_summons,
+            searches: x.searches,
+        }),
+        exposure_note: exposure.map_or_else(String::new, |x| {
+            let mut parts = vec![
+                format!("{} effetti che Ash Blossom nega", x.ash),
+                format!("{} effetti di mostri sul campo (Veiler, Impermanence)", x.on_field),
+            ];
+            parts.push(if x.summons >= 5 {
+                format!("{} Evocazioni: Nibiru dalla quinta", x.summons)
+            } else {
+                format!("{} Evocazioni: Nibiru non arriva", x.summons)
+            });
+            if x.searches >= 2 {
+                parts.push(format!("{} carte aggiunte dal Deck: Droll ferma le successive", x.searches));
+            }
+            parts.push(format!("{} Evocazioni Speciali (carte per Maxx \"C\")", x.special_summons));
+            parts.join(", ")
+        }),
         error: None,
     };
     match measured {
@@ -1044,7 +1122,10 @@ fn combo_score(app: tauri::AppHandle, state: State<'_, AppState>) -> Result<usiz
                     let prober = probers
                         .entry(*hand)
                         .or_insert_with(|| ygo_solver::Prober::new(&engine, &config.deck, &hands[*hand], config.seed, &kit));
-                    let view = score_view(&engine, *hand, board, prober.measure(&board.line).map_err(|e| e.to_string()), &roles);
+                    let exposure =
+                        ygo_solver::exposure(&engine, &config.deck, &hands[*hand], config.seed, config.opponent.as_ref(), &board.line).ok();
+                    let measured = prober.measure(&board.line).map_err(|e| e.to_string());
+                    let view = score_view(&engine, *hand, board, measured, exposure, &config.hand_traps, &roles);
                     let _ = app.emit("combo-score", view.clone());
                     if let Ok(mut r) = results.lock() {
                         r.push(((*hand, board.key), view));

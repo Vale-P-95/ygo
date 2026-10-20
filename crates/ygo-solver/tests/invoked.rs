@@ -171,6 +171,10 @@ fn cards_alone_on_the_field_are_worth_what_they_stop() {
     // A handtrap from the hand, with your field empty or not.
     assert!(value("Ash Blossom & Joyous Spring", Spot::Hand) > 0.5);
     assert!(value("Ash Blossom & Joyous Spring", Spot::HandWithField) > 0.5);
+    // The Mulcharmy only while you control no cards: going first, a free discard.
+    let fuwalos = code("Mulcharmy Fuwalos");
+    assert!(values.usable(&engine, fuwalos, Spot::Hand));
+    assert!(!values.usable(&engine, fuwalos, Spot::HandWithField));
 }
 
 #[test]

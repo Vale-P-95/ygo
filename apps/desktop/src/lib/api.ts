@@ -460,6 +460,10 @@ export interface ComboScore {
   breakers: ComboBreaker[];
   resourcesNote: string;
   followupNote: string;
+  /** Moments of the line where a handtrap stops it. */
+  exposure: number;
+  exposureNote: string;
+  exposureDetail: { ash: number; onField: number; summons: number; specialSummons: number; searches: number } | null;
   error: string | null;
 }
 

@@ -130,3 +130,97 @@ pub fn explain(
     steps.retain(|s| s.choice.is_some() || !s.events.is_empty());
     Ok((duel.state(), steps))
 }
+
+/// Where the handtraps played most can stop a line while you play it,
+/// whatever the board at the end: two lines to the same board are not
+/// worth the same if one stops at the first Ash Blossom.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct Exposure {
+    /// Your effects that add a card from the Deck to the hand, Special
+    /// Summon from the Deck or send from the Deck to the GY (Ash Blossom &
+    /// Joyous Spring negates them).
+    pub ash: u32,
+    /// Your monster effects activated on the field (Effect Veiler,
+    /// Infinite Impermanence, Ghost Ogre & Snow Rabbit).
+    pub on_field: u32,
+    /// Your summons: from the fifth, Nibiru, the Primal Being.
+    pub summons: u32,
+    /// Your Special Summons: a card each for Maxx "C".
+    pub special_summons: u32,
+    /// Cards added from the Deck to your hand: after the first, Droll &
+    /// Lock Bird stops the rest.
+    pub searches: u32,
+}
+
+impl Exposure {
+    /// The moments a handtrap stops something: each effect Ash or a
+    /// negation on the field can hit, Nibiru once 5 summons are reached,
+    /// Droll once a second card would be added.
+    pub fn choke_points(&self) -> u32 {
+        self.ash + self.on_field + u32::from(self.summons >= 5) + u32::from(self.searches >= 2)
+    }
+}
+
+/// Plays `line` again and counts its [`Exposure`].
+pub fn exposure(
+    engine: &Engine,
+    deck: &DeckList,
+    hand: &[u32],
+    seed: u64,
+    opponent: Option<&Opponent>,
+    line: &Line,
+) -> Result<Exposure, Error> {
+    let mut duel = Duel::goldfish_against(engine, deck, hand, seed, opponent)?;
+    let mut out = Exposure::default();
+    // Chain links: yours, and already counted for Ash; the link resolving.
+    let mut links: std::collections::HashMap<u32, (bool, bool)> = std::collections::HashMap::new();
+    let mut solving: Vec<u32> = Vec::new();
+    let mut count = |events: &[Event], out: &mut Exposure| {
+        for e in events {
+            match e {
+                Event::Chaining { card, chain_link, .. } => {
+                    let mine = card.controller == 0;
+                    links.insert(*chain_link, (mine, false));
+                    if mine && card.location == location::MZONE {
+                        out.on_field += 1;
+                    }
+                }
+                Event::ChainSolving { chain_link } => solving.push(*chain_link as u32),
+                Event::ChainSolved { .. } => {
+                    solving.pop();
+                }
+                Event::ChainEnd => {
+                    links.clear();
+                    solving.clear();
+                }
+                Event::Move { from, to, .. } if from.location == location::DECK && to.controller == 0 => {
+                    if to.location == location::HAND {
+                        out.searches += 1;
+                    }
+                    if matches!(to.location, location::HAND | location::MZONE | location::GRAVE) {
+                        if let Some(link) = solving.last().and_then(|l| links.get_mut(l)) {
+                            if link.0 && !link.1 {
+                                link.1 = true;
+                                out.ash += 1;
+                            }
+                        }
+                    }
+                }
+                Event::NormalSummoning { card } | Event::FlipSummoning { card } if card.controller == 0 => out.summons += 1,
+                Event::SpecialSummoning { card } if card.controller == 0 => {
+                    out.summons += 1;
+                    out.special_summons += 1;
+                }
+                _ => {}
+            }
+        }
+    };
+    for answer in &line.answers {
+        let Step::Decision { events, .. } = duel.advance()? else { break };
+        count(&events, &mut out);
+        duel.respond(answer);
+    }
+    let (Step::Decision { events, .. } | Step::End { events }) = duel.advance()?;
+    count(&events, &mut out);
+    Ok(out)
+}
