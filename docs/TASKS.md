@@ -4,11 +4,11 @@ Regole in `AGENTS.md`. Per prendere un task, spostalo in "In corso" con agente, 
 
 ## In corso
 - [ ] Audit della copertura delle meccaniche su 45 deck: analisi dei risultati e correzioni generali (PIANO §30.2–30.3) — agente: claude-code — branch: claude/yugioh-deck-builder-simulator-cax0ya — file: crates/ygo-solver/src/search.rs, coverage.rs
+- [ ] Backend finto per sviluppare l'interfaccia nel browser: con `VITE_MOCK=1` e `pnpm dev`, le funzioni di `src/lib/api.ts` restituiscono dati di esempio realistici (deck, carte, risultati e punteggi del Combo Lab). I tipi di `api.ts` non cambiano. — agente: antigravity — branch: gemini/mock-backend — file: apps/desktop/src/lib/api.ts, apps/desktop/src/lib/mock.ts, docs/plans/mock-backend.md
 
 ## Da fare (in ordine di priorità)
 
 ### Interfaccia (Gemini)
-- [ ] Backend finto per sviluppare l'interfaccia nel browser: con `VITE_MOCK=1` e `pnpm dev`, le funzioni di `src/lib/api.ts` restituiscono dati di esempio realistici (deck, carte, risultati e punteggi del Combo Lab). I tipi di `api.ts` non cambiano.
 - [ ] Revisione dell'interfaccia del Combo Lab e del Laboratorio su schermi piccoli (1280×800) e nel tema chiaro: elenco dei problemi, poi le correzioni.
 - [ ] Guida per chi usa l'app per la prima volta (prima apertura: scaricare i dati, creare un deck, cercare le combo), in italiano.
 
