@@ -4,11 +4,12 @@ Regole in `AGENTS.md`. Per prendere un task, spostalo in "In corso" con agente, 
 
 ## In corso
 - [ ] Audit della copertura delle meccaniche su 45 deck: analisi dei risultati e correzioni generali (PIANO §30.2–30.3) — agente: claude-code — branch: claude/yugioh-deck-builder-simulator-cax0ya — file: crates/ygo-solver/src/search.rs, coverage.rs
-- [ ] Revisione dell'interfaccia del Combo Lab e del Laboratorio su schermi piccoli (1280×800) e nel tema chiaro: elenco dei problemi, poi le correzioni. — agente: antigravity — branch: gemini/ui-review — file: docs/plans/ui-review.md, apps/desktop/src/index.css, apps/desktop/src/pages/Combo.tsx, apps/desktop/src/pages/Lab.tsx, apps/desktop/src/components/SectionHeader.tsx, apps/desktop/src/components/BoxEditor.tsx, apps/desktop/src/components/charts.tsx, apps/desktop/src/components/combo/BoardDetail.tsx, apps/desktop/src/components/combo/Field.tsx, apps/desktop/src/components/combo/Score.tsx, apps/desktop/src/components/combo/Steps.tsx, apps/desktop/src/components/lab/OverviewTab.tsx, apps/desktop/src/components/lab/CompareTab.tsx, apps/desktop/src/components/lab/CalculatorTab.tsx, apps/desktop/src/components/lab/SimulatorTab.tsx, apps/desktop/src/components/lab/OptimizerTab.tsx, apps/desktop/src/components/lab/LogTab.tsx, apps/desktop/src/components/lab/RolesPanel.tsx, apps/desktop/src/components/lab/MatchEntryPanel.tsx
+- [ ] Revisione dell'interfaccia (parte 1): tema chiaro "Pergamena" e Circolo Arcano su schermi piccoli (1280×800). — agente: antigravity — branch: gemini/ui-review — file: docs/plans/ui-review.md, apps/desktop/src/index.css, apps/desktop/src/components/SectionHeader.tsx, apps/desktop/src/pages/Combo.tsx, apps/desktop/src/components/combo/Score.tsx, apps/desktop/src/components/combo/Field.tsx, apps/desktop/src/components/combo/BoardDetail.tsx, apps/desktop/src/components/combo/Steps.tsx
 
 ## Da fare (in ordine di priorità)
 
 ### Interfaccia (Gemini)
+- [ ] Revisione dell'interfaccia (parte 2): Laboratorio statistico, grafici SVG, Bottega e Fucina su schermi piccoli (1280×800).
 - [ ] Guida per chi usa l'app per la prima volta (prima apertura: scaricare i dati, creare un deck, cercare le combo), in italiano.
 
 ### Motore e ricerca (Claude)

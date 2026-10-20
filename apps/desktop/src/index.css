@@ -42,7 +42,7 @@
   --df-border-strong: #c7b291;
   --df-text: #2a201a;
   --df-muted: #6c5c4e;
-  --df-faint: #9c8a77;
+  --df-faint: #82715f;
   --df-gold: #a8700c;
   --df-ember: #c94a17;
   --df-ok: #23854a;
@@ -239,6 +239,26 @@ body {
     color: #fff;
     background: linear-gradient(135deg, #2bb7ac, var(--sec) 50%, #0a6d65);
   }
+  /* In the arcane combo lab the main button is violet crystal and amethyst. */
+  [data-section="combo"] .btn-molten {
+    color: #160926;
+    background: linear-gradient(135deg, #ead7ff, var(--sec) 45%, #7b4ab5);
+    box-shadow:
+      0 0 0 1px rgb(235 210 255 / 0.45) inset,
+      0 8px 24px -10px color-mix(in oklab, var(--sec) 85%, transparent);
+  }
+  [data-section="combo"] .btn-molten:hover {
+    box-shadow:
+      0 0 0 1px rgb(245 225 255 / 0.65) inset,
+      0 10px 30px -8px color-mix(in oklab, var(--sec) 95%, transparent);
+  }
+  [data-theme="light"] [data-section="combo"] .btn-molten {
+    color: #fff;
+    background: linear-gradient(135deg, #8b5bd0, var(--sec) 50%, #4e2885);
+  }
+  [data-theme="light"] .bg-sec.text-bg {
+    color: #fff;
+  }
   .btn-ghost {
     color: var(--df-text);
     background: var(--df-surface-2);
@@ -324,6 +344,11 @@ body {
     animation: molten-flow 1.4s linear infinite;
     box-shadow: 0 0 12px color-mix(in oklab, var(--df-ember) 70%, transparent);
     transition: width 220ms ease;
+  }
+  [data-section="combo"] .molten-fill {
+    background: linear-gradient(90deg, #7b4ab5, var(--sec), #f0dfff, var(--sec), #7b4ab5);
+    background-size: 200% 100%;
+    box-shadow: 0 0 12px color-mix(in oklab, var(--sec) 75%, transparent);
   }
 }
 
@@ -1026,6 +1051,12 @@ body {
   backdrop-filter: blur(6px);
   box-shadow: inset 0 1px 0 var(--df-highlight);
 }
+[data-theme="light"] .lab-card {
+  background: color-mix(in oklab, var(--df-surface) 92%, transparent);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.85),
+    0 8px 22px -12px rgb(90 60 25 / 0.18);
+}
 
 /* ---------- Animations ---------- */
 
@@ -1107,6 +1138,9 @@ body {
   text-transform: uppercase;
   color: var(--df-faint);
 }
+[data-theme="light"] .combo-zone-label {
+  color: var(--df-muted);
+}
 .combo-pendulum {
   position: absolute;
   left: 3px;
@@ -1168,16 +1202,36 @@ body {
   border-radius: 6px;
   border: 1px dashed color-mix(in oklab, var(--sec) 28%, var(--df-border));
   background: color-mix(in oklab, var(--sec) 5%, transparent);
+  transition:
+    border-color 180ms ease,
+    background-color 180ms ease,
+    box-shadow 180ms ease,
+    transform 180ms ease;
+}
+[data-theme="light"] .combo-zone {
+  border-color: color-mix(in oklab, var(--sec) 42%, var(--df-border-strong));
+  background: color-mix(in oklab, var(--sec) 7%, var(--df-surface-2));
 }
 .combo-zone--full {
   border-style: solid;
   border-color: color-mix(in oklab, var(--sec) 45%, var(--df-border));
   background: color-mix(in oklab, var(--sec) 10%, var(--df-surface-2));
 }
+.combo-zone--full:hover,
+.combo-pile:not(:disabled):hover {
+  transform: translateY(-2px);
+  border-color: var(--sec);
+  box-shadow: 0 6px 16px -6px color-mix(in oklab, var(--sec) 55%, transparent);
+  z-index: 2;
+}
 .combo-card {
   position: relative;
   height: 94%;
   aspect-ratio: 59 / 86;
+  transition: transform 180ms ease;
+}
+.combo-zone--full:hover .combo-card:not(.rotate-90) {
+  transform: scale(1.04);
 }
 .combo-set {
   filter: grayscale(0.55) brightness(0.62);
@@ -1249,8 +1303,24 @@ body {
 }
 .combo-lock--on {
   opacity: 1;
-  color: var(--df-bg);
+  color: #fff;
   background: var(--sec);
+}
+.combo-exhausted {
+  opacity: 0.45;
+  filter: grayscale(0.45);
+}
+[data-theme="light"] .combo-exhausted {
+  opacity: 0.58;
+  filter: grayscale(0.6) contrast(0.95);
+}
+.combo-board-active {
+  border-color: var(--sec) !important;
+  background: color-mix(in oklab, var(--sec) 9%, var(--df-surface));
+  box-shadow:
+    inset 0 1px 0 var(--df-highlight),
+    0 0 0 1px color-mix(in oklab, var(--sec) 45%, transparent),
+    0 10px 24px -12px color-mix(in oklab, var(--sec) 50%, transparent);
 }
 .combo-passive {
   position: absolute;
@@ -1415,7 +1485,7 @@ body {
   width: 15px;
   height: 15px;
   border-radius: 999px;
-  color: var(--df-bg);
+  color: #fff;
   background: var(--kind, var(--df-muted));
   box-shadow: 0 0 0 1.5px var(--df-surface);
 }
@@ -1428,7 +1498,7 @@ body {
   font-size: 8.5px;
   font-weight: 800;
   line-height: 13px;
-  color: var(--df-bg);
+  color: #fff;
   background: var(--role-extender);
   box-shadow: 0 0 0 1.5px var(--df-surface);
 }
