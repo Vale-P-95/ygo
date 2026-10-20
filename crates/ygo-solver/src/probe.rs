@@ -1208,7 +1208,24 @@ impl<'a> Prober<'a> {
                             }
                         }
                         (Some(_), None) => duel.respond(&window_answer(&decision, None)),
-                        (None, _) => duel.respond(&your_answer(&decision, &actions, |a| observer.aim(engine.cards(), a))),
+                        (None, _) => {
+                            let db = engine.cards();
+                            // Your cards seen answering in this run, or the ones it uses.
+                            let used: &[ResponderId] = match &policy {
+                                Policy::Use(id, _) | Policy::UseAt(id, _) => std::slice::from_ref(id),
+                                Policy::UseAll(ids) => ids,
+                                Policy::Pass => &[],
+                            };
+                            let answers = |a: &Action| {
+                                a.card.is_some_and(|c| {
+                                    let code = db.canonical_code(c.code);
+                                    c.controller == 0
+                                        && (used.iter().any(|r| r.code == code)
+                                            || trace.windows.iter().any(|w| w.options.iter().any(|(r, _)| r.code == code)))
+                                })
+                            };
+                            duel.respond(&your_answer(&decision, &actions, |a| observer.aim(db, a), answers))
+                        }
                     }
                 }
             }
@@ -1283,6 +1300,11 @@ fn window_answer(decision: &Decision, index: Option<usize>) -> Vec<u8> {
 /// In a list where cards are picked one at a time, picking goes forward:
 /// finish when allowed, never take a card back (that would go round in circles).
 fn forward(decision: &Decision, actions: &[Action], prefer: impl Fn(&Action) -> bool) -> Option<Vec<u8>> {
+    forward_by(decision, actions, |a| !prefer(a))
+}
+
+/// [`forward`], picking the card with the least `key` (the first of them).
+fn forward_by<K: Ord>(decision: &Decision, actions: &[Action], key: impl Fn(&Action) -> K) -> Option<Vec<u8>> {
     let Decision::SelectUnselectCard { finishable, selectable, .. } = decision else { return None };
     if *finishable {
         if let Some(a) = actions.iter().find(|a| a.kind == ActionKind::Finish) {
@@ -1291,21 +1313,25 @@ fn forward(decision: &Decision, actions: &[Action], prefer: impl Fn(&Action) -> 
     }
     // Picks of the selectable cards come first in the list of answers.
     let picks = &actions[..selectable.len().min(actions.len())];
-    picks.iter().find(|a| prefer(a)).or(picks.first()).map(|a| a.response.clone())
+    picks.iter().min_by_key(|a| key(a)).map(|a| a.response.clone())
 }
 
 /// Your other decisions while answering: aim at the opponent's cards, the
-/// one it is using first (`aim`, 0 best, 3 for none of its cards).
-fn your_answer(decision: &Decision, actions: &[Action], aim: impl Fn(&Action) -> u8) -> Vec<u8> {
-    let best = actions.iter().map(&aim).min().unwrap_or(3);
-    if let Some(answer) = forward(decision, actions, |a| best < 3 && aim(a) == best) {
+/// one it is using first (`aim`, 0 best, 3 for none of its cards). Your own
+/// cards to pick (a cost, a tribute) are those that answer nothing first
+/// (`answers`), then by code: the same board pays the same wherever its
+/// cards are, and keeps its handtraps when it can.
+fn your_answer(decision: &Decision, actions: &[Action], aim: impl Fn(&Action) -> u8, answers: impl Fn(&Action) -> bool) -> Vec<u8> {
+    let key = |a: &Action| (aim(a), answers(a), a.card.map_or(u32::MAX, |c| c.code));
+    if let Some(answer) = forward_by(decision, actions, key) {
         return answer;
     }
     let theirs = actions.iter().filter(|a| a.kind != ActionKind::Cancel && aim(a) < 3).min_by_key(|a| aim(a));
     let forced = matches!(decision, Decision::SelectChain { forced: true, .. });
     let pick = theirs
         .or_else(|| if forced { actions.iter().find(|a| a.kind == ActionKind::Activate) } else { None })
-        .or_else(|| actions.iter().find(|a| matches!(a.kind, ActionKind::Yes | ActionKind::Choose)))
+        .or_else(|| actions.iter().find(|a| a.kind == ActionKind::Yes))
+        .or_else(|| actions.iter().filter(|a| a.kind == ActionKind::Choose).min_by_key(|a| key(a)))
         .or_else(|| actions.iter().find(|a| a.kind != ActionKind::Cancel))
         .or(actions.first());
     pick.map(|a| a.response.clone()).unwrap_or_else(|| window_answer(decision, None))
