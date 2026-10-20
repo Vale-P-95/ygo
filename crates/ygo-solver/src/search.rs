@@ -721,9 +721,12 @@ fn set_key(decision: &Decision, answer: &[u8]) -> Option<(u8, u32)> {
     }
 }
 
-/// The Set made at your last free moment, if nothing happened since.
+/// The Set made at your last free moment, if nothing happened since. The
+/// chain window opened by a Set and passed changes nothing, so the Set
+/// before it still counts.
 fn after_answer(last_set: &mut Option<(u8, u32)>, decision: &Decision, answer: &[u8]) {
-    if is_free(decision) {
+    let passed = matches!(decision, Decision::SelectChain { .. }) && answer.get(..4) == Some(&(-1i32).to_le_bytes()[..]);
+    if is_free(decision) && !passed {
         *last_set = set_key(decision, answer);
     }
 }
@@ -1100,8 +1103,22 @@ fn play(shared: &Shared, edge: &Edge, dive: &mut Dive) -> Result<(), Error> {
     // What resolved quietly in the part replayed is not news.
     let _ = links.take_silent();
     let hand_trap = |code: u32| config.hand_traps.iter().any(|&h| db.canonical_code(h) == code);
+    // The last answer this dive gave: stopped before its node is read, the
+    // answer goes back in the queue, so a resumed search plays on from it.
+    let mut given: Option<LeftAnswer> = None;
     loop {
         if shared.halted() {
+            match given.take() {
+                Some(left) => dive.left.push(left),
+                None => shared.push(vec![NewEdge {
+                    prefix: edge.prefix.clone(),
+                    answer: edge.answer.clone(),
+                    priority: edge.priority,
+                    confirms: edge.confirms,
+                    value: edge.value,
+                    discrepancies: edge.discrepancies,
+                }]),
+            }
             return Ok(());
         }
         let (step, mut actions) = duel.advance_auto_seen(&config.policy, &mut line.answers, |d, a| {
@@ -1298,6 +1315,7 @@ fn play(shared: &Shared, edge: &Edge, dive: &mut Dive) -> Result<(), Error> {
             wanted: wanted(a),
         }));
         let first = &actions[0];
+        given = Some(LeftAnswer { prefix, answer: (first.response.clone(), italian::choice(first)), depth, wanted: wanted(first) });
         record(audit, Some(&first.response));
         if let Some(c) = first.card.filter(|c| c.location == location::EXTRA) {
             placing = Some(c.code);
@@ -1733,5 +1751,27 @@ mod tests {
         assert_eq!(set_key(&idle, &cmd(3, 0)), Some((0, 5)));
         assert_eq!(set_key(&idle, &cmd(4, 1)), Some((1, 3)));
         assert_eq!(set_key(&idle, &cmd(7, 0)), None);
+    }
+
+    #[test]
+    fn a_passed_chain_window_keeps_the_set_before_it() {
+        let idle = Decision::IdleCmd {
+            player: 0,
+            summonable: vec![],
+            special_summonable: vec![],
+            repositionable: vec![],
+            monster_settable: vec![],
+            spell_settable: vec![card(7, 1)],
+            activatable: vec![],
+            to_battle_phase: false,
+            to_end_phase: true,
+        };
+        let window = Decision::SelectChain { player: 0, forced: false, triggers: false, chains: vec![] };
+        let mut last_set = None;
+        after_answer(&mut last_set, &idle, &4i32.to_le_bytes());
+        after_answer(&mut last_set, &window, &(-1i32).to_le_bytes());
+        assert_eq!(last_set, Some((1, 7)));
+        after_answer(&mut last_set, &window, &0i32.to_le_bytes());
+        assert_eq!(last_set, None);
     }
 }

@@ -5,7 +5,7 @@ use std::sync::atomic::AtomicBool;
 use std::time::Duration;
 
 use ygo_engine::{DeckList, Engine};
-use ygo_solver::{card_values, explain, search, Goal, GoalCard, GoalZone, Kit, Probe, Prober, SearchConfig, Spot, Stop};
+use ygo_solver::{card_values, explain, resume, search, Goal, GoalCard, GoalZone, Kit, Probe, Prober, SearchConfig, Spot, Stop};
 
 const ALEISTER: u32 = 86120751;
 const CHALICE: u32 = 76334960;
@@ -205,4 +205,42 @@ fn every_summon_is_tried_even_when_its_materials_are_chosen_alike() {
     let has =
         |b: &ygo_solver::Board| b.state.players[0].monsters.iter().flatten().any(|c| engine.cards().canonical_code(c.code) == mechaba);
     assert!(result.boards.iter().any(has), "{} boards, none with Invoked Mechaba", result.boards.len());
+}
+
+#[test]
+fn a_search_stopped_and_resumed_finds_what_one_run_finds() {
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let data = std::env::var_os("DUELFORGE_DATA").map(PathBuf::from).unwrap_or_else(|| root.join("data"));
+    if !data.join("scripts/constant.lua").is_file() {
+        eprintln!("skipped: no game data in {}", data.display());
+        return;
+    }
+    let engine = Engine::load(&data).expect("game data loads");
+    let deck = DeckList::from_ydk(&std::fs::read_to_string(root.join("tests/fixtures/decks/invoked-siracusa-md.ydk")).unwrap()).unwrap();
+    // A small search: one starter and handtraps.
+    let hand = vec![74063034, 14558128, FUWALOS, FUWALOS, 14558128];
+    let mut config = SearchConfig::new(deck, hand);
+    config.threads = 1;
+    config.time_limit = Duration::from_secs(60);
+    let cancel = AtomicBool::new(false);
+    let whole = search(&engine, &config, &cancel, |_| {});
+    assert!(matches!(whole.stop, Stop::Exhausted));
+
+    // A few nodes at a time, each run going on from where the last stopped.
+    config.max_nodes = 3;
+    let mut result = search(&engine, &config, &cancel, |_| {});
+    for _ in 0..100 {
+        if matches!(result.stop, Stop::Exhausted) {
+            break;
+        }
+        config.max_nodes += 3;
+        result = resume(&engine, &config, result.frontier, &cancel, |_| {});
+    }
+    assert!(matches!(result.stop, Stop::Exhausted));
+    let keys = |r: &ygo_solver::SearchResult| {
+        let mut k: Vec<u64> = r.boards.iter().map(|b| b.key).collect();
+        k.sort_unstable();
+        k
+    };
+    assert_eq!(keys(&result), keys(&whole));
 }
