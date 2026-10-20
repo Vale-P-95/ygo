@@ -136,7 +136,7 @@ export default function App() {
           {active === "overview" && (
             <Overview status={status} deckCount={deckCount} onStatus={setStatus} go={setActive} onOpenGuide={() => setGuideOpen(true)} />
           )}
-          {active === "deck-builder" && <DeckBuilder status={status} onStatus={setStatus} />}
+          {active === "deck-builder" && <DeckBuilder status={status} onStatus={setStatus} onGoCombo={() => setActive("combo")} />}
           {active === "shelf" && (
             <Shelf
               artReady={artReady}
