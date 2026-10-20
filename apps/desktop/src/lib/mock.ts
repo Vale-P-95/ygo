@@ -1460,6 +1460,15 @@ function buildMatchLog(deckId: number | null): MatchLog {
 
 // --- Combo Lab mock builders ---
 
+const MOCK_LINK_ARROWS: Record<number, number> = {
+  41999284: 0x002, // Linkuriboh: bottom
+  65741786: 0x005, // I:P Masquerena: bottom-left, bottom-right
+  29301450: 0x028, // S:P Little Knight: left, right
+  27548199: 0x02a, // Promethean Princess: left, right, bottom
+  18940556: 0x02d, // Amblowhale: left, right, bottom-left, bottom-right
+  4280258: 0x087, // Apollousa: top, bottom-left, bottom, bottom-right
+};
+
 function zMonster(code: number, opts: Partial<ZoneCard> = {}): ZoneCard {
   const c = CARDS.get(code);
   return {
@@ -1467,7 +1476,7 @@ function zMonster(code: number, opts: Partial<ZoneCard> = {}): ZoneCard {
     faceUp: opts.faceUp ?? true,
     defense: opts.defense ?? false,
     link: opts.link ?? c?.linkRating ?? 0,
-    arrows: opts.arrows ?? 0,
+    arrows: opts.arrows ?? MOCK_LINK_ARROWS[code] ?? 0,
     level: opts.level ?? (c?.frame === "xyz" ? 0 : (c?.level ?? 0)),
     rank: opts.rank ?? (c?.frame === "xyz" ? (c?.level ?? 8) : 0),
     attack: opts.attack ?? c?.atk ?? 0,

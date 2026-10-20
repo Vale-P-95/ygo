@@ -1,45 +1,55 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { api, cardImage, type Card, type Deck } from "../lib/api";
 import { pAtLeastOne, pBoth, percent, shuffle } from "../lib/probability";
+import { BUILTIN_ROLES } from "../lib/roles";
 import { sound } from "../lib/sound";
 import { CardTile } from "./CardTile";
 import { Modal } from "./Modal";
 
-type Role = "starter" | "handtrap";
-
-const ROLES: { role: Role; label: string; short: string; hint: string }[] = [
-  { role: "starter", label: "Starter", short: "S", hint: "carte che da sole avviano la combo" },
-  { role: "handtrap", label: "Handtrap", short: "H", hint: "interruzioni dalla mano" },
-];
-
 interface Stats {
   hands: number;
   starter: number;
+  extender: number;
   handtrap: number;
   both: number;
+  noBrick: number;
 }
 
-const NO_STATS: Stats = { hands: 0, starter: 0, handtrap: 0, both: 0 };
+const NO_STATS: Stats = { hands: 0, starter: 0, extender: 0, handtrap: 0, both: 0, noBrick: 0 };
 
 interface Props {
   deck: Deck;
   getCard: (id: number) => Card | undefined;
   onRoles: (roles: Record<string, number[]>) => void;
+  guessing?: { done: number; total: number } | null;
+  onSuggestRoles?: () => void;
+  onTryInCombo?: (hand: number[]) => void;
   onClose: () => void;
 }
 
 /**
- * Draws opening hands from the Main Deck. Cards marked as Starter or
- * Handtrap are counted over the hands drawn, next to the exact probability.
+ * Draws opening hands from the Main Deck. Cards marked with built-in roles
+ * are counted over the hands drawn, next to the exact probability, and any
+ * drawn hand can be sent directly to the Arcane Circle (Combo Lab).
  */
-export function TestHand({ deck, getCard, onRoles, onClose }: Props) {
+export function TestHand({ deck, getCard, onRoles, guessing, onSuggestRoles, onTryInCombo, onClose }: Props) {
   const [first, setFirst] = useState(true);
   const [order, setOrder] = useState<number[]>([]);
   const [drawn, setDrawn] = useState(0);
   const [nonce, setNonce] = useState(0);
   const [stats, setStats] = useState<Stats>(NO_STATS);
   const opening = first ? 5 : 6;
-  const roles = useMemo(() => ({ starter: new Set(deck.roles.starter ?? []), handtrap: new Set(deck.roles.handtrap ?? []) }), [deck.roles]);
+
+  const roles = useMemo(
+    () => ({
+      starter: new Set(deck.roles.starter ?? []),
+      extender: new Set(deck.roles.extender ?? []),
+      handtrap: new Set(deck.roles.handtrap ?? []),
+      breaker: new Set(deck.roles.breaker ?? []),
+      brick: new Set(deck.roles.brick ?? []),
+    }),
+    [deck.roles],
+  );
 
   // The first time, handtraps are pre-marked from the catalog's Handtrap group.
   useEffect(() => {
@@ -63,8 +73,17 @@ export function TestHand({ deck, getCard, onRoles, onClose }: Props) {
       sound.play("page");
       const hand = next.slice(0, count);
       const s = hand.some((id) => roles.starter.has(id));
+      const e = hand.some((id) => roles.extender.has(id));
       const h = hand.some((id) => roles.handtrap.has(id));
-      setStats((st) => ({ hands: st.hands + 1, starter: st.starter + +s, handtrap: st.handtrap + +h, both: st.both + +(s && h) }));
+      const b = hand.some((id) => roles.brick.has(id));
+      setStats((st) => ({
+        hands: st.hands + 1,
+        starter: st.starter + +s,
+        extender: st.extender + +e,
+        handtrap: st.handtrap + +h,
+        both: st.both + +(s && h),
+        noBrick: st.noBrick + +!b,
+      }));
     },
     [deck.main, roles],
   );
@@ -94,31 +113,35 @@ export function TestHand({ deck, getCard, onRoles, onClose }: Props) {
     return () => removeEventListener("keydown", key);
   }, [deal, drawOne, opening]);
 
-  const toggleRole = (role: Role, id: number) => {
+  const toggleRole = (roleKey: string, id: number) => {
     sound.play("toggle");
-    const current = new Set(deck.roles[role] ?? []);
+    const current = new Set(deck.roles[roleKey] ?? []);
     if (current.has(id)) current.delete(id);
     else current.add(id);
-    onRoles({ ...deck.roles, [role]: [...current] });
+    onRoles({ ...deck.roles, [roleKey]: [...current] });
     setStats(NO_STATS);
   };
 
   const size = deck.main.length;
   const copies = (set: Set<number>) => deck.main.filter((id) => set.has(id)).length;
   const starters = copies(roles.starter);
+  const extenders = copies(roles.extender);
   const handtraps = copies(roles.handtrap);
-  const either = deck.main.filter((id) => roles.starter.has(id) || roles.handtrap.has(id)).length;
+  const bricks = copies(roles.brick);
+  const eitherSH = deck.main.filter((id) => roles.starter.has(id) || roles.handtrap.has(id)).length;
   const exact = {
     starter: pAtLeastOne(size, starters, opening),
+    extender: pAtLeastOne(size, extenders, opening),
     handtrap: pAtLeastOne(size, handtraps, opening),
-    both: pBoth(size, starters, handtraps, either, opening),
+    both: pBoth(size, starters, handtraps, eitherSH, opening),
+    noBrick: size ? Math.max(0, 1 - pAtLeastOne(size, bricks, opening)) : 0,
   };
   const distinct = [...new Set(deck.main)];
   const hand = order.slice(0, drawn);
 
   const badge = (id: number) => {
-    const text = ROLES.filter((r) => roles[r.role].has(id))
-      .map((r) => r.short)
+    const text = BUILTIN_ROLES.filter((r) => roles[r.key as keyof typeof roles]?.has(id))
+      .map((r) => r.letter)
       .join("·");
     return text ? { text } : undefined;
   };
@@ -137,9 +160,9 @@ export function TestHand({ deck, getCard, onRoles, onClose }: Props) {
 
   return (
     <Modal title="Mano di prova" onClose={onClose} wide>
-      <div className="grid min-h-0 grid-cols-[minmax(0,1fr)_300px] gap-6">
+      <div className="grid min-h-0 grid-cols-[minmax(0,1fr)_330px] gap-6">
         <div className="flex min-w-0 flex-col gap-4">
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2.5">
             <div className="flex gap-1 rounded-xl border border-border bg-bg-2 p-1">
               {[true, false].map((f) => (
                 <button
@@ -160,9 +183,20 @@ export function TestHand({ deck, getCard, onRoles, onClose }: Props) {
               Nuova mano <kbd className="text-[10px] opacity-70">N</kbd>
             </button>
             <button type="button" className="btn btn-ghost" onClick={drawOne} disabled={drawn >= order.length}>
-              Pesca una carta <kbd className="text-[10px] opacity-70">D</kbd>
+              Pesca <kbd className="text-[10px] opacity-70">D</kbd>
             </button>
-            <span className="ml-auto text-xs text-faint tabular-nums">{size ? `${size - drawn} carte nel deck` : "Il Main Deck è vuoto"}</span>
+            {onTryInCombo && (
+              <button
+                type="button"
+                className="btn btn-ghost border-sec/40 text-sec hover:border-sec"
+                disabled={hand.length === 0}
+                onClick={() => onTryInCombo(hand.slice(0, 6))}
+                title="Invia questa mano (fino a 6 carte) al Circolo Arcano per calcolare le combo di primo turno"
+              >
+                ✦ Prova nel Circolo Arcano
+              </button>
+            )}
+            <span className="ml-auto text-xs text-faint tabular-nums">{size ? `${size - drawn} nel deck` : "Main Deck vuoto"}</span>
           </div>
 
           <div className="flex min-h-[200px] flex-wrap content-start gap-3 rounded-xl border border-border bg-bg-2/70 p-4">
@@ -175,48 +209,70 @@ export function TestHand({ deck, getCard, onRoles, onClose }: Props) {
 
           <div className="rounded-xl border border-border bg-bg-2/40 p-4">
             <div className="mb-1 flex items-baseline justify-between">
-              <p className="eyebrow">Almeno una carta in mano ({opening} carte)</p>
+              <p className="eyebrow">Probabilità nella mano iniziale ({opening} carte)</p>
               <span className="text-[11px] text-faint">pescate qui · esatta</span>
             </div>
-            {row(`Starter (${starters} nel deck)`, stats.starter, exact.starter)}
-            {row(`Handtrap (${handtraps} nel deck)`, stats.handtrap, exact.handtrap)}
-            {row("Starter e Handtrap", stats.both, exact.both)}
+            {row(`Almeno 1 Starter (${starters} nel deck)`, stats.starter, exact.starter)}
+            {row(`Almeno 1 Estensore (${extenders} nel deck)`, stats.extender, exact.extender)}
+            {row(`Almeno 1 Handtrap (${handtraps} nel deck)`, stats.handtrap, exact.handtrap)}
+            {row("Starter + Handtrap insieme", stats.both, exact.both)}
+            {row(`Mano senza Brick (${bricks} nel deck)`, stats.noBrick, exact.noBrick)}
             <p className="mt-2 text-[11px] text-faint">
-              La probabilità esatta è ipergeometrica: {opening} carte da {size || "—"}. Le percentuali delle mani pescate si avvicinano a quella esatta con molte
+              La probabilità esatta è ipergeometrica: {opening} carte da {size || "—"}. Le percentuali delle mani pescate convergono al valore esatto con molte
               mani.
             </p>
           </div>
         </div>
 
         <aside className="flex min-h-0 flex-col gap-2">
-          <p className="eyebrow">Ruoli nel deck</p>
+          <div className="flex items-center justify-between gap-2">
+            <p className="eyebrow">Ruoli nel deck</p>
+            {onSuggestRoles && (
+              <button
+                type="button"
+                disabled={guessing != null || size === 0}
+                onClick={() => {
+                  onSuggestRoles();
+                  setStats(NO_STATS);
+                }}
+                className="btn btn-ghost !px-2 !py-0.5 text-[11px]"
+                title="Riconosci automaticamente i ruoli delle carte tramite il motore"
+              >
+                {guessing ? `Analisi ${guessing.done}/${guessing.total || "…"}` : "✦ Riconosci"}
+              </button>
+            )}
+          </div>
           <p className="text-[11px] text-faint">
-            {ROLES.map((r) => `${r.short} = ${r.label}: ${r.hint}`).join(" · ")}. Gli handtrap sono già segnati in base al gruppo Handtrap del catalogo.
+            {BUILTIN_ROLES.map((r) => `${r.letter} = ${r.label}`).join(" · ")}. Clicca per assegnare o rimuovere un ruolo.
           </p>
           <div className="min-h-0 flex-1 overflow-y-auto pr-1" style={{ maxHeight: "52vh" }}>
             {distinct.map((id) => {
               const card = getCard(id);
               const n = deck.main.filter((x) => x === id).length;
               return (
-                <div key={id} className="flex items-center gap-2 rounded-lg px-1 py-1 hover:bg-surface-3">
+                <div key={id} className="flex items-center gap-1.5 rounded-lg px-1 py-1 hover:bg-surface-3">
                   <img src={cardImage(id, "small")} alt="" className="h-9 w-[25px] shrink-0 rounded-[2px] object-cover" />
                   <span className="min-w-0 flex-1 truncate text-xs">
                     {card?.name ?? id} <span className="text-faint">×{n}</span>
                   </span>
-                  {ROLES.map((r) => (
-                    <button
-                      key={r.role}
-                      type="button"
-                      onClick={() => toggleRole(r.role, id)}
-                      aria-pressed={roles[r.role].has(id)}
-                      title={r.label}
-                      className={`grid h-6 w-6 shrink-0 place-items-center rounded-md border text-[11px] font-bold ${
-                        roles[r.role].has(id) ? "border-sec bg-sec text-bg" : "border-border text-faint hover:text-text"
-                      }`}
-                    >
-                      {r.short}
-                    </button>
-                  ))}
+                  {BUILTIN_ROLES.map((r) => {
+                    const has = roles[r.key as keyof typeof roles]?.has(id) ?? false;
+                    return (
+                      <button
+                        key={r.key}
+                        type="button"
+                        onClick={() => toggleRole(r.key, id)}
+                        aria-pressed={has}
+                        title={`${r.label}: ${r.hint}`}
+                        style={has ? { background: r.color, borderColor: r.color, color: "#fff" } : undefined}
+                        className={`grid h-5 w-5 shrink-0 place-items-center rounded border text-[10px] font-bold transition ${
+                          has ? "" : "border-border text-faint hover:text-text"
+                        }`}
+                      >
+                        {r.letter}
+                      </button>
+                    );
+                  })}
                 </div>
               );
             })}

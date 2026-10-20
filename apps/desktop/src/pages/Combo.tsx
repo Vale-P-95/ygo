@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { BoardCompareModal } from "../components/combo/BoardCompareModal";
 import { BoardDetail } from "../components/combo/BoardDetail";
 import { BoardStrip, CardImage } from "../components/combo/Field";
 import { ScoreBar, WeightsPanel } from "../components/combo/Score";
@@ -198,6 +199,8 @@ export function Combo({ artReady, onGoForge }: { artReady: boolean; onGoForge: (
   const [options, setOptionsState] = useState(() => load("duelforge.combo.options", { seconds: 60, hands: 12, useHandtraps: false }));
   const [handtraps, setHandtraps] = useState<Set<number>>(new Set());
   const [selected, setSelected] = useState<ComboBoard | null>(null);
+  const [pinned, setPinned] = useState<ComboBoard | null>(null);
+  const [compareTarget, setCompareTarget] = useState<ComboBoard | null>(null);
   const [steps, setSteps] = useState<ComboStep[] | null>(null);
   const [handFilter, setHandFilter] = useState<number | null>(null);
   const [hover, setHover] = useState<{ code: number; rect: DOMRect; el: HTMLElement } | null>(null);
@@ -348,6 +351,8 @@ export function Combo({ artReady, onGoForge }: { artReady: boolean; onGoForge: (
     if (!byHand && setup.card == null) return toast("Scegli la carta da cui partire", "error");
     sound.play("open");
     setSelected(null);
+    setPinned(null);
+    setCompareTarget(null);
     setHandFilter(null);
     explained.current.clear();
     const done = await startCombo({
@@ -456,6 +461,10 @@ export function Combo({ artReady, onGoForge }: { artReady: boolean; onGoForge: (
   const weight = searched.reduce((t, h) => t + h.weight, 0);
   const mean = weight > 0 ? searched.reduce((t, h) => t + h.weight * h.best!, 0) / weight : null;
 
+  const rankOf = (b: ComboBoard) => {
+    const idx = groups.findIndex((g) => boardId(g.board) === boardId(b));
+    return idx >= 0 ? idx + 1 : 1;
+  };
   const section = sectionById("combo");
   const selectedHand = selected ? (hands[selected.hand]?.cards ?? []) : [];
 
@@ -851,18 +860,59 @@ export function Combo({ artReady, onGoForge }: { artReady: boolean; onGoForge: (
                   </span>
                 </div>
                 {!run.running && measured > 0 && <WeightsPanel profile={profile} weights={weights} open={weightsOpen} compact={!!selected} onToggle={() => setWeightsOpen((v) => !v)} />}
+                {pinned && (
+                  <div className="lab-card flex flex-wrap items-center justify-between gap-2 border-sec/60 bg-surface-2/80 px-3 py-2 text-xs anim-fade">
+                    <span className="text-muted">
+                      Riferimento fissato: <b className="text-text">Board #{rankOf(pinned)}</b> · clicca <b className="text-sec">⇄ Confronta</b> su un'altra board per aprirle fianco a fianco.
+                    </span>
+                    <div className="flex items-center gap-2">
+                      {selected && boardId(selected) !== boardId(pinned) && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            sound.play("open");
+                            setCompareTarget(selected);
+                          }}
+                          className="btn btn-molten !px-2.5 !py-1 text-xs"
+                        >
+                          ⇄ Confronta con Board #{rankOf(selected)}
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          sound.play("close");
+                          setPinned(null);
+                          setCompareTarget(null);
+                        }}
+                        className="text-xs text-muted hover:text-text"
+                      >
+                        Rimuovi
+                      </button>
+                    </div>
+                  </div>
+                )}
                 {groups.slice(0, 60).map(({ board: b, variants }, i) => {
                   const active = selected && boardId(selected) === boardId(b);
+                  const isPinned = pinned && boardId(pinned) === boardId(b);
                   return (
-                    <button
+                    <div
                       key={boardId(b)}
-                      type="button"
+                      role="button"
+                      tabIndex={0}
                       onClick={() => {
                         sound.play("page");
                         setSelected(active ? null : b);
                       }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          sound.play("page");
+                          setSelected(active ? null : b);
+                        }
+                      }}
                       style={i < 12 ? { animationDelay: `${i * 22}ms` } : undefined}
-                      className={`lab-card grid grid-cols-[28px_minmax(0,1fr)_auto] items-center gap-3 px-3 py-2 text-left transition-colors hover:border-border-strong ${i < 12 ? "anim-rise" : ""} ${active ? "combo-board-active" : ""}`}
+                      className={`lab-card grid cursor-pointer grid-cols-[28px_minmax(0,1fr)_auto] items-center gap-3 px-3 py-2 text-left transition-colors hover:border-border-strong ${i < 12 ? "anim-rise" : ""} ${active ? "combo-board-active" : ""}`}
                     >
                       <span className="display text-center text-sm text-faint">{i + 1}</span>
                       <span className="flex min-w-0 flex-col gap-1.5">
@@ -889,8 +939,42 @@ export function Combo({ artReady, onGoForge }: { artReady: boolean; onGoForge: (
                         </span>
                         {goal && (reaches(b, goal) ? <span className="text-[11px] font-semibold text-ok">✓ obiettivo</span> : <span className="text-[11px] text-faint">obiettivo {b.goalHits}/{goal.cards.length}</span>)}
                         {variants > 0 && <span className="text-[11px] text-faint">+{variants} {variants === 1 ? "variante" : "varianti"}</span>}
+                        {groups.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (isPinned) {
+                                sound.play("close");
+                                setPinned(null);
+                              } else if (pinned) {
+                                sound.play("open");
+                                setCompareTarget(b);
+                              } else {
+                                sound.play("toggle");
+                                setPinned(b);
+                              }
+                            }}
+                            className={`mt-1 rounded border px-1.5 py-0.5 text-[10px] font-semibold transition ${
+                              isPinned
+                                ? "border-sec bg-sec/20 text-sec"
+                                : pinned
+                                  ? "border-sec/60 bg-surface-2 text-sec hover:bg-sec hover:text-bg"
+                                  : "border-border bg-surface-2/70 text-muted hover:border-border-strong hover:text-text"
+                            }`}
+                            title={
+                              isPinned
+                                ? "Board fissata per il confronto (clicca per rimuovere)"
+                                : pinned
+                                  ? `Confronta fianco a fianco con Board #${rankOf(pinned)}`
+                                  : "Fissa questa board per confrontarla con un'altra"
+                            }
+                          >
+                            {isPinned ? "✓ Fissata" : pinned ? `⇄ vs #${rankOf(pinned)}` : "⇄ Confronta"}
+                          </button>
+                        )}
                       </span>
-                    </button>
+                    </div>
                   );
                 })}
               </section>
@@ -913,11 +997,37 @@ export function Combo({ artReady, onGoForge }: { artReady: boolean; onGoForge: (
 
           {selected && (
             <div key={boardId(selected)} className="min-h-0 overflow-y-auto border-l border-border bg-surface/60 p-3.5 xl:p-4 anim-fade">
-              <div className="mb-3 flex items-center justify-between">
-                <h3 className="display text-base">Board {groups.findIndex((g) => boardId(g.board) === boardId(selected)) + 1 || ""}</h3>
-                <button type="button" className="text-xs text-muted hover:text-text" onClick={() => setSelected(null)}>
-                  Chiudi
-                </button>
+              <div className="mb-3 flex items-center justify-between gap-2">
+                <h3 className="display text-base">Board {rankOf(selected)}</h3>
+                <div className="flex items-center gap-2">
+                  {groups.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (pinned && boardId(pinned) === boardId(selected)) {
+                          sound.play("close");
+                          setPinned(null);
+                        } else if (pinned) {
+                          sound.play("open");
+                          setCompareTarget(selected);
+                        } else {
+                          sound.play("toggle");
+                          setPinned(selected);
+                        }
+                      }}
+                      className="chip !py-0.5 text-[11px] hover:border-sec/60 hover:text-text"
+                    >
+                      {pinned && boardId(pinned) === boardId(selected)
+                        ? "✓ Fissata per confronto"
+                        : pinned
+                          ? `⇄ Confronta con #${rankOf(pinned)}`
+                          : "⇄ Fissa per confronto"}
+                    </button>
+                  )}
+                  <button type="button" className="text-xs text-muted hover:text-text" onClick={() => setSelected(null)}>
+                    Chiudi
+                  </button>
+                </div>
               </div>
               <BoardDetail
                 board={selected}
@@ -934,6 +1044,27 @@ export function Combo({ artReady, onGoForge }: { artReady: boolean; onGoForge: (
             </div>
           )}
         </div>
+      )}
+      {pinned && compareTarget && (
+        <BoardCompareModal
+          open={true}
+          boardA={pinned}
+          rankA={rankOf(pinned)}
+          scoreA={run.scores[boardId(pinned)] ?? null}
+          boardB={compareTarget}
+          rankB={rankOf(compareTarget)}
+          scoreB={run.scores[boardId(compareTarget)] ?? null}
+          weights={weights}
+          getCard={cards.get}
+          onHover={onHover}
+          onHoverEnd={onHoverEnd}
+          onSwap={() => {
+            const prevPinned = pinned;
+            setPinned(compareTarget);
+            setCompareTarget(prevPinned);
+          }}
+          onClose={() => setCompareTarget(null)}
+        />
       )}
       {hover && hoverCard && <CardPreview card={hoverCard} anchor={hover.rect} />}
     </div>

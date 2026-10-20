@@ -59,6 +59,11 @@ const STEPS: GuideStep[] = [
         detail: "Dalle Impostazioni o dall'Officina puoi aggiornare carte, script e banlist in qualsiasi momento.",
       },
     ],
+    shortcuts: [
+      { key: "Ctrl + K", label: "Apre la Palette dei Comandi per cambiare sezione o deck" },
+      { key: "Ctrl + 1..7", label: "Passa subito tra le 7 sezioni dell'officina" },
+      { key: "?", label: "Riapre questa Guida rapida in qualsiasi momento" },
+    ],
   },
   {
     number: 2,
