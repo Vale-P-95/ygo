@@ -69,8 +69,12 @@ pub struct Counts {
     pub chosen: u64,
     /// Activated (a chain link of yours with this effect).
     pub activated: u64,
-    /// Negated by another of your cards (the line is dropped).
+    /// Negated by another of your effects while it resolved (the line is dropped).
     pub self_negated: u64,
+    /// Its effect did not apply because the card was disabled when its
+    /// link resolved (by a lasting effect such as Crossout Designator's, or
+    /// a Pendulum Scale's activation: the card stays, so the line goes on).
+    pub disabled: u64,
     /// Negated one of your own chain links (while resolving).
     pub negated_own: u64,
     /// Summoned (for the summon mechanics: any Normal or Special Summon of
@@ -98,6 +102,7 @@ impl Coverage {
             e.chosen += c.chosen;
             e.activated += c.activated;
             e.self_negated += c.self_negated;
+            e.disabled += c.disabled;
             e.negated_own += c.negated_own;
             e.summoned += c.summoned;
             e.locations |= c.locations;
@@ -222,14 +227,19 @@ pub(crate) struct Links {
     solving: Option<u32>,
 }
 
-/// One of your chain links negated on your turn: by another of your cards.
+/// One of your chain links negated on your turn.
 pub(crate) struct Negation {
     /// The link negated, when it is known (it may have started before
     /// the part of the line followed).
     pub(crate) negated: Option<Mechanic>,
-    /// The link that negated it while resolving; `None` for a lasting
-    /// effect (Crossout Designator on a name) or an unknown link.
+    /// The other link of yours that negated it while resolving (Invoked
+    /// Mechaba): such a line only loses.
     pub(crate) by: Option<Mechanic>,
+    /// Negated while its own link resolved: the card itself was disabled
+    /// then (a lasting effect on it, or a Pendulum Scale's activation,
+    /// which has nothing to apply). The engine says so with the same
+    /// message, but the card may well have done its job.
+    pub(crate) itself: bool,
 }
 
 impl Links {
@@ -248,6 +258,7 @@ impl Links {
                 return Some(Negation {
                     negated: self.mine.get(&negated).copied(),
                     by: self.solving.filter(|&s| s != negated).and_then(|s| self.mine.get(&s)).copied(),
+                    itself: self.solving == Some(negated),
                 });
             }
             Event::ChainEnd => {
@@ -277,7 +288,11 @@ pub(crate) fn count(db: &CardDb, event: &Event, negation: Option<&Negation>, cov
     }
     if let Some(n) = negation {
         if let Some(m) = n.negated {
-            coverage.entry(m).self_negated += 1;
+            if n.itself {
+                coverage.entry(m).disabled += 1;
+            } else {
+                coverage.entry(m).self_negated += 1;
+            }
         }
         if let Some(m) = n.by {
             coverage.entry(m).negated_own += 1;

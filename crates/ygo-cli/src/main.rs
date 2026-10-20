@@ -748,7 +748,7 @@ fn coverage(dir: &Path, deck: &Path, nodes: u64, threads: Option<usize>, seed: u
             listed.push(c);
         }
     }
-    println!("\noffered / left out by policy / as a return / cut / kept / chosen / activated or summoned / negated by your own card / negated one of your own");
+    println!("\noffered / left out by policy / as a return / cut / kept / chosen / activated or summoned / negated by your own effect / disabled when resolving / negated one of your own");
     for &code in &listed {
         let mine: Vec<&(ygo_solver::Mechanic, ygo_solver::Counts)> = entries.iter().filter(|(m, _)| m.code == code).collect();
         let flagged: Vec<&&(ygo_solver::Mechanic, ygo_solver::Counts)> = mine
@@ -756,7 +756,7 @@ fn coverage(dir: &Path, deck: &Path, nodes: u64, threads: Option<usize>, seed: u
             .filter(|(m, c)| {
                 all || c.chosen + c.activated + c.summoned == 0
                     || (m.kind == ygo_solver::MechanicKind::Activate && c.activated == 0)
-                    || c.self_negated + c.negated_own > 0
+                    || c.self_negated + c.negated_own + c.disabled > 0
             })
             .collect();
         if mine.is_empty() {
@@ -770,7 +770,7 @@ fn coverage(dir: &Path, deck: &Path, nodes: u64, threads: Option<usize>, seed: u
         for (m, c) in flagged {
             let text = db.describe(m.description);
             println!(
-                "  {:<17} {:<48} {:<16} {:>5} {:>5} {:>5} {:>4} {:>5} {:>5} {:>5} {:>4} {:>4}",
+                "  {:<17} {:<48} {:<16} {:>5} {:>5} {:>5} {:>4} {:>5} {:>5} {:>5} {:>4} {:>4} {:>4}",
                 m.kind.label(),
                 if text.is_empty() { format!("#{}", m.description & 0xf_ffff) } else { text.chars().take(48).collect() },
                 place(c.locations),
@@ -782,6 +782,7 @@ fn coverage(dir: &Path, deck: &Path, nodes: u64, threads: Option<usize>, seed: u
                 c.chosen,
                 c.activated + c.summoned,
                 c.self_negated,
+                c.disabled,
                 c.negated_own
             );
         }

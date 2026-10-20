@@ -1076,9 +1076,11 @@ fn play(shared: &Shared, edge: &Edge, dive: &mut Dive) -> Result<(), Error> {
             if let Some(c) = cover.as_mut() {
                 coverage::count(db, e, negation.as_ref(), c);
             }
-            if let Some(n) = negation {
+            // Negated by another of your effects; a card disabled when its
+            // own link resolves may have done its job (a Pendulum Scale).
+            if let Some(by) = negation.and_then(|n| n.by) {
                 negated = true;
-                if let (Some(by), Ok(mut negators)) = (n.by, shared.own_negators.write()) {
+                if let Ok(mut negators) = shared.own_negators.write() {
                     negators.insert(by);
                 }
             }
@@ -1088,6 +1090,10 @@ fn play(shared: &Shared, edge: &Edge, dive: &mut Dive) -> Result<(), Error> {
         // its effect, was negated by one of your own cards (Invoked Mechaba
         // on your own Hyperinvoked Aeon). Such a line only loses.
         if negated {
+            if std::env::var_os("DUELFORGE_DEBUG_NEGATION").is_some() {
+                let told: Vec<String> = events.iter().filter_map(|e| italian::describe(db, e)).collect();
+                eprintln!("negated after: {}\n  events: {}", line.choices.join(" | "), told.join(" | "));
+            }
             return Ok(());
         }
         let happened = events.len();
