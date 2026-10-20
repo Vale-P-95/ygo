@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { CardPreview } from "../components/CardPreview";
 import { CardViewer } from "../components/CardViewer";
 import { Catalog } from "../components/Catalog";
 import { DataSetup } from "../components/DataSetup";
+import { DeckInsightsBar } from "../components/DeckInsightsBar";
 import { ExportDialog, ImageDialog, ImportDialog } from "../components/DeckIO";
 import { DeckToolbar } from "../components/DeckToolbar";
 import { DeckZone } from "../components/DeckZone";
@@ -25,6 +26,7 @@ import {
   type Zone,
 } from "../lib/deck";
 import { setDropHandler, type DragSource, type DropZone } from "../lib/drag";
+import { BUILTIN_ROLES } from "../lib/roles";
 import { useSettings } from "../lib/settings";
 import { sound } from "../lib/sound";
 import { burstFrom } from "../lib/sparks";
@@ -33,7 +35,15 @@ import { sectionById } from "../sections";
 
 const NONE = new Set<number>();
 
-export function DeckBuilder({ status, onStatus }: { status: DataStatus | null; onStatus: (s: DataStatus) => void }) {
+export function DeckBuilder({
+  status,
+  onStatus,
+  onGoCombo,
+}: {
+  status: DataStatus | null;
+  onStatus: (s: DataStatus) => void;
+  onGoCombo?: () => void;
+}) {
   if (!status?.cards) {
     return (
       <div className="flex h-full flex-col">
@@ -44,14 +54,14 @@ export function DeckBuilder({ status, onStatus }: { status: DataStatus | null; o
       </div>
     );
   }
-  return <DeckEditor />;
+  return <DeckEditor onGoCombo={onGoCombo} />;
 }
 
 function Dot({ color }: { color: string }) {
   return <span className="inline-block h-2 w-2 rounded-full" style={{ background: color }} />;
 }
 
-function DeckEditor() {
+function DeckEditor({ onGoCombo }: { onGoCombo?: () => void }) {
   const settings = useSettings();
   const cards = useCardCache();
   // The history functions are stable; the returned object is not.
@@ -71,6 +81,9 @@ function DeckEditor() {
   const [viewer, setViewer] = useState<{ id: number; list: number[] } | null>(null);
   const [dialog, setDialog] = useState<"import" | "export" | "image" | "hand" | null>(null);
   const [query, setQuery] = useState("format:md sort:popular");
+  const [activeRole, setActiveRole] = useState<string | null>(null);
+  const [guessing, setGuessing] = useState<{ done: number; total: number } | null>(null);
+  const [previousRoles, setPreviousRoles] = useState<Record<string, number[]> | null>(null);
   const getCard = cards.get;
 
   const refreshDecks = useCallback(() => api.listDecks().then((list) => (setDecks(list), list)), []);
@@ -83,6 +96,8 @@ function DeckEditor() {
       idRef.current = stored.id;
       rememberDeck(stored.id);
       reset(stored);
+      setActiveRole(null);
+      setPreviousRoles(null);
       setSaveState("saved");
       sound.play("page");
     },
@@ -133,6 +148,30 @@ function DeckEditor() {
     return () => window.clearTimeout(timer);
   }, [deck, refreshDecks]);
 
+  /** Flushes any unsaved deck changes immediately so backend operations have the latest deck. */
+  const ensureSaved = useCallback(async (): Promise<number | null> => {
+    const current = deckRef.current;
+    const empty = current.main.length + current.extra.length + current.side.length + current.maybe.length === 0;
+    if (idRef.current == null && empty) return null;
+    if (idRef.current == null || dirty.current) {
+      setSaveState("saving");
+      try {
+        const saved = await api.saveDeck({ ...current, id: idRef.current });
+        idRef.current = saved.id;
+        rememberDeck(saved.id);
+        dirty.current = false;
+        setSaveState("saved");
+        void refreshDecks();
+        return saved.id;
+      } catch (e) {
+        setSaveState("idle");
+        toast(`Salvataggio non riuscito: ${e}`, "error");
+        return null;
+      }
+    }
+    return idRef.current;
+  }, [refreshDecks]);
+
   const update = useCallback(
     (next: Deck, record = true) => {
       dirty.current = true;
@@ -142,6 +181,79 @@ function DeckEditor() {
   );
 
   const setRoles = useCallback((roles: Record<string, number[]>) => update({ ...deckRef.current, roles }, false), [update]);
+
+  const suggestRoles = useCallback(async () => {
+    if (guessing) return;
+    const id = await ensureSaved();
+    if (id == null) return;
+    setGuessing({ done: 0, total: 0 });
+    const unlisten = await api.onRolesProgress((p) => setGuessing(p));
+    try {
+      const guesses = await api.guessDeckRoles(id);
+      if (idRef.current !== id) {
+        toast("Analisi dei ruoli scartata: nel frattempo hai aperto un altro deck", "info");
+        return;
+      }
+      const base = deckRef.current.roles ?? {};
+      const tried = new Set(guesses.map((g) => g.code));
+      const next: Record<string, number[]> = { ...base };
+      for (const r of BUILTIN_ROLES) next[r.key] = (base[r.key] ?? []).filter((c) => !tried.has(c));
+      for (const g of guesses) for (const r of g.roles) next[r] = [...(next[r] ?? []), g.code];
+      setPreviousRoles(base);
+      setHistory({ ...deckRef.current, roles: next }, false);
+      await api.setDeckRoles(id, next);
+      sound.play("glass");
+      const count = (key: string) => guesses.filter((g) => g.roles.includes(key)).length;
+      toast(
+        `Ruoli riconosciuti: ${count("starter")} starter, ${count("extender")} estensori, ${count("handtrap")} handtrap, ${count("breaker")} board breaker, ${count("brick")} brick`,
+        "ok",
+      );
+    } catch (e) {
+      toast(`Ruoli non riconosciuti: ${e}`, "error");
+    } finally {
+      unlisten();
+      setGuessing(null);
+    }
+  }, [ensureSaved, guessing, setHistory]);
+
+  const undoRoles = useCallback(() => {
+    if (!previousRoles) return;
+    update({ ...deckRef.current, roles: previousRoles }, false);
+    setPreviousRoles(null);
+    sound.play("toggle");
+  }, [previousRoles, update]);
+
+  const tryHandInCombo = useCallback(
+    async (handCards: number[]) => {
+      const id = await ensureSaved();
+      if (id == null) return;
+      const handForCombo = handCards.slice(0, 6);
+      let existing: Record<string, unknown> = {};
+      try {
+        const raw = localStorage.getItem(`duelforge.combo.${id}`);
+        if (raw) existing = JSON.parse(raw) as Record<string, unknown>;
+      } catch {
+        existing = {};
+      }
+      const prevKeep = Array.isArray(existing.keep) ? (existing.keep as number[]) : [];
+      const nextSetup = {
+        mode: "hand" as const,
+        hand: handForCombo,
+        card: typeof existing.card === "number" ? existing.card : (handForCombo[0] ?? null),
+        keep: prevKeep.filter((c) => handForCombo.includes(c)),
+        forbid: Array.isArray(existing.forbid) ? existing.forbid : [],
+        goal: Array.isArray(existing.goal) ? existing.goal : [],
+        goalAll: typeof existing.goalAll === "boolean" ? existing.goalAll : true,
+        goalFirst: typeof existing.goalFirst === "boolean" ? existing.goalFirst : true,
+      };
+      localStorage.setItem(`duelforge.combo.${id}`, JSON.stringify(nextSetup));
+      rememberDeck(id);
+      setDialog(null);
+      sound.play("forge");
+      onGoCombo?.();
+    },
+    [ensureSaved, onGoCombo],
+  );
 
   const forged = useCallback((zone: Zone, index: number) => {
     sound.play("select");
@@ -239,6 +351,8 @@ function DeckEditor() {
     idRef.current = null;
     rememberDeck(null);
     reset(emptyDeck());
+    setActiveRole(null);
+    setPreviousRoles(null);
     setSaveState("idle");
   };
 
@@ -249,6 +363,8 @@ function DeckEditor() {
     const lookup = (id: number) => data.get(id);
     idRef.current = null;
     dirty.current = true;
+    setActiveRole(null);
+    setPreviousRoles(null);
     reset({ ...emptyDeck(name, deckRef.current.format), main: sortIds(result.main, lookup), extra: sortIds(result.extra, lookup), side: sortIds(result.side, lookup) });
     sound.play("forge");
     toast(`Importato «${name}»: ${result.main.length}/${result.extra.length}/${result.side.length} carte`, "ok");
@@ -266,6 +382,10 @@ function DeckEditor() {
   };
 
   const invalid = new Set([...(legality?.issues.flatMap((i) => (i.severity === "error" ? i.cards : [])) ?? []), ...flash]);
+  const highlighted = useMemo(() => {
+    if (!activeRole) return null;
+    return new Set(deck.roles?.[activeRole] ?? []);
+  }, [activeRole, deck.roles]);
   const main = counts(deck.main, getCard);
   const extraTypes = ["Fusion", "Synchro", "Xyz", "Link"].map((t) => [t, deck.extra.filter((id) => getCard(id)?.typeLine.includes(t)).length] as const);
   const viewerCard = viewer ? getCard(viewer.id) : undefined;
@@ -273,7 +393,7 @@ function DeckEditor() {
   const hoverCard = hover ? getCard(hover.id) : undefined;
   const themeArt = sectionById("deck-builder").themeCard!;
 
-  const zoneProps = { format: deck.format, getCard, invalid, fresh, onRemove: remove, onHover: startHover, onHoverEnd: endHover };
+  const zoneProps = { format: deck.format, getCard, invalid, fresh, highlighted, onRemove: remove, onHover: startHover, onHoverEnd: endHover };
 
   return (
     <div className="flex h-full flex-col">
@@ -317,7 +437,16 @@ function DeckEditor() {
             className="pointer-events-none absolute top-0 right-0 h-72 w-[60%] object-cover opacity-[0.10]"
             style={{ maskImage: "radial-gradient(ellipse at 70% 20%, black, transparent 70%)" }}
           />
-          <div className="relative mx-auto flex max-w-[1180px] flex-col gap-5">
+          <div className="relative mx-auto flex max-w-[1180px] flex-col gap-4">
+            <DeckInsightsBar
+              deck={deck}
+              getCard={getCard}
+              activeRole={activeRole}
+              onSelectRole={setActiveRole}
+              guessing={guessing}
+              onSuggestRoles={() => void suggestRoles()}
+              onUndoRoles={previousRoles ? undoRoles : null}
+            />
             <DeckZone
               {...zoneProps}
               zone="main"
@@ -416,7 +545,17 @@ function DeckEditor() {
       {dialog === "import" && <ImportDialog onClose={() => setDialog(null)} onImported={(r, n) => void imported(r, n)} />}
       {dialog === "export" && <ExportDialog deck={{ ...deck, id: idRef.current }} onClose={() => setDialog(null)} />}
       {dialog === "image" && <ImageDialog deck={deck} getCard={getCard} legal={legality?.legal ?? null} onClose={() => setDialog(null)} />}
-      {dialog === "hand" && <TestHand deck={deck} getCard={getCard} onRoles={setRoles} onClose={() => setDialog(null)} />}
+      {dialog === "hand" && (
+        <TestHand
+          deck={deck}
+          getCard={getCard}
+          onRoles={setRoles}
+          guessing={guessing}
+          onSuggestRoles={() => void suggestRoles()}
+          onTryInCombo={onGoCombo ? (h) => void tryHandInCombo(h) : undefined}
+          onClose={() => setDialog(null)}
+        />
+      )}
     </div>
   );
 }

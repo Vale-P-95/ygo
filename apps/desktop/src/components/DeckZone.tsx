@@ -25,6 +25,8 @@ interface Props {
   emptyHint?: ReactNode;
   /** Dashed frame, for areas that are not part of the deck. */
   dashed?: boolean;
+  /** When non-null, cards in this set are highlighted and all others are dimmed. */
+  highlighted?: Set<number> | null;
 }
 
 function banBadge(card: Card | undefined, format: DeckFormat): TileBadge | undefined {
@@ -37,7 +39,7 @@ function banBadge(card: Card | undefined, format: DeckFormat): TileBadge | undef
 
 /** One deck section: a drop target with one tile per copy and empty slots. */
 export function DeckZone(props: Props) {
-  const { zone, title, ids, columns, slots, max, format, getCard, invalid, fresh, info, onRemove, onOpen, onHover, onHoverEnd, emptyHint, dashed } = props;
+  const { zone, title, ids, columns, slots, max, format, getCard, invalid, fresh, info, onRemove, onOpen, onHover, onHoverEnd, emptyHint, dashed, highlighted } = props;
   const drag = useDrag();
   const over = drag?.over === zone;
   const target = drag && drag.source.from !== zone;
@@ -73,23 +75,36 @@ export function DeckZone(props: Props) {
           boxShadow: over ? "0 0 30px -8px var(--sec), inset 0 0 20px -10px var(--sec)" : undefined,
         }}
       >
-        {ids.map((id, index) => (
-          <div key={keys[index]} data-deck-slot={`${zone}-${index}`}>
-            <CardTile
-              id={id}
-              card={getCard(id)}
-              compact
-              invalid={invalid.has(id)}
-              fresh={fresh?.zone === zone && fresh.index === index}
-              badge={banBadge(getCard(id), format)}
-              dragSource={{ id, from: zone, index }}
-              onContext={() => onRemove(zone, index)}
-              onOpen={onOpen}
-              onHover={onHover}
-              onHoverEnd={onHoverEnd}
-            />
-          </div>
-        ))}
+        {ids.map((id, index) => {
+          const isMatch = highlighted ? highlighted.has(id) : null;
+          return (
+            <div
+              key={keys[index]}
+              data-deck-slot={`${zone}-${index}`}
+              className={
+                isMatch === true
+                  ? "rounded-[5px] ring-2 ring-[var(--sec)] transition-opacity"
+                  : isMatch === false
+                    ? "opacity-25 saturate-50 transition-opacity"
+                    : "transition-opacity"
+              }
+            >
+              <CardTile
+                id={id}
+                card={getCard(id)}
+                compact
+                invalid={invalid.has(id)}
+                fresh={fresh?.zone === zone && fresh.index === index}
+                badge={banBadge(getCard(id), format)}
+                dragSource={{ id, from: zone, index }}
+                onContext={() => onRemove(zone, index)}
+                onOpen={onOpen}
+                onHover={onHover}
+                onHoverEnd={onHoverEnd}
+              />
+            </div>
+          );
+        })}
         {Array.from({ length: empty }, (_, i) => (
           <div key={`empty-${i}`} className="rounded-[4px] border border-dashed border-border" style={{ aspectRatio: "421 / 614", opacity: 0.55 }} />
         ))}
