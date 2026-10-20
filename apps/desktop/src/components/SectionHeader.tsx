@@ -30,22 +30,22 @@ export function SectionHeader({ section, children, artReady = true }: { section:
         style={{ background: "linear-gradient(90deg, var(--df-bg) 30%, color-mix(in oklab, var(--df-bg) 55%, transparent) 70%, var(--df-bg))" }}
       />
       <div className="pointer-events-none absolute inset-x-0 bottom-0 h-px" style={{ background: "linear-gradient(90deg, transparent, var(--sec), transparent)" }} />
-      <div className="relative flex items-end justify-between gap-6 px-10 pt-7 pb-5">
-        <div className="flex items-center gap-4 anim-rise">
+      <div className="relative flex items-end justify-between gap-6 px-8 pt-4 pb-3.5 xl:px-10 xl:pt-7 xl:pb-5">
+        <div className="flex items-center gap-3.5 xl:gap-4 anim-rise">
           <span
-            className="grid h-12 w-12 place-items-center rounded-xl border text-sec"
+            className="grid h-10 w-10 xl:h-12 xl:w-12 shrink-0 place-items-center rounded-xl border text-sec"
             style={{
               borderColor: "color-mix(in oklab, var(--sec) 45%, transparent)",
               background: "radial-gradient(circle at 30% 20%, color-mix(in oklab, var(--sec) 28%, transparent), transparent 70%), var(--df-surface)",
               boxShadow: "0 0 24px -6px color-mix(in oklab, var(--sec) 70%, transparent)",
             }}
           >
-            <EmblemIcon emblem={section.emblem} className="h-6 w-6" />
+            <EmblemIcon emblem={section.emblem} className="h-5 w-5 xl:h-6 xl:w-6" />
           </span>
           <div>
             <p className="eyebrow">{section.label}</p>
-            <h1 className="display text-3xl font-bold text-text">{section.title}</h1>
-            <p className="mt-1 max-w-xl text-sm text-muted">{section.summary}</p>
+            <h1 className="display text-2xl xl:text-3xl font-bold text-text">{section.title}</h1>
+            <p className="mt-0.5 xl:mt-1 max-w-xl text-xs xl:text-sm text-muted">{section.summary}</p>
           </div>
         </div>
         <div className="flex flex-col items-end gap-2">
