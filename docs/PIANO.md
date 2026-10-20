@@ -1264,3 +1264,22 @@ Piano e prompt per far lavorare Claude Code e Google Antigravity (Gemini) sullo 
 - `AGENTS.md` con le regole comuni (letto da Antigravity e, tramite `@AGENTS.md`, da Claude Code);
 - `docs/TASKS.md` come bacheca con il lock dei file;
 - protocollo di misura obbligatorio per chi tocca il motore.
+
+### 30.6 Caccia ai bug della ricerca (12 problemi confermati)
+Cinque agenti hanno cercato da angoli diversi (mosse inutili, lavoro sprecato, classifica, meccaniche, codice) e ogni problema è stato verificato da un secondo agente. Correzioni fatte:
+- **Set in un solo ordine.** La regola del §30.3 non scattava mai: ogni Set apre una finestra di catena, e passarla cancellava il Set ricordato. Su una mano Labrynth: gli stessi 95 board con 89 nodi invece di 539.
+- **Ricerca fermata a metà.** Una ricerca fermata tra due risposte di un dive perdeva la risposta appena data, e dopo la ripresa poteva dichiararsi esaurita senza averla giocata. Ora la risposta torna in coda; un test ferma e riprende la ricerca ogni pochi nodi.
+- **Carte rapide sprecate.** Il dive attivava le carte rapide nella finestra vuota della Draw Phase (Crossout Designator in ogni board Hecahands). Ora nelle finestre vuote fuori dalla Main Phase passa per prima cosa. Nella Main Phase no: molte combo Invoked proseguono da quelle finestre (provato: inv-r3 scendeva da 2.07 a 0.99). Alle scelte libere le Magie Rapide e le Trappole vengono dopo le altre attivazioni, e gli handtrap dalla mano dopo i Set.
+- **Handtrap che danno solo un permesso.** Un handtrap che si risolveva senza eventi veniva lasciato in mano per tutta la ricerca. Labrynth Cooclock ("puoi attivare una Trappola Normale il turno in cui è Settata") non veniva quindi mai giocato. Ora, attivato a una scelta libera, viene giudicato alla scelta libera successiva: se si può fare qualcosa di nuovo, è utile. Altrimenti la linea si scarta, e dopo tre volte la carta resta in mano.
+- **Carte da tenere in mano.** Il vincolo si controllava solo quando si registrava una board; ora vale durante la ricerca. Hecahands con Crossout da tenere: 680 board invece di 22, migliore 18.2 invece di 10.6.
+- **Zone Magie/Trappole.** Una Magia giocata prima delle Scale prendeva la Zona Pendulum sinistra e bloccava la seconda Scala. Ora va in una zona centrale.
+- **Ruoli e copertura.** Usavano come passivi tutti gli handtrap trovati dal motore, compresi gli effetti rapidi d'archetipo. Ora usano la stessa lista del Combo Lab. Labrynth Stovie Torbie e Cooclock risultano anche estensori.
+- **Turno di prova: bersagli.** Veiler e Imperm colpivano il primo mostro in ordine di zona, non quello che si attivava. Ora mirano all'ultimo anello avversario in catena, poi al mostro in Evocazione. Kashtira: Veiler e Imperm da 0.15 a 0.23.
+- **Turno di prova: costi.** I costi si pagavano con la prima carta in elenco, quindi la stessa board misurava diversamente secondo le zone (Spright: 0.44 e 1.22). Ora si pagano con carte che non rispondono, poi per codice. Le due board Spright misurano 1.22 entrambe.
+- **Catena nella chiave dei nodi.** Due momenti con lo stesso campo ma una catena diversa ancora da risolvere venivano fusi. Ora la chiave include la catena aperta.
+
+Banco di prova (16 mani, 4000 nodi, stesso turno di prova da entrambe le parti): somma dei board migliori da 24.98 a 26.25, dei primi board trovati da 19.55 a 22.69. Scendono branded (0.76 → 0.20; il suo board migliore arrivava alla fine del budget), mitsurugi (3.67 → 2.95) e inv-r5 (2.03 → 1.44).
+
+Rimandati: i valori delle carte che dipendono dal contesto (mano vuota, equipaggiamenti) passano nella classificazione delle board (#47). Il punteggio rapido degli handtrap evocati non serve più dopo la correzione dei bersagli.
+
+**Test di regressione in CI.** Quattro mani fisse del deck Invoked di prova, con lo stesso budget di nodi su un thread: ogni linea arriva in fondo, le board migliori si rigiocano uguali, nessun handtrap attivato nel tuo turno, forza minima della board migliore, pezzi noti presenti, apprendimento degli handtrap e delle auto-negazioni. Rompere apposta la ricerca li fa fallire. Durano circa 2 minuti.
