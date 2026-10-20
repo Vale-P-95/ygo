@@ -64,5 +64,11 @@ export function shortDate(at: string) {
 
 /** "p = 0,042" with the usual reading. */
 export function pValue(p: number) {
-  return `p = ${p < 0.001 ? "< 0,001" : p.toLocaleString("it-IT", { maximumFractionDigits: 3, minimumFractionDigits: p < 0.1 ? 3 : 2 })}`;
+  if (p < 0.001) return "p < 0,001";
+  if (p < 0.05) {
+    const formatted = p.toLocaleString("it-IT", { maximumFractionDigits: 3, minimumFractionDigits: 3 });
+    if (formatted === "0,050") return "p < 0,05";
+    return `p = ${formatted}`;
+  }
+  return `p = ${p.toLocaleString("it-IT", { maximumFractionDigits: 3, minimumFractionDigits: p < 0.1 ? 3 : 2 })}`;
 }

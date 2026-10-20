@@ -31,6 +31,7 @@ export function ConditionPicker({ root, setRoot, recipes, getCard, onEdit }: Pro
             key={r.name}
             type="button"
             className="chip !px-2 !py-0.5 !text-[11px]"
+            title={"hint" in r && r.hint ? r.hint : r.name}
             onClick={() => {
               sound.play("page");
               setRoot(() => fromCond(r.cond));

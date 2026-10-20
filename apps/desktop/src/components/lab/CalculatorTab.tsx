@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { api, type Card, type LabOp, type LabTarget, type Recipe } from "../../lib/api";
-import { BUILTIN_RECIPES, clause, fromCond, group, OPS, plain, role, toCond, usedRoles, type Clause, type CondNode, type Group } from "../../lib/conditions";
+import { BUILTIN_RECIPES, clause, fromCond, group, OPS, plain, role, toCond, type Clause, type CondNode, type Group } from "../../lib/conditions";
 import { roleDefs, roleLabel } from "../../lib/roles";
 import { sound } from "../../lib/sound";
 import { toast } from "../../lib/toast";
@@ -23,7 +23,12 @@ interface Props {
 /** Calcolatore: build a condition, get its exact probability. */
 export function CalculatorTab({ deckId, main, roles, hand, getCard, root, setRoot, recipes, setRecipes }: Props) {
   const [draws, setDraws] = useState(0);
-  const [result, setResult] = useState<{ first: number | null; second: number | null; error: string | null } | null>(null);
+  const [result, setResult] = useState<{
+    first: number | null;
+    second: number | null;
+    firstError: string | null;
+    secondError: string | null;
+  } | null>(null);
   const [name, setName] = useState("");
   const defs = roleDefs(roles);
   const ids = [...new Set(main)];
@@ -32,8 +37,16 @@ export function CalculatorTab({ deckId, main, roles, hand, getCard, root, setRoo
 
   useEffect(() => {
     const t = window.setTimeout(async () => {
-      const [a, b] = await Promise.all([api.labProbability(main, roles, cond, 5 + draws), api.labProbability(main, roles, cond, 6 + draws)]);
-      setResult({ first: a.p, second: b.p, error: a.error ?? b.error });
+      const [a, b] = await Promise.all([
+        api.labProbability(main, roles, cond, 5 + draws),
+        api.labProbability(main, roles, cond, 6 + draws),
+      ]);
+      setResult({
+        first: a.p,
+        second: b.p,
+        firstError: a.error,
+        secondError: b.error,
+      });
       sound.play("bubble");
     }, 140);
     return () => window.clearTimeout(t);
@@ -100,11 +113,11 @@ export function CalculatorTab({ deckId, main, roles, hand, getCard, root, setRoo
         <optgroup label="Ruoli">
           {defs.map((d) => (
             <option key={d.key} value={`role:${d.key}`}>
-              {d.label}
+              {d.label} ({roles[d.key]?.length ?? 0})
             </option>
           ))}
         </optgroup>
-        <optgroup label="Carte del Main Deck">
+        <optgroup label="Carte">
           {ids.map((id) => (
             <option key={id} value={`card:${id}`}>
               {getCard(id)?.name ?? id}
@@ -112,30 +125,34 @@ export function CalculatorTab({ deckId, main, roles, hand, getCard, root, setRoo
           ))}
         </optgroup>
       </select>
-      <button type="button" className="btn btn-ghost shrink-0 !px-2 !py-1 text-xs" onClick={() => remove(c.id)} aria-label="Togli la condizione">
+      <button type="button" className="btn btn-ghost !px-2 !py-1 text-xs text-faint hover:text-danger" onClick={() => remove(c.id)} aria-label="Elimina clausola">
         ✕
       </button>
     </div>
-    );
+  );
   };
 
   const renderGroup = (g: Group, depth: number): ReactNode => (
-    <div key={g.id} className={`flex flex-col gap-2 ${depth ? "rounded-xl border border-dashed border-border-strong p-2.5 xl:p-3" : ""}`}>
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="flex gap-1 rounded-lg border border-border bg-bg-2 p-0.5">
+    <div key={g.id} className={`flex flex-col gap-2 rounded-xl p-3 ${depth === 0 ? "bg-bg-2/50" : "border border-border/80 bg-surface/50"}`}>
+      <div className="flex items-center gap-2 text-xs">
+        <span className="text-muted">Condizione:</span>
+        <div className="flex gap-1 rounded-md border border-border bg-bg-2 p-0.5">
           {(["all", "any"] as const).map((m) => (
-            <button key={m} type="button" onClick={() => edit(g.id, (n) => ((n as Group).mode = m))} className={`rounded-md px-2 py-0.5 text-xs font-semibold ${g.mode === m ? "bg-sec text-bg" : "text-muted hover:text-text"}`}>
-              {m === "all" ? "Tutte (E)" : "Almeno una (O)"}
+            <button key={m} type="button" onClick={() => edit(g.id, (n) => ((n as Group).mode = m))} className={`rounded px-2 py-0.5 font-semibold ${g.mode === m ? "bg-sec text-bg" : "text-muted hover:text-text"}`}>
+              {m === "all" ? "Tutte vere (AND)" : "Almeno una (OR)"}
             </button>
           ))}
         </div>
-        <button type="button" onClick={() => edit(g.id, (n) => ((n as Group).negate = !(n as Group).negate))} className={`chip !px-2 !py-0.5 !text-[11px] ${g.negate ? "chip-active" : ""}`}>
-          NON
+        <button
+          type="button"
+          onClick={() => edit(g.id, (n) => ((n as Group).negate = !(n as Group).negate))}
+          className={`chip !px-2 !py-0.5 ${g.negate ? "chip-active !bg-danger/20 !border-danger !text-danger" : ""}`}
+        >
+          {g.negate ? "Invertita (NON)" : "Non invertita"}
         </button>
-        <span className="text-xs text-faint">{g.negate ? "nessuna combinazione di queste" : g.mode === "all" ? "devono valere tutte" : "ne basta una"}</span>
         {depth > 0 && (
           <button type="button" className="ml-auto text-xs text-faint hover:text-danger" onClick={() => remove(g.id)}>
-            Togli il gruppo
+            Elimina gruppo
           </button>
         )}
       </div>
@@ -153,7 +170,11 @@ export function CalculatorTab({ deckId, main, roles, hand, getCard, root, setRoo
     </div>
   );
 
-  const shown = hand === "first" ? result?.first : result?.second;
+  const currentP = hand === "first" ? result?.first : result?.second;
+  const currentError = hand === "first" ? result?.firstError : result?.secondError;
+  const otherP = hand === "first" ? result?.second : result?.first;
+  const otherError = hand === "first" ? result?.secondError : result?.firstError;
+  const otherLabel = hand === "first" ? "per secondo" : "per primo";
   const handSize = (hand === "first" ? 5 : 6) + draws;
 
   const saveRecipe = async () => {
@@ -195,15 +216,15 @@ export function CalculatorTab({ deckId, main, roles, hand, getCard, root, setRoo
 
       <div className="flex flex-col gap-4">
         <section className="lab-card flex flex-col items-center gap-2 p-5 text-center">
-          <FlaskMeter value={shown ?? 0} size={64} bubbling />
-          {result?.error ? (
-            <p className="text-sm text-warn">{result.error}. Puoi stimarla nella scheda Simulatore, che usa la stessa condizione.</p>
+          <FlaskMeter value={currentP ?? 0} size={64} bubbling />
+          {currentError ? (
+            <p className="text-sm text-warn">{currentError}. Puoi stimarla nella scheda Simulatore, che usa la stessa condizione.</p>
           ) : (
             <>
-              <p className="text-4xl font-semibold">{shown == null ? "…" : pct(shown)}</p>
-              <p className="text-sm text-muted">{shown == null ? "" : plain(shown)}</p>
+              <p className="text-4xl font-semibold">{currentP == null ? "…" : pct(currentP)}</p>
+              <p className="text-sm text-muted">{currentP == null ? "" : plain(currentP)}</p>
               <p className="text-xs text-faint">
-                {handSize} carte, {hand === "first" ? "per primo" : "per secondo"} · {hand === "first" ? "per secondo" : "per primo"} {pct((hand === "first" ? result?.second : result?.first) ?? 0)}
+                {handSize} carte, {hand === "first" ? "per primo" : "per secondo"} · {otherLabel} {otherError || otherP == null ? "—" : pct(otherP)}
               </p>
             </>
           )}
@@ -212,7 +233,13 @@ export function CalculatorTab({ deckId, main, roles, hand, getCard, root, setRoo
           <h3 className="text-sm font-semibold">Ricette</h3>
           <div className="flex flex-wrap gap-1.5">
             {BUILTIN_RECIPES.map((r) => (
-              <button key={r.name} type="button" className="chip !px-2 !py-0.5 !text-[11px]" onClick={() => (sound.play("page"), setRoot(() => fromCond(r.cond)))}>
+              <button
+                key={r.name}
+                type="button"
+                className="chip !px-2 !py-0.5 !text-[11px]"
+                title={r.hint ?? r.name}
+                onClick={() => (sound.play("page"), setRoot(() => fromCond(r.cond)))}
+              >
                 {r.name}
               </button>
             ))}
@@ -240,15 +267,15 @@ export function CalculatorTab({ deckId, main, roles, hand, getCard, root, setRoo
             className="flex gap-1.5"
             onSubmit={(e) => {
               e.preventDefault();
-              void saveRecipe();
+              if (name.trim()) void saveRecipe();
             }}
           >
-            <input className="field !py-1 text-xs" placeholder="Nome della condizione attuale" value={name} onChange={(e) => setName(e.target.value)} />
-            <button type="submit" className="btn btn-molten shrink-0 !px-2.5 !py-1 text-xs" disabled={!name.trim()}>
+            <input className="field min-w-0 flex-1 !py-1 text-xs" placeholder="Nome ricetta…" value={name} onChange={(e) => setName(e.target.value)} />
+            <button type="submit" className="btn btn-ghost !py-1 text-xs" disabled={!name.trim()}>
               Salva
             </button>
           </form>
-          <p className="text-[11px] text-faint">Le ricette valgono per questo deck. Ruoli usati: {usedRoles(cond).map(roleLabel).join(", ") || "nessuno"}.</p>
+          <p className="text-[11px] text-faint">Salva questa condizione per ritrovarla con un clic anche nelle altre schede.</p>
         </section>
       </div>
     </div>
