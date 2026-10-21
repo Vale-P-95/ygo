@@ -44,6 +44,7 @@ import type {
   ZoneCard,
 } from "./api";
 import { pAtLeastOne, pBoth } from "./probability";
+import invokedLinksFixture from "./fixtures/invoked-links.json";
 
 type Api = typeof ApiType;
 
@@ -2147,6 +2148,31 @@ export const mockApi: Api = {
     }
 
     const deck = decksState.find((d) => d.id === deckId);
+    const mainSet = new Set(deck?.main ?? []);
+    const extraSet = new Set(deck?.extra ?? []);
+    const allSet = new Set([...mainSet, ...extraSet]);
+
+    // If deck contains Invoked engine (Aleister 86120751 or 86120752), use real engine-generated fixture
+    const isInvoked = mainSet.has(86120751) || mainSet.has(86120752);
+
+    if (isInvoked) {
+      return {
+        deckId,
+        hands: invokedLinksFixture.hands,
+        lines: invokedLinksFixture.lines,
+        cards: (invokedLinksFixture.cards as DeckLinks["cards"]).map((c) => ({
+          ...c,
+          code: c.code === 86120751 && !mainSet.has(86120751) && mainSet.has(86120752) ? 86120752 : c.code,
+        })),
+        links: (invokedLinksFixture.links as CardLink[]).map((l) => ({
+          ...l,
+          from: l.from === 86120751 && !mainSet.has(86120751) && mainSet.has(86120752) ? 86120752 : l.from,
+          to: l.to === 86120751 && !mainSet.has(86120751) && mainSet.has(86120752) ? 86120752 : l.to,
+        })),
+      };
+    }
+
+    // For any other deck: build card entries and filter valid links
     const rawCards: DeckLinks["cards"] = [];
     for (const [codes, extra] of [[deck?.main ?? [], false], [deck?.extra ?? [], true]] as const) {
       for (const code of codes) {
@@ -2156,30 +2182,12 @@ export const mockApi: Api = {
       }
     }
 
-    const mainSet = new Set(deck?.main ?? []);
-    const extraSet = new Set(deck?.extra ?? []);
-    const aleisterCode = mainSet.has(86120751) ? 86120751 : 86120752;
-
-    // Curated rich links data matching the Invoked engine results
-    const allPossibleLinks: CardLink[] = [
-      { from: 47679935, to: aleisterCode, kind: "search", zone: "deck", possible: true, used: 0.90 },
-      { from: aleisterCode, to: 74063034, kind: "search", zone: "deck", possible: true, used: 0.95 },
-      { from: aleisterCode, to: 20714553, kind: "material", zone: "extra", possible: true, used: 0.85 },
-      { from: 20714553, to: 97973962, kind: "material", zone: "extra", possible: true, used: 0.80 },
-      { from: 74063034, to: 75286621, kind: "summon", zone: "extra", possible: true, used: 0.75 },
-      { from: 74063034, to: 70383419, kind: "summon", zone: "extra", possible: true, used: 0.25 },
-      { from: 74063034, to: aleisterCode, kind: "recover", zone: "banished", possible: true, used: 0.85 },
-      { from: aleisterCode, to: 75286621, kind: "material", zone: "extra", possible: true, used: 0.75 },
-      { from: 97973962, to: 75286621, kind: "material", zone: "extra", possible: true, used: 0.75 },
-      { from: 29301450, to: 34755994, kind: "material", zone: "extra", possible: true, used: 0.40 },
-    ];
-    const sampleLinks = allPossibleLinks.filter(
-      (l) => (mainSet.has(l.from) || extraSet.has(l.from)) && (mainSet.has(l.to) || extraSet.has(l.to))
+    const validLinks = (invokedLinksFixture.links as CardLink[]).filter(
+      (l) => allSet.has(l.from) && allSet.has(l.to)
     );
 
-    // Compute reach and reachAll dynamically via BFS on validLinks
     const outgoingByCard = new Map<number, CardLink[]>();
-    for (const l of sampleLinks) {
+    for (const l of validLinks) {
       const list = outgoingByCard.get(l.from) ?? [];
       list.push(l);
       outgoingByCard.set(l.from, list);
@@ -2187,47 +2195,16 @@ export const mockApi: Api = {
 
     for (const c of rawCards) {
       const outgoing = outgoingByCard.get(c.code) ?? [];
-      const oneStepTargets = new Set(outgoing.map((l) => l.to));
-      c.reach = oneStepTargets.size;
-
-      // ReachAll: cards reachable through deck or extra in any number of steps
-      const reachable = new Set<number>();
-      const queue = [...outgoing.filter((l) => l.zone === "deck" || l.zone === "extra").map((l) => l.to)];
-      for (const t of queue) reachable.add(t);
-      while (queue.length > 0) {
-        const curr = queue.shift()!;
-        const next = outgoingByCard.get(curr) ?? [];
-        for (const l of next) {
-          if ((l.zone === "deck" || l.zone === "extra") && !reachable.has(l.to)) {
-            reachable.add(l.to);
-            queue.push(l.to);
-          }
-        }
-      }
-      c.reachAll = reachable.size;
-
-      if (c.code === aleisterCode) {
-        c.key = 0.42;
-        c.chance = 0.85;
-      } else if (c.code === 47679935) {
-        c.key = 0.35;
-        c.chance = 0.82;
-      } else if (c.code === 74063034) {
-        c.key = 0.15;
-        c.chance = 0.72;
-      } else if (c.extra) {
-        c.key = 0;
-        c.chance = c.reachAll > 0 || sampleLinks.some((l) => l.to === c.code) ? 0.75 : 0;
-      } else {
-        c.key = 0;
-        c.chance = c.copies === 3 ? 0.34 : c.copies === 2 ? 0.24 : 0.12;
-      }
+      c.reach = new Set(outgoing.map((l) => l.to)).size;
+      c.reachAll = c.reach;
+      c.chance = c.extra ? (c.reach > 0 ? 0.65 : 0) : c.copies === 3 ? 0.34 : c.copies === 2 ? 0.24 : 0.12;
+      c.key = 0;
     }
 
     return {
       deckId,
       cards: rawCards,
-      links: sampleLinks,
+      links: validLinks,
       hands: 30,
       lines: 600,
     };
