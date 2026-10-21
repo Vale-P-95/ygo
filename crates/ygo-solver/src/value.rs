@@ -231,11 +231,11 @@ pub fn card_values(engine: &Engine, deck: &DeckList, seed: u64, kit: &Kit, hand_
                     let measured = if matches!(spot, Spot::Hand | Spot::HandWithField) {
                         // The handtrap alone in the hand (its own Deck copy).
                         let mine = [code];
-                        Prober::new(engine, deck, &mine, seed, kit).measure_placed(&placed).map(|m| {
+                        Prober::new(engine, deck, &mine, seed, kit).measure_placed_unbroken(&placed).map(|m| {
                             (m.hand_value, m.offered.iter().any(|&(c, loc)| db.canonical_code(c) == code && loc == location::HAND))
                         })
                     } else {
-                        prober.measure_placed(&placed).map(|m| (m.field_value + FLOODGATE_WEIGHT * m.floodgate_value, true))
+                        prober.measure_placed_unbroken(&placed).map(|m| (m.field_value + FLOODGATE_WEIGHT * m.floodgate_value, true))
                     };
                     // A turn that could not be played tells nothing: left unmeasured.
                     let Ok((value, usable)) = measured else { continue };
