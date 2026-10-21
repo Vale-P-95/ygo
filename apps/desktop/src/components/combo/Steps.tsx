@@ -236,7 +236,7 @@ export function ComboSteps({
   onActiveCards?: (codes: Set<number> | null) => void;
   onActiveStep?: (step: ActiveStepInfo | null) => void;
   resetNonce?: number;
-  requestedStep?: number | null;
+  requestedStep?: { step: number; nonce: number } | null;
 }) {
   const [all, setAll] = useState(false);
   const [activeIdx, setActiveIdx] = useState<number | null>(null);
@@ -246,19 +246,6 @@ export function ComboSteps({
 
   const { list, stepList, quiet } = useMemo(() => rows(steps, all), [steps, all]);
   const totalSteps = stepList.length;
-
-  // Jump to requested step from external controls (e.g. stop trade-offs).
-  useEffect(() => {
-    if (requestedStep == null || totalSteps === 0) return;
-    setPlaying(false);
-    const matchIdx = stepList.findIndex((item) => item.number === requestedStep);
-    if (matchIdx !== -1) {
-      setActiveIdx(matchIdx);
-    } else {
-      const fallback = Math.min(Math.max(0, requestedStep - 1), totalSteps - 1);
-      setActiveIdx(fallback);
-    }
-  }, [requestedStep, stepList, totalSteps]);
 
   // Reset player when the line changes.
   useEffect(() => {
@@ -273,6 +260,20 @@ export function ComboSteps({
       setPlaying(false);
     }
   }, [resetNonce]);
+
+  // Jump to requested step from external controls (e.g. stop trade-offs).
+  // Placed after the reset effects so that on mount/view switch, the jump is applied after resetting.
+  useEffect(() => {
+    if (!requestedStep || totalSteps === 0) return;
+    setPlaying(false);
+    const matchIdx = stepList.findIndex((item) => item.number === requestedStep.step);
+    if (matchIdx !== -1) {
+      setActiveIdx(matchIdx);
+    } else {
+      const fallback = Math.min(Math.max(0, requestedStep.step - 1), totalSteps - 1);
+      setActiveIdx(fallback);
+    }
+  }, [requestedStep, stepList, totalSteps]);
 
   // Auto-advance timer when playing.
   useEffect(() => {

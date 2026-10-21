@@ -116,6 +116,12 @@ export function StopTradeOff({ board, matchup, getCard, onHover, onHoverEnd, onS
         </div>
       )}
 
+      {open && tradeOffs && tradeOffs.length === 0 && (
+        <div className="mt-2 border-t border-border/50 pt-2 text-xs text-muted anim-fade">
+          Il deck «{matchup.deckName}» non ha handtrap che fanno pescare (Maxx "C", Mulcharmy).
+        </div>
+      )}
+
       {open && activeTradeOff && (
         <div className="mt-2 flex flex-col gap-3 border-t border-border/50 pt-3 anim-fade">
           {/* Multiple draw handtraps selector */}
@@ -155,41 +161,48 @@ export function StopTradeOff({ board, matchup, getCard, onHover, onHoverEnd, onS
           </div>
 
           {/* Recommended best stop callout */}
-          {activeTradeOff.stops[activeTradeOff.best] && (
-            <div className="rounded-md border border-ok/40 bg-ok/10 p-2.5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <span className="text-ok text-base" aria-hidden>
-                  ★
-                </span>
-                <div>
-                  <span className="text-xs font-bold text-ok">Miglior compromesso raccomandato:</span>
-                  <p className="text-xs text-text">
-                    Fermarsi al{" "}
-                    <b>
-                      Passo {activeTradeOff.stops[activeTradeOff.best].steps}
-                    </b>
-                    {activeTradeOff.stops[activeTradeOff.best].playing ? (
-                      <>
-                        {" "}
-                        (dopo <i>{getCard(activeTradeOff.stops[activeTradeOff.best].playing!)?.name ?? activeTradeOff.stops[activeTradeOff.best].playing}</i>)
-                      </>
-                    ) : null}
-                    {" "}— regala solo <b>{activeTradeOff.stops[activeTradeOff.best].drawn}</b> {plural(activeTradeOff.stops[activeTradeOff.best].drawn, "pescata", "pescate")} mantenendo un valore atteso di{" "}
-                    <b>{activeTradeOff.stops[activeTradeOff.best].expected.toFixed(2)}</b>.
-                  </p>
+          {activeTradeOff.stops[activeTradeOff.best] && (() => {
+            const bestStop = activeTradeOff.stops[activeTradeOff.best];
+            const isFullLine = activeTradeOff.best === activeTradeOff.stops.length - 1;
+            const playingCard = bestStop.playing ? getCard(bestStop.playing) : null;
+            const playingName = playingCard?.name ?? (bestStop.playing ? String(bestStop.playing) : null);
+            return (
+              <div className="rounded-md border border-ok/40 bg-ok/10 p-2.5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-ok text-base" aria-hidden>
+                    ★
+                  </span>
+                  <div>
+                    <span className="text-xs font-bold text-ok">
+                      {isFullLine ? "Conviene finire la linea:" : "Miglior compromesso raccomandato:"}
+                    </span>
+                    <p className="text-xs text-text">
+                      {isFullLine ? (
+                        <>
+                          Giocare fino in fondo (<b>Passo {bestStop.steps}</b>
+                          {playingName ? <> dopo <i>{playingName}</i></> : null}): il valore della board finale (<b>{bestStop.expected.toFixed(2)}</b>) supera il costo delle <b>{bestStop.drawn}</b> {plural(bestStop.drawn, "carta pescata", "carte pescate")} dall'avversario.
+                        </>
+                      ) : (
+                        <>
+                          Fermarsi al <b>Passo {bestStop.steps}</b>
+                          {playingName ? <> (dopo <i>{playingName}</i>)</> : null} — regala solo <b>{bestStop.drawn}</b> {plural(bestStop.drawn, "pescata", "pescate")} mantenendo un valore atteso di <b>{bestStop.expected.toFixed(2)}</b>.
+                        </>
+                      )}
+                    </p>
+                  </div>
                 </div>
+                {onSelectStep && (
+                  <button
+                    type="button"
+                    onClick={() => onSelectStep(bestStop.steps)}
+                    className="btn btn-ghost !py-1 !px-2.5 text-xs text-ok hover:bg-ok/20 shrink-0 self-start sm:self-auto"
+                  >
+                    Vai al passo →
+                  </button>
+                )}
               </div>
-              {onSelectStep && (
-                <button
-                  type="button"
-                  onClick={() => onSelectStep(activeTradeOff.stops[activeTradeOff.best].steps)}
-                  className="btn btn-ghost !py-1 !px-2.5 text-xs text-ok hover:bg-ok/20 shrink-0 self-start sm:self-auto"
-                >
-                  Vai al passo →
-                </button>
-              )}
-            </div>
-          )}
+            );
+          })()}
 
           {/* Stops table */}
           <div className="overflow-x-auto">

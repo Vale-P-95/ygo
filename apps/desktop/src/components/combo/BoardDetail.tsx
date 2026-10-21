@@ -90,7 +90,7 @@ export function BoardDetail({ board, score, scoring, weights, hand, steps, steps
   const [activeCards, setActiveCards] = useState<Set<number> | null>(null);
   const [activeStep, setActiveStep] = useState<ActiveStepInfo | null>(null);
   const [resetNonce, setResetNonce] = useState(0);
-  const [requestedStep, setRequestedStep] = useState<number | null>(null);
+  const [requestedStep, setRequestedStep] = useState<{ step: number; nonce: number } | null>(null);
 
   // When steps or board changes, reset the active step.
   useEffect(() => {
@@ -216,7 +216,7 @@ export function BoardDetail({ board, score, scoring, weights, hand, steps, steps
         {score ? (
           <>
             <ScoreBreakdown s={score} weights={weights} getCard={getCard} onHover={onHover} onHoverEnd={onHoverEnd} />
-            {score.matchup && (
+            {score.matchup && !score.matchup.error && score.matchup.handTraps.some((h) => (h.drawn ?? 0) > 0) && (
               <StopTradeOff
                 board={board}
                 matchup={score.matchup}
@@ -224,7 +224,7 @@ export function BoardDetail({ board, score, scoring, weights, hand, steps, steps
                 onHover={onHover}
                 onHoverEnd={onHoverEnd}
                 onSelectStep={(st) => {
-                  setRequestedStep(st);
+                  setRequestedStep({ step: st, nonce: Date.now() });
                   setView("visual");
                 }}
               />
