@@ -16,6 +16,7 @@
 #include <array>
 #include <cstring>
 #include <memory>
+#include <unordered_map>
 #include <unordered_set>
 #include <vector>
 
@@ -56,6 +57,8 @@ struct Snapshot {
 	std::unordered_set<effect*> keep;
 	field_info infos;
 	uint32_t global_flag;
+	// A raw image of each table as it was last put back (shim/table.cpp).
+	std::unordered_map<const void*, std::vector<unsigned char>> images;
 };
 const char* const SNAPSHOT_CPP = "duelforge.snapshot.cpp";
 
@@ -80,6 +83,18 @@ std::array<int32_t, REF_FIELDS> refs(effect& e) {
 }
 
 void visit(lua_State* L, int value, int snap);
+
+extern "C" {
+size_t df_table_image_size(const void* table);
+void df_table_image(const void* table, unsigned char* out);
+int df_table_same(const void* table, const unsigned char* image, size_t size);
+}
+
+void take_image(Snapshot& cpp, const void* table) {
+	auto& image = cpp.images[table];
+	image.resize(df_table_image_size(table));
+	df_table_image(table, image.data());
+}
 
 // Copies the table at `t` (absolute index) unless already copied.
 void visit_table(lua_State* L, int t, int snap) {
@@ -222,7 +237,7 @@ void restore_table(lua_State* L, int t, int copy, lua_Integer count) {
 	}
 }
 
-void restore(lua_State* L, int snap) {
+void restore(lua_State* L, int snap, Snapshot& cpp) {
 	luaL_checkstack(L, 12, nullptr);
 	lua_rawgeti(L, snap, COPIES);
 	const int copies = lua_gettop(L);
@@ -234,6 +249,12 @@ void restore(lua_State* L, int snap) {
 	while(lua_next(L, copies) != 0) {
 		const int copy = lua_gettop(L);
 		const int t = copy - 1;
+		// Not stored into since it was last put back.
+		const void* table = lua_topointer(L, t);
+		if(auto found = cpp.images.find(table); found != cpp.images.end() && df_table_same(table, found->second.data(), found->second.size())) {
+			lua_pop(L, 1);
+			continue;
+		}
 		lua_pushvalue(L, t);
 		lua_rawget(L, counts);
 		const auto count = lua_tointeger(L, -1);
@@ -256,6 +277,7 @@ void restore(lua_State* L, int snap) {
 			lua_pushvalue(L, meta);
 			lua_setmetatable(L, t);
 		}
+		take_image(cpp, table);
 		lua_pop(L, 2);
 	}
 	lua_pop(L, 3);
@@ -349,6 +371,13 @@ int df_duel_snapshot(OCG_Duel ocg_duel) {
 		lua_pop(L, 1);
 		lua_pushnil(L);
 		lua_rawseti(L, snap, SEEN);
+		lua_rawgeti(L, snap, COPIES);
+		lua_pushnil(L);
+		while(lua_next(L, -2) != 0) {
+			take_image(*cpp, lua_topointer(L, -2));
+			lua_pop(L, 1);
+		}
+		lua_pop(L, 1);
 		lua_setfield(L, LUA_REGISTRYINDEX, SNAPSHOT);
 	} catch(...) {
 		lua_settop(L, top);
@@ -448,7 +477,7 @@ int df_duel_reset(OCG_Duel ocg_duel, const OCG_DuelOptions* options) {
 			lua_settop(L, top);
 			return 0;
 		}
-		restore(L, lua_gettop(L));
+		restore(L, lua_gettop(L), *cpp);
 		lua_settop(L, top);
 		lua_getfield(L, LUA_REGISTRYINDEX, SNAPSHOT);
 		lua_rawgeti(L, -1, EFFECTS);
