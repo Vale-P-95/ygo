@@ -284,3 +284,131 @@ Le prime correzioni da fare, in ordine:
 6. Poi la mappa: tipo "posiziona dal Deck" (contratto con l'interfaccia), materiali dal Deck come "manda al Cimitero", `chance` senza il Cimitero, "recupera" solo verso la mano, tempo massimo.
 
 Gli script per ripetere tutto: `scripts/links_report.py` e `scripts/matchup_report.py` (con `--cli` per confrontare due build, `--skip-run` per rifare solo le tabelle).
+
+## Appendice: la patch sperimentale
+È la copia usata per i numeri "dopo", contro il commit `7c0e640`. Non va applicata così: le correzioni sono accese da variabili d'ambiente e ci sono tracce di debug (`QA_TRACE`). Serve per vedere dove stanno le modifiche.
+
+```diff
+diff --git a/crates/ygo-solver/src/links.rs b/crates/ygo-solver/src/links.rs
+index 3aac0c9..d31dc12 100644
+--- a/crates/ygo-solver/src/links.rs
++++ b/crates/ygo-solver/src/links.rs
+@@ -444,6 +444,12 @@ fn play(
+         if decision.player() == Some(0) {
+             reader.offered(engine, &decision);
+             // The card of an action you choose: its costs and its summon are its own.
++            // QA experiment: an optional trigger you say yes to is the card acting too.
++            if let (Decision::EffectYesNo { card, .. }, true) = (&decision, std::env::var_os("QA_FIX_C").is_some()) {
++                if duel.actions(&decision).iter().any(|a| a.kind == ygo_engine::ActionKind::Yes && &a.response == answer) {
++                    reader.acting = Some(engine.cards().canonical_code(card.code));
++                }
++            }
+             if matches!(decision, Decision::IdleCmd { .. } | Decision::SelectChain { .. }) {
+                 let actions = duel.actions(&decision);
+                 if let Some(card) = actions.iter().find(|a| &a.response == answer).and_then(|a| a.card) {
+diff --git a/crates/ygo-solver/src/matchup.rs b/crates/ygo-solver/src/matchup.rs
+index f026f0b..f6120d1 100644
+--- a/crates/ygo-solver/src/matchup.rs
++++ b/crates/ygo-solver/src/matchup.rs
+@@ -213,16 +213,33 @@ pub(crate) fn none_drawn(size: usize, copies: u32, drawn: usize) -> f64 {
+ struct Own {
+     answers: Vec<Vec<u8>>,
+     kinds: Vec<Discriminant<Decision>>,
++    /// QA experiment: what each answer does (card, location, description).
++    ids: Vec<Option<(u32, u8, u64, ActionKind)>>,
+ }
+ 
+ fn own_answers(engine: &Engine, deck: &DeckList, hand: &[u32], seed: u64, opponent: &Opponent, line: &Line) -> Result<Own, Error> {
+     let mut duel = Duel::goldfish_against(engine, deck, hand, seed, Some(opponent))?;
+-    let mut own = Own { answers: Vec::new(), kinds: Vec::new() };
++    let mut own = Own { answers: Vec::new(), kinds: Vec::new(), ids: Vec::new() };
++    let db = engine.cards();
+     for answer in &line.answers {
+         let Step::Decision { decision, .. } = duel.advance()? else { break };
+         if decision.player() != Some(1) {
+             own.answers.push(answer.clone());
+             own.kinds.push(std::mem::discriminant(&decision));
++            let actions = duel.actions(&decision);
++            let id = match &decision {
++                Decision::EffectYesNo { card, description, .. }
++                    if actions.iter().any(|a| a.kind == ActionKind::Yes && &a.response == answer) =>
++                {
++                    Some((db.canonical_code(card.code), card.location, 0 * *description, ActionKind::Activate))
++                }
++                Decision::EffectYesNo { .. } => None,
++                _ => actions
++                    .iter()
++                    .find(|a| &a.response == answer)
++                    .and_then(|a| a.card.map(|c| (db.canonical_code(c.code), c.location, a.description, a.kind))),
++            };
++            own.ids.push(id);
+         }
+         duel.respond(answer);
+     }
+@@ -323,6 +340,36 @@ fn replay(
+                 while next < own.answers.len() && own.kinds[next] != kind && own.answers[next] == PASS {
+                     next += 1;
+                 }
++                // QA experiment: the line's answer by what it does, not by its index.
++                if std::env::var_os("QA_FIX_D").is_some() {
++                    if let Some(Some((code, loc, desc, akind))) = own.ids.get(next) {
++                        let same = |c: &ygo_engine::CardRef, d: u64| db.canonical_code(c.code) == *code && c.location == *loc && (d == *desc || d == 0 || *desc == 0);
++                        let found = match &decision {
++                            Decision::EffectYesNo { card, description, .. } if same(card, *description) => {
++                                actions.iter().find(|a| a.kind == ActionKind::Yes).map(|a| a.response.clone())
++                            }
++                            _ => actions.iter().find(|a| (a.kind == *akind || (*akind == ActionKind::Activate && a.kind == ActionKind::Yes)) && a.card.is_some_and(|c| same(&c, a.description))).map(|a| a.response.clone()),
++                        };
++                        if let Some(r) = found {
++                            duel.respond(&r);
++                            asked = Some(decision);
++                            next += 1;
++                            continue;
++                        }
++                    }
++                }
++                // QA experiment: a new optional question (a trigger of yours the
++                // handtrap gave, the End Phase asked again) gets a passive answer.
++                let only_end = matches!(decision, Decision::IdleCmd { .. }) && actions.iter().all(|a| a.kind == ActionKind::EndTurn);
++                let optional = matches!(decision, Decision::EffectYesNo { .. } | Decision::YesNo { .. } | Decision::SelectChain { .. });
++                if std::env::var_os("QA_FIX_B").is_some() && own.kinds.get(next).is_some_and(|k| *k != kind) && (only_end || optional) && rejected < 40 {
++                    rejected += 1;
++                    if std::env::var_os("QA_TRACE").is_some() {
++                        eprintln!("QA T passive next={next} decision={decision:?}");
++                    }
++                    duel.respond(&passive_answer(&decision, &actions));
++                    continue;
++                }
+                 // Asked something else: the handtrap changed the line.
+                 if own.kinds.get(next).is_some_and(|k| *k != kind) {
+                     if std::env::var_os("DUELFORGE_DEBUG_MATCHUP").is_some() {
+@@ -333,6 +380,10 @@ fn replay(
+                 }
+             }
+             let Some(answer) = own.answers.get(next) else { break };
++            if std::env::var_os("QA_TRACE").is_some() {
++                let picks: Vec<String> = actions.iter().filter(|a| &a.response == answer).filter_map(|a| a.card).map(|c| db.name(c.code)).collect();
++                eprintln!("QA {} use_at={:?} next={next} kind={:?} picks={picks:?} answer={answer:?}", if used {"T"} else {"B"}, use_at.map(|u| u.1), std::mem::discriminant(&decision));
++            }
+             duel.respond(answer);
+             asked = Some(decision);
+             next += 1;
+@@ -405,7 +456,16 @@ fn hand_trap_stops(
+     own: &Own,
+     hand_traps: &[u32],
+ ) -> Result<Vec<RivalHandTrap>, Error> {
+-    let opponent = Opponent { hand: hand_traps.to_vec(), deck: kit.opponent().deck.clone(), extra: Vec::new() };
++    let mut rdeck = kit.opponent().deck.clone();
++    // QA experiment: a deck as big as a real one (Maxx "C" draws from it).
++    if std::env::var_os("QA_FIX_A").is_some() {
++        if let Some(&filler) = rdeck.last() {
++            while rdeck.len() < 35 {
++                rdeck.insert(0, filler);
++            }
++        }
++    }
++    let opponent = Opponent { hand: hand_traps.to_vec(), deck: rdeck, extra: Vec::new() };
+     let base = replay(engine, deck, hand, seed, &opponent, own, None)?;
+     let mut out = Vec::new();
+     for &code in hand_traps {
+```
