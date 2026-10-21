@@ -757,11 +757,12 @@ impl<'a> Prober<'a> {
         };
         let all_worked = worked(&all);
 
-        // Floodgates: what works on an empty board but not here, with no answer.
+        // Floodgates: what works on an empty board but not here, with no
+        // answer. A step whose prerequisite failed is not stopped a second
+        // time (no Glow-Up Bulb in the GY, no effect from there).
         let mut floodgates = Vec::new();
         for (step, (run, base_run)) in self.kit.steps.iter().zip(all.steps.iter().zip(&base.steps)) {
-            let prerequisite = step.needs.is_none_or(|p| all_worked.get(&p) == Some(&true) || floodgates.contains(&p));
-            if !prerequisite {
+            if step.needs.is_some_and(|p| all_worked.get(&p) != Some(&true)) {
                 continue;
             }
             for (i, (probe, _)) in step.goals.iter().enumerate() {
@@ -791,9 +792,18 @@ impl<'a> Prober<'a> {
             *at += 1;
         }
         let debug = std::env::var_os("DUELFORGE_DEBUG_PROBE").is_some();
+        // What a step needs: a probe lost only because the one it needs was
+        // stopped is not stopped again (negating Foolish Burial is not also
+        // stopping Glow-Up Bulb's effect from the GY).
+        let needs: HashMap<Probe, Probe> =
+            self.kit.steps.iter().flat_map(|s| s.goals.iter().filter_map(move |(p, _)| Some((*p, s.needs?)))).collect();
         let stopped_by = |run: &RunTrace| -> Vec<Probe> {
             let now = worked(run);
-            all_worked.iter().filter(|(p, ok)| **ok && now.get(p) != Some(&true)).map(|(p, _)| *p).collect()
+            all_worked
+                .iter()
+                .filter(|(p, ok)| **ok && now.get(p) != Some(&true) && needs.get(p).is_none_or(|n| now.get(n) == Some(&true)))
+                .map(|(p, _)| *p)
+                .collect()
         };
         let mut interruptions = Vec::new();
         for (id, loc, windows) in &offered {

@@ -1,0 +1,109 @@
+//! The probe turn on boards put straight on the field (plan of the board
+//! classification, C4). Skipped without the game data, like `invoked.rs`.
+
+use std::path::PathBuf;
+
+use ygo_engine::consts::{location, position};
+use ygo_engine::{DeckList, Engine, Placement};
+use ygo_solver::{Kit, Measure, Probe, Prober};
+
+struct Lab {
+    engine: Engine,
+    deck: DeckList,
+}
+
+fn lab() -> Option<Lab> {
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let data = std::env::var_os("DUELFORGE_DATA").map(PathBuf::from).unwrap_or_else(|| root.join("data"));
+    if !data.join("scripts/constant.lua").is_file() {
+        eprintln!("skipped: no game data in {}", data.display());
+        return None;
+    }
+    let engine = Engine::load(&data).expect("game data loads");
+    let deck = DeckList::from_ydk(&std::fs::read_to_string(root.join("tests/fixtures/decks/invoked-siracusa-md.ydk")).unwrap()).unwrap();
+    Some(Lab { engine, deck })
+}
+
+/// Where a card is put.
+enum At {
+    Monster,
+    Set,
+    FaceUp,
+}
+
+impl Lab {
+    fn code(&self, name: &str) -> u32 {
+        self.engine.cards().find_by_name(name).unwrap_or_else(|| panic!("{name}")).code
+    }
+
+    /// Measures these cards on your field, with `hand` in your hand (cards
+    /// that do nothing on the opponent's turn when empty).
+    fn measure(&self, field: &[(&str, At)], hand: &[&str]) -> Measure {
+        let mut hand: Vec<u32> = hand.iter().map(|n| self.code(n)).collect();
+        if hand.is_empty() {
+            hand = ["Alexandrite Dragon", "Pot of Greed", "Trap Hole"].iter().map(|n| self.code(n)).collect();
+        }
+        let mut deck = self.deck.clone();
+        deck.main.extend(&hand);
+        let mut monsters = 0;
+        let mut spells = 1;
+        let placed: Vec<Placement> = field
+            .iter()
+            .map(|(name, at)| {
+                let (location, sequence, position) = match at {
+                    At::Monster => {
+                        monsters += 1;
+                        (location::MZONE, monsters - 1, position::FACEUP_ATTACK)
+                    }
+                    At::Set => {
+                        spells += 1;
+                        (location::SZONE, spells - 1, position::FACEDOWN_DEFENSE)
+                    }
+                    At::FaceUp => {
+                        spells += 1;
+                        (location::SZONE, spells - 1, position::FACEUP_ATTACK)
+                    }
+                };
+                Placement { code: self.code(name), location, sequence, position, overlay: Vec::new() }
+            })
+            .collect();
+        let kit = Kit::standard(&self.engine);
+        let mut prober = Prober::new(&self.engine, &deck, &hand, 1, &kit);
+        prober.measure_placed(&placed).expect("the probe turn is played")
+    }
+}
+
+fn covers(m: &Measure, card: u32) -> Vec<Probe> {
+    m.interruptions.iter().find(|i| i.responder.code == card).map(|i| i.covers.clone()).unwrap_or_default()
+}
+
+#[test]
+fn a_step_lost_because_an_earlier_one_was_stopped_is_not_counted() {
+    let Some(lab) = lab() else { return };
+    // Trap Hole destroys Celtic Guardian when it is Normal Summoned: Link
+    // Spider (Celtic is its material) and Link Spider's effect are lost
+    // too, but Trap Hole cannot answer them. They are not what it stops.
+    let m = lab.measure(&[("Trap Hole", At::Set)], &[]);
+    let hole = covers(&m, lab.code("Trap Hole"));
+    assert!(!hole.is_empty());
+    assert!(!hole.contains(&Probe::FieldIgnition), "{hole:?}");
+}
+
+#[test]
+fn a_floodgate_counts_what_it_stops_not_what_follows() {
+    let Some(lab) = lab() else { return };
+    // Monsters sent to the GY are banished: Glow-Up Bulb is not sent, and
+    // its effect from the GY is a step that follows, not a second floodgate.
+    let m = lab.measure(&[("Dimensional Fissure", At::FaceUp)], &[]);
+    assert!(m.floodgates.contains(&Probe::SendToGrave), "{:?}", m.floodgates);
+    assert!(!m.floodgates.contains(&Probe::GraveEffect), "{:?}", m.floodgates);
+}
+
+#[test]
+fn infinite_impermanence_set_answers_the_monsters_already_on_the_field() {
+    let Some(lab) = lab() else { return };
+    // A monster of yours that does nothing, as on most boards.
+    let m = lab.measure(&[("Alexandrite Dragon", At::Monster), ("Infinite Impermanence", At::Set)], &[]);
+    let imperm = covers(&m, lab.code("Infinite Impermanence"));
+    assert!(imperm.contains(&Probe::FieldIgnition) && imperm.contains(&Probe::DeckSummon), "{imperm:?}");
+}
