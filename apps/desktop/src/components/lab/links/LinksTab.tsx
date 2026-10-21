@@ -64,6 +64,7 @@ export function LinksTab({
 
   // Reset comparison when current deck changes
   useEffect(() => {
+    compareReqIdRef.current++;
     setCompareDeckId(null);
     setComparison(null);
     setCompareError(null);
@@ -76,8 +77,10 @@ export function LinksTab({
       setCompareDeckId(targetId);
       setCompareError(null);
       if (targetId == null) {
+        compareReqIdRef.current++;
         setComparison(null);
         setCompareLoading(false);
+        setCompareError(null);
         return;
       }
       if (deck.id == null) return;
@@ -214,8 +217,11 @@ export function LinksTab({
                 sound.play("toggle");
                 setIsCompareOpen((open) => {
                   if (open) {
+                    compareReqIdRef.current++;
                     setCompareDeckId(null);
                     setComparison(null);
+                    setCompareError(null);
+                    setCompareLoading(false);
                   }
                   return !open;
                 });
