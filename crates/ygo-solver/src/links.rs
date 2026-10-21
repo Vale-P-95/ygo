@@ -9,7 +9,7 @@
 use std::collections::{HashMap, HashSet};
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::Mutex;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use ygo_engine::consts::{location, reason};
 use ygo_engine::{CardRef, Decision, DeckList, Duel, Engine, Event, Opponent, Step};
@@ -28,10 +28,13 @@ pub enum LinkKind {
     Summon,
     /// Sends it from the Deck to the GY.
     ToGrave,
-    /// Gets it back from the GY or banishment to the hand or the Deck.
+    /// Gets it back from the GY or banishment to the hand.
     Recover,
     /// `from` is a material named by `to` (an Extra Deck monster).
     Material,
+    /// Puts it from the Deck on the field: Set, or placed face-up in a
+    /// Spell & Trap Zone or the Field Zone.
+    Set,
 }
 
 impl LinkKind {
@@ -42,7 +45,15 @@ impl LinkKind {
             LinkKind::ToGrave => "toGrave",
             LinkKind::Recover => "recover",
             LinkKind::Material => "material",
+            LinkKind::Set => "set",
         }
+    }
+
+    /// It brings a new card into play (to the hand or the field), so the
+    /// links of that card count from there: not sending it to the GY or
+    /// getting it back.
+    fn brings(self) -> bool {
+        matches!(self, LinkKind::Search | LinkKind::Summon | LinkKind::Material | LinkKind::Set)
     }
 }
 
@@ -104,9 +115,12 @@ pub struct LinkCard {
     pub reach: u32,
     pub reach_all: u32,
     /// Chance that an opening hand of 5 holds it or a card that brings it
-    /// into play in any number of steps. 0 for an Extra Deck monster no
-    /// card names: it is summoned with any materials.
+    /// into play in any number of steps. For an Extra Deck monster no card
+    /// names (summoned with any materials), the share of the hands searched
+    /// whose best line summons it.
     pub chance: f64,
+    /// `chance` is that share, measured and not exact.
+    pub measured: bool,
     /// Cards an opening hand reaches on average (the sum of the chances)
     /// that are lost when this card's effects are negated: how much the
     /// deck leans on it.
@@ -131,11 +145,23 @@ pub struct LinksBudget {
     /// Best lines played again for each hand.
     pub lines_per_hand: usize,
     pub threads: usize,
+    /// The longest search of a hand, and of the whole map: past it the
+    /// hands left are not searched (every card has had its first hand by
+    /// then, unless the deck is very slow).
+    pub time_per_hand: Duration,
+    pub time: Duration,
 }
 
 impl Default for LinksBudget {
     fn default() -> Self {
-        LinksBudget { hands_per_card: 2, nodes_per_hand: 1000, lines_per_hand: 20, threads: 4 }
+        LinksBudget {
+            hands_per_card: 2,
+            nodes_per_hand: 1000,
+            lines_per_hand: 20,
+            threads: 4,
+            time_per_hand: Duration::from_secs(15),
+            time: Duration::from_secs(60),
+        }
     }
 }
 
@@ -149,11 +175,13 @@ struct Found {
     lines: HashSet<usize>,
 }
 
-/// The links of one line: those offered and those used.
+/// The links of one line: those offered and those used; the Extra Deck
+/// monsters it summons.
 #[derive(Default)]
 struct Seen {
     possible: HashSet<Key>,
     used: HashSet<Key>,
+    summoned: HashSet<u32>,
 }
 
 /// Reads the map of `deck`, calling `progress(done, total)` after each hand.
@@ -172,7 +200,7 @@ pub fn deck_links(
             let code = db.canonical_code(c);
             match cards.iter_mut().find(|k| k.code == code) {
                 Some(k) => k.copies += 1,
-                None => cards.push(LinkCard { code, copies: 1, extra, reach: 0, reach_all: 0, chance: 0.0, key: 0.0 }),
+                None => cards.push(LinkCard { code, copies: 1, extra, reach: 0, reach_all: 0, chance: 0.0, measured: false, key: 0.0 }),
             }
         }
     }
@@ -180,33 +208,42 @@ pub fn deck_links(
     // A few hands holding each card of the Main Deck.
     let kit = Kit::standard(engine);
     let traps = hand_traps(engine, deck, seed, &kit);
-    let mut hands: Vec<Vec<u32>> = Vec::new();
+    // The first hand of every card, then the second ones: a map cut short
+    // by the time limit still has every card.
+    let mut per_card: Vec<Vec<Vec<u32>>> = Vec::new();
     for card in cards.iter().filter(|c| !c.extra) {
         let Some(&copy) = deck.main.iter().find(|&&c| db.canonical_code(c) == card.code) else { continue };
-        for (hand, _) in sample_hands(&deck.main, copy, budget.hands_per_card, seed) {
-            if !hands.contains(&hand) {
-                hands.push(hand);
+        per_card.push(sample_hands(&deck.main, copy, budget.hands_per_card, seed).into_iter().map(|(hand, _)| hand).collect());
+    }
+    let mut hands: Vec<Vec<u32>> = Vec::new();
+    for round in 0..budget.hands_per_card {
+        for hand in per_card.iter().filter_map(|h| h.get(round)) {
+            if !hands.contains(hand) {
+                hands.push(hand.clone());
             }
         }
     }
+    let deadline = Instant::now() + budget.time;
 
     let named = Names::new(engine, &cards);
     let next = AtomicUsize::new(0);
     let done = AtomicUsize::new(0);
-    let seen: Mutex<Vec<Seen>> = Mutex::new(Vec::new());
+    // The lines played of each hand, the best first.
+    let seen: Mutex<Vec<Vec<Seen>>> = Mutex::new(Vec::new());
     std::thread::scope(|s| {
         for _ in 0..budget.threads.clamp(1, hands.len().max(1)) {
             s.spawn(|| loop {
                 let i = next.fetch_add(1, Ordering::Relaxed);
                 let Some(hand) = hands.get(i) else { break };
-                if cancel.load(Ordering::Relaxed) {
+                let left = deadline.saturating_duration_since(Instant::now());
+                if cancel.load(Ordering::Relaxed) || left.is_zero() {
                     break;
                 }
                 let mut config = SearchConfig::new(deck.clone(), hand.clone());
                 config.seed = seed;
                 config.threads = 1;
                 config.max_nodes = budget.nodes_per_hand;
-                config.time_limit = Duration::from_secs(60);
+                config.time_limit = budget.time_per_hand.min(left);
                 config.opponent = Some(kit.opponent().clone());
                 config.hand_traps = traps.clone();
                 let result = search(engine, &config, cancel, |_| {});
@@ -217,13 +254,14 @@ pub fn deck_links(
                     .filter_map(|b| play(engine, deck, hand, seed, config.opponent.as_ref(), &b.line, &named))
                     .collect();
                 if let Ok(mut all) = seen.lock() {
-                    all.extend(lines);
+                    all.push(lines);
                 }
                 progress(done.fetch_add(1, Ordering::Relaxed) + 1, hands.len());
             });
         }
     });
-    let seen = seen.into_inner().unwrap_or_default();
+    let by_hand = seen.into_inner().unwrap_or_default();
+    let seen: Vec<&Seen> = by_hand.iter().flatten().collect();
 
     // Links between cards of the deck, one per card and kind, from the
     // first zone seen; used ones counted once per line.
@@ -257,7 +295,7 @@ pub fn deck_links(
     // steps, and the chance of an opening hand holding one that leads there.
     let next_of = |code: u32| -> HashSet<u32> { links.iter().filter(|l| l.from == code).map(|l| l.to).collect() };
     let brings = |code: u32| -> HashSet<u32> {
-        links.iter().filter(|l| l.from == code && matches!(l.zone, Zone::Deck | Zone::Extra)).map(|l| l.to).collect()
+        links.iter().filter(|l| l.from == code && l.kind.brings() && matches!(l.zone, Zone::Deck | Zone::Extra)).map(|l| l.to).collect()
     };
     // What `code` brings into play, without the links of `negated`.
     let closure = |code: u32, negated: Option<u32>| -> HashSet<u32> {
@@ -302,7 +340,14 @@ pub fn deck_links(
         card.chance = chance(card.code, &closures);
         card.key = keys[&card.code];
     }
-    DeckLinks { cards, links, hands: hands.len() as u32, lines: seen.len() as u32 }
+    // An Extra Deck monster no card leads to: how often the best line of a
+    // hand summons it.
+    let best: Vec<&Seen> = by_hand.iter().filter_map(|lines| lines.first()).collect();
+    for card in cards.iter_mut().filter(|c| c.extra && c.chance == 0.0 && !best.is_empty()) {
+        card.chance = best.iter().filter(|s| s.summoned.contains(&card.code)).count() as f64 / best.len() as f64;
+        card.measured = true;
+    }
+    DeckLinks { cards, links, hands: by_hand.len() as u32, lines: seen.len() as u32 }
 }
 
 /// The materials each Extra Deck monster of the deck names in its text: a
@@ -321,8 +366,11 @@ impl Names {
             .filter(|c| c.extra)
             .filter_map(|c| {
                 let text = db.get(c.code)?.desc.to_lowercase();
-                // The materials come first, before the first sentence ends.
-                let materials = text.split(['.', '\n']).next().unwrap_or("").to_owned();
+                // The materials are the first line (of the monster's text,
+                // after a Pendulum Effect): not cut at a dot, which names
+                // like "R.B." hold.
+                let text = text.rsplit("[ monster effect ]").next().unwrap_or("").trim_start();
+                let materials = text.split(['\r', '\n']).next().unwrap_or("").to_owned();
                 let mut quoted: Vec<String> = materials.split('"').skip(1).step_by(2).map(str::to_owned).collect();
                 quoted.push(materials);
                 Some((c.code, quoted))
@@ -382,11 +430,16 @@ impl Reader {
                     let kind = match (from.location, to.location) {
                         (location::DECK, location::HAND) => Some(LinkKind::Search),
                         (location::DECK, location::GRAVE) => Some(LinkKind::ToGrave),
-                        (location::GRAVE | location::REMOVED, location::HAND | location::DECK) => Some(LinkKind::Recover),
+                        (location::DECK, location::SZONE) => Some(LinkKind::Set),
+                        (location::GRAVE | location::REMOVED, location::HAND) => Some(LinkKind::Recover),
                         _ => None,
                     };
                     if why & reason::MATERIAL != 0 {
                         self.used_materials.push(code);
+                        // A material sent from the Deck (Branded Fusion) is sent to the GY.
+                        if let (Some(LinkKind::ToGrave), Some(cause)) = (kind, cause) {
+                            self.out.used.insert((cause, code, LinkKind::ToGrave, Zone::Deck));
+                        }
                     } else if let (Some(kind), Some(cause), Some(zone)) = (kind, cause, Zone::of(from.location)) {
                         self.out.used.insert((cause, code, kind, zone));
                     }
@@ -395,6 +448,7 @@ impl Reader {
                     let code = db.canonical_code(card.code);
                     let from = self.moved_from.get(&code).and_then(|&l| Zone::of(l));
                     if from == Some(Zone::Extra) {
+                        self.out.summoned.insert(code);
                         for &m in self.offered_materials.iter().filter(|&&m| named.named(m, code)) {
                             self.out.possible.insert((m, code, LinkKind::Material, Zone::Extra));
                         }
@@ -429,12 +483,14 @@ impl Reader {
             // The select hints of the scripts (HINTMSG_*).
             let kind = match (hint, c.location) {
                 (506, location::DECK) => Some(LinkKind::Search),
-                (505..=507, location::GRAVE | location::REMOVED) => Some(LinkKind::Recover),
+                (505 | 506, location::GRAVE | location::REMOVED) => Some(LinkKind::Recover),
                 (504, location::DECK) => Some(LinkKind::ToGrave),
                 (509, l) if l & (location::MZONE | location::SZONE) == 0 => Some(LinkKind::Summon),
-                (511..=513 | 533, _) => {
+                (510 | 527, location::DECK) => Some(LinkKind::Set),
+                (511..=513 | 533, l) => {
                     self.offered_materials.push(code);
-                    None
+                    // Materials from the Deck go to the GY.
+                    (l == location::DECK).then_some(LinkKind::ToGrave)
                 }
                 _ => None,
             };

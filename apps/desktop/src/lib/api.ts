@@ -562,15 +562,16 @@ export interface ComboStep {
 }
 
 /** How one card of the deck leads to another (`docs/plans/mappa-collegamenti.md`). */
-export type CardLinkKind = "search" | "summon" | "toGrave" | "recover" | "material";
+export type CardLinkKind = "search" | "summon" | "toGrave" | "recover" | "material" | "set";
 
 /** `from` leads to `to` (mirrors `CardLinkView`). */
 export interface CardLink {
   from: number;
   to: number;
   /**
-   * search: adds it from the Deck to the hand; summon: Special Summons it; toGrave: sends it from the Deck to the GY;
-   * recover: gets it back from the GY or banishment to the hand or Deck; material: `from` is a material of `to`.
+   * search: adds it from the Deck to the hand; summon: Special Summons it; toGrave: sends it from the Deck to the GY
+   * (a Fusion Material from the Deck too); recover: gets it back from the GY or banishment to the hand; material: `from`
+   * is a material of `to`; set: puts it from the Deck on the field (Set, or placed in a Spell & Trap Zone or the Field Zone).
    */
   kind: CardLinkKind;
   /** Where `to` comes from (a link from the GY or the hand brings no new card into play). */
@@ -587,14 +588,20 @@ export interface LinkCard {
   copies: number;
   /** In the Extra Deck. */
   extra: boolean;
-  /** Cards it leads to in one step (any link), and with the cards brought into play from there in any number of steps (links from the Deck or the Extra Deck). */
+  /**
+   * Cards it leads to in one step (any link), and with the cards brought into play from there in any number of steps
+   * (search, summon, material and set links from the Deck or the Extra Deck: sending to the GY or getting back brings no new card).
+   */
   reach: number;
   reachAll: number;
   /**
    * Exact chance that an opening hand of 5 holds it or a card that brings it into play in any number of steps
-   * (one card is enough: optimistic when a link needs more). 0 for an Extra Deck monster no card names as material.
+   * (one card is enough: optimistic when a link needs more). For an Extra Deck monster no card names as material,
+   * the share of the hands searched whose best line summons it (`measured`).
    */
   chance: number;
+  /** `chance` is measured, not exact: show it as an estimate. Always sent by the backend. */
+  measured?: boolean;
   /** Cards an opening hand reaches on average (sum of the chances) that are lost when this card's effects are negated: the key cards of the deck. */
   key: number;
 }

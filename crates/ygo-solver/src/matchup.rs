@@ -4,16 +4,17 @@
 //! Interruptions and floodgates stay measured with the standard kit.
 //!
 //! Both are read from the engine: the breakers are the cards of the deck
-//! that take or negate the opponent's cards (by text, as the roles do) and
-//! that the engine lets it play from the hand; the handtraps are those it
-//! can use from the hand during your turn ([`hand_traps`]).
+//! that take or negate the opponent's cards (by text, as the roles do), that
+//! the engine lets it play from the hand and that, played against a plain
+//! field, take something off it; the handtraps are those it can use from
+//! the hand during your turn ([`hand_traps`]).
 
 use std::collections::HashMap;
 use std::mem::Discriminant;
 
 use ygo_engine::auto::passive_answer;
 use ygo_engine::consts::{location, position};
-use ygo_engine::{ActionKind, Decision, DeckList, Duel, Engine, Error, Event, Opponent, Placement, Step};
+use ygo_engine::{Action, ActionKind, CardRef, Decision, DeckList, Duel, Engine, Error, Event, Opponent, Placement, Step};
 
 use crate::probe::{end_turn, find_act, forward, hand_traps, window_answer, Act, Breaker, Kit, Measure, Prelude, Prober, ResponderId};
 use crate::roles::breakers_by_text;
@@ -41,6 +42,8 @@ pub struct Rival {
     cards: Vec<u32>,
     /// Its handtraps (original codes).
     pub hand_traps: Vec<u32>,
+    /// Its Main Deck, what it draws from (Maxx "C" draws many).
+    main: Vec<u32>,
 }
 
 impl Rival {
@@ -70,13 +73,13 @@ impl Rival {
                 cards.push(c);
             }
         }
-        for (c, summon) in playable(engine, kit, &others, seed) {
+        for (c, summon) in playable(engine, deck, &others, seed) {
             breakers.push(Breaker::card(db.name(c), 1.0, c, summon));
             cards.push(c);
         }
         let kit = if breakers.is_empty() { kit.clone() } else { kit.with_breakers(breakers) };
         let hand_traps = hand_traps(engine, deck, seed, &kit);
-        Rival { size: deck.main.len(), copies, kit, cards, hand_traps, standard: standard.opponent().clone() }
+        Rival { size: deck.main.len(), copies, kit, cards, hand_traps, standard: standard.opponent().clone(), main: deck.main.clone() }
     }
 
     /// The cards played as breakers (none: the standard ones are used).
@@ -192,7 +195,7 @@ pub fn matchup(
         out.breaker_chance = 1.0 - rival.none_of(&before, ITS_TURN);
     }
 
-    out.hand_traps = hand_trap_stops(engine, deck, hand, seed, &rival.kit, &own, &rival.hand_traps)?;
+    out.hand_traps = hand_trap_stops(engine, deck, hand, seed, &rival.main, &own, &rival.hand_traps)?;
     for h in &mut out.hand_traps {
         h.chance = 1.0 - rival.none_of(&[h.code], OPENING);
     }
@@ -375,7 +378,7 @@ fn own_answers(engine: &Engine, deck: &DeckList, hand: &[u32], seed: u64, oppone
 }
 
 /// The answer to `decision` that plays the action `id`, if it is offered.
-fn find_again(engine: &Engine, decision: &Decision, actions: &[ygo_engine::Action], id: ActionId) -> Option<Vec<u8>> {
+fn find_again(engine: &Engine, decision: &Decision, actions: &[Action], id: ActionId) -> Option<Vec<u8>> {
     let db = engine.cards();
     match decision {
         Decision::EffectYesNo { card, .. } => {
@@ -592,11 +595,12 @@ fn hand_trap_stops(
     deck: &DeckList,
     hand: &[u32],
     seed: u64,
-    kit: &Kit,
+    rival: &[u32],
     own: &Own,
     hand_traps: &[u32],
 ) -> Result<Vec<RivalHandTrap>, Error> {
-    let opponent = Opponent { hand: hand_traps.to_vec(), deck: kit.opponent().deck.clone(), extra: Vec::new() };
+    // Its own Deck: the kit's few cards run out when it draws (Maxx "C").
+    let opponent = Opponent { hand: hand_traps.to_vec(), deck: rival.to_vec(), extra: Vec::new() };
     let base = replay(engine, deck, hand, seed, &opponent, own, None)?;
     let mut out = Vec::new();
     for &code in hand_traps {
@@ -654,10 +658,17 @@ fn missing<T: Ord + Copy>(before: &[T], after: &[T]) -> Vec<T> {
 
 /// The cards among `cards` the opponent can play as a breaker from its
 /// hand, and whether by Special Summoning them: those the engine offers in
-/// its Main Phase against a board of three monsters and two Set cards.
-fn playable(engine: &Engine, kit: &Kit, cards: &[u32], seed: u64) -> Vec<(u32, bool)> {
+/// its Main Phase against a field of three monsters and two Set cards, and
+/// that take something off that field when played (a card less, or one
+/// negated). A card that only lowers ATK, or destroys in battle, is no
+/// breaker. The opponent has its own Main and Extra Deck: some pay a cost
+/// from there.
+fn playable(engine: &Engine, rival: &DeckList, cards: &[u32], seed: u64) -> Vec<(u32, bool)> {
     let code = |name: &str| engine.cards().find_by_name(name).map(|c| c.code);
-    let (Some(monster), Some(set)) = (code("Alexandrite Dragon"), code("Trap Hole")) else { return Vec::new() };
+    // Effect monsters, so that negating them shows (their effect works only in the hand).
+    let (Some(filler), Some(monster), Some(set)) = (code("Alexandrite Dragon"), code("Thunder Dragon"), code("Trap Hole")) else {
+        return Vec::new();
+    };
     if cards.is_empty() {
         return Vec::new();
     }
@@ -667,28 +678,104 @@ fn playable(engine: &Engine, kit: &Kit, cards: &[u32], seed: u64) -> Vec<(u32, b
         .map(|i| place(monster, location::MZONE, i, position::FACEUP_ATTACK))
         .chain((1..3).map(|i| place(set, location::SZONE, i, position::FACEDOWN_DEFENSE)))
         .collect();
-    let deck = DeckList { main: vec![monster; 40], ..DeckList::default() };
-    let opponent = Opponent { hand: cards.to_vec(), deck: kit.opponent().deck.clone(), extra: Vec::new() };
-    let Ok(mut duel) = Duel::goldfish_vs_placed(engine, &deck, &[], seed, &opponent, &placed) else { return Vec::new() };
-    for _ in 0..200 {
+    let deck = DeckList { main: vec![filler; 40], ..DeckList::default() };
+    let opponent = Opponent { hand: cards.to_vec(), deck: rival.main.clone(), extra: rival.extra.clone() };
+    // The duel at the opponent's first Main Phase.
+    let start = || -> Option<(Duel, Decision)> {
+        let mut duel = Duel::goldfish_vs_placed(engine, &deck, &[], seed, &opponent, &placed).ok()?;
+        for _ in 0..200 {
+            let Ok(Step::Decision { decision, .. }) = duel.advance() else { return None };
+            if duel.turn_info().0 > 1 && decision.player() == Some(1) && matches!(decision, Decision::IdleCmd { .. }) {
+                return Some((duel, decision));
+            }
+            let actions = duel.actions(&decision);
+            let answer = if decision.player() == Some(1) { passive_answer(&decision, &actions) } else { end_turn(&decision, &actions) };
+            duel.respond(&answer);
+        }
+        None
+    };
+    let Some((duel, decision)) = start() else { return Vec::new() };
+    let actions = duel.actions(&decision);
+    let offered: Vec<(u32, bool)> = cards
+        .iter()
+        .filter_map(|&c| {
+            if find_act(engine, &actions, Act::Activate(c, location::HAND)).is_some() {
+                Some((c, false))
+            } else {
+                find_act(engine, &actions, Act::SpecialSummon(c)).map(|_| (c, true))
+            }
+        })
+        .collect();
+    offered.into_iter().filter(|&(c, summon)| takes_from_field(engine, &start, c, summon)).collect()
+}
+
+/// Plays `code` (Special Summoned, or activated from the hand) in the duel
+/// `start` gives, the opponent going for your cards: true when your field
+/// is left with a card less, or one negated.
+fn takes_from_field(engine: &Engine, start: &dyn Fn() -> Option<(Duel, Decision)>, code: u32, summon: bool) -> bool {
+    let db = engine.cards();
+    let standing = |duel: &Duel| -> usize {
+        let me = &duel.state().players[0];
+        me.monsters.iter().chain(&me.spells).flatten().filter(|c| !c.is_negated()).count()
+    };
+    let Some((mut duel, decision)) = start() else { return false };
+    let before = standing(&duel);
+    let act = if summon { Act::SpecialSummon(code) } else { Act::Activate(code, location::HAND) };
+    let Some(answer) = find_act(engine, &duel.actions(&decision), act) else { return false };
+    duel.respond(&answer);
+    let its = |c: &CardRef| db.canonical_code(c.code) == db.canonical_code(code);
+    let mut again = true;
+    for _ in 0..100 {
         let Ok(Step::Decision { decision, .. }) = duel.advance() else { break };
         let actions = duel.actions(&decision);
-        if duel.turn_info().0 > 1 && decision.player() == Some(1) && matches!(decision, Decision::IdleCmd { .. }) {
-            return cards
-                .iter()
-                .filter_map(|&c| {
-                    if find_act(engine, &actions, Act::Activate(c, location::HAND)).is_some() {
-                        Some((c, false))
-                    } else {
-                        find_act(engine, &actions, Act::SpecialSummon(c)).map(|_| (c, true))
-                    }
-                })
-                .collect();
-        }
-        let answer = if decision.player() == Some(1) { passive_answer(&decision, &actions) } else { end_turn(&decision, &actions) };
+        let answer = if decision.player() != Some(1) {
+            passive_answer(&decision, &actions)
+        } else if let Decision::IdleCmd { .. } = decision {
+            // Back in its Main Phase: the card's effect on the field once
+            // (summoned, then it destroys), else it is done.
+            let on_field = [location::MZONE, location::SZONE].into_iter().find_map(|l| find_act(engine, &actions, Act::Activate(code, l)));
+            match on_field.filter(|_| std::mem::take(&mut again)) {
+                Some(a) => a,
+                None => break,
+            }
+        } else {
+            going_for_you(&decision, &actions, its)
+        };
         duel.respond(&answer);
     }
-    Vec::new()
+    standing(&duel) < before
+}
+
+/// The opponent's answer while its breaker is played: its card's effects
+/// chained, yes, and your cards picked when it picks (else anything but
+/// cancelling).
+fn going_for_you(decision: &Decision, actions: &[Action], its: impl Fn(&CardRef) -> bool) -> Vec<u8> {
+    let yours = |a: &Action| a.card.is_some_and(|c| c.controller == 0);
+    if let Some(answer) = forward(decision, actions, yours) {
+        return answer;
+    }
+    // The cards an answer to a selection picks, by index.
+    let picked = |a: &Action| -> Vec<usize> {
+        a.response.chunks_exact(4).skip(2).map(|b| u32::from_le_bytes([b[0], b[1], b[2], b[3]]) as usize).collect()
+    };
+    let all_yours = |cards: Vec<&CardRef>| {
+        actions.iter().find(|a| {
+            let p = picked(a);
+            !p.is_empty() && p.iter().all(|&i| cards.get(i).is_some_and(|c| c.controller == 0))
+        })
+    };
+    let pick = match decision {
+        Decision::SelectChain { .. } => actions.iter().find(|a| a.kind == ActionKind::Activate && a.card.as_ref().is_some_and(&its)),
+        Decision::EffectYesNo { .. } | Decision::YesNo { .. } => actions.iter().find(|a| a.kind == ActionKind::Yes),
+        Decision::SelectCard { cards, .. } => {
+            all_yours(cards.iter().collect()).or_else(|| actions.iter().find(|a| a.kind != ActionKind::Cancel))
+        }
+        Decision::SelectTribute { cards, .. } => {
+            all_yours(cards.iter().map(|(c, _)| c).collect()).or_else(|| actions.iter().find(|a| a.kind != ActionKind::Cancel))
+        }
+        _ => None,
+    };
+    pick.map_or_else(|| passive_answer(decision, actions), |a| a.response.clone())
 }
 
 #[cfg(test)]
