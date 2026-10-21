@@ -43,8 +43,34 @@ Quindi il guadagno grande sta nel non ripagare gli script di base a ogni partita
 
 **Tempo.** Istruzioni eseguite (callgrind, labrynth, 600 nodi): da 62,0 a 45,4 miliardi (−27%). Sulle 16 mani: ricerca da 254,6–262,5 s a 249,7 s, tempo totale da 455–471 s a 428 s. Una mano da sola (labrynth, 2000 nodi, un thread, senza altro sulla macchina): da 12,2–12,4 s a 10,2–10,6 s (−15%).
 
+### 2. Script delle carte caricati una volta per thread
+**Cosa.** Prima di aggiungere le carte di una partita, gli script non ancora caricati si caricano e la fotografia si rifà. Le partite successive li tengono come sono appena caricati ed eseguono solo `initial_effect` di ogni carta.
+- Se uno script, caricandosi, fa più che definire la sua carta (registra un effetto, crea una carta), quella partita non sarebbe come una nuova: si rifà nuova, e il thread smette di caricare in anticipo.
+
+**Perché.** Con le partite riusate, rileggere il bytecode degli script delle carte restava circa un decimo del tempo.
+
+### 3. Niente raccolta completa della memoria a ogni svuotamento
+**Cosa.** Lo svuotamento non fa più la raccolta completa di Lua (upstream la fa in `duel::clear`): il collector arriva ai rifiuti della partita precedente man mano; i gruppi ancora vivi si svuotano come fa upstream.
+
+**Perché.** La raccolta completa ripercorre ogni volta tutti gli oggetti degli script di base: −3% di istruzioni.
+
+### 4. Turno di prova: solo le corse che servono
+**Cosa.** I valori delle carte leggono il valore del campo, della mano e dei floodgate; l'apprendimento della ricerca legge solo il valore di ogni interruzione da sola. Ogni misura però giocava anche i 10 board breaker e la corsa con tutte le risposte insieme: circa un terzo delle corse. `Prober::measure_placed_unbroken` e `Prober::measure_alone` le saltano; `measure` e `measure_placed` (classifica, app, test) sono come prima.
+
+**Altro, più piccolo.** Un passo del turno di prova confronta la mano e il Cimitero dell'avversario invece di leggere tutta la partita; le risposte della linea del tuo turno si danno senza costruire l'elenco delle azioni; un nodo della ricerca calcola l'impronta canonica una volta sola.
+
+### Insieme (correzioni 1–4)
+Le 16 mani danno uscite identiche; `DUELFORGE_CHECK_REUSE=1` (16 mani, 1500 nodi) non trova differenze; i test passano.
+
+| Misura (16 mani, 4000 nodi) | Partenza | Dopo 1–4 |
+|---|---|---|
+| Tempo di ricerca | 254,6–262,5 s | 205,7 s (−20%) |
+| Tempo totale della CLI | 455–471 s | 337 s (−27%) |
+
+Il tempo totale scende più della ricerca perché i valori delle carte (prima della ricerca) e la misura delle prime 10 board sono quasi tutto turno di prova.
+
 ## Idee scartate
-(in corso)
+- **Garbage collector generazionale di Lua** dopo la fotografia (−1% di istruzioni in più). Il motore chiama un passo del collector a ogni gruppo creato quando ne esistono più di 2048; in modalità generazionale ogni passo è una raccolta intera, e una ricerca Invoked restava bloccata per mezz'ora.
 
 ## Limiti
-(in corso)
+- **La ricerca su un thread non è sempre identica da un'esecuzione all'altra, già su `main`.** inv-r6 a 1500 nodi: 1 esecuzione su 16 trova 366 board invece di 371 (stessi nodi e replay). Con l'ASLR spento (`setarch -R`) 16 su 16 sono uguali: qualcosa nel motore dipende dagli indirizzi di memoria (per esempio contenitori ordinati per puntatore). Quindi un confronto prima/dopo può mostrare, raramente, differenze che non vengono dalla modifica: va ripetuto.
