@@ -96,6 +96,13 @@ export function removeAt(deck: Deck, zone: Zone, index: number): Deck {
   return { ...deck, [zone]: ids };
 }
 
+/** Removes the last copy of a card from a zone, or returns the deck unchanged if not present. */
+export function removeCard(deck: Deck, id: number, zone: Zone): Deck {
+  const index = deck[zone].lastIndexOf(id);
+  if (index < 0) return deck;
+  return removeAt(deck, zone, index);
+}
+
 export function counts(ids: number[], getCard: (id: number) => Card | undefined) {
   let monsters = 0;
   let spells = 0;
