@@ -86,7 +86,7 @@ Il tempo totale scende più della ricerca perché i valori delle carte (prima de
 ### 7. Il limite di nodi lo controllano solo i worker
 **Cosa.** Il thread che chiama la ricerca controllava tutti i limiti quattro volte al secondo, anche il budget di nodi. Se il controllo cadeva durante un'immersione oltre il budget, l'immersione si fermava lì; altrimenti arrivava in fondo. Ora quel thread controlla solo l'annullamento e il tempo; i nodi li controllano i worker dopo ogni lato, come già facevano.
 
-**Perché.** Era la causa dei risultati non riproducibili su `main` (vedi i limiti): inv-r6 a 1500 nodi trovava 366 o 369 board invece di 371 circa una volta su sedici. Dopo la correzione 24 esecuzioni su 24 coincidono, e le 16 mani danno le uscite solite di `main`. Non è una correzione di velocità, ma senza di essa i confronti prima/dopo sbagliavano a caso.
+**Perché.** Era la causa dei risultati non riproducibili su `main`: inv-r6 a 1500 nodi trovava 366 o 369 board invece di 371 circa una volta su sedici. Dopo la correzione 24 esecuzioni su 24 coincidono, e le 16 mani danno le uscite solite di `main`. Non è una correzione di velocità, ma senza di essa i confronti prima/dopo sbagliavano a caso.
 
 ### Insieme (correzioni 1–7)
 Le 16 mani danno uscite identiche a `main` (riepilogo, board misurate dal turno di prova, linee); i test passano.
@@ -97,10 +97,38 @@ Le 16 mani danno uscite identiche a `main` (riepilogo, board misurate dal turno 
 | Tempo totale della CLI (valori delle carte, ricerca, prime 10 board misurate) | 455–471 s | 269,2 s (−42%) |
 | Istruzioni (callgrind, labrynth, 1000 nodi) | 44,7 miliardi | 27,1 miliardi dopo la correzione 4 |
 
+Altre misure, `main` contro la versione finale:
+
+| Misura | Prima | Dopo |
+|---|---|---|
+| `card-values` invoked / labrynth | 1,8 / 2,0 s | 0,7 / 0,7 s |
+| `roles` invoked / labrynth (4 thread) | 15,2 / 14,6 s | 8,6 / 8,9 s |
+| "Carta + resto", 6 mani in 30 s su 4 thread: nodi esplorati, invoked (Aleister the Invoker) | 48.298 | 62.063 (+28%) |
+| Lo stesso, labrynth (carta 1225009) | 21.905 | 41.217 (+88%) |
+| `combo_hunt.py` (82 deck, 2 mani, 3000 nodi): tempo di ricerca sommato | 2824 s | 1401 s (−50%) |
+
+`card-values` e `roles` danno lo stesso elenco (a parte l'ordine tra valori uguali, che già cambiava da un'esecuzione all'altra). In `combo_hunt.py` le 164 righe sono identiche (fine della ricerca, nodi, replay, board, board migliore misurata) e i problemi restano 0. In "carta + resto" il tempo è fisso, quindi più nodi danno board diverse: media pesata delle migliori da 16,21 a 16,89 (invoked) e da 9,82 a 9,87 (labrynth).
+
+### 8. Le immagini delle tabelle senza i byte che nessuno scrive
+Memcheck vedeva il confronto delle immagini leggere i byte di riempimento di Lua (e il valore di uno slot nil o booleano), mai scritti. La risposta era giusta comunque (una differenza lì faceva solo rimettere a posto una tabella per niente), ma leggeva memoria non inizializzata. Ora un'immagine tiene i tag di ogni slot e il valore solo quando il tag ne ha uno. Memcheck su una ricerca Mitsurugi con 2 thread e il turno di prova: nessun errore (resta un falso allarme nell'avvio di mimalloc, uguale su `main`).
+
 ## Idee scartate
 - **Garbage collector generazionale di Lua** dopo la fotografia (−1% di istruzioni in più). Il motore chiama un passo del collector a ogni gruppo creato quando ne esistono più di 2048; in modalità generazionale ogni passo è una raccolta intera, e una ricerca Invoked restava bloccata per mezz'ora.
+
+## Trovato per strada
+- `combos --card "Aleister the Invoker"` risponde "not in the Main Deck" se il deck ha l'artwork alternativo (86120752); con il passcode funziona. Già su `main`, non toccato.
 
 ## Limiti
 - **Con più thread** il guadagno è minore: Labrynth in 30 s su 4 thread fa +16% di nodi al secondo con il riuso (+29% su un thread). Ogni thread tiene la sua partita con gli script di base (qualche MB), e più memoria si contende la cache.
 - **Il turno di prova resta la parte più cara:** in una ricerca da 4000 nodi gioca circa 37 partite per board misurata, di cui il 90% sono le corse "usa questa risposta a questa finestra" (fino a 12 finestre per risposta). Ognuna rigioca tutto il tuo turno (il 44% del tempo di una corsa) e il turno avversario. Il motore non sa copiare una partita, quindi non si può ripartire dal punto in cui le corse si separano.
 - **Valgrind e i controlli `DUELFORGE_CHECK_REUSE` coprono le 16 mani del banco e 30 partite casuali del test.** Un deck con script che cambiano lo stato di base in modi non visti qui potrebbe comportarsi diversamente in una partita riusata: `DUELFORGE_FRESH_DUELS=1` torna alle partite nuove, `DUELFORGE_CHECK_REUSE=1` lo controlla.
+
+## Conclusione
+- **Guadagno totale** sulle 16 mani del banco (4000 nodi): ricerca −36% (da 254,6–262,5 a 164,2 s), tempo totale della CLI −42% (da 455–471 a 269 s), con uscite identiche a `main`. Su `combo_hunt.py` la ricerca dimezza; `roles` −42%, `card-values` −60%; su 4 thread "carta + resto" esplora dal 28% all'88% di nodi in più nello stesso tempo.
+- **Da dove viene:** soprattutto dal non ricaricare gli script del motore a ogni partita (correzioni 1, 2, 5), poi dalle corse inutili del turno di prova (4) e dall'allocatore per il C++ (6).
+- **Da verificare prima del merge:** la build Windows (correzione 6 e il resto dello shim C++), con la CI dell'installer.
+- **Cosa resta da provare:**
+  - mimalloc come allocatore globale di Rust (`#[global_allocator]` nella CLI e nell'app: file non miei): il lato Rust fa ancora circa un quarto delle allocazioni;
+  - nel turno di prova, il 90% delle corse sono "usa questa risposta a questa finestra": se si trovasse un criterio esatto per riconoscere finestre equivalenti se ne giocherebbero meno;
+  - la scalabilità su più thread (+16% su 4 thread contro +29% su uno): ogni thread tiene una partita con gli script di base, e la cache si satura;
+  - il resto è il motore che gioca le scelte (circa due terzi del tempo), in `vendor/` che non si tocca.
