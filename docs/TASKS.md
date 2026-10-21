@@ -18,7 +18,7 @@ Regole in `AGENTS.md`. Per prendere un task, spostalo in "In corso" con agente, 
   - [ ] Valori delle carte che dipendono dal contesto (mano vuota, equipaggiamenti): passa nella #47.
 
 - [x] Velocità del motore: mimalloc per Lua (−27% di tempo di ricerca, risultati identici) e meno replay inutili (−9%), sul branch di Claude in attesa di PR (PIANO §30.8). Da decidere: correggere la chiave dei nodi perché includa bersagli e nomi dichiarati.
-- [ ] Controllo di salute del motore: 16 deck su 45 da rifare (PIANO §30.8).
+- [x] Controllo di salute del motore su 45 deck: nessuna linea interrotta (PIANO §30.8).
 
 ## Da fare (in ordine di priorità)
 
