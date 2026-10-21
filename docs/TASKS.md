@@ -33,6 +33,7 @@ Regole in `AGENTS.md`. Per prendere un task, spostalo in "In corso" con agente, 
 ## Da fare (in ordine di priorità)
 
 ### Interfaccia (Gemini)
+- [ ] **Controlli automatici dell'interfaccia nella CI** (deciso dal proprietario il 21/10, insieme al protocollo per l'interfaccia in `AGENTS.md`): aggiungere ESLint a `apps/desktop` con almeno `@typescript-eslint/no-explicit-any` (errore) e `react-hooks/exhaustive-deps` (errore), uno script `pnpm lint`, e il passo `pnpm lint` nel job «Frontend (TypeScript)» di `.github/workflows/ci.yml`. Prima vanno sistemati gli `any` e le dipendenze che ci sono già, senza disattivare le regole riga per riga.
 - [x] **Piccola correzione rimasta dalla PR #18** (da fare per prima, anche dentro la PR della mappa): in `apps/desktop/src/pages/Combo.tsx` il chip «vs X: …» (righe ~995-1000) e l'ordinamento «vs deck» (riga ~278) non guardano `s.matchup.error`: una board con il calcolo contro il deck fallito mostra «vs X: 0,00» e viene ordinata come se valesse 0. Escluderla in entrambi i punti (`s.matchup && !s.matchup.error`), e nel chip mostrare «vs X: errore» come in `Score.tsx`.
 - [x] Turno di prova contro un deck scelto (#44, livello 1; backend pronto, piano in `docs/plans/turno-di-prova-matchup.md`). Nel Circolo Arcano:
   - un selettore "Contro: generico / deck della Bottega" vicino al pulsante che misura le board;
