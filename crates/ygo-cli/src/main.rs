@@ -167,6 +167,10 @@ enum Cmd {
         /// Write the map to this JSON file.
         #[arg(long)]
         json: Option<PathBuf>,
+        /// An earlier version of the deck (.ydk): its map is read first,
+        /// then the deck's reusing what was searched for it.
+        #[arg(long)]
+        after: Option<PathBuf>,
     },
     /// A deck's typical opening: the moves of its best lines from random
     /// hands, the most played first (the probe turn against a deck, level 2).
@@ -322,7 +326,9 @@ fn main() -> Result<()> {
         }
         Cmd::HandTraps { deck } => hand_traps(&cli.data, &deck),
         Cmd::RivalPlays { deck, hands, nodes, seed } => rival_plays(&cli.data, &deck, hands, nodes, seed),
-        Cmd::Links { deck, nodes, hands, threads, json } => links(&cli.data, &deck, nodes, hands, threads, json.as_deref()),
+        Cmd::Links { deck, nodes, hands, threads, json, after } => {
+            links(&cli.data, &deck, nodes, hands, threads, json.as_deref(), after.as_deref())
+        }
         Cmd::CardValues { deck } => card_values(&cli.data, &deck),
         Cmd::KitMix { lines, top, seed } => kit_mix(&cli.data, &lines, top, seed),
         Cmd::Roles { deck } => roles(&cli.data, &deck),
@@ -1083,19 +1089,46 @@ fn search(dir: &Path, text: &str, limit: usize) -> Result<()> {
     Ok(())
 }
 
-fn links(dir: &Path, deck: &Path, nodes: u64, hands: usize, threads: Option<usize>, json: Option<&Path>) -> Result<()> {
+fn links(
+    dir: &Path,
+    deck: &Path,
+    nodes: u64,
+    hands: usize,
+    threads: Option<usize>,
+    json: Option<&Path>,
+    after: Option<&Path>,
+) -> Result<()> {
     let engine = load_engine(dir)?;
-    let text = std::fs::read_to_string(deck).with_context(|| format!("cannot read {}", deck.display()))?;
-    let deck = DeckList::from_ydk(&text)?;
+    let read = |path: &Path| -> Result<DeckList> {
+        let text = std::fs::read_to_string(path).with_context(|| format!("cannot read {}", path.display()))?;
+        Ok(DeckList::from_ydk(&text)?)
+    };
+    let deck = read(deck)?;
     let threads = threads.unwrap_or_else(|| std::thread::available_parallelism().map_or(4, |n| n.get()));
     let budget = ygo_solver::LinksBudget { hands_per_card: hands, nodes_per_hand: nodes, threads, ..ygo_solver::LinksBudget::default() };
+    let cancel = std::sync::atomic::AtomicBool::new(false);
+    // The earlier version first, its work kept for the deck's.
+    let previous = match after {
+        Some(path) => {
+            let started = std::time::Instant::now();
+            let (_, work) = ygo_solver::deck_links_again(&engine, &read(path)?, 1, budget, &cancel, |_, _, _| {}, None);
+            eprintln!("earlier version read in {:.1} s", started.elapsed().as_secs_f64());
+            Some(work)
+        }
+        None => None,
+    };
     let started = std::time::Instant::now();
-    let map = ygo_solver::deck_links(&engine, &deck, 1, budget, &std::sync::atomic::AtomicBool::new(false), |done, total, map| {
+    let progress = |done, total, map: &ygo_solver::DeckLinks| {
         if done == 0 {
-            eprintln!("from the text, at once: {} links ({:.1} s)", map.links.len(), started.elapsed().as_secs_f64());
+            eprintln!(
+                "from the text, at once: {} links, {total} hands to search ({:.1} s)",
+                map.links.len(),
+                started.elapsed().as_secs_f64()
+            );
         }
         eprint!("\r{done}/{total} hands");
-    });
+    };
+    let (map, _) = ygo_solver::deck_links_again(&engine, &deck, 1, budget, &cancel, progress, previous.as_ref());
     eprintln!();
     let db = engine.cards();
     println!(

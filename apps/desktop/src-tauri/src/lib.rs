@@ -39,6 +39,9 @@ struct AppState {
 struct LinksCache {
     cards: Vec<u32>,
     view: DeckLinksView,
+    /// What was searched for it: after a change of the deck, only the
+    /// hands the change needs are searched again.
+    work: ygo_solver::LinksWork,
 }
 
 impl AppState {
@@ -1400,18 +1403,24 @@ fn deck_links(app: tauri::AppHandle, state: State<'_, AppState>, deck_id: i64) -
     let engine = state.engine()?;
     let deck = state.with_user(|u| u.get(deck_id))?.ok_or("Il deck non esiste più")?;
     let cards: Vec<u32> = deck.main.iter().chain(&deck.extra).copied().collect();
-    if let Some(cached) = state.links.lock().map_err(|e| e.to_string())?.get(&deck_id).filter(|c| c.cards == cards) {
-        return Ok(cached.view.clone());
-    }
+    let previous = {
+        let cache = state.links.lock().map_err(|e| e.to_string())?;
+        match cache.get(&deck_id) {
+            Some(cached) if cached.cards == cards => return Ok(cached.view.clone()),
+            Some(cached) => Some(cached.work.clone()),
+            None => None,
+        }
+    };
     let list = ygo_engine::DeckList { main: deck.main.clone(), extra: deck.extra.clone(), side: Vec::new() };
     let threads = std::thread::available_parallelism().map_or(4, |n| n.get());
     let budget = ygo_solver::LinksBudget { threads, ..ygo_solver::LinksBudget::default() };
     // The map so far with each step: from the text at once, then hand by hand.
-    let map = ygo_solver::deck_links(&engine, &list, 1, budget, &AtomicBool::new(false), |done, total, map| {
+    let progress = |done, total, map: &ygo_solver::DeckLinks| {
         let _ = app.emit("deck-links-progress", LinksProgressView { deck_id, done, total, map: links_view(deck_id, map) });
-    });
+    };
+    let (map, work) = ygo_solver::deck_links_again(&engine, &list, 1, budget, &AtomicBool::new(false), progress, previous.as_ref());
     let view = links_view(deck_id, &map);
-    state.links.lock().map_err(|e| e.to_string())?.insert(deck_id, LinksCache { cards, view: view.clone() });
+    state.links.lock().map_err(|e| e.to_string())?.insert(deck_id, LinksCache { cards, view: view.clone(), work });
     Ok(view)
 }
 

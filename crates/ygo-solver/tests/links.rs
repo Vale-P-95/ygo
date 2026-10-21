@@ -5,7 +5,7 @@ use std::path::PathBuf;
 use std::sync::atomic::AtomicBool;
 
 use ygo_engine::{DeckList, Engine};
-use ygo_solver::{deck_links, LinkKind, LinkZone, LinksBudget};
+use ygo_solver::{deck_links_again, LinkKind, LinkZone, LinksBudget};
 
 #[test]
 fn the_invoked_deck_links_aleister_invocation_and_the_invoked() {
@@ -21,11 +21,19 @@ fn the_invoked_deck_links_aleister_invocation_and_the_invoked() {
     let budget = LinksBudget { hands_per_card: 1, nodes_per_hand: 500, lines_per_hand: 10, threads: 2, ..LinksBudget::default() };
     // The text alone gives a draft at once, before any hand is searched.
     let draft = std::sync::Mutex::new(None);
-    let map = deck_links(&engine, &deck, 1, budget, &AtomicBool::new(false), |done, _, map| {
-        if done == 0 {
-            *draft.lock().unwrap() = Some(map.clone());
-        }
-    });
+    let (map, work) = deck_links_again(
+        &engine,
+        &deck,
+        1,
+        budget,
+        &AtomicBool::new(false),
+        |done, _, map| {
+            if done == 0 {
+                *draft.lock().unwrap() = Some(map.clone());
+            }
+        },
+        None,
+    );
     let draft = draft.into_inner().unwrap().expect("the draft comes first");
     let named = |from: &str, to: &str, kind: LinkKind| {
         draft.links.iter().any(|l| l.from == code(from) && l.to == code(to) && l.kind == kind && l.text && !l.possible)
@@ -53,4 +61,19 @@ fn the_invoked_deck_links_aleister_invocation_and_the_invoked() {
     // Negating Aleister loses cards reached; negating a handtrap loses none.
     let aleister = map.cards.iter().find(|c| c.code == code("Aleister the Invoker")).expect("Aleister");
     assert!(aleister.key > 0.0 && ash.key == 0.0, "{aleister:?} {ash:?}");
+
+    // Read again with nothing changed, the work done is reused: no hand to
+    // search, the same map.
+    let searched = std::sync::atomic::AtomicUsize::new(usize::MAX);
+    let (again, _) = deck_links_again(
+        &engine,
+        &deck,
+        1,
+        budget,
+        &AtomicBool::new(false),
+        |_, total, _| searched.store(total, std::sync::atomic::Ordering::Relaxed),
+        Some(&work),
+    );
+    assert_eq!(searched.into_inner(), 0);
+    assert_eq!(again.links.len(), map.links.len());
 }

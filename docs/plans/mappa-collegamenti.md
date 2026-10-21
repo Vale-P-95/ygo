@@ -130,7 +130,7 @@ Abbiamo il motore EDOPro e la ricerca delle combo, quindi possiamo leggere i col
 
 
 ## Mappa quasi in tempo reale (21/10/2026)
-Il proprietario ha chiesto una mappa quasi istantanea, come quella del sito. Le strade approvate sono tre: bozza dal testo subito, aggiornamento progressivo, ricalcolo solo delle carte cambiate. Le prime due sono fatte.
+Il proprietario ha chiesto una mappa quasi istantanea, come quella del sito. Le strade approvate sono tre, tutte fatte: bozza dal testo subito, aggiornamento progressivo, ricalcolo solo delle carte cambiate.
 - **Bozza dal testo, subito.**
   - Prima di cercare qualunque mano, si leggono i testi delle carte del deck, con regole generali e senza nomi di carte:
     - "add ... from your Deck to your hand" è cerca, "... from your GY to your hand" è recupera;
@@ -147,4 +147,8 @@ Il proprietario ha chiesto una mappa quasi istantanea, come quella del sito. Le 
   - L'evento `deck-links-progress` ora porta la mappa intera fin lì (`map`) e il deck (`deckId`).
   - Con `done` 0 c'è la bozza dal testo; poi arriva una mappa aggiornata dopo ogni mano cercata.
   - L'interfaccia può mostrare subito la bozza e aggiornarla mentre il motore gioca.
-- **Resta da fare:** il ricalcolo delle sole carte cambiate quando si modifica il deck, cioè riusare le mani che non toccano le carte tolte o aggiunte.
+- **Ricalcolo delle sole carte cambiate** (`deck_links_again`, `LinksWork`).
+  - Quando il deck cambia si tengono le mani cercate prima che hanno ancora tutte le loro carte e le cui linee non usano carte tolte. Si cercano solo le mani che servono perché ogni carta abbia di nuovo le sue.
+  - Le linee tenute non vedono le carte aggiunte; quelle hanno mani proprie, e il testo dice dove portano.
+  - L'app tiene il lavoro fatto per ogni deck nella cache e lo riusa alla modifica successiva. Nella CLI: `links --deck <nuovo> --after <vecchio>`.
+  - Sul deck Invoked, con una Ash Blossom cambiata in Called by the Grave: 2 mani da cercare invece di 23, 3,2 secondi invece di 18,5, stessa mappa (116 collegamenti, 74 usati).

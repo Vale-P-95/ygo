@@ -181,11 +181,25 @@ struct Found {
 
 /// The links of one line: those offered and those used; the Extra Deck
 /// monsters it summons.
-#[derive(Default)]
+#[derive(Default, Clone)]
 struct Seen {
     possible: HashSet<Key>,
     used: HashSet<Key>,
     summoned: HashSet<u32>,
+}
+
+/// The hands searched for a map and the lines played from each: kept to
+/// read the map again after the deck changes, searching only the hands
+/// the change needs ([`deck_links_again`]).
+#[derive(Debug, Clone, Default)]
+pub struct LinksWork {
+    hands: Vec<(Vec<u32>, Vec<Seen>)>,
+}
+
+impl std::fmt::Debug for Seen {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{} links used", self.used.len())
+    }
 }
 
 /// Reads the map of `deck`. `progress(done, total, map)` comes first with
@@ -200,6 +214,24 @@ pub fn deck_links(
     cancel: &AtomicBool,
     progress: impl Fn(usize, usize, &DeckLinks) + Sync,
 ) -> DeckLinks {
+    deck_links_again(engine, deck, seed, budget, cancel, progress, None).0
+}
+
+/// [`deck_links`], reusing what was read for an earlier version of the
+/// deck: the hands whose cards are all still in it and whose lines use no
+/// card taken out are kept, and only the hands needed to give each card
+/// its hands again are searched (a card or two changed: a few seconds).
+/// The lines of a kept hand do not see the cards added; those get their
+/// own hands, and the text names what they lead to.
+pub fn deck_links_again(
+    engine: &Engine,
+    deck: &DeckList,
+    seed: u64,
+    budget: LinksBudget,
+    cancel: &AtomicBool,
+    progress: impl Fn(usize, usize, &DeckLinks) + Sync,
+    previous: Option<&LinksWork>,
+) -> (DeckLinks, LinksWork) {
     let db = engine.cards();
     let mut cards: Vec<LinkCard> = Vec::new();
     for (codes, extra) in [(&deck.main, false), (&deck.extra, true)] {
@@ -224,20 +256,51 @@ pub fn deck_links(
         let Some(&copy) = deck.main.iter().find(|&&c| db.canonical_code(c) == card.code) else { continue };
         per_card.push(sample_hands(&deck.main, copy, budget.hands_per_card, seed).into_iter().map(|(hand, _)| hand).collect());
     }
+    // The hands kept from before: their cards still in the deck, their
+    // lines using none taken out.
+    let in_deck: HashSet<u32> = cards.iter().map(|c| c.code).collect();
+    let copies: HashMap<u32, u32> = cards.iter().map(|c| (c.code, c.copies)).collect();
+    let fits = |hand: &[u32]| {
+        let mut held: HashMap<u32, u32> = HashMap::new();
+        for &c in hand {
+            *held.entry(db.canonical_code(c)).or_default() += 1;
+        }
+        held.iter().all(|(c, n)| copies.get(c).is_some_and(|k| k >= n))
+    };
+    let kept: Vec<(Vec<u32>, Vec<Seen>)> = previous
+        .map(|w| {
+            w.hands
+                .iter()
+                .filter(|(hand, lines)| {
+                    fits(hand) && lines.iter().all(|l| l.used.iter().all(|(from, to, _, _)| in_deck.contains(from) && in_deck.contains(to)))
+                })
+                .cloned()
+                .collect()
+        })
+        .unwrap_or_default();
+    let holds = |hand: &[u32], code: u32| hand.iter().any(|&c| db.canonical_code(c) == code);
     let mut hands: Vec<Vec<u32>> = Vec::new();
     for round in 0..budget.hands_per_card {
-        for hand in per_card.iter().filter_map(|h| h.get(round)) {
-            if !hands.contains(hand) {
+        for (card, sampled) in cards.iter().filter(|c| !c.extra).zip(&per_card) {
+            // A card with its hands among those kept needs no new one.
+            let have = kept.iter().filter(|(h, _)| holds(h, card.code)).count() + hands.iter().filter(|h| holds(h, card.code)).count();
+            if have > round {
+                continue;
+            }
+            if let Some(hand) = sampled.get(round).filter(|h| !hands.contains(h) && !kept.iter().any(|(k, _)| k == *h)) {
                 hands.push(hand.clone());
             }
         }
     }
-    progress(0, hands.len(), &assemble(deck, &cards, &[], &text));
+    let first: Vec<Vec<Seen>> = kept.iter().map(|(_, lines)| lines.clone()).collect();
+    progress(0, hands.len(), &assemble(deck, &cards, &first, &text));
     let deadline = Instant::now() + budget.time;
 
     let next = AtomicUsize::new(0);
-    // The lines played of each hand, the best first.
-    let seen: Mutex<Vec<Vec<Seen>>> = Mutex::new(Vec::new());
+    // The lines played of each hand, the best first: those kept, then each
+    // hand searched.
+    let seen: Mutex<Vec<(Vec<u32>, Vec<Seen>)>> = Mutex::new(kept);
+    let kept_count = first.len();
     std::thread::scope(|s| {
         for _ in 0..budget.threads.clamp(1, hands.len().max(1)) {
             s.spawn(|| loop {
@@ -262,14 +325,16 @@ pub fn deck_links(
                     .filter_map(|b| play(engine, deck, hand, seed, config.opponent.as_ref(), &b.line, &named))
                     .collect();
                 if let Ok(mut all) = seen.lock() {
-                    all.push(lines);
-                    progress(all.len(), hands.len(), &assemble(deck, &cards, &all, &text));
+                    all.push((hand.clone(), lines));
+                    let lines: Vec<Vec<Seen>> = all.iter().map(|(_, l)| l.clone()).collect();
+                    progress(all.len() - kept_count, hands.len(), &assemble(deck, &cards, &lines, &text));
                 }
             });
         }
     });
-    let by_hand = seen.into_inner().unwrap_or_default();
-    assemble(deck, &cards, &by_hand, &text)
+    let work = LinksWork { hands: seen.into_inner().unwrap_or_default() };
+    let by_hand: Vec<Vec<Seen>> = work.hands.iter().map(|(_, l)| l.clone()).collect();
+    (assemble(deck, &cards, &by_hand, &text), work)
 }
 
 /// The map from the lines played of each hand and the links the text names.
