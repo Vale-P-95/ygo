@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import type { Card, CardLink, LinkCard } from "../../../lib/api";
+import type { Card, CardLink, LinkCard, LinksComparison } from "../../../lib/api";
 import { sound } from "../../../lib/sound";
 import { CardImage } from "../../combo/Field";
 import type { LinksFilterState } from "./types";
@@ -12,6 +12,7 @@ interface Props {
   activeCardCode: number | null;
   sampleHandCodes?: Set<number> | null;
   reachedFromHandCodes?: Set<number> | null;
+  comparison?: LinksComparison | null;
   onSelectCard: (code: number | null) => void;
 }
 
@@ -23,8 +24,25 @@ export function LinksColumns({
   activeCardCode,
   sampleHandCodes = null,
   reachedFromHandCodes = null,
+  comparison = null,
   onSelectCard,
 }: Props) {
+  const displayCards = useMemo(() => {
+    if (!comparison) return cards;
+    const existing = new Set(cards.map((c) => c.code));
+    const extraRemoved = comparison.before.cards.filter((c) => !existing.has(c.code));
+    return [...cards, ...extraRemoved];
+  }, [cards, comparison]);
+
+  const changedMap = useMemo(() => {
+    if (!comparison) return new Map();
+    const map = new Map();
+    for (const ch of comparison.changed) {
+      map.set(ch.code, ch);
+    }
+    return map;
+  }, [comparison]);
+
   const filteredLinks = useMemo(() => {
     return links.filter((l) => {
       if (filters.kind !== "all" && l.kind !== filters.kind) return false;
@@ -57,7 +75,7 @@ export function LinksColumns({
     const extra: LinkCard[] = [];
     const isolated: LinkCard[] = [];
 
-    for (const c of cards) {
+    for (const c of displayCards) {
       if (filters.searchQuery) {
         const q = filters.searchQuery.toLowerCase();
         const name = getCard(c.code)?.name.toLowerCase() ?? "";
@@ -91,7 +109,7 @@ export function LinksColumns({
       { id: "extra", title: "Extra Deck", subtitle: "Punti d'arrivo della board", list: extra, color: "var(--role-extender)" },
       { id: "isolated", title: "Isolate", subtitle: "Nessun collegamento", list: isolated, color: "var(--df-muted)" },
     ];
-  }, [cards, incomingMap, outgoingMap, filters.searchQuery, getCard]);
+  }, [displayCards, incomingMap, outgoingMap, filters.searchQuery, getCard]);
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3 w-full h-full p-1 overflow-x-auto">
@@ -120,6 +138,10 @@ export function LinksColumns({
                 const isReached = reachedFromHandCodes?.has(c.code) ?? false;
                 const dim = sampleHandCodes != null && !inSampleHand && !isReached;
 
+                const isAdded = comparison?.added.includes(c.code) ?? false;
+                const isRemoved = comparison?.removed.includes(c.code) ?? false;
+                const ch = changedMap.get(c.code);
+
                 return (
                   <div
                     key={c.code}
@@ -141,9 +163,13 @@ export function LinksColumns({
                         ? "border-[var(--df-gold)] bg-[var(--df-gold)]/10 shadow-xs"
                         : isSelected
                           ? "border-[var(--sec)] bg-sec/10 shadow-xs"
-                          : isReached
-                            ? "border-sec/50 bg-sec/5"
-                            : "border-border/60 bg-surface-2 hover:border-border-strong hover:bg-surface-3"
+                          : isAdded
+                            ? "border-ok/60 bg-ok/10"
+                            : isRemoved
+                              ? "border-danger/60 bg-danger/10 opacity-75"
+                              : isReached
+                                ? "border-sec/50 bg-sec/5"
+                                : "border-border/60 bg-surface-2 hover:border-border-strong hover:bg-surface-3"
                     } ${dim ? "opacity-35" : "opacity-100"}`}
                   >
                     <CardImage code={c.code} card={card} className="h-[44px] w-[30px] shrink-0 rounded-[2px]" />
@@ -153,6 +179,16 @@ export function LinksColumns({
                           {name}
                         </span>
                         <div className="flex items-center gap-1 shrink-0">
+                          {isAdded && (
+                            <span className="chip !py-0 !px-1 text-[9px] font-bold text-ok border-ok/50">
+                              + nuova
+                            </span>
+                          )}
+                          {isRemoved && (
+                            <span className="chip !py-0 !px-1 text-[9px] font-bold text-danger border-danger/50">
+                              − tolta
+                            </span>
+                          )}
                           {inSampleHand && (
                             <span className="chip !py-0 !px-1 text-[9px] font-bold text-[var(--df-gold)] border-[var(--df-gold)]/50">
                               in mano
@@ -178,13 +214,32 @@ export function LinksColumns({
                           </span>
                         )}
                         <span className="ml-auto text-sec tabular-nums font-medium">
-                          {c.extra
-                            ? c.measured
-                              ? `~${Math.round(c.chance * 100)}% (stima)`
-                              : c.chance > 0
-                                ? `${Math.round(c.chance * 100)}%`
-                                : "—"
-                            : `${Math.round(c.chance * 100)}%`}
+                          {ch ? (
+                            <span>
+                              {Math.round(ch.chanceBefore * 100)}% →{" "}
+                              <b
+                                className={
+                                  ch.chanceAfter > ch.chanceBefore
+                                    ? "text-ok"
+                                    : ch.chanceAfter < ch.chanceBefore
+                                      ? "text-danger"
+                                      : "text-text"
+                                }
+                              >
+                                {Math.round(ch.chanceAfter * 100)}%
+                              </b>
+                            </span>
+                          ) : c.extra ? (
+                            c.measured ? (
+                              `~${Math.round(c.chance * 100)}% (stima)`
+                            ) : c.chance > 0 ? (
+                              `${Math.round(c.chance * 100)}%`
+                            ) : (
+                              "—"
+                            )
+                          ) : (
+                            `${Math.round(c.chance * 100)}%`
+                          )}
                         </span>
                       </div>
                     </div>

@@ -22,6 +22,8 @@ import type {
   DeckBox,
   DeckLinks,
   LinksComparison,
+  LinksProgress,
+  LinkCardChange,
   LearnedWeights,
   DeckSummary,
   Facets,
@@ -824,7 +826,7 @@ const rolesProgressListeners = new Set<(p: { done: number; total: number }) => v
 const simProgressListeners = new Set<(c: Checkpoint) => void>();
 const comboProgressListeners = new Set<(p: ComboProgress) => void>();
 const comboScoreListeners = new Set<(s: ComboScore) => void>();
-const linksProgressListeners = new Set<(p: { done: number; total: number }) => void>();
+const linksProgressListeners = new Set<(p: LinksProgress) => void>();
 let lastVsDeckId: number | null = null;
 let simCancelled = false;
 let comboCancelled = false;
@@ -2157,11 +2159,6 @@ export const mockApi: Api = {
 
   // Full links map example based on the Invoked deck fixture
   deckLinks: async (deckId: number): Promise<DeckLinks> => {
-    for (let step = 1; step <= 3; step++) {
-      await delay(40);
-      linksProgressListeners.forEach((fn) => fn({ done: step * 10, total: 30 }));
-    }
-
     const deck = decksState.find((d) => d.id === deckId);
     const mainSet = new Set(deck?.main ?? []);
     const extraSet = new Set(deck?.extra ?? []);
@@ -2170,8 +2167,38 @@ export const mockApi: Api = {
     // If deck contains Invoked engine (Aleister 86120751 or 86120752), use real engine-generated fixture
     const isInvoked = mainSet.has(86120751) || mainSet.has(86120752);
 
+    let finalMap: DeckLinks;
     if (isInvoked) {
-      return {
+      const baseLinks = (invokedLinksFixture.links as CardLink[]).map((l) => ({
+        ...l,
+        from: l.from === 86120751 && !mainSet.has(86120751) && mainSet.has(86120752) ? 86120752 : l.from,
+        to: l.to === 86120751 && !mainSet.has(86120751) && mainSet.has(86120752) ? 86120752 : l.to,
+        text: true,
+      }));
+
+      // Text-only links (possible: false, text: true, used: 0) from docs/plans/mappa-collegamenti.md
+      const textOnlyLinks: CardLink[] = [
+        {
+          from: 6772168, // Artemis
+          to: 86120752, // Aleister
+          kind: "search",
+          zone: "deck",
+          possible: false,
+          used: 0,
+          text: true,
+        },
+        {
+          from: 57294268, // Meltdown
+          to: 84288367, // Aleister the Reminiscent
+          kind: "search",
+          zone: "deck",
+          possible: false,
+          used: 0,
+          text: true,
+        },
+      ];
+
+      finalMap = {
         deckId,
         hands: invokedLinksFixture.hands,
         lines: invokedLinksFixture.lines,
@@ -2179,53 +2206,70 @@ export const mockApi: Api = {
           ...c,
           code: c.code === 86120751 && !mainSet.has(86120751) && mainSet.has(86120752) ? 86120752 : c.code,
         })),
-        links: (invokedLinksFixture.links as CardLink[]).map((l) => ({
-          ...l,
-          from: l.from === 86120751 && !mainSet.has(86120751) && mainSet.has(86120752) ? 86120752 : l.from,
-          to: l.to === 86120751 && !mainSet.has(86120751) && mainSet.has(86120752) ? 86120752 : l.to,
-        })),
+        links: [...baseLinks, ...textOnlyLinks],
+      };
+    } else {
+      const rawCards: DeckLinks["cards"] = [];
+      for (const [codes, extra] of [[deck?.main ?? [], false], [deck?.extra ?? [], true]] as const) {
+        for (const code of codes) {
+          const card = rawCards.find((c) => c.code === code);
+          if (card) card.copies += 1;
+          else rawCards.push({ code, copies: 1, extra, reach: 0, reachAll: 0, chance: 0, key: 0 });
+        }
+      }
+
+      const validLinks = (invokedLinksFixture.links as CardLink[]).filter(
+        (l) => allSet.has(l.from) && allSet.has(l.to)
+      ).map((l) => ({ ...l, text: true }));
+
+      const outgoingByCard = new Map<number, CardLink[]>();
+      for (const l of validLinks) {
+        const list = outgoingByCard.get(l.from) ?? [];
+        list.push(l);
+        outgoingByCard.set(l.from, list);
+      }
+
+      for (const c of rawCards) {
+        const outgoing = outgoingByCard.get(c.code) ?? [];
+        c.reach = new Set(outgoing.map((l) => l.to)).size;
+        c.reachAll = c.reach;
+        c.chance = c.extra ? (c.reach > 0 ? 0.65 : 0) : c.copies === 3 ? 0.34 : c.copies === 2 ? 0.24 : 0.12;
+        c.key = 0;
+      }
+
+      finalMap = {
+        deckId,
+        cards: rawCards,
+        links: validLinks,
+        hands: 30,
+        lines: 600,
       };
     }
 
-    // For any other deck: build card entries and filter valid links
-    const rawCards: DeckLinks["cards"] = [];
-    for (const [codes, extra] of [[deck?.main ?? [], false], [deck?.extra ?? [], true]] as const) {
-      for (const code of codes) {
-        const card = rawCards.find((c) => c.code === code);
-        if (card) card.copies += 1;
-        else rawCards.push({ code, copies: 1, extra, reach: 0, reachAll: 0, chance: 0, key: 0 });
-      }
-    }
-
-    const validLinks = (invokedLinksFixture.links as CardLink[]).filter(
-      (l) => allSet.has(l.from) && allSet.has(l.to)
-    );
-
-    const outgoingByCard = new Map<number, CardLink[]>();
-    for (const l of validLinks) {
-      const list = outgoingByCard.get(l.from) ?? [];
-      list.push(l);
-      outgoingByCard.set(l.from, list);
-    }
-
-    for (const c of rawCards) {
-      const outgoing = outgoingByCard.get(c.code) ?? [];
-      c.reach = new Set(outgoing.map((l) => l.to)).size;
-      c.reachAll = c.reach;
-      c.chance = c.extra ? (c.reach > 0 ? 0.65 : 0) : c.copies === 3 ? 0.34 : c.copies === 2 ? 0.24 : 0.12;
-      c.key = 0;
-    }
-
-    return {
-      deckId,
-      cards: rawCards,
-      links: validLinks,
-      hands: 30,
-      lines: 600,
+    // Step 0: emit text draft immediately with done: 0
+    const draftMap: DeckLinks = {
+      ...finalMap,
+      hands: 0,
+      lines: 0,
+      links: finalMap.links.map((l) => ({ ...l, used: 0 })),
     };
+    linksProgressListeners.forEach((fn) => fn({ deckId, done: 0, total: 30, map: draftMap }));
+
+    // Progressive updates
+    for (let step = 1; step <= 3; step++) {
+      await delay(40);
+      const intermediateMap: DeckLinks = {
+        ...finalMap,
+        hands: step * 10,
+        lines: step * 200,
+      };
+      linksProgressListeners.forEach((fn) => fn({ deckId, done: step * 10, total: 30, map: intermediateMap }));
+    }
+
+    return finalMap;
   },
 
-  onLinksProgress: async (handler: (p: { done: number; total: number }) => void): Promise<UnlistenFn> => {
+  onLinksProgress: async (handler: (p: LinksProgress) => void): Promise<UnlistenFn> => {
     linksProgressListeners.add(handler);
     return () => {
       linksProgressListeners.delete(handler);
@@ -2716,12 +2760,37 @@ export const mockApi: Api = {
     const oldCodes = new Set(before.cards.map((c) => c.code));
     const newCodes = new Set(after.cards.map((c) => c.code));
     const reached = (m: DeckLinks) => m.cards.reduce((sum, c) => sum + c.chance, 0);
+
+    const changed: LinkCardChange[] = [];
+    for (const cardAfter of after.cards) {
+      const cardBefore = before.cards.find((c) => c.code === cardAfter.code);
+      if (cardBefore) {
+        const chanceDiff = Math.abs(cardAfter.chance - cardBefore.chance);
+        const keyDiff = Math.abs(cardAfter.key - cardBefore.key);
+        const reachDiff = cardAfter.reachAll !== cardBefore.reachAll;
+        if (chanceDiff >= 0.02 || keyDiff >= 0.02 || reachDiff) {
+          changed.push({
+            code: cardAfter.code,
+            chanceBefore: cardBefore.chance,
+            chanceAfter: cardAfter.chance,
+            keyBefore: cardBefore.key,
+            keyAfter: cardAfter.key,
+            reachAllBefore: cardBefore.reachAll,
+            reachAllAfter: cardAfter.reachAll,
+          });
+        }
+      }
+    }
+    changed.sort(
+      (a, b) => Math.abs(b.chanceAfter - b.chanceBefore) - Math.abs(a.chanceAfter - a.chanceBefore)
+    );
+
     return {
       before,
       after,
       gained: after.links.filter((l) => !oldIds.has(id(l))),
       lost: before.links.filter((l) => !newIds.has(id(l))),
-      changed: [],
+      changed,
       added: [...newCodes].filter((c) => !oldCodes.has(c)),
       removed: [...oldCodes].filter((c) => !newCodes.has(c)),
       reachedBefore: reached(before),

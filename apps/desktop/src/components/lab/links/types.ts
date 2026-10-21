@@ -35,3 +35,15 @@ export interface LinksFilterState {
   onlyUsed: boolean;
   searchQuery: string;
 }
+
+export type LinkDiffStatus = "normal" | "gained" | "lost";
+
+/** Returns true when a link comes from the card's text alone (engine never offered it). */
+export function isLinkTextOnly(link: CardLink): boolean {
+  return !link.possible && Boolean(link.text);
+}
+
+/** Generates unique key for comparison matching: from-to-kind. */
+export function linkKey(link: Pick<CardLink, "from" | "to" | "kind">): string {
+  return `${link.from}-${link.to}-${link.kind}`;
+}
