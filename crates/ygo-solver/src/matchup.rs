@@ -665,21 +665,28 @@ fn missing<T: Ord + Copy>(before: &[T], after: &[T]) -> Vec<T> {
 /// from there.
 fn playable(engine: &Engine, rival: &DeckList, cards: &[u32], seed: u64) -> Vec<(u32, bool)> {
     let code = |name: &str| engine.cards().find_by_name(name).map(|c| c.code);
-    // Effect monsters, so that negating them shows (their effect works only in the hand).
+    // An Effect Monster, so that negating it shows (its effect works only
+    // in the hand), a Fusion and a Link: some breakers take only a monster
+    // of the kind they send from the Extra Deck (Ultimate Slayer).
     let (Some(filler), Some(monster), Some(set)) = (code("Alexandrite Dragon"), code("Thunder Dragon"), code("Trap Hole")) else {
         return Vec::new();
     };
+    let monsters = [monster, code("Flame Swordsman").unwrap_or(monster), code("Link Spider").unwrap_or(monster)];
     if cards.is_empty() {
         return Vec::new();
     }
     let place =
         |code: u32, location: u8, sequence: u32, position: u32| Placement { code, location, sequence, position, overlay: Vec::new() };
     let placed: Vec<Placement> = (0..3)
-        .map(|i| place(monster, location::MZONE, i, position::FACEUP_ATTACK))
+        .map(|i| place(monsters[i as usize], location::MZONE, i, position::FACEUP_ATTACK))
         .chain((1..3).map(|i| place(set, location::SZONE, i, position::FACEDOWN_DEFENSE)))
         .collect();
     let deck = DeckList { main: vec![filler; 40], ..DeckList::default() };
-    let opponent = Opponent { hand: cards.to_vec(), deck: rival.main.clone(), extra: rival.extra.clone() };
+    // A plain card on top of its Deck: the one it draws for its turn, so
+    // that no card a breaker needs from the Deck is drawn.
+    let mut rival_deck = rival.main.clone();
+    rival_deck.push(filler);
+    let opponent = Opponent { hand: cards.to_vec(), deck: rival_deck, extra: rival.extra.clone() };
     // The duel at the opponent's first Main Phase.
     let start = || -> Option<(Duel, Decision)> {
         let mut duel = Duel::goldfish_vs_placed(engine, &deck, &[], seed, &opponent, &placed).ok()?;
@@ -706,17 +713,23 @@ fn playable(engine: &Engine, rival: &DeckList, cards: &[u32], seed: u64) -> Vec<
             }
         })
         .collect();
-    offered.into_iter().filter(|&(c, summon)| takes_from_field(engine, &start, c, summon)).collect()
+    if std::env::var_os("DUELFORGE_DEBUG_MATCHUP").is_some() {
+        let names = |codes: Vec<u32>| codes.iter().map(|&c| engine.cards().name(c)).collect::<Vec<_>>();
+        eprintln!("breaker candidates {:?}, played {:?}", names(cards.to_vec()), names(offered.iter().map(|o| o.0).collect()));
+    }
+    let yours: Vec<u32> = placed.iter().map(|p| p.code).collect();
+    offered.into_iter().filter(|&(c, summon)| takes_from_field(engine, &start, &yours, c, summon)).collect()
 }
 
 /// Plays `code` (Special Summoned, or activated from the hand) in the duel
 /// `start` gives, the opponent going for your cards: true when your field
-/// is left with a card less, or one negated.
-fn takes_from_field(engine: &Engine, start: &dyn Fn() -> Option<(Duel, Decision)>, code: u32, summon: bool) -> bool {
+/// is left with one of `yours` less, or one negated (a Kaiju given to you
+/// in place of the monster it tributes does not count).
+fn takes_from_field(engine: &Engine, start: &dyn Fn() -> Option<(Duel, Decision)>, yours: &[u32], code: u32, summon: bool) -> bool {
     let db = engine.cards();
     let standing = |duel: &Duel| -> usize {
         let me = &duel.state().players[0];
-        me.monsters.iter().chain(&me.spells).flatten().filter(|c| !c.is_negated()).count()
+        me.monsters.iter().chain(&me.spells).flatten().filter(|c| yours.contains(&c.code) && !c.is_negated()).count()
     };
     let Some((mut duel, decision)) = start() else { return false };
     let before = standing(&duel);
