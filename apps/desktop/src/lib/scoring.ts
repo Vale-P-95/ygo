@@ -181,10 +181,9 @@ export function dominates(a: ComboScore, b: ComboScore, includeMatchup: boolean 
   if (includeMatchup) {
     const aRes = a.matchup && !a.matchup.error ? a.matchup.resilience : null;
     const bRes = b.matchup && !b.matchup.error ? b.matchup.resilience : null;
-    if (aRes != null && bRes != null) {
-      if (aRes < bRes - EPS) return false;
-      if (aRes > bRes + EPS) strictlyBetter = true;
-    }
+    if (aRes == null || bRes == null) return false;
+    if (aRes < bRes - EPS) return false;
+    if (aRes > bRes + EPS) strictlyBetter = true;
   }
 
   return strictlyBetter;
@@ -226,9 +225,9 @@ function loadChoice(): Choice {
       }
       return {
         profile: saved.profile ?? "custom",
-        priorProfile: "custom",
+        priorProfile: saved.priorProfile ?? "custom",
         weights: { ...PROFILES[0].weights, ...saved.weights },
-        priorWeights: { ...PROFILES[0].weights, ...saved.weights },
+        priorWeights: saved.priorWeights ?? PROFILES[0].weights,
       };
     }
   } catch {
@@ -277,11 +276,10 @@ export function pickProfile(id: string) {
   }
 }
 
-/** A weight changed by hand: the profile becomes "Personalizzato". */
+/** A weight changed by hand: the profile becomes "Personalizzato", keeping the original prior intact. */
 export function setWeight(key: MetricKey, value: number) {
-  const isLearned = choice.profile === "learned";
-  const priorProfile = isLearned ? choice.priorProfile : "custom";
-  const priorWeights = isLearned ? choice.priorWeights : { ...choice.weights, [key]: value };
+  const priorProfile = choice.priorProfile ?? "custom";
+  const priorWeights = choice.priorWeights ?? PROFILES[0].weights;
   set({
     profile: "custom",
     priorProfile,
@@ -291,7 +289,7 @@ export function setWeight(key: MetricKey, value: number) {
 }
 
 /** Activates the weights learned from the player's choices, keeping the original prior intact. */
-export function applyLearnedWeights(learned: Weights) {
+export function applyLearnedWeights(learned: Partial<Weights>) {
   const isLearned = choice.profile === "learned";
   const priorProfile = isLearned ? choice.priorProfile : choice.profile;
   const priorWeights = isLearned ? choice.priorWeights : choice.weights;

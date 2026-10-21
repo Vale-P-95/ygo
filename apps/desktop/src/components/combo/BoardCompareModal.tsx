@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { api, type Card, ComboBoard, ComboInterruption, ComboScore, ZoneCard } from "../../lib/api";
-import { METRICS, NEGATIVE, parts, PROFILES, score, useWeights, metricValues, type Weights } from "../../lib/scoring";
+import { METRICS, NEGATIVE, parts, PROFILES, score, useWeights, metricValues, getPriorWeights, type Weights } from "../../lib/scoring";
 import { sound } from "../../lib/sound";
 import { toast } from "../../lib/toast";
 import { CardImage, Field, type HoverCard, type Pile as PileKind } from "./Field";
@@ -122,10 +122,12 @@ export function BoardCompareModal({
   onHoverEnd,
   onSwap,
   onClose,
+  initialChosenId,
   onChoiceRecorded,
 }: {
   deckId?: number | null;
-  onChoiceRecorded?: (count: number) => void;
+  initialChosenId?: string | null;
+  onChoiceRecorded?: (chosenId: string, count: number) => void;
   open: boolean;
   boardA: ComboBoard;
   rankA: number;
@@ -144,13 +146,18 @@ export function BoardCompareModal({
   const [pileB, setPileB] = useState<PileKind | null>(null);
   const { profile } = useWeights();
   const [choicesCount, setChoicesCount] = useState<number | null>(null);
-  const [chosenBoardId, setChosenBoardId] = useState<string | null>(null);
+  const [chosenBoardId, setChosenBoardId] = useState<string | null>(initialChosenId ?? null);
   const [recording, setRecording] = useState(false);
+
+  useEffect(() => {
+    setChosenBoardId(initialChosenId ?? null);
+  }, [initialChosenId]);
 
   useEffect(() => {
     if (!open) return;
     let active = true;
-    api.learnedWeights(weights)
+    const prior = getPriorWeights();
+    api.learnedWeights(prior)
       .then((lw) => {
         if (active) setChoicesCount(lw.choices);
       })
@@ -162,7 +169,7 @@ export function BoardCompareModal({
     return () => {
       active = false;
     };
-  }, [open, weights]);
+  }, [open]);
 
   const handlePrefer = async (which: "A" | "B") => {
     if (!scoreA || !scoreB || scoreA.error || scoreB.error || recording || chosenBoardId !== null) return;
@@ -175,7 +182,7 @@ export function BoardCompareModal({
       const count = await api.recordBoardChoice(deckId ?? null, chosen, other);
       setChoicesCount(count);
       setChosenBoardId(chosenId);
-      onChoiceRecorded?.(count);
+      onChoiceRecorded?.(chosenId, count);
     } catch (e) {
       sound.play("error");
       toast(`Impossibile registrare la preferenza: ${e instanceof Error ? e.message : String(e)}`, "error");
@@ -438,7 +445,7 @@ export function BoardCompareModal({
                 <div>
                   <p className="eyebrow">Turno di prova · Metriche a confronto</p>
                   <h3 className="text-sm font-semibold">
-                    Punteggio e singole voci {profileName ? `(profilo «${profileName}»)` : "(pesi personalizzati)"}
+                    Punteggio e singole voci {profileName ? `(profilo «${profileName}»)` : profile === "learned" ? "(pesi imparati)" : "(pesi personalizzati)"}
                   </h3>
                 </div>
                 <span className="text-xs text-muted tabular-nums">

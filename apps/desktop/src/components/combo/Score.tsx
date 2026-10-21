@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { api, type Card, ComboBreaker, ComboInterruption, ComboRivalBreaker, ComboRivalHandTrap, ComboScore, type LearnedWeights } from "../../lib/api";
 import { METRICS, NEGATIVE, parts, pickProfile, PROFILES, score, setWeight, applyLearnedWeights, getPriorWeights, useWeights, type Metric, type MetricKey, type Weights } from "../../lib/scoring";
 import { sound } from "../../lib/sound";
@@ -56,7 +56,6 @@ export function WeightsPanel({
   weights,
   open,
   compact = false,
-  deckId: _deckId,
   choicesVersion,
   onToggle,
   onChoicesChanged,
@@ -65,7 +64,6 @@ export function WeightsPanel({
   weights: Weights;
   open: boolean;
   compact?: boolean;
-  deckId?: number | null;
   choicesVersion?: number;
   onToggle: () => void;
   onChoicesChanged?: () => void;
@@ -73,6 +71,7 @@ export function WeightsPanel({
   const [learned, setLearned] = useState<LearnedWeights | null>(null);
   const [loadingLearned, setLoadingLearned] = useState(false);
   const [clearing, setClearing] = useState(false);
+  const requestIdRef = useRef(0);
 
   useEffect(() => {
     let active = true;
@@ -103,6 +102,7 @@ export function WeightsPanel({
             type="button"
             className={`chip !py-0.5 ${profile === p.id ? "chip-active" : ""}`}
             onClick={() => {
+              requestIdRef.current++;
               sound.play("toggle");
               pickProfile(p.id);
             }}
@@ -118,9 +118,11 @@ export function WeightsPanel({
           onClick={async () => {
             sound.play("toggle");
             setLoadingLearned(true);
+            const reqId = ++requestIdRef.current;
             try {
               const prior = getPriorWeights();
               const res = await api.learnedWeights(prior);
+              if (reqId !== requestIdRef.current) return;
               setLearned(res);
               const sanitized: Partial<Weights> = {};
               for (const m of METRICS) {
@@ -129,12 +131,15 @@ export function WeightsPanel({
                   sanitized[m.key] = val;
                 }
               }
-              applyLearnedWeights(sanitized as Weights);
+              applyLearnedWeights(sanitized);
             } catch (e) {
+              if (reqId !== requestIdRef.current) return;
               sound.play("error");
               toast(`Impossibile calcolare i pesi imparati: ${e instanceof Error ? e.message : String(e)}`, "error");
             } finally {
-              setLoadingLearned(false);
+              if (reqId === requestIdRef.current) {
+                setLoadingLearned(false);
+              }
             }
           }}
           title="Pesi calibrati automaticamente sulle tue preferenze tra board registrate nel confronto"
@@ -187,9 +192,15 @@ export function WeightsPanel({
                         await api.clearBoardChoices();
                         sound.play("knock");
                         pickProfile("balanced");
+                        setLearned({
+                          weights: PROFILES[0].weights,
+                          choices: 0,
+                          agreement: 1,
+                          priorAgreement: 1,
+                        });
+                        onChoicesChanged?.();
                         const cleared = await api.learnedWeights(PROFILES[0].weights);
                         setLearned(cleared);
-                        onChoicesChanged?.();
                       } catch (e) {
                         sound.play("error");
                         toast(`Impossibile azzerare le scelte: ${e instanceof Error ? e.message : String(e)}`, "error");

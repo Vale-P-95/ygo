@@ -72,6 +72,7 @@ function store(key: string, value: unknown) {
 }
 
 const boardId = (b: ComboBoard) => `${b.hand}:${b.key}`;
+const pairKey = (id1: string, id2: string) => (id1 < id2 ? `${id1}<->${id2}` : `${id2}<->${id1}`);
 
 const ZONES: { zone: GoalZone; label: string; hint: string }[] = [
   { zone: "any", label: "ovunque", hint: "in qualsiasi zona" },
@@ -213,6 +214,7 @@ export function Combo({ artReady, onGoForge }: { artReady: boolean; onGoForge: (
   const [sortByMatchup, setSortByMatchup] = useState(false);
   const [paretoOnly, setParetoOnly] = useState(false);
   const [choicesVersion, setChoicesVersion] = useState(0);
+  const [recordedPairChoices, setRecordedPairChoices] = useState<Map<string, string>>(new Map());
 
   useEffect(() => {
     void api.listDecks().then(setAllDecks);
@@ -424,6 +426,7 @@ export function Combo({ artReady, onGoForge }: { artReady: boolean; onGoForge: (
     setCompareTarget(null);
     setHandFilter(null);
     setParetoOnly(false);
+    setRecordedPairChoices(new Map());
     explained.current.clear();
     const done = await startCombo({
       deckId: deck.id,
@@ -1002,7 +1005,6 @@ export function Combo({ artReady, onGoForge }: { artReady: boolean; onGoForge: (
                     weights={weights}
                     open={weightsOpen}
                     compact={!!selected}
-                    deckId={deck?.id ?? null}
                     choicesVersion={choicesVersion}
                     onToggle={() => setWeightsOpen((v) => !v)}
                     onChoicesChanged={() => setChoicesVersion((v) => v + 1)}
@@ -1227,13 +1229,17 @@ export function Combo({ artReady, onGoForge }: { artReady: boolean; onGoForge: (
           getCard={cards.get}
           onHover={onHover}
           onHoverEnd={onHoverEnd}
+          initialChosenId={recordedPairChoices.get(pairKey(boardId(pinned), boardId(compareTarget))) ?? null}
           onSwap={() => {
             const prevPinned = pinned;
             setPinned(compareTarget);
             setCompareTarget(prevPinned);
           }}
           onClose={() => setCompareTarget(null)}
-          onChoiceRecorded={() => setChoicesVersion((v) => v + 1)}
+          onChoiceRecorded={(chosenId) => {
+            setRecordedPairChoices((prev) => new Map(prev).set(pairKey(boardId(pinned), boardId(compareTarget)), chosenId));
+            setChoicesVersion((v) => v + 1);
+          }}
         />
       )}
       {hover && hoverCard && <CardPreview card={hoverCard} anchor={hover.rect} />}
