@@ -18,9 +18,11 @@ export interface ComboRun {
   scores: Record<string, ComboScore>;
   /** The probe turn is running on the best boards. */
   scoring: boolean;
+  /** Chosen opponent deck ID for matchup measurement, if any. */
+  vsDeckId: number | null;
 }
 
-const IDLE: ComboRun = { running: false, request: null, progress: null, live: {}, outcome: null, error: null, scores: {}, scoring: false };
+const IDLE: ComboRun = { running: false, request: null, progress: null, live: {}, outcome: null, error: null, scores: {}, scoring: false, vsDeckId: null };
 
 let run: ComboRun = IDLE;
 const listeners = new Set<() => void>();
@@ -84,17 +86,19 @@ async function follow(call: () => Promise<ComboOutcome>): Promise<ComboRun> {
     unlisten();
     set({ running: false });
   }
-  if (finished) void scoreBoards();
+  if (finished) void scoreBoards(run.vsDeckId);
   return run;
 }
 
 /** Puts the best boards to the probe turn; scores arrive one by one. */
-export async function scoreBoards() {
+export async function scoreBoards(vsDeckId?: number | null) {
   if (run.scoring || run.running) return;
-  set({ scoring: true });
+  const targetVs = vsDeckId !== undefined ? vsDeckId : run.vsDeckId;
+  const resetScores = vsDeckId !== undefined && vsDeckId !== run.vsDeckId;
+  set({ scoring: true, vsDeckId: targetVs, scores: resetScores ? {} : run.scores });
   const unlisten = await api.onComboScore((s) => set({ scores: { ...run.scores, [`${s.hand}:${s.key}`]: s } }));
   try {
-    await api.comboScore();
+    await api.comboScore(targetVs);
   } catch (e) {
     set({ error: String(e) });
   } finally {

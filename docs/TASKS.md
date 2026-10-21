@@ -3,7 +3,6 @@
 Regole in `AGENTS.md`. Per prendere un task, spostalo in "In corso" con agente, branch e file che tocchi (è il lock), poi committa e pusha questa modifica prima di cominciare.
 
 ## In corso
-- [ ] Turno di prova contro un deck scelto (#44, livello 1) nel Circolo Arcano: selettore rivale, resilienza contro X, handtrap rivali, ordinamento e mock — agente: gemini — branch: gemini/matchup-turn — file: docs/plans/turno-di-prova-matchup-ui.md, apps/desktop/src/pages/Combo.tsx, apps/desktop/src/components/combo/Score.tsx, apps/desktop/src/components/combo/BoardDetail.tsx, apps/desktop/src/lib/combo.ts, apps/desktop/src/lib/mock.ts
 - [ ] Mappa dei collegamenti tra le carte, backend (piano `docs/plans/mappa-collegamenti.md`): F0 contratto fatto (`DeckLinks` in `api.ts`, comando `deck_links`), poi F1 collegamenti letti dal motore e F2 uso, raggiungibilità, probabilità, percorsi — agente: claude-code — branch: claude/yugioh-deck-builder-simulator-cax0ya — file: crates/ygo-solver/src/links.rs (nuovo), lib.rs, crates/ygo-cli/src/main.rs, apps/desktop/src-tauri/src/lib.rs, apps/desktop/src/lib/api.ts (solo i tipi)
 - [ ] Velocità della ricerca: profilazione e correzioni a risultati invariati (resoconto in `docs/plans/velocita-ricerca.md` sul suo branch) — agente: claude-code, sessione sorella — branch: claude/search-speed — file: crates/ygo-solver/src/search.rs, card.rs, value.rs, probe.rs (solo velocità), crates/ygo-engine/src/, scripts/
 - [ ] Classificazione delle board più profonda, con criteri validati sui deck di Master Duel Meta (#47) — agente: claude-code — branch: claude/yugioh-deck-builder-simulator-cax0ya — file: crates/ygo-solver/src/probe.rs, value.rs, explain.rs, tests/probe.rs, crates/ygo-engine/src/message.rs, apps/desktop/src-tauri/src/lib.rs (score_view)
@@ -31,7 +30,7 @@ Regole in `AGENTS.md`. Per prendere un task, spostalo in "In corso" con agente, 
 ## Da fare (in ordine di priorità)
 
 ### Interfaccia (Gemini)
-- [ ] Turno di prova contro un deck scelto (#44, livello 1; backend pronto, piano in `docs/plans/turno-di-prova-matchup.md`). Nel Circolo Arcano:
+- [x] Turno di prova contro un deck scelto (#44, livello 1; backend pronto, piano in `docs/plans/turno-di-prova-matchup.md`). Nel Circolo Arcano:
   - un selettore "Contro: generico / deck della Bottega" vicino al pulsante che misura le board;
   - con un deck scelto si chiama `api.comboScore(vsDeckId)`: ogni `ComboScore` ha allora `matchup` (`ComboMatchup` in `api.ts`); cambiare deck rimisura tutte le board;
   - nella scheda del punteggio, accanto alla resilienza generica, la "resilienza contro X" (`matchup.resilience`, con `breakerChance` e la lista `breakers`: carta, probabilità di averla, valore che lascia, chi la nega). Con `standardBreakers` il deck non ha breaker giocabili: va detto che si usano quelli standard;
@@ -52,6 +51,7 @@ Regole in `AGENTS.md`. Per prendere un task, spostalo in "In corso" con agente, 
 ### Richieste dal backend per l'interfaccia
 
 ## Completati (recenti; lo storico è in `docs/PIANO.md`)
+- [x] Turno di prova contro un deck scelto (#44, livello 1) nel Circolo Arcano: selettore rivale ("Contro: generico / deck Bottega"), resilienza contro X e breaker con probabilità in 6 carte, handtrap rivali che fermano la linea con probabilità in 5 carte e momenti/carte coinvolti, ordinamento "vs deck", mock aggiornato e fix py-0.2 -> py-0.5 (piano `docs/plans/turno-di-prova-matchup-ui.md`).
 - [x] Turno di prova contro un deck scelto, livello 1, nel backend: resilienza contro i breaker del deck avversario e handtrap che fermano la linea, con le probabilità di averli in mano; `probe-line --vs`, `comboScore(vsDeckId)` (#44, PIANO §30.10).
 - [x] Collegamento del tappetino del Circolo Arcano al riproduttore passo per passo con `ComboStep.field`: campo, mano e pile aggiornati a ogni passo (PR #15).
 - [x] Visore Carta (`CardViewer`) interattivo: aggiunta/rimozione copie (+ Main/Extra, + Side, + Maybe, −) con limiti dal formato del deck (MD, TCG, OCG), assegnazione rapida dei ruoli in `deck.roles` e avvio esplorazione combo (PR #13, #14).
