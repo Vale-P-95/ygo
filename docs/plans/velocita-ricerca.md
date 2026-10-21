@@ -28,7 +28,20 @@ Profilo con callgrind (istruzioni eseguite) di `combos` su labrynth, 600 nodi, u
 Quindi il guadagno grande sta nel non ripagare gli script di base a ogni partita: vale per la ricerca, il turno di prova e i valori delle carte insieme.
 
 ## Correzioni
-(in corso)
+
+### 1. Partite riusate (`crates/ygo-engine/shim/reuse.cpp`)
+**Cosa.** Una partita finita non si distrugge: il thread la tiene e la svuota per la partita successiva, con gli script di base già caricati. Così non si rileggono a ogni partita `constant.lua`, `utility.lua` e i 22 file che carica.
+- **Fotografia** dopo gli script di base: ogni tabella raggiungibile dalle globali e gli upvalue di ogni funzione Lua; gli effetti creati dagli script di base (alcuni registrano effetti globali, come il rimescolamento della mano di `proc_workaround.lua`) e i contatori del campo.
+- **Svuotamento**: tabelle e upvalue tornano come nella fotografia (le classi delle carte spariscono, quindi ogni script di carta si riesegue come in una partita nuova); carte, altri effetti, coroutine e campo si buttano; il campo nuovo prende le opzioni e il seme della partita successiva; gli effetti di base si registrano di nuovo come erano (anche quelli che si cancellano da soli, come quello di `EVENT_STARTUP`).
+- **Motore non toccato**: `duel::clear`, che upstream non usa mai, si compila da una copia modificata di `duel.cpp` (come già `field.cpp` e `lauxlib.c`, vedi `build.rs`).
+- `DUELFORGE_FRESH_DUELS=1` torna alle partite sempre nuove. `DUELFORGE_CHECK_REUSE=1` gioca ogni partita riusata anche in una partita nuova accanto e si ferma alla prima differenza (passo o stato): serve a controllare.
+
+**Perché.** Gli script di base sono metà del costo di una partita corta, e ogni replay della ricerca, ogni corsa del turno di prova e ogni misura dei valori delle carte crea una partita.
+
+**Risultati invariati.** Le 16 mani danno uscite identiche (riepilogo, board misurate, linee). Con `DUELFORGE_CHECK_REUSE=1` le 16 mani (1500 nodi, ricerca + valori delle carte + turno di prova) non trovano differenze. Nuovo test `crates/ygo-engine/tests/reuse.rs`: 30 partite casuali (entrambi i giocatori) giocate in partite riusate e poi in partite nuove, passo per passo; fallisce se si toglie la registrazione degli effetti di base. Valgrind (memcheck) pulito.
+- Due difetti trovati così e corretti prima del commit: senza gli effetti di base la mano non si rimescolava dopo un effetto attivato dalla mano (Ame no Habakiri no Mitsurugi); senza visitare le funzioni di quegli effetti restava lo stato di una catena precedente (la tabella `player_table` di `proc_workaround.lua`).
+
+**Tempo.** Istruzioni eseguite (callgrind, labrynth, 600 nodi): da 62,0 a 45,4 miliardi (−27%). Sulle 16 mani: ricerca da 254,6–262,5 s a 249,7 s, tempo totale da 455–471 s a 428 s. Una mano da sola (labrynth, 2000 nodi, un thread, senza altro sulla macchina): da 12,2–12,4 s a 10,2–10,6 s (−15%).
 
 ## Idee scartate
 (in corso)

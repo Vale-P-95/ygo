@@ -54,7 +54,7 @@ fn main() {
     lua_build.compile("lua");
 
     let mut core_build = cc::Build::new();
-    core_build.cpp(true).std("c++17").include(&core).include(&lua_src).warnings(false);
+    core_build.cpp(true).std("c++17").include(&core).include(&lua_src).include(&shim).warnings(false);
     if msvc {
         core_build.flag("/GR-").flag("/EHsc").define("NOMINMAX", None);
     } else {
@@ -65,7 +65,15 @@ fn main() {
     let patched = out_dir.join("field.cpp");
     let text = std::fs::read_to_string(&field).expect("field.cpp");
     std::fs::write(&patched, patch_field(&text)).expect("patched field.cpp");
-    core_build.files(sources(&core, "cpp").into_iter().filter(|p| *p != field)).file(&patched);
+    // duel.cpp too (see `patch_duel`), and the shim that reuses duels.
+    let duel = core.join("duel.cpp");
+    let patched_duel = out_dir.join("duel.cpp");
+    std::fs::write(&patched_duel, patch_duel(&std::fs::read_to_string(&duel).expect("duel.cpp"))).expect("patched duel.cpp");
+    core_build
+        .files(sources(&core, "cpp").into_iter().filter(|p| *p != field && *p != duel))
+        .file(&patched)
+        .file(&patched_duel)
+        .file(shim.join("reuse.cpp"));
     core_build.files(sources(&core.join("RNG"), "cpp"));
     core_build.compile("ocgcore");
 }
@@ -154,4 +162,55 @@ fn patch_field(text: &str) -> String {
         assert_eq!(text.matches(old).count(), 1, "vendor/ygopro-core/field.cpp changed: check the reset loops patch in build.rs");
     }
     text.replace(RESET_PHASE, RESET_PHASE_FIXED).replace(RESET_CHAIN, RESET_CHAIN_FIXED)
+}
+
+/// `duel::clear`, which upstream never calls, empties a duel for the next
+/// one (shim/reuse.cpp): the new field gets the next duel's options instead
+/// of fixed defaults, the random numbers are seeded again like in a new
+/// duel, the messages not read are dropped, and the effects the base
+/// scripts created are kept (the shim puts them back). Panics if upstream
+/// changed the code, so the patch is looked at again.
+fn patch_duel(text: &str) -> String {
+    const CLEAR: &str = "void duel::clear() {
+	static constexpr OCG_DuelOptions default_options{ {},0,{8000,5,1},{8000,5,1} };
+	for(auto& pcard : cards)
+		delete pcard;
+	for(auto& peffect : effects) {
+		lua->unregister_effect(peffect);
+		delete peffect;
+	}
+	delete game_field;
+	//force full garbage collection to clean the groups
+	lua->collect(true);
+	cards.clear();
+";
+    const CLEAR_FIXED: &str = "thread_local const df_reset_info* df_reset = nullptr;
+void duel::clear() {
+	const OCG_DuelOptions& default_options = *df_reset->options;
+	const auto& seed = default_options.seed;
+	random = RNG::Xoshiro256StarStar({ seed[0], seed[1], seed[2], seed[3] });
+	messages.clear();
+	for(auto& pcard : cards)
+		delete pcard;
+	for(auto& peffect : effects) {
+		if(df_reset->keep->count(peffect))
+			continue;
+		lua->unregister_effect(peffect);
+		delete peffect;
+	}
+	delete game_field;
+	if(df_reset->collect)
+		lua->collect(true);
+	cards.clear();
+";
+    const EFFECTS: &str = "	effects.clear();
+	game_field = new field(this, default_options);";
+    const EFFECTS_FIXED: &str = "	effects = { df_reset->keep->begin(), df_reset->keep->end() };
+	game_field = new field(this, default_options);";
+    const INCLUDE: &str = "#include \"interpreter.h\"\n";
+    let text = text.replace("\r\n", "\n");
+    for old in [CLEAR, EFFECTS, INCLUDE] {
+        assert_eq!(text.matches(old).count(), 1, "vendor/ygopro-core/duel.cpp changed: check the duel::clear patch in build.rs");
+    }
+    text.replace(CLEAR, CLEAR_FIXED).replace(EFFECTS, EFFECTS_FIXED).replace(INCLUDE, &format!("{INCLUDE}#include \"reuse.h\"\n"))
 }
