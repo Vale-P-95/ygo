@@ -3,8 +3,13 @@ import { createPortal } from "react-dom";
 import { api, type Card, ComboBoard, ComboInterruption, ComboScore, ZoneCard } from "../../lib/api";
 import { METRICS, NEGATIVE, parts, PROFILES, score, useWeights, metricValues, type Weights } from "../../lib/scoring";
 import { sound } from "../../lib/sound";
+import { toast } from "../../lib/toast";
 import { CardImage, Field, type HoverCard, type Pile as PileKind } from "./Field";
 import { ScoreBar } from "./Score";
+
+function boardId(b: ComboBoard): string {
+  return `${b.hand}:${b.key}`;
+}
 
 const fmt2 = (n: number) => n.toLocaleString("it-IT", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const fmt1 = (n: number) => n.toLocaleString("it-IT", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
@@ -139,7 +144,7 @@ export function BoardCompareModal({
   const [pileB, setPileB] = useState<PileKind | null>(null);
   const { profile } = useWeights();
   const [choicesCount, setChoicesCount] = useState<number | null>(null);
-  const [recordedChoice, setRecordedChoice] = useState<"A" | "B" | null>(null);
+  const [chosenBoardId, setChosenBoardId] = useState<string | null>(null);
   const [recording, setRecording] = useState(false);
 
   useEffect(() => {
@@ -149,25 +154,31 @@ export function BoardCompareModal({
       .then((lw) => {
         if (active) setChoicesCount(lw.choices);
       })
-      .catch(() => {});
+      .catch((e) => {
+        if (active) {
+          toast(`Impossibile leggere le preferenze: ${e instanceof Error ? e.message : String(e)}`, "error");
+        }
+      });
     return () => {
       active = false;
     };
   }, [open, weights]);
 
   const handlePrefer = async (which: "A" | "B") => {
-    if (!scoreA || !scoreB || scoreA.error || scoreB.error || recording) return;
+    if (!scoreA || !scoreB || scoreA.error || scoreB.error || recording || chosenBoardId !== null) return;
     setRecording(true);
     sound.play("chime");
     try {
       const chosen = which === "A" ? metricValues(scoreA) : metricValues(scoreB);
       const other = which === "A" ? metricValues(scoreB) : metricValues(scoreA);
+      const chosenId = which === "A" ? boardId(boardA) : boardId(boardB);
       const count = await api.recordBoardChoice(deckId ?? null, chosen, other);
       setChoicesCount(count);
-      setRecordedChoice(which);
+      setChosenBoardId(chosenId);
       onChoiceRecorded?.(count);
-    } catch {
+    } catch (e) {
       sound.play("error");
+      toast(`Impossibile registrare la preferenza: ${e instanceof Error ? e.message : String(e)}`, "error");
     } finally {
       setRecording(false);
     }
@@ -299,26 +310,35 @@ export function BoardCompareModal({
 
                   {col.s && !col.s.error && <ScoreBar s={col.s} weights={weights} scale={posScale} />}
 
-                  <div className="flex items-center justify-between gap-2 border-b border-border/60 pb-2">
-                    <button
-                      type="button"
-                      disabled={recording || !scoreA || !scoreB || !!scoreA.error || !!scoreB.error}
-                      onClick={() => void handlePrefer(idx === 0 ? "A" : "B")}
-                      className={`btn !py-1 !px-2.5 text-xs flex items-center gap-1.5 transition-all shadow-xs ${
-                        recordedChoice === (idx === 0 ? "A" : "B")
-                          ? "btn-molten !border-gold text-gold"
-                          : "btn-ghost border border-sec/40 hover:bg-sec/15 text-sec"
-                      }`}
-                      title="Registra che preferisci questa board rispetto all'altra per calibrare i tuoi pesi personali"
-                    >
-                      <span>{recordedChoice === (idx === 0 ? "A" : "B") ? "★ Hai preferito questa" : "★ Preferisco questa"}</span>
-                    </button>
-                    {choicesCount != null && (
-                      <span className="text-[11px] text-muted tabular-nums">
-                        {choicesCount} {choicesCount === 1 ? "scelta registrata" : "scelte registrate"}
-                      </span>
-                    )}
-                  </div>
+                  {(() => {
+                    const isChosen = chosenBoardId === boardId(col.b);
+                    const isOther = chosenBoardId !== null && !isChosen;
+                    return (
+                      <div className="flex items-center justify-between gap-2 border-b border-border/60 pb-2">
+                        <button
+                          type="button"
+                          disabled={recording || chosenBoardId !== null || !scoreA || !scoreB || !!scoreA.error || !!scoreB.error}
+                          onClick={() => void handlePrefer(idx === 0 ? "A" : "B")}
+                          className={`btn !py-1 !px-2.5 text-xs flex items-center gap-1.5 transition-all shadow-xs ${
+                            isChosen
+                              ? "btn-molten font-semibold"
+                              : isOther
+                                ? "btn-ghost opacity-50 cursor-not-allowed"
+                                : "btn-ghost border border-sec/40 hover:bg-sec/15 text-sec"
+                          }`}
+                          title={
+                            isChosen
+                              ? "Hai preferito questa board"
+                              : isOther
+                                ? "Hai già registrato la tua preferenza per questo confronto"
+                                : "Registra che preferisci questa board rispetto all'altra per calibrare i tuoi pesi personali"
+                          }
+                        >
+                          <span>{isChosen ? "★ Hai preferito questa" : "★ Preferisco questa"}</span>
+                        </button>
+                      </div>
+                    );
+                  })()}
 
                   <Field
                     board={col.b}

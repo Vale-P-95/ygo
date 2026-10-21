@@ -1,7 +1,8 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { api, type Card, ComboBreaker, ComboInterruption, ComboRivalBreaker, ComboRivalHandTrap, ComboScore, type LearnedWeights } from "../../lib/api";
-import { METRICS, NEGATIVE, parts, pickProfile, PROFILES, score, setWeight, applyLearnedWeights, useWeights, type Metric, type MetricKey, type Weights } from "../../lib/scoring";
+import { METRICS, NEGATIVE, parts, pickProfile, PROFILES, score, setWeight, applyLearnedWeights, getPriorWeights, useWeights, type Metric, type MetricKey, type Weights } from "../../lib/scoring";
 import { sound } from "../../lib/sound";
+import { toast } from "../../lib/toast";
 import { InfoButton } from "../InfoButton";
 import { CardImage, type HoverCard } from "./Field";
 
@@ -56,6 +57,7 @@ export function WeightsPanel({
   open,
   compact = false,
   deckId: _deckId,
+  choicesVersion,
   onToggle,
   onChoicesChanged,
 }: {
@@ -64,6 +66,7 @@ export function WeightsPanel({
   open: boolean;
   compact?: boolean;
   deckId?: number | null;
+  choicesVersion?: number;
   onToggle: () => void;
   onChoicesChanged?: () => void;
 }) {
@@ -73,15 +76,20 @@ export function WeightsPanel({
 
   useEffect(() => {
     let active = true;
-    api.learnedWeights(weights)
+    const prior = getPriorWeights();
+    api.learnedWeights(prior)
       .then((lw) => {
         if (active) setLearned(lw);
       })
-      .catch(() => {});
+      .catch((e) => {
+        if (active) {
+          toast(`Impossibile leggere le preferenze: ${e instanceof Error ? e.message : String(e)}`, "error");
+        }
+      });
     return () => {
       active = false;
     };
-  }, [profile, open, weights]);
+  }, [profile, open, choicesVersion]);
   return (
     <div className="flex flex-col gap-2">
       <div className="flex flex-wrap items-center gap-1.5 text-xs">
@@ -111,9 +119,20 @@ export function WeightsPanel({
             sound.play("toggle");
             setLoadingLearned(true);
             try {
-              const res = await api.learnedWeights(weights);
+              const prior = getPriorWeights();
+              const res = await api.learnedWeights(prior);
               setLearned(res);
-              applyLearnedWeights(res.weights as Weights);
+              const sanitized: Partial<Weights> = {};
+              for (const m of METRICS) {
+                const val = (res.weights as Record<string, unknown>)[m.key];
+                if (typeof val === "number" && Number.isFinite(val)) {
+                  sanitized[m.key] = val;
+                }
+              }
+              applyLearnedWeights(sanitized as Weights);
+            } catch (e) {
+              sound.play("error");
+              toast(`Impossibile calcolare i pesi imparati: ${e instanceof Error ? e.message : String(e)}`, "error");
             } finally {
               setLoadingLearned(false);
             }
@@ -167,10 +186,13 @@ export function WeightsPanel({
                       try {
                         await api.clearBoardChoices();
                         sound.play("knock");
+                        pickProfile("balanced");
                         const cleared = await api.learnedWeights(PROFILES[0].weights);
                         setLearned(cleared);
-                        pickProfile("balanced");
                         onChoicesChanged?.();
+                      } catch (e) {
+                        sound.play("error");
+                        toast(`Impossibile azzerare le scelte: ${e instanceof Error ? e.message : String(e)}`, "error");
                       } finally {
                         setClearing(false);
                       }
@@ -538,7 +560,7 @@ export function ScoreBreakdown({
     return <p className="text-xs text-faint">Il turno di prova non si è potuto giocare su questa board: {s.error}</p>;
   }
   const profileName = PROFILES.find((p) => p.id === profile)?.label;
-  const profileText = profileName ? `Nel profilo «${profileName}»` : "Con i tuoi pesi";
+  const profileText = profileName ? `Nel profilo «${profileName}»` : profile === "learned" ? "Con i pesi imparati" : "Con i tuoi pesi";
   const all = parts(s, weights);
   const total = score(s, weights);
   const positive = all.filter((p) => p.value > 0.005).reduce((t, p) => t + p.value, 0);
@@ -556,7 +578,7 @@ export function ScoreBreakdown({
       <div className="flex flex-col gap-1.5">
         <div className="flex items-baseline gap-2">
           <span className="text-2xl font-semibold tabular-nums">{fmt2(total)}</span>
-          <span className="text-xs text-muted">punti{profileName ? ` · profilo «${profileName}»` : " · pesi personalizzati"}</span>
+          <span className="text-xs text-muted">punti{profileName ? ` · profilo «${profileName}»` : profile === "learned" ? " · Imparato dalle tue scelte" : " · pesi personalizzati"}</span>
           <InfoButton title="Come si calcola il punteggio" className="ml-auto self-center">
             <p>Il motore mette alla prova la board: gioca il turno dell'avversario con le giocate più comuni e con i board breaker più usati, e guarda cosa riesci a fermare.</p>
             <p>Ogni voce qui sotto dà punti (misura × peso); quelle in rosso li tolgono. I pesi vengono dal profilo scelto sopra la lista delle board.</p>
