@@ -6,6 +6,7 @@ import type {
   Checkpoint,
   Chip,
   ComboBoard,
+  CardLink,
   ComboGoal,
   ComboMatchup,
   ComboHand,
@@ -43,6 +44,7 @@ import type {
   ZoneCard,
 } from "./api";
 import { pAtLeastOne, pBoth } from "./probability";
+import invokedLinksFixture from "./fixtures/invoked-links.json";
 
 type Api = typeof ApiType;
 
@@ -820,6 +822,7 @@ const rolesProgressListeners = new Set<(p: { done: number; total: number }) => v
 const simProgressListeners = new Set<(c: Checkpoint) => void>();
 const comboProgressListeners = new Set<(p: ComboProgress) => void>();
 const comboScoreListeners = new Set<(s: ComboScore) => void>();
+const linksProgressListeners = new Set<(p: { done: number; total: number }) => void>();
 let lastVsDeckId: number | null = null;
 let simCancelled = false;
 let comboCancelled = false;
@@ -2137,21 +2140,82 @@ export const mockApi: Api = {
     return found ? structuredClone(found) : null;
   },
 
-  // A minimal map (the deck's cards, no links): Gemini replaces it with a full example.
+  // Full links map example based on the Invoked deck fixture
   deckLinks: async (deckId: number): Promise<DeckLinks> => {
+    for (let step = 1; step <= 3; step++) {
+      await delay(40);
+      linksProgressListeners.forEach((fn) => fn({ done: step * 10, total: 30 }));
+    }
+
     const deck = decksState.find((d) => d.id === deckId);
-    const cards: DeckLinks["cards"] = [];
+    const mainSet = new Set(deck?.main ?? []);
+    const extraSet = new Set(deck?.extra ?? []);
+    const allSet = new Set([...mainSet, ...extraSet]);
+
+    // If deck contains Invoked engine (Aleister 86120751 or 86120752), use real engine-generated fixture
+    const isInvoked = mainSet.has(86120751) || mainSet.has(86120752);
+
+    if (isInvoked) {
+      return {
+        deckId,
+        hands: invokedLinksFixture.hands,
+        lines: invokedLinksFixture.lines,
+        cards: (invokedLinksFixture.cards as DeckLinks["cards"]).map((c) => ({
+          ...c,
+          code: c.code === 86120751 && !mainSet.has(86120751) && mainSet.has(86120752) ? 86120752 : c.code,
+        })),
+        links: (invokedLinksFixture.links as CardLink[]).map((l) => ({
+          ...l,
+          from: l.from === 86120751 && !mainSet.has(86120751) && mainSet.has(86120752) ? 86120752 : l.from,
+          to: l.to === 86120751 && !mainSet.has(86120751) && mainSet.has(86120752) ? 86120752 : l.to,
+        })),
+      };
+    }
+
+    // For any other deck: build card entries and filter valid links
+    const rawCards: DeckLinks["cards"] = [];
     for (const [codes, extra] of [[deck?.main ?? [], false], [deck?.extra ?? [], true]] as const) {
       for (const code of codes) {
-        const card = cards.find((c) => c.code === code);
+        const card = rawCards.find((c) => c.code === code);
         if (card) card.copies += 1;
-        else cards.push({ code, copies: 1, extra, reach: 0, reachAll: 0, chance: 0, key: 0 });
+        else rawCards.push({ code, copies: 1, extra, reach: 0, reachAll: 0, chance: 0, key: 0 });
       }
     }
-    return { deckId, cards, links: [], hands: 0, lines: 0 };
+
+    const validLinks = (invokedLinksFixture.links as CardLink[]).filter(
+      (l) => allSet.has(l.from) && allSet.has(l.to)
+    );
+
+    const outgoingByCard = new Map<number, CardLink[]>();
+    for (const l of validLinks) {
+      const list = outgoingByCard.get(l.from) ?? [];
+      list.push(l);
+      outgoingByCard.set(l.from, list);
+    }
+
+    for (const c of rawCards) {
+      const outgoing = outgoingByCard.get(c.code) ?? [];
+      c.reach = new Set(outgoing.map((l) => l.to)).size;
+      c.reachAll = c.reach;
+      c.chance = c.extra ? (c.reach > 0 ? 0.65 : 0) : c.copies === 3 ? 0.34 : c.copies === 2 ? 0.24 : 0.12;
+      c.key = 0;
+    }
+
+    return {
+      deckId,
+      cards: rawCards,
+      links: validLinks,
+      hands: 30,
+      lines: 600,
+    };
   },
 
-  onLinksProgress: async (): Promise<UnlistenFn> => () => {},
+  onLinksProgress: async (handler: (p: { done: number; total: number }) => void): Promise<UnlistenFn> => {
+    linksProgressListeners.add(handler);
+    return () => {
+      linksProgressListeners.delete(handler);
+    };
+  },
 
   saveDeck: async (deck: Deck) => {
     const today = new Date().toISOString().slice(0, 10);
