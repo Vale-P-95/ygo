@@ -2078,6 +2078,8 @@ export const mockApi: Api = {
     return { deckId, cards, links: [], hands: 0, lines: 0 };
   },
 
+  onLinksProgress: async (): Promise<UnlistenFn> => () => {},
+
   saveDeck: async (deck: Deck) => {
     const today = new Date().toISOString().slice(0, 10);
     if (deck.id != null) {

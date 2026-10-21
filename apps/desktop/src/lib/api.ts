@@ -573,6 +573,8 @@ export interface CardLink {
    * recover: gets it back from the GY or banishment to the hand or Deck; material: `from` is a material of `to`.
    */
   kind: CardLinkKind;
+  /** Where `to` comes from (a link from the GY or the hand brings no new card into play). */
+  zone: "deck" | "extra" | "grave" | "banished" | "hand";
   /** The engine offered it: the effect can pick that card. */
   possible: boolean;
   /** Share of the Combo Lab's best lines that use it, 0 to 1 (0 when none does). */
@@ -585,10 +587,13 @@ export interface LinkCard {
   copies: number;
   /** In the Extra Deck. */
   extra: boolean;
-  /** Cards it leads to in one step, and in any number of steps. */
+  /** Cards it leads to in one step (any link), and with the cards brought into play from there in any number of steps (links from the Deck or the Extra Deck). */
   reach: number;
   reachAll: number;
-  /** Exact chance that an opening hand of 5 reaches it: it, or a card with a path to it. */
+  /**
+   * Exact chance that an opening hand of 5 holds it or a card that brings it into play in any number of steps
+   * (one card is enough: optimistic when a link needs more). 0 for an Extra Deck monster no card names as material.
+   */
   chance: number;
 }
 
@@ -658,8 +663,10 @@ const tauriApi = {
   comboCancel: () => invoke<void>("combo_cancel"),
   comboExplain: (hand: number, key: string) => invoke<ComboStep[]>("combo_explain", { hand, key }),
   onComboProgress: (handler: (p: ComboProgress) => void): Promise<UnlistenFn> => listen<ComboProgress>("combo-progress", (e) => handler(e.payload)),
-  /** Laboratorio, "Collegamenti": the map of a deck (for now its cards only; the links come with the engine's part). */
+  /** Laboratorio, "Collegamenti": the map of a deck, read by the engine (about half a minute the first time, then kept until its cards change). */
   deckLinks: (deckId: number) => invoke<DeckLinks>("deck_links", { deckId }),
+  onLinksProgress: (handler: (p: { done: number; total: number }) => void): Promise<UnlistenFn> =>
+    listen<{ done: number; total: number }>("deck-links-progress", (e) => handler(e.payload)),
 };
 
 type Api = typeof tauriApi;
