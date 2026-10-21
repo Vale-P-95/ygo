@@ -1364,3 +1364,9 @@ Spunto: le grafiche "quale carta prende quale" di ygo-decklab. Piano in `docs/pl
 - **Zona di partenza.** Ogni collegamento dice da dove arriva la carta. La raggiungibilità in più passi e la probabilità esatta di arrivare a una carta con la mano iniziale contano solo i collegamenti che portano carte nuove dal Deck o dall'Extra Deck.
 - **Costo.** Sul deck Invoked: 89 collegamenti da 600 linee in 27 secondi. Nell'app la mappa resta in cache finché le carte del deck non cambiano. Interfaccia: Gemini.
 
+### 30.12 Pesi imparati dalle scelte del giocatore (21/10/2026)
+Richiesta #40. Quando si confrontano due board, il giocatore può dire quale preferisce; ogni scelta registra le metriche delle due board (`user.db`, tabella `board_choices`).
+- **Modello.** I pesi si ricavano con il modello di Bradley-Terry: la probabilità di preferire A a B dipende dalla differenza dei punteggi pesati. È una regressione logistica penalizzata, tirata verso il profilo in uso: 4 scelte pesano quanto il profilo, quindi poche scelte lo spostano poco (`ygo-stats/src/prefs.rs`).
+- **Cosa si vede.** Oltre ai pesi, quante scelte spiegano i pesi imparati e quante il profilo di partenza.
+- **Interfaccia.** Pulsante «Preferisco questa» nel confronto, profilo «Imparato dalle tue scelte», filtro della frontiera di Pareto: richiesta a Gemini in `docs/TASKS.md`.
+

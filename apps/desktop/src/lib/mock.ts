@@ -20,6 +20,7 @@ import type {
   Deck,
   DeckBox,
   DeckLinks,
+  LearnedWeights,
   DeckSummary,
   Facets,
   HandStats,
@@ -2042,6 +2043,8 @@ function buildMockScoreForBoard(b: ComboBoard, vsDeckId?: number | null): ComboS
 
 let lastScoredBoards: ComboBoard[] = [];
 
+let mockBoardChoices = 0;
+
 export const mockApi: Api = {
   dataStatus: async () => structuredClone(statusState),
 
@@ -2545,6 +2548,18 @@ export const mockApi: Api = {
     const rec: Recipe = { id: nextRecipeId++, deckId, name, cond: structuredClone(cond) };
     recipesState = [...recipesState, rec];
     return structuredClone(rec);
+  },
+
+  // Choices kept in memory; the learned weights are the prior (the real fit is in the backend).
+  recordBoardChoice: async (): Promise<number> => ++mockBoardChoices,
+  learnedWeights: async (prior: Record<string, number>): Promise<LearnedWeights> => ({
+    weights: { ...prior },
+    choices: mockBoardChoices,
+    agreement: 0,
+    priorAgreement: 0,
+  }),
+  clearBoardChoices: async () => {
+    mockBoardChoices = 0;
   },
 
   deleteRecipe: async (id: number) => {
