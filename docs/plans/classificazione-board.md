@@ -554,6 +554,26 @@ $CLI --data data card-values --deck $S/mdm/<deck>.ydk        # tabella delle han
 
 ---
 
+### C7. Linea di base (21/10/2026)
+
+Codice: il branch di Claude con mimalloc e meno replay (`c9ad88b`). Ricerca come in C1: 45 deck (37 MDM e 8 archetipi), mano della regola "-lines", 3000 nodi, un thread, prime 8 board misurate. Comandi: `combo_hunt.py --seed 1|2|3 --json`, `rank_report.py`, `board_pairs.py make|eval|sheet`. Nessun crash e nessun "probe turn failed".
+
+| Numero (C5) | Oggi | Nel piano (20/10) | Obiettivo |
+|---|---|---|---|
+| 2. Invarianza: gruppi con le stesse carte che misurano diverso di più di 0,05 | 4 (Δ max 0,65) | 17 in 11 deck | 0 |
+| 3. Zeri sbagliati (Dragoon a mano vuota, Desirae senza equip, Secreterion) | 0 | — | 0 |
+| 7. Coppie della top 8 invertite di più di 0,1 tra stima e misura | 131 su 1260 | 131 su 753 | ≤ 60 |
+| 7. Deck in cui il #1 elencato non è il migliore misurato | 12 su 45 | 12 su 45 | 0 |
+| 8. Deck con al massimo 2 campi distinti nella top 8 | 5 | 9 | meno |
+| 9. Tempo della misura per board | mediana 0,54 s, p95 1,56 s | — | — |
+| 6. Stabilità tra semi: Jaccard medio delle prime 5 | 0,24 (90 confronti) | — | non peggiore |
+
+Note:
+- **Invarianza.** La correzione dei costi del turno di prova (§30.6 del PIANO) ha tolto quasi tutti i casi. Restano Synchrons, con F.A. Dawn Dragster: 4,01 in una zona principale e 3,35 nella Zona Mostri Extra (Δ 0,65, due gruppi), e White Forest Azamina, al limite (0,05).
+- **Stabilità.** Il seme cambia anche l'ordine del deck: con la stessa mano le carte pescate o cercate cambiano (Azamina con il seme 2 trova board con un Infinite Impermanence pescato). Il Jaccard basso misura quindi sia questo sia il budget di nodi. Va confrontato prima e dopo, non con 1.
+- **Coppie** (`board_pairs.py eval`). Sicure: 2 giuste su 3 misurate (P1 Dragoon a mano vuota, P2 Desirae senza equip). P4 risulta pari (1,38 contro 1,38) invece di B>A. P5, da confermare, esce al contrario (B>A). P3, P6, P7 e P9 descrivono board che la ricerca di oggi non trova più: vanno sostituite con coppie nuove.
+- **Pannello di giudici.** Ancora da fare: tre agenti ordinano alla cieca i fogli di `board_pairs.py sheet` (prime 5 board distinte per deck) e le coppie su cui sono d'accordo entrano in `pairs.tsv` come sicure.
+
 ## 5. Parte D: ordine di implementazione
 
 Tutto si fa su un branch `claude/board-score`, con lock in `docs/TASKS.md` su `probe.rs`, `value.rs`, `search.rs`, `lib.rs` e `api.ts` passo per passo. Ogni passo deve:

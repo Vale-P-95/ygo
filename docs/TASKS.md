@@ -6,7 +6,8 @@ Regole in `AGENTS.md`. Per prendere un task, spostalo in "In corso" con agente, 
 - [ ] Classificazione delle board più profonda, con criteri validati sui deck di Master Duel Meta (#47) — agente: claude-code — branch: claude/yugioh-deck-builder-simulator-cax0ya — file: crates/ygo-solver/src/probe.rs, value.rs, explain.rs, apps/desktop/src-tauri/src/lib.rs (score_view)
   - Piano: `docs/plans/classificazione-board.md` (passi D0–D17; giudizio dato da un pannello di agenti, non dal proprietario).
   - [x] D0a: `combos --json/--save-lines`, `probe-line`.
-  - [ ] D0b: `combo_hunt.py --seed/--json`, `board_pairs.py`, `rank_report.py`, `tests/fixtures/boards/pairs.tsv`, pannello di giudici, numeri di partenza.
+  - [x] D0b: `combo_hunt.py --seed/--json`, `board_pairs.py`, `rank_report.py`, `tests/fixtures/boards/pairs.tsv`, numeri di partenza (piano §C7).
+  - [ ] Pannello di giudici (tre agenti) sui fogli di `board_pairs.py sheet`, per sostituire le coppie P3, P6, P7, P9 e arrivare ad almeno 40 coppie.
   - [ ] D1–D7: correzioni della misura (bersagli, fermate, copertura, copie, run congiunta, floodgate finti).
 - [ ] Correzioni dalla caccia ai bug della ricerca (12 problemi confermati) — agente: claude-code — branch: claude/yugioh-deck-builder-simulator-cax0ya — file: crates/ygo-solver/src/search.rs, probe.rs, roles.rs, crates/ygo-engine/src/auto.rs
   - [x] Set in un solo ordine anche dopo una finestra di catena; ricerca fermata a metà che riparte dal punto giusto.
