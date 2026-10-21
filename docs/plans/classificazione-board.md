@@ -560,6 +560,8 @@ Codice: il branch di Claude con mimalloc e meno replay (`c9ad88b`). Ricerca come
 
 | Numero (C5) | Oggi | Nel piano (20/10) | Obiettivo |
 |---|---|---|---|
+| 1. Coppie sicure con il vincitore giusto | 17 su 33 misurate (52%) | — | ≥ 80% |
+| 1. Coppie da confermare con il vincitore giusto | 7 su 45 misurate | — | più |
 | 2. Invarianza: gruppi con le stesse carte che misurano diverso di più di 0,05 | 4 (Δ max 0,65) | 17 in 11 deck | 0 |
 | 3. Zeri sbagliati (Dragoon a mano vuota, Desirae senza equip, Secreterion) | 0 | — | 0 |
 | 7. Coppie della top 8 invertite di più di 0,1 tra stima e misura | 131 su 1260 | 131 su 753 | ≤ 60 |
@@ -571,8 +573,12 @@ Codice: il branch di Claude con mimalloc e meno replay (`c9ad88b`). Ricerca come
 Note:
 - **Invarianza.** La correzione dei costi del turno di prova (§30.6 del PIANO) ha tolto quasi tutti i casi. Restano Synchrons, con F.A. Dawn Dragster: 4,01 in una zona principale e 3,35 nella Zona Mostri Extra (Δ 0,65, due gruppi), e White Forest Azamina, al limite (0,05).
 - **Stabilità.** Il seme cambia anche l'ordine del deck: con la stessa mano le carte pescate o cercate cambiano (Azamina con il seme 2 trova board con un Infinite Impermanence pescato). Il Jaccard basso misura quindi sia questo sia il budget di nodi. Va confrontato prima e dopo, non con 1.
-- **Coppie** (`board_pairs.py eval`). Sicure: 2 giuste su 3 misurate (P1 Dragoon a mano vuota, P2 Desirae senza equip). P4 risulta pari (1,38 contro 1,38) invece di B>A. P5, da confermare, esce al contrario (B>A). P3, P6, P7 e P9 descrivono board che la ricerca di oggi non trova più: vanno sostituite con coppie nuove.
-- **Pannello di giudici.** Ancora da fare: tre agenti ordinano alla cieca i fogli di `board_pairs.py sheet` (prime 5 board distinte per deck) e le coppie su cui sono d'accordo entrano in `pairs.tsv` come sicure.
+- **Pannello di giudici.** Tre agenti hanno ordinato alla cieca le prime 5 board distinte di ogni deck (seme 1). Sono d'accordo sulla board migliore in 31 deck su 45; 66 dei 135 giudizi erano a bassa fiducia. Le coppie messe nello stesso ordine da tutti e tre sono in `pairs.tsv`: 74 in 39 deck, 30 sicure (nessun giudice incerto sul deck) e 44 da confermare.
+- **Coppie** (`board_pairs.py eval`, 83 coppie: P1–P9 più le 74 del pannello). 4 non si trovano più (P3, P6, P7, P9) e P8 non ha un atteso.
+  - Sicure: 17 giuste, 12 pari (|Δ| < 0,05) e 4 al contrario (J28 labrynth, J46 synchrons, J57 white_forest_azamina, J68 x_spright). Delle vecchie, P1 e P2 sono giuste e P4 è pari.
+  - Da confermare: 7 giuste, 24 pari e 14 al contrario (tra queste P5).
+  - Il difetto più frequente è la parità: 36 coppie su 78 misurano uguale. Di solito la differenza tra le due board è qualcosa che la misura oggi non conta: un campo che vale 0 interruzioni in entrambe (Clown Crew, Yummy: resta solo l'handtrap in mano, 0,64), una Trappola settata che non ferma niente nel kit (Volcanic Emission), un mostro in più senza effetto contro il kit, carte per il turno dopo. Sono i casi di D1–D7 (bersagli, kit, carte che il kit non usa), D13 (risorse) e D15 (protezione).
+  - Le 4 sicure al contrario si guardano una per una in D1–D7.
 
 ## 5. Parte D: ordine di implementazione
 

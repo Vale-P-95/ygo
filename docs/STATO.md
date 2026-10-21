@@ -17,7 +17,7 @@ Breve indice per chi arriva. Il dettaglio è in `docs/PIANO.md` (v1.9, §30), le
 
 ## A metà
 - **Velocità del motore**: allocatore mimalloc per Lua (ricerca dal 22 al 50% più veloce a parità di risultati) e altri prototipi in misura; la patch finale va su un branch e poi in una PR.
-- **Classificazione delle board** (#47): strumenti di misura pronti a metà (D0a fatto, D0b in corso); mancano la protezione della board e le risorse per il turno dopo. Piano: `docs/plans/classificazione-board.md`.
+- **Classificazione delle board** (#47): strumenti di misura e linea di base pronti (D0: 83 coppie giudicate, sicure giuste 17 su 33, il difetto principale è la parità); mancano la protezione della board e le risorse per il turno dopo. Piano: `docs/plans/classificazione-board.md`.
 - **Linee del video Invoked** (#45): la ricerca trova le board; la classifica va rivista insieme alla #47.
 
 ## Bug e limiti noti
