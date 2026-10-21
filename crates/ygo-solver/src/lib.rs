@@ -16,7 +16,7 @@ pub use card::{resume_card, sample_hands, search_card, CardSearch, HandResult};
 pub use coverage::{Counts, Coverage, Kind as MechanicKind, Mechanic};
 pub use explain::{explain, exposure, ExplainedStep, Exposure, Happening, HappeningKind};
 pub use links::{deck_links, CardLink, DeckLinks, LinkCard, LinkKind, LinksBudget, Zone as LinkZone};
-pub use matchup::{matchup, Matchup, Rival, RivalBreaker, RivalHandTrap};
+pub use matchup::{matchup, rival_plays, Matchup, Rival, RivalBreaker, RivalHandTrap, RivalPlay};
 pub use probe::{hand_traps, BreakerResult, Effect, Interruption, Kit, Measure, Probe, Prober, ResponderId};
 pub use roles::{guess_roles, RoleGuess};
 pub use search::{

@@ -164,6 +164,19 @@ enum Cmd {
         #[arg(long)]
         json: Option<PathBuf>,
     },
+    /// A deck's typical opening: the moves of its best lines from random
+    /// hands, the most played first (the probe turn against a deck, level 2).
+    RivalPlays {
+        /// Deck in .ydk format.
+        #[arg(long)]
+        deck: PathBuf,
+        #[arg(long, default_value_t = 12)]
+        hands: usize,
+        #[arg(long, default_value_t = 1500)]
+        nodes: u64,
+        #[arg(long, default_value_t = 1)]
+        seed: u64,
+    },
     /// The handtraps of a deck, read from the engine: cards it can use from
     /// the hand during the opponent's turn.
     HandTraps {
@@ -302,6 +315,7 @@ fn main() -> Result<()> {
         ),
         Cmd::ProbeLine { setup, lines, index, json, vs } => probe_line(&cli.data, &setup, &lines, index, json.as_deref(), vs.as_deref()),
         Cmd::HandTraps { deck } => hand_traps(&cli.data, &deck),
+        Cmd::RivalPlays { deck, hands, nodes, seed } => rival_plays(&cli.data, &deck, hands, nodes, seed),
         Cmd::Links { deck, nodes, hands, threads, json } => links(&cli.data, &deck, nodes, hands, threads, json.as_deref()),
         Cmd::CardValues { deck } => card_values(&cli.data, &deck),
         Cmd::KitMix { lines, top, seed } => kit_mix(&cli.data, &lines, top, seed),
@@ -1032,6 +1046,28 @@ fn links(dir: &Path, deck: &Path, nodes: u64, hands: usize, threads: Option<usiz
             })).collect::<Vec<_>>(),
         });
         std::fs::write(path, serde_json::to_string_pretty(&doc)?)?;
+    }
+    Ok(())
+}
+
+fn rival_plays(dir: &Path, deck: &Path, hands: usize, nodes: u64, seed: u64) -> Result<()> {
+    let engine = load_engine(dir)?;
+    let text = std::fs::read_to_string(deck).with_context(|| format!("cannot read {}", deck.display()))?;
+    let deck = DeckList::from_ydk(&text)?;
+    let threads = std::thread::available_parallelism().map_or(4, |n| n.get());
+    let started = std::time::Instant::now();
+    let plays = ygo_solver::rival_plays(&engine, &deck, seed, hands, nodes, threads);
+    println!("{} moves from {hands} hands in {:.1} s", plays.len(), started.elapsed().as_secs_f64());
+    for p in plays.iter().take(40) {
+        println!(
+            "{:>4.0}% of lines ({:>3.0}% first, at {:>4.1}) {:?} {} from {}",
+            p.share * 100.0,
+            p.first * 100.0,
+            p.order,
+            p.kind,
+            engine.cards().name(p.code),
+            ygo_engine::consts::location::name(p.location)
+        );
     }
     Ok(())
 }
