@@ -3,6 +3,7 @@
 Regole in `AGENTS.md`. Per prendere un task, spostalo in "In corso" con agente, branch e file che tocchi (è il lock), poi committa e pusha questa modifica prima di cominciare.
 
 ## In corso
+- [ ] Visore Carta (`CardViewer`) interattivo: aggiunta/rimozione copie (`+ Main`, `+ Side`, `+ Maybe`, `−`) con limiti dal formato del deck e assegnazione rapida dei ruoli in `deck.roles` — agente: antigravity — branch: gemini/interactive-card-viewer — file: docs/plans/visore-carta-interattivo.md, apps/desktop/src/lib/deck.ts, apps/desktop/src/components/CardViewer.tsx, apps/desktop/src/pages/DeckBuilder.tsx
 - [ ] Classificazione delle board più profonda, con criteri validati sui deck di Master Duel Meta (#47) — agente: claude-code — branch: claude/yugioh-deck-builder-simulator-cax0ya — file: crates/ygo-solver/src/probe.rs, value.rs, explain.rs, apps/desktop/src-tauri/src/lib.rs (score_view)
   - Piano: `docs/plans/classificazione-board.md` (passi D0–D17; giudizio dato da un pannello di agenti, non dal proprietario).
   - [x] D0a: `combos --json/--save-lines`, `probe-line`.
@@ -19,7 +20,6 @@ Regole in `AGENTS.md`. Per prendere un task, spostalo in "In corso" con agente, 
 ## Da fare (in ordine di priorità)
 
 ### Interfaccia (Gemini)
-- [ ] Visore Carta (`CardViewer`) interattivo: aggiunta/rimozione copie (`+ Main`, `+ Side`, `+ Maybe`, `−`) e assegnazione rapida dei ruoli senza chiudere il visore.
 - [ ] Pagina «Il Banditore» (`Novità`): confronto tra banlist (Master Duel, TCG, OCG) e impatto immediato sui deck salvati in bottega.
 
 ### Motore e ricerca (Claude)
