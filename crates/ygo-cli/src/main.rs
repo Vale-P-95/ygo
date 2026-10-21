@@ -149,6 +149,11 @@ enum Cmd {
         /// Mulcharmy makes it draw (a few seconds a line).
         #[arg(long)]
         stops: bool,
+        /// With --vs: the deck plays its typical moves (read from its own
+        /// best lines once), and each of your effects is measured against
+        /// them (level 2 of the probe turn against a deck).
+        #[arg(long)]
+        moves: bool,
     },
     /// The map of the links between the cards of a deck, read from the
     /// engine: which card adds, summons, sends or gets back which.
@@ -325,8 +330,8 @@ fn main() -> Result<()> {
                 save_lines,
             },
         ),
-        Cmd::ProbeLine { setup, lines, index, json, vs, stops } => {
-            probe_line(&cli.data, &setup, &lines, index, json.as_deref(), vs.as_deref(), stops)
+        Cmd::ProbeLine { setup, lines, index, json, vs, stops, moves } => {
+            probe_line(&cli.data, &setup, &lines, index, json.as_deref(), vs.as_deref(), stops, moves)
         }
         Cmd::HandTraps { deck } => hand_traps(&cli.data, &deck),
         Cmd::RivalPlays { deck, hands, nodes, seed } => rival_plays(&cli.data, &deck, hands, nodes, seed),
@@ -736,6 +741,7 @@ fn line_from_json(v: &serde_json::Value) -> Result<ygo_solver::Line> {
 }
 
 /// Plays saved lines again and measures their boards (no search).
+#[allow(clippy::too_many_arguments)]
 fn probe_line(
     dir: &Path,
     setup: &Setup,
@@ -744,6 +750,7 @@ fn probe_line(
     json: Option<&Path>,
     vs: Option<&Path>,
     stops: bool,
+    moves: bool,
 ) -> Result<()> {
     let (engine, deck, mut hand) = start(dir, setup)?;
     let saved: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(lines)?)?;
@@ -757,7 +764,8 @@ fn probe_line(
     let rival = match vs {
         Some(path) => {
             let text = std::fs::read_to_string(path).with_context(|| format!("cannot read {}", path.display()))?;
-            let rival = ygo_solver::Rival::new(&engine, &DeckList::from_ydk(&text)?, setup.seed, &kit);
+            let rival_deck = DeckList::from_ydk(&text)?;
+            let rival = ygo_solver::Rival::new(&engine, &rival_deck, setup.seed, &kit);
             // Once each: a card the kit plays two ways (Lightning Storm) is one card.
             let names = |codes: &[u32]| {
                 let mut names: Vec<String> = Vec::new();
@@ -775,7 +783,22 @@ fn probe_line(
                 if rival.breakers().is_empty() { "none it can play (standard ones)".to_owned() } else { names(rival.breakers()) }
             );
             println!("   handtraps: {}", names(&rival.hand_traps));
-            Some(rival)
+            // Its typical moves, read once from its own best lines.
+            let plays = if moves {
+                let started = std::time::Instant::now();
+                let threads = std::thread::available_parallelism().map_or(4, |n| n.get());
+                let plays = ygo_solver::rival_plays(&engine, &rival_deck, setup.seed, 12, 1000, threads);
+                let typical = ygo_solver::typical_moves(&plays);
+                println!(
+                    "   typical moves ({:.1} s): {}",
+                    started.elapsed().as_secs_f64(),
+                    typical.iter().map(|p| play_label(&engine, p.code, p.kind, p.location)).collect::<Vec<_>>().join(", ")
+                );
+                plays
+            } else {
+                Vec::new()
+            };
+            Some((rival, rival_deck, plays))
         }
         None => None,
     };
@@ -799,7 +822,7 @@ fn probe_line(
             Err(e) => println!("   probe turn failed: {e}"),
         }
         let mut extra = serde_json::json!({ "index": i });
-        if let (Some(rival), Ok(m)) = (&rival, &measured) {
+        if let (Some((rival, rival_deck, plays)), Ok(m)) = (&rival, &measured) {
             let started = std::time::Instant::now();
             match ygo_solver::matchup(&engine, &deck, &hand, setup.seed, &line, m, rival) {
                 Ok(x) => {
@@ -820,6 +843,13 @@ fn probe_line(
                     Err(e) => println!("   stops failed: {e}"),
                 }
             }
+            if moves {
+                let started = std::time::Instant::now();
+                match ygo_solver::against_moves(&engine, &deck, &hand, setup.seed, &line, rival_deck, plays, &kit) {
+                    Ok(x) => print_moves(&engine, &x, started.elapsed()),
+                    Err(e) => println!("   moves failed: {e}"),
+                }
+            }
         }
         out.push(state_json(&engine, &hand_traps, &state, measured.as_ref().ok(), took, exposure.as_ref(), extra));
     }
@@ -835,6 +865,62 @@ fn probe_line(
         std::fs::write(path, serde_json::to_string_pretty(&doc)?)?;
     }
     Ok(())
+}
+
+/// Where a card is, in a few words.
+fn place_name(from: u8) -> &'static str {
+    match from {
+        location::HAND => "hand",
+        location::MZONE => "field",
+        location::SZONE => "S/T zone",
+        location::GRAVE => "GY",
+        location::REMOVED => "banished",
+        location::EXTRA => "Extra Deck",
+        location::DECK => "Deck",
+        _ => "?",
+    }
+}
+
+/// "Normal Summon of X", "Special Summon of X (hand)", "X (field)".
+fn play_label(engine: &Engine, code: u32, kind: ActionKind, from: u8) -> String {
+    let name = engine.cards().name(code);
+    match kind {
+        ActionKind::NormalSummon => format!("Normal Summon of {name}"),
+        ActionKind::SpecialSummon => format!("Special Summon of {name} ({})", place_name(from)),
+        _ => format!("{name} ({})", place_name(from)),
+    }
+}
+
+fn print_moves(engine: &Engine, x: &ygo_solver::MovesMatchup, took: std::time::Duration) {
+    let db = engine.cards();
+    println!(
+        "   against its typical moves ({:.1} s): value {:.2} · floodgates stop {:.0}% of the moves' weight · {:.0}% of the rest left with all your answers",
+        took.as_secs_f64(),
+        x.value,
+        x.floodgate_share * 100.0,
+        x.left * 100.0
+    );
+    for (i, m) in x.moves.iter().enumerate() {
+        let state = match (m.possible, m.here, x.floodgated.contains(&i)) {
+            (false, _, _) => "not made even on an empty board",
+            (true, _, true) => "stopped by the board",
+            (true, true, _) => "made",
+            (true, false, _) => "lost with an earlier one",
+        };
+        println!("     {}. {} · weight {:.2} · {state}", i + 1, play_label(engine, m.code, m.kind, m.location), m.weight);
+    }
+    for s in &x.stops {
+        let stops: Vec<String> = s.stops.iter().map(|&i| (i + 1).to_string()).collect();
+        println!(
+            "     {} ({}): {} moves {} · coverage {:.0}% · value {:.2}",
+            db.name(s.responder.code),
+            place_name(s.location),
+            s.effect.label(),
+            stops.join(", "),
+            s.coverage * 100.0,
+            s.value
+        );
+    }
 }
 
 fn print_matchup(engine: &Engine, x: &ygo_solver::Matchup, took: std::time::Duration) {

@@ -16,7 +16,9 @@ use ygo_engine::auto::passive_answer;
 use ygo_engine::consts::{location, position};
 use ygo_engine::{Action, ActionKind, CardRef, Decision, DeckList, Duel, Engine, Error, Event, Opponent, Placement, Step};
 
-use crate::probe::{end_turn, find_act, forward, hand_traps, window_answer, Act, Breaker, Kit, Measure, Prelude, Prober, ResponderId};
+use crate::probe::{
+    end_turn, find_act, forward, hand_traps, window_answer, Act, Breaker, Effect, Kit, Measure, Prelude, Prober, ResponderId,
+};
 use crate::roles::breakers_by_text;
 use crate::search::Line;
 
@@ -497,6 +499,133 @@ pub fn rival_plays(engine: &Engine, deck: &DeckList, seed: u64, hands: usize, no
         .collect();
     plays.sort_by(|a, b| b.share.total_cmp(&a.share).then(a.order.total_cmp(&b.order)).then(a.code.cmp(&b.code)));
     plays
+}
+
+/// One of the opponent's typical moves as the probe turn plays it.
+#[derive(Debug, Clone)]
+pub struct RivalMove {
+    pub code: u32,
+    pub kind: ActionKind,
+    pub location: u8,
+    /// What stopping it is worth: how often its lines play it, more when
+    /// it comes first (stopping it stops the rest of the line).
+    pub weight: f64,
+    /// Made on an empty board, and against this board with no answer.
+    pub possible: bool,
+    pub here: bool,
+}
+
+/// One of your effects against the opponent's typical moves.
+#[derive(Debug, Clone)]
+pub struct MoveStop {
+    pub responder: ResponderId,
+    pub location: u8,
+    pub effect: Effect,
+    /// The moves it stops (indices in [`MovesMatchup::moves`]).
+    pub stops: Vec<usize>,
+    pub coverage: f64,
+    pub value: f64,
+}
+
+/// A board against what a deck usually does in its turn (level 2 of the
+/// probe turn against a deck).
+#[derive(Debug, Clone, Default)]
+pub struct MovesMatchup {
+    pub moves: Vec<RivalMove>,
+    pub stops: Vec<MoveStop>,
+    /// Moves your board stops with no answer (indices in `moves`), and
+    /// their share of the moves' weight.
+    pub floodgated: Vec<usize>,
+    pub floodgate_share: f64,
+    /// Interruption value against these moves.
+    pub value: f64,
+    /// Share of the moves the board lets it make that it still makes with
+    /// all your answers used together.
+    pub left: f64,
+}
+
+/// The moves the probe turn plays of `plays` ([`rival_plays`]): those of at
+/// least a sixth of the lines, in their usual order, at most 10. One Normal
+/// Summon a turn: the most played (the others are other lines' openings).
+pub fn typical_moves(plays: &[RivalPlay]) -> Vec<RivalPlay> {
+    let normal = plays.iter().filter(|p| p.kind == ActionKind::NormalSummon).max_by(|a, b| a.share.total_cmp(&b.share)).map(|p| p.code);
+    let mut moves: Vec<RivalPlay> = plays
+        .iter()
+        .filter(|p| p.share >= 1.0 / 6.0)
+        .filter(|p| match p.kind {
+            ActionKind::NormalSummon => Some(p.code) == normal,
+            ActionKind::Activate | ActionKind::SpecialSummon => true,
+            _ => false,
+        })
+        .cloned()
+        .collect();
+    moves.sort_by(|a, b| a.order.total_cmp(&b.order).then(b.share.total_cmp(&a.share)).then(a.code.cmp(&b.code)));
+    moves.truncate(10);
+    moves
+}
+
+/// Measures the board reached by `line` (found against the standard kit's
+/// opponent) against `rival`'s typical moves, `plays` from [`rival_plays`]:
+/// which of them each of your effects stops, and which your board stops
+/// with no answer.
+#[allow(clippy::too_many_arguments)]
+pub fn against_moves(
+    engine: &Engine,
+    deck: &DeckList,
+    hand: &[u32],
+    seed: u64,
+    line: &Line,
+    rival: &DeckList,
+    plays: &[RivalPlay],
+    standard: &Kit,
+) -> Result<MovesMatchup, Error> {
+    let moves = typical_moves(plays);
+    let acts: Vec<(Act, u8)> = moves
+        .iter()
+        .map(|p| {
+            let act = match p.kind {
+                ActionKind::NormalSummon => Act::NormalSummon(p.code),
+                ActionKind::SpecialSummon => Act::SpecialSummon(p.code),
+                _ => Act::Activate(p.code, p.location),
+            };
+            (act, p.location)
+        })
+        .collect();
+    let weights: Vec<f64> = moves.iter().map(|p| p.share * (1.0 + p.first)).collect();
+    let own = own_answers(engine, deck, hand, seed, standard.opponent(), line)?;
+    let kit = standard.with_moves(&acts, rival, seed);
+    let measured = Prober::new(engine, deck, hand, seed, &kit).against_moves(Prelude::Own(&own.answers), &weights)?;
+    Ok(MovesMatchup {
+        moves: moves
+            .iter()
+            .zip(&weights)
+            .enumerate()
+            .map(|(i, (p, &weight))| RivalMove {
+                code: p.code,
+                kind: p.kind,
+                location: p.location,
+                weight,
+                possible: measured.possible[i],
+                here: measured.here[i],
+            })
+            .collect(),
+        stops: measured
+            .interruptions
+            .into_iter()
+            .map(|i| MoveStop {
+                responder: i.responder,
+                location: i.location,
+                effect: i.effect,
+                stops: i.stops,
+                coverage: i.coverage,
+                value: i.value,
+            })
+            .collect(),
+        floodgated: measured.floodgated,
+        floodgate_share: measured.floodgate_share,
+        value: measured.value,
+        left: measured.left,
+    })
 }
 
 /// Chance that none of `copies` cards of a deck of `size` is among `drawn`.

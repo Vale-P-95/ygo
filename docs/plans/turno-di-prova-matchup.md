@@ -214,3 +214,37 @@ Le ultime due correzioni del collaudo (A4 e M1), in `Kit::standard` e `Kit::with
   - `combo_hunt.py` su 37 deck, 2 mani, seme 7: 74 righe uguali, salvo una mano zoodiac con 584 board invece di 585 e la stessa board migliore. Nessun problema.
   - Le mani del banco non usano effetti che guardano il Deck dell'avversario: il cambio si vede su quelle che li usano, come That Grass Looks Greener.
 - **Test:** in `tests/matchup.rs` il Deck del kit ha 35 carte, quello contro un deck ha le sue carte e il suo Extra Deck, e Ultimate Slayer contro la board di Invoked Mechaba è giocabile.
+
+### Livello 2, seconda parte: le mosse tipiche nel turno di prova (22/10/2026, notte)
+Prima versione, solo aggiuntiva: la misura generica (interruzioni, floodgate, breaker, resilienza) resta identica. Per ora c'è solo nella CLI: `probe-line --vs <deck> --moves`.
+- **Le mosse.** `rival_plays` legge le mosse delle linee migliori del deck avversario (12 mani, 1000 nodi; da 4 a 13 secondi, una volta per deck). `typical_moves` tiene:
+  - le mosse di almeno un sesto delle linee, nell'ordine in cui arrivano di solito, al massimo 10;
+  - una sola Evocazione Normale, la più giocata: le altre sono aperture di altre linee.
+- **Il turno di prova.** `Kit::with_moves` fa giocare all'avversario quelle mosse al posto delle 11 del kit:
+  - le carte giocate dalla mano sono in mano; le altre vengono dalle mosse prima;
+  - Deck vero (35 carte) ed Extra Deck vero;
+  - una mossa che non si può fare si salta.
+  - Una mossa riesce quando non è negata (un'Evocazione, quando il mostro atterra). Le sue risposte automatiche contano con lei: Ash che nega la ricerca di Arianna ferma la mossa «Evocazione Normale di Arianna».
+- **Il peso di una mossa:** quota delle linee che la giocano × (1 + quota in cui è la prima).
+- **La misura** (`Prober::against_moves`, `matchup::against_moves`):
+  - **ogni risposta** vale la parte del peso delle mosse che toglie nel suo momento migliore, o usata ogni volta che è offerta. Contano le mosse che fa fallire e quelle perse con loro (un mostro evocato, poi il suo effetto sul campo). Come nella misura generica: valore dell'effetto × 0,85 se bersaglia × quota tolta;
+  - **«mosse fermate»:** si mostrano solo quelle che la risposta ferma da sé (D2);
+  - **floodgate:** la parte del peso che la tua board toglie senza rispondere;
+  - **«resta»:** la parte delle mosse ancora fatte con tutte le risposte usate insieme, la più forte prima. Due risposte che fermano la stessa mossa contano una volta.
+- **Prova** (board Invoked Mechaba, Baybarron, Virakam, Caliga, Meltdown con Ash in mano):
+
+  | Contro | Mosse | Floodgate | Mechaba | Ash | Resta con tutte |
+  |---|---|---|---|---|---|
+  | Labrynth | NS Arianna, Arias, Lady, Welcome Labrynth, Muckraker | 66% (Caliga blocca Arias) | 100% (nega Arianna: il resto si perde) | 100% | 0% |
+  | Tearlaments | NS Reinoheart, Scream, Instant Fusion, Engraver, Scheiren… | 10% | 40% | 40% | 60% |
+  | Branded | NS Aluber, Branded Opening, Albion, High Spirits, Branded Fusion… | 22% | 19% | 24% | 81% |
+
+- **Limiti di questa prima versione:**
+  - le mosse sono una sola sequenza: quelle che vengono da linee diverse si perdono (Branded: l'effetto di Ecclesia sul campo non si fa, perché la sua Evocazione è un'altra apertura);
+  - un'attivazione conta come fermata solo se negata: distruggere il mostro in catena, se l'effetto si risolve lo stesso, non la ferma, e Droll & Lock Bird non è visto;
+  - due risposte che fermano la stessa mossa contano tutte e due nella somma dei valori (il numero «resta» ne tiene conto).
+- **Da decidere con il proprietario prima dell'interfaccia:**
+  - se mostrarla accanto alla misura contro il deck: costa 4-13 secondi in più alla prima scelta del deck, per leggere le sue linee;
+  - i pesi;
+  - se giocare più sequenze, una per apertura, per non perdere le mosse delle altre linee.
+
