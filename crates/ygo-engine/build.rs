@@ -55,6 +55,8 @@ fn main() {
 
     let mut core_build = cc::Build::new();
     core_build.cpp(true).std("c++17").include(&core).include(&lua_src).include(&shim).warnings(false);
+    // shim/new.cpp includes mimalloc-new-delete.h from libmimalloc-sys.
+    core_build.include(std::env::var("DEP_MIMALLOC_INCLUDE_DIR").expect("mimalloc include dir from libmimalloc-sys"));
     if msvc {
         core_build.flag("/GR-").flag("/EHsc").define("NOMINMAX", None);
     } else {
@@ -73,7 +75,8 @@ fn main() {
         .files(sources(&core, "cpp").into_iter().filter(|p| *p != field && *p != duel))
         .file(&patched)
         .file(&patched_duel)
-        .file(shim.join("reuse.cpp"));
+        .file(shim.join("reuse.cpp"))
+        .file(shim.join("new.cpp"));
     core_build.files(sources(&core.join("RNG"), "cpp"));
     core_build.compile("ocgcore");
 }
