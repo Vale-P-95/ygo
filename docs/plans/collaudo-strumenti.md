@@ -239,11 +239,29 @@ I comandi usano `<mdm>` per la cartella dei deck e `<out>` per quella dei risult
 
 #### B1. Tempo della mappa
 - Mediana 40 s, ma 9 deck su 40 sopra il minuto: lunalight 642 s, earth_machine 190 s, dracotail 110 s, kaiju 107 s. L'obiettivo del piano è sotto il minuto.
-- Le misure giravano accanto alle altre: i tempi da soli sono in misura.
+- Lunalight da solo, senza altri processi: 502 s, quindi il tempo è reale e non dovuto al carico.
+- La causa è la ricerca, non la mappa: con 1000 nodi su un thread la mano Lunalight Gold Leo, Forbidden Droplet, Lunalight Black Sheep, Nibiru, Heavy Polymerization va a 25 nodi al secondo (40 s); altre mani dello stesso deck vanno a 220-450 nodi al secondo. Da passare alla sessione sulla velocità della ricerca.
 - **Proposta:** un tempo massimo per mano più basso (`time_limit` è 60 s per mano) e un tempo totale; oppure meno mani per le carte che compaiono già in molte mani cercate.
 
 #### B2. `--nodes` e `--hands` più alti
-- In misura su invoked, yubel e k9.
+Misurati da soli (nessun altro processo), 4 thread. "Nuovi" e "persi": collegamenti rispetto ai valori predefiniti (1000 nodi, 2 mani).
+
+| Deck | Nodi · mani | Tempo (s) | Collegamenti | Usati | Nuovi | Persi |
+|---|---|---|---|---|---|---|
+| invoked | 1000 · 2 | 22,6 | 62 | 52 | 0 | 0 |
+| invoked | 3000 · 2 | 55,0 | 71 | 56 | 11 | 2 |
+| invoked | 1000 · 4 | 41,9 | 77 | 66 | 15 | 0 |
+| yubel | 1000 · 2 | 21,0 | 66 | 49 | 0 | 0 |
+| yubel | 3000 · 2 | 44,9 | 72 | 60 | 11 | 5 |
+| yubel | 1000 · 4 | 43,6 | 82 | 69 | 16 | 0 |
+| k9 | 1000 · 2 | 27,3 | 58 | 47 | 0 | 0 |
+| k9 | 3000 · 2 | 62,0 | 57 | 45 | 0 | 1 |
+| k9 | 1000 · 4 | 50,9 | 58 | 50 | 0 | 0 |
+
+- Più mani rendono più di più nodi, e costano meno: +15 e +16 collegamenti con 4 mani, +11 con 3000 nodi, che però ne perde qualcuno (le 20 linee migliori cambiano).
+- I collegamenti nuovi sono veri: su invoked compare la Fusione di Aiwass, Divine Spirit of the Law ("you can Fusion Summon 1 "Invoked" monster", Mechaba, Baybarron...), che con 2 mani mancava. Quasi tutti hanno `used` vicino a 0.
+- Su k9 la mappa è già completa con 2 mani.
+- **Proposta:** 3 mani per carta e 1000 nodi come valori predefiniti, se il tempo massimo (B1) tiene il caso peggiore sotto il minuto.
 
 #### B3. Cose che sembrano errori ma non lo sono
 - Ash Blossom ferma 0 momenti nelle linee blue_eyes: la linea gioca Crossout Designator su Ash Blossom.
