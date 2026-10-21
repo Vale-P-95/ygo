@@ -69,8 +69,38 @@ Le 16 mani danno uscite identiche; `DUELFORGE_CHECK_REUSE=1` (16 mani, 1500 nodi
 
 Il tempo totale scende più della ricerca perché i valori delle carte (prima della ricerca) e la misura delle prime 10 board sono quasi tutto turno di prova.
 
+### 5. Si rimettono a posto solo le tabelle toccate
+**Cosa.** Rimettere la fotografia ripercorreva ogni tabella degli script di base chiave per chiave: un quarto di ogni svuotamento. Ora di ogni tabella si tiene un'immagine grezza (parte array e parte hash, con il layout di Lua, `shim/table.cpp`) presa quando è stata rimessa a posto l'ultima volta. Una tabella con gli stessi byte non è stata toccata e si salta; le altre si rimettono come prima e si fotografano di nuovo.
+
+**Tempo.** Uno svuotamento costa circa un quarto di prima (callgrind: da 2,3 a 0,5 milioni di istruzioni per la parte delle tabelle). Sulle 16 mani la ricerca passa da 205,7 a 196,5 s; uscite identiche, controllo con `DUELFORGE_CHECK_REUSE=1` senza differenze.
+
+### 6. Anche gli oggetti C++ del motore con mimalloc
+**Cosa.** Carte, effetti, gruppi e i contenitori del campo si allocano con `new` e `delete`: milioni di blocchi piccoli per ricerca. `shim/new.cpp` include le sostituzioni degli operatori globali che mimalloc stesso fornisce (supportate anche su Windows).
+
+**Perché.** `malloc` e `free` della libreria C erano un ottavo delle istruzioni rimaste (callgrind).
+
+**Tempo.** Una mano Labrynth da sola: da 7,6 a 6,7 s. Uscite identiche sulle 16 mani.
+
+**Da verificare:** la build Windows (MSVC). mimalloc documenta queste sostituzioni anche per MSVC, ma qui non si può compilare per Windows; la CI compila l'installer solo su `main`.
+
+### 7. Il limite di nodi lo controllano solo i worker
+**Cosa.** Il thread che chiama la ricerca controllava tutti i limiti quattro volte al secondo, anche il budget di nodi. Se il controllo cadeva durante un'immersione oltre il budget, l'immersione si fermava lì; altrimenti arrivava in fondo. Ora quel thread controlla solo l'annullamento e il tempo; i nodi li controllano i worker dopo ogni lato, come già facevano.
+
+**Perché.** Era la causa dei risultati non riproducibili su `main` (vedi i limiti): inv-r6 a 1500 nodi trovava 366 o 369 board invece di 371 circa una volta su sedici. Dopo la correzione 24 esecuzioni su 24 coincidono, e le 16 mani danno le uscite solite di `main`. Non è una correzione di velocità, ma senza di essa i confronti prima/dopo sbagliavano a caso.
+
+### Insieme (correzioni 1–7)
+Le 16 mani danno uscite identiche a `main` (riepilogo, board misurate dal turno di prova, linee); i test passano.
+
+| Misura (16 mani, 4000 nodi, 4 mani alla volta) | Partenza | Dopo 1–7 |
+|---|---|---|
+| Tempo di ricerca | 254,6–262,5 s | 164,2 s (−36%) |
+| Tempo totale della CLI (valori delle carte, ricerca, prime 10 board misurate) | 455–471 s | 269,2 s (−42%) |
+| Istruzioni (callgrind, labrynth, 1000 nodi) | 44,7 miliardi | 27,1 miliardi dopo la correzione 4 |
+
 ## Idee scartate
 - **Garbage collector generazionale di Lua** dopo la fotografia (−1% di istruzioni in più). Il motore chiama un passo del collector a ogni gruppo creato quando ne esistono più di 2048; in modalità generazionale ogni passo è una raccolta intera, e una ricerca Invoked restava bloccata per mezz'ora.
 
 ## Limiti
-- **La ricerca su un thread non è sempre identica da un'esecuzione all'altra, già su `main`.** inv-r6 a 1500 nodi: 1 esecuzione su 16 trova 366 board invece di 371 (stessi nodi e replay). Con l'ASLR spento (`setarch -R`) 16 su 16 sono uguali: qualcosa nel motore dipende dagli indirizzi di memoria (per esempio contenitori ordinati per puntatore). Quindi un confronto prima/dopo può mostrare, raramente, differenze che non vengono dalla modifica: va ripetuto.
+- **Con più thread** il guadagno è minore: Labrynth in 30 s su 4 thread fa +16% di nodi al secondo con il riuso (+29% su un thread). Ogni thread tiene la sua partita con gli script di base (qualche MB), e più memoria si contende la cache.
+- **Il turno di prova resta la parte più cara:** in una ricerca da 4000 nodi gioca circa 37 partite per board misurata, di cui il 90% sono le corse "usa questa risposta a questa finestra" (fino a 12 finestre per risposta). Ognuna rigioca tutto il tuo turno (il 44% del tempo di una corsa) e il turno avversario. Il motore non sa copiare una partita, quindi non si può ripartire dal punto in cui le corse si separano.
+- **Valgrind e i controlli `DUELFORGE_CHECK_REUSE` coprono le 16 mani del banco e 30 partite casuali del test.** Un deck con script che cambiano lo stato di base in modi non visti qui potrebbe comportarsi diversamente in una partita riusata: `DUELFORGE_FRESH_DUELS=1` torna alle partite nuove, `DUELFORGE_CHECK_REUSE=1` lo controlla.
