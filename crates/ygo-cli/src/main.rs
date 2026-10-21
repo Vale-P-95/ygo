@@ -20,10 +20,6 @@ use ygo_engine::consts::{location, phase, position};
 use ygo_engine::sweep::SweepConfig;
 use ygo_engine::{actions, describe_card, run_script, Action, ActionKind, DeckList, Duel, Engine, Event, ScriptEnd, Step, Trace};
 
-// Rust's allocations through mimalloc too, like the engine's Lua and C++.
-#[global_allocator]
-static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
-
 #[derive(Parser)]
 #[command(name = "duelforge-cli", version, about)]
 struct Cli {

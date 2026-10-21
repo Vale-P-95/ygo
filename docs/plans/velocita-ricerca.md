@@ -119,8 +119,10 @@ Memcheck vedeva il confronto delle immagini leggere i byte di riempimento di Lua
 ## Idee scartate
 - **Garbage collector generazionale di Lua** dopo la fotografia (−1% di istruzioni in più). Il motore chiama un passo del collector a ogni gruppo creato quando ne esistono più di 2048; in modalità generazionale ogni passo è una raccolta intera, e una ricerca Invoked restava bloccata per mezz'ora.
 
+- **mimalloc come allocatore globale di Rust** nella CLI (provato dalla sessione principale dopo la PR #33, 21/10). Uscite identiche, ma la ricerca sulle 16 mani passa da 192,5 a 207,7 s (+8%, più lenta in 14 mani su 16): con questo carico l'allocatore di sistema va meglio per gli oggetti di Rust. Tolto.
+
 ## Trovato per strada
-- `combos --card "Aleister the Invoker"` risponde "not in the Main Deck" se il deck ha l'artwork alternativo (86120752); con il passcode funziona. Già su `main`, non toccato.
+- `combos --card "Aleister the Invoker"` rispondeva "not in the Main Deck" se il deck ha l'artwork alternativo (86120752). Corretto nella PR #34: si cerca la copia del deck con lo stesso codice canonico.
 
 ## Limiti
 - **Con più thread** il guadagno è minore: Labrynth in 30 s su 4 thread fa +16% di nodi al secondo con il riuso (+29% su un thread). Ogni thread tiene la sua partita con gli script di base (qualche MB), e più memoria si contende la cache.
