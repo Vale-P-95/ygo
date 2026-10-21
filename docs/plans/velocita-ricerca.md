@@ -95,6 +95,7 @@ Le 16 mani danno uscite identiche a `main` (riepilogo, board misurate dal turno 
 |---|---|---|
 | Tempo di ricerca | 254,6–262,5 s | 164,2 s (−36%) |
 | Tempo totale della CLI (valori delle carte, ricerca, prime 10 board misurate) | 455–471 s | 269,2 s (−42%) |
+| Con anche la correzione 8 (versione finale): ricerca / totale | | 158,9 s (−38%) / 260,6 s (−43%) |
 | Istruzioni (callgrind, labrynth, 1000 nodi) | 44,7 miliardi | 27,1 miliardi dopo la correzione 4 |
 
 Altre misure, `main` contro la versione finale:
@@ -124,7 +125,7 @@ Memcheck vedeva il confronto delle immagini leggere i byte di riempimento di Lua
 - **Valgrind e i controlli `DUELFORGE_CHECK_REUSE` coprono le 16 mani del banco e 30 partite casuali del test.** Un deck con script che cambiano lo stato di base in modi non visti qui potrebbe comportarsi diversamente in una partita riusata: `DUELFORGE_FRESH_DUELS=1` torna alle partite nuove, `DUELFORGE_CHECK_REUSE=1` lo controlla.
 
 ## Conclusione
-- **Guadagno totale** sulle 16 mani del banco (4000 nodi): ricerca −36% (da 254,6–262,5 a 164,2 s), tempo totale della CLI −42% (da 455–471 a 269 s), con uscite identiche a `main`. Su `combo_hunt.py` la ricerca dimezza; `roles` −42%, `card-values` −60%; su 4 thread "carta + resto" esplora dal 28% all'88% di nodi in più nello stesso tempo.
+- **Guadagno totale** sulle 16 mani del banco (4000 nodi): ricerca −38% (da 254,6–262,5 a 158,9 s), tempo totale della CLI −43% (da 455–471 a 260,6 s), con uscite identiche a `main` (16 su 16). Su `combo_hunt.py` la ricerca dimezza; `roles` −42%, `card-values` −60%; su 4 thread "carta + resto" esplora dal 28% all'88% di nodi in più nello stesso tempo.
 - **Da dove viene:** soprattutto dal non ricaricare gli script del motore a ogni partita (correzioni 1, 2, 5), poi dalle corse inutili del turno di prova (4) e dall'allocatore per il C++ (6).
 - **Da verificare prima del merge:** la build Windows (correzione 6 e il resto dello shim C++), con la CI dell'installer.
 - **Cosa resta da provare:**
