@@ -10,6 +10,8 @@ interface Props {
   filters: LinksFilterState;
   activeCardCode: number | null;
   hoveredCardCode: number | null;
+  sampleHandCodes?: Set<number> | null;
+  reachedFromHandCodes?: Set<number> | null;
   onSelectCard: (code: number | null) => void;
   onHoverCard: (code: number | null) => void;
 }
@@ -21,6 +23,8 @@ export function LinksCircle({
   filters,
   activeCardCode,
   hoveredCardCode,
+  sampleHandCodes = null,
+  reachedFromHandCodes = null,
   onSelectCard,
   onHoverCard,
 }: Props) {
@@ -92,7 +96,7 @@ export function LinksCircle({
               key={kind}
               id={`${markerIdPrefix}-arrow-${kind}`}
               viewBox="0 0 10 10"
-              refX="18"
+              refX="33"
               refY="5"
               markerUnits="userSpaceOnUse"
               markerWidth="7"
@@ -127,7 +131,16 @@ export function LinksCircle({
             let opacity = 0.25;
             let strokeWidth = l.used > 0 ? 1.5 + l.used * 2 : 1.2;
 
-            if (targetCode != null) {
+            if (sampleHandCodes) {
+              const fromInHand = sampleHandCodes.has(l.from);
+              const toReached = reachedFromHandCodes?.has(l.to);
+              if (fromInHand || toReached) {
+                opacity = 0.85;
+                strokeWidth = Math.max(strokeWidth, 2);
+              } else {
+                opacity = 0.04;
+              }
+            } else if (targetCode != null) {
               if (isRelated) {
                 opacity = 0.95;
                 strokeWidth = Math.max(strokeWidth * 1.5, 2.5);
@@ -160,7 +173,7 @@ export function LinksCircle({
           })}
         </g>
 
-        {/* Card nodes */}
+        {/* Nodes (cards on the circle perimeter) */}
         <g className="nodes-layer">
           {orderedCards.map((c) => {
             const pos = positions.get(c.code);
@@ -173,8 +186,18 @@ export function LinksCircle({
             const isFocused = isSelected || isHovered;
             const isConnected = connectedCodes == null || connectedCodes.has(c.code);
 
+            const inSampleHand = sampleHandCodes?.has(c.code) ?? false;
+            const isReachedFromHand = reachedFromHandCodes?.has(c.code) ?? false;
+
             const matches = matchesSearch(c.code);
-            const nodeOpacity = !matches ? 0.15 : targetCode != null && !isConnected ? 0.3 : 1;
+            let nodeOpacity = 1;
+            if (!matches) {
+              nodeOpacity = 0.15;
+            } else if (sampleHandCodes) {
+              nodeOpacity = inSampleHand || isReachedFromHand ? 1 : 0.18;
+            } else if (targetCode != null && !isConnected) {
+              nodeOpacity = 0.3;
+            }
 
             // Truncated label for circle perimeter
             const displayName = name.length > 18 ? name.slice(0, 16) + "…" : name;
@@ -187,18 +210,54 @@ export function LinksCircle({
             return (
               <g
                 key={c.code}
-                className={`transition-opacity duration-200 ${matches ? "cursor-pointer" : "pointer-events-none"}`}
+                tabIndex={matches ? 0 : -1}
+                role="button"
+                aria-label={`Carta ${displayName}`}
+                className={`transition-opacity duration-200 outline-none ${matches ? "cursor-pointer" : "pointer-events-none"}`}
                 opacity={nodeOpacity}
                 onClick={() => {
                   if (!matches) return;
                   sound.play("page");
                   onSelectCard(isSelected ? null : c.code);
                 }}
+                onKeyDown={(e) => {
+                  if (!matches) return;
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    sound.play("page");
+                    onSelectCard(isSelected ? null : c.code);
+                  }
+                }}
                 onPointerEnter={() => onHoverCard(c.code)}
                 onPointerLeave={() => onHoverCard(null)}
               >
+                {/* Hand overlay highlight ring */}
+                {inSampleHand && (
+                  <circle
+                    cx={pos.x}
+                    cy={pos.y}
+                    r={c.key > 0.2 ? 20 : 18}
+                    fill="none"
+                    stroke="var(--df-gold)"
+                    strokeWidth="3"
+                    className="anim-fade"
+                  />
+                )}
+                {isReachedFromHand && !inSampleHand && (
+                  <circle
+                    cx={pos.x}
+                    cy={pos.y}
+                    r={c.key > 0.2 ? 18 : 16}
+                    fill="none"
+                    stroke="var(--sec)"
+                    strokeWidth="2"
+                    strokeDasharray="3 2"
+                    className="anim-fade"
+                  />
+                )}
+
                 {/* Node outer pulse/ring if selected */}
-                {isFocused && (
+                {isFocused && !inSampleHand && (
                   <circle
                     cx={pos.x}
                     cy={pos.y}
@@ -217,7 +276,7 @@ export function LinksCircle({
                   r={c.key > 0.2 ? 14 : 12}
                   fill={c.extra ? "color-mix(in srgb, var(--role-extender) 25%, var(--df-surface-2))" : "var(--df-surface-2)"}
                   stroke={c.key > 0.2 ? "var(--df-gold)" : c.extra ? "var(--role-extender)" : "var(--df-border-strong)"}
-                  strokeWidth={isFocused ? 2 : 1.2}
+                  strokeWidth={isFocused || inSampleHand ? 2.5 : 1.2}
                 />
 
                 {/* Copies indicator badge */}
@@ -226,7 +285,7 @@ export function LinksCircle({
                   y={pos.y + 4}
                   textAnchor="middle"
                   className="text-[9px] font-bold fill-current"
-                  fill={isFocused ? "var(--text)" : "var(--muted)"}
+                  fill={isFocused || inSampleHand ? "var(--df-text)" : "var(--df-muted)"}
                 >
                   {c.copies}
                 </text>
@@ -237,14 +296,17 @@ export function LinksCircle({
                   y={ly + 3.5}
                   textAnchor={pos.isRight ? "start" : "end"}
                   className={`text-[10px] select-none transition-colors ${
-                    isFocused
-                      ? "font-bold fill-[var(--sec)]"
-                      : isConnected
-                        ? "font-medium fill-[var(--text)]"
-                        : "fill-[var(--muted)]"
+                    inSampleHand
+                      ? "font-bold fill-[var(--df-gold)]"
+                      : isFocused
+                        ? "font-bold fill-[var(--sec)]"
+                        : isConnected
+                          ? "font-medium fill-[var(--df-text)]"
+                          : "fill-[var(--df-muted)]"
                   }`}
                 >
                   {displayName}
+                  {inSampleHand && <tspan fill="var(--df-gold)"> (mano)</tspan>}
                   {c.key > 0.2 && <tspan fill="var(--df-gold)"> ★</tspan>}
                 </text>
               </g>

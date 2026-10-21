@@ -51,8 +51,12 @@ export function LinksTab({
     if (!deck.main || deck.main.length === 0) return;
     sound.play("page");
     const count = hand === "second" ? 6 : 5;
-    const shuffled = [...deck.main].sort(() => Math.random() - 0.5);
-    setSampleHand(shuffled.slice(0, count));
+    const array = [...deck.main];
+    for (let i = array.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [array[i], array[j]] = [array[j], array[i]];
+    }
+    setSampleHand(array.slice(0, count));
   };
 
   const clearSampleHand = () => {
@@ -60,17 +64,23 @@ export function LinksTab({
     setSampleHand(null);
   };
 
+  const sampleHandCodes = useMemo(() => (sampleHand ? new Set(sampleHand) : null), [sampleHand]);
+
   // Find all cards reachable from current sample hand in any number of steps
+  // Traverses only deck and extra deck target zones. Reached set excludes cards already in sample hand.
   const reachableFromHand = useMemo(() => {
     if (!sampleHand || !data) return null;
-    const reached = new Set<number>(sampleHand);
-    let grew = true;
-    while (grew) {
-      grew = false;
+    const handSet = new Set<number>(sampleHand);
+    const reached = new Set<number>();
+    const queue = [...sampleHand];
+    while (queue.length > 0) {
+      const curr = queue.shift()!;
       for (const l of data.links) {
-        if (reached.has(l.from) && !reached.has(l.to)) {
-          reached.add(l.to);
-          grew = true;
+        if (l.from === curr && (l.zone === "deck" || l.zone === "extra")) {
+          if (!handSet.has(l.to) && !reached.has(l.to)) {
+            reached.add(l.to);
+            queue.push(l.to);
+          }
         }
       }
     }
@@ -225,6 +235,8 @@ export function LinksTab({
                   filters={filters}
                   activeCardCode={selectedCardCode}
                   hoveredCardCode={hoveredCardCode}
+                  sampleHandCodes={sampleHandCodes}
+                  reachedFromHandCodes={reachableFromHand}
                   onSelectCard={(code) => setSelectedCardCode(code)}
                   onHoverCard={(code) => setHoveredCardCode(code)}
                 />
@@ -235,6 +247,8 @@ export function LinksTab({
                   getCard={getCard}
                   filters={filters}
                   activeCardCode={selectedCardCode}
+                  sampleHandCodes={sampleHandCodes}
+                  reachedFromHandCodes={reachableFromHand}
                   onSelectCard={(code) => setSelectedCardCode(code)}
                 />
               )}
@@ -243,6 +257,7 @@ export function LinksTab({
             {/* Right card inspector panel */}
             <div className="sticky top-4">
               <LinksCardDetail
+                key={selectedCard?.code ?? "none"}
                 card={selectedCard}
                 allCards={data.cards}
                 getCard={getCard}

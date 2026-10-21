@@ -10,6 +10,8 @@ interface Props {
   getCard: (code: number) => Card | undefined;
   filters: LinksFilterState;
   activeCardCode: number | null;
+  sampleHandCodes?: Set<number> | null;
+  reachedFromHandCodes?: Set<number> | null;
   onSelectCard: (code: number | null) => void;
 }
 
@@ -19,6 +21,8 @@ export function LinksColumns({
   getCard,
   filters,
   activeCardCode,
+  sampleHandCodes = null,
+  reachedFromHandCodes = null,
   onSelectCard,
 }: Props) {
   const filteredLinks = useMemo(() => {
@@ -55,8 +59,9 @@ export function LinksColumns({
 
     for (const c of cards) {
       if (filters.searchQuery) {
+        const q = filters.searchQuery.toLowerCase();
         const name = getCard(c.code)?.name.toLowerCase() ?? "";
-        if (!name.includes(filters.searchQuery.toLowerCase())) continue;
+        if (!name.includes(q) && !String(c.code).includes(q)) continue;
       }
 
       if (c.extra) {
@@ -84,7 +89,7 @@ export function LinksColumns({
       { id: "starters", title: "Starter & Motori", subtitle: "Avviano i collegamenti", list: starters, color: "var(--sec)" },
       { id: "bridges", title: "Ponti & Estensioni", subtitle: "Connettono la linea", list: intermediates, color: "var(--metric-resources)" },
       { id: "extra", title: "Extra Deck", subtitle: "Punti d'arrivo della board", list: extra, color: "var(--role-extender)" },
-      { id: "isolated", title: "Isolate & Handtrap", subtitle: "Nessun collegamento", list: isolated, color: "var(--muted)" },
+      { id: "isolated", title: "Isolate", subtitle: "Nessun collegamento", list: isolated, color: "var(--df-muted)" },
     ];
   }, [cards, incomingMap, outgoingMap, filters.searchQuery, getCard]);
 
@@ -111,6 +116,10 @@ export function LinksColumns({
                 const name = card?.name ?? String(c.code);
                 const isSelected = activeCardCode === c.code;
 
+                const inSampleHand = sampleHandCodes?.has(c.code) ?? false;
+                const isReached = reachedFromHandCodes?.has(c.code) ?? false;
+                const dim = sampleHandCodes != null && !inSampleHand && !isReached;
+
                 return (
                   <div
                     key={c.code}
@@ -128,10 +137,14 @@ export function LinksColumns({
                       }
                     }}
                     className={`flex items-center gap-2 rounded-md border p-1.5 text-xs transition-colors cursor-pointer select-none ${
-                      isSelected
-                        ? "border-[var(--sec)] bg-sec/10 shadow-xs"
-                        : "border-border/60 bg-surface-2 hover:border-border-strong hover:bg-surface-3"
-                    }`}
+                      inSampleHand
+                        ? "border-[var(--df-gold)] bg-[var(--df-gold)]/10 shadow-xs"
+                        : isSelected
+                          ? "border-[var(--sec)] bg-sec/10 shadow-xs"
+                          : isReached
+                            ? "border-sec/50 bg-sec/5"
+                            : "border-border/60 bg-surface-2 hover:border-border-strong hover:bg-surface-3"
+                    } ${dim ? "opacity-35" : "opacity-100"}`}
                   >
                     <CardImage code={c.code} card={card} className="h-[44px] w-[30px] shrink-0 rounded-[2px]" />
                     <div className="flex flex-col min-w-0 flex-1 justify-center">
@@ -139,9 +152,21 @@ export function LinksColumns({
                         <span className="font-medium text-text truncate" title={name}>
                           {name}
                         </span>
-                        <span className="text-[10px] text-muted tabular-nums shrink-0">
-                          ×{c.copies}
-                        </span>
+                        <div className="flex items-center gap-1 shrink-0">
+                          {inSampleHand && (
+                            <span className="chip !py-0 !px-1 text-[9px] font-bold text-[var(--df-gold)] border-[var(--df-gold)]/50">
+                              in mano
+                            </span>
+                          )}
+                          {isReached && !inSampleHand && (
+                            <span className="chip !py-0 !px-1 text-[9px] font-bold text-sec border-sec/40">
+                              raggiunta
+                            </span>
+                          )}
+                          <span className="text-[10px] text-muted tabular-nums">
+                            ×{c.copies}
+                          </span>
+                        </div>
                       </div>
                       <div className="flex items-center gap-2 mt-1 text-[10px] text-muted">
                         <span>
@@ -153,7 +178,13 @@ export function LinksColumns({
                           </span>
                         )}
                         <span className="ml-auto text-sec tabular-nums font-medium">
-                          {c.extra ? (c.chance > 0 ? `${Math.round(c.chance * 100)}%` : "—") : `${Math.round(c.chance * 100)}%`}
+                          {c.extra
+                            ? (c as any).measured
+                              ? `~${Math.round(c.chance * 100)}% (stima)`
+                              : c.chance > 0
+                                ? `${Math.round(c.chance * 100)}%`
+                                : "—"
+                            : `${Math.round(c.chance * 100)}%`}
                         </span>
                       </div>
                     </div>

@@ -95,7 +95,7 @@ export function Lab({
           request(res.cards.map((c) => c.code));
         }
       } catch (err) {
-        if (linksReqIdRef.current === reqId) {
+        if (linksReqIdRef.current === reqId && deckIdRef.current === targetDeckId) {
           setLinksError(String(err));
         }
       } finally {
@@ -162,10 +162,10 @@ export function Lab({
   }, [tab, reloadLog, updatedAt]);
 
   useEffect(() => {
-    if (tab === "links" && deck?.id != null && (!linksData || linksData.deckId !== deck.id) && !linksLoading && !linksError) {
+    if (tab === "links" && deck?.id != null && (!linksData || linksData.deckId !== deck.id) && !linksLoading) {
       void loadLinks(deck.id);
     }
-  }, [tab, deck?.id, linksData, linksLoading, linksError, loadLinks]);
+  }, [tab, deck?.id, linksData, linksLoading, loadLinks]);
 
   const changeRoles = (next: Record<string, number[]>, id = deck?.id) => {
     setRoles(next);
@@ -240,6 +240,9 @@ export function Lab({
     try {
       const saved = await api.saveDeck({ ...deck, main, maybe, roles });
       setDeck(saved);
+      setLinksData(null);
+      setLinksError(null);
+      setLinksProgress(null);
       sound.play("forge");
       toast("Deck aggiornato: le copie tolte sono nella Maybe board", "ok");
     } catch (e) {
@@ -272,6 +275,34 @@ export function Lab({
       rememberDeck(deck.id);
       sound.play("forge");
       onGoCombo?.(cardId);
+    },
+    [deck?.id, onGoCombo],
+  );
+
+  const exploreComboAsGoal = useCallback(
+    (targetGoalCardId: number, startCardId?: number) => {
+      if (!deck?.id) return;
+      let existing: Record<string, unknown> = {};
+      try {
+        const raw = localStorage.getItem(`duelforge.combo.${deck.id}`);
+        if (raw) existing = JSON.parse(raw);
+      } catch {
+        existing = {};
+      }
+      const nextSetup = {
+        mode: startCardId ? ("card" as const) : ((existing.mode as "card" | "hand") ?? ("card" as const)),
+        hand: Array.isArray(existing.hand) ? existing.hand : [],
+        card: startCardId ?? (typeof existing.card === "number" ? existing.card : null),
+        keep: Array.isArray(existing.keep) ? existing.keep : [],
+        forbid: Array.isArray(existing.forbid) ? existing.forbid : [],
+        goal: [{ card: targetGoalCardId, min: 1, zone: null }],
+        goalAll: true,
+        goalFirst: typeof existing.goalFirst === "boolean" ? existing.goalFirst : true,
+      };
+      localStorage.setItem(`duelforge.combo.${deck.id}`, JSON.stringify(nextSetup));
+      rememberDeck(deck.id);
+      sound.play("forge");
+      onGoCombo?.(targetGoalCardId);
     },
     [deck?.id, onGoCombo],
   );
@@ -338,6 +369,7 @@ export function Lab({
               <OverviewTab overview={overview} hand={hand} roles={roles} getCard={cards.get} onExploreCombo={onGoCombo ? exploreCombo : undefined} />
             ) : tab === "links" ? (
               <LinksTab
+                key={deck.id}
                 deck={deck}
                 data={linksData}
                 loading={linksLoading}
@@ -345,7 +377,7 @@ export function Lab({
                 error={linksError}
                 onReload={() => deck.id != null && void loadLinks(deck.id)}
                 getCard={cards.get}
-                onGoCombo={onGoCombo ? exploreCombo : undefined}
+                onGoCombo={onGoCombo ? exploreComboAsGoal : undefined}
                 hand={hand}
               />
             ) : tab === "compare" ? (

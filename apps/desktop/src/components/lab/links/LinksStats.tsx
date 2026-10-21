@@ -111,7 +111,7 @@ export function LinksStats({ cards, links, getCard, selectedCode, onSelectCard }
       <div className="rounded-lg border border-border bg-surface-2/70 p-2.5 flex flex-col gap-1.5">
         <div className="flex items-center justify-between">
           <span className="font-semibold text-text flex items-center gap-1.5">
-            <span className="text-muted">🔒</span> Carte isolate / Handtrap
+            <span className="text-[var(--df-muted)]">🔒</span> Carte isolate
           </span>
           <span className="text-[10px] text-muted">{isolated.length} carte del Main</span>
         </div>

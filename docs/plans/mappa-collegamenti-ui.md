@@ -38,11 +38,12 @@ apps/desktop/src/components/lab/
 - I nodi hanno dimensioni o anelli proporzionali alla rilevanza come carta chiave (`LinkCard.key`) o alla probabilità iniziale (`LinkCard.chance`).
 - Traccia curve SVG (archi di Bézier) tra le carte:
   - **Colori per tipo di collegamento (`CardLinkKind`)**:
-    - `search` (verde smeraldo `#10b981`): Aggiunge alla mano dal Deck.
-    - `summon` (oro/ambra `#f59e0b`): Evoca Specialmente.
-    - `toGrave` (rosso/mattone `#ef4444`): Manda al Cimitero dal Deck.
-    - `recover` (ciano `#06b6d4`): Recupera dal Cimitero o carte bandite.
-    - `material` (indaco/viola `#8b5cf6`): Materiale specifico richiesto.
+    - `search` (`var(--role-starter)`): Aggiunge alla mano dal Deck.
+    - `summon` (`var(--role-extender)`): Evoca Specialmente.
+    - `set` (`var(--role-custom-2)`): Posiziona dal Deck.
+    - `toGrave` (`var(--role-brick)`): Manda al Cimitero dal Deck.
+    - `recover` (`var(--role-breaker)`): Recupera dal Cimitero o carte bandite.
+    - `material` (`var(--role-custom-1)`): Materiale specifico richiesto.
   - **Spessore freccia**:
     - Linee spesse e piene se `used > 0` (frequenza d'uso nelle combo migliori).
     - Linee sottili o tratteggiate se solo `possible` (`used === 0`).

@@ -69,7 +69,11 @@ export function LinksCardDetail({
     );
   }
 
-  const chanceText = card.extra && card.chance === 0 ? "—" : `${Math.round(card.chance * 100)}%`;
+  const chanceText = (card as any).measured
+    ? `~${Math.round(card.chance * 100)}% (stima)`
+    : card.extra && card.chance === 0
+      ? "—"
+      : `${Math.round(card.chance * 100)}%`;
 
   return (
     <div className="flex flex-col gap-3 rounded-lg border border-border bg-surface-2 p-3.5 text-xs anim-fade shadow-sm">
@@ -238,6 +242,7 @@ export function LinksCardDetail({
           </p>
           <select
             value={targetCode ?? ""}
+            aria-label="Seleziona carta d'arrivo per il percorso"
             onChange={(e) => {
               const val = e.target.value ? Number(e.target.value) : null;
               setTargetCode(val);
@@ -284,12 +289,11 @@ export function LinksCardDetail({
                     <button
                       type="button"
                       onClick={() => {
-                        sound.play("forge");
                         onGoCombo(targetCode);
                       }}
                       className="btn btn-molten !py-1 !px-2 text-[11px] mt-1 flex items-center justify-center gap-1"
                     >
-                      ⚡ Esplora combo per {getCard(targetCode)?.name ?? targetCode}
+                      ⚡ Esplora combo con obiettivo {getCard(targetCode)?.name ?? targetCode}
                     </button>
                   )}
                 </div>
@@ -304,7 +308,6 @@ export function LinksCardDetail({
         <button
           type="button"
           onClick={() => {
-            sound.play("forge");
             onGoCombo(card.code);
           }}
           className="btn btn-ghost !py-1.5 text-xs text-sec hover:bg-sec/10 flex items-center justify-center gap-1.5 border border-sec/40"
