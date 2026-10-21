@@ -14,6 +14,7 @@
 //   build.rs), and registers the base effects again as they were.
 #include <algorithm>
 #include <array>
+#include <cstdint>
 #include <cstring>
 #include <memory>
 #include <unordered_map>
@@ -57,8 +58,8 @@ struct Snapshot {
 	std::unordered_set<effect*> keep;
 	field_info infos;
 	uint32_t global_flag;
-	// A raw image of each table as it was last put back (shim/table.cpp).
-	std::unordered_map<const void*, std::vector<unsigned char>> images;
+	// An image of each table as it was last put back (shim/table.cpp).
+	std::unordered_map<const void*, std::vector<uint64_t>> images;
 };
 const char* const SNAPSHOT_CPP = "duelforge.snapshot.cpp";
 
@@ -85,15 +86,12 @@ std::array<int32_t, REF_FIELDS> refs(effect& e) {
 void visit(lua_State* L, int value, int snap);
 
 extern "C" {
-size_t df_table_image_size(const void* table);
-void df_table_image(const void* table, unsigned char* out);
-int df_table_same(const void* table, const unsigned char* image, size_t size);
+void df_table_image(const void* table, void* out);
+int df_table_same(const void* table, const void* image);
 }
 
 void take_image(Snapshot& cpp, const void* table) {
-	auto& image = cpp.images[table];
-	image.resize(df_table_image_size(table));
-	df_table_image(table, image.data());
+	df_table_image(table, &cpp.images[table]);
 }
 
 // Copies the table at `t` (absolute index) unless already copied.
@@ -251,7 +249,7 @@ void restore(lua_State* L, int snap, Snapshot& cpp) {
 		const int t = copy - 1;
 		// Not stored into since it was last put back.
 		const void* table = lua_topointer(L, t);
-		if(auto found = cpp.images.find(table); found != cpp.images.end() && df_table_same(table, found->second.data(), found->second.size())) {
+		if(auto found = cpp.images.find(table); found != cpp.images.end() && df_table_same(table, &found->second)) {
 			lua_pop(L, 1);
 			continue;
 		}

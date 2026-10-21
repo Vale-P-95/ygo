@@ -1,62 +1,67 @@
-// Raw images of Lua tables (shim/reuse.cpp): two images of a table are the
-// same bytes only if nothing was stored in it in between, so a table the
-// last duel did not touch is not gone over key by key to be put back.
-// Built with Lua itself, which is the only code that knows its tables.
+// Images of Lua tables (shim/reuse.cpp): two images of a table are the same
+// only if nothing was stored in it in between, so a table the last duel did
+// not touch is not gone over key by key to be put back. An image holds the
+// table's parts and every slot's tags and values as Lua lays them out (the
+// bytes no slot uses are left out: they are never written). Built with Lua
+// itself, which is the only code that knows its tables.
+#include <cstdint>
 #include <cstring>
+#include <vector>
 
 #include "lua.h"
 #include "lobject.h"
 #include "ltable.h"
 
 namespace {
-struct Header {
-	const void* array;
-	const void* node;
-	const void* metatable;
-	unsigned int array_size;
-	unsigned int node_size;
-};
+using Image = std::vector<uint64_t>;
 
-Header header(const Table* t) {
-	// Compared as bytes: no padding left unset.
-	Header h;
-	std::memset(&h, 0, sizeof h);
-	h.array = t->array;
-	h.node = t->node;
-	h.metatable = t->metatable;
-	h.array_size = luaH_realasize(t);
-	h.node_size = static_cast<unsigned int>(allocsizenode(t));
-	return h;
+uint64_t bits(const Value& v) {
+	uint64_t out = 0;
+	std::memcpy(&out, &v, sizeof v < sizeof out ? sizeof v : sizeof out);
+	return out;
+}
+
+// Nil and booleans are told by their tag alone; their value is never set.
+bool has_value(lu_byte tag) {
+	return novariant(tag) != LUA_TNIL && novariant(tag) != LUA_TBOOLEAN;
+}
+
+void image_of(const Table* t, Image& out) {
+	out.clear();
+	const unsigned int array_size = luaH_realasize(t);
+	const unsigned int node_size = static_cast<unsigned int>(allocsizenode(t));
+	out.push_back(reinterpret_cast<uintptr_t>(t->array));
+	out.push_back(reinterpret_cast<uintptr_t>(t->node));
+	out.push_back(reinterpret_cast<uintptr_t>(t->metatable));
+	out.push_back((static_cast<uint64_t>(array_size) << 32) | node_size);
+	for(unsigned int i = 0; i < array_size; ++i) {
+		const TValue& v = t->array[i];
+		out.push_back(v.tt_);
+		if(has_value(v.tt_))
+			out.push_back(bits(v.value_));
+	}
+	for(unsigned int i = 0; i < node_size; ++i) {
+		const Node& n = t->node[i];
+		out.push_back(n.u.tt_ | static_cast<uint64_t>(n.u.key_tt) << 8 | static_cast<uint64_t>(static_cast<uint32_t>(n.u.next)) << 32);
+		if(has_value(n.u.tt_))
+			out.push_back(bits(n.u.value_));
+		if(has_value(n.u.key_tt))
+			out.push_back(bits(n.u.key_val));
+	}
 }
 }
 
 extern "C" {
-// Bytes of the image of `table` (a pointer from lua_topointer).
-size_t df_table_image_size(const void* table) {
-	const Header h = header(static_cast<const Table*>(table));
-	return sizeof(Header) + h.array_size * sizeof(TValue) + h.node_size * sizeof(Node);
+// The image of `table` (a pointer from lua_topointer), into `out`
+// (a std::vector<uint64_t>).
+void df_table_image(const void* table, void* out) {
+	image_of(static_cast<const Table*>(table), *static_cast<Image*>(out));
 }
 
-void df_table_image(const void* table, unsigned char* out) {
-	const auto* t = static_cast<const Table*>(table);
-	const Header h = header(t);
-	std::memcpy(out, &h, sizeof h);
-	out += sizeof h;
-	std::memcpy(out, t->array, h.array_size * sizeof(TValue));
-	out += h.array_size * sizeof(TValue);
-	if(h.node_size)
-		std::memcpy(out, t->node, h.node_size * sizeof(Node));
-}
-
-int df_table_same(const void* table, const unsigned char* image, size_t size) {
-	const auto* t = static_cast<const Table*>(table);
-	const Header h = header(t);
-	if(size != df_table_image_size(table) || std::memcmp(image, &h, sizeof h) != 0)
-		return 0;
-	image += sizeof h;
-	if(std::memcmp(image, t->array, h.array_size * sizeof(TValue)) != 0)
-		return 0;
-	image += h.array_size * sizeof(TValue);
-	return !h.node_size || std::memcmp(image, t->node, h.node_size * sizeof(Node)) == 0;
+// Whether `table` still has the image `image`.
+int df_table_same(const void* table, const void* image) {
+	thread_local Image now;
+	image_of(static_cast<const Table*>(table), now);
+	return now == *static_cast<const Image*>(image);
 }
 }
