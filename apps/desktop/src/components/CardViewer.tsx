@@ -294,7 +294,7 @@ export function CardViewer({
                       limit === 0
                         ? "border border-danger/40 bg-danger/15 text-danger"
                         : limit < 3
-                          ? "border border-amber-500/40 bg-amber-500/15 text-amber-300"
+                          ? "border border-warn/40 bg-warn/15 text-warn"
                           : "border border-border bg-surface-3 text-muted"
                     }`}
                   >
@@ -308,7 +308,7 @@ export function CardViewer({
                   </span>
                   {limit > 0 && (
                     <span className="text-[11px] text-muted tabular-nums">
-                      Nel deck: <b className={totalInDeck > limit ? "text-danger" : totalInDeck === limit && limit < 3 ? "text-amber-300" : "text-fg"}>{totalInDeck}</b>/{limit}
+                      Nel deck: <b className={totalInDeck > limit ? "text-danger" : totalInDeck === limit && limit < 3 ? "text-warn" : "text-fg"}>{totalInDeck}</b>/{limit}
                     </span>
                   )}
                 </div>
