@@ -769,7 +769,8 @@ fn going_for_you(decision: &Decision, actions: &[Action], its: impl Fn(&CardRef)
     }
     // The cards an answer to a selection picks, by index.
     let picked = |a: &Action| -> Vec<usize> {
-        a.response.chunks_exact(4).skip(2).map(|b| u32::from_le_bytes([b[0], b[1], b[2], b[3]]) as usize).collect()
+        let word = |i: usize| a.response.get(i * 4..i * 4 + 4).map(|b| u32::from_le_bytes([b[0], b[1], b[2], b[3]]) as usize);
+        (2..).map_while(word).collect()
     };
     let all_yours = |cards: Vec<&CardRef>| {
         actions.iter().find(|a| {
