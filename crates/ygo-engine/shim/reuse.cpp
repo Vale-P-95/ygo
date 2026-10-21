@@ -360,6 +360,60 @@ int df_duel_snapshot(OCG_Duel ocg_duel) {
 	return 1;
 }
 
+// Loads the card scripts of `codes` not loaded yet, in that order, before
+// any card is added, and takes the snapshot again: the next duels keep
+// these scripts as they are once loaded, and only run each card's
+// initial_effect. Returns 0 when loading them changed more than Lua tables
+// (the duel then differs from a new one and must not be used).
+int df_duel_preload(OCG_Duel ocg_duel, const uint32_t* codes, size_t count) {
+	auto* pduel = static_cast<duel*>(ocg_duel);
+	auto* lua = pduel->lua;
+	lua_State* L = lua->lua_state;
+	auto* cpp = cpp_snapshot(L);
+	if(!cpp)
+		return 1;
+	std::vector<uint32_t> scripts;
+	for(size_t i = 0; i < count; ++i) {
+		// The script a card runs (interpreter::register_card).
+		const auto& data = pduel->read_card(codes[i]);
+		uint32_t code = codes[i];
+		if(data.alias && data.alias < code + 10 && code < data.alias + 10)
+			code = data.alias;
+		if(std::find(scripts.begin(), scripts.end(), code) != scripts.end())
+			continue;
+		char name[32];
+		lua_getglobal(L, interpreter::format_to(name, "c%u", code));
+		if(lua_isnil(L, -1))
+			scripts.push_back(code);
+		lua_pop(L, 1);
+	}
+	if(scripts.empty())
+		return 1;
+	auto& field = *pduel->game_field;
+	const auto effects = pduel->effects.size();
+	const auto cards = pduel->cards.size();
+	const auto infos = field.infos;
+	const auto global_flag = field.core.global_flag;
+	const int top = lua_gettop(L);
+	try {
+		for(auto code : scripts) {
+			lua->load_card_script(code);
+			lua_settop(L, top);
+		}
+	} catch(...) {
+		lua_settop(L, top);
+		return 0;
+	}
+	const auto& now = field.infos;
+	if(pduel->effects.size() != effects || pduel->cards.size() != cards || now.event_id != infos.event_id || now.field_id != infos.field_id
+	   || now.copy_id != infos.copy_id || now.card_id != infos.card_id || field.core.global_flag != global_flag)
+		return 0;
+	delete cpp;
+	lua_pushnil(L);
+	lua_setfield(L, LUA_REGISTRYINDEX, SNAPSHOT_CPP);
+	return df_duel_snapshot(ocg_duel);
+}
+
 // Destroys a duel and its snapshot.
 void df_duel_destroy(OCG_Duel ocg_duel) {
 	auto* pduel = static_cast<duel*>(ocg_duel);
@@ -420,7 +474,7 @@ int df_duel_reset(OCG_Duel ocg_duel, const OCG_DuelOptions* options) {
 			forget(lua, pcard);
 		pduel->assumes.clear();
 		pduel->uncopy.clear();
-		const df_reset_info info{ options, &cpp->keep, true };
+		const df_reset_info info{ options, &cpp->keep };
 		df_reset = &info;
 		pduel->clear();
 		df_reset = nullptr;

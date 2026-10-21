@@ -168,8 +168,10 @@ fn patch_field(text: &str) -> String {
 /// one (shim/reuse.cpp): the new field gets the next duel's options instead
 /// of fixed defaults, the random numbers are seeded again like in a new
 /// duel, the messages not read are dropped, and the effects the base
-/// scripts created are kept (the shim puts them back). Panics if upstream
-/// changed the code, so the patch is looked at again.
+/// scripts created are kept (the shim puts them back). No full garbage
+/// collection: the collector gets to the garbage as it goes, and the groups
+/// still alive are emptied as upstream does. Panics if upstream changed the
+/// code, so the patch is looked at again.
 fn patch_duel(text: &str) -> String {
     const CLEAR: &str = "void duel::clear() {
 	static constexpr OCG_DuelOptions default_options{ {},0,{8000,5,1},{8000,5,1} };
@@ -199,8 +201,6 @@ void duel::clear() {
 		delete peffect;
 	}
 	delete game_field;
-	if(df_reset->collect)
-		lua->collect(true);
 	cards.clear();
 ";
     const EFFECTS: &str = "	effects.clear();

@@ -1,6 +1,6 @@
 //! A running duel: owns an engine instance and its reader callbacks.
 
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::ffi::{CStr, CString};
 use std::mem::ManuallyDrop;
 use std::os::raw::{c_char, c_int, c_void};
@@ -216,10 +216,10 @@ impl Drop for Spare {
 
 thread_local! {
     static SPARE: RefCell<Option<Spare>> = const { RefCell::new(None) };
-}
-
-thread_local! {
-    static FRESH: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+    /// See [`fresh_duels`].
+    static FRESH: Cell<bool> = const { Cell::new(false) };
+    /// The card scripts are not loaded ahead (see `df_duel_preload`).
+    static NO_PRELOAD: Cell<bool> = const { Cell::new(false) };
 }
 
 fn check_reuse() -> bool {
@@ -433,6 +433,25 @@ impl Duel {
             starting_lp: 8000,
         };
         let mut duel = Duel::new(engine, &config)?;
+        if duel.reusable && !NO_PRELOAD.with(Cell::get) {
+            let theirs = opponent.into_iter().flat_map(|o| o.deck.iter().chain(&o.extra).chain(&o.hand));
+            let codes: Vec<u32> = main
+                .iter()
+                .chain(&extra)
+                .chain(&hand_codes)
+                .chain(theirs)
+                .copied()
+                .chain(placed.iter().flat_map(|p| std::iter::once(p.code).chain(p.overlay.iter().copied())))
+                .collect();
+            if unsafe { df_duel_preload(duel.raw, codes.as_ptr(), codes.len()) } == 0 {
+                // A script did more than define its card when loaded: this
+                // duel is not like a new one. A new duel, and no more
+                // loading ahead on this thread.
+                NO_PRELOAD.with(|n| n.set(true));
+                duel.reusable = false;
+                duel = Self::fresh(engine, &config)?;
+            }
+        }
         for (i, &code) in main.iter().enumerate() {
             duel.add_card(0, code, location::DECK, i as u32, position::FACEDOWN_DEFENSE);
         }

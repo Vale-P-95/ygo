@@ -102,4 +102,5 @@ extern "C" {
     pub fn df_duel_snapshot(duel: OCG_Duel) -> c_int;
     pub fn df_duel_reset(duel: OCG_Duel, options: *const OCG_DuelOptions) -> c_int;
     pub fn df_duel_destroy(duel: OCG_Duel);
+    pub fn df_duel_preload(duel: OCG_Duel, codes: *const u32, count: usize) -> c_int;
 }

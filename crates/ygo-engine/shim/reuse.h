@@ -13,8 +13,6 @@ struct df_reset_info {
 	const OCG_DuelOptions* options;
 	// Effects created by the base scripts: kept, put back by the shim.
 	const std::unordered_set<effect*>* keep;
-	// Run a full garbage collection (what upstream's clear does).
-	bool collect;
 };
 
 extern thread_local const df_reset_info* df_reset;
