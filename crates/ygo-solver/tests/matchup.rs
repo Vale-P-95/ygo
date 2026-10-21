@@ -70,6 +70,15 @@ fn a_deck_brings_the_breakers_and_handtraps_it_can_play() {
     assert!(!breakers.contains(&lab.code("Evenly Matched")), "{breakers:?}");
     assert!(!breakers.contains(&lab.code("Clockwork Night")), "{breakers:?}");
     assert!(rival.hand_traps.contains(&ASH) && rival.hand_traps.contains(&lab.code("Maxx \"C\"")), "{:?}", rival.hand_traps);
+
+    // The opponent's Deck is as big as during your first turn: plain cards
+    // in the standard kit, its own cards against it (Aleister among them),
+    // with its Extra Deck too.
+    assert_eq!(kit.opponent().deck.len(), 35);
+    let theirs = rival.kit().opponent();
+    assert_eq!(theirs.deck.len(), 35);
+    assert!(theirs.deck.iter().filter(|&&c| lab.deck.main.contains(&c)).count() > 15, "{:?}", theirs.deck);
+    assert!(theirs.extra.contains(&lab.code("Invoked Mechaba")), "{:?}", theirs.extra);
 }
 
 #[test]
@@ -92,7 +101,7 @@ fn a_handtrap_counts_where_it_stops_the_line() {
     let line = &result.boards[0].line;
     let measure = Prober::new(engine, &lab.deck, &hand, config.seed, &kit).measure(line).expect("the probe turn is played");
 
-    let deck = lab.rival_deck(&[("Maxx \"C\"", 3), ("Dark Hole", 1)]);
+    let deck = lab.rival_deck(&[("Maxx \"C\"", 3), ("Dark Hole", 1), ("Ultimate Slayer", 1)]);
     let rival = Rival::new(engine, &deck, config.seed, &kit);
     let x = matchup(engine, &lab.deck, &hand, config.seed, line, &measure, &rival).expect("the matchup is played");
     let of = |code: u32| x.hand_traps.iter().find(|h| h.code == code);
@@ -126,6 +135,11 @@ fn a_handtrap_counts_where_it_stops_the_line() {
     let hole = x.breakers.iter().find(|b| b.code == lab.code("Dark Hole")).expect("Dark Hole");
     assert!(hole.chance > 0.0 && hole.chance < 0.5, "{hole:?}");
     assert!(x.resilience >= hole.remaining && x.resilience <= measure.field_value + 1e-9, "{x:?}");
+    // Ultimate Slayer pays with a monster of its Extra Deck of the type of
+    // the one it shuffles away (Invoked Mechaba is a Fusion): it has its
+    // real Extra Deck, so it can be played.
+    let slayer = x.breakers.iter().find(|b| b.code == lab.code("Ultimate Slayer")).expect("Ultimate Slayer");
+    assert!(!slayer.not_applicable, "{slayer:?}");
 }
 
 #[test]
