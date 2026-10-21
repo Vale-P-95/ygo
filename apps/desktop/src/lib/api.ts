@@ -466,6 +466,48 @@ export interface ComboScore {
   exposure: number;
   exposureNote: string;
   exposureDetail: { ash: number; onField: number; summons: number; specialSummons: number; searches: number } | null;
+  /** Against the deck chosen with `comboScore(vsDeckId)`. */
+  matchup?: ComboMatchup | null;
+  error: string | null;
+}
+
+/** One of the opponent deck's board breakers against the board. */
+export interface ComboRivalBreaker {
+  code: number;
+  /** Chance it is among the 6 cards the opponent has in its turn. */
+  chance: number;
+  /** Interruption value of the field left after it. */
+  remaining: number;
+  stoppedBy: number | null;
+  notApplicable: boolean;
+}
+
+/** One of the opponent deck's handtraps against the line. */
+export interface ComboRivalHandTrap {
+  code: number;
+  /** Chance it is among the 5 cards the opponent holds during your turn. */
+  chance: number;
+  /** Moments of the line it can be used. */
+  windows: number;
+  /** Those where using it changes the field or hand you end with. */
+  stops: number;
+  /** Your cards being played at those moments. */
+  at: number[];
+}
+
+/** The board and its line against a deck of the Bottega (mirrors `MatchupView`). */
+export interface ComboMatchup {
+  deckId: number;
+  deckName: string;
+  /** Interruption value of the field expected after the most harmful breaker the opponent has (all of it when it has none). */
+  resilience: number;
+  /** The deck has no breaker the probe turn can play: the resilience is the standard one. */
+  standardBreakers: boolean;
+  breakerChance: number;
+  breakers: ComboRivalBreaker[];
+  /** Chance the opponent has a handtrap that stops something in the line. */
+  handTrapChance: number;
+  handTraps: ComboRivalHandTrap[];
   error: string | null;
 }
 
@@ -568,7 +610,8 @@ const tauriApi = {
   exportDeck: (deck: Deck) => invoke<{ ydk: string; ydke: string }>("export_deck", { deck }),
   comboSearch: (request: ComboRequest) => invoke<ComboOutcome>("combo_search", { request }),
   comboContinue: (deckId: number, seconds: number) => invoke<ComboOutcome>("combo_continue", { deckId, seconds }),
-  comboScore: () => invoke<number>("combo_score"),
+  /** With `vsDeckId` (a deck of the Bottega), each board is also measured against it (`ComboScore.matchup`). */
+  comboScore: (vsDeckId?: number | null) => invoke<number>("combo_score", { vsDeckId: vsDeckId ?? null }),
   comboScores: () => invoke<ComboScore[]>("combo_scores"),
   onComboScore: (handler: (s: ComboScore) => void): Promise<UnlistenFn> => listen<ComboScore>("combo-score", (e) => handler(e.payload)),
   comboCancel: () => invoke<void>("combo_cancel"),

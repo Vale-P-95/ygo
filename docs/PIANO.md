@@ -1350,3 +1350,11 @@ Tre correzioni del piano della classificazione delle board (`docs/plans/classifi
 - **Strumenti.** `board_pairs.py eval` misura le 83 coppie in 50 secondi e confronta con una valutazione salvata. `bench_cross.py` confronta le board di due ricerche misurandole con la stessa misura (il bench normale le mette su due scale diverse). I mostri settati coperti ora si vedono nel campo delle board.
 - **Seguito delle risposte.** Le Trappole che Evocano (Big Welcome Labrynth, Welcome Labrynth, Angel Statue) valevano 0 perché il turno di prova non usava mai il mostro che portavano e sceglieva il primo per codice. Ora quello che una risposta porta risponde a sua volta, si Evoca il mostro più forte e si paga con la carta meno preziosa.
 - **Risultato.** Coppie sicure giuste da 15 su 29 (linea di base corretta) a 18 su 29; la ricerca trova board equivalenti (−2,4% sulle migliori, +5,9% sulle prime, una mano fragile in meno). Gli errori rimasti dipendono soprattutto dal kit e dalle risorse (passi D10, D13, D15).
+
+### 30.10 Turno di prova contro un deck scelto, livello 1 (21/10/2026)
+Richiesta #44, piano in `docs/plans/turno-di-prova-matchup.md`. Il backend misura una board contro un deck della Bottega, accanto alla misura generica:
+- **Breaker del deck avversario.** Le sue carte che tolgono o negano carte (dal testo, come i ruoli) e che il motore gli lascia giocare dalla mano, ognuna pesata con la probabilità esatta di averla tra le 6 carte del suo turno. La resilienza contro X è il valore del campo che resta in media dopo il breaker più dannoso che ha in mano, e tutto il campo quando non ne ha. Se il deck non ne ha, restano i breaker standard.
+- **Handtrap del deck avversario.** La linea si rigioca usando ogni sua handtrap in ogni momento in cui il motore la offre: ferma la linea dove cambia la board o la mano finale. Maxx "C" e le Mulcharmy non fermano niente (fanno solo pescare); Ash su una ricerca o Bystial su un materiale nel Cimitero sì. Ne esce la probabilità che l'avversario abbia una handtrap che ti ferma, e dove.
+- **Riconoscimento dei breaker.** I Kaiju e Lava Golem con il testo nuovo ("by Tributing 1 monster they control") ora sono riconosciuti anche nei ruoli della Fucina.
+- **Costo.** Circa 1 secondo in più per board. Interfaccia: richiesta a Gemini in `docs/TASKS.md`.
+

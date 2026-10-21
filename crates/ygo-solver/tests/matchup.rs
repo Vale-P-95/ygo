@@ -1,0 +1,99 @@
+//! The probe turn against a chosen deck (#44): its breakers and handtraps,
+//! read from the engine. Skipped without the game data, like `invoked.rs`.
+
+use std::path::PathBuf;
+use std::sync::atomic::AtomicBool;
+use std::time::Duration;
+
+use ygo_engine::{DeckList, Engine};
+use ygo_solver::{matchup, search, Goal, Kit, Prober, Rival, SearchConfig, Stop};
+
+const ALEISTER: u32 = 86120751;
+const CHALICE: u32 = 76334960;
+const MELTDOWN: u32 = 47679935;
+const ASH: u32 = 14558127;
+const FUWALOS: u32 = 42141493;
+
+struct Lab {
+    engine: Engine,
+    deck: DeckList,
+}
+
+fn lab() -> Option<Lab> {
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let data = std::env::var_os("DUELFORGE_DATA").map(PathBuf::from).unwrap_or_else(|| root.join("data"));
+    if !data.join("scripts/constant.lua").is_file() {
+        eprintln!("skipped: no game data in {}", data.display());
+        return None;
+    }
+    let engine = Engine::load(&data).expect("game data loads");
+    let deck = DeckList::from_ydk(&std::fs::read_to_string(root.join("tests/fixtures/decks/invoked-siracusa-md.ydk")).unwrap()).unwrap();
+    Some(Lab { engine, deck })
+}
+
+impl Lab {
+    fn code(&self, name: &str) -> u32 {
+        self.engine.cards().find_by_name(name).unwrap_or_else(|| panic!("{name}")).code
+    }
+
+    /// The Invoked deck with these cards added: the opponent's deck.
+    fn rival_deck(&self, cards: &[(&str, usize)]) -> DeckList {
+        let mut deck = self.deck.clone();
+        for &(name, copies) in cards {
+            deck.main.extend(std::iter::repeat_n(self.code(name), copies));
+        }
+        deck
+    }
+}
+
+#[test]
+fn a_deck_brings_the_breakers_and_handtraps_it_can_play() {
+    let Some(lab) = lab() else { return };
+    let kit = Kit::standard(&lab.engine);
+    let deck = lab.rival_deck(&[("Dark Hole", 1), ("Gameciel, the Sea Turtle Kaiju", 1), ("Evenly Matched", 1), ("Maxx \"C\"", 3)]);
+    let rival = Rival::new(&lab.engine, &deck, 1, &kit);
+    let breakers = rival.breakers();
+    // Dark Hole from the hand, the Kaiju by its own summon; Evenly Matched
+    // reads like a breaker, but it is played at the end of the Battle Phase.
+    assert!(breakers.contains(&lab.code("Dark Hole")), "{breakers:?}");
+    assert!(breakers.contains(&lab.code("Gameciel, the Sea Turtle Kaiju")), "{breakers:?}");
+    assert!(!breakers.contains(&lab.code("Evenly Matched")), "{breakers:?}");
+    assert!(rival.hand_traps.contains(&ASH) && rival.hand_traps.contains(&lab.code("Maxx \"C\"")), "{:?}", rival.hand_traps);
+}
+
+#[test]
+fn a_handtrap_counts_where_it_stops_the_line() {
+    let Some(lab) = lab() else { return };
+    let engine = &lab.engine;
+    let kit = Kit::standard(engine);
+    // An Invoked Mechaba line: Aleister searches, Magical Meltdown searches.
+    let hand = vec![ALEISTER, CHALICE, MELTDOWN, ASH, FUWALOS];
+    let mut config = SearchConfig::new(lab.deck.clone(), hand.clone());
+    config.threads = 1;
+    config.max_nodes = 4000;
+    config.time_limit = Duration::from_secs(300);
+    config.policy.passive = vec![ASH, FUWALOS];
+    config.hand_traps = vec![ASH, FUWALOS];
+    config.opponent = Some(kit.opponent().clone());
+    config.goal = Goal::cards(&[lab.code("Invoked Mechaba")], true, true);
+    let result = search(engine, &config, &AtomicBool::new(false), |_| {});
+    assert_eq!(result.stop, Stop::GoalReached);
+    let line = &result.boards[0].line;
+    let measure = Prober::new(engine, &lab.deck, &hand, config.seed, &kit).measure(line).expect("the probe turn is played");
+
+    let deck = lab.rival_deck(&[("Maxx \"C\"", 3), ("Dark Hole", 1)]);
+    let rival = Rival::new(engine, &deck, config.seed, &kit);
+    let x = matchup(engine, &lab.deck, &hand, config.seed, line, &measure, &rival).expect("the matchup is played");
+    let of = |code: u32| x.hand_traps.iter().find(|h| h.code == code);
+    // Ash Blossom negates a search of the line; Maxx "C" makes the opponent
+    // draw, but the line ends on the same board.
+    let ash = of(ASH).expect("Ash is offered");
+    assert!(ash.stops > 0 && ash.chance > 0.0, "{ash:?}");
+    let maxx = of(lab.code("Maxx \"C\"")).expect("Maxx \"C\" is offered");
+    assert!(maxx.windows > 0 && maxx.stops == 0, "{maxx:?}");
+    assert!(x.hand_trap_chance > 0.0 && x.hand_trap_chance < 1.0);
+    // One Dark Hole: the field holds unless the opponent has it.
+    let hole = x.breakers.iter().find(|b| b.code == lab.code("Dark Hole")).expect("Dark Hole");
+    assert!(hole.chance > 0.0 && hole.chance < 0.5, "{hole:?}");
+    assert!(x.resilience >= hole.remaining && x.resilience <= measure.field_value + 1e-9, "{x:?}");
+}

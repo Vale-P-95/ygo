@@ -10,8 +10,8 @@ Breve indice per chi arriva. Il dettaglio è in `docs/PIANO.md` (v1.9, §30), le
 | Bottega | Scaffale di deck box 3D personalizzabili, con collegamenti diretti al Laboratorio e al Circolo Arcano | §6, §19 |
 | Laboratorio | Probabilità esatte per ruoli, Monte Carlo, ottimizzatore, registro partite, ruoli automatici, confronto tra deck; verificato contro riferimenti indipendenti (18 difetti corretti) | §7, §21, §29.7, §30.7 |
 | Combo Lab (motore) | Ricerca automatica delle linee del primo turno con il motore EDOPro, obiettivi, ripresa; 12 difetti trovati con una caccia ai bug, 10 corretti | §9, §23–§25, §29, §30.6 |
-| Combo Lab (punteggio) | Turno di prova contro un avversario con carte vere: interruzioni, handtrap, floodgate, resilienza, esposizione; profili e pesi; scheda del punteggio spiegata | §26, §29.9 |
-| Combo Lab (interfaccia) | Confronto affiancato tra due board, riproduttore passo-passo della linea, frecce Link, copia della guida | — |
+| Combo Lab (punteggio) | Turno di prova contro un avversario con carte vere: interruzioni, handtrap, floodgate, resilienza, esposizione; profili e pesi; scheda del punteggio spiegata. Contro un deck della Bottega: resilienza contro i suoi breaker e handtrap che fermano la linea (backend; interfaccia da fare) | §26, §29.9, §30.10 |
+| Combo Lab (interfaccia) | Confronto affiancato tra due board, riproduttore passo-passo della linea con il campo a ogni passo, frecce Link, copia della guida | — |
 | App | Guida di benvenuto, palette dei comandi (`Ctrl+K`), scorciatoie, tema chiaro e scuro a 1280×800 | — |
 | Qualità | CI per pull request (solo le parti toccate), test di regressione della ricerca, bench su GitHub Actions, installer Windows su `main`; strumento di copertura delle meccaniche | §28, §30 |
 
@@ -24,7 +24,7 @@ Breve indice per chi arriva. Il dettaglio è in `docs/PIANO.md` (v1.9, §30), le
 - **Valori delle carte sul campo**: non dipendono dal contesto (mano vuota, equipaggiamenti); passa nella #47 (§30.6).
 - **Carte piazzate** (ruoli, valori): gli equipaggiamenti non hanno bersaglio e i mostri dell'Extra Deck non hanno materiali (Apollousa a 0 ATK) (§30.4).
 - **Ruoli**: la prova dell'estensore riparte da un turno nuovo (§30.4).
-- **Board breaker**: riconosciuti dal testo, non ancora misurati con il motore (§29.10).
+- **Board breaker**: riconosciuti dal testo; contro un deck scelto il motore prova quali si giocano dalla mano, ma quelli dell'Extra Deck o che arrivano con una combo restano fuori (§29.10, §30.10).
 - **Chiave dei nodi**: bersagli e nomi dichiarati durante un effetto non ne fanno parte, quindi un'altra scelta dello stesso effetto non si esplora. Una correzione è stata provata e tolta perché peggiorava di poco la caccia sui 45 deck (§30.8).
 - **Bench**: alcune mani (branded, mitsurugi) trovano il board migliore solo alla fine del budget, quindi oscillano a ogni cambio della ricerca (§30.6).
 
@@ -39,13 +39,14 @@ Breve indice per chi arriva. Il dettaglio è in `docs/PIANO.md` (v1.9, §30), le
 - **Minuti di GitHub Actions contati** (repository privato): CI solo sulle parti toccate, bench solo a mano.
 
 ## Richieste dell'utente non ancora fatte
-- Turno di prova contro un deck avversario a scelta (#44).
+- Turno di prova contro un deck avversario a scelta (#44): livello 1 fatto nel backend, manca l'interfaccia; livelli 2 e 3 dopo.
+- Mappa dei collegamenti tra le carte del deck ("quale carta porta a quale"), vista su ygo-decklab: piano in `docs/plans/mappa-collegamenti.md`.
 - Simulatore passo per passo di una combo (#36, alla fine).
 - Preferenze apprese e frontiera di Pareto (#40).
 
 ## Prossimi passi
-1. Velocità del motore: patch finale verificata, poi PR.
-2. Stato del campo a ogni passo della linea, per il riproduttore dell'interfaccia (richiesta di Gemini in `docs/TASKS.md`).
-3. Classificazione delle board (#47), poi i pesi (#43).
-4. Interfaccia (Gemini): Visore Carta interattivo, poi la pagina «Il Banditore».
-5. Turno di prova contro un deck scelto (#44), Pareto e confronto (#40), simulatore (#36).
+1. Interfaccia (Gemini): turno di prova contro un deck scelto (#44), poi la pagina «Il Banditore».
+2. Mappa dei collegamenti tra le carte (piano da approvare).
+3. Classificazione delle board (#47), poi i pesi (#43); turno di prova contro un deck, livello 2.
+4. Velocità della ricerca: profilazione e correzioni (da approvare).
+5. Pareto e confronto (#40), simulatore (#36).
