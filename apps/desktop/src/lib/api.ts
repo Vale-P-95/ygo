@@ -466,6 +466,48 @@ export interface ComboScore {
   exposure: number;
   exposureNote: string;
   exposureDetail: { ash: number; onField: number; summons: number; specialSummons: number; searches: number } | null;
+  /** Against the deck chosen with `comboScore(vsDeckId)`. */
+  matchup?: ComboMatchup | null;
+  error: string | null;
+}
+
+/** One of the opponent deck's board breakers against the board. */
+export interface ComboRivalBreaker {
+  code: number;
+  /** Chance it is among the 6 cards the opponent has in its turn. */
+  chance: number;
+  /** Interruption value of the field left after it. */
+  remaining: number;
+  stoppedBy: number | null;
+  notApplicable: boolean;
+}
+
+/** One of the opponent deck's handtraps against the line. */
+export interface ComboRivalHandTrap {
+  code: number;
+  /** Chance it is among the 5 cards the opponent holds during your turn. */
+  chance: number;
+  /** Moments of the line it can be used. */
+  windows: number;
+  /** Those where using it changes the field or hand you end with. */
+  stops: number;
+  /** Your cards being played at those moments. */
+  at: number[];
+}
+
+/** The board and its line against a deck of the Bottega (mirrors `MatchupView`). */
+export interface ComboMatchup {
+  deckId: number;
+  deckName: string;
+  /** Interruption value of the field expected after the most harmful breaker the opponent has (all of it when it has none). */
+  resilience: number;
+  /** The deck has no breaker the probe turn can play: the resilience is the standard one. */
+  standardBreakers: boolean;
+  breakerChance: number;
+  breakers: ComboRivalBreaker[];
+  /** Chance the opponent has a handtrap that stops something in the line. */
+  handTrapChance: number;
+  handTraps: ComboRivalHandTrap[];
   error: string | null;
 }
 
@@ -519,6 +561,47 @@ export interface ComboStep {
   field?: ComboField | null;
 }
 
+/** How one card of the deck leads to another (`docs/plans/mappa-collegamenti.md`). */
+export type CardLinkKind = "search" | "summon" | "toGrave" | "recover" | "material";
+
+/** `from` leads to `to` (mirrors `CardLinkView`). */
+export interface CardLink {
+  from: number;
+  to: number;
+  /**
+   * search: adds it from the Deck to the hand; summon: Special Summons it; toGrave: sends it from the Deck to the GY;
+   * recover: gets it back from the GY or banishment to the hand or Deck; material: `from` is a material of `to`.
+   */
+  kind: CardLinkKind;
+  /** The engine offered it: the effect can pick that card. */
+  possible: boolean;
+  /** Share of the Combo Lab's best lines that use it, 0 to 1 (0 when none does). */
+  used: number;
+}
+
+/** A card of the map (mirrors `LinkCardView`). */
+export interface LinkCard {
+  code: number;
+  copies: number;
+  /** In the Extra Deck. */
+  extra: boolean;
+  /** Cards it leads to in one step, and in any number of steps. */
+  reach: number;
+  reachAll: number;
+  /** Exact chance that an opening hand of 5 reaches it: it, or a card with a path to it. */
+  chance: number;
+}
+
+/** The map of the links between the cards of a deck (mirrors `DeckLinksView`). */
+export interface DeckLinks {
+  deckId: number;
+  cards: LinkCard[];
+  links: CardLink[];
+  /** Hands played to read the links, and best lines counted for `used`. */
+  hands: number;
+  lines: number;
+}
+
 const tauriApi = {
   dataStatus: () => invoke<DataStatus>("data_status"),
   updateData: (force = false) => invoke<DataStatus>("update_data", { force }),
@@ -568,12 +651,15 @@ const tauriApi = {
   exportDeck: (deck: Deck) => invoke<{ ydk: string; ydke: string }>("export_deck", { deck }),
   comboSearch: (request: ComboRequest) => invoke<ComboOutcome>("combo_search", { request }),
   comboContinue: (deckId: number, seconds: number) => invoke<ComboOutcome>("combo_continue", { deckId, seconds }),
-  comboScore: () => invoke<number>("combo_score"),
+  /** With `vsDeckId` (a deck of the Bottega), each board is also measured against it (`ComboScore.matchup`). */
+  comboScore: (vsDeckId?: number | null) => invoke<number>("combo_score", { vsDeckId: vsDeckId ?? null }),
   comboScores: () => invoke<ComboScore[]>("combo_scores"),
   onComboScore: (handler: (s: ComboScore) => void): Promise<UnlistenFn> => listen<ComboScore>("combo-score", (e) => handler(e.payload)),
   comboCancel: () => invoke<void>("combo_cancel"),
   comboExplain: (hand: number, key: string) => invoke<ComboStep[]>("combo_explain", { hand, key }),
   onComboProgress: (handler: (p: ComboProgress) => void): Promise<UnlistenFn> => listen<ComboProgress>("combo-progress", (e) => handler(e.payload)),
+  /** Laboratorio, "Collegamenti": the map of a deck (for now its cards only; the links come with the engine's part). */
+  deckLinks: (deckId: number) => invoke<DeckLinks>("deck_links", { deckId }),
 };
 
 type Api = typeof tauriApi;

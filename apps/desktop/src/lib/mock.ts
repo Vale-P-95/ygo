@@ -17,6 +17,7 @@ import type {
   DataStatus,
   Deck,
   DeckBox,
+  DeckLinks,
   DeckSummary,
   Facets,
   HandStats,
@@ -2061,6 +2062,20 @@ export const mockApi: Api = {
   getDeck: async (id: number) => {
     const found = decksState.find((d) => d.id === id);
     return found ? structuredClone(found) : null;
+  },
+
+  // A minimal map (the deck's cards, no links): Gemini replaces it with a full example.
+  deckLinks: async (deckId: number): Promise<DeckLinks> => {
+    const deck = decksState.find((d) => d.id === deckId);
+    const cards: DeckLinks["cards"] = [];
+    for (const [codes, extra] of [[deck?.main ?? [], false], [deck?.extra ?? [], true]] as const) {
+      for (const code of codes) {
+        const card = cards.find((c) => c.code === code);
+        if (card) card.copies += 1;
+        else cards.push({ code, copies: 1, extra, reach: 0, reachAll: 0, chance: 0 });
+      }
+    }
+    return { deckId, cards, links: [], hands: 0, lines: 0 };
   },
 
   saveDeck: async (deck: Deck) => {

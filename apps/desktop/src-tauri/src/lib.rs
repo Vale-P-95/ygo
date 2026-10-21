@@ -549,6 +549,8 @@ struct ComboJob {
     roles: BTreeMap<String, Vec<u32>>,
     /// Boards already put to the probe turn, by `(hand, key)`.
     scores: HashMap<(usize, u64), ScoreView>,
+    /// The deck they were also measured against.
+    vs: Option<i64>,
 }
 
 #[derive(Serialize, Clone)]
@@ -600,8 +602,95 @@ struct ScoreView {
     exposure: f64,
     exposure_note: String,
     exposure_detail: Option<ExposureView>,
+    /// Against the deck chosen in [`combo_score`].
+    matchup: Option<MatchupView>,
     /// The probe turn could not be played (the board is left out of the ranking).
     error: Option<String>,
+}
+
+/// The board and its line against a deck of the Bottega
+/// ([`ygo_solver::Matchup`]).
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct MatchupView {
+    deck_id: i64,
+    deck_name: String,
+    /// Interruption value of the field expected after the most harmful
+    /// breaker it has (all of it when it has none).
+    resilience: f64,
+    /// It has no breaker the probe turn can play: the resilience is the standard one.
+    standard_breakers: bool,
+    breaker_chance: f64,
+    breakers: Vec<RivalBreakerView>,
+    /// Chance it has a handtrap that stops something in the line.
+    hand_trap_chance: f64,
+    hand_traps: Vec<RivalHandTrapView>,
+    error: Option<String>,
+}
+
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct RivalBreakerView {
+    code: u32,
+    /// Chance it is among the 6 cards the opponent has in its turn.
+    chance: f64,
+    remaining: f64,
+    stopped_by: Option<u32>,
+    not_applicable: bool,
+}
+
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct RivalHandTrapView {
+    code: u32,
+    /// Chance it is among the 5 cards the opponent holds during your turn.
+    chance: f64,
+    /// Moments of the line it can be used, and those where it changes the
+    /// field or hand you end with.
+    windows: u32,
+    stops: u32,
+    /// Your cards being played at those moments.
+    at: Vec<u32>,
+}
+
+fn matchup_view(deck_id: i64, deck_name: &str, matchup: Result<ygo_solver::Matchup, String>) -> MatchupView {
+    let mut view = MatchupView {
+        deck_id,
+        deck_name: deck_name.to_owned(),
+        resilience: 0.0,
+        standard_breakers: false,
+        breaker_chance: 0.0,
+        breakers: Vec::new(),
+        hand_trap_chance: 0.0,
+        hand_traps: Vec::new(),
+        error: None,
+    };
+    match matchup {
+        Ok(x) => {
+            view.resilience = x.resilience;
+            view.standard_breakers = x.standard_breakers;
+            view.breaker_chance = x.breaker_chance;
+            view.breakers = x
+                .breakers
+                .iter()
+                .map(|b| RivalBreakerView {
+                    code: b.code,
+                    chance: b.chance,
+                    remaining: b.remaining,
+                    stopped_by: b.stopped_by.map(|r| r.code),
+                    not_applicable: b.not_applicable,
+                })
+                .collect();
+            view.hand_trap_chance = x.hand_trap_chance;
+            view.hand_traps = x
+                .hand_traps
+                .iter()
+                .map(|h| RivalHandTrapView { code: h.code, chance: h.chance, windows: h.windows, stops: h.stops, at: h.at.clone() })
+                .collect();
+        }
+        Err(e) => view.error = Some(e),
+    }
+    view
 }
 
 /// What the line does that the handtraps played most can stop.
@@ -728,6 +817,7 @@ fn score_view(
             parts.push(format!("{} Evocazioni Speciali (carte per Maxx \"C\")", x.special_summons));
             parts.join(", ")
         }),
+        matchup: None,
         error: None,
     };
     match measured {
@@ -1063,6 +1153,7 @@ fn combo_search(app: tauri::AppHandle, state: State<'_, AppState>, request: Comb
         status: Vec::new(),
         roles: deck.roles.clone(),
         scores: HashMap::new(),
+        vs: None,
     };
     if let Ok(mut slot) = state.combo.lock() {
         *slot = None;
@@ -1092,20 +1183,89 @@ fn combo_continue(app: tauri::AppHandle, state: State<'_, AppState>, deck_id: i6
     Ok(outcome)
 }
 
+/// How one card of a deck leads to another (`docs/plans/mappa-collegamenti.md`).
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct CardLinkView {
+    from: u32,
+    to: u32,
+    /// "search" (from the Deck to the hand), "summon" (Special Summoned),
+    /// "toGrave" (from the Deck to the GY), "recover" (from the GY or
+    /// banished back to the hand or Deck), "material" (`from` is a material of `to`).
+    kind: String,
+    /// The engine offered it: the effect can pick that card.
+    possible: bool,
+    /// Share of the Combo Lab's best lines that use it, 0 to 1.
+    used: f64,
+}
+
+/// A card of the map.
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct LinkCardView {
+    code: u32,
+    copies: u32,
+    extra: bool,
+    /// Cards it leads to in one step, and in any number of steps.
+    reach: u32,
+    reach_all: u32,
+    /// Chance that an opening hand of 5 reaches it: it, or a card with a path to it.
+    chance: f64,
+}
+
+/// The map of the links between the cards of a deck.
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct DeckLinksView {
+    deck_id: i64,
+    cards: Vec<LinkCardView>,
+    links: Vec<CardLinkView>,
+    /// Hands played to read the links, and best lines counted for `used`.
+    hands: u32,
+    lines: u32,
+}
+
+/// Laboratorio, "Collegamenti": the map of a deck. For now its cards only;
+/// the links read by the engine come next (plan F1).
+#[tauri::command(async)]
+fn deck_links(state: State<'_, AppState>, deck_id: i64) -> Result<DeckLinksView, String> {
+    let engine = state.engine()?;
+    let deck = state.with_user(|u| u.get(deck_id))?.ok_or("Il deck non esiste più")?;
+    let db = engine.cards();
+    let mut cards: Vec<LinkCardView> = Vec::new();
+    for (codes, extra) in [(&deck.main, false), (&deck.extra, true)] {
+        for &c in codes {
+            let code = db.canonical_code(c);
+            match cards.iter_mut().find(|k| k.code == code) {
+                Some(k) => k.copies += 1,
+                None => cards.push(LinkCardView { code, copies: 1, extra, reach: 0, reach_all: 0, chance: 0.0 }),
+            }
+        }
+    }
+    Ok(DeckLinksView { deck_id, cards, links: Vec::new(), hands: 0, lines: 0 })
+}
+
 /// Boards put to the probe turn after a search: the best of a precise hand,
 /// all those kept in "card + rest".
 const SCORED_BOARDS: usize = 30;
 
 /// Puts the best boards of the last search to the probe turn, on all cores,
 /// sending each result as a `combo-score` event; boards already measured
-/// are not measured again. Returns how many boards have a score.
+/// are not measured again. With `vs_deck_id` (a deck of the Bottega) each
+/// board is also measured against that deck's breakers and handtraps
+/// (another deck than last time measures all boards again). Returns how
+/// many boards have a score.
 #[tauri::command(async)]
-fn combo_score(app: tauri::AppHandle, state: State<'_, AppState>) -> Result<usize, String> {
+fn combo_score(app: tauri::AppHandle, state: State<'_, AppState>, vs_deck_id: Option<i64>) -> Result<usize, String> {
     let engine = state.engine()?;
     // What is needed, copied out so the search state stays free meanwhile.
     let (config, hands, todo, roles) = {
-        let job = state.combo.lock().map_err(|e| e.to_string())?;
-        let job = job.as_ref().ok_or("Nessuna ricerca da valutare")?;
+        let mut job = state.combo.lock().map_err(|e| e.to_string())?;
+        let job = job.as_mut().ok_or("Nessuna ricerca da valutare")?;
+        if job.vs != vs_deck_id {
+            job.scores.clear();
+            job.vs = vs_deck_id;
+        }
         let limit = if job.hands.len() == 1 { SCORED_BOARDS } else { usize::MAX };
         // One board per look: boards that differ only in the Graveyard or the banished cards score the same.
         let mut looks: HashSet<(usize, u64)> = HashSet::new();
@@ -1125,6 +1285,14 @@ fn combo_score(app: tauri::AppHandle, state: State<'_, AppState>) -> Result<usiz
     };
     state.combo_cancel.store(false, Ordering::Relaxed);
     let kit = ygo_solver::Kit::standard(&engine);
+    let rival = match vs_deck_id {
+        Some(id) => {
+            let deck = state.with_user(|u| u.get(id))?.ok_or("Il deck avversario non esiste più")?;
+            let list = ygo_engine::DeckList { main: deck.main.clone(), extra: deck.extra.clone(), side: deck.side.clone() };
+            Some((id, deck.name.clone(), ygo_solver::Rival::new(&engine, &list, config.seed, &kit)))
+        }
+        None => None,
+    };
     let next = std::sync::atomic::AtomicUsize::new(0);
     let results = Mutex::new(Vec::new());
     let threads = std::thread::available_parallelism().map_or(4, |n| n.get());
@@ -1145,7 +1313,15 @@ fn combo_score(app: tauri::AppHandle, state: State<'_, AppState>) -> Result<usiz
                     let exposure =
                         ygo_solver::exposure(&engine, &config.deck, &hands[*hand], config.seed, config.opponent.as_ref(), &board.line).ok();
                     let measured = prober.measure(&board.line).map_err(|e| e.to_string());
-                    let view = score_view(&engine, *hand, board, measured, exposure, &config.hand_traps, &roles);
+                    let matchup = rival.as_ref().map(|(id, name, rival)| {
+                        let m = measured.as_ref().map_err(String::clone).and_then(|m| {
+                            ygo_solver::matchup(&engine, &config.deck, &hands[*hand], config.seed, &board.line, m, rival)
+                                .map_err(|e| e.to_string())
+                        });
+                        matchup_view(*id, name, m)
+                    });
+                    let mut view = score_view(&engine, *hand, board, measured, exposure, &config.hand_traps, &roles);
+                    view.matchup = matchup;
                     let _ = app.emit("combo-score", view.clone());
                     if let Ok(mut r) = results.lock() {
                         r.push(((*hand, board.key), view));
@@ -1532,6 +1708,7 @@ pub fn run() {
             combo_continue,
             combo_score,
             combo_scores,
+            deck_links,
             combo_cancel,
             combo_explain,
             shelf_decks,

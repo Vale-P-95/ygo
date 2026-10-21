@@ -1,6 +1,6 @@
 # Turno di prova contro un deck scelto (#44): proposta
 
-*Da decidere con il proprietario. Scritta il 21/10/2026 da Claude Code.*
+*Scritta il 21/10/2026 da Claude Code. Scelte del proprietario: livello 1 adesso, deck avversario dalla Bottega, punteggio "contro X" accanto a quello generico. Il livello 1 è fatto nel backend (sotto, "Livello 1: com'è fatto").*
 
 ## Obiettivo
 Oggi una board si misura contro un avversario generico: un kit di carte semplici che fanno una cosa sola (11 azioni tipiche) e 9 board breaker comuni. L'esposizione della linea considera le handtrap più giocate (Ash Blossom, Veiler e Impermanence, Nibiru, Droll, Maxx "C").
@@ -36,3 +36,44 @@ L'obiettivo è misurare la board contro il deck che si incontrerà davvero, scel
 1. **Livello:** consiglio il 1 adesso e il 2 più avanti.
 2. **Scelta del deck avversario:** tra i deck salvati in Bottega (consigliato, già importabili da `.ydk`) o da una lista di Master Duel Meta scaricata al momento.
 3. **Punteggio:** il punteggio "contro X" si affianca a quello generico (consigliato) o lo sostituisce mentre l'avversario è scelto.
+
+## Livello 1: com'è fatto (21/10/2026)
+Il codice è in `crates/ygo-solver/src/matchup.rs`. Si prova con `duelforge-cli probe-line --vs <deck.ydk>`; nell'app con `api.comboScore(vsDeckId)`, che riempie `ComboScore.matchup`.
+
+### Il deck avversario (`Rival`), letto una volta
+- **Breaker.**
+  - Sono le carte del Main Deck che tolgono o negano carte dell'avversario (lo stesso testo dei ruoli della Fucina) e che il motore lascia giocare dalla mano.
+  - Il motore le prova contro un campo di tre mostri e due carte coperte: si attivano dalla mano (Dark Hole) o si Evocano con la loro procedura (i Kaiju, Lava Golem). Dopo l'Evocazione si usa anche il loro effetto sul campo, se ce l'hanno.
+  - Le carte che non si giocano così restano fuori: le Trappole come Evenly Matched, i mostri dell'Extra Deck.
+  - Le carte del kit standard (Lightning Storm, Forbidden Droplet...) si giocano come nel kit.
+  - Se il deck non ne ha, si usano i breaker standard e la resilienza è quella generica.
+- **Handtrap.** Sono quelle che il motore gli lascia usare dalla mano nel turno dell'avversario (`hand_traps`, la stessa funzione del Combo Lab).
+
+### La resilienza contro X
+- Ogni breaker si gioca contro la board in una partita a parte, come quelli del kit.
+- L'avversario usa il breaker più dannoso che ha in mano. La resilienza è il valore che resta in media: per ogni breaker, la probabilità che sia il più dannoso in mano (lui sì, quelli più dannosi no) per quello che lascia, più la probabilità di non averne nessuno per tutto il campo.
+- Le probabilità sono esatte (ipergeometrica) su 6 carte: le 5 iniziali più la pescata del suo turno.
+
+### Le handtrap contro la linea
+- La linea si rigioca con le handtrap dell'avversario in mano. Il motore registra ogni momento in cui ne può usare una e quale tua carta si sta giocando.
+- Per ogni handtrap e ogni momento la linea si rigioca usandola lì. Una handtrap **ferma la linea** in quel momento se il campo o la mano a fine linea cambiano, o se la linea non si può più giocare com'era.
+  - Maxx "C" e le Mulcharmy fanno pescare l'avversario ma la board resta uguale: fermano 0 momenti.
+  - Ash Blossom su una ricerca o Bystial che bandisce un materiale dal Cimitero la cambiano.
+- Le risposte della linea restano quelle del giocatore: le domande nuove che arrivano dopo una handtrap (rispondere alla handtrap, una finestra vuota dopo la sua catena, una scelta che la linea non aveva) ricevono una risposta semplice e la linea continua.
+- La probabilità di essere fermati è quella di avere almeno una delle handtrap che fermano qualcosa tra le sue 5 carte.
+
+### Numeri su alcune board
+Linea Invoked (mano `inv-r2` del banco, prima board) e linea Branded (mano casuale del banco), deck di Master Duel Meta. Il tempo è quello in più per board, oltre al turno di prova generico (circa 1 secondo).
+
+| Board | Contro | Breaker che sa giocare | Resilienza generica → contro X | Handtrap che fermano la linea | Tempo |
+|---|---|---|---|---|---|
+| Invoked | Branded | Forbidden Droplet (19%) | 0,22 → 0,54 | 48%: Bystial Saronir (9 momenti su 17), Ash (2 su 2), Droll (1 su 2); Maxx "C", Fuwalos e Purulia 0 su 21 | 1,1 s |
+| Invoked | Labrynth | nessuno (standard) | 0,22 → 0,22 | 85%: Dominus Spark (16 su 16), Dominus Impulse (4 su 4), Impermanence (2 su 19), Ash (2 su 2); Arias 0 su 18 | 0,9 s |
+| Invoked | Tearlaments | nessuno (standard) | 0,22 → 0,22 | 74%: Ghost Ogre (3 su 3), Impermanence, Ash, Droll; Kashtira 0 su 18, Havnis 0 su 3 | 0,8 s |
+| Branded | Invoked | nessuno (standard) | 0,30 → 0,30 | 85% | 0,6 s |
+| Branded | Labrynth | nessuno (standard) | 0,30 → 0,30 | 90% | 0,7 s |
+
+### Limiti del livello 1
+- I breaker dell'Extra Deck e quelli che arrivano con una combo (Apollousa, Baronne de Fleur) non si giocano: per i deck che rompono le board così la resilienza contro X è ottimista. Serve il livello 2.
+- Una handtrap si prova una volta per momento, con la risposta più semplice dell'avversario (i suoi bersagli sono le tue carte, la prima della lista). Non si cerca la sua scelta migliore né la tua risposta migliore (una linea alternativa dopo l'interruzione): è il "punteggio sotto interruzione" del PIANO §9 livello 2.
+- Un caso su 16 momenti (Maxx "C" su una linea Branded) risulta una fermata per un effetto "quando" che perde il tempismo: da controllare se diventa frequente.

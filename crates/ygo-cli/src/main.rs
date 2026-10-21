@@ -142,6 +142,9 @@ enum Cmd {
         /// Write the measures to this JSON file (as `combos --json`).
         #[arg(long)]
         json: Option<PathBuf>,
+        /// Also against this deck (.ydk): its board breakers and handtraps.
+        #[arg(long)]
+        vs: Option<PathBuf>,
     },
     /// The handtraps of a deck, read from the engine: cards it can use from
     /// the hand during the opponent's turn.
@@ -279,7 +282,7 @@ fn main() -> Result<()> {
                 save_lines,
             },
         ),
-        Cmd::ProbeLine { setup, lines, index, json } => probe_line(&cli.data, &setup, &lines, index, json.as_deref()),
+        Cmd::ProbeLine { setup, lines, index, json, vs } => probe_line(&cli.data, &setup, &lines, index, json.as_deref(), vs.as_deref()),
         Cmd::HandTraps { deck } => hand_traps(&cli.data, &deck),
         Cmd::CardValues { deck } => card_values(&cli.data, &deck),
         Cmd::KitMix { lines, top, seed } => kit_mix(&cli.data, &lines, top, seed),
@@ -680,7 +683,7 @@ fn line_from_json(v: &serde_json::Value) -> Result<ygo_solver::Line> {
 }
 
 /// Plays saved lines again and measures their boards (no search).
-fn probe_line(dir: &Path, setup: &Setup, lines: &Path, index: Option<usize>, json: Option<&Path>) -> Result<()> {
+fn probe_line(dir: &Path, setup: &Setup, lines: &Path, index: Option<usize>, json: Option<&Path>, vs: Option<&Path>) -> Result<()> {
     let (engine, deck, mut hand) = start(dir, setup)?;
     let saved: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(lines)?)?;
     if hand.is_empty() {
@@ -690,6 +693,21 @@ fn probe_line(dir: &Path, setup: &Setup, lines: &Path, index: Option<usize>, jso
     let opponent = Some(kit.opponent().clone());
     let hand_traps = ygo_solver::hand_traps(&engine, &deck, setup.seed, &kit);
     let mut prober = ygo_solver::Prober::new(&engine, &deck, &hand, setup.seed, &kit);
+    let rival = match vs {
+        Some(path) => {
+            let text = std::fs::read_to_string(path).with_context(|| format!("cannot read {}", path.display()))?;
+            let rival = ygo_solver::Rival::new(&engine, &DeckList::from_ydk(&text)?, setup.seed, &kit);
+            let names = |codes: &[u32]| codes.iter().map(|&c| engine.cards().name(c)).collect::<Vec<_>>().join(", ");
+            println!("against {}", path.display());
+            println!(
+                "   breakers: {}",
+                if rival.breakers().is_empty() { "none it can play (standard ones)".to_owned() } else { names(rival.breakers()) }
+            );
+            println!("   handtraps: {}", names(&rival.hand_traps));
+            Some(rival)
+        }
+        None => None,
+    };
     let items = saved["items"].as_array().context("no lines in the file")?;
     let mut out = Vec::new();
     for (i, item) in items.iter().enumerate().filter(|(i, _)| index.is_none_or(|k| k == *i)) {
@@ -709,15 +727,18 @@ fn probe_line(dir: &Path, setup: &Setup, lines: &Path, index: Option<usize>, jso
             Ok(m) => print_measure(&engine, m, took),
             Err(e) => println!("   probe turn failed: {e}"),
         }
-        out.push(state_json(
-            &engine,
-            &hand_traps,
-            &state,
-            measured.as_ref().ok(),
-            took,
-            exposure.as_ref(),
-            serde_json::json!({ "index": i }),
-        ));
+        let mut extra = serde_json::json!({ "index": i });
+        if let (Some(rival), Ok(m)) = (&rival, &measured) {
+            let started = std::time::Instant::now();
+            match ygo_solver::matchup(&engine, &deck, &hand, setup.seed, &line, m, rival) {
+                Ok(x) => {
+                    print_matchup(&engine, &x, started.elapsed());
+                    extra["matchup"] = matchup_json(&x);
+                }
+                Err(e) => println!("   matchup failed: {e}"),
+            }
+        }
+        out.push(state_json(&engine, &hand_traps, &state, measured.as_ref().ok(), took, exposure.as_ref(), extra));
     }
     if let Some(path) = json {
         let doc = serde_json::json!({
@@ -731,6 +752,53 @@ fn probe_line(dir: &Path, setup: &Setup, lines: &Path, index: Option<usize>, jso
         std::fs::write(path, serde_json::to_string_pretty(&doc)?)?;
     }
     Ok(())
+}
+
+fn print_matchup(engine: &Engine, x: &ygo_solver::Matchup, took: std::time::Duration) {
+    let db = engine.cards();
+    println!(
+        "   against the deck ({:.1} s): resilience {:.2}{} · breaker in hand {:.0}% · a handtrap that stops the line {:.0}%",
+        took.as_secs_f64(),
+        x.resilience,
+        if x.standard_breakers { " (standard breakers)" } else { "" },
+        x.breaker_chance * 100.0,
+        x.hand_trap_chance * 100.0
+    );
+    for b in &x.breakers {
+        let how = match (b.not_applicable, b.stopped_by) {
+            (true, _) => "not applicable".to_owned(),
+            (_, Some(r)) => format!("negated by {}", db.name(r.code)),
+            _ => String::new(),
+        };
+        println!("     breaker {} ({:.0}%): left {:.2} {how}", db.name(b.code), b.chance * 100.0, b.remaining);
+    }
+    for h in &x.hand_traps {
+        let at: Vec<String> = h.at.iter().map(|&c| db.name(c)).collect();
+        println!(
+            "     handtrap {} ({:.0}%): stops {} of {} moments [{}]",
+            db.name(h.code),
+            h.chance * 100.0,
+            h.stops,
+            h.windows,
+            at.join(", ")
+        );
+    }
+}
+
+fn matchup_json(x: &ygo_solver::Matchup) -> serde_json::Value {
+    serde_json::json!({
+        "resilience": x.resilience,
+        "standard_breakers": x.standard_breakers,
+        "breaker_chance": x.breaker_chance,
+        "hand_trap_chance": x.hand_trap_chance,
+        "breakers": x.breakers.iter().map(|b| serde_json::json!({
+            "code": b.code, "chance": b.chance, "remaining": b.remaining,
+            "stopped_by": b.stopped_by.map(|r| r.code), "not_applicable": b.not_applicable,
+        })).collect::<Vec<_>>(),
+        "hand_traps": x.hand_traps.iter().map(|h| serde_json::json!({
+            "code": h.code, "chance": h.chance, "windows": h.windows, "stops": h.stops, "at": h.at,
+        })).collect::<Vec<_>>(),
+    })
 }
 
 fn print_measure(engine: &Engine, m: &ygo_solver::Measure, took: std::time::Duration) {
