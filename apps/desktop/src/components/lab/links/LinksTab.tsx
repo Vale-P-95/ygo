@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { Card, Deck, DeckLinks, DeckSummary, LinksComparison } from "../../../lib/api";
-import { api } from "../../../lib/api";
+import { api, type Card, type Deck, type DeckLinks, type DeckSummary, type LinksComparison } from "../../../lib/api";
 import { sound } from "../../../lib/sound";
 import { toast } from "../../../lib/toast";
 import { LinksCardDetail } from "./LinksCardDetail";
@@ -9,7 +8,7 @@ import { LinksColumns } from "./LinksColumns";
 import { LinksCompare } from "./LinksCompare";
 import { LinksFilters } from "./LinksFilters";
 import { LinksStats } from "./LinksStats";
-import type { LinksFilterState, LinksLayoutMode } from "./types";
+import { findShortestPath, type LinksFilterState, type LinksLayoutMode } from "./types";
 
 interface Props {
   deck: Deck;
@@ -21,7 +20,7 @@ interface Props {
   onReload: () => void;
   getCard: (code: number) => Card | undefined;
   requestCards?: (codes: number[]) => void;
-  onGoCombo?: (cardId: number) => void;
+  onGoCombo?: (targetGoalCardId: number, startCardId?: number) => void;
   hand?: "first" | "second";
 }
 
@@ -49,6 +48,7 @@ export function LinksTab({
   const [layout, setLayout] = useState<LinksLayoutMode>("circle");
   const [selectedCardCode, setSelectedCardCode] = useState<number | null>(null);
   const [hoveredCardCode, setHoveredCardCode] = useState<number | null>(null);
+  const [pathTargetCode, setPathTargetCode] = useState<number | null>(null);
   const [sampleHand, setSampleHand] = useState<number[] | null>(null);
 
   // Comparison mode states
@@ -62,7 +62,7 @@ export function LinksTab({
 
   const compareReqIdRef = useRef(0);
 
-  // Reset comparison when current deck changes
+  // Reset comparison and selection when current deck changes
   useEffect(() => {
     compareReqIdRef.current++;
     setCompareDeckId(null);
@@ -70,7 +70,15 @@ export function LinksTab({
     setCompareError(null);
     setCompareLoading(false);
     setIsReversed(false);
+    setSelectedCardCode(null);
+    setPathTargetCode(null);
+    setSampleHand(null);
   }, [deck.id]);
+
+  const handleSelectCard = useCallback((code: number | null) => {
+    setSelectedCardCode(code);
+    setPathTargetCode(null);
+  }, []);
 
   const loadComparison = useCallback(
     async (targetId: number | null, reversed: boolean) => {
@@ -137,17 +145,32 @@ export function LinksTab({
 
   const selectedCard = activeData?.cards.find((c) => c.code === selectedCardCode) ?? null;
 
+  // Shortest path between selected card and target code
+  const shortestPathLinks = useMemo(() => {
+    if (!selectedCardCode || !pathTargetCode || !activeData) return null;
+    return findShortestPath(selectedCardCode, pathTargetCode, activeData.links);
+  }, [selectedCardCode, pathTargetCode, activeData]);
+
   // Draw or clear sample hand overlay (5 cards going first, 6 going second)
+  // Respects copies and Main Deck (!c.extra) of activeData, ensuring correct behavior in comparison mode
   const drawSampleHand = () => {
-    if (!deck.main || deck.main.length === 0) return;
+    if (!activeData || activeData.cards.length === 0) return;
     sound.play("page");
     const count = hand === "second" ? 6 : 5;
-    const array = [...deck.main];
-    for (let i = array.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [array[i], array[j]] = [array[j], array[i]];
+    const pool: number[] = [];
+    for (const c of activeData.cards) {
+      if (!c.extra) {
+        for (let i = 0; i < c.copies; i++) {
+          pool.push(c.code);
+        }
+      }
     }
-    setSampleHand(array.slice(0, count));
+    if (pool.length === 0) return;
+    for (let i = pool.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [pool[i], pool[j]] = [pool[j], pool[i]];
+    }
+    setSampleHand(pool.slice(0, count));
   };
 
   const clearSampleHand = () => {
@@ -178,30 +201,34 @@ export function LinksTab({
     return reached;
   }, [sampleHand, activeData]);
 
+  const cardsCount = activeData?.cards.length ?? 0;
+  const linksCount = activeData?.links.length ?? 0;
+  const usedCount = activeData?.links.filter((l) => l.used > 0).length ?? 0;
+
   return (
-    <div className="flex flex-col gap-4 text-xs anim-fade">
-      {/* Header and top info */}
-      <div className="flex flex-wrap items-center justify-between gap-3 px-1">
-        <div className="flex flex-col gap-0.5">
-          <div className="flex items-center gap-2">
-            <h3 className="text-base font-semibold text-text">Mappa dei collegamenti</h3>
+    <div className="flex flex-col gap-3">
+      {/* Header bar: title, summary stats, comparison toggle, sample hand, and reload */}
+      <div className="flex flex-wrap items-center justify-between gap-2.5">
+        <div className="flex flex-wrap items-center gap-2">
+          <h3 className="font-semibold text-text text-sm flex items-center gap-1.5">
+            <span>Mappa dei collegamenti</span>
             {activeData && (
-              <span className="chip !py-0.5 !px-2 text-[11px] text-muted font-medium">
-                {activeData.cards.length} carte · {activeData.links.length} collegamenti
+              <span className="text-xs text-muted font-normal">
+                ({cardsCount} carte · {linksCount} collegamenti, {usedCount} usati)
               </span>
             )}
-            {comparison && (
-              <span className="chip !py-0.5 !px-2 text-[11px] text-sec font-semibold border-sec/40">
-                Confronto attivo
-              </span>
-            )}
-          </div>
-          <p className="text-[11px] text-muted">
-            Come le carte del deck conducono l'una all'altra: ricerche, evocazioni, invio al Cimitero, recuperi e materiali.
-          </p>
+          </h3>
+          {activeData && (
+            <span
+              className="chip !py-0.5 !px-2 text-[10px] text-muted border-border cursor-help"
+              title="Calcolata simulando le mani del deck con il motore EDOPro. Lo spessore indica la frequenza nelle linee ottimali, il tratteggio indica collegamenti solo possibili o dal testo."
+            >
+              Info motore
+            </span>
+          )}
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {activeData && (
             <span className="text-[11px] text-faint tabular-nums hidden sm:inline">
               Mani campionate: {activeData.hands} · Linee: {activeData.lines}
@@ -292,7 +319,7 @@ export function LinksTab({
           onToggleReversed={handleToggleReversed}
           getCard={getCard}
           selectedCardCode={selectedCardCode}
-          onSelectCard={(code) => setSelectedCardCode(code)}
+          onSelectCard={handleSelectCard}
         />
       )}
 
@@ -358,7 +385,7 @@ export function LinksTab({
                 type="button"
                 onClick={() => {
                   sound.play("toggle");
-                  setSelectedCardCode(code);
+                  handleSelectCard(code);
                 }}
                 className={`chip !py-0.5 !px-1.5 text-[11px] font-medium ${selectedCardCode === code ? "chip-active" : ""}`}
               >
@@ -368,6 +395,15 @@ export function LinksTab({
           </div>
           <span className="text-[11px] text-muted">
             Raggiunge <b>{reachableFromHand ? reachableFromHand.size : 0}</b> carte del mazzo
+            {comparison && reachableFromHand && (
+              <span className="ml-1.5 font-normal">
+                (di cui{" "}
+                <span className="text-ok font-semibold">
+                  +{Array.from(reachableFromHand).filter((c) => comparison.added.includes(c)).length} nuove
+                </span>
+                )
+              </span>
+            )}
           </span>
         </div>
       )}
@@ -389,7 +425,7 @@ export function LinksTab({
             links={activeData.links}
             getCard={getCard}
             selectedCode={selectedCardCode}
-            onSelectCard={(code) => setSelectedCardCode(code)}
+            onSelectCard={handleSelectCard}
           />
 
           {/* Interactive Filters */}
@@ -417,7 +453,8 @@ export function LinksTab({
                   reachedFromHandCodes={reachableFromHand}
                   comparison={comparison}
                   showLostLinks={showLostLinks}
-                  onSelectCard={(code) => setSelectedCardCode(code)}
+                  pathLinks={shortestPathLinks}
+                  onSelectCard={handleSelectCard}
                   onHoverCard={(code) => setHoveredCardCode(code)}
                 />
               ) : (
@@ -430,7 +467,7 @@ export function LinksTab({
                   sampleHandCodes={sampleHandCodes}
                   reachedFromHandCodes={reachableFromHand}
                   comparison={comparison}
-                  onSelectCard={(code) => setSelectedCardCode(code)}
+                  onSelectCard={handleSelectCard}
                 />
               )}
             </div>
@@ -443,9 +480,12 @@ export function LinksTab({
                 allCards={activeData.cards}
                 getCard={getCard}
                 links={activeData.links}
-                onSelectCard={(code) => setSelectedCardCode(code)}
+                onSelectCard={handleSelectCard}
+                targetCode={pathTargetCode}
+                onTargetCodeChange={setPathTargetCode}
+                shortestPath={shortestPathLinks}
                 onGoCombo={onGoCombo}
-                onClose={() => setSelectedCardCode(null)}
+                onClose={() => handleSelectCard(null)}
               />
             </div>
           </div>

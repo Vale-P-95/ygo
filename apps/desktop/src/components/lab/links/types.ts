@@ -47,3 +47,25 @@ export function isLinkTextOnly(link: CardLink): boolean {
 export function linkKey(link: Pick<CardLink, "from" | "to" | "kind">): string {
   return `${link.from}-${link.to}-${link.kind}`;
 }
+
+/** Finds shortest directed link path between two card codes via BFS. */
+export function findShortestPath(fromCode: number, toCode: number, allLinks: CardLink[]): CardLink[] | null {
+  if (fromCode === toCode) return [];
+  const queue: { current: number; path: CardLink[] }[] = [{ current: fromCode, path: [] }];
+  const visited = new Set<number>([fromCode]);
+
+  while (queue.length > 0) {
+    const { current, path } = queue.shift()!;
+    const outgoing = allLinks.filter((l) => l.from === current);
+    for (const link of outgoing) {
+      if (link.to === toCode) {
+        return [...path, link];
+      }
+      if (!visited.has(link.to)) {
+        visited.add(link.to);
+        queue.push({ current: link.to, path: [...path, link] });
+      }
+    }
+  }
+  return null;
+}
