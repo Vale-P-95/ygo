@@ -609,6 +609,16 @@ export interface DeckLinks {
   lines: number;
 }
 
+/** Score weights learned from the boards you preferred (mirrors `LearnedWeightsView`). */
+export interface LearnedWeights {
+  /** By metric key (`MetricKey` in `scoring.ts`), on the metrics of the prior given. */
+  weights: Record<string, number>;
+  choices: number;
+  /** Share of your choices the learned weights explain (the board you preferred scores more), and the prior's. */
+  agreement: number;
+  priorAgreement: number;
+}
+
 const tauriApi = {
   dataStatus: () => invoke<DataStatus>("data_status"),
   updateData: (force = false) => invoke<DataStatus>("update_data", { force }),
@@ -640,6 +650,12 @@ const tauriApi = {
   listRecipes: (deckId: number) => invoke<Recipe[]>("list_recipes", { deckId }),
   saveRecipe: (deckId: number | null, name: string, cond: Cond) => invoke<Recipe>("save_recipe", { deckId, name, cond }),
   deleteRecipe: (id: number) => invoke<void>("delete_recipe", { id }),
+  /** Of two boards compared, you preferred the one with `chosen` metrics (by metric key); returns how many choices there are. */
+  recordBoardChoice: (deckId: number | null, chosen: Record<string, number>, other: Record<string, number>) =>
+    invoke<number>("record_board_choice", { deckId, chosen, other }),
+  /** The weights that explain your choices, starting from `prior` (the profile in use) and pulled towards it. */
+  learnedWeights: (prior: Record<string, number>) => invoke<LearnedWeights>("learned_weights", { prior }),
+  clearBoardChoices: () => invoke<void>("clear_board_choices"),
   matchLog: (deckId: number | null) => invoke<MatchLog>("match_log", { deckId }),
   logMatch: (entry: MatchEntry) => invoke<MatchEntry>("log_match", { entry }),
   updateMatch: (entry: MatchEntry) => invoke<MatchEntry>("update_match", { entry }),

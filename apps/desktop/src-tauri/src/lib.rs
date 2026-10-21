@@ -418,6 +418,52 @@ fn delete_recipe(state: State<'_, AppState>, id: i64) -> Result<(), String> {
     state.with_user(|u| u.delete_recipe(id))
 }
 
+/// Combo Lab: of two boards compared, the player preferred the one with
+/// `chosen` metrics. Returns how many choices are recorded.
+#[tauri::command]
+fn record_board_choice(
+    state: State<'_, AppState>,
+    deck_id: Option<i64>,
+    chosen: BTreeMap<String, f64>,
+    other: BTreeMap<String, f64>,
+) -> Result<usize, String> {
+    state.with_user(|u| {
+        u.add_board_choice(deck_id, &chosen, &other)?;
+        Ok(u.board_choices()?.len())
+    })
+}
+
+/// Score weights learned from the player's choices ([`ygo_stats::learn_weights`]).
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct LearnedWeightsView {
+    weights: BTreeMap<String, f64>,
+    choices: usize,
+    /// Share of the choices the learned weights explain, and the prior's.
+    agreement: f64,
+    prior_agreement: f64,
+}
+
+/// The score weights that explain the boards the player preferred,
+/// starting from `prior` (the profile in use) and pulled towards it.
+#[tauri::command]
+fn learned_weights(state: State<'_, AppState>, prior: BTreeMap<String, f64>) -> Result<LearnedWeightsView, String> {
+    let choices: Vec<ygo_stats::Choice> =
+        state.with_user(|u| u.board_choices())?.into_iter().map(|c| ygo_stats::Choice { chosen: c.chosen, other: c.other }).collect();
+    let learned = ygo_stats::learn_weights(&choices, &prior);
+    Ok(LearnedWeightsView {
+        weights: learned.weights,
+        choices: learned.choices,
+        agreement: learned.agreement,
+        prior_agreement: learned.prior_agreement,
+    })
+}
+
+#[tauri::command]
+fn clear_board_choices(state: State<'_, AppState>) -> Result<(), String> {
+    state.with_user(|u| u.clear_board_choices())
+}
+
 /// A version of the deck in the match log.
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -1743,6 +1789,9 @@ pub fn run() {
             list_recipes,
             save_recipe,
             delete_recipe,
+            record_board_choice,
+            learned_weights,
+            clear_board_choices,
             match_log,
             log_match,
             update_match,
