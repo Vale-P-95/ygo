@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import type { Card, CardLink, LinkCard } from "../../../lib/api";
 import { sound } from "../../../lib/sound";
 import { CardImage } from "../../combo/Field";
@@ -10,29 +10,11 @@ interface Props {
   getCard: (code: number) => Card | undefined;
   links: CardLink[];
   onSelectCard: (code: number) => void;
-  onGoCombo?: (cardId: number) => void;
+  targetCode?: number | null;
+  onTargetCodeChange?: (code: number | null) => void;
+  shortestPath?: CardLink[] | null;
+  onGoCombo?: (targetGoalCardId: number, startCardId?: number) => void;
   onClose: () => void;
-}
-
-function findShortestPath(fromCode: number, toCode: number, allLinks: CardLink[]): CardLink[] | null {
-  if (fromCode === toCode) return [];
-  const queue: { current: number; path: CardLink[] }[] = [{ current: fromCode, path: [] }];
-  const visited = new Set<number>([fromCode]);
-
-  while (queue.length > 0) {
-    const { current, path } = queue.shift()!;
-    const outgoing = allLinks.filter((l) => l.from === current);
-    for (const link of outgoing) {
-      if (link.to === toCode) {
-        return [...path, link];
-      }
-      if (!visited.has(link.to)) {
-        visited.add(link.to);
-        queue.push({ current: link.to, path: [...path, link] });
-      }
-    }
-  }
-  return null;
 }
 
 export function LinksCardDetail({
@@ -41,21 +23,17 @@ export function LinksCardDetail({
   getCard,
   links,
   onSelectCard,
+  targetCode = null,
+  onTargetCodeChange,
+  shortestPath = null,
   onGoCombo,
   onClose,
 }: Props) {
-  const [targetCode, setTargetCode] = useState<number | null>(null);
-
   const cardData = card ? getCard(card.code) : undefined;
   const cardName = card ? (cardData?.name ?? String(card.code)) : "";
 
   const outgoing = useMemo(() => (card ? links.filter((l) => l.from === card.code) : []), [card, links]);
   const incoming = useMemo(() => (card ? links.filter((l) => l.to === card.code) : []), [card, links]);
-
-  const shortestPath = useMemo(() => {
-    if (!card || !targetCode) return null;
-    return findShortestPath(card.code, targetCode, links);
-  }, [card, targetCode, links]);
 
   if (!card) {
     return (
@@ -261,7 +239,7 @@ export function LinksCardDetail({
             aria-label="Seleziona carta d'arrivo per il percorso"
             onChange={(e) => {
               const val = e.target.value ? Number(e.target.value) : null;
-              setTargetCode(val);
+              onTargetCodeChange?.(val);
               if (val) sound.play("toggle");
             }}
             className="field !py-1 !px-2 !text-xs w-full"
@@ -291,21 +269,38 @@ export function LinksCardDetail({
                     {shortestPath.map((step, idx) => (
                       <span key={idx} className="inline-flex items-center gap-1">
                         {idx > 0 && <span className="text-muted">→</span>}
-                        <span className="chip !py-0 !px-1 text-[10px] font-medium" style={{ color: LINK_KINDS[step.kind].color }}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            sound.play("page");
+                            onSelectCard(step.from);
+                          }}
+                          className="chip !py-0 !px-1 text-[10px] font-medium hover:border-sec/60 transition-colors cursor-pointer"
+                          style={{ color: LINK_KINDS[step.kind].color }}
+                          title={`Ispeziona ${getCard(step.from)?.name ?? step.from} (${LINK_KINDS[step.kind].verb})`}
+                        >
                           {getCard(step.from)?.name ?? step.from} ({LINK_KINDS[step.kind].verb})
-                        </span>
+                        </button>
                       </span>
                     ))}
                     <span className="text-muted">→</span>
-                    <span className="chip !py-0 !px-1.5 text-[10px] font-bold text-sec">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        sound.play("page");
+                        onSelectCard(targetCode);
+                      }}
+                      className="chip !py-0 !px-1.5 text-[10px] font-bold text-sec hover:border-sec/80 transition-colors cursor-pointer"
+                      title={`Ispeziona ${getCard(targetCode)?.name ?? targetCode}`}
+                    >
                       {getCard(targetCode)?.name ?? targetCode}
-                    </span>
+                    </button>
                   </div>
                   {onGoCombo && (
                     <button
                       type="button"
                       onClick={() => {
-                        onGoCombo(targetCode);
+                        onGoCombo(targetCode, card.code);
                       }}
                       className="btn btn-molten !py-1 !px-2 text-[11px] mt-1 flex items-center justify-center gap-1"
                     >
