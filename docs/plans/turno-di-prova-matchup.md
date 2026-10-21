@@ -154,6 +154,32 @@ Il proprietario ha chiesto di trovare il compromesso tra le carte che l'avversar
 - **Cosa dice.** Le linee lunghe (Tearlaments, Invoked) regalano molte carte se Maxx "C" arriva presto. Il passo 2 deve dire fino a dove conviene continuare: il valore della board a ogni punto di arresto contro le carte regalate.
 - **Resta da guardare.** In ogni linea c'è un momento in cui tutte e tre "fermano" la linea (Magical Meltdown, The Fallen & The Virtuous, Fiendsmith Engraver, Razen). È probabilmente un effetto "quando" che perde il tempismo per la catena della handtrap.
 
+### Maxx "C" e Mulcharmy, passo 2: dove fermare la linea (21/10/2026)
+- **La domanda.** L'avversario usa Maxx "C" (o una Mulcharmy) al primo momento utile. Conviene finire la linea, o fermarsi prima e regalargli meno carte?
+- **Come si misura** (`draw_trade_off` in `matchup.rs`).
+  - I punti di arresto sono i momenti liberi della tua Main Phase lungo la linea, al massimo 12 distribuiti, più la linea intera. A ogni punto la linea finisce il turno lì.
+  - La board di ogni punto si misura con il turno di prova standard: interruzioni e floodgate.
+  - Le carte pescate dall'avversario si contano rigiocando la linea fermata lì, con la handtrap usata al primo momento. Contano anche la End Phase e il limite di mano delle Mulcharmy.
+- **Il valore atteso nel suo turno.**
+  - L'avversario ha 6 carte più quelle pescate, quindi più probabilità di avere un breaker. Gioca il più dannoso che ha, con la stessa formula esatta della resilienza contro X.
+  - I floodgate contano solo se non ha breaker: un Dark Hole toglie anche quelli.
+  - Se il deck non ha breaker che il turno di prova sa giocare, si usano quelli standard e si suppone che il deck ne giochi circa 5 su 40.
+  - Il punto migliore è quello col valore atteso più alto. A parità vince quello più avanti nella linea.
+- **Dove si usa.** Nella CLI con `probe-line --vs <deck> --stops`. Nell'app con `api.comboStops(hand, key, vsDeckId)`: pochi secondi per board, si chiama a richiesta su una board.
+- **Numeri** (le stesse quattro linee del passo 1, contro Branded, con Maxx "C" al primo momento):
+
+| Linea | Linea intera | Punto migliore | Cosa dice |
+|---|---|---|---|
+| Invoked | 0,78 con 9 carte pescate | dopo Virakam: 0,80 con 8 | gli ultimi passi (Invocation) non aggiungono niente e regalano una carta |
+| Tearlaments | 1,27 con 12 | la linea intera | The Undying Legion arriva alla fine e vale da sola più di tutto il resto (da 0,28 a 1,27) |
+| Vanquish Soul K9 | 0,09 con 9 | dopo Snow Devil: 0,10 con 7 | gli ultimi tre passi (Rock of the Vanquisher) regalano 2 carte senza aggiungere interruzioni |
+| Branded | 0,49 con 5 | la linea intera | Albion the Branded Dragon arriva alla fine |
+
+- **Limiti.**
+  - Le carte pescate contano solo per la probabilità di un breaker nel suo turno. Non contano le risorse per la sua combo, né le handtrap per il tuo turno dopo: il costo vero di una carta pescata è più alto. Un peso in più per le carte regalate si può aggiungere come preferenza del giocatore.
+  - Si prova solo l'uso al primo momento, che è il più comune; l'avversario potrebbe aspettare.
+  - La linea fermata a metà finisce il turno così com'è: non cerca una chiusura diversa con le carte rimaste.
+
 ### Seconde correzioni dal collaudo: i breaker (21/10/2026)
 - **Breaker falsi.** Una carta presa dal testo resta un breaker solo se, giocata contro il campo finto, gli toglie una carta o ne nega una.
   - Il campo finto ha tre mostri (un mostro con effetto, un Fusion e un Link) e due carte coperte.

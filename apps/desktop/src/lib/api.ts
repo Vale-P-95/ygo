@@ -499,6 +499,33 @@ export interface ComboRivalHandTrap {
   moments?: ComboHandTrapMoment[];
 }
 
+/** A point where a board's line can stop while the opponent draws from Maxx "C" or a Mulcharmy (mirrors `StopPointView`). */
+export interface ComboStopPoint {
+  /** Steps of the line played before ending the turn (as `comboExplain` lists them; all of them for the whole line). */
+  steps: number;
+  /** Your last card played then. */
+  playing: number | null;
+  /** Interruption and floodgate value of the board you end on. */
+  fieldValue: number;
+  floodgateValue: number;
+  /** Cards the opponent has drawn by the end of your turn. */
+  drawn: number;
+  /** Value expected in its turn, holding 6 cards plus those drawn (more chances of a breaker). */
+  expected: number;
+}
+
+/** Where to stop the line against one handtrap that draws (mirrors `DrawTradeOffView`). */
+export interface ComboDrawTradeOff {
+  /** The handtrap (Maxx "C", a Mulcharmy), used at the first moment it can be. */
+  code: number;
+  /** In the order of the line, the whole line last. */
+  stops: ComboStopPoint[];
+  /** Index in `stops` of the one that keeps the most for its turn. */
+  best: number;
+  /** The deck has no breaker the probe turn can play: the standard ones are used, assuming about 5 in its 40 cards. */
+  standardBreakers: boolean;
+}
+
 /** A moment of the line the opponent uses a handtrap at (mirrors `HandTrapMomentView`). */
 export interface ComboHandTrapMoment {
   /** Your card being played then (the last you used). */
@@ -701,6 +728,9 @@ const tauriApi = {
   onComboScore: (handler: (s: ComboScore) => void): Promise<UnlistenFn> => listen<ComboScore>("combo-score", (e) => handler(e.payload)),
   comboCancel: () => invoke<void>("combo_cancel"),
   comboExplain: (hand: number, key: string) => invoke<ComboStep[]>("combo_explain", { hand, key }),
+  /** Where to stop a board's line against the Maxx "C" or Mulcharmy of a deck of the Bottega: a few seconds. */
+  comboStops: (hand: number, key: string, vsDeckId: number) =>
+    invoke<ComboDrawTradeOff[]>("combo_stops", { hand, key, vsDeckId }),
   onComboProgress: (handler: (p: ComboProgress) => void): Promise<UnlistenFn> => listen<ComboProgress>("combo-progress", (e) => handler(e.payload)),
   /** Laboratorio, "Collegamenti": the map of a deck, read by the engine (about half a minute the first time, then kept until its cards change). */
   deckLinks: (deckId: number) => invoke<DeckLinks>("deck_links", { deckId }),

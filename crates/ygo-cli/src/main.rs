@@ -145,6 +145,10 @@ enum Cmd {
         /// Also against this deck (.ydk): its board breakers and handtraps.
         #[arg(long)]
         vs: Option<PathBuf>,
+        /// With --vs: where to stop the line when the deck's Maxx "C" or
+        /// Mulcharmy makes it draw (a few seconds a line).
+        #[arg(long)]
+        stops: bool,
     },
     /// The map of the links between the cards of a deck, read from the
     /// engine: which card adds, summons, sends or gets back which.
@@ -313,7 +317,9 @@ fn main() -> Result<()> {
                 save_lines,
             },
         ),
-        Cmd::ProbeLine { setup, lines, index, json, vs } => probe_line(&cli.data, &setup, &lines, index, json.as_deref(), vs.as_deref()),
+        Cmd::ProbeLine { setup, lines, index, json, vs, stops } => {
+            probe_line(&cli.data, &setup, &lines, index, json.as_deref(), vs.as_deref(), stops)
+        }
         Cmd::HandTraps { deck } => hand_traps(&cli.data, &deck),
         Cmd::RivalPlays { deck, hands, nodes, seed } => rival_plays(&cli.data, &deck, hands, nodes, seed),
         Cmd::Links { deck, nodes, hands, threads, json } => links(&cli.data, &deck, nodes, hands, threads, json.as_deref()),
@@ -716,7 +722,15 @@ fn line_from_json(v: &serde_json::Value) -> Result<ygo_solver::Line> {
 }
 
 /// Plays saved lines again and measures their boards (no search).
-fn probe_line(dir: &Path, setup: &Setup, lines: &Path, index: Option<usize>, json: Option<&Path>, vs: Option<&Path>) -> Result<()> {
+fn probe_line(
+    dir: &Path,
+    setup: &Setup,
+    lines: &Path,
+    index: Option<usize>,
+    json: Option<&Path>,
+    vs: Option<&Path>,
+    stops: bool,
+) -> Result<()> {
     let (engine, deck, mut hand) = start(dir, setup)?;
     let saved: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(lines)?)?;
     if hand.is_empty() {
@@ -782,6 +796,16 @@ fn probe_line(dir: &Path, setup: &Setup, lines: &Path, index: Option<usize>, jso
                 }
                 Err(e) => println!("   matchup failed: {e}"),
             }
+            if stops {
+                let started = std::time::Instant::now();
+                match ygo_solver::draw_trade_off(&engine, &deck, &hand, setup.seed, &line, rival) {
+                    Ok(offs) => {
+                        print_trade_off(&engine, &offs, started.elapsed());
+                        extra["stops"] = trade_off_json(&offs);
+                    }
+                    Err(e) => println!("   stops failed: {e}"),
+                }
+            }
         }
         out.push(state_json(&engine, &hand_traps, &state, measured.as_ref().ok(), took, exposure.as_ref(), extra));
     }
@@ -838,6 +862,54 @@ fn print_matchup(engine: &Engine, x: &ygo_solver::Matchup, took: std::time::Dura
             println!("       drawn by moment: {}", moments.join(" · "));
         }
     }
+}
+
+fn print_trade_off(engine: &Engine, offs: &[ygo_solver::DrawTradeOff], took: std::time::Duration) {
+    let db = engine.cards();
+    if offs.is_empty() {
+        println!("   stops ({:.1} s): no handtrap of the deck makes it draw", took.as_secs_f64());
+    }
+    for o in offs {
+        let best = &o.stops[o.best];
+        let whole = o.stops.last().expect("the whole line");
+        println!(
+            "   against {} ({:.1} s{}): best stop after {} answers ({}), {:.2} expected and {} cards drawn; whole line {:.2} and {}",
+            db.name(o.code),
+            took.as_secs_f64(),
+            if o.standard_breakers { ", standard breakers" } else { "" },
+            best.answers,
+            best.playing.map(|c| db.name(c)).unwrap_or_default(),
+            best.expected,
+            best.drawn,
+            whole.expected,
+            whole.drawn
+        );
+        for (i, p) in o.stops.iter().enumerate() {
+            println!(
+                "     {}{:>3} {:<40} field {:.2} · floodgates {:.2} · drawn {:>2} · expected {:.2}",
+                if i == o.best { "*" } else { " " },
+                p.answers,
+                p.playing.map(|c| db.name(c)).unwrap_or_default(),
+                p.field_value,
+                p.floodgate_value,
+                p.drawn,
+                p.expected
+            );
+        }
+    }
+}
+
+fn trade_off_json(offs: &[ygo_solver::DrawTradeOff]) -> serde_json::Value {
+    serde_json::json!(offs
+        .iter()
+        .map(|o| serde_json::json!({
+            "code": o.code, "best": o.best, "standard_breakers": o.standard_breakers,
+            "stops": o.stops.iter().map(|p| serde_json::json!({
+                "answers": p.answers, "playing": p.playing, "field_value": p.field_value,
+                "floodgate_value": p.floodgate_value, "drawn": p.drawn, "expected": p.expected,
+            })).collect::<Vec<_>>(),
+        }))
+        .collect::<Vec<_>>())
 }
 
 fn matchup_json(x: &ygo_solver::Matchup) -> serde_json::Value {

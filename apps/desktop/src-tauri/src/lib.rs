@@ -772,6 +772,81 @@ fn matchup_view(deck_id: i64, deck_name: &str, matchup: Result<ygo_solver::Match
     view
 }
 
+/// A point where a board's line can stop, while the opponent draws from
+/// Maxx "C" or a Mulcharmy ([`ygo_solver::StopPoint`]).
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct StopPointView {
+    /// Steps of the line played before ending the turn (as `combo_explain`
+    /// lists them; all of them for the whole line), and your last card then.
+    steps: usize,
+    playing: Option<u32>,
+    /// Interruption and floodgate value of the board you end on.
+    field_value: f64,
+    floodgate_value: f64,
+    /// Cards the opponent has drawn by the end of your turn.
+    drawn: u32,
+    /// Value expected in its turn, holding 6 cards plus those drawn.
+    expected: f64,
+}
+
+/// Where to stop the line against one handtrap that draws.
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct DrawTradeOffView {
+    code: u32,
+    /// In the order of the line, the whole line last.
+    stops: Vec<StopPointView>,
+    /// Index of the stop that keeps the most for its turn.
+    best: usize,
+    /// The deck has no breaker the probe turn can play: the standard ones
+    /// are used, assuming about 5 in its 40 cards.
+    standard_breakers: bool,
+}
+
+/// Combo Lab: where to stop a board's line when the opponent (a deck of the
+/// Bottega) uses Maxx "C" or a Mulcharmy at the first moment: for each of
+/// its handtraps that draw, the value the board keeps in its turn at each
+/// free moment of the line, the cards it draws, and the best stop. A few
+/// seconds (each stop is put to the probe turn).
+#[tauri::command(async)]
+fn combo_stops(state: State<'_, AppState>, hand: usize, key: String, vs_deck_id: i64) -> Result<Vec<DrawTradeOffView>, String> {
+    let engine = state.engine()?;
+    let (config, cards, line) = {
+        let job = state.combo.lock().map_err(|e| e.to_string())?;
+        let job = job.as_ref().ok_or("Nessuna ricerca da valutare")?;
+        let board =
+            job.boards.iter().find(|(h, b)| *h == hand && format!("{:016x}", b.key) == key).map(|(_, b)| b).ok_or("Board non trovata")?;
+        let (cards, _, _) = job.hands.get(hand).ok_or("Mano non trovata")?;
+        (job.config.clone(), cards.clone(), board.line.clone())
+    };
+    let deck = state.with_user(|u| u.get(vs_deck_id))?.ok_or("Il deck avversario non esiste più")?;
+    let list = ygo_engine::DeckList { main: deck.main.clone(), extra: deck.extra.clone(), side: deck.side.clone() };
+    let kit = ygo_solver::Kit::standard(&engine);
+    let rival = ygo_solver::Rival::new(&engine, &list, config.seed, &kit);
+    let offs = ygo_solver::draw_trade_off(&engine, &config.deck, &cards, config.seed, &line, &rival).map_err(|e| e.to_string())?;
+    Ok(offs
+        .into_iter()
+        .map(|o| DrawTradeOffView {
+            code: o.code,
+            stops: o
+                .stops
+                .iter()
+                .map(|p| StopPointView {
+                    steps: p.choices,
+                    playing: p.playing,
+                    field_value: p.field_value,
+                    floodgate_value: p.floodgate_value,
+                    drawn: p.drawn,
+                    expected: p.expected,
+                })
+                .collect(),
+            best: o.best,
+            standard_breakers: o.standard_breakers,
+        })
+        .collect())
+}
+
 /// What the line does that the handtraps played most can stop.
 #[derive(Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -1837,6 +1912,7 @@ pub fn run() {
             deck_links,
             combo_cancel,
             combo_explain,
+            combo_stops,
             shelf_decks,
             set_deck_box,
             duplicate_deck,

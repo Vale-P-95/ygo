@@ -28,6 +28,14 @@ const ITS_TURN: usize = 6;
 /// Moments each handtrap is tried at, the first ones of the line.
 const MAX_TRIES: usize = 24;
 
+/// Points where the line is stopped to weigh what a drawing handtrap gives.
+const MAX_STOPS: usize = 12;
+
+/// Board breakers assumed in a deck whose own the probe turn cannot play
+/// (the standard ones stand in for them): about 5 in 40, so that it has
+/// one in a bit more than half of its hands.
+const GENERIC_OUTS: u32 = 5;
+
 /// The opponent's deck, read once for all the boards measured against it.
 pub struct Rival {
     /// Cards in its Main Deck, and the copies of each (by original code).
@@ -35,8 +43,9 @@ pub struct Rival {
     copies: HashMap<u32, u32>,
     /// The standard kit with its breakers instead of the standard ones.
     kit: Kit,
-    /// The standard kit's opponent: the one the lines were found against.
-    standard: Opponent,
+    /// The standard kit: its opponent is the one the lines were found
+    /// against, and it measures the boards.
+    standard: Kit,
     /// The card each breaker of the kit plays; empty when it has none the
     /// probe turn can play (the standard ones are used then).
     cards: Vec<u32>,
@@ -79,7 +88,7 @@ impl Rival {
         }
         let kit = if breakers.is_empty() { kit.clone() } else { kit.with_breakers(breakers) };
         let hand_traps = hand_traps(engine, deck, seed, &kit);
-        Rival { size: deck.main.len(), copies, kit, cards, hand_traps, standard: standard.opponent().clone(), main: deck.main.clone() }
+        Rival { size: deck.main.len(), copies, kit, cards, hand_traps, standard: standard.clone(), main: deck.main.clone() }
     }
 
     /// The cards played as breakers (none: the standard ones are used).
@@ -95,6 +104,57 @@ impl Rival {
     fn none_of(&self, cards: &[u32], drawn: usize) -> f64 {
         none_drawn(self.size, cards.iter().map(|&c| self.copies(c)).sum(), drawn)
     }
+
+    /// The interruption value expected in its turn, holding `cards` cards,
+    /// and the chance it has one of `breakers` (the most harmful first): it
+    /// plays the i-th when it has it and none of those before, and leaves
+    /// `field_value` when it has none.
+    fn against(&self, breakers: &[RivalBreaker], field_value: f64, cards: usize) -> (f64, f64) {
+        let mut value = 0.0;
+        let mut before: Vec<u32> = Vec::new();
+        for b in breakers {
+            let none_before = self.none_of(&before, cards);
+            before.push(b.code);
+            value += (none_before - self.none_of(&before, cards)) * b.remaining;
+        }
+        let none = self.none_of(&before, cards);
+        (value + none * field_value, 1.0 - none)
+    }
+}
+
+/// The opponent's breakers against the board your answers `own` reach,
+/// each card played its best way, the most harmful first.
+fn rival_breakers(
+    engine: &Engine,
+    deck: &DeckList,
+    hand: &[u32],
+    seed: u64,
+    rival: &Rival,
+    own: &[Vec<u8>],
+    measure: &Measure,
+) -> Vec<RivalBreaker> {
+    let prober = Prober::new(engine, deck, hand, seed, &rival.kit);
+    let results = prober.breakers(Prelude::Own(own), &measure.interruptions, &rival.kit.breakers);
+    let mut out: Vec<RivalBreaker> = Vec::new();
+    for (&code, result) in rival.cards.iter().zip(&results) {
+        match out.iter_mut().find(|b| b.code == code) {
+            Some(b) if b.remaining <= result.remaining => {}
+            Some(b) => {
+                b.remaining = result.remaining;
+                b.stopped_by = result.stopped_by;
+                b.not_applicable = result.not_applicable;
+            }
+            None => out.push(RivalBreaker {
+                code,
+                chance: 1.0 - rival.none_of(&[code], ITS_TURN),
+                remaining: result.remaining,
+                stopped_by: result.stopped_by,
+                not_applicable: result.not_applicable,
+            }),
+        }
+    }
+    out.sort_by(|a, b| a.remaining.total_cmp(&b.remaining).then(b.chance.total_cmp(&a.chance)));
+    out
 }
 
 /// One of the opponent's breakers against the board.
@@ -173,43 +233,14 @@ pub fn matchup(
     measure: &Measure,
     rival: &Rival,
 ) -> Result<Matchup, Error> {
-    let own = own_answers(engine, deck, hand, seed, &rival.standard, line)?;
+    let own = own_answers(engine, deck, hand, seed, rival.standard.opponent(), line)?;
     let mut out = Matchup { standard_breakers: rival.cards.is_empty(), ..Matchup::default() };
 
     if out.standard_breakers {
         out.resilience = measure.resilience;
     } else {
-        let prober = Prober::new(engine, deck, hand, seed, &rival.kit);
-        let results = prober.breakers(Prelude::Own(&own.answers), &measure.interruptions, &rival.kit.breakers);
-        // Each card played its best way for the opponent.
-        for (&code, result) in rival.cards.iter().zip(&results) {
-            match out.breakers.iter_mut().find(|b| b.code == code) {
-                Some(b) if b.remaining <= result.remaining => {}
-                Some(b) => {
-                    b.remaining = result.remaining;
-                    b.stopped_by = result.stopped_by;
-                    b.not_applicable = result.not_applicable;
-                }
-                None => out.breakers.push(RivalBreaker {
-                    code,
-                    chance: 1.0 - rival.none_of(&[code], ITS_TURN),
-                    remaining: result.remaining,
-                    stopped_by: result.stopped_by,
-                    not_applicable: result.not_applicable,
-                }),
-            }
-        }
-        out.breakers.sort_by(|a, b| a.remaining.total_cmp(&b.remaining).then(b.chance.total_cmp(&a.chance)));
-        // The opponent plays the most harmful breaker it has: the i-th
-        // when it has it and none of those before.
-        let mut before: Vec<u32> = Vec::new();
-        for b in &out.breakers {
-            let none_before = rival.none_of(&before, ITS_TURN);
-            before.push(b.code);
-            out.resilience += (none_before - rival.none_of(&before, ITS_TURN)) * b.remaining;
-        }
-        out.resilience += rival.none_of(&before, ITS_TURN) * measure.field_value;
-        out.breaker_chance = 1.0 - rival.none_of(&before, ITS_TURN);
+        out.breakers = rival_breakers(engine, deck, hand, seed, rival, &own.answers, measure);
+        (out.resilience, out.breaker_chance) = rival.against(&out.breakers, measure.field_value, ITS_TURN);
     }
 
     out.hand_traps = hand_trap_stops(engine, deck, hand, seed, &rival.main, &own, &rival.hand_traps)?;
@@ -219,6 +250,128 @@ pub fn matchup(
     out.hand_traps.sort_by(|a, b| b.stops.cmp(&a.stops).then(b.chance.total_cmp(&a.chance)).then(a.code.cmp(&b.code)));
     let stopping: Vec<u32> = out.hand_traps.iter().filter(|h| h.stops > 0).map(|h| h.code).collect();
     out.hand_trap_chance = 1.0 - rival.none_of(&stopping, OPENING);
+    Ok(out)
+}
+
+/// A point where your line can stop and end the turn, while the opponent
+/// draws from a handtrap (Maxx "C", a Mulcharmy) used at its first moment.
+#[derive(Debug, Clone)]
+pub struct StopPoint {
+    /// Your answers played before ending the turn (all: the whole line),
+    /// the line's choices among them (the steps shown), and your last card
+    /// played then.
+    pub answers: usize,
+    pub choices: usize,
+    pub playing: Option<u32>,
+    /// Interruption and floodgate value of the board you end on.
+    pub field_value: f64,
+    pub floodgate_value: f64,
+    /// Cards the opponent has drawn by the end of your turn.
+    pub drawn: u32,
+    /// Value expected in its turn: it holds 6 cards plus those drawn, and
+    /// plays the most harmful of its breakers it has. The interruptions
+    /// left after it, and the floodgates when it has none (a breaker takes
+    /// them too).
+    pub expected: f64,
+}
+
+/// Where to stop the line against one handtrap that draws.
+#[derive(Debug, Clone)]
+pub struct DrawTradeOff {
+    pub code: u32,
+    /// The points tried, in the order of the line, the whole line last.
+    pub stops: Vec<StopPoint>,
+    /// The one that keeps the most for its turn.
+    pub best: usize,
+    /// The deck has no breaker the probe turn can play: the standard ones
+    /// are used, with [`GENERIC_OUTS`] of them assumed in the deck.
+    pub standard_breakers: bool,
+}
+
+/// Maxx "C" and the Mulcharmy stop nothing, but each card your line plays
+/// after them gives the opponent a card: more chances of a breaker in its
+/// turn. For each of its handtraps that draws, used at the first moment it
+/// can be, the value your board keeps in its turn if the line stops at each
+/// free moment of your Main Phase (and ends the turn there), and the best
+/// of them. A few seconds: each stop is measured with the probe turn.
+pub fn draw_trade_off(
+    engine: &Engine,
+    deck: &DeckList,
+    hand: &[u32],
+    seed: u64,
+    line: &Line,
+    rival: &Rival,
+) -> Result<Vec<DrawTradeOff>, Error> {
+    let db = engine.cards();
+    let own = own_answers(engine, deck, hand, seed, rival.standard.opponent(), line)?;
+    let opponent = Opponent { hand: rival.hand_traps.clone(), deck: rival.main.clone(), extra: Vec::new() };
+    let base = replay(engine, deck, hand, seed, &opponent, &own, Play::default())?;
+    // The handtraps that draw, at the first moment each can be used.
+    let mut drawing: Vec<(u32, usize)> = Vec::new();
+    for &code in &rival.hand_traps {
+        let Some(w) = base.windows.iter().position(|m| m.offered.iter().any(|(c, _)| *c == code)) else { continue };
+        let full = replay(engine, deck, hand, seed, &opponent, &own, Play { use_at: Some((code, w)), stop_at: None })?;
+        if full.drawn > 0 {
+            drawing.push((code, w));
+        }
+    }
+    if drawing.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    // The free moments of your Main Phase, at most MAX_STOPS evenly
+    // spread, then the whole line.
+    let idle: Vec<usize> = (1..own.answers.len()).filter(|&i| own.idle[i]).collect();
+    let mut stops: Vec<usize> =
+        if idle.len() <= MAX_STOPS { idle } else { (0..MAX_STOPS).map(|k| idle[k * idle.len() / MAX_STOPS]).collect() };
+    stops.push(own.answers.len());
+    // The board at each stop, measured as the line cut there.
+    let mut boards = Vec::new();
+    for &s in &stops {
+        let cut = own.at_line.get(s).copied().unwrap_or(line.answers.len());
+        let part = Line {
+            answers: line.answers[..cut].to_vec(),
+            choices: line.choices.iter().zip(&line.choice_at).filter(|(_, &at)| at < cut).map(|(c, _)| c.clone()).collect(),
+            choice_at: line.choice_at.iter().copied().filter(|&at| at < cut).collect(),
+        };
+        let choices = part.choice_at.len();
+        let measure = Prober::new(engine, deck, hand, seed, &rival.standard).measure(&part)?;
+        let breakers =
+            if rival.cards.is_empty() { Vec::new() } else { rival_breakers(engine, deck, hand, seed, rival, &own.answers[..s], &measure) };
+        // Your last card played before the stop.
+        let playing = (0..s).rev().find_map(|i| own.ids[i].map(|id| id.code)).map(|c| db.canonical_code(c));
+        boards.push((s, choices, playing, measure, breakers));
+    }
+
+    let mut out = Vec::new();
+    for (code, w) in drawing {
+        let mut points = Vec::new();
+        for (s, choices, playing, measure, breakers) in &boards {
+            let stop_at = (*s < own.answers.len()).then_some(*s);
+            let drawn = replay(engine, deck, hand, seed, &opponent, &own, Play { use_at: Some((code, w)), stop_at })?.drawn;
+            let cards = ITS_TURN + drawn as usize;
+            let (interruptions, none) = if rival.cards.is_empty() {
+                let none = none_drawn(rival.size.max(40), GENERIC_OUTS, cards);
+                (none * measure.field_value + (1.0 - none) * measure.resilience, none)
+            } else {
+                let (value, chance) = rival.against(breakers, measure.field_value, cards);
+                (value, 1.0 - chance)
+            };
+            let expected = interruptions + none * measure.floodgate_value;
+            points.push(StopPoint {
+                answers: *s,
+                choices: *choices,
+                playing: *playing,
+                field_value: measure.field_value,
+                floodgate_value: measure.floodgate_value,
+                drawn,
+                expected,
+            });
+        }
+        // The best; on a tie, the later stop (more of the line played).
+        let best = points.iter().enumerate().max_by(|a, b| a.1.expected.total_cmp(&b.1.expected)).map_or(0, |(i, _)| i);
+        out.push(DrawTradeOff { code, stops: points, best, standard_breakers: rival.cards.is_empty() });
+    }
     Ok(out)
 }
 
@@ -352,6 +505,10 @@ struct Own {
     /// a handtrap the list can hold them in another order (a card back in
     /// the Extra Deck moves the others).
     picks: Vec<Option<Vec<Picked>>>,
+    /// Where each answer is in the line, and whether it answers a free
+    /// moment of your Main Phase (where the line can stop).
+    at_line: Vec<usize>,
+    idle: Vec<bool>,
 }
 
 /// A card picked in a selection: what it is, where, whose.
@@ -429,8 +586,8 @@ struct ActionId {
 fn own_answers(engine: &Engine, deck: &DeckList, hand: &[u32], seed: u64, opponent: &Opponent, line: &Line) -> Result<Own, Error> {
     let db = engine.cards();
     let mut duel = Duel::goldfish_against(engine, deck, hand, seed, Some(opponent))?;
-    let mut own = Own { answers: Vec::new(), kinds: Vec::new(), ids: Vec::new(), picks: Vec::new() };
-    for answer in &line.answers {
+    let mut own = Own { answers: Vec::new(), kinds: Vec::new(), ids: Vec::new(), picks: Vec::new(), at_line: Vec::new(), idle: Vec::new() };
+    for (i, answer) in line.answers.iter().enumerate() {
         let Step::Decision { decision, .. } = duel.advance()? else { break };
         if decision.player() != Some(1) {
             let id = match &decision {
@@ -453,6 +610,8 @@ fn own_answers(engine: &Engine, deck: &DeckList, hand: &[u32], seed: u64, oppone
                 _ => None,
             };
             own.picks.push(picked(engine, &decision, answer));
+            own.at_line.push(i);
+            own.idle.push(matches!(decision, Decision::IdleCmd { .. }));
             own.answers.push(answer.clone());
             own.kinds.push(std::mem::discriminant(&decision));
             own.ids.push(id);
@@ -521,18 +680,17 @@ struct Replay {
 /// Passing in a chain window.
 const PASS: [u8; 4] = (-1i32).to_le_bytes();
 
-/// Plays your answers with the opponent holding `hand_traps`, passing
-/// everywhere, or using `use_at` (a handtrap, at a window of the replay
-/// where none is used).
-fn replay(
-    engine: &Engine,
-    deck: &DeckList,
-    hand: &[u32],
-    seed: u64,
-    opponent: &Opponent,
-    own: &Own,
+/// How a replay goes: the opponent uses a handtrap (`use_at`: the card, at
+/// a window of the replay where none is used) or passes everywhere; your
+/// line stops at an answer (`stop_at`) and ends the turn, or goes on.
+#[derive(Debug, Clone, Copy, Default)]
+struct Play {
     use_at: Option<(u32, usize)>,
-) -> Result<Replay, Error> {
+    stop_at: Option<usize>,
+}
+
+/// Plays your answers with the opponent holding `hand_traps`, as `play` says.
+fn replay(engine: &Engine, deck: &DeckList, hand: &[u32], seed: u64, opponent: &Opponent, own: &Own, play: Play) -> Result<Replay, Error> {
     let db = engine.cards();
     let mut duel = Duel::goldfish_against(engine, deck, hand, seed, Some(opponent))?;
     let mut out = Replay::default();
@@ -598,6 +756,11 @@ fn replay(
             }
         }
         let actions = duel.actions(&decision);
+        if decision.player() != Some(1) && play.stop_at.is_some_and(|s| next >= s) {
+            // The line stops here: the turn ends.
+            duel.respond(&end_turn(&decision, &actions));
+            continue;
+        }
         if decision.player() != Some(1) {
             if used {
                 let kind = std::mem::discriminant(&decision);
@@ -671,7 +834,7 @@ fn replay(
             Decision::EffectYesNo { card, .. } if card.location == location::HAND => vec![(db.canonical_code(card.code), 0)],
             _ => Vec::new(),
         };
-        let pick = use_at.filter(|(_, w)| *w == out.windows.len()).and_then(|(code, _)| offered.iter().find(|(c, _)| *c == code));
+        let pick = play.use_at.filter(|(_, w)| *w == out.windows.len()).and_then(|(code, _)| offered.iter().find(|(c, _)| *c == code));
         match pick {
             Some(&(_, i)) => {
                 used = true;
@@ -710,7 +873,7 @@ fn hand_trap_stops(
 ) -> Result<Vec<RivalHandTrap>, Error> {
     // Its own Deck: the kit's few cards run out when it draws (Maxx "C").
     let opponent = Opponent { hand: hand_traps.to_vec(), deck: rival.to_vec(), extra: Vec::new() };
-    let base = replay(engine, deck, hand, seed, &opponent, own, None)?;
+    let base = replay(engine, deck, hand, seed, &opponent, own, Play::default())?;
     let mut out = Vec::new();
     for &code in hand_traps {
         let windows: Vec<usize> = (0..base.windows.len()).filter(|&w| base.windows[w].offered.iter().any(|(c, _)| *c == code)).collect();
@@ -721,7 +884,7 @@ fn hand_trap_stops(
         let mut at = Vec::new();
         let mut moments = Vec::new();
         for &w in windows.iter().take(MAX_TRIES) {
-            let tried = replay(engine, deck, hand, seed, &opponent, own, Some((code, w)));
+            let tried = replay(engine, deck, hand, seed, &opponent, own, Play { use_at: Some((code, w)), stop_at: None });
             if std::env::var_os("DUELFORGE_DEBUG_MATCHUP").is_some() {
                 let db = engine.cards();
                 match &tried {
