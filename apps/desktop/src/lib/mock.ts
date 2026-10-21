@@ -21,6 +21,7 @@ import type {
   Deck,
   DeckBox,
   DeckLinks,
+  LinksComparison,
   LearnedWeights,
   DeckSummary,
   Facets,
@@ -2691,6 +2692,28 @@ export const mockApi: Api = {
 
   comboCancel: async () => {
     comboCancelled = true;
+  },
+
+  deckLinksCompare: async (deckIdA: number, deckIdB: number): Promise<LinksComparison> => {
+    const before = await mockApi.deckLinks(deckIdA);
+    const after = await mockApi.deckLinks(deckIdB);
+    const id = (l: CardLink) => `${l.from}-${l.to}-${l.kind}`;
+    const oldIds = new Set(before.links.map(id));
+    const newIds = new Set(after.links.map(id));
+    const oldCodes = new Set(before.cards.map((c) => c.code));
+    const newCodes = new Set(after.cards.map((c) => c.code));
+    const reached = (m: DeckLinks) => m.cards.reduce((sum, c) => sum + c.chance, 0);
+    return {
+      before,
+      after,
+      gained: after.links.filter((l) => !oldIds.has(id(l))),
+      lost: before.links.filter((l) => !newIds.has(id(l))),
+      changed: [],
+      added: [...newCodes].filter((c) => !oldCodes.has(c)),
+      removed: [...oldCodes].filter((c) => !newCodes.has(c)),
+      reachedBefore: reached(before),
+      reachedAfter: reached(after),
+    };
   },
 
   comboStops: async (): Promise<ComboDrawTradeOff[]> => {

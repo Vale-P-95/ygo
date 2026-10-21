@@ -671,6 +671,35 @@ export interface DeckLinks {
   lines: number;
 }
 
+/** A card in both versions compared: its numbers before and after (mirrors `LinkCardChangeView`). */
+export interface LinkCardChange {
+  code: number;
+  chanceBefore: number;
+  chanceAfter: number;
+  keyBefore: number;
+  keyAfter: number;
+  reachAllBefore: number;
+  reachAllAfter: number;
+}
+
+/** Two versions of a deck on the links map (mirrors `LinksComparisonView`). */
+export interface LinksComparison {
+  /** The maps of the first deck and of the second. */
+  before: DeckLinks;
+  after: DeckLinks;
+  /** Links only in the second deck, only in the first (a link is the same with the same `from`, `to` and `kind`). */
+  gained: CardLink[];
+  lost: CardLink[];
+  /** Cards in both whose chance, key or reach changed (by 0.02 or more, or any reach), the most changed first. */
+  changed: LinkCardChange[];
+  /** Cards put in and taken out (codes, once each). */
+  added: number[];
+  removed: number[];
+  /** Cards an opening hand reaches on average (sum of the chances), with the first deck and with the second. */
+  reachedBefore: number;
+  reachedAfter: number;
+}
+
 /** Score weights learned from the boards you preferred (mirrors `LearnedWeightsView`). */
 export interface LearnedWeights {
   /** By metric key (`MetricKey` in `scoring.ts`), on the metrics of the prior given. */
@@ -748,6 +777,12 @@ const tauriApi = {
   onComboProgress: (handler: (p: ComboProgress) => void): Promise<UnlistenFn> => listen<ComboProgress>("combo-progress", (e) => handler(e.payload)),
   /** Laboratorio, "Collegamenti": the map of a deck, read by the engine (about half a minute the first time, then kept until its cards change). */
   deckLinks: (deckId: number) => invoke<DeckLinks>("deck_links", { deckId }),
+  /**
+   * What changes on the map from deck A to deck B (two versions of a deck). B is read reusing A's hands: a few seconds
+   * when few cards change. Progress events come for both, each with its `deckId`.
+   */
+  deckLinksCompare: (deckIdA: number, deckIdB: number) =>
+    invoke<LinksComparison>("deck_links_compare", { deckIdA, deckIdB }),
   /**
    * The map as it is read: first (`done` 0) the draft from the cards' text, at once; then after each hand searched,
    * the map so far. `deckId` and `map` are always sent by the backend.
