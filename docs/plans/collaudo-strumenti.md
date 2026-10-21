@@ -1,74 +1,268 @@
 # Collaudo: turno di prova contro un deck e mappa dei collegamenti
 
-*Scritto il 21/10/2026 da Claude Code (sessione sorella, branch `claude/tools-qa`). Bozza: si completa con le tabelle finali.*
+*Scritto il 21/10/2026 da Claude Code (sessione sorella, branch `claude/tools-qa`). Codice dei crate non toccato: le correzioni sono proposte, provate solo in una copia fuori dal branch.*
 
 ## Metodo
-- **Deck:** 40 liste di Master Duel Meta (`scripts/mdm_decks.py`, non committate). Dati del motore scaricati con `fetch-data` e `update-cards`.
-- **Mappa dei collegamenti:** `scripts/links_report.py` lancia `duelforge-cli links` su tutti i deck (valori predefiniti: 2 mani per carta, 1000 nodi, 4 thread). Poi confronta la mappa con il testo delle carte (`data/cdb/cards.cdb`):
-  - **mancanti:** frasi come "add ... from your Deck to your hand" senza il collegamento di quel tipo dalla carta;
+- **Deck:** 40 liste di Master Duel Meta (`scripts/mdm_decks.py`, non committate). Dati del motore da `fetch-data` e `update-cards`.
+- **Mappa dei collegamenti:** `scripts/links_report.py` lancia `duelforge-cli links` su tutti i deck, con i valori predefiniti (2 mani per carta, 1000 nodi, 4 thread). Poi confronta la mappa con il testo delle carte (`data/cdb/cards.cdb`):
+  - **mancanti:** una frase come "add ... from your Deck to your hand" senza un collegamento di quel tipo dalla carta;
   - **strani:** collegamenti la cui causa non ha nel testo le parole del tipo (un "summon" da una carta che non Evoca).
-  - Il testo è solo un indizio: ogni caso segnalato l'ho controllato a mano sul testo della carta.
+  - Il testo è solo un indizio: i casi riportati sotto li ho controllati a mano sul testo delle carte.
 - **Turno di prova contro un deck:** `scripts/matchup_report.py`.
   - 12 deck "tuoi": branded, tearlaments, yubel, ryzeal_mitsurugi, k9, white_forest_azamina, dracotail, blue_eyes, synchrons, fur_hire, orcust, yummy.
-  - 5 avversari: kaiju (breaker nel Main Deck, Maxx "C" e Mulcharmy), labrynth (trappole, Ash, Droll, Impermanence, Dominus), maliss (pieno di handtrap, Bystial), invoked (Nibiru, Veiler, Ghost Belle e Ogre), sky_striker (Evenly Matched, Ghost Belle).
-  - Mano: 5 carte estratte con seme fisso come in `scripts/bench.py`; `combos --nodes 3000 --threads 1 --top 3 --save-lines`; poi `probe-line --vs` sulle prime 3 board con `DUELFORGE_DEBUG_MATCHUP=1`.
-  - 180 misure (12 × 5 × 3), nessun errore "matchup failed".
-- **Verifica delle ipotesi:** una copia del repository fuori dal branch (worktree nello scratchpad, mai committata) con tracce in più e le correzioni proposte dietro variabili d'ambiente (`QA_FIX_A`, `QA_FIX_B`, `QA_FIX_C`, `QA_FIX_D`). I numeri "dopo" vengono da lì. Il codice dei crate in questo branch non è toccato.
-- Le misure girano in parallelo sulla stessa macchina (4 core): i tempi sono un po' gonfiati, i risultati no (budget a nodi, un thread).
+  - 5 avversari:
+    - kaiju: breaker nel Main Deck, Maxx "C" e Mulcharmy;
+    - labrynth: trappole, Ash, Droll, Impermanence, Dominus;
+    - maliss: pieno di handtrap, Bystial;
+    - invoked: Nibiru, Veiler, Ghost Ogre e Belle;
+    - sky_striker: Evenly Matched, Ghost Belle.
+  - Mano: 5 carte estratte con seme fisso, come in `scripts/bench.py`. Poi `combos --nodes 3000 --threads 1 --top 3 --save-lines` e `probe-line --vs` sulle 3 board, con `DUELFORGE_DEBUG_MATCHUP=1`.
+  - 180 misure (12 × 5 × 3), nessun "matchup failed".
+  - In più, l'intestazione di `probe-line --vs` (breaker e handtrap letti) su tutti i 40 deck.
+- **Verifica delle ipotesi:** una copia del repository nello scratchpad (`git worktree`, mai committata), con tracce in più e le correzioni proposte accese da variabili d'ambiente:
+  - `QA_FIX_A`: deck dell'avversario di 35 carte nel rigioco delle handtrap;
+  - `QA_FIX_B`: risposta passiva alle domande nuove dopo la handtrap;
+  - `QA_FIX_D`: risposte della linea rigiocate per identità (carta, zona, effetto, tipo di azione) invece che per indice;
+  - `QA_FIX_C`: nella mappa, la causa di un trigger facoltativo è la carta del trigger.
+- Le misure giravano in parallelo sulla stessa macchina (4 core): i tempi sono un po' gonfiati, i risultati no (budget a nodi, un thread per la ricerca).
+
+## Tabelle
+
+### Mappa dei collegamenti (40 deck)
+Tempo totale per deck; "Isolate": carte senza collegamenti né in entrata né in uscita.
+
+| Deck | Tempo (s) | Carte | Collegamenti | Usati | Cerca | Evoca | Al Cimitero | Recupera | Materiale | Isolate | Mani | Linee |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| argostars | 21.8 | 36 | 17 | 13 | 13 | 2 | 0 | 2 | 0 | 24 | 40 | 780 |
+| artmage | 33.8 | 41 | 106 | 100 | 31 | 47 | 5 | 8 | 15 | 12 | 46 | 920 |
+| banquet_ftk | 44.3 | 33 | 41 | 39 | 18 | 1 | 13 | 9 | 0 | 14 | 34 | 680 |
+| blue_eyes | 40.5 | 35 | 61 | 55 | 17 | 33 | 4 | 7 | 0 | 18 | 36 | 681 |
+| branded | 92.3 | 61 | 394 | 231 | 101 | 96 | 114 | 76 | 7 | 3 | 88 | 1696 |
+| chimera | 79.8 | 49 | 165 | 121 | 56 | 60 | 11 | 17 | 21 | 9 | 65 | 1300 |
+| clown_crew | 16.7 | 30 | 47 | 29 | 18 | 21 | 8 | 0 | 0 | 15 | 37 | 510 |
+| cyber_dragon | 28.3 | 36 | 88 | 80 | 28 | 15 | 18 | 9 | 18 | 12 | 44 | 880 |
+| doomz | 52.0 | 33 | 111 | 103 | 42 | 49 | 9 | 11 | 0 | 11 | 40 | 800 |
+| dracotail | 109.6 | 37 | 140 | 104 | 23 | 58 | 1 | 38 | 20 | 2 | 42 | 840 |
+| earth_machine | 190.2 | 50 | 458 | 243 | 94 | 111 | 83 | 164 | 6 | 3 | 71 | 1420 |
+| elfnote | 35.9 | 37 | 76 | 69 | 25 | 38 | 6 | 7 | 0 | 16 | 40 | 800 |
+| elfnote_kewl_tune | 76.2 | 37 | 120 | 106 | 37 | 51 | 17 | 8 | 7 | 5 | 41 | 820 |
+| enneacraft | 89.1 | 40 | 156 | 66 | 56 | 90 | 10 | 0 | 0 | 17 | 51 | 1020 |
+| exodia | 58.3 | 50 | 38 | 32 | 15 | 13 | 4 | 5 | 1 | 24 | 66 | 1261 |
+| fur_hire | 47.8 | 40 | 132 | 102 | 26 | 65 | 1 | 39 | 1 | 16 | 51 | 1020 |
+| gimmick_puppet | 40.1 | 28 | 101 | 56 | 17 | 46 | 32 | 2 | 4 | 2 | 34 | 640 |
+| insect | 46.9 | 50 | 101 | 74 | 26 | 27 | 32 | 16 | 0 | 19 | 66 | 1320 |
+| invoked | 36.0 | 36 | 62 | 52 | 9 | 37 | 0 | 3 | 13 | 11 | 38 | 760 |
+| k9 | 33.8 | 36 | 58 | 47 | 25 | 21 | 9 | 1 | 2 | 15 | 40 | 794 |
+| kaiju | 107.0 | 36 | 46 | 31 | 8 | 17 | 2 | 19 | 0 | 19 | 41 | 780 |
+| labrynth | 75.0 | 39 | 29 | 26 | 9 | 18 | 0 | 2 | 0 | 20 | 45 | 900 |
+| live_twin | 38.8 | 35 | 67 | 53 | 10 | 31 | 4 | 11 | 11 | 13 | 38 | 760 |
+| lunalight | 641.6 | 38 | 154 | 122 | 36 | 50 | 32 | 19 | 17 | 13 | 46 | 881 |
+| maliss | 31.3 | 32 | 18 | 18 | 11 | 1 | 6 | 0 | 0 | 17 | 35 | 682 |
+| odion | 53.6 | 35 | 9 | 9 | 9 | 0 | 0 | 0 | 0 | 29 | 42 | 840 |
+| orcust | 23.0 | 38 | 83 | 76 | 18 | 14 | 27 | 10 | 14 | 10 | 40 | 800 |
+| phantom_knights_orcust | 40.8 | 39 | 131 | 103 | 27 | 34 | 46 | 12 | 12 | 7 | 43 | 824 |
+| power_patron | 27.5 | 34 | 89 | 79 | 23 | 55 | 4 | 5 | 2 | 10 | 36 | 720 |
+| r_b | 29.6 | 37 | 129 | 109 | 26 | 48 | 26 | 13 | 16 | 9 | 47 | 940 |
+| radiant_typhoon_zoodiac | 31.3 | 36 | 74 | 66 | 32 | 21 | 0 | 15 | 6 | 14 | 40 | 800 |
+| ryzeal_mitsurugi | 30.5 | 42 | 128 | 89 | 71 | 36 | 0 | 19 | 2 | 16 | 48 | 866 |
+| sky_striker | 25.7 | 37 | 104 | 79 | 25 | 24 | 8 | 18 | 29 | 15 | 43 | 860 |
+| synchrons | 58.2 | 41 | 107 | 95 | 35 | 51 | 14 | 2 | 5 | 7 | 47 | 910 |
+| tearlaments | 27.3 | 36 | 145 | 120 | 19 | 17 | 61 | 41 | 7 | 5 | 38 | 760 |
+| tenpai_dragon | 26.9 | 34 | 29 | 22 | 15 | 14 | 0 | 0 | 0 | 26 | 37 | 740 |
+| vanquish_soul_k9 | 43.4 | 39 | 86 | 77 | 43 | 29 | 6 | 2 | 6 | 11 | 46 | 920 |
+| white_forest_azamina | 27.8 | 41 | 76 | 68 | 41 | 18 | 8 | 8 | 1 | 16 | 48 | 960 |
+| yubel | 19.6 | 34 | 66 | 49 | 21 | 27 | 10 | 2 | 6 | 11 | 37 | 738 |
+| yummy | 26.6 | 36 | 68 | 53 | 15 | 29 | 7 | 15 | 2 | 10 | 39 | 780 |
+
+- Tempo: mediana 40 s, 9 deck sopra il minuto (lunalight 642 s, earth_machine 190 s, dracotail 110 s, kaiju 107 s).
+- 4110 collegamenti; 193 partono dalla mano (Evocare dalla mano), soprattutto enneacraft (90).
+- Carte dell'Extra Deck con `chance` 0: 392 su 544 (72%).
+- Carte del Main Deck con `chance` ≥ 95%: 158 su 990, concentrate in branded (34 su 46), cyber_dragon (15 su 24), doomz (14 su 21), lunalight (12 su 26).
+
+### Turno di prova contro un deck
+Prima board di ogni deck. "Campo" e "Resilienza generica" sono la misura standard. Per ogni avversario: resilienza contro di lui, e probabilità che abbia una handtrap che ferma la linea, prima → dopo le correzioni A+B+C/D.
+
+| Deck tuo | Campo | Resilienza generica | kaiju: res. · fermata prima→dopo | labrynth: res. · fermata prima→dopo | maliss: res. · fermata prima→dopo | invoked: res. · fermata prima→dopo | sky_striker: res. · fermata prima→dopo |
+|---|---|---|---|---|---|---|---|
+| branded | 0.35 | 0.29 | 0.30 · 43→0% | 0.29 · 92→90% | 0.29 · 98→88% | 0.29 · 94→78% | 0.29 · 82→64% |
+| tearlaments | 0.44 | 0.14 | 0.13 · 43→0% | 0.14 · 92→90% | 0.14 · 98→88% | 0.14 · 94→78% | 0.14 · 82→64% |
+| yubel | 0.78 | 0.35 | 0.38 · 0→0% | 0.35 · 85→85% | 0.35 · 88→88% | 0.35 · 78→78% | 0.35 · 64→64% |
+| ryzeal_mitsurugi | 1.50 | 1.08 | 1.14 · 0→0% | 1.08 · 90→90% | 1.08 · 88→80% | 1.08 · 78→78% | 1.08 · 64→64% |
+| k9 | 0.60 | 0.18 | 0.26 · 43→0% | 0.18 · 85→82% | 0.18 · 98→88% | 0.18 · 94→74% | 0.18 · 82→64% |
+| white_forest_azamina | 2.26 | 1.47 | 0.92 · 0→0% | 1.47 · 90→90% | 1.47 · 88→88% | 1.47 · 78→78% | 1.47 · 64→64% |
+| dracotail | 0.40 | 0.11 | 0.12 · 43→12% | 0.11 · 92→88% | 0.11 · 98→91% | 0.11 · 94→74% | 0.11 · 82→58% |
+| blue_eyes | 1.29 | 0.40 | 0.35 · 43→43% | 0.40 · 85→85% | 0.40 · 91→91% | 0.40 · 88→88% | 0.40 · 69→69% |
+| synchrons | 1.64 | 0.88 | 1.16 · 0→0% | 0.88 · 90→90% | 0.88 · 88→80% | 0.88 · 78→78% | 0.88 · 64→64% |
+| fur_hire | 0.23 | 0.19 | 0.19 · 43→0% | 0.19 · 92→90% | 0.19 · 96→80% | 0.19 · 94→78% | 0.19 · 82→64% |
+| orcust | 0.49 | 0.40 | 0.42 · 0→0% | 0.40 · 0→0% | 0.40 · 0→0% | 0.40 · 0→0% | 0.40 · 0→0% |
+| yummy | 0.23 | 0.19 | 0.19 · 0→0% | 0.19 · 78→78% | 0.19 · 88→88% | 0.19 · 69→69% | 0.19 · 51→51% |
+
+- Tempo della misura contro un deck: mediana 0,6 s per board, 90% sotto 1,6 s, massimo 2,6 s. Tutto `probe-line --vs` con 3 board: da 1,2 a 10 s.
+- orcust: la mano estratta non fa niente (la board è solo carte coperte), quindi nessun momento per le handtrap.
+- blue_eyes: Ash Blossom ferma 0 momenti su 4, ed è giusto: la linea usa Crossout Designator dichiarando Ash Blossom, che nega le Ash dell'avversario per il turno.
+
+**Fermate per handtrap, sulle 180 board** (momenti fermati / momenti in cui si può usare):
+
+| Handtrap | Prima | A+B | A+B+C/D |
+|---|---|---|---|
+| Maxx "C" | 550/3955 | 305/3955 | 30/3955 |
+| Mulcharmy Fuwalos | 388/3164 | 136/3164 | 12/3164 |
+| Mulcharmy Purulia | 178/1582 | 112/1582 | 6/1582 |
+| Ash Blossom & Joyous Spring | 592/640 | 592/640 | 592/640 |
+| Ghost Ogre & Snow Rabbit | 414/450 | 414/450 | 414/450 |
+| Nibiru, the Primal Being | 303/303 | 303/303 | 303/303 |
+| Dominus Impulse | 298/298 | 298/298 | 298/298 |
+| Dominus Spark | 442/456 | 442/456 | 436/456 |
+| Droll & Lock Bird | 216/309 | 216/309 | 213/309 |
+| Ghost Belle & Haunted Mansion | 142/146 | 142/146 | 142/146 |
+| Songs of the Dominators | 139/142 | 139/142 | 139/142 |
+| Ghost Mourner & Moonlit Chill | 112/193 | 108/193 | 108/193 |
+| Bystial Druiswurm | 257/431 | 239/431 | 205/431 |
+| Bystial Magnamhut | 254/431 | 236/431 | 202/431 |
+| Effect Veiler | 163/617 | 130/617 | 118/617 |
+| Infinite Impermanence | 133/681 | 124/681 | 121/681 |
+
+- Le correzioni tolgono quasi solo fermate false: Ash, Ogre, Nibiru, Dominus, Belle restano uguali.
+- Le fermate di Bystial, Veiler e Droll che spariscono le ho controllate a campione: erano sfasamenti di indice o di forma (vedi Alta 1). Esempio: Droll al momento 12 della linea dracotail "fermava" perché in Fase Finale il trigger di Blazing Cartesia arrivava come `EffectYesNo` invece che in una `SelectChain`.
 
 ## Problemi in ordine di gravità
-Vedi le sezioni sotto; la sintesi è in "Conclusione".
+I comandi usano `<mdm>` per la cartella dei deck e `<out>` per quella dei risultati.
 
-### Alta 1. Maxx "C" e Mulcharmy fermano la linea in 6 deck su 12
+### Alta: risultati sbagliati
+
+#### A1. Turno di prova: Maxx "C" e Mulcharmy fermano la linea in 6 deck su 12
 - **Riprodurre:**
   ```
   python3 scripts/matchup_report.py <out> --decks <mdm> --own tearlaments,k9,fur_hire --vs kaiju
-  duelforge-cli probe-line --deck tearlaments.ydk --lines <out>/tearlaments.lines.json --vs kaiju.ydk --index 0
+  DUELFORGE_DEBUG_MATCHUP=1 duelforge-cli probe-line --deck <mdm>/tearlaments.ydk --lines <out>/tearlaments.lines.json --vs <mdm>/kaiju.ydk --index 0
   ```
-- **Atteso:** 0 momenti (fanno solo pescare l'avversario).
-- **Esce:** Maxx "C" ferma 550 momenti su 3955 (14%), Mulcharmy Fuwalos 388 su 3164 (12%), Purulia 178 su 1582. Su tearlaments 7 momenti su 32, fur_hire 12 su 19, k9 5 su 23, blue_eyes 2 su 27, branded 1 su 23, dracotail 1 su 28. Gli altri 6 deck: 0.
-- **Quattro cause, tutte in `matchup.rs` (`replay`, `hand_trap_stops`):**
-  - **A. Il deck dell'avversario del kit ha 12 carte.** Maxx "C" lo svuota in poche Evocazioni. Pilgrim Reaper ("each player sends the top 5 cards of their Deck") poi non si attiva più, e la linea Tearlaments si sfasa (traccia: risposta 72, la linea attivava Pilgrim Reaper, dopo Maxx "C" non c'è più nella lista).
-  - **B. Domande nuove sì/no trattate come sfasamento.** Maxx "C" e Mulcharmy vanno al Cimitero dalla mano come costo: Necroquip Princess ("If a monster is sent from the hand to the GY to activate a card or effect") riceve un trigger nuovo (`EffectYesNo`). Anche la Fase Finale richiesta di nuovo dopo una catena (`IdleCmd` con solo "End Phase", linea Branded). `replay` risponde in modo semplice solo alle finestre `SelectChain` vuote: qui segna "diverged".
-  - **C. Le risposte della linea sono indici.** Dopo la handtrap la lista delle azioni cambia e lo stesso indice sceglie un'altra carta. K9: dopo Maxx "C" K9-17 Izuna si può Evocare dalla mano ("if your opponent has activated a monster effect in the hand"), e la risposta `[5,0,0,0]` dell'`IdleCmd` sceglie Izuna invece di Chaotic Elements.
-  - **D. La stessa scelta arriva con un'altra forma.** Fur Hire: la pescata di Maxx "C" dà a Rex, Ride Fur Hire un trigger ("If a card is added from the Deck to your opponent's hand"). Il trigger di Rex, Freight Fur Hire, che la linea aveva come `EffectYesNo`, ora è in una `SelectChain` con due trigger.
-  - A parte la A, sono interazioni vere del gioco (K9 e Fur Hire puniscono Maxx "C"), ma la board finale non cambia: la linea si può ancora giocare uguale.
-- **Correzioni proposte (valgono per qualunque deck):**
-  - **A.** In `hand_trap_stops` (e in generale nel kit, vedi Alta 3) dare all'avversario un deck di dimensione vera: le carte del kit più carte semplici fino a 35 (40 meno la mano). Le carte da cercare restano.
-  - **B.** In `replay`, dopo la handtrap: una domanda di tipo diverso da quella della linea che ha una risposta passiva (`EffectYesNo`, `YesNo`, `SelectChain`, `IdleCmd` con solo la fine del turno) riceve la risposta passiva, e la risposta della linea resta per la domanda dopo. Si segna "diverged" solo se non c'è risposta passiva.
-  - **C+D.** In `own_answers` salvare per ogni risposta cosa fa: carta (codice originale), zona, descrizione dell'effetto e tipo di azione (`Action.kind`). In `replay`, dopo la handtrap, cercare nella lista nuova l'azione con la stessa identità e usare la sua risposta; un `EffectYesNo` sì vale come l'attivazione della stessa carta in una `SelectChain`. Se l'azione non c'è più, la linea è fermata. Attenzione al tipo di azione: senza, la prima prova ha scelto "Evoca" al posto di "Posiziona" e ha peggiorato tutto (k9 da 5 a 19 momenti).
-- **Numeri prima → dopo** (stessi 180 casi):
+- **Atteso:** 0 momenti; fanno solo pescare l'avversario.
+- **Esce:** Maxx "C" ferma 550 momenti su 3955 (14%). Per deck: fur_hire 12 su 19, tearlaments 7 su 32, k9 5 su 23, blue_eyes 2 su 27, branded 1 su 23, dracotail 1 su 28. Contro kaiju (Maxx "C" e 3 Fuwalos) la probabilità di essere fermati è 43% invece di 0.
+- **Cause, tutte in `matchup.rs`:**
+  1. **Deck dell'avversario di 12 carte** (`hand_trap_stops` usa `kit.opponent().deck`). Maxx "C" lo svuota in poche Evocazioni. Tearlaments: Pilgrim Reaper ("each player sends the top 5 cards of their Deck") non si attiva più e la linea si sfasa alla risposta 72.
+  2. **Domande nuove sì/no.** Maxx "C" e Mulcharmy vanno al Cimitero dalla mano come costo. Necroquip Princess ("If a monster(s) is sent from the hand to the GY to activate a card or effect") riceve un trigger nuovo (`EffectYesNo`). Branded: dopo una catena in Fase Finale il motore chiede di nuovo un `IdleCmd` con solo "End Phase". `replay` risponde da solo solo alle finestre `SelectChain` vuote; qui segna "diverged".
+  3. **Risposte per indice.** Dopo la handtrap la lista delle azioni cambia, e lo stesso indice sceglie un'altra carta. K9: dopo Maxx "C" si può Evocare K9-17 Izuna ("if your opponent has activated a monster effect in the hand"), e la risposta `[5,0,0,0]` dell'`IdleCmd` sceglie Izuna invece di Chaotic Elements.
+  4. **La stessa scelta in un'altra forma.** Fur Hire: la pescata di Maxx "C" dà un trigger a Rex, Ride Fur Hire ("If a card is added from the Deck to your opponent's hand"). Il trigger di Rex, Freight Fur Hire, che nella linea era un `EffectYesNo`, ora sta in una `SelectChain` con due trigger.
+  - Le cause 2-4 sono interazioni vere del gioco (K9 e Fur Hire puniscono Maxx "C"), ma la linea si può ancora giocare uguale e la board finale non cambia.
+- **Correzioni proposte:**
+  - **A.** In `hand_trap_stops` l'avversario ha un deck di dimensione vera: le carte del kit più carte semplici fino a 35, messe in fondo.
+  - **B.** In `replay`, dopo la handtrap: una domanda di tipo diverso da quella della linea, con una risposta passiva (`EffectYesNo`, `YesNo`, `SelectChain`, `IdleCmd` con solo la fine del turno), riceve la risposta passiva. La risposta della linea resta per la domanda dopo. "diverged" solo se non c'è una risposta passiva.
+  - **C/D.** `own_answers` salva per ogni risposta cosa fa: carta (codice originale), zona, descrizione dell'effetto, tipo di azione (`Action.kind`). In `replay`, dopo la handtrap, si cerca nella lista nuova l'azione con la stessa identità e si usa la sua risposta. Un `EffectYesNo` con sì vale come l'attivazione della stessa carta in una `SelectChain` (lì la descrizione non coincide: si confronta solo carta e zona). Se l'azione non c'è più, la linea è fermata.
+  - Il tipo di azione serve: la prima prova senza ha scelto "Evoca" al posto di "Posiziona" e ha peggiorato tutto (k9 da 5 a 19 momenti).
+- **Numeri:** Maxx "C" 550 → 30, Fuwalos 388 → 12, Purulia 178 → 6 (tabella sopra). Restano 2 casi da capire:
+  - blue_eyes, 1 momento su 27: dopo Maxx "C", attivando Junoldo the Shadespirit Power Patron il motore non apre la finestra in cui la linea concatenava Elfnote Regina;
+  - dracotail, 1 su 28: Maxx "C" usato in Fase Finale, e il trigger di Fase Finale di Blazing Cartesia non viene più offerto.
 
-| Correzione | Maxx "C" | Fuwalos | Purulia | Veiler | Deck con Maxx/Mulcharmy > 0 |
-|---|---|---|---|---|---|
-| nessuna | 550/3955 | 388/3164 | 178/1582 | 163/617 | 6 su 12 |
-| A + B | 305/3955 | 136/3164 | 112/1582 | 130/617 | 4 su 12 |
-| A + B + C/D | *(in misura)* | | | | |
-
-### Alta 2. Mappa: la causa di un trigger facoltativo è la carta dell'ultima azione
-- **Riprodurre:** `duelforge-cli links --deck branded.ydk`.
+#### A2. Mappa: la causa di un trigger facoltativo è la carta dell'ultima azione
+- **Riprodurre:** `duelforge-cli links --deck <mdm>/branded.ydk`
 - **Atteso:** Branded in High Spirits non Evoca niente ("Reveal 1 monster ... send 1 Level 8 Fusion Monster from your Extra Deck to the GY").
-- **Esce:** "Branded in High Spirits → summon grave" verso 9 mostri (Fallen of Albaz, Incredible Ecclesia...), e Alba-Lenatus verso 3.
-- **Causa:** in `links.rs`, `play` aggiorna `reader.acting` solo per `IdleCmd` e `SelectChain`. Guiding Quem si attiva con un `EffectYesNo` ("If a card leaves the Extra Deck"), e il suo bersaglio dal Cimitero (`SelectCard`, suggerimento 509) viene dato alla carta dell'ultima azione, High Spirits.
-- **Correzione:** quando rispondi sì a un `EffectYesNo` (o a una `SelectChain` con `triggers: true`), `acting` diventa quella carta.
-- **Prova:** nella copia sperimentale (`QA_FIX_C`) sul deck Branded spariscono esattamente quei 12 collegamenti, nessun altro cambia (394 → 382).
-- Altri casi con lo stesso schema, da ricontrollare dopo la correzione: Infinitrack Goliath e Superdreadnought Rail Cannon Juggernaut Liebe "recover" (earth_machine), Vernusylph of the Thawing Mountains "recover", Deception of the Sinful Spoils "summon grave" (chimera), Branded Banishment "search" di Starliege Seyfert.
+- **Esce:** "Branded in High Spirits → summon grave" verso 9 mostri (Fallen of Albaz, Incredible Ecclesia...), e "Alba-Lenatus the Abyss Dragon → summon" verso 3.
+- **Causa:** in `links.rs`, `play` aggiorna `reader.acting` solo per `IdleCmd` e `SelectChain`. Guiding Quem si attiva con un `EffectYesNo` ("If a card(s) leaves the Extra Deck"). Il suo bersaglio nel Cimitero (`SelectCard`, suggerimento 509) va alla carta dell'ultima azione, High Spirits.
+- **Correzione:** rispondendo sì a un `EffectYesNo`, `acting` diventa la carta di quel trigger.
+- **Prova:** con `QA_FIX_C` sul deck Branded spariscono esattamente quei 12 collegamenti, nessun altro cambia (394 → 382).
+- Stesso schema, da ricontrollare dopo la correzione:
+  - Haggard Lizardose e S:P Little Knight "search" Bystial Druiswurm (maliss);
+  - Infinitrack Goliath e Superdreadnought Rail Cannon Juggernaut Liebe "recover" (earth_machine);
+  - Moon of the Closed Heaven e Fiendsmith's Agnumday "recover" (kaiju);
+  - Deception of the Sinful Spoils "summon grave" (chimera);
+  - Branded Banishment "search" Starliege Seyfert (branded).
 
-### Alta 3. Il deck dell'avversario del kit ha 12 carte (ricerca e mappa)
-- That Grass Looks Greener manda al Cimitero carte finché il Deck è grande come quello dell'avversario. In goldfish ne manda 43 su 55 (deck Branded da 60).
+#### A3. Mappa: i materiali di R.B. Shepherd's Crook
+- **Riprodurre:** `duelforge-cli links --deck <mdm>/r_b.ydk`
+- **Atteso:** materiali nominati solo dai mostri "R.B." ("2+ monsters, including an "R.B." monster").
+- **Esce:** materiale anche da Clockwork Knight, Mulcharmy Fuwalos, Night Train Blue Traveler.
+- **Causa:** `Names::new` taglia la riga dei materiali al primo punto (`split(['.', '\n'])`). Resta `including an "r`, quindi l'archetipo citato è "r", e quasi ogni nome lo contiene.
+- **Correzione:** per i mostri dell'Extra Deck la riga dei materiali è la prima riga del testo: tagliare solo a `\n`. Tra i 40 deck è l'unico caso con un punto dentro le virgolette. Lo stesso problema avrebbero "D.D.", "U.A." e simili.
+
+#### A4. Il deck dell'avversario del kit ha 12 carte (ricerca e mappa)
+- That Grass Looks Greener manda carte al Cimitero finché il Deck è grande come quello dell'avversario. In goldfish ne manda 43 su 55 (deck Branded da 60); in partita, contro un deck da 35, ne manderebbe 20.
   ```
-  duelforge-cli combos --deck branded.ydk --hand "That Grass Looks Greener;Droll & Lock Bird;Maxx \"C\";Pot of Sloth;Nadir Servant" --nodes 800 --threads 1 --top 1 --lines
+  duelforge-cli combos --deck <mdm>/branded.ydk --hand "That Grass Looks Greener;Droll & Lock Bird;Maxx \"C\";Pot of Sloth;Nadir Servant" --nodes 800 --threads 1 --top 1 --lines
   ```
-  In partita, contro un deck da 35 carte, ne manderebbe 20.
-- Sulla mappa: "That Grass Looks Greener → toGrave" verso 38 carte, ognuna "usata" nel 22-24% delle linee.
-- Vale per ogni effetto che guarda il deck dell'avversario: Pilgrim Reaper (sopra), le pescate di Maxx "C", Pot of Sloth (carte controllate dall'avversario).
-- **Correzione:** `Kit::standard` (`probe.rs`) riempie il deck dell'avversario di carte semplici fino a 35, in fondo, così le carte da cercare restano. Cambia la ricerca: va misurata con il protocollo (bench prima e dopo).
+- Sulla mappa: "That Grass Looks Greener → toGrave" verso 38 carte, ognuna "usata" nel 22-24% delle linee. È anche la causa principale della `chance` satura di Branded (vedi M4).
+- Vale per ogni effetto che guarda il deck dell'avversario: Pilgrim Reaper (A1), le pescate di Maxx "C".
+- **Correzione:** `Kit::standard` (`probe.rs`) riempie il deck dell'avversario di carte semplici fino a 35, in fondo, così le carte da cercare restano. Tocca la ricerca, quindi va misurata con il protocollo (bench prima e dopo).
 
-### Media
-*(da completare)*
+#### A5. Turno di prova: breaker falsi tolgono quelli standard
+- **Riprodurre:**
+  ```
+  duelforge-cli probe-line --deck <mdm>/branded.ydk --lines <out>/branded.lines.json --vs <mdm>/cyber_dragon.ydk --index 0
+  ```
+- **Atteso:** cyber_dragon non ha breaker nel Main Deck: si usano quelli standard, resilienza 0,29 come la generica.
+- **Esce:** "breakers: Clockwork Night", che toglie 500 ATK e non distrugge niente. La resilienza contro cyber_dragon diventa 0,35 (tutto il campo), più alta di quella generica.
+- Altri breaker falsi trovati sui 40 deck:
+  - Argostars - Home Stadium;
+  - Clown Crew Cappello;
+  - Plundered Power Patron Plane - Vidolia (doomz, power_patron);
+  - R.B. Ga10 Pile Bunker (distrugge solo in battaglia);
+  - Yummyusment★Acroquey.
+  - Il testo li prende ("negate its effects", "shuffle all", "lose ATK"...). `playable` li accetta perché le Magie Continue e di Terreno si attivano dalla mano.
+- **Correzione:** in `playable`, giocare ogni candidato contro il campo finto (3 mostri, 2 carte coperte) e tenerlo solo se quel campo perde qualcosa. Più semplice: in `matchup`, se tutti i breaker dell'avversario lasciano la board intera, usare quelli standard (`standard_breakers = true`).
 
-### Bassa
-*(da completare)*
+### Media: collegamenti, breaker o handtrap mancanti
+
+#### M1. Turno di prova: breaker veri non riconosciuti (deck kaiju)
+- Interrupted Kaiju Slumber ("Destroy as many monsters on the field as possible") e Ultimate Slayer ("target 1 monster your opponent controls ...; shuffle it into the Deck") non sono tra i breaker.
+- **Cause:**
+  - `breakers_by_text` (`roles.rs`) non conosce "as many ... as possible" né "shuffle ... into the Deck";
+  - `playable` dà all'avversario il deck del kit e un Extra Deck vuoto: Ultimate Slayer ("Send 1 monster from your Extra Deck to the GY") non si può attivare. Lo stesso vale nella partita del breaker (`Kit::with_breakers` aggiunge solo la carta alla mano).
+- **Correzione:** aggiungere le due frasi al testo dei breaker; in `playable` e nel kit con i breaker dell'avversario usare il suo Main Deck e il suo Extra Deck veri.
+- Effetto sulla misura: contro kaiju la resilienza è ottimista. white_forest_azamina scende già da 1,47 a 0,92 con i Kaiju; con Slumber scenderebbe ancora.
+
+#### M2. Mappa: "Posiziona dal Deck" non è un collegamento
+- Il confronto con il testo segnala 34 carte che mettono una Magia o Trappola dal Deck sul campo (qualcuna per errore della regex, come Urgent Schedule). La mappa non vede questo passo. Esempi controllati:
+  - Dracotail: Phryxul, Mululu, Lukias, Faimena, Urgula, Pan ("Set 1 "Dracotail" Spell/Trap from your Deck");
+  - Virakam ("Set 1 "Invocation" ... from your Deck");
+  - Albion the Branded Dragon, Keel (Fur Hire), Artmage Graflare, Diabellstar, Triple Tactics Thrust, "A Case for K9", Treasures of the Kings;
+  - Elfnote Tinia ("Place 1 "Elfnote" Continuous Spell from your Deck face-up on your field"): la usa la prima linea blue_eyes, e sulla mappa non ha nessun collegamento.
+- **Correzione:** in `Reader::see`, il movimento Deck → zona Magie e Trappole (o Terreno) diventa un tipo nuovo, `set` ("porta dal Deck sul campo"). In `offered`, il suggerimento 510 (HINTMSG_SET) dal Deck. Conta come "porta in gioco" per `reachAll` e `chance`.
+- Tocca il contratto `DeckLinks` (`lib.rs` ↔ `api.ts`): un tipo in più.
+
+#### M3. Mappa: i materiali di Fusione mandati dal Deck non sono "manda al Cimitero"
+- **Riprodurre:** `duelforge-cli links --deck <mdm>/branded.ydk`. Branded Fusion ("using 2 monsters from your hand, Deck, or field as Fusion Material") ha solo collegamenti "summon".
+- **Causa:** in `Reader::see` un movimento con `reason::MATERIAL` va solo in `used_materials` e non diventa mai `ToGrave`.
+- **Correzione:** se il materiale parte dal Deck, aggiungere anche `(causa, carta, ToGrave, Deck)`.
+
+#### M4. Mappa: la `chance` si satura e l'Extra Deck resta a 0
+- **Saturazione:** Branded ha 34 carte del Main Deck su 46 con `chance` ≥ 95%. `brings` conta come "porta in gioco" anche `ToGrave` dal Deck. Così Foolish Burial e That Grass Looks Greener "portano" quasi tutto il deck, e tutto il deck porta a tutto.
+  - **Correzione:** per `reachAll` e `chance` contare solo cerca, Evoca, posiziona (M2) e materiale. Oppure mostrare due probabilità: "in mano o in campo" e "nel Cimitero".
+- **Extra Deck a 0:** 392 mostri dell'Extra Deck su 544 hanno `chance` 0 (Synchro e Link con materiali generici), anche quando sono in quasi tutte le linee (Ecclesia and the Dark Dragon nelle linee Branded).
+  - È un limite scritto nel piano, ma riguarda il 72% delle carte dell'Extra Deck.
+  - **Proposta:** per questi mostri, la frazione (pesata) delle mani cercate in cui una linea li Evoca, con una nota "misurata, non esatta".
+
+#### M5. Mappa: rimescolare nel Deck conta come "recupera"
+- The Dragon that Devours the Dogma ("shuffle up to 2 cards from any GY(s) and/or banishment into the Deck") e Ecclesia and the Dark Dragon ("shuffle both of those cards and this card into the Deck") risultano "recover" verso 16 e 3 carte.
+- **Causa:** `Recover` comprende Cimitero → Deck.
+- **Correzione:** `Recover` solo verso la mano. Cimitero → Deck non è un collegamento (o è un tipo a parte, non contato nella raggiungibilità).
+
+### Bassa: tempi e cose da chiarire
+
+#### B1. Tempo della mappa
+- Mediana 40 s, ma 9 deck su 40 sopra il minuto: lunalight 642 s, earth_machine 190 s, dracotail 110 s, kaiju 107 s. L'obiettivo del piano è sotto il minuto.
+- Le misure giravano accanto alle altre: i tempi da soli sono in misura.
+- **Proposta:** un tempo massimo per mano più basso (`time_limit` è 60 s per mano) e un tempo totale; oppure meno mani per le carte che compaiono già in molte mani cercate.
+
+#### B2. `--nodes` e `--hands` più alti
+- In misura su invoked, yubel e k9.
+
+#### B3. Cose che sembrano errori ma non lo sono
+- Ash Blossom ferma 0 momenti nelle linee blue_eyes: la linea gioca Crossout Designator su Ash Blossom.
+- Predaplant Verte Anaconda "summon extra" e Transaction Rollback "summon"/"search": copiano l'effetto di un'altra carta, quindi la causa è giusta.
+- Subspace Battle "toGrave" dal Deck: il mostro rivelato con meno ATK viene distrutto dal Deck.
+- Molti "mancanti" dei deck con trappole (odion, labrynth) o con effetti nel turno dell'avversario: la ricerca gioca solo il primo turno.
+- Super Polymerization e Fallen of Albaz senza "summon extra": servono mostri dell'avversario, e in goldfish non ce ne sono.
+
+#### B4. Uscita della CLI
+- `probe-line --vs` stampa "Lightning Storm" due volte tra i breaker (le due opzioni): basta il nome con l'opzione, come nel kit.
+- Nel JSON di `probe-line` la misura contro il deck non ha il tempo: per le tabelle l'ho letto dall'output di testo.
 
 ## Conclusione
-*(da completare)*
+Le prime correzioni da fare, in ordine:
+1. **Rigioco delle handtrap (`matchup.rs`):** deck dell'avversario di 35 carte (A), risposta passiva alle domande nuove (B), risposte per identità e non per indice (C/D). Provate insieme sulle 180 board: le fermate false di Maxx "C" e Mulcharmy passano da 1116 a 48, le fermate vere restano. È la correzione che cambia di più i numeri che l'utente vede.
+2. **Causa dei trigger facoltativi nella mappa (`links.rs`, `play`):** una riga; toglie collegamenti falsi in molti deck (12 nel solo Branded).
+3. **Materiali tagliati al punto (`links.rs`, `Names::new`):** tagliare solo a fine riga.
+4. **Breaker dell'avversario (`matchup.rs` `playable`, `roles.rs`):** tenere solo quelli che tolgono qualcosa al campo finto; aggiungere "as many ... as possible" e "shuffle ... into the Deck"; usare il Main Deck e l'Extra Deck veri dell'avversario.
+5. **Deck dell'avversario del kit a 35 carte (`probe.rs`):** cambia la ricerca, quindi va fatta con il protocollo bench prima/dopo.
+6. Poi la mappa: tipo "posiziona dal Deck" (contratto con l'interfaccia), materiali dal Deck come "manda al Cimitero", `chance` senza il Cimitero, "recupera" solo verso la mano, tempo massimo.
+
+Gli script per ripetere tutto: `scripts/links_report.py` e `scripts/matchup_report.py` (con `--cli` per confrontare due build, `--skip-run` per rifare solo le tabelle).
