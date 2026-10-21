@@ -764,6 +764,11 @@ fn replay(engine: &Engine, deck: &DeckList, hand: &[u32], seed: u64, opponent: &
         if decision.player() != Some(1) {
             if used {
                 let kind = std::mem::discriminant(&decision);
+                // Passes of the line the engine no longer asks for are left
+                // out first: the question after them is the line's own.
+                while next < own.answers.len() && own.kinds[next] != kind && own.answers[next] == PASS {
+                    next += 1;
+                }
                 let expected = own.ids.get(next).copied().flatten();
                 // The line's next action, found again by what it is.
                 if let Some(answer) = expected.and_then(|id| find_again(engine, &decision, &actions, id)) {
@@ -774,15 +779,14 @@ fn replay(engine: &Engine, deck: &DeckList, hand: &[u32], seed: u64, opponent: &
                 }
                 // A question the line was not asked here (to respond to the
                 // handtrap, a trigger it brought, the End Phase asked again):
-                // you decline it, and the line goes on.
+                // you decline it, and the line goes on. A chance to chain to
+                // the handtrap is one; a yes or no of your effect resolving
+                // under it is the line's own.
                 let same_question = own.kinds.get(next) == Some(&kind) && expected.is_none();
-                if declinable(&decision) && (theirs_on_top || !same_question) {
+                let to_theirs = theirs_on_top && matches!(decision, Decision::SelectChain { .. });
+                if declinable(&decision) && (to_theirs || !same_question) {
                     duel.respond(&passive_answer(&decision, &actions));
                     continue;
-                }
-                // Passes of the line the engine no longer asks for are left out.
-                while next < own.answers.len() && own.kinds[next] != kind && own.answers[next] == PASS {
-                    next += 1;
                 }
                 // Asked something else, or the line's action is gone: the
                 // handtrap changed the line.

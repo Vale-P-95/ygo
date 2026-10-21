@@ -152,7 +152,10 @@ Il proprietario ha chiesto di trovare il compromesso tra le carte che l'avversar
 | Branded (Aluber, Branded Fusion, Ecclesia) | 5 | 3 | 1 | da Ecclesia in poi 0 |
 
 - **Cosa dice.** Le linee lunghe (Tearlaments, Invoked) regalano molte carte se Maxx "C" arriva presto. Il passo 2 deve dire fino a dove conviene continuare: il valore della board a ogni punto di arresto contro le carte regalate.
-- **Resta da guardare.** In ogni linea c'è un momento in cui tutte e tre "fermano" la linea (Magical Meltdown, The Fallen & The Virtuous, Fiendsmith Engraver, Razen). È probabilmente un effetto "quando" che perde il tempismo per la catena della handtrap.
+- **Due regressioni corrette** (trovate dal collaudo dopo la PR #23):
+  - **R1.** Il segnale "l'ultimo anello della catena è dell'avversario" restava acceso per tutta la risoluzione, quindi il sì/no di un tuo effetto che si risolveva sotto Maxx "C" veniva rifiutato. Ora vale solo per le finestre di catena.
+  - **R2.** I passaggi della linea che il motore non chiede più si saltano prima di decidere se rifiutare una domanda.
+  - Sulle quattro linee del passo 1, Maxx "C", Fuwalos e Purulia passano da un momento "fermato" per linea a 0, tranne K9 (1 su 21, a Razen). Le fermate vere di Ash, Saronir e Droll restano.
 
 ### Maxx "C" e Mulcharmy, passo 2: dove fermare la linea (21/10/2026)
 - **La domanda.** L'avversario usa Maxx "C" (o una Mulcharmy) al primo momento utile. Conviene finire la linea, o fermarsi prima e regalargli meno carte?
