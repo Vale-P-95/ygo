@@ -1,10 +1,11 @@
 //! A running duel: owns an engine instance and its reader callbacks.
 
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::ffi::{CStr, CString};
+use std::mem::ManuallyDrop;
 use std::os::raw::{c_char, c_int, c_void};
 use std::path::Path;
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 
 use crate::carddb::CardDb;
 use crate::consts::{card_type, duel_flags, location, position, summon_type};
@@ -134,7 +135,12 @@ unsafe extern "C" fn log_handler(payload: *mut c_void, text: *const c_char, _kin
 
 pub struct Duel {
     raw: OCG_Duel,
-    ctx: Box<Context>,
+    ctx: ManuallyDrop<Box<Context>>,
+    /// Kept for the thread's next duel when dropped (see [`Spare`]).
+    reusable: bool,
+    /// With `DUELFORGE_CHECK_REUSE=1`, a reused duel plays the same in a
+    /// new duel next to it, and must reach the same states.
+    shadow: Option<Box<Duel>>,
     select_hint: u64,
     /// The decision waiting for an answer: after a rejected answer the engine
     /// does not ask again, so another answer must be given to this one.
@@ -191,39 +197,133 @@ pub struct Opponent {
 // shared card data and scripts are read-only.
 unsafe impl Send for Duel {}
 
+/// A duel over, kept by its thread to be emptied and used for the next one:
+/// its base scripts stay loaded (shim/reuse.cpp), which saves about half of
+/// what a short duel costs. `DUELFORGE_FRESH_DUELS=1` makes every duel new.
+struct Spare {
+    raw: OCG_Duel,
+    ctx: ManuallyDrop<Box<Context>>,
+}
+
+impl Drop for Spare {
+    fn drop(&mut self) {
+        unsafe {
+            df_duel_destroy(self.raw);
+            ManuallyDrop::drop(&mut self.ctx);
+        }
+    }
+}
+
+thread_local! {
+    static SPARE: RefCell<Option<Spare>> = const { RefCell::new(None) };
+    /// See [`fresh_duels`].
+    static FRESH: Cell<bool> = const { Cell::new(false) };
+    /// The card scripts are not loaded ahead (see `df_duel_preload`).
+    static NO_PRELOAD: Cell<bool> = const { Cell::new(false) };
+}
+
+fn check_reuse() -> bool {
+    static CHECK: OnceLock<bool> = OnceLock::new();
+    *CHECK.get_or_init(|| std::env::var_os("DUELFORGE_CHECK_REUSE").is_some())
+}
+
+fn reuse_duels() -> bool {
+    static REUSE: OnceLock<bool> = OnceLock::new();
+    *REUSE.get_or_init(|| std::env::var_os("DUELFORGE_FRESH_DUELS").is_none()) && !FRESH.with(|f| f.get())
+}
+
+/// Every duel of this thread new from now on (`true`), or reused when
+/// possible: to check that a reused duel plays like a new one.
+#[doc(hidden)]
+pub fn fresh_duels(fresh: bool) {
+    FRESH.with(|f| f.set(fresh));
+    if fresh {
+        SPARE.with(|s| s.borrow_mut().take());
+    }
+}
+
+fn duel_options(config: &DuelConfig, ctx: &Context) -> OCG_DuelOptions {
+    let payload = ctx as *const Context as *mut c_void;
+    let player = OCG_Player { starting_lp: config.starting_lp, starting_draw_count: 0, draw_count_per_turn: 1 };
+    OCG_DuelOptions {
+        seed: config.seed,
+        flags: config.flags,
+        team1: player,
+        team2: player,
+        card_reader: Some(card_reader),
+        payload1: payload,
+        script_reader: Some(script_reader),
+        payload2: payload,
+        log_handler: Some(log_handler),
+        payload3: payload,
+        card_reader_done: Some(card_reader_done),
+        payload4: payload,
+        enable_unsafe_libraries: 0,
+    }
+}
+
 impl Duel {
     pub fn new(engine: &Engine, config: &DuelConfig) -> Result<Self, Error> {
+        if let Some(mut duel) = Self::reused(engine, config) {
+            if check_reuse() {
+                duel.shadow = Some(Box::new(Self::fresh(engine, config)?));
+            }
+            return Ok(duel);
+        }
+        let mut duel = Self::fresh(engine, config)?;
+        duel.reusable = reuse_duels() && unsafe { df_duel_snapshot(duel.raw) } != 0;
+        Ok(duel)
+    }
+
+    /// A duel with the base scripts loaded just now.
+    fn fresh(engine: &Engine, config: &DuelConfig) -> Result<Self, Error> {
         let ctx = Box::new(Context {
             cards: engine.cards.clone(),
             scripts: engine.scripts.clone(),
             missing_scripts: RefCell::default(),
             log: RefCell::default(),
         });
-        let payload = &*ctx as *const Context as *mut c_void;
-        let player = OCG_Player { starting_lp: config.starting_lp, starting_draw_count: 0, draw_count_per_turn: 1 };
-        let options = OCG_DuelOptions {
-            seed: config.seed,
-            flags: config.flags,
-            team1: player,
-            team2: player,
-            card_reader: Some(card_reader),
-            payload1: payload,
-            script_reader: Some(script_reader),
-            payload2: payload,
-            log_handler: Some(log_handler),
-            payload3: payload,
-            card_reader_done: Some(card_reader_done),
-            payload4: payload,
-            enable_unsafe_libraries: 0,
-        };
+        let options = duel_options(config, &ctx);
         let mut raw: OCG_Duel = std::ptr::null_mut();
         let status = unsafe { OCG_CreateDuel(&mut raw, &options) };
         if status != OCG_DUEL_CREATION_SUCCESS || raw.is_null() {
             return Err(Error::Engine(format!("duel creation failed (status {status})")));
         }
-        let duel = Duel {
+        let duel = Self::with(raw, ManuallyDrop::new(ctx));
+        for base in ["constant.lua", "utility.lua"] {
+            if !duel.load_script(base) {
+                return Err(Error::Engine(format!("cannot load {base}: {}", duel.log().join("; "))));
+            }
+        }
+        Ok(duel)
+    }
+
+    /// The thread's spare duel emptied for a new one, if it has one for
+    /// this engine.
+    fn reused(engine: &Engine, config: &DuelConfig) -> Option<Self> {
+        let spare = SPARE.with(|s| s.borrow_mut().take())?;
+        if !Arc::ptr_eq(&spare.ctx.cards, &engine.cards) || !Arc::ptr_eq(&spare.ctx.scripts, &engine.scripts) {
+            return None;
+        }
+        spare.ctx.log.borrow_mut().clear();
+        spare.ctx.missing_scripts.borrow_mut().clear();
+        let options = duel_options(config, &spare.ctx);
+        if unsafe { df_duel_reset(spare.raw, &options) } == 0 {
+            return None;
+        }
+        let mut spare = ManuallyDrop::new(spare);
+        let ctx = unsafe { ManuallyDrop::take(&mut spare.ctx) };
+        let mut duel = Self::with(spare.raw, ManuallyDrop::new(ctx));
+        duel.reusable = true;
+        Some(duel)
+    }
+
+    fn with(raw: OCG_Duel, ctx: ManuallyDrop<Box<Context>>) -> Self {
+        Duel {
             raw,
             ctx,
+            reusable: false,
+            shadow: None,
             select_hint: 0,
             pending: None,
             last_response: Vec::new(),
@@ -235,13 +335,7 @@ impl Duel {
             open_chain: 0,
             chain: Vec::new(),
             last_turn: None,
-        };
-        for base in ["constant.lua", "utility.lua"] {
-            if !duel.load_script(base) {
-                return Err(Error::Engine(format!("cannot load {base}: {}", duel.log().join("; "))));
-            }
         }
-        Ok(duel)
     }
 
     /// Creates a duel for solitaire testing ("goldfishing"): player 0 starts
@@ -339,6 +433,25 @@ impl Duel {
             starting_lp: 8000,
         };
         let mut duel = Duel::new(engine, &config)?;
+        if duel.reusable && !NO_PRELOAD.with(Cell::get) {
+            let theirs = opponent.into_iter().flat_map(|o| o.deck.iter().chain(&o.extra).chain(&o.hand));
+            let codes: Vec<u32> = main
+                .iter()
+                .chain(&extra)
+                .chain(&hand_codes)
+                .chain(theirs)
+                .copied()
+                .chain(placed.iter().flat_map(|p| std::iter::once(p.code).chain(p.overlay.iter().copied())))
+                .collect();
+            if unsafe { df_duel_preload(duel.raw, codes.as_ptr(), codes.len()) } == 0 {
+                // A script did more than define its card when loaded: this
+                // duel is not like a new one. A new duel, and no more
+                // loading ahead on this thread.
+                NO_PRELOAD.with(|n| n.set(true));
+                duel.reusable = false;
+                duel = Self::fresh(engine, &config)?;
+            }
+        }
         for (i, &code) in main.iter().enumerate() {
             duel.add_card(0, code, location::DECK, i as u32, position::FACEDOWN_DEFENSE);
         }
@@ -394,19 +507,24 @@ impl Duel {
 
     /// Runs a script of the script folder in this duel (for diagnostics).
     #[doc(hidden)]
-    pub fn run_lua(&self, name: &str) -> bool {
+    pub fn run_lua(&mut self, name: &str) -> bool {
+        // What it changes may not be undone for the next duel.
+        self.reusable = false;
         self.load_script(name)
     }
 
     /// Runs Lua code in this duel (the `Debug` library included).
     fn run_lua_source(&self, name: &str, source: &str) -> bool {
+        if let Some(shadow) = &self.shadow {
+            shadow.run_lua_source(name, source);
+        }
         let name = CString::new(name).expect("script name without NUL");
         unsafe { OCG_LoadScript(self.raw, source.as_ptr() as *const c_char, source.len() as u32, name.as_ptr()) != 0 }
     }
 
     fn load_script(&self, name: &str) -> bool {
         let name = CString::new(name).expect("script name without NUL");
-        let payload = &*self.ctx as *const Context as *mut c_void;
+        let payload = &**self.ctx as *const Context as *mut c_void;
         unsafe { script_reader(payload, self.raw, name.as_ptr()) != 0 }
     }
 
@@ -416,14 +534,36 @@ impl Duel {
         }
         let info = OCG_NewCardInfo { team: owner, duelist: 0, code, con: owner, loc: location as u32, seq: sequence, pos: position };
         unsafe { OCG_DuelNewCard(self.raw, &info) };
+        if let Some(shadow) = &mut self.shadow {
+            shadow.add_card(owner, code, location, sequence, position);
+        }
     }
 
     pub fn start(&mut self) {
         unsafe { OCG_StartDuel(self.raw) };
+        if let Some(shadow) = &mut self.shadow {
+            shadow.start();
+        }
     }
 
     /// Runs the engine until it needs a decision or the duel ends.
     pub fn advance(&mut self) -> Result<Step, Error> {
+        let step = self.advance_once();
+        if let Some(mut shadow) = self.shadow.take() {
+            shadow.last_turn = self.last_turn;
+            let fresh = shadow.advance_once();
+            let (a, b) = (format!("{step:?}"), format!("{fresh:?}"));
+            let (sa, sb) = (self.state(), shadow.state());
+            self.shadow = Some(shadow);
+            if a != b || sa != sb {
+                eprintln!("a reused duel plays differently from a new one\nreused: {a}\n{sa:?}\nnew: {b}\n{sb:?}");
+                std::process::abort();
+            }
+        }
+        step
+    }
+
+    fn advance_once(&mut self) -> Result<Step, Error> {
         let mut events = Vec::new();
         loop {
             let status = unsafe { OCG_DuelProcess(self.raw) };
@@ -458,6 +598,7 @@ impl Duel {
                 return Ok(Step::Decision { decision, events });
             }
             if events.contains(&Event::Retry) {
+                self.reusable = false;
                 // The engine still waits for an answer to `pending`.
                 let mut why = format!("{:?} answered {:?}", self.pending, self.last_response);
                 for line in self.log() {
@@ -573,6 +714,9 @@ impl Duel {
     }
 
     pub fn respond(&mut self, response: &[u8]) {
+        if let Some(shadow) = &mut self.shadow {
+            shadow.respond(response);
+        }
         self.last_response = response.to_vec();
         unsafe { OCG_DuelSetResponse(self.raw, response.as_ptr() as *const c_void, response.len() as u32) };
     }
@@ -604,7 +748,12 @@ impl Duel {
 
 impl Drop for Duel {
     fn drop(&mut self) {
-        unsafe { OCG_DestroyDuel(self.raw) };
+        let ctx = unsafe { ManuallyDrop::take(&mut self.ctx) };
+        let spare = Spare { raw: self.raw, ctx: ManuallyDrop::new(ctx) };
+        if self.reusable && !std::thread::panicking() {
+            // try_with: the thread may be exiting.
+            let _ = SPARE.try_with(|s| s.borrow_mut().replace(spare));
+        }
     }
 }
 

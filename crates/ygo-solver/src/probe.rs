@@ -498,6 +498,32 @@ pub(crate) enum Prelude<'a> {
     Own(&'a [Vec<u8>]),
 }
 
+/// What a measure plays besides each response alone: all of them together
+/// (what they share), and the board breakers. Each costs runs (a duel each).
+#[derive(Clone, Copy)]
+struct Parts {
+    together: bool,
+    breakers: bool,
+}
+
+impl Parts {
+    const ALL: Parts = Parts { together: true, breakers: true };
+}
+
+/// The opponent's hand and GY, what the goals of a step look at (cheaper
+/// to read than the whole duel).
+struct Piles {
+    hand: Vec<u32>,
+    grave: Vec<u32>,
+}
+
+impl Piles {
+    fn of(duel: &Duel) -> Piles {
+        let codes = |loc| duel.query_location(1, loc).into_iter().flatten().map(|(code, _)| code).collect();
+        Piles { hand: codes(location::HAND), grave: codes(location::GRAVE) }
+    }
+}
+
 /// A moment to respond in a run: `(step, window in the step)`.
 type WindowAt = (usize, usize);
 
@@ -856,16 +882,29 @@ impl<'a> Prober<'a> {
 
     /// Measures the board reached by `line`.
     pub fn measure(&mut self, line: &Line) -> Result<Measure, Error> {
-        self.measure_from(Prelude::Line(line))
+        self.measure_from(Prelude::Line(line), Parts::ALL)
     }
 
     /// Measures a board put straight on the field (with the hand of the
     /// prober), without playing the turn that makes it.
     pub fn measure_placed(&mut self, placed: &[Placement]) -> Result<Measure, Error> {
-        self.measure_from(Prelude::Placed(placed))
+        self.measure_from(Prelude::Placed(placed), Parts::ALL)
     }
 
-    fn measure_from(&mut self, prelude: Prelude) -> Result<Measure, Error> {
+    /// [`Prober::measure`] of each interruption alone ([`Interruption::alone`]):
+    /// the runs that only change the rest are not played.
+    pub(crate) fn measure_alone(&mut self, line: &Line) -> Result<Measure, Error> {
+        self.measure_from(Prelude::Line(line), Parts { together: false, breakers: false })
+    }
+
+    /// [`Prober::measure_placed`] without the board breakers: no
+    /// [`Measure::breakers`], and the [`Measure::resilience`] of a board none
+    /// is tried on.
+    pub(crate) fn measure_placed_unbroken(&mut self, placed: &[Placement]) -> Result<Measure, Error> {
+        self.measure_from(Prelude::Placed(placed), Parts { together: true, breakers: false })
+    }
+
+    fn measure_from(&mut self, prelude: Prelude, parts: Parts) -> Result<Measure, Error> {
         let all_steps: Vec<&KitStep> = self.kit.steps.iter().collect();
         if self.baseline.is_none() {
             self.baseline = Some(self.run(Prelude::EndAtOnce, &all_steps, Policy::Pass)?);
@@ -1014,7 +1053,7 @@ impl<'a> Prober<'a> {
 
         // All together, the strongest first: an effect the engine no longer
         // offers once the others are used (its cost is gone) counts less.
-        if interruptions.len() > 1 {
+        if parts.together && interruptions.len() > 1 {
             let order: Vec<ResponderId> = interruptions.iter().map(|i| i.responder).collect();
             // Without what the responses bring: what they stop earlier would
             // leave the others nothing to stop, and they are not short of
@@ -1040,7 +1079,7 @@ impl<'a> Prober<'a> {
         // Resilience is how the field holds: handtraps are out of the
         // breakers' reach and already counted on their own.
         let total = field_total(&interruptions);
-        let breakers = self.breakers(prelude, &interruptions, &self.kit.breakers);
+        let breakers = if parts.breakers { self.breakers(prelude, &interruptions, &self.kit.breakers) } else { Vec::new() };
         let weights: f64 = breakers.iter().map(|b| b.weight).sum();
         let resilience = if weights > 0.0 { breakers.iter().map(|b| b.weight * b.remaining).sum::<f64>() / weights } else { total };
 
@@ -1167,7 +1206,7 @@ impl<'a> Prober<'a> {
             RunTrace { steps: vec![StepRun::default(); steps.len()], windows: Vec::new(), uses: Vec::new(), state: DuelState::default() };
         let mut observer = Observer::default();
         let mut next = 0usize;
-        let mut current: Option<(usize, DuelState)> = None;
+        let mut current: Option<(usize, Piles)> = None;
         let mut windows_in_step = 0usize;
         // The step being played went to the Battle Phase already.
         let mut battled = false;
@@ -1226,21 +1265,25 @@ impl<'a> Prober<'a> {
                 }
             }
             let (turn, _, _) = duel.turn_info();
-            let actions = duel.actions(&decision);
             if let Decision::IdleCmd { player: 0, activatable, .. } = &decision {
                 idle_effects = activatable.iter().map(|a| (a.card.code, a.description)).collect();
             }
+            // The answers of your turn's line need no list of actions.
+            if let (true, Prelude::Line(_)) = (turn <= 1, prelude) {
+                if let Some(a) = answers.next() {
+                    duel.respond(a);
+                    continue;
+                }
+            }
+            let actions = duel.actions(&decision);
             // Your turn: the line's answers; the opponent passes.
             if turn <= 1 {
                 // The line has every answer of your turn, the opponent's passes
                 // included. A provisional board's line stops at "end the turn":
                 // its End Phase is played like the search would (doing something first).
                 match prelude {
-                    Prelude::Line(_) => match answers.next() {
-                        Some(a) => duel.respond(a),
-                        None if decision.player() == Some(1) => duel.respond(&passive_answer(&decision, &actions)),
-                        None => duel.respond(&end_phase_answer(&decision, &actions, &idle_effects)),
-                    },
+                    Prelude::Line(_) if decision.player() == Some(1) => duel.respond(&passive_answer(&decision, &actions)),
+                    Prelude::Line(_) => duel.respond(&end_phase_answer(&decision, &actions, &idle_effects)),
                     Prelude::EndAtOnce | Prelude::Placed(_) | Prelude::Own(_) if decision.player() == Some(1) => {
                         duel.respond(&passive_answer(&decision, &actions))
                     }
@@ -1293,10 +1336,11 @@ impl<'a> Prober<'a> {
                             }
                         }
                         if let Some((i, before)) = current.take() {
-                            let after = duel.state();
+                            let after = Piles::of(&duel);
                             if verbose {
                                 let db = engine.cards();
                                 let names = |v: &[u32]| v.iter().map(|&c| db.name(c)).collect::<Vec<_>>().join(", ");
+                                let after = duel.state();
                                 eprintln!(
                                     "   after step {i}: opponent GY [{}] banished [{}]",
                                     names(&after.players[1].grave),
@@ -1318,7 +1362,7 @@ impl<'a> Prober<'a> {
                         }
                         match chosen {
                             Some((i, answer)) => {
-                                current = Some((i, duel.state()));
+                                current = Some((i, Piles::of(&duel)));
                                 observer.new_step();
                                 windows_in_step = 0;
                                 battled = false;
@@ -1438,10 +1482,9 @@ impl<'a> Prober<'a> {
     /// Whether each goal of a finished step was met. A monster wanted on the
     /// field counts once it landed: removed after that, the step worked
     /// (what is lost is the steps that needed it).
-    fn finish(&self, run: &mut StepRun, step: &KitStep, before: &DuelState, after: &DuelState, observer: &Observer) {
+    fn finish(&self, run: &mut StepRun, step: &KitStep, before: &Piles, after: &Piles, observer: &Observer) {
         let db = self.engine.cards();
-        let count = |state: &DuelState, want: &Want| -> i32 {
-            let p = &state.players[1];
+        let count = |p: &Piles, want: &Want| -> i32 {
             let matches = |c: u32| want.code.is_none_or(|w| db.canonical_code(c) == db.canonical_code(w));
             (match want.location {
                 location::HAND => p.hand.iter().filter(|&&c| matches(c)).count(),
