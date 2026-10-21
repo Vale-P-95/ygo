@@ -97,4 +97,10 @@ extern "C" {
     // shim/compile.cpp
     pub fn df_lua_compile(source: *const c_char, length: usize, name: *const c_char, out_length: *mut usize) -> *mut u8;
     pub fn df_free(p: *mut c_void);
+
+    // shim/reuse.cpp
+    pub fn df_duel_snapshot(duel: OCG_Duel) -> c_int;
+    pub fn df_duel_reset(duel: OCG_Duel, options: *const OCG_DuelOptions) -> c_int;
+    pub fn df_duel_destroy(duel: OCG_Duel);
+    pub fn df_duel_preload(duel: OCG_Duel, codes: *const u32, count: usize) -> c_int;
 }
