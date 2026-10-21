@@ -1,7 +1,7 @@
 import { useId, useMemo } from "react";
-import type { Card, CardLink, LinkCard } from "../../../lib/api";
+import type { Card, CardLink, LinkCard, LinksComparison } from "../../../lib/api";
 import { sound } from "../../../lib/sound";
-import { LINK_KINDS, type LinksFilterState } from "./types";
+import { isLinkTextOnly, LINK_KINDS, linkKey, type LinksFilterState } from "./types";
 
 interface Props {
   cards: LinkCard[];
@@ -12,6 +12,8 @@ interface Props {
   hoveredCardCode: number | null;
   sampleHandCodes?: Set<number> | null;
   reachedFromHandCodes?: Set<number> | null;
+  comparison?: LinksComparison | null;
+  showLostLinks?: boolean;
   onSelectCard: (code: number | null) => void;
   onHoverCard: (code: number | null) => void;
 }
@@ -25,27 +27,66 @@ export function LinksCircle({
   hoveredCardCode,
   sampleHandCodes = null,
   reachedFromHandCodes = null,
+  comparison = null,
+  showLostLinks = true,
   onSelectCard,
   onHoverCard,
 }: Props) {
   const markerIdPrefix = useId().replace(/:/g, "_");
 
+  const gainedKeys = useMemo(
+    () => (comparison ? new Set(comparison.gained.map(linkKey)) : null),
+    [comparison],
+  );
+  const lostKeys = useMemo(
+    () => (comparison ? new Set(comparison.lost.map(linkKey)) : null),
+    [comparison],
+  );
+  const addedCodes = useMemo(
+    () => (comparison ? new Set(comparison.added) : null),
+    [comparison],
+  );
+  const removedCodes = useMemo(
+    () => (comparison ? new Set(comparison.removed) : null),
+    [comparison],
+  );
+  const changedCodes = useMemo(
+    () => (comparison ? new Set(comparison.changed.map((c) => c.code)) : null),
+    [comparison],
+  );
+
+  // Cards to display: when comparing and showLostLinks is enabled, show removed cards as ghost nodes
+  const displayCards = useMemo(() => {
+    if (!comparison || !showLostLinks) return cards;
+    const existing = new Set(cards.map((c) => c.code));
+    const extraRemoved = comparison.before.cards.filter((c) => !existing.has(c.code));
+    return [...cards, ...extraRemoved];
+  }, [cards, comparison, showLostLinks]);
+
+  // Order cards: Main deck cards first, then Extra deck cards
+  const orderedCards = useMemo(() => {
+    const mainCards = displayCards.filter((c) => !c.extra);
+    const extraCards = displayCards.filter((c) => c.extra);
+    return [...mainCards, ...extraCards];
+  }, [displayCards]);
+
+  // Combine links: include lost links if comparison is on and showLostLinks is true
+  const allLinks = useMemo(() => {
+    if (!comparison || !showLostLinks) return links;
+    const currentKeys = new Set(links.map(linkKey));
+    const extraLost = comparison.lost.filter((l) => !currentKeys.has(linkKey(l)));
+    return [...links, ...extraLost];
+  }, [links, comparison, showLostLinks]);
+
   // Filter links by active filters (kind, zone, onlyUsed)
   const filteredLinks = useMemo(() => {
-    return links.filter((l) => {
+    return allLinks.filter((l) => {
       if (filters.kind !== "all" && l.kind !== filters.kind) return false;
       if (filters.zone !== "all" && l.zone !== filters.zone) return false;
       if (filters.onlyUsed && l.used <= 0) return false;
       return true;
     });
-  }, [links, filters]);
-
-  // Order cards: Main deck cards first, then Extra deck cards
-  const orderedCards = useMemo(() => {
-    const mainCards = cards.filter((c) => !c.extra);
-    const extraCards = cards.filter((c) => c.extra);
-    return [...mainCards, ...extraCards];
-  }, [cards]);
+  }, [allLinks, filters]);
 
   const targetCode = hoveredCardCode ?? activeCardCode;
 
@@ -106,6 +147,31 @@ export function LinksCircle({
               <path d="M 0 1 L 9 5 L 0 9 z" fill={LINK_KINDS[kind].color} />
             </marker>
           ))}
+          {/* Comparison markers with CSS tokens (var(--df-ok) and var(--df-danger)) */}
+          <marker
+            id={`${markerIdPrefix}-arrow-gained`}
+            viewBox="0 0 10 10"
+            refX="33"
+            refY="5"
+            markerUnits="userSpaceOnUse"
+            markerWidth="8"
+            markerHeight="8"
+            orient="auto-start-reverse"
+          >
+            <path d="M 0 1 L 9 5 L 0 9 z" fill="var(--df-ok)" />
+          </marker>
+          <marker
+            id={`${markerIdPrefix}-arrow-lost`}
+            viewBox="0 0 10 10"
+            refX="33"
+            refY="5"
+            markerUnits="userSpaceOnUse"
+            markerWidth="7"
+            markerHeight="7"
+            orient="auto-start-reverse"
+          >
+            <path d="M 0 1 L 9 5 L 0 9 z" fill="var(--df-danger)" />
+          </marker>
         </defs>
 
         {/* Center decorative guidelines */}
@@ -127,11 +193,35 @@ export function LinksCircle({
             const isRelated = targetCode != null && (l.from === targetCode || l.to === targetCode);
             const meta = LINK_KINDS[l.kind];
 
+            const lKey = linkKey(l);
+            const isGained = gainedKeys?.has(lKey) ?? false;
+            const isLost = lostKeys?.has(lKey) ?? false;
+            const isTextOnly = isLinkTextOnly(l);
+
             // Opacity & styling
             let opacity = 0.25;
             let strokeWidth = l.used > 0 ? 1.5 + l.used * 2 : 1.2;
+            let strokeColor = meta.color;
+            let strokeDash: string | undefined = l.possible && l.used === 0 ? "4 3" : undefined;
+            let markerId = `${markerIdPrefix}-arrow-${l.kind}`;
 
-            if (sampleHandCodes) {
+            if (isGained) {
+              strokeColor = "var(--df-ok)";
+              markerId = `${markerIdPrefix}-arrow-gained`;
+              strokeWidth = Math.max(strokeWidth * 1.4, 2.5);
+              opacity = isRelated || targetCode == null ? 0.95 : 0.15;
+            } else if (isLost) {
+              strokeColor = "var(--df-danger)";
+              markerId = `${markerIdPrefix}-arrow-lost`;
+              strokeDash = "4 3";
+              strokeWidth = 2;
+              opacity = isRelated || targetCode == null ? 0.85 : 0.15;
+            } else if (isTextOnly) {
+              // Fainter stroke for text-only links
+              strokeDash = "2 3";
+              strokeWidth = 1;
+              opacity = isRelated ? 0.45 : 0.08;
+            } else if (sampleHandCodes) {
               const fromValid = sampleHandCodes.has(l.from) || (reachedFromHandCodes?.has(l.from) ?? false);
               const toValid = reachedFromHandCodes?.has(l.to) ?? false;
               const isHandTraversed = fromValid && toValid && (l.zone === "deck" || l.zone === "extra");
@@ -163,11 +253,11 @@ export function LinksCircle({
                 key={`${l.from}-${l.to}-${l.kind}-${idx}`}
                 d={pathD}
                 fill="none"
-                stroke={meta.color}
+                stroke={strokeColor}
                 strokeWidth={strokeWidth}
                 strokeOpacity={opacity}
-                strokeDasharray={l.possible && l.used === 0 ? "4 3" : undefined}
-                markerEnd={opacity > 0.1 ? `url(#${markerIdPrefix}-arrow-${l.kind})` : undefined}
+                strokeDasharray={strokeDash}
+                markerEnd={opacity > 0.07 ? `url(#${markerId})` : undefined}
                 className="transition-all duration-200"
               />
             );
@@ -190,10 +280,17 @@ export function LinksCircle({
             const inSampleHand = sampleHandCodes?.has(c.code) ?? false;
             const isReachedFromHand = reachedFromHandCodes?.has(c.code) ?? false;
 
+            const isAdded = addedCodes?.has(c.code) ?? false;
+            const isRemoved = removedCodes?.has(c.code) ?? false;
+            const isChanged = changedCodes?.has(c.code) ?? false;
+
             const matches = matchesSearch(c.code);
             let nodeOpacity = 1;
             if (!matches) {
               nodeOpacity = 0.15;
+            } else if (isRemoved) {
+              // Ghost node for removed card
+              nodeOpacity = isFocused ? 0.9 : 0.4;
             } else if (sampleHandCodes) {
               nodeOpacity = inSampleHand || isReachedFromHand ? 1 : 0.18;
             } else if (targetCode != null && !isConnected) {
@@ -257,16 +354,37 @@ export function LinksCircle({
                   />
                 )}
 
-                {/* Node outer pulse/ring if selected */}
+                {/* Node outer pulse/ring if selected or comparison status */}
                 {isFocused && !inSampleHand && (
                   <circle
                     cx={pos.x}
                     cy={pos.y}
                     r={c.key > 0.2 ? 18 : 16}
                     fill="none"
-                    stroke={c.key > 0.2 ? "var(--df-gold)" : "var(--sec)"}
+                    stroke={
+                      isAdded
+                        ? "var(--df-ok)"
+                        : isRemoved
+                          ? "var(--df-danger)"
+                          : c.key > 0.2
+                            ? "var(--df-gold)"
+                            : "var(--sec)"
+                    }
                     strokeWidth="2.5"
                     className="anim-fade"
+                  />
+                )}
+
+                {/* Comparison ring (when not focused) */}
+                {!isFocused && !inSampleHand && (isAdded || isRemoved || isChanged) && (
+                  <circle
+                    cx={pos.x}
+                    cy={pos.y}
+                    r={c.key > 0.2 ? 17 : 15}
+                    fill="none"
+                    stroke={isAdded ? "var(--df-ok)" : isRemoved ? "var(--df-danger)" : "var(--role-custom-1)"}
+                    strokeWidth="2"
+                    strokeDasharray={isRemoved ? "3 2" : undefined}
                   />
                 )}
 
@@ -275,20 +393,47 @@ export function LinksCircle({
                   cx={pos.x}
                   cy={pos.y}
                   r={c.key > 0.2 ? 14 : 12}
-                  fill={c.extra ? "color-mix(in srgb, var(--role-extender) 25%, var(--df-surface-2))" : "var(--df-surface-2)"}
-                  stroke={c.key > 0.2 ? "var(--df-gold)" : c.extra ? "var(--role-extender)" : "var(--df-border-strong)"}
+                  fill={
+                    isRemoved
+                      ? "var(--df-surface)"
+                      : isAdded
+                        ? "color-mix(in srgb, var(--df-ok) 20%, var(--df-surface-2))"
+                        : c.extra
+                          ? "color-mix(in srgb, var(--role-extender) 25%, var(--df-surface-2))"
+                          : "var(--df-surface-2)"
+                  }
+                  stroke={
+                    isAdded
+                      ? "var(--df-ok)"
+                      : isRemoved
+                        ? "var(--df-danger)"
+                        : c.key > 0.2
+                          ? "var(--df-gold)"
+                          : c.extra
+                            ? "var(--role-extender)"
+                            : "var(--df-border-strong)"
+                  }
                   strokeWidth={isFocused || inSampleHand ? 2.5 : 1.2}
+                  strokeDasharray={isRemoved ? "3 2" : undefined}
                 />
 
-                {/* Copies indicator badge */}
+                {/* Copies indicator badge or +/- for added/removed */}
                 <text
                   x={pos.x}
                   y={pos.y + 4}
                   textAnchor="middle"
                   className="text-[9px] font-bold"
-                  fill={isFocused || inSampleHand ? "var(--df-text)" : "var(--df-muted)"}
+                  fill={
+                    isAdded
+                      ? "var(--df-ok)"
+                      : isRemoved
+                        ? "var(--df-danger)"
+                        : isFocused || inSampleHand
+                          ? "var(--df-text)"
+                          : "var(--df-muted)"
+                  }
                 >
-                  {c.copies}
+                  {isAdded ? "+" : isRemoved ? "−" : c.copies}
                 </text>
 
                 {/* Card label on the perimeter */}
@@ -297,16 +442,22 @@ export function LinksCircle({
                   y={ly + 3.5}
                   textAnchor={pos.isRight ? "start" : "end"}
                   className={`text-[10px] select-none transition-colors ${
-                    inSampleHand
-                      ? "font-bold fill-[var(--df-gold)]"
-                      : isFocused
-                        ? "font-bold fill-[var(--sec)]"
-                        : isConnected
-                          ? "font-medium fill-[var(--df-text)]"
-                          : "fill-[var(--df-muted)]"
+                    isAdded
+                      ? "font-semibold fill-[var(--df-ok)]"
+                      : isRemoved
+                        ? "font-semibold fill-[var(--df-danger)]"
+                        : inSampleHand
+                          ? "font-bold fill-[var(--df-gold)]"
+                          : isFocused
+                            ? "font-bold fill-[var(--sec)]"
+                            : isConnected
+                              ? "font-medium fill-[var(--df-text)]"
+                              : "fill-[var(--df-muted)]"
                   }`}
                 >
                   {displayName}
+                  {isAdded && <tspan fill="var(--df-ok)"> (+)</tspan>}
+                  {isRemoved && <tspan fill="var(--df-danger)"> (− tolta)</tspan>}
                   {inSampleHand && <tspan fill="var(--df-gold)"> (mano)</tspan>}
                   {c.key > 0.2 && <tspan fill="var(--df-gold)"> ★</tspan>}
                 </text>
