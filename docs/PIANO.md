@@ -1315,3 +1315,38 @@ Tre agenti hanno confrontato il Laboratorio con riferimenti indipendenti, e ogni
 
 **Da fare nell'interfaccia** (testi da allineare): elenco in `docs/TASKS.md`.
 
+### 30.8 Velocità del motore e controllo di salute (notte del 21/10/2026)
+**Velocità.** Un profilo (perf e strumentazione) ha mostrato dove va il tempo di ogni replay:
+- creare la partita: 30-55%;
+- rigiocare la linea nel motore: 21-53%;
+- distruggere la partita: circa il 10%;
+- l'allocatore di memoria pesava per circa un terzo del totale.
+
+Cinque prototipi, ognuno in una copia separata del repository, misurati poi uno alla volta sulla macchina libera (7 esecuzioni alternate per mano, 2000 nodi, un thread):
+- **mimalloc per Lua** (entrato): ricerca −27% su una mano Invoked, una Branded e una Labrynth, con board e linee identiche al byte. Memoria di picco +10-30% con più thread. La versione di `libmimalloc-sys` è fissata e le funzioni sono controllate con l'header di mimalloc.
+- **Un heap mimalloc per partita, liberato in un colpo** (scartato): −4% di CPU in più, ma su Windows può bloccare la chiusura dell'app se una ricerca è in corso, e una partita passata tra thread può andare in crash.
+- **Pulizie lato Rust e opzioni del compilatore** (scartate): nessun guadagno oltre il rumore.
+- **Compilazione su Windows:** verificata in CI (installer Windows verde con mimalloc, run 39531366384); il timore di un errore con Visual Studio 18.10 (segnalazione upstream) non si è avverato.
+- **Meno replay inutili** (entrato): 4 casi di replay che finivano su un nodo già visto non si mettono più in coda. Sul banco (16 mani, 4000 nodi) i replay scendono da 17381 a 15795 (−9,1%) a parità di nodi; best da 26.25 a 26.32, first invariato. Uno dei 4 casi si appoggia a un limite noto della chiave dei nodi: bersagli, nomi dichiarati e opzioni scelti durante un effetto non ne fanno parte, quindi un'altra scelta non viene mai esplorata (Muckraker che rianima Arias invece di Lady Labrynth). La correzione è stata provata la mattina dopo e non è entrata (punto seguente).
+- **Chiave dei nodi con bersagli e nomi dichiarati** (provata, non tenuta). Un bersaglio o un nome dichiarato si vede nello stato solo quando il suo anello si risolve. La correzione faceva contare le risposte dall'ultima scelta libera senza catena aperta, così due bersagli dello stesso effetto non erano più lo stesso nodo.
+  - Esplorate subito, le alternative nascoste rubavano il budget alle linee diverse: quasi sempre portano alla stessa board quando la catena si risolve. inv-r2 scendeva da 3,27 a 2,72, anche con 8000 nodi. Messe in fondo alla coda, il banco (16 mani, 4000 nodi) migliorava: best da 26,32 a 27,23, first da 22,69 a 24,26, Tearlaments da 1,57 a 2,48, nessuna mano peggiore.
+  - La caccia alle combo sui 45 deck con tre semi (3000 nodi, prime 8 board misurate) diceva il contrario. Seme 1: 3 deck peggio e 1 meglio, somma della board migliore da 61,60 a 59,38. Seme 2: pari (59,69 contro 59,72). Seme 3: 2 peggio e 2 meglio (66,46 contro 66,17). Synchrons peggiorava in due semi su tre e Invoked migliorava in due. In molti di questi deck la board migliore arrivava alla fine del budget, quindi ogni cambio dell'ordine la sposta.
+  - Con la regola "si tiene solo se le board non peggiorano" la correzione è stata tolta (revert). Per riprovarla serve un modo di distinguere i bersagli che costi meno nodi, e un confronto su più semi fin dall'inizio: il banco da solo non basta a decidere.
+
+**Controllo di salute** (copertura delle meccaniche rifatta con la versione attuale, 45 deck), rispetto all'audit del §30.2:
+- **Linee interrotte:** 0 prima e 0 dopo.
+- **Meglio:**
+  - 9 carte mai offerte prima ora lo sono (fra cui Albion e Chaos Angel);
+  - 11 mosse tenute ma mai scelte ora vengono provate (Diabellstar, Fiendsmith Engraver, Ghost Ogre);
+  - le attivazioni negate da una propria carta passano da 51 a 0;
+  - le carte che negavano le proprie catene da 5 a 0 (Dragoon, Blue-Eyes Spirit, Cyber Dragon Infinity: imparate).
+- **Peggio:** 3 carte non più raggiunte. Wind Pegasus @Ignister (Clown Crew) e Vaylantz Genesis Grand Duke sono mostri dell'Extra Deck, probabilmente fuori dal budget di nodi. Nibiru dalla mano nel proprio turno (Spright) è una mossa che non serve.
+
+### 30.9 Misura del turno di prova: D2, D3, D4 (21/10/2026)
+Tre correzioni del piano della classificazione delle board (`docs/plans/classificazione-board.md`, §C8 per i numeri):
+- **D2.** Una fermata conta solo per il passo giocato: negare l'Evocazione Normale di Celtic Guardian non vale anche Link Spider e il suo effetto, che fallivano solo a cascata. Lo stesso per i floodgate.
+- **D3.** Il motore segnala quando un'Evocazione Normale o Flip è completata (`Event::Summoned`). Un mostro avversario conta come Evocato quando atterra, e "nega l'Evocazione" vale solo se lascia il campo prima. Una rimozione dopo l'atterraggio ferma i passi che avevano bisogno del mostro.
+- **D4.** Un mostro girato coperto ha gli effetti negati; una carta attaccata come materiale Xyz è fuori dal gioco come una bandita.
+- **Strumenti.** `board_pairs.py eval` misura le 83 coppie in 50 secondi e confronta con una valutazione salvata. `bench_cross.py` confronta le board di due ricerche misurandole con la stessa misura (il bench normale le mette su due scale diverse). I mostri settati coperti ora si vedono nel campo delle board.
+- **Seguito delle risposte.** Le Trappole che Evocano (Big Welcome Labrynth, Welcome Labrynth, Angel Statue) valevano 0 perché il turno di prova non usava mai il mostro che portavano e sceglieva il primo per codice. Ora quello che una risposta porta risponde a sua volta, si Evoca il mostro più forte e si paga con la carta meno preziosa.
+- **Risultato.** Coppie sicure giuste da 15 su 29 (linea di base corretta) a 18 su 29; la ricerca trova board equivalenti (−2,4% sulle migliori, +5,9% sulle prime, una mano fragile in meno). Gli errori rimasti dipendono soprattutto dal kit e dalle risorse (passi D10, D13, D15).

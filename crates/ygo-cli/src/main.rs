@@ -150,6 +150,19 @@ enum Cmd {
         #[arg(long)]
         deck: PathBuf,
     },
+    /// How often each kind of play the probe turn's kit tests happens in
+    /// lines found by the search (files of `combos --save-lines`): what the
+    /// weights of the probes are calibrated on.
+    KitMix {
+        /// Files written by `combos --save-lines`.
+        lines: Vec<PathBuf>,
+        /// Lines of each file read, the best boards first.
+        #[arg(long, default_value_t = 5)]
+        top: usize,
+        /// Seed the lines were found with.
+        #[arg(long, default_value_t = 1)]
+        seed: u64,
+    },
     /// What each card of a deck is worth alone on the field, measured by the
     /// probe turn (what the search steers by).
     CardValues {
@@ -269,6 +282,7 @@ fn main() -> Result<()> {
         Cmd::ProbeLine { setup, lines, index, json } => probe_line(&cli.data, &setup, &lines, index, json.as_deref()),
         Cmd::HandTraps { deck } => hand_traps(&cli.data, &deck),
         Cmd::CardValues { deck } => card_values(&cli.data, &deck),
+        Cmd::KitMix { lines, top, seed } => kit_mix(&cli.data, &lines, top, seed),
         Cmd::Roles { deck } => roles(&cli.data, &deck),
         Cmd::Coverage { deck, nodes, threads, seed, all } => coverage(&cli.data, &deck, nodes, threads, seed, all),
         Cmd::Sweep { duels, max_decisions, max_turns, seed, threads, script_errors } => {
@@ -569,7 +583,9 @@ fn state_json(
     let mut field: Vec<String> = Vec::new();
     for (z, c) in me.monsters.iter().enumerate() {
         if let Some(c) = c {
-            field.push(format!("{}{}", db.name(c.code), if z >= 5 { " [EMZ]" } else { "" }));
+            // A monster Set face-down cannot use its effects: it must show.
+            let face = if c.is_face_up() { "" } else { " (set)" };
+            field.push(format!("{}{face}{}", db.name(c.code), if z >= 5 { " [EMZ]" } else { "" }));
         }
     }
     for c in me.spells.iter().flatten() {
@@ -878,6 +894,83 @@ fn hand_traps(dir: &Path, deck: &Path) -> Result<()> {
     let kit = ygo_solver::Kit::standard(&engine);
     for code in ygo_solver::hand_traps(&engine, &deck, 1, &kit) {
         println!("{code}\t{}", engine.cards().name(code));
+    }
+    Ok(())
+}
+
+/// The kinds of play of the probe turn's kit in one batch of events of your
+/// turn. `landed`: your monsters summoned since your last free moment (an
+/// effect of theirs is a summon trigger, not one of a monster already there).
+fn plays(db: &ygo_engine::CardDb, events: &[Event], landed: &mut Vec<u32>, mut count: impl FnMut(ygo_solver::Probe)) {
+    use ygo_solver::Probe;
+    let monster = |code: u32| db.get(code).is_some_and(|c| c.type_ & 0x1 != 0);
+    for e in events {
+        match e {
+            Event::Chaining { card, .. } if card.controller == 0 => match card.location {
+                location::HAND if monster(card.code) => count(Probe::HandEffect),
+                location::HAND | location::SZONE => count(Probe::Spell),
+                location::GRAVE | location::REMOVED => count(Probe::GraveEffect),
+                location::MZONE if landed.contains(&db.canonical_code(card.code)) => count(Probe::FieldEffect),
+                location::MZONE => count(Probe::FieldIgnition),
+                _ => {}
+            },
+            Event::NormalSummoning { card } if card.controller == 0 => {
+                count(Probe::NormalSummon);
+                landed.push(db.canonical_code(card.code));
+            }
+            Event::Move { code, from, to, reason } if from.controller == 0 && to.controller == 0 => match (from.location, to.location) {
+                (location::DECK, location::HAND) => count(Probe::Search),
+                (location::DECK, location::GRAVE) if monster(*code) => count(Probe::SendToGrave),
+                (from, location::MZONE) if reason & 0x800 != 0 => {
+                    landed.push(db.canonical_code(*code));
+                    match from {
+                        location::HAND => count(Probe::SpecialFromHand),
+                        location::DECK => count(Probe::DeckSummon),
+                        location::EXTRA => count(Probe::ExtraSummon),
+                        _ => {}
+                    }
+                }
+                _ => {}
+            },
+            _ => {}
+        }
+    }
+}
+
+fn kit_mix(dir: &Path, files: &[PathBuf], top: usize, seed: u64) -> Result<()> {
+    use ygo_solver::Probe;
+    let engine = Engine::load(dir)?;
+    let db = engine.cards();
+    let kit = ygo_solver::Kit::standard(&engine);
+    let mut counts: std::collections::BTreeMap<Probe, u64> = Probe::ALL.iter().map(|&p| (p, 0)).collect();
+    let mut lines = 0;
+    for file in files {
+        let saved: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(file)?)?;
+        let deck = DeckList::from_ydk(&std::fs::read_to_string(saved["deck"].as_str().context("no deck in the file")?)?)?;
+        let hand: Vec<u32> =
+            saved["hand"].as_array().map(|h| h.iter().filter_map(|c| c.as_u64().map(|c| c as u32)).collect()).unwrap_or_default();
+        for item in saved["items"].as_array().context("no lines in the file")?.iter().take(top) {
+            let line = line_from_json(item)?;
+            let mut duel = Duel::goldfish_against(&engine, &deck, &hand, seed, Some(kit.opponent()))?;
+            let mut landed = Vec::new();
+            for answer in &line.answers {
+                let Step::Decision { decision, events } = duel.advance()? else { break };
+                plays(db, &events, &mut landed, |p| *counts.entry(p).or_default() += 1);
+                if matches!(decision, ygo_engine::Decision::IdleCmd { player: 0, .. }) {
+                    landed.clear();
+                }
+                duel.respond(answer);
+            }
+            lines += 1;
+        }
+    }
+    let total: u64 = counts.values().sum();
+    let weights: f64 = Probe::ALL.iter().map(|p| p.weight()).sum();
+    println!("{lines} lines, {total} plays");
+    println!("{:<52} {:>6} {:>6} {:>7} {:>9}", "probe", "plays", "share", "weight", "proposed");
+    for (p, n) in &counts {
+        let share = *n as f64 / total.max(1) as f64;
+        println!("{:<52} {:>6} {:>6.3} {:>7.2} {:>9.2}", p.label(), n, share, p.weight(), 0.5 * p.weight() + 0.5 * share * weights);
     }
     Ok(())
 }

@@ -8,6 +8,10 @@ repository.workspace = true
 links = "ocgcore"
 
 [dependencies]
+# Lua's allocator (see build.rs): a large share of a duel's time goes to
+# allocating and freeing small Lua objects. 0.1.49 (mimalloc 3.3) is the
+# version tested, and build.rs needs the header path it exports.
+libmimalloc-sys = "0.1.49"
 rusqlite = { version = "0.32", features = ["bundled"] }
 thiserror = "2"
 

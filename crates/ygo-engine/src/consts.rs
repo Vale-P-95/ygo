@@ -113,9 +113,11 @@ pub mod msg {
     pub const POS_CHANGE: u8 = 53;
     pub const SET: u8 = 54;
     pub const SUMMONING: u8 = 60;
+    pub const SUMMONED: u8 = 61;
     pub const SPSUMMONING: u8 = 62;
     pub const SPSUMMONED: u8 = 63;
     pub const FLIPSUMMONING: u8 = 64;
+    pub const FLIPSUMMONED: u8 = 65;
     pub const CHAINING: u8 = 70;
     pub const CHAIN_SOLVING: u8 = 72;
     pub const CHAIN_SOLVED: u8 = 73;
@@ -140,6 +142,8 @@ pub mod msg {
 
 pub mod hint {
     pub const SELECTMSG: u8 = 3;
+    /// The select hint of a choice of monsters to Special Summon (`HINTMSG_SPSUMMON`).
+    pub const MSG_SPSUMMON: u64 = 509;
 }
 
 pub mod duel_flags {

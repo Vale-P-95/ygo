@@ -7,8 +7,10 @@
 //! fingerprint, plus the choice being asked) makes sure that lines reaching
 //! the same situation in a different order are explored once; answers that
 //! could only lead back to where the search has been (taking a card out of
-//! a selection, cancelling what was just started, picking the same cards
-//! in another order) are not tried at all, since each try costs a replay.
+//! a selection, cancelling what was just started or picked, picking the
+//! same cards in another order, another target or name declared that the
+//! state does not show yet) are not tried at all, since each try costs a
+//! replay.
 //!
 //! Which answer is tried next: the one whose line led to the best board
 //! after it, less a little for each answer of its line that is not the
@@ -19,8 +21,9 @@
 //!
 //! Ending the turn is an answer at every free moment, and playing it means a
 //! whole replay just to read a board. So the board is read on the spot,
-//! before the End Phase ("provisional"), the End Phase is queued last, and
-//! when the search stops the best provisional boards are played for real.
+//! before the End Phase ("provisional"), the End Phase is queued last (and
+//! played once per board), and when the search stops the best provisional
+//! boards are played for real.
 //!
 //! A search can go on where it stopped ([`resume`]) and can aim at a
 //! [`Goal`]: cards that must be on the field at the end.
@@ -996,9 +999,10 @@ fn new_duel(shared: &Shared) -> Result<Duel, Error> {
 /// anyway, which would cost a replay of the whole line each:
 /// - taking a card out of a selection (picking the others directly gets
 ///   the same sets);
-/// - cancelling what was just started at a free moment, before anything
-///   happened (it is the free moment again; a cancel in the middle of an
-///   effect, like choosing no card, stays);
+/// - cancelling what was just started at a free moment, or right after a
+///   card or name was picked, before anything happened (it only goes back
+///   there: the free moment again, or the Fusion Monster to choose; a cancel
+///   later in an effect, like choosing no card, stays);
 /// - picking a card that makes a selection another line has already made
 ///   in another order (the same cards picked, out of the same ones).
 fn without_returns(
@@ -1050,6 +1054,33 @@ fn card_order(c: &CardRef) -> (u8, u8, u32, u32, u32) {
     (c.controller, c.location, c.sequence, c.code, c.position)
 }
 
+/// The answer starts something that cancelling right after would only take
+/// back: an action at a free moment, or a card or name picked in an effect
+/// (cancelling the materials of a Fusion Summon asks for the Fusion Monster
+/// again).
+fn starts(decision: &Decision, kind: ActionKind) -> bool {
+    if is_free(decision) {
+        kind != ActionKind::Pass
+    } else {
+        matches!(kind, ActionKind::Choose | ActionKind::Announce)
+    }
+}
+
+/// The state as far as an answer shows in it: what was activated this turn
+/// and the cards' status bits (which the activation itself changes) left
+/// out. An answer that changes nothing else is kept by the engine for later:
+/// a target, a name declared, an option.
+fn shown_state(state: &DuelState) -> u64 {
+    let mut s = state.clone();
+    s.activity = Default::default();
+    for p in &mut s.players {
+        for c in p.monsters.iter_mut().chain(p.spells.iter_mut()).flatten() {
+            c.status = 0;
+        }
+    }
+    canonical_fingerprint(&s)
+}
+
 /// Priority taken off an answer for each answer of its line that is not
 /// the dive's: the lines near the best ones are tried first, the ones that
 /// differ in many choices later.
@@ -1059,7 +1090,8 @@ const DISCREPANCY: f64 = 0.6;
 /// other answers met on the way are queued when the dive is over, at the
 /// estimate of the best board the line reached after them (the boards
 /// before an answer do not depend on it), less [`DISCREPANCY`] for each
-/// answer of their line that is not the dive's.
+/// answer of their line that is not the dive's; the other zones of a line's
+/// last choice go last.
 fn work(shared: &Shared, edge: Edge) -> Result<(), Error> {
     let mut dive = Dive { left: Vec::new(), boards: Vec::new() };
     let result = play(shared, &edge, &mut dive);
@@ -1083,10 +1115,11 @@ fn work(shared: &Shared, edge: Edge) -> Result<(), Error> {
             // The last board reading at this depth or deeper.
             let value = suffix.iter().rev().find(|(d, _)| *d >= left.depth).map_or(fallback, |&(_, v)| v);
             let bonus = if left.wanted { 10.0 } else { 0.0 };
+            let last = if left.last_zone { END_PHASE_LAST } else { 0.0 };
             NewEdge {
                 prefix: left.prefix,
                 answer: Some(left.answer),
-                priority: value - DISCREPANCY * discrepancies as f64 + bonus,
+                priority: value - DISCREPANCY * discrepancies as f64 + bonus - last,
                 confirms: None,
                 value,
                 discrepancies,
@@ -1109,10 +1142,21 @@ struct LeftAnswer {
     answer: Answer,
     depth: usize,
     wanted: bool,
+    kind: ActionKind,
+    /// Another zone for the monster of the line's last choice (see `play`).
+    last_zone: bool,
 }
 
 fn play(shared: &Shared, edge: &Edge, dive: &mut Dive) -> Result<(), Error> {
     let config = shared.config;
+    // The board was already played to the end of the turn from another line
+    // reaching it, with a line as good (else it would be provisional again):
+    // its End Phase would only be read once more.
+    if let Some(key) = edge.confirms.filter(|_| !shared.confirming.load(Ordering::Relaxed)) {
+        if shared.boards.lock().is_ok_and(|b| b.get(&key).is_none_or(|b| b.exact)) {
+            return Ok(());
+        }
+    }
     let mut duel = new_duel(shared)?;
     let mut line = (*edge.prefix).clone();
     let mut pending = Pending::default();
@@ -1146,8 +1190,11 @@ fn play(shared: &Shared, edge: &Edge, dive: &mut Dive) -> Result<(), Error> {
     if !line.answers.is_empty() || edge.answer.is_some() {
         shared.replays.fetch_add(1, Ordering::Relaxed);
     }
+    // The edge's answer started something (see `undoable`).
+    let mut started = false;
     if let Some((answer, label)) = edge.answer.clone() {
         if let Step::Decision { decision, events } = duel.advance()? {
+            started = duel.actions(&decision).iter().any(|a| a.response == answer && starts(&decision, a.kind));
             since_free.meet(&decision, events.len());
             pending.answered(&decision, &answer);
             if events.iter().any(|e| matches!(e, Event::Chaining { .. })) {
@@ -1182,14 +1229,20 @@ fn play(shared: &Shared, edge: &Edge, dive: &mut Dive) -> Result<(), Error> {
     // The card last taken from the Extra Deck: the one a Monster Zone is
     // asked for next (only those go to the Extra Monster Zone).
     let mut placing: Option<u32> = None;
-    // Something was started at a free moment (an idle or chain window) and
-    // nothing has happened since: cancelling only goes back to that moment.
-    let mut undoable = false;
+    // Something was started at a free moment (an idle or chain window), or
+    // a card or name picked, and nothing has happened since: cancelling
+    // only goes back there.
+    let mut undoable = started;
     // What resolved quietly in the part replayed is not news.
     let _ = links.take_silent();
     // The last answer this dive gave: stopped before its node is read, the
     // answer goes back in the queue, so a resumed search plays on from it.
     let mut given: Option<LeftAnswer> = None;
+    // The dive's last answer when it was not given at a free moment: its
+    // depth, its kind and the state shown before it; and whether a free
+    // moment was answered (automatically) since.
+    let mut hidden: Option<(usize, ActionKind, u64)> = None;
+    let mut freed = false;
     loop {
         if shared.halted() {
             match given.take() {
@@ -1208,6 +1261,7 @@ fn play(shared: &Shared, edge: &Edge, dive: &mut Dive) -> Result<(), Error> {
         let (step, mut actions) = duel.advance_auto_seen(&config.policy, &mut line.answers, |d, a| {
             pending.answered(d, a);
             after_answer(&mut last_set, d, a);
+            freed |= is_free(d);
         })?;
         let (turn, _, phase) = duel.turn_info();
         let (Step::Decision { events, .. } | Step::End { events }) = &step;
@@ -1275,6 +1329,8 @@ fn play(shared: &Shared, edge: &Edge, dive: &mut Dive) -> Result<(), Error> {
             return Ok(());
         }
         let happened = events.len();
+        // A chain link finished resolving since the last node.
+        let resolved = events.iter().any(|e| matches!(e, Event::ChainSolved { .. } | Event::ChainEnd));
         if let Step::Decision { .. } = &step {
             undoable &= happened == 0;
         }
@@ -1288,10 +1344,29 @@ fn play(shared: &Shared, edge: &Edge, dive: &mut Dive) -> Result<(), Error> {
                     dive.boards.push((board.line.choices.len(), estimate(&board)));
                     shared.record(board, edge.confirms);
                 }
+                // The turn ended right after a zone was chosen, with nothing
+                // else to choose: the other zones only move that monster, a
+                // replay each, and the best boards are played with them at
+                // the end anyway (`zone_variants`). Queued last.
+                if let Some(at) = given.as_ref().filter(|g| g.kind == ActionKind::Place).map(|g| g.depth) {
+                    for left in dive.left.iter_mut().filter(|l| l.depth == at && l.kind == ActionKind::Place) {
+                        left.last_zone = true;
+                    }
+                }
                 return Ok(());
             }
         };
         let state = duel.state();
+        // The last answer changed nothing shown and its link has not resolved
+        // yet: the engine keeps it for later (a target, a name declared), and
+        // this node's key does not tell it, since the answers given since your
+        // last free moment are forgotten here. The other answers of the same
+        // kind there lead to this same key: a replay each to find a duplicate.
+        if let Some((depth, kind, before)) = hidden.take() {
+            if (freed || is_free(&decision)) && !resolved && shown_state(&state) == before {
+                dive.left.retain(|l| l.depth != depth || l.kind != kind);
+            }
+        }
         shared.nodes.fetch_add(1, Ordering::Relaxed);
         let free = is_free(&decision);
         // The same state met again since the last free moment, by the
@@ -1452,17 +1527,28 @@ fn play(shared: &Shared, edge: &Edge, dive: &mut Dive) -> Result<(), Error> {
             answer: (a.response.clone(), italian::choice(a)),
             depth,
             wanted: wanted(a),
+            kind: a.kind,
+            last_zone: false,
         }));
         let first = &actions[0];
         if matches!(decision, Decision::IdleCmd { .. }) && first.kind == ActionKind::Activate {
             trial = hand_trap_trial(db, &decision, &duel.actions(&decision), &first.response, hand_trap);
         }
-        given = Some(LeftAnswer { prefix, answer: (first.response.clone(), italian::choice(first)), depth, wanted: wanted(first) });
+        given = Some(LeftAnswer {
+            prefix,
+            answer: (first.response.clone(), italian::choice(first)),
+            depth,
+            wanted: wanted(first),
+            kind: first.kind,
+            last_zone: false,
+        });
+        hidden = (!free).then(|| (depth, first.kind, shown_state(&state)));
+        freed = false;
         record(audit, Some(&first.response));
         if let Some(c) = first.card.filter(|c| c.location == location::EXTRA) {
             placing = Some(c.code);
         }
-        undoable = (free && first.kind != ActionKind::Pass) || (undoable && !free);
+        undoable = starts(&decision, first.kind) || (undoable && !free);
         pending.answered(&decision, &first.response);
         after_answer(&mut last_set, &decision, &first.response);
         duel.respond(&first.response);
@@ -1917,5 +2003,42 @@ mod tests {
         assert_eq!(last_set, Some((1, 7)));
         after_answer(&mut last_set, &window, &0i32.to_le_bytes());
         assert_eq!(last_set, None);
+    }
+
+    #[test]
+    fn cancelling_takes_back_what_was_started_or_picked() {
+        let idle = Decision::IdleCmd {
+            player: 0,
+            summonable: vec![],
+            special_summonable: vec![],
+            repositionable: vec![],
+            monster_settable: vec![],
+            spell_settable: vec![],
+            activatable: vec![],
+            to_battle_phase: false,
+            to_end_phase: true,
+        };
+        let window = Decision::SelectChain { player: 0, forced: false, triggers: false, chains: vec![] };
+        let select = Decision::SelectCard { player: 0, cancelable: true, min: 1, max: 1, cards: vec![card(10, 0)], hint: 0 };
+        assert!(starts(&idle, ActionKind::Activate));
+        assert!(starts(&window, ActionKind::Activate));
+        assert!(!starts(&window, ActionKind::Pass));
+        assert!(starts(&select, ActionKind::Choose));
+        assert!(!starts(&select, ActionKind::Cancel));
+    }
+
+    #[test]
+    fn a_target_or_a_name_declared_does_not_show() {
+        let mut state = DuelState::default();
+        state.players[0].monsters = vec![None; 7];
+        state.players[0].monsters[0] = Some(ygo_engine::FieldCard { code: 10, position: 1, attack: 1000, ..Default::default() });
+        let before = shown_state(&state);
+        // Activating an effect marks the card and the turn, whatever its target.
+        state.activity.activations.push((10, 160));
+        state.players[0].monsters[0].as_mut().unwrap().status |= 0x10;
+        assert_eq!(shown_state(&state), before);
+        // What the effect does shows.
+        state.players[0].monsters[0].as_mut().unwrap().attack = 2000;
+        assert_ne!(shown_state(&state), before);
     }
 }
