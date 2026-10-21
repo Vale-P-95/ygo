@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { Card, ComboBoard, ComboHappening, ComboHappeningKind, ComboStep, ComboStepKind } from "../../lib/api";
+import type { Card, ComboBoard, ComboField, ComboHappening, ComboHappeningKind, ComboStep, ComboStepKind } from "../../lib/api";
 import { sound } from "../../lib/sound";
 import { CardImage, formatLinkArrows, type HoverCard } from "./Field";
 
@@ -209,6 +209,15 @@ function Happened({ h, getCard, onHover, onHoverEnd }: { h: ComboHappening; getC
   );
 }
 
+export interface ActiveStepInfo {
+  index: number;
+  total: number;
+  number: number | null;
+  choice: string | null;
+  kind?: string | null;
+  field: ComboField | null;
+}
+
 /** The line told with pictures and an interactive step-by-step player. */
 export function ComboSteps({
   steps,
@@ -216,12 +225,16 @@ export function ComboSteps({
   onHover,
   onHoverEnd,
   onActiveCards,
+  onActiveStep,
+  resetNonce,
 }: {
   steps: ComboStep[];
   getCard: (id: number) => Card | undefined;
   onHover: HoverCard;
   onHoverEnd: () => void;
   onActiveCards?: (codes: Set<number> | null) => void;
+  onActiveStep?: (step: ActiveStepInfo | null) => void;
+  resetNonce?: number;
 }) {
   const [all, setAll] = useState(false);
   const [activeIdx, setActiveIdx] = useState<number | null>(null);
@@ -237,6 +250,14 @@ export function ComboSteps({
     setActiveIdx(null);
     setPlaying(false);
   }, [steps]);
+
+  // Handle external reset request (e.g. clicking "Board finale" on the field).
+  useEffect(() => {
+    if (resetNonce) {
+      setActiveIdx(null);
+      setPlaying(false);
+    }
+  }, [resetNonce]);
 
   // Auto-advance timer when playing.
   useEffect(() => {
@@ -256,10 +277,11 @@ export function ComboSteps({
     return () => window.clearTimeout(timer);
   }, [playing, activeIdx, totalSteps, speed]);
 
-  // Notify parent of cards involved in the active step and keep the active row in view.
+  // Notify parent of cards involved in the active step, step field, and keep the active row in view.
   useEffect(() => {
     if (activeIdx == null || !stepList[activeIdx]) {
       onActiveCards?.(null);
+      onActiveStep?.(null);
       return;
     }
     const row = stepList[activeIdx];
@@ -269,9 +291,33 @@ export function ComboSteps({
       if (h.code !== 0) codes.add(h.code);
     }
     onActiveCards?.(codes.size > 0 ? codes : null);
+
+    // Find the field after this step: either row.step.field, or the nearest previous step's field.
+    let field: ComboField | null = null;
+    if (row.step?.field) {
+      field = row.step.field;
+    } else {
+      for (let i = activeIdx; i >= 0; i--) {
+        const f = stepList[i]?.step?.field;
+        if (f) {
+          field = f;
+          break;
+        }
+      }
+    }
+
+    onActiveStep?.({
+      index: activeIdx,
+      total: totalSteps,
+      number: row.number,
+      choice: row.step?.choice ?? (row.happened[0]?.text ?? null),
+      kind: row.step?.kind ?? null,
+      field,
+    });
+
     const el = stepRefs.current.get(activeIdx);
     el?.scrollIntoView({ block: "nearest", behavior: "smooth" });
-  }, [activeIdx, stepList, onActiveCards]);
+  }, [activeIdx, stepList, onActiveCards, onActiveStep, totalSteps]);
 
   // Keyboard shortcuts [ and ] to step backward/forward.
   useEffect(() => {
