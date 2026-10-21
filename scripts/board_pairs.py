@@ -27,9 +27,10 @@ search), so the same boards are compared whatever the search finds now.
 `sheet` writes, for the judges, the first 5 distinct boards of each deck
 in a shuffled order and without scores; `panel` reads the judges'
 rankings of that sheet and prints, as lines for pairs.tsv, the pairs all
-judges put in the same order (no tie, no low confidence).
+judges put in the same order (no tie), sure when no judge was unsure.
 """
 import argparse
+import concurrent.futures as cf
 import json
 import os
 import random
@@ -102,18 +103,25 @@ def make(a):
     os.makedirs(a.out, exist_ok=True)
     pairs = read_pairs()
     found = {}
-    for deck in sorted({p["deck"] for p in pairs}):
+
+    def search(deck):
         path = deck_path(deck, a.decks, a.extra_decks)
         if not os.path.exists(path):
             print(f"{deck}: no deck file", file=sys.stderr)
-            continue
+            return deck, None, None, []
         hand = hand_of(path, deck)
         boards_json = os.path.join(a.out, f"{deck}.json")
         lines_json = os.path.join(a.out, f"{deck}.lines.json")
         subprocess.run([a.cli, "--data", os.path.join(ROOT, "data"), "combos", "--deck", path, "--hand", ";".join(hand),
                         "--nodes", str(a.nodes), "--seconds", "900", "--threads", "1", "--seed", str(a.seed), "--top", str(a.top),
                         "--json", boards_json, "--save-lines", lines_json], capture_output=True, text=True)
-        boards = json.load(open(boards_json))["items"] if os.path.exists(boards_json) else []
+        return deck, path, hand, json.load(open(boards_json))["items"] if os.path.exists(boards_json) else []
+
+    with cf.ThreadPoolExecutor(a.jobs) as ex:
+        searched = list(ex.map(search, sorted({p["deck"] for p in pairs})))
+    for deck, path, hand, boards in searched:
+        if path is None:
+            continue
         for p in (p for p in pairs if p["deck"] == deck):
             sides = {}
             for side in ("a", "b"):
@@ -201,8 +209,10 @@ def panel(a):
     n = 0
     for deck in sorted(letters):
         verdicts = [j.get(deck) for j in judges]
-        if any(v is None or v.get("confidence") == "bassa" for v in verdicts):
+        if any(v is None for v in verdicts):
             continue
+        # Sure only when no judge said they were unsure of the deck.
+        certainty = "da confermare" if any(v.get("confidence") == "bassa" for v in verdicts) else "sicura"
         boards = {b["index"]: b for b in json.load(open(os.path.join(a.folder, deck + ".json"), encoding="utf-8"))["items"]}
         tied = [{frozenset(t) for t in v.get("ties", []) for _ in [0]} for v in verdicts]
         ranks = [{x: i for i, x in enumerate(v["order"])} for v in verdicts]
@@ -220,7 +230,7 @@ def panel(a):
             bx, by = boards[letters[deck][x]], boards[letters[deck][y]]
             why = "; ".join(v.get("note", "") for v in verdicts[:1])
             name = deck[:-2] if deck.endswith("-0") else deck
-            print(f"J{n}\t{name}\tsig={unzoned(bx['signature'])}\tsig={unzoned(by['signature'])}\tA>B\tsicura\tgiudici d'accordo 3 su 3: {why}")
+            print(f"J{n}\t{name}\tsig={unzoned(bx['signature'])}\tsig={unzoned(by['signature'])}\tA>B\t{certainty}\tgiudici d'accordo 3 su 3: {why}")
     print(f"# {n} coppie", file=sys.stderr)
 
 
@@ -235,6 +245,7 @@ def main():
     m.add_argument("--nodes", type=int, default=3000)
     m.add_argument("--top", type=int, default=30, help="boards listed, among which the sides are looked for")
     m.add_argument("--seed", type=int, default=1)
+    m.add_argument("--jobs", type=int, default=3, help="decks searched at once (each on one thread)")
     e = sub.add_parser("eval")
     e.add_argument("out")
     e.add_argument("--cli", default=os.path.join(ROOT, "target", "release", "duelforge-cli"))
