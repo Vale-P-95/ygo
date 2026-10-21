@@ -57,6 +57,29 @@ Vale per `crates/ygo-engine` e `crates/ygo-solver`. Prima e dopo la modifica:
 3. `duelforge-cli coverage --deck <deck>` sui deck toccati, e `python3 scripts/combo_hunt.py <cartella>` come regressione.
 4. I numeri prima/dopo vanno nella PR.
 
+## Protocollo per chi tocca l'interfaccia
+Vale per `apps/desktop/src`. Nasce dagli errori ricorrenti delle revisioni: PR dichiarate pronte con difetti che il backend finto nascondeva, regressioni introdotte correggendo, caricamenti che si accavallano.
+1. **App vera, non solo backend finto.**
+   - Le funzioni che chiamano il backend si provano con `pnpm tauri dev` (con `DUELFORGE_DATA`).
+   - `mock.ts` non controlla i formati: ad esempio un oggetto salvato in `localStorage` e letto da un'altra pagina.
+   - Se l'app vera non si può provare, la PR lo dice.
+2. **Dati con i tipi del contratto.**
+   - Ciò che si passa tra pagine o si salva usa i tipi di `api.ts` (ad esempio `GoalCard`), non oggetti scritti a mano.
+   - Niente `as any`, `@ts-ignore` o `@ts-expect-error` per far tornare i tipi. Un tipo che non torna è un errore, oppure manca qualcosa nel contratto: allora si chiede a Claude in `docs/TASKS.md`.
+3. **Caricamenti asincroni.**
+   - Ogni caricamento ha un id di richiesta; si scartano le risposte vecchie e quelle che non sono del deck o dell'oggetto mostrato.
+   - Cambiando deck, salvando o ricominciando, i dati vecchi si azzerano e il caricamento in corso si annulla.
+   - Un effetto che carica da solo si ferma su errore: niente ricaricamenti in loop.
+4. **Errori sempre visibili.** Ogni errore arriva all'utente in italiano, con un messaggio o un riquadro. Mai un `catch` vuoto, né un `try/finally` senza `catch` su una chiamata al backend.
+5. **Effetti React.**
+   - Le dipendenze sono complete, e i listener e i timer si tolgono nella pulizia.
+   - Lo stato legato a un deck, a una ricerca o a una selezione si azzera quando questa cambia: filtri nascosti compresi, ad esempio con `key`.
+6. **Correggendo una revisione si rilegge tutto il diff.** Non si tolgono controlli esistenti (una condizione, un `!error`, un id di richiesta) senza scriverne il motivo nella PR.
+7. **"Pronto per il merge" solo quando è vero.**
+   - Nella PR, per ogni punto chiesto: come è stato verificato (app vera, backend finto, solo `typecheck`).
+   - Un task si segna fatto in `docs/TASKS.md` solo quando sono fatti tutti i suoi punti; quelli rimasti restano aperti, ben visibili.
+8. **Prima del push:** `pnpm typecheck` e `pnpm build`; quando ci saranno, anche i controlli di stile della CI (`any` vietato, dipendenze degli effetti).
+
 ## Cosa NON fare
 - Modificare `vendor/ygopro-core`.
 - Committare `data/`, immagini o testi Konami, o le decklist scaricate.
