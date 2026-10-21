@@ -179,6 +179,10 @@ Approvato dal proprietario come ultimo pezzo della mappa: cosa cambia sostituend
 - **Tempi.** Nessun errore; in media 23 secondi a deck, al massimo 56 (yummy_mimighoul, warrior_combo). Branded scende da 62-63 a 48 secondi, Invoked 12.
 - **Da guardare:**
   - **probabilità sature:** carte con `chance` ≥ 0,99, cioè quasi ogni mano iniziale ci arriva. Vaylantz ne ha 24, Memento 15, Invoked 15, Cyber Dragon 5. Lì la probabilità distingue poco: si potrebbe mostrare la differenza tra 5 e 6 carte, o i passi necessari;
-  - **collegamenti solo dal testo:** D/D/D ne ha 228 su 373, Exosister 58 su 96. Le frasi d'archetipo ("D/D" monster) collegano quasi ogni carta a quasi ogni altra. Vanno controllati: se il testo è giusto ma le linee non li usano mai, l'interfaccia li mostra tenui, ma così sono tanti;
+  - **collegamenti solo dal testo:** D/D/D ne aveva 228 su 373, Exosister 58 su 96, Dracotail 47 su 219. Controllati, avevano due difetti della bozza dal testo, corretti in `clause_kind`:
+    - la zona era presa da tutto il resto della frase dopo «from your»: «… from your hand and/or Deck…, also you cannot Special Summon monsters from the Extra Deck» diventava un'Evocazione dall'Extra Deck. Ora sono solo le zone elencate subito dopo («hand, Deck, or GY»);
+    - un divieto («you cannot Special Summon monsters from your Extra Deck, except "D/D" monsters») diventava un collegamento verso ogni mostro nominato. Ora una frase con «cannot» o «can't» prima di «from your» non porta collegamenti.
+    - Collegamenti solo dal testo dopo la correzione: Dracotail 47 → 17, D/D/D 228 → 218, Exosister 58 → 51, Artmage 47 → 41; Invoked invariato. Nessun collegamento confermato dal motore si perde.
+    - Quelli di D/D/D che restano sono veri: effetti d'archetipo con condizioni che nelle mani provate non si verificano (Gilgamesh distrutto: «Special Summon 1 "D/D" monster from your Extra Deck or GY»);
   - **Maliss:** solo 13 collegamenti su 29 carte, ma è corretto. La lista ha quasi solo Phantom Knights e Ignister (di Maliss c'è solo Maliss in Underground), 13 handtrap e Magie generiche, e mostri Link con materiali generici che nessun testo nomina.
 
