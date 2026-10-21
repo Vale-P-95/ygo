@@ -275,7 +275,7 @@ export function Combo({ artReady, onGoForge }: { artReady: boolean; onGoForge: (
     // Measured boards by their score, the others after them by the quick estimate.
     const value = (b: ComboBoard) => {
       const s = run.scores[boardId(b)];
-      if (sortByMatchup && s?.matchup && !s.error) {
+      if (sortByMatchup && s?.matchup && !s.error && !s.matchup.error) {
         return s.matchup.resilience;
       }
       return s && !s.error ? score(s, weights) : null;
@@ -995,9 +995,13 @@ export function Combo({ artReady, onGoForge }: { artReady: boolean; onGoForge: (
                         {scoreOf(b)?.matchup && (
                           <span
                             className="chip !px-1.5 !py-0 text-[10px] text-sec font-semibold"
-                            title={`Resilienza contro ${scoreOf(b)!.matchup!.deckName}: in media restano ${scoreOf(b)!.matchup!.resilience.toFixed(2)} su ${scoreOf(b)!.interruptions.toFixed(2)}`}
+                            title={
+                              scoreOf(b)!.matchup!.error
+                                ? `Calcolo contro ${scoreOf(b)!.matchup!.deckName} fallito: ${scoreOf(b)!.matchup!.error}`
+                                : `Resilienza contro ${scoreOf(b)!.matchup!.deckName}: in media restano ${scoreOf(b)!.matchup!.resilience.toFixed(2)} su ${scoreOf(b)!.interruptions.toFixed(2)}`
+                            }
                           >
-                            vs {scoreOf(b)!.matchup!.deckName}: {scoreOf(b)!.matchup!.resilience.toFixed(2)}
+                            vs {scoreOf(b)!.matchup!.deckName}: {scoreOf(b)!.matchup!.error ? "errore" : scoreOf(b)!.matchup!.resilience.toFixed(2)}
                           </span>
                         )}
                         <span>
