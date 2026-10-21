@@ -580,6 +580,23 @@ Note:
   - Il difetto più frequente è la parità: 36 coppie su 78 misurano uguale. Di solito la differenza tra le due board è qualcosa che la misura oggi non conta: un campo che vale 0 interruzioni in entrambe (Clown Crew, Yummy: resta solo l'handtrap in mano, 0,64), una Trappola settata che non ferma niente nel kit (Volcanic Emission), un mostro in più senza effetto contro il kit, carte per il turno dopo. Sono i casi di D1–D7 (bersagli, kit, carte che il kit non usa), D13 (risorse) e D15 (protezione).
   - Le 4 sicure al contrario si guardano una per una in D1–D7.
 
+### C8. Dopo D2, D3 e D4 (21/10/2026, pomeriggio)
+
+Prima delle correzioni, una correzione delle coppie stesse: il campo delle board non segnava i mostri settati coperti, e i giudici hanno preso per attive carte coperte (Spright Carrot, Droll & Lock Bird, Ash Blossom). Le 7 coppie con una board così sono diventate "da confermare" e J68 non ha più un atteso. Linea di base corretta: sicure 15 giuste su 29, da confermare 9 su 48.
+
+| Passo | Cosa | Coppie sicure (giuste / pari / al contrario) | Da confermare giuste | Ricerca (`bench_cross.py`, somma best) |
+|---|---|---|---|---|
+| D2 | Una fermata conta solo per il passo giocato; idem per i floodgate | 14 / 12 / 3 | 9 su 48 | −2,3% (inv-r2 e inv-r5 peggio, inv-r4 meglio) |
+| D3 | Un mostro conta come Evocato quando atterra; nega l'Evocazione solo prima | 14 / 11 / 4 | 10 su 48 | −1% |
+| D4 | Mostro girato coperto = effetti negati; materiale Xyz = bandito | 14 / 11 / 4 | 10 su 48 | +2,5% (tearlaments) |
+| Insieme | dalla mattina a dopo D4, board misurate con la misura nuova | — | — | 19,86 → 19,89 (inv-r2 e inv-r4 meglio, inv-remi e mitsurugi peggio) |
+
+Note:
+- **Coppie cambiate e perché.** J27 era giusta solo grazie al doppio conteggio (D2), poi torna giusta con D3. J3 diventa pari: la sua board A riceveva per tre rimozioni il credito di "Evocazione fermata". J16 va al contrario: Dracotail Horn rimanda in mano un mostro già atterrato, e Effect Veiler vale poco contro il kit (3 attivazioni di mostri su 8).
+- **Valori delle carte.** Invoked Caliga da 0,96 a 0,72 e Invoked Oceanus (Extra) da 0,48 a 0,24: contavano i passi persi dopo quello fermato. Daruma Karma Cannon ora "nega l'effetto".
+- **Test nuovi** su board piazzate: `crates/ygo-solver/tests/probe.rs` (Trap Hole, Dimensional Fissure, Infinite Impermanence, Torrential Tribute, Solemn Warning, Daruma).
+- **Cosa resta.** Le coppie sbagliate sono quasi tutte pari: le due board differiscono in carte che contro il kit valgono 0 (trappole che il kit non attiva mai, come Big Welcome o Volcanic Emission), in risorse per il turno dopo o in protezioni. D5 (copie) e D6 (run congiunta) toccano poco: nelle board delle coppie la run congiunta riduce 12 interruzioni su 253, quasi tutte per un conflitto vero di costi, e le copie sul campo sono quasi sempre limitate a una per turno. Il guadagno vero sta nel kit (B2, D10), nelle risorse e nel follow-up (D13) e nelle protezioni (D15).
+
 ## 5. Parte D: ordine di implementazione
 
 Tutto si fa su un branch `claude/board-score`, con lock in `docs/TASKS.md` su `probe.rs`, `value.rs`, `search.rs`, `lib.rs` e `api.ts` passo per passo. Ogni passo deve:

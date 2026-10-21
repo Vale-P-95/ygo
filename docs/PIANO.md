@@ -1342,3 +1342,10 @@ Cinque prototipi, ognuno in una copia separata del repository, misurati poi uno 
   - le carte che negavano le proprie catene da 5 a 0 (Dragoon, Blue-Eyes Spirit, Cyber Dragon Infinity: imparate).
 - **Peggio:** 3 carte non più raggiunte. Wind Pegasus @Ignister (Clown Crew) e Vaylantz Genesis Grand Duke sono mostri dell'Extra Deck, probabilmente fuori dal budget di nodi. Nibiru dalla mano nel proprio turno (Spright) è una mossa che non serve.
 
+### 30.9 Misura del turno di prova: D2, D3, D4 (21/10/2026)
+Tre correzioni del piano della classificazione delle board (`docs/plans/classificazione-board.md`, §C8 per i numeri):
+- **D2.** Una fermata conta solo per il passo giocato: negare l'Evocazione Normale di Celtic Guardian non vale anche Link Spider e il suo effetto, che fallivano solo a cascata. Lo stesso per i floodgate.
+- **D3.** Il motore segnala quando un'Evocazione Normale o Flip è completata (`Event::Summoned`). Un mostro avversario conta come Evocato quando atterra, e "nega l'Evocazione" vale solo se lascia il campo prima. Una rimozione dopo l'atterraggio ferma i passi che avevano bisogno del mostro.
+- **D4.** Un mostro girato coperto ha gli effetti negati; una carta attaccata come materiale Xyz è fuori dal gioco come una bandita.
+- **Strumenti.** `board_pairs.py eval` misura le 83 coppie in 50 secondi e confronta con una valutazione salvata. `bench_cross.py` confronta le board di due ricerche misurandole con la stessa misura (il bench normale le mette su due scale diverse). I mostri settati coperti ora si vedono nel campo delle board.
+- **Risultato.** La ricerca trova board equivalenti (somma best 19,86 → 19,89). Le coppie sicure giuste restano 14 su 29: gli errori rimasti sono quasi tutti pari che dipendono dal kit e dalle risorse (passi D10, D13, D15).
