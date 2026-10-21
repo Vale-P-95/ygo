@@ -462,12 +462,19 @@ fn play(
         reader.see(engine, &events, named);
         if decision.player() == Some(0) {
             reader.offered(engine, &decision);
-            // The card of an action you choose: its costs and its summon are its own.
-            if matches!(decision, Decision::IdleCmd { .. } | Decision::SelectChain { .. }) {
-                let actions = duel.actions(&decision);
-                if let Some(card) = actions.iter().find(|a| &a.response == answer).and_then(|a| a.card) {
+            // The card of an action you choose, a trigger you say yes to
+            // included: its costs and its summon are its own.
+            match &decision {
+                Decision::IdleCmd { .. } | Decision::SelectChain { .. } => {
+                    let actions = duel.actions(&decision);
+                    if let Some(card) = actions.iter().find(|a| &a.response == answer).and_then(|a| a.card) {
+                        reader.acting = Some(engine.cards().canonical_code(card.code));
+                    }
+                }
+                Decision::EffectYesNo { card, .. } if answer.first().is_some_and(|&b| b != 0) => {
                     reader.acting = Some(engine.cards().canonical_code(card.code));
                 }
+                _ => {}
             }
         }
         duel.respond(answer);

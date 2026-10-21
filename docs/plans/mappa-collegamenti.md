@@ -107,3 +107,7 @@ Abbiamo il motore EDOPro e la ricerca delle combo, quindi possiamo leggere i col
   - handtrap 0.
 - I percorsi tra due carte si calcolano nell'interfaccia sui `links`.
 
+## Correzioni dal collaudo (21/10/2026)
+- **Causa di un trigger a cui si risponde sì.** Ora è la carta del trigger. Prima la causa era la carta dell'ultima azione: Branded in High Spirits risultava Evocare dal Cimitero 9 mostri che Evoca Guiding Quem.
+- **Mappa vera per il backend finto.** In `tests/fixtures/links/invoked.json` c'è la mappa vera del deck Invoked della fixture (solo codici): 31 carte, 89 collegamenti.
+

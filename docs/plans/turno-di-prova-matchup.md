@@ -121,3 +121,10 @@ Obiettivo: nel turno di prova contro un deck X, l'avversario gioca **le sue moss
 - **Labrynth** (12 mani, 13 s): Evocazione Normale di Arianna per prima nel 33% delle linee, poi Lady Labrynth dalla mano; Arias dalla mano per primo nel 17%.
 - Il passo che manca è trasformare queste mosse nei passi del turno di prova, in `probe.rs`, quando la sessione sulla velocità lo libera.
 
+### Correzioni dal collaudo (21/10/2026)
+Il collaudo su molti deck (`docs/plans/collaudo-strumenti.md`, branch `claude/tools-qa`) ha trovato Maxx "C" e le Mulcharmy che "fermavano" la linea in 6 deck su 12. Dopo una handtrap, la linea ora si rigioca così:
+- **Azioni per identità.** Le azioni della linea si ritrovano per quello che sono (carta, zona, effetto, tipo di azione) e non per la loro posizione nella lista. Dopo Maxx "C" la lista può cambiare: K9-17 Izuna diventa Evocabile. Un trigger che la linea aveva come sì/no può anche arrivare in una finestra di trigger (Fur Hire).
+- **Domande nuove rifiutate.** Una domanda che la linea non aveva e che si può rifiutare riceve la risposta passiva, e la linea va avanti: una finestra di catena, un sì/no, una Main Phase dove resta solo da finire il turno.
+- **Fermata solo se manca qualcosa.** La linea è fermata solo se a fine linea manca qualcosa del campo o della mano. Finire con una carta in più, come K9 che punisce Maxx "C", non è una fermata.
+- **Risultato.** Su 5 deck contro Branded e Labrynth, Maxx "C" e le Mulcharmy sono a 0 su Tearlaments e a 1-3 momenti su circa 20 negli altri. Il resto dipende dal deck da 12 carte dell'avversario del kit: Maxx "C" lo svuota e le carte che guardano il deck dell'avversario cambiano. Si corregge in `Kit::standard`, con il banco, quando `probe.rs` si libera.
+

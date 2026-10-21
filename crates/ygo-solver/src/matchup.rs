@@ -324,20 +324,90 @@ pub(crate) fn none_drawn(size: usize, copies: u32, drawn: usize) -> f64 {
 struct Own {
     answers: Vec<Vec<u8>>,
     kinds: Vec<Discriminant<Decision>>,
+    /// What each answer does when it plays a card: after a handtrap the
+    /// same action can sit elsewhere in the list (another card became
+    /// playable), or come as a trigger window instead of a yes or no.
+    ids: Vec<Option<ActionId>>,
+}
+
+/// An action by what it is, not by its place in a list.
+#[derive(Debug, Clone, Copy, PartialEq)]
+struct ActionId {
+    code: u32,
+    location: u8,
+    description: u64,
+    kind: ActionKind,
 }
 
 fn own_answers(engine: &Engine, deck: &DeckList, hand: &[u32], seed: u64, opponent: &Opponent, line: &Line) -> Result<Own, Error> {
+    let db = engine.cards();
     let mut duel = Duel::goldfish_against(engine, deck, hand, seed, Some(opponent))?;
-    let mut own = Own { answers: Vec::new(), kinds: Vec::new() };
+    let mut own = Own { answers: Vec::new(), kinds: Vec::new(), ids: Vec::new() };
     for answer in &line.answers {
         let Step::Decision { decision, .. } = duel.advance()? else { break };
         if decision.player() != Some(1) {
+            let id = match &decision {
+                Decision::EffectYesNo { card, description, .. } if *answer == window_answer(&decision, Some(0)) => Some(ActionId {
+                    code: db.canonical_code(card.code),
+                    location: card.location,
+                    description: *description,
+                    kind: ActionKind::Activate,
+                }),
+                Decision::IdleCmd { .. } | Decision::SelectChain { .. } => {
+                    duel.actions(&decision).iter().find(|a| &a.response == answer).and_then(|a| {
+                        a.card.map(|c| ActionId {
+                            code: db.canonical_code(c.code),
+                            location: c.location,
+                            description: a.description,
+                            kind: a.kind,
+                        })
+                    })
+                }
+                _ => None,
+            };
             own.answers.push(answer.clone());
             own.kinds.push(std::mem::discriminant(&decision));
+            own.ids.push(id);
         }
         duel.respond(answer);
     }
     Ok(own)
+}
+
+/// The answer to `decision` that plays the action `id`, if it is offered.
+fn find_again(engine: &Engine, decision: &Decision, actions: &[ygo_engine::Action], id: ActionId) -> Option<Vec<u8>> {
+    let db = engine.cards();
+    match decision {
+        Decision::EffectYesNo { card, .. } => {
+            (db.canonical_code(card.code) == id.code && card.location == id.location).then(|| window_answer(decision, Some(0)))
+        }
+        Decision::IdleCmd { .. } | Decision::SelectChain { .. } => {
+            let same = |a: &&ygo_engine::Action| {
+                a.kind == id.kind && a.card.is_some_and(|c| db.canonical_code(c.code) == id.code && c.location == id.location)
+            };
+            let offered: Vec<&ygo_engine::Action> = actions.iter().filter(same).collect();
+            offered.iter().find(|a| a.description == id.description).or(offered.first()).map(|a| a.response.clone())
+        }
+        _ => None,
+    }
+}
+
+/// A question that can be declined: a chance to chain, a yes or no, or a
+/// Main Phase with nothing left to do but end it.
+fn declinable(decision: &Decision) -> bool {
+    match decision {
+        Decision::SelectChain { forced, .. } => !forced,
+        Decision::EffectYesNo { .. } | Decision::YesNo { .. } => true,
+        Decision::IdleCmd { summonable, special_summonable, repositionable, monster_settable, spell_settable, activatable, .. } => {
+            summonable.is_empty()
+                && special_summonable.is_empty()
+                && repositionable.is_empty()
+                && monster_settable.is_empty()
+                && spell_settable.is_empty()
+                && activatable.is_empty()
+        }
+        _ => false,
+    }
 }
 
 /// A moment the opponent could respond: the handtraps offered (and where
@@ -423,19 +493,29 @@ fn replay(
         if decision.player() != Some(1) {
             if used {
                 let kind = std::mem::discriminant(&decision);
-                // You do not respond to the handtrap, nor once it resolved
-                // where the line was not asked to (the line never did).
-                let window = matches!(decision, Decision::SelectChain { triggers: false, .. });
-                if window && (theirs_on_top || own.kinds.get(next).is_some_and(|k| *k != kind)) {
-                    duel.respond(&window_answer(&decision, None));
+                let expected = own.ids.get(next).copied().flatten();
+                // The line's next action, found again by what it is.
+                if let Some(answer) = expected.and_then(|id| find_again(engine, &decision, &actions, id)) {
+                    duel.respond(&answer);
+                    asked = Some(decision);
+                    next += 1;
+                    continue;
+                }
+                // A question the line was not asked here (to respond to the
+                // handtrap, a trigger it brought, the End Phase asked again):
+                // you decline it, and the line goes on.
+                let same_question = own.kinds.get(next) == Some(&kind) && expected.is_none();
+                if declinable(&decision) && (theirs_on_top || !same_question) {
+                    duel.respond(&passive_answer(&decision, &actions));
                     continue;
                 }
                 // Passes of the line the engine no longer asks for are left out.
                 while next < own.answers.len() && own.kinds[next] != kind && own.answers[next] == PASS {
                     next += 1;
                 }
-                // Asked something else: the handtrap changed the line.
-                if own.kinds.get(next).is_some_and(|k| *k != kind) {
+                // Asked something else, or the line's action is gone: the
+                // handtrap changed the line.
+                if own.kinds.get(next).is_some_and(|k| *k != kind) || expected.is_some() {
                     if std::env::var_os("DUELFORGE_DEBUG_MATCHUP").is_some() {
                         eprintln!("   diverged at answer {next}: asked {decision:?}, line had {:?}", own.answers[next]);
                     }
@@ -531,7 +611,7 @@ fn hand_trap_stops(
             if std::env::var_os("DUELFORGE_DEBUG_MATCHUP").is_some() {
                 let db = engine.cards();
                 match &tried {
-                    Ok(r) if r.end != base.end => {
+                    Ok(r) if !missing(&base.end, &r.end).is_empty() => {
                         let gone: Vec<String> = base.end.iter().filter(|c| !r.end.contains(c)).map(|c| db.name(c.1)).collect();
                         let new: Vec<String> = r.end.iter().filter(|c| !base.end.contains(c)).map(|c| db.name(c.1)).collect();
                         eprintln!("   {} at {w}: lost {gone:?} got {new:?}", db.name(code));
@@ -540,7 +620,9 @@ fn hand_trap_stops(
                     Err(e) => eprintln!("   {} at {w}: {e}", db.name(code)),
                 }
             }
-            let stopped = tried.ok().is_none_or(|r| r.diverged || r.end != base.end);
+            // Stopped: something of your field or hand is missing at the end
+            // (ending with more, as when it lets you summon one more card, is not).
+            let stopped = tried.ok().is_none_or(|r| r.diverged || !missing(&base.end, &r.end).is_empty());
             if stopped {
                 stops += 1;
                 if let Some(card) = base.windows[w].playing.filter(|c| !at.contains(c)) {
@@ -551,6 +633,23 @@ fn hand_trap_stops(
         out.push(RivalHandTrap { code, chance: 0.0, windows: windows.len() as u32, stops, at });
     }
     Ok(out)
+}
+
+/// The cards of `before` missing from `after` (both sorted), copies counted.
+fn missing<T: Ord + Copy>(before: &[T], after: &[T]) -> Vec<T> {
+    let mut out = Vec::new();
+    let mut rest = after.iter().peekable();
+    for b in before {
+        while rest.peek().is_some_and(|a| *a < b) {
+            rest.next();
+        }
+        if rest.peek() == Some(&b) {
+            rest.next();
+        } else {
+            out.push(*b);
+        }
+    }
+    out
 }
 
 /// The cards among `cards` the opponent can play as a breaker from its
@@ -595,6 +694,12 @@ fn playable(engine: &Engine, kit: &Kit, cards: &[u32], seed: u64) -> Vec<(u32, b
 #[cfg(test)]
 mod tests {
     use super::none_drawn;
+
+    #[test]
+    fn missing_counts_copies() {
+        assert_eq!(super::missing(&[1, 2, 2, 3], &[2, 3, 4]), vec![1, 2]);
+        assert!(super::missing(&[1, 2], &[0, 1, 2, 5]).is_empty());
+    }
 
     #[test]
     fn chance_of_drawing_none() {
