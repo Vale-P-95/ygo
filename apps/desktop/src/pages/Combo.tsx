@@ -902,7 +902,7 @@ export function Combo({ artReady, onGoForge }: { artReady: boolean; onGoForge: (
                         }}
                         disabled={run.scoring}
                         className="btn btn-ghost !px-2 !py-0.5 text-[11px]"
-                        title="Rigioca il turno di prova su tutte le board con l'avversario selezionato"
+                        title="Misura le board che mancano con l'avversario scelto"
                       >
                         {run.scoring ? "Misurazione…" : "↻ Rimisura"}
                       </button>

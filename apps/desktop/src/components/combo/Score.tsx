@@ -552,40 +552,46 @@ export function ScoreBreakdown({
         ) : (
           <div className="flex flex-col gap-2.5">
             {s.matchup && (
-              <div className="rounded-lg border border-border/80 bg-surface-2/60 p-2.5 flex flex-col gap-2">
-                <div className="flex items-baseline justify-between gap-2">
-                  <span className="text-xs font-semibold text-text">
-                    Resilienza contro «{s.matchup.deckName}»
-                  </span>
-                  <span className="text-xs font-bold tabular-nums text-sec">
-                    in media restano {num(s.matchup.resilience)} su {num(s.interruptions)}
-                  </span>
+              s.matchup.error ? (
+                <div className="rounded-lg border border-danger/40 bg-danger/10 p-2.5 text-xs text-danger">
+                  Misura contro «{s.matchup.deckName}» non riuscita: {s.matchup.error}
                 </div>
-                {s.matchup.standardBreakers ? (
-                  <p className="text-[11px] text-muted">
-                    Questo deck non ha board breaker giocabili dalla mano: valgono i breaker standard del kit.
-                  </p>
-                ) : (
-                  <>
+              ) : (
+                <div className="rounded-lg border border-border/80 bg-surface-2/60 p-2.5 flex flex-col gap-2">
+                  <div className="flex items-baseline justify-between gap-2">
+                    <span className="text-xs font-semibold text-text">
+                      Resilienza contro «{s.matchup.deckName}»
+                    </span>
+                    <span className="text-xs font-bold tabular-nums text-sec">
+                      in media restano {num(s.matchup.resilience)} su {num(s.interruptions)}
+                    </span>
+                  </div>
+                  {s.matchup.standardBreakers ? (
                     <p className="text-[11px] text-muted">
-                      Probabilità che l'avversario abbia almeno un breaker giocabile tra 6 carte:{" "}
-                      <b className="text-text tabular-nums">{Math.round(s.matchup.breakerChance * 100)}%</b>.
+                      Questo deck non ha board breaker giocabili dalla mano: valgono i breaker standard del kit.
                     </p>
-                    {s.matchup.breakers.length > 0 && (
-                      <ul className="flex flex-col gap-0.5">
-                        {s.matchup.breakers.map((b) => (
-                          <RivalBreakerRow key={b.code} b={b} s={s} getCard={getCard} onHover={onHover} onHoverEnd={onHoverEnd} />
-                        ))}
-                      </ul>
-                    )}
-                  </>
-                )}
-              </div>
+                  ) : (
+                    <>
+                      <p className="text-[11px] text-muted">
+                        Probabilità che l'avversario abbia almeno un breaker giocabile tra 6 carte:{" "}
+                        <b className="text-text tabular-nums">{Math.round(s.matchup.breakerChance * 100)}%</b>.
+                      </p>
+                      {s.matchup.breakers.length > 0 && (
+                        <ul className="flex flex-col gap-0.5">
+                          {s.matchup.breakers.map((b) => (
+                            <RivalBreakerRow key={b.code} b={b} s={s} getCard={getCard} onHover={onHover} onHoverEnd={onHoverEnd} />
+                          ))}
+                        </ul>
+                      )}
+                    </>
+                  )}
+                </div>
+              )
             )}
 
             <details className="group" open={!s.matchup}>
               <summary className="cursor-pointer text-xs select-none">
-                {s.matchup ? "Breaker del kit standard" : "Regge a"} <b className="tabular-nums">{held}</b> su <b className="tabular-nums">{tried.length}</b> board breaker
+                {s.matchup ? "Breaker del kit standard: regge a" : "Regge a"} <b className="tabular-nums">{held}</b> su <b className="tabular-nums">{tried.length}</b> board breaker
                 <span className="ml-1.5 text-[11px] text-muted group-open:hidden">· mostra quali</span>
                 <span className="ml-1.5 hidden text-[11px] text-muted group-open:inline">· nascondi</span>
               </summary>
