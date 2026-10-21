@@ -418,6 +418,15 @@ impl Kit {
         // turn, Pot of Greed, the top card Glow-Up Bulb sends): plain ones,
         // so the cards to search stay.
         deck.extend([filler; 6].into_iter().flatten());
+        // A Deck as big as the opponent's during your first turn (40 less
+        // its 5 cards), plain cards at the bottom: effects that look at its
+        // Deck see what they would (That Grass Looks Greener sends cards
+        // until your Deck is no bigger).
+        const DECK: usize = 35;
+        if let Some(filler) = filler {
+            let missing = DECK.saturating_sub(deck.len());
+            deck.splice(0..0, std::iter::repeat_n(filler, missing));
+        }
         Kit { opponent: Opponent { hand, deck, extra }, steps, breakers }
     }
 
@@ -428,17 +437,41 @@ impl Kit {
         &self.opponent
     }
 
-    /// This kit with other breakers, their cards in the opponent's hand.
-    pub(crate) fn with_breakers(&self, breakers: Vec<Breaker>) -> Kit {
+    /// This kit with the breakers of `rival`, their cards in the opponent's
+    /// hand, and its real Deck: some breakers pay a cost from the Extra Deck
+    /// (Ultimate Slayer) or take cards from the Deck (Interrupted Kaiju
+    /// Slumber). Random cards of its Main Deck take the place of the plain
+    /// ones at the bottom, so the Deck keeps the size the search played
+    /// against; its Extra Deck joins the kit's.
+    pub(crate) fn with_breakers(&self, breakers: Vec<Breaker>, rival: &DeckList, seed: u64) -> Kit {
         let mut kit = self.clone();
+        let mut main = rival.main.clone();
         for b in &breakers {
             for s in &b.steps {
                 let (Act::Activate(code, _) | Act::SpecialSummon(code) | Act::NormalSummon(code)) = s.act;
                 if !kit.opponent.hand.contains(&code) {
                     kit.opponent.hand.push(code);
+                    // That copy is in its hand, no more in its Deck.
+                    if let Some(i) = main.iter().position(|&c| c == code) {
+                        main.swap_remove(i);
+                    }
                 }
             }
         }
+        // Shuffled with the seed, the same Deck for the same duel.
+        let mut state = seed ^ 0x9e37_79b9_7f4a_7c15;
+        for i in (1..main.len()).rev() {
+            state = state.wrapping_add(0x9e37_79b9_7f4a_7c15);
+            let mut z = state;
+            z = (z ^ (z >> 30)).wrapping_mul(0xbf58_476d_1ce4_e5b9);
+            z = (z ^ (z >> 27)).wrapping_mul(0x94d0_49bb_1331_11eb);
+            main.swap(i, ((z ^ (z >> 31)) % (i as u64 + 1)) as usize);
+        }
+        let deck = &mut kit.opponent.deck;
+        let filler = deck.last().copied();
+        let plain = deck.iter().take_while(|&&c| Some(c) == filler).count().min(main.len());
+        deck.splice(0..plain, main.into_iter().take(plain));
+        kit.opponent.extra.extend(&rival.extra);
         kit.breakers = breakers;
         kit
     }

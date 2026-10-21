@@ -86,9 +86,15 @@ impl Rival {
             breakers.push(Breaker::card(db.name(c), 1.0, c, summon));
             cards.push(c);
         }
-        let kit = if breakers.is_empty() { kit.clone() } else { kit.with_breakers(breakers) };
+        let kit = if breakers.is_empty() { kit.clone() } else { kit.with_breakers(breakers, deck, seed) };
         let hand_traps = hand_traps(engine, deck, seed, &kit);
         Rival { size: deck.main.len(), copies, kit, cards, hand_traps, standard: standard.clone(), main: deck.main.clone() }
+    }
+
+    /// The kit the probe turn plays against it: the standard one with its
+    /// breakers and its Deck.
+    pub fn kit(&self) -> &Kit {
+        &self.kit
     }
 
     /// The cards played as breakers (none: the standard ones are used).
