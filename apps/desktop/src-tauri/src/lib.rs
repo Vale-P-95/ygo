@@ -38,6 +38,7 @@ struct AppState {
 /// A map of links and the cards (Main and Extra Deck) it was read for.
 struct LinksCache {
     cards: Vec<u32>,
+    map: ygo_solver::DeckLinks,
     view: DeckLinksView,
     /// What was searched for it: after a change of the deck, only the
     /// hands the change needs are searched again.
@@ -1400,15 +1401,27 @@ struct DeckLinksView {
 /// the deck's cards change.
 #[tauri::command(async)]
 fn deck_links(app: tauri::AppHandle, state: State<'_, AppState>, deck_id: i64) -> Result<DeckLinksView, String> {
+    Ok(read_links(&app, &state, deck_id, None)?.1)
+}
+
+/// The map of `deck_id`, from the cache while its cards are the same. A
+/// changed deck reuses what was searched for its earlier version, or else
+/// for `like` (another version of it).
+fn read_links(
+    app: &tauri::AppHandle,
+    state: &State<'_, AppState>,
+    deck_id: i64,
+    like: Option<i64>,
+) -> Result<(ygo_solver::DeckLinks, DeckLinksView), String> {
     let engine = state.engine()?;
     let deck = state.with_user(|u| u.get(deck_id))?.ok_or("Il deck non esiste più")?;
     let cards: Vec<u32> = deck.main.iter().chain(&deck.extra).copied().collect();
     let previous = {
         let cache = state.links.lock().map_err(|e| e.to_string())?;
         match cache.get(&deck_id) {
-            Some(cached) if cached.cards == cards => return Ok(cached.view.clone()),
+            Some(cached) if cached.cards == cards => return Ok((cached.map.clone(), cached.view.clone())),
             Some(cached) => Some(cached.work.clone()),
-            None => None,
+            None => like.and_then(|id| cache.get(&id)).map(|c| c.work.clone()),
         }
     };
     let list = ygo_engine::DeckList { main: deck.main.clone(), extra: deck.extra.clone(), side: Vec::new() };
@@ -1420,8 +1433,78 @@ fn deck_links(app: tauri::AppHandle, state: State<'_, AppState>, deck_id: i64) -
     };
     let (map, work) = ygo_solver::deck_links_again(&engine, &list, 1, budget, &AtomicBool::new(false), progress, previous.as_ref());
     let view = links_view(deck_id, &map);
-    state.links.lock().map_err(|e| e.to_string())?.insert(deck_id, LinksCache { cards, view: view.clone(), work });
-    Ok(view)
+    state.links.lock().map_err(|e| e.to_string())?.insert(deck_id, LinksCache { cards, map: map.clone(), view: view.clone(), work });
+    Ok((map, view))
+}
+
+/// A card in both versions compared: its numbers before and after.
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct LinkCardChangeView {
+    code: u32,
+    chance_before: f64,
+    chance_after: f64,
+    key_before: f64,
+    key_after: f64,
+    reach_all_before: u32,
+    reach_all_after: u32,
+}
+
+/// Two versions of a deck on the links map: both maps and what changes.
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct LinksComparisonView {
+    before: DeckLinksView,
+    after: DeckLinksView,
+    /// Links only in the second deck, only in the first.
+    gained: Vec<CardLinkView>,
+    lost: Vec<CardLinkView>,
+    /// Cards in both whose chance, key or reach changed, the most changed first.
+    changed: Vec<LinkCardChangeView>,
+    /// Cards put in and taken out.
+    added: Vec<u32>,
+    removed: Vec<u32>,
+    /// Cards an opening hand reaches on average, with the first deck and with the second.
+    reached_before: f64,
+    reached_after: f64,
+}
+
+/// Laboratorio, "Collegamenti": what changes on the map from one deck to
+/// another (two versions of a deck). The second is read reusing what was
+/// searched for the first: a few cards changed, a few seconds more.
+#[tauri::command(async)]
+fn deck_links_compare(
+    app: tauri::AppHandle,
+    state: State<'_, AppState>,
+    deck_id_a: i64,
+    deck_id_b: i64,
+) -> Result<LinksComparisonView, String> {
+    let (old, before) = read_links(&app, &state, deck_id_a, None)?;
+    let (new, after) = read_links(&app, &state, deck_id_b, Some(deck_id_a))?;
+    let diff = ygo_solver::compare_links(&old, &new);
+    Ok(LinksComparisonView {
+        before,
+        after,
+        gained: diff.gained.iter().map(link_view).collect(),
+        lost: diff.lost.iter().map(link_view).collect(),
+        changed: diff
+            .changed
+            .iter()
+            .map(|c| LinkCardChangeView {
+                code: c.code,
+                chance_before: c.chance.0,
+                chance_after: c.chance.1,
+                key_before: c.key.0,
+                key_after: c.key.1,
+                reach_all_before: c.reach_all.0,
+                reach_all_after: c.reach_all.1,
+            })
+            .collect(),
+        added: diff.added,
+        removed: diff.removed,
+        reached_before: diff.reached.0,
+        reached_after: diff.reached.1,
+    })
 }
 
 /// The map as far as it is read: `done` hands of `total` searched (0: the
@@ -1433,6 +1516,18 @@ struct LinksProgressView {
     done: usize,
     total: usize,
     map: DeckLinksView,
+}
+
+fn link_view(l: &ygo_solver::CardLink) -> CardLinkView {
+    CardLinkView {
+        from: l.from,
+        to: l.to,
+        kind: l.kind.key().to_owned(),
+        zone: l.zone.key().to_owned(),
+        possible: l.possible,
+        used: l.used,
+        text: l.text,
+    }
 }
 
 fn links_view(deck_id: i64, map: &ygo_solver::DeckLinks) -> DeckLinksView {
@@ -1452,19 +1547,7 @@ fn links_view(deck_id: i64, map: &ygo_solver::DeckLinks) -> DeckLinksView {
                 key: c.key,
             })
             .collect(),
-        links: map
-            .links
-            .iter()
-            .map(|l| CardLinkView {
-                from: l.from,
-                to: l.to,
-                kind: l.kind.key().to_owned(),
-                zone: l.zone.key().to_owned(),
-                possible: l.possible,
-                used: l.used,
-                text: l.text,
-            })
-            .collect(),
+        links: map.links.iter().map(link_view).collect(),
         hands: map.hands,
         lines: map.lines,
     }
@@ -1938,6 +2021,7 @@ pub fn run() {
             combo_score,
             combo_scores,
             deck_links,
+            deck_links_compare,
             combo_cancel,
             combo_explain,
             combo_stops,

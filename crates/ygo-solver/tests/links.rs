@@ -5,7 +5,7 @@ use std::path::PathBuf;
 use std::sync::atomic::AtomicBool;
 
 use ygo_engine::{DeckList, Engine};
-use ygo_solver::{deck_links_again, LinkKind, LinkZone, LinksBudget};
+use ygo_solver::{compare_links, deck_links_again, LinkKind, LinkZone, LinksBudget};
 
 #[test]
 fn the_invoked_deck_links_aleister_invocation_and_the_invoked() {
@@ -76,4 +76,21 @@ fn the_invoked_deck_links_aleister_invocation_and_the_invoked() {
     );
     assert_eq!(searched.into_inner(), 0);
     assert_eq!(again.links.len(), map.links.len());
+    let same = compare_links(&map, &again);
+    assert!(same.gained.is_empty() && same.lost.is_empty() && same.changed.is_empty() && same.removed.is_empty(), "{same:?}");
+
+    // A version without Magical Meltdown: its links are lost, and Aleister,
+    // which it searched, is reached less often.
+    let meltdown = code("Magical Meltdown");
+    let mut lighter = deck.clone();
+    lighter.main.retain(|&c| c != meltdown);
+    let (after, _) = deck_links_again(&engine, &lighter, 1, budget, &AtomicBool::new(false), |_, _, _| {}, Some(&work));
+    let diff = compare_links(&map, &after);
+    assert_eq!((diff.removed.clone(), diff.added.len()), (vec![meltdown], 0));
+    let aleister_code = code("Aleister the Invoker");
+    assert!(diff.lost.iter().any(|l| l.from == meltdown && l.to == aleister_code && l.kind == LinkKind::Search), "{:?}", diff.lost);
+    assert!(diff.gained.iter().all(|l| l.from != meltdown && l.to != meltdown), "{:?}", diff.gained);
+    let change = diff.changed.iter().find(|c| c.code == aleister_code).expect("Aleister changes");
+    assert!(change.chance.1 < change.chance.0, "{change:?}");
+    assert!(diff.reached.1 < diff.reached.0, "{:?}", diff.reached);
 }

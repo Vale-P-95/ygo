@@ -57,7 +57,7 @@ Abbiamo il motore EDOPro e la ricerca delle combo, quindi possiamo leggere i col
 | F1 | Gemini (in parallelo) | Mappa a cerchio sul backend finto: evidenziazione, filtri per tipo, riquadro della carta chiave | ~1 giorno |
 | F2 | Claude | Collegamenti usati (frequenza nelle linee migliori), raggiungibilità in più passi, probabilità esatte di arrivare a ogni carta, percorso più corto | ~0,5-1 giorno |
 | F2 | Gemini | Spessore per uso, anelli di raggiungibilità, mano sovrapposta, percorso con pulsante verso il Combo Lab, vista a colonne | ~1 giorno |
-| F3 | Entrambi | Carte chiave (cosa si perde se una carta è negata), confronto tra versioni del deck | da decidere |
+| F3 | Entrambi | Carte chiave (cosa si perde se una carta è negata), confronto tra versioni del deck | backend fatto; interfaccia di Gemini |
 
 ## Verifica
 - Sul deck Invoked, i collegamenti che il sito mostra devono esserci, salvo quelli impossibili per il motore. Quelli in più vanno guardati uno per uno: sono la prova che il motore vede meglio, o un difetto da correggere.
@@ -157,3 +157,19 @@ Il proprietario ha chiesto una mappa quasi istantanea, come quella del sito. Le 
 - **Materiali della bozza dal testo.** Ora devono essere mostri. Magie e Trappole con l'archetipo nel nome ("R.B. Stage Landing", "Artmage Vandalism -Assault-") risultavano materiali: 19 collegamenti in 2 deck su 6.
 - **Effetti ritardati.** Un effetto che si applica dopo, nella Fase Finale (Bystial Magnamhut che aggiunge un Drago), non ha più come causa l'ultima carta giocata: la causa si azzera a ogni cambio di fase. Prima Branded Banishment risultava "cercare" Starliege Seyfert.
 - **Numeri del collaudo con la bozza dal testo** (6 deck): i tempi scendono (branded 62 s, earth_machine 64 s); 112 collegamenti su 1118 vengono solo dal testo.
+
+## Confronto tra versioni del deck (21/10/2026)
+Approvato dal proprietario come ultimo pezzo della mappa: cosa cambia sostituendo delle carte.
+- **Cosa si confronta** (`compare_links` in `links.rs`):
+  - collegamenti guadagnati e persi; un collegamento è lo stesso se ha la stessa carta di partenza, di arrivo e lo stesso tipo;
+  - carte aggiunte e tolte;
+  - per le carte che restano: probabilità di arrivarci, carte chiave e raggiungibilità prima e dopo. Contano solo le differenze di almeno 0,02 (sotto è rumore delle mani cercate) o una raggiungibilità diversa; le più cambiate vengono prima;
+  - quante carte raggiunge in media una mano iniziale (somma delle probabilità), prima e dopo.
+- **Velocità.** La seconda versione si legge riusando le mani cercate per la prima (`deck_links_again`). Se la prima è già nella cache dell'app non costa nulla; la seconda costa pochi secondi quando cambiano poche carte.
+- **Nell'app.** Comando `deck_links_compare(deckIdA, deckIdB)` → `LinksComparison` (`api.deckLinksCompare`), con le due mappe intere (`before`, `after`) e le differenze. Gli eventi di avanzamento arrivano per tutti e due i deck, ognuno con il suo `deckId`.
+- **Nella CLI.** `links --deck <nuovo> --after <vecchio> --diff`.
+- **Prova sul deck Invoked** (lista EWCQ 2026 senza le 3 Magical Meltdown):
+  - 1,8 secondi per la seconda versione, contro 20 della prima;
+  - persi Meltdown → cerca Aleister e Terraforming → cerca Meltdown; Terraforming non porta più a nessuna carta (raggiungibilità da 14 a 0);
+  - Aleister in mano iniziale dall'88% al 77%, una mano raggiunge in media 17,55 carte invece di 18,02;
+  - le carte che non portano a nulla (Ash Blossom) salgono dal 34% al 36%, perché il deck ha 3 carte in meno.
