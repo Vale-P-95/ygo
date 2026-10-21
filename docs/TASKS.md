@@ -3,6 +3,7 @@
 Regole in `AGENTS.md`. Per prendere un task, spostalo in "In corso" con agente, branch e file che tocchi (è il lock), poi committa e pusha questa modifica prima di cominciare.
 
 ## In corso
+- [ ] Turno di prova contro un deck scelto, livello 1 (#44, `docs/plans/turno-di-prova-matchup.md`): resilienza contro i board breaker del deck avversario ed esposizione alle sue handtrap, affiancate al punteggio generico; deck avversario dalla Bottega — agente: claude-code — branch: claude/yugioh-deck-builder-simulator-cax0ya — file: crates/ygo-solver/src/probe.rs, explain.rs, roles.rs, crates/ygo-cli/src/main.rs, apps/desktop/src-tauri/src/lib.rs, apps/desktop/src/lib/api.ts (solo i tipi)
 - [ ] Classificazione delle board più profonda, con criteri validati sui deck di Master Duel Meta (#47) — agente: claude-code — branch: claude/yugioh-deck-builder-simulator-cax0ya — file: crates/ygo-solver/src/probe.rs, value.rs, explain.rs, tests/probe.rs, crates/ygo-engine/src/message.rs, apps/desktop/src-tauri/src/lib.rs (score_view)
   - Piano: `docs/plans/classificazione-board.md` (passi D0–D17; giudizio dato da un pannello di agenti, non dal proprietario).
   - [x] D0a: `combos --json/--save-lines`, `probe-line`.
@@ -35,7 +36,6 @@ Regole in `AGENTS.md`. Per prendere un task, spostalo in "In corso" con agente, 
 ### Motore e ricerca (Claude)
 - [ ] Linee del video Invoked: come si classificano, correzioni generali (#45).
 - [ ] Scale e pesi delle metriche del punteggio (#43).
-- [ ] Turno di prova contro un deck avversario scelto dall'utente (#44): proposta in `docs/plans/turno-di-prova-matchup.md`, in attesa delle decisioni del proprietario.
 - [ ] Frontiera di Pareto e confronto tra board; preferenze apprese (#40).
 - [ ] Simulatore: giocare passo per passo una combo scelta (#36, alla fine).
 - [ ] Limiti noti delle carte piazzate: equipaggiamenti, materiali dei mostri dell'Extra Deck (PIANO §30.4).
