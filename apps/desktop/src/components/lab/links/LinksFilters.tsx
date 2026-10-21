@@ -68,9 +68,11 @@ export function LinksFilters({ filters, onChange, layout, onLayoutChange, links 
         </div>
 
         <div className="flex items-center gap-2">
-          <div className="flex items-center rounded-lg border border-border bg-surface-2 p-0.5 text-[11px]" role="tablist">
+          <div className="flex items-center rounded-lg border border-border bg-surface-2 p-0.5 text-[11px]" role="tablist" aria-label="Modalità di visualizzazione">
             <button
               type="button"
+              role="tab"
+              aria-selected={layout === "circle"}
               className={`rounded-md px-2.5 py-0.5 font-medium transition-colors ${layout === "circle" ? "bg-surface-3 text-text shadow-xs" : "text-muted hover:text-text"}`}
               onClick={() => {
                 sound.play("toggle");
@@ -81,6 +83,8 @@ export function LinksFilters({ filters, onChange, layout, onLayoutChange, links 
             </button>
             <button
               type="button"
+              role="tab"
+              aria-selected={layout === "columns"}
               className={`rounded-md px-2.5 py-0.5 font-medium transition-colors ${layout === "columns" ? "bg-surface-3 text-text shadow-xs" : "text-muted hover:text-text"}`}
               onClick={() => {
                 sound.play("toggle");

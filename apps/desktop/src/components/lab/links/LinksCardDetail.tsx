@@ -69,7 +69,7 @@ export function LinksCardDetail({
     );
   }
 
-  const chanceText = (card as any).measured
+  const chanceText = card.measured
     ? `~${Math.round(card.chance * 100)}% (stima)`
     : card.extra && card.chance === 0
       ? "—"
@@ -312,7 +312,7 @@ export function LinksCardDetail({
           }}
           className="btn btn-ghost !py-1.5 text-xs text-sec hover:bg-sec/10 flex items-center justify-center gap-1.5 border border-sec/40"
         >
-          <span>⚡ Cerca combo partendo da questa carta</span>
+          <span>⚡ Cerca combo che arrivano a questa carta</span>
         </button>
       )}
     </div>

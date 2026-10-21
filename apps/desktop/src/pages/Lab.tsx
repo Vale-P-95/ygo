@@ -115,6 +115,8 @@ export function Lab({
       if (!d) return;
       rememberDeck(id);
       deckIdRef.current = id;
+      linksReqIdRef.current++;
+      setLinksLoading(false);
       // The last analysis belongs to the deck left.
       setPreviousRoles(null);
       setReasons({});
@@ -162,7 +164,7 @@ export function Lab({
   }, [tab, reloadLog, updatedAt]);
 
   useEffect(() => {
-    if (tab === "links" && deck?.id != null && (!linksData || linksData.deckId !== deck.id) && !linksLoading) {
+    if (tab === "links" && deck?.id != null && (!linksData || linksData.deckId !== deck.id) && !linksLoading && !linksError) {
       void loadLinks(deck.id);
     }
   }, [tab, deck?.id, linksData, linksLoading, loadLinks]);
@@ -240,6 +242,8 @@ export function Lab({
     try {
       const saved = await api.saveDeck({ ...deck, main, maybe, roles });
       setDeck(saved);
+      linksReqIdRef.current++;
+      setLinksLoading(false);
       setLinksData(null);
       setLinksError(null);
       setLinksProgress(null);
@@ -295,7 +299,7 @@ export function Lab({
         card: startCardId ?? (typeof existing.card === "number" ? existing.card : null),
         keep: Array.isArray(existing.keep) ? existing.keep : [],
         forbid: Array.isArray(existing.forbid) ? existing.forbid : [],
-        goal: [{ card: targetGoalCardId, min: 1, zone: null }],
+        goal: [{ code: targetGoalCardId, zone: "any" }],
         goalAll: true,
         goalFirst: typeof existing.goalFirst === "boolean" ? existing.goalFirst : true,
       };

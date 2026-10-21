@@ -179,7 +179,7 @@ export function LinksColumns({
                         )}
                         <span className="ml-auto text-sec tabular-nums font-medium">
                           {c.extra
-                            ? (c as any).measured
+                            ? c.measured
                               ? `~${Math.round(c.chance * 100)}% (stima)`
                               : c.chance > 0
                                 ? `${Math.round(c.chance * 100)}%`

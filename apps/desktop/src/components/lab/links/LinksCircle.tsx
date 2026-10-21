@@ -132,9 +132,10 @@ export function LinksCircle({
             let strokeWidth = l.used > 0 ? 1.5 + l.used * 2 : 1.2;
 
             if (sampleHandCodes) {
-              const fromInHand = sampleHandCodes.has(l.from);
-              const toReached = reachedFromHandCodes?.has(l.to);
-              if (fromInHand || toReached) {
+              const fromValid = sampleHandCodes.has(l.from) || (reachedFromHandCodes?.has(l.from) ?? false);
+              const toValid = reachedFromHandCodes?.has(l.to) ?? false;
+              const isHandTraversed = fromValid && toValid && (l.zone === "deck" || l.zone === "extra");
+              if (isHandTraversed) {
                 opacity = 0.85;
                 strokeWidth = Math.max(strokeWidth, 2);
               } else {
@@ -284,7 +285,7 @@ export function LinksCircle({
                   x={pos.x}
                   y={pos.y + 4}
                   textAnchor="middle"
-                  className="text-[9px] font-bold fill-current"
+                  className="text-[9px] font-bold"
                   fill={isFocused || inSampleHand ? "var(--df-text)" : "var(--df-muted)"}
                 >
                   {c.copies}
