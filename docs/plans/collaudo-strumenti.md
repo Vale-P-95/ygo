@@ -274,10 +274,47 @@ Misurati da soli (nessun altro processo), 4 thread. "Nuovi" e "persi": collegame
 - `probe-line --vs` stampa "Lightning Storm" due volte tra i breaker (le due opzioni): basta il nome con l'opzione, come nel kit.
 - Nel JSON di `probe-line` la misura contro il deck non ha il tempo: per le tabelle l'ho letto dall'output di testo.
 
+## Dopo le correzioni della coordinatrice (commit `d5af0ba`, PR #23)
+Stesse 180 board, rimisurate con il binario di `d5af0ba` (la A, deck dell'avversario di 35 carte, non c'è ancora). Fermate di Maxx "C", Fuwalos e Purulia sommate:
+
+| Versione | Fermate | Deck con fermate (fermate) |
+|---|---|---|
+| prima (`7c0e640`) | 1116 | fur_hire 467, k9 396, tearlaments 106, blue_eyes 66, dracotail 48, branded 33 |
+| copia sperimentale A+B+C/D | 48 | blue_eyes 33, dracotail 15 |
+| `d5af0ba` | 385 | synchrons 99, k9 66, blue_eyes 66, tearlaments 62, branded 33, white_forest_azamina 33, dracotail 15, fur_hire 11 |
+| `d5af0ba` + le due correzioni sotto | 121 | tearlaments 40, k9 33, synchrons 33, dracotail 15 |
+
+- Fur_hire e k9 migliorano molto. Ma synchrons e white_forest_azamina, che prima avevano 0 fermate, ora ne hanno: sono due regressioni.
+- Le fermate vere non cambiano: Ash 592, Ogre 414, Nibiru 303, Dominus 298 e 442.
+
+### R1. Domande della linea rifiutate durante la risoluzione (regressione)
+- **Riprodurre:**
+  ```
+  DUELFORGE_DEBUG_MATCHUP=1 duelforge-cli probe-line --deck <mdm>/synchrons.ydk --lines <out>/synchrons.lines.json --vs <mdm>/kaiju.ydk --index 0
+  ```
+  Maxx "C" al momento 8 risulta fermare la linea: "diverged at answer 23".
+- **Causa:** in `replay` la condizione `declinable(&decision) && (theirs_on_top || !same_question)`. `theirs_on_top` resta vero da quando l'avversario concatena fino a `ChainEnd`, quindi per tutta la risoluzione. La `YesNo` dell'effetto della linea che si risolve sotto Maxx "C" ("then you can...", attesa proprio lì) viene rifiutata. Prima `theirs_on_top` valeva solo per le finestre `SelectChain`.
+- **Correzione:** `theirs_on_top` solo per le `SelectChain`, come prima. Oppure azzerarlo a `ChainSolving`.
+
+### R2. I passaggi della linea si saltano dopo il rifiuto
+- In `replay` il ciclo "Passes of the line the engine no longer asks for are left out" viene dopo il rifiuto delle domande nuove. Se la linea aveva un passaggio in una finestra che non c'è più, la domanda dopo (la `YesNo` della linea) ha un tipo diverso da `own.kinds[next]` e viene rifiutata.
+- **Correzione:** saltare i passaggi prima del rifiuto.
+- **Numeri:** con R1 e R2 insieme (provate nella copia, dietro variabili d'ambiente) si passa da 385 a 121 fermate. white_forest_azamina, blue_eyes e branded tornano a 0, synchrons da 99 a 33.
+
+### Cosa resta
+- **tearlaments, 40:** è la A, il deck dell'avversario di 12 carte (Pilgrim Reaper). Con la A la copia sperimentale arrivava a 0.
+- **k9 e synchrons, 33 ciascuno:** la linea aspetta una scelta di carte (`SelectCard`, risposta da 12 byte) che dopo Maxx "C" non arriva, e il motore chiede un `IdleCmd`. In `d5af0ba` l'identità copre solo `IdleCmd`, `SelectChain` ed `EffectYesNo`; le scelte di carte restano per indice. Se la lista cambia (Maxx "C" nel Cimitero dell'avversario per un effetto su "either GY", una carta in più in mano), l'indice sceglie un'altra carta e la linea si sfasa più avanti. La copia sperimentale copriva anche le scelte di una carta sola, e lì k9 e synchrons erano a 0. **Proposta:** estendere l'identità alle `SelectCard` di una carta (e alle multiple, carta per carta).
+- **dracotail, 15:** Maxx "C" usato in Fase Finale, poi il trigger di Fase Finale di Blazing Cartesia non viene più offerto. Era già così nella copia sperimentale: da capire nel motore.
+
 ## Conclusione
 Le prime correzioni da fare, in ordine:
-1. **Rigioco delle handtrap (`matchup.rs`):** deck dell'avversario di 35 carte (A), risposta passiva alle domande nuove (B), risposte per identità e non per indice (C/D). Provate insieme sulle 180 board: le fermate false di Maxx "C" e Mulcharmy passano da 1116 a 48, le fermate vere restano. È la correzione che cambia di più i numeri che l'utente vede.
-2. **Causa dei trigger facoltativi nella mappa (`links.rs`, `play`):** una riga; toglie collegamenti falsi in molti deck (12 nel solo Branded).
+1. **Rigioco delle handtrap (`matchup.rs`):** B e C/D sono in `d5af0ba`. Restano da fare:
+   - R1 e R2 (sopra), due righe ciascuna: da 385 a 121 fermate false;
+   - l'identità anche per le scelte di carte;
+   - la A (deck dell'avversario di 35 carte).
+
+   Con tutto, le fermate false di Maxx "C" e Mulcharmy passano da 1116 a circa 0, e le fermate vere restano.
+2. **Causa dei trigger facoltativi nella mappa (`links.rs`, `play`):** fatta in `d5af0ba`.
 3. **Materiali tagliati al punto (`links.rs`, `Names::new`):** tagliare solo a fine riga.
 4. **Breaker dell'avversario (`matchup.rs` `playable`, `roles.rs`):** tenere solo quelli che tolgono qualcosa al campo finto; aggiungere "as many ... as possible" e "shuffle ... into the Deck"; usare il Main Deck e l'Extra Deck veri dell'avversario.
 5. **Deck dell'avversario del kit a 35 carte (`probe.rs`):** cambia la ricerca, quindi va fatta con il protocollo bench prima/dopo.
