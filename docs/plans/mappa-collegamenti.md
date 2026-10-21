@@ -94,3 +94,16 @@ Abbiamo il motore EDOPro e la ricerca delle combo, quindi possiamo leggere i col
   - `chance` è ottimista quando un collegamento richiede più carte, ad esempio una Fusione che vuole anche il secondo materiale.
   - I mostri dell'Extra Deck che nessuna carta nomina (Link e Synchro con materiali generici) hanno `chance` 0: l'interfaccia mostra un trattino.
 
+## Carte chiave (21/10/2026)
+- `key` per ogni carta: quante carte raggiunte in media dalla mano iniziale (la somma delle `chance`) si perdono se gli effetti della carta vengono negati, cioè se i suoi collegamenti non valgono più.
+- Misura quanto il deck si appoggia su quella carta.
+- Sul deck Invoked:
+  - Aiwass 1,37;
+  - Invoked Baybarron 0,88 (unica via a Virakam);
+  - Sacred Spirit Sword Aiwass 0,77;
+  - Aleister the Reminiscent 0,66;
+  - Aleister the Invoker 0,42;
+  - Invocation 0,05, perché molte carte portano gli stessi Invoked;
+  - handtrap 0.
+- I percorsi tra due carte si calcolano nell'interfaccia sui `links`.
+

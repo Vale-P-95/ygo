@@ -999,13 +999,14 @@ fn links(dir: &Path, deck: &Path, nodes: u64, hands: usize, threads: Option<usiz
     cards.sort_by(|a, b| b.reach_all.cmp(&a.reach_all).then(b.reach.cmp(&a.reach)));
     for c in &cards {
         println!(
-            "{:<45} x{} {} reach {:>2} / {:>2} · reached by an opening hand {:>3.0}%",
+            "{:<45} x{} {} reach {:>2} / {:>2} · reached by an opening hand {:>3.0}% · negated, {:.2} cards fewer reached",
             db.name(c.code),
             c.copies,
             if c.extra { "extra" } else { "main " },
             c.reach,
             c.reach_all,
-            c.chance * 100.0
+            c.chance * 100.0,
+            c.key
         );
         for l in map.links.iter().filter(|l| l.from == c.code) {
             let used = if l.used > 0.0 { format!(" used {:.0}%", l.used * 100.0) } else { String::new() };
@@ -1024,7 +1025,7 @@ fn links(dir: &Path, deck: &Path, nodes: u64, hands: usize, threads: Option<usiz
             "lines": map.lines,
             "cards": map.cards.iter().map(|c| serde_json::json!({
                 "code": c.code, "name": db.name(c.code), "copies": c.copies, "extra": c.extra,
-                "reach": c.reach, "reachAll": c.reach_all, "chance": c.chance,
+                "reach": c.reach, "reachAll": c.reach_all, "chance": c.chance, "key": c.key,
             })).collect::<Vec<_>>(),
             "links": map.links.iter().map(|l| serde_json::json!({
                 "from": l.from, "to": l.to, "kind": l.kind.key(), "zone": l.zone.key(), "possible": l.possible, "used": l.used,

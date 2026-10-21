@@ -2072,7 +2072,7 @@ export const mockApi: Api = {
       for (const code of codes) {
         const card = cards.find((c) => c.code === code);
         if (card) card.copies += 1;
-        else cards.push({ code, copies: 1, extra, reach: 0, reachAll: 0, chance: 0 });
+        else cards.push({ code, copies: 1, extra, reach: 0, reachAll: 0, chance: 0, key: 0 });
       }
     }
     return { deckId, cards, links: [], hands: 0, lines: 0 };

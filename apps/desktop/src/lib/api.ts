@@ -595,6 +595,8 @@ export interface LinkCard {
    * (one card is enough: optimistic when a link needs more). 0 for an Extra Deck monster no card names as material.
    */
   chance: number;
+  /** Cards an opening hand reaches on average (sum of the chances) that are lost when this card's effects are negated: the key cards of the deck. */
+  key: number;
 }
 
 /** The map of the links between the cards of a deck (mirrors `DeckLinksView`). */

@@ -107,6 +107,10 @@ pub struct LinkCard {
     /// into play in any number of steps. 0 for an Extra Deck monster no
     /// card names: it is summoned with any materials.
     pub chance: f64,
+    /// Cards an opening hand reaches on average (the sum of the chances)
+    /// that are lost when this card's effects are negated: how much the
+    /// deck leans on it.
+    pub key: f64,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -168,7 +172,7 @@ pub fn deck_links(
             let code = db.canonical_code(c);
             match cards.iter_mut().find(|k| k.code == code) {
                 Some(k) => k.copies += 1,
-                None => cards.push(LinkCard { code, copies: 1, extra, reach: 0, reach_all: 0, chance: 0.0 }),
+                None => cards.push(LinkCard { code, copies: 1, extra, reach: 0, reach_all: 0, chance: 0.0, key: 0.0 }),
             }
         }
     }
@@ -255,10 +259,14 @@ pub fn deck_links(
     let brings = |code: u32| -> HashSet<u32> {
         links.iter().filter(|l| l.from == code && matches!(l.zone, Zone::Deck | Zone::Extra)).map(|l| l.to).collect()
     };
-    let closure = |code: u32| -> HashSet<u32> {
+    // What `code` brings into play, without the links of `negated`.
+    let closure = |code: u32, negated: Option<u32>| -> HashSet<u32> {
         let mut seen: HashSet<u32> = HashSet::new();
         let mut todo = vec![code];
         while let Some(c) = todo.pop() {
+            if Some(c) == negated {
+                continue;
+            }
             for n in brings(c) {
                 if n != code && seen.insert(n) {
                     todo.push(n);
@@ -267,9 +275,20 @@ pub fn deck_links(
         }
         seen
     };
-    let closures: HashMap<u32, HashSet<u32>> = cards.iter().map(|c| (c.code, closure(c.code))).collect();
+    let codes: Vec<u32> = cards.iter().map(|c| c.code).collect();
+    let closures_without =
+        |negated: Option<u32>| -> HashMap<u32, HashSet<u32>> { codes.iter().map(|&c| (c, closure(c, negated))).collect() };
     let main_size = deck.main.len();
     let copies: HashMap<u32, u32> = cards.iter().filter(|c| !c.extra).map(|c| (c.code, c.copies)).collect();
+    // The chance an opening hand of 5 holds `target` or a card that brings it.
+    let chance = |target: u32, closures: &HashMap<u32, HashSet<u32>>| -> f64 {
+        let leading: u32 = copies.iter().filter(|(&c, _)| c == target || closures[&c].contains(&target)).map(|(_, &n)| n).sum();
+        1.0 - none_drawn(main_size, leading, 5)
+    };
+    let closures = closures_without(None);
+    let reached = |closures: &HashMap<u32, HashSet<u32>>| -> f64 { codes.iter().map(|&c| chance(c, closures)).sum() };
+    let total = reached(&closures);
+    let keys: HashMap<u32, f64> = codes.iter().map(|&c| (c, (total - reached(&closures_without(Some(c)))).max(0.0))).collect();
     for card in &mut cards {
         let direct = next_of(card.code);
         let mut all = closures[&card.code].clone();
@@ -280,8 +299,8 @@ pub fn deck_links(
         all.remove(&card.code);
         card.reach = direct.len() as u32;
         card.reach_all = all.len() as u32;
-        let leading: u32 = copies.iter().filter(|(&c, _)| c == card.code || closures[&c].contains(&card.code)).map(|(_, &n)| n).sum();
-        card.chance = 1.0 - none_drawn(main_size, leading, 5);
+        card.chance = chance(card.code, &closures);
+        card.key = keys[&card.code];
     }
     DeckLinks { cards, links, hands: hands.len() as u32, lines: seen.len() as u32 }
 }
