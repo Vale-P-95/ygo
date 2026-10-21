@@ -1070,6 +1070,21 @@ fn starts(decision: &Decision, kind: ActionKind) -> bool {
     }
 }
 
+/// The state as far as an answer shows in it: what was activated this turn
+/// and the cards' status bits (which the activation itself changes) left
+/// out. An answer that changes nothing else is kept by the engine for later:
+/// a target, a name declared, an option.
+fn shown_state(state: &DuelState) -> u64 {
+    let mut s = state.clone();
+    s.activity = Default::default();
+    for p in &mut s.players {
+        for c in p.monsters.iter_mut().chain(p.spells.iter_mut()).flatten() {
+            c.status = 0;
+        }
+    }
+    canonical_fingerprint(&s)
+}
+
 /// Priority taken off an answer for each answer of its line that is not
 /// the dive's: the lines near the best ones are tried first, the ones that
 /// differ in many choices later.
@@ -1080,7 +1095,8 @@ const DISCREPANCY: f64 = 0.6;
 /// estimate of the best board the line reached after them (the boards
 /// before an answer do not depend on it), less [`DISCREPANCY`] for each
 /// answer of their line that is not the dive's; the other zones of a line's
-/// last choice go last.
+/// last choice, and the other answers of a choice the state does not show
+/// yet, go last.
 fn work(shared: &Shared, edge: Edge) -> Result<(), Error> {
     let mut dive = Dive { left: Vec::new(), boards: Vec::new() };
     let result = play(shared, &edge, &mut dive);
@@ -1104,7 +1120,7 @@ fn work(shared: &Shared, edge: Edge) -> Result<(), Error> {
             // The last board reading at this depth or deeper.
             let value = suffix.iter().rev().find(|(d, _)| *d >= left.depth).map_or(fallback, |&(_, v)| v);
             let bonus = if left.wanted { 10.0 } else { 0.0 };
-            let last = if left.last_zone { END_PHASE_LAST } else { 0.0 };
+            let last = if left.last { END_PHASE_LAST } else { 0.0 };
             NewEdge {
                 prefix: left.prefix,
                 answer: Some(left.answer),
@@ -1132,8 +1148,9 @@ struct LeftAnswer {
     depth: usize,
     wanted: bool,
     kind: ActionKind,
-    /// Another zone for the monster of the line's last choice (see `play`).
-    last_zone: bool,
+    /// Queued last (see `play`): another zone for the monster of the line's
+    /// last choice, or another answer to a choice the state does not show yet.
+    last: bool,
 }
 
 fn play(shared: &Shared, edge: &Edge, dive: &mut Dive) -> Result<(), Error> {
@@ -1227,6 +1244,11 @@ fn play(shared: &Shared, edge: &Edge, dive: &mut Dive) -> Result<(), Error> {
     // The last answer this dive gave: stopped before its node is read, the
     // answer goes back in the queue, so a resumed search plays on from it.
     let mut given: Option<LeftAnswer> = None;
+    // The dive's last answer when it was not given at a free moment: its
+    // depth, its kind and the state shown before it; and whether a free
+    // moment was answered (automatically) since.
+    let mut hidden: Option<(usize, ActionKind, u64)> = None;
+    let mut freed = false;
     loop {
         if shared.halted() {
             match given.take() {
@@ -1245,6 +1267,7 @@ fn play(shared: &Shared, edge: &Edge, dive: &mut Dive) -> Result<(), Error> {
         let (step, mut actions) = duel.advance_auto_seen(&config.policy, &mut line.answers, |d, a, chain| {
             pending.answered(d, a, chain);
             after_answer(&mut last_set, d, a);
+            freed |= is_free(d);
         })?;
         let (turn, _, phase) = duel.turn_info();
         let (Step::Decision { events, .. } | Step::End { events }) = &step;
@@ -1312,6 +1335,8 @@ fn play(shared: &Shared, edge: &Edge, dive: &mut Dive) -> Result<(), Error> {
             return Ok(());
         }
         let happened = events.len();
+        // A chain link finished resolving since the last node.
+        let resolved = events.iter().any(|e| matches!(e, Event::ChainSolved { .. } | Event::ChainEnd));
         if let Step::Decision { .. } = &step {
             undoable &= happened == 0;
         }
@@ -1331,13 +1356,26 @@ fn play(shared: &Shared, edge: &Edge, dive: &mut Dive) -> Result<(), Error> {
                 // the end anyway (`zone_variants`). Queued last.
                 if let Some(at) = given.as_ref().filter(|g| g.kind == ActionKind::Place).map(|g| g.depth) {
                     for left in dive.left.iter_mut().filter(|l| l.depth == at && l.kind == ActionKind::Place) {
-                        left.last_zone = true;
+                        left.last = true;
                     }
                 }
                 return Ok(());
             }
         };
         let state = duel.state();
+        // The last answer changed nothing shown and its link has not resolved
+        // yet: the engine keeps it for later (a target, a name declared). The
+        // other answers of the same kind there are real alternatives, but
+        // most lead to the same board once the chain resolves: tried first,
+        // they take the budget from the lines that differ (the best Invoked
+        // and Dracotail boards were lost). Queued last.
+        if let Some((depth, kind, before)) = hidden.take() {
+            if (freed || is_free(&decision)) && !resolved && shown_state(&state) == before {
+                for left in dive.left.iter_mut().filter(|l| l.depth == depth && l.kind == kind) {
+                    left.last = true;
+                }
+            }
+        }
         shared.nodes.fetch_add(1, Ordering::Relaxed);
         let free = is_free(&decision);
         // The same state met again since the last free moment, by the
@@ -1499,7 +1537,7 @@ fn play(shared: &Shared, edge: &Edge, dive: &mut Dive) -> Result<(), Error> {
             depth,
             wanted: wanted(a),
             kind: a.kind,
-            last_zone: false,
+            last: false,
         }));
         let first = &actions[0];
         if matches!(decision, Decision::IdleCmd { .. }) && first.kind == ActionKind::Activate {
@@ -1511,12 +1549,14 @@ fn play(shared: &Shared, edge: &Edge, dive: &mut Dive) -> Result<(), Error> {
             depth,
             wanted: wanted(first),
             kind: first.kind,
-            last_zone: false,
+            last: false,
         });
         record(audit, Some(&first.response));
         if let Some(c) = first.card.filter(|c| c.location == location::EXTRA) {
             placing = Some(c.code);
         }
+        hidden = (!free).then(|| (depth, first.kind, shown_state(&state)));
+        freed = false;
         undoable = starts(&decision, first.kind) || (undoable && !free);
         pending.answered(&decision, &first.response, duel.chain());
         after_answer(&mut last_set, &decision, &first.response);
@@ -2020,5 +2060,20 @@ mod tests {
         assert!(!starts(&window, ActionKind::Pass));
         assert!(starts(&select, ActionKind::Choose));
         assert!(!starts(&select, ActionKind::Cancel));
+    }
+
+    #[test]
+    fn a_target_or_a_name_declared_does_not_show() {
+        let mut state = DuelState::default();
+        state.players[0].monsters = vec![None; 7];
+        state.players[0].monsters[0] = Some(ygo_engine::FieldCard { code: 10, position: 1, attack: 1000, ..Default::default() });
+        let before = shown_state(&state);
+        // Activating an effect marks the card and the turn, whatever its target.
+        state.activity.activations.push((10, 160));
+        state.players[0].monsters[0].as_mut().unwrap().status |= 0x10;
+        assert_eq!(shown_state(&state), before);
+        // What the effect does shows.
+        state.players[0].monsters[0].as_mut().unwrap().attack = 2000;
+        assert_ne!(shown_state(&state), before);
     }
 }
