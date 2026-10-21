@@ -7,6 +7,9 @@ Lavoro della sessione Claude sul branch `claude/search-speed` (21/10/2026). Obie
 - **Deck**: liste di Master Duel Meta scaricate il 21/10 (`mdm_decks.py --limit 300`, per avere anche mitsurugi, yummy_mimighoul e ignister). La lista Invoked di oggi non ha Droll & Lock Bird, The Book of the Law e Super Polymerization, che servono alle mani `inv-*`: nella copia locale 2 Effect Veiler, Nibiru e Sorcerer of the Swamp sono sostituiti da queste. I numeri quindi non si confrontano con quelli del PIANO, solo prima/dopo qui.
 - **Risultati invariati**: `combos --json --save-lines --threads 1 --nodes 4000 --top 10` per ogni mano; si confrontano riga di riepilogo (nodi, replay, duplicati, board), board misurate dal turno di prova e linee, togliendo solo i tempi. Due esecuzioni della stessa CLI danno uscite identiche; il rumore sui tempi è circa ±3%.
 
+## Coordinamento
+- `probe.rs`: `Kit::standard` e `Kit::with_breakers` lasciati alla coordinatrice. I miei commit non li toccano, e il lavoro sulla velocità è finito.
+
 ## Misura di partenza (`main`, 20281db)
 | Misura | Valore |
 |---|---|
