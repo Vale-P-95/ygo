@@ -142,6 +142,46 @@ export function parts(s: ComboScore, w: Weights): { metric: Metric; value: numbe
   return METRICS.map((metric) => ({ metric, value: w[metric.key] * s[metric.key] }));
 }
 
+/** Extracts the dictionary of metrics by key for preference recording. */
+export function metricValues(s: ComboScore): Record<MetricKey, number> {
+  return {
+    interruptions: s.interruptions,
+    handTraps: s.handTraps,
+    floodgates: s.floodgates,
+    resilience: s.resilience,
+    followup: s.followup,
+    resources: s.resources,
+    cost: s.cost,
+    exposure: s.exposure,
+  };
+}
+
+/**
+ * Checks if board score A Pareto-dominates board score B:
+ * A is at least equal to B in all metrics (lower is better for cost and exposure),
+ * and strictly better in at least one metric.
+ */
+export function dominates(a: ComboScore, b: ComboScore): boolean {
+  if (a.error || b.error) return false;
+  let strictlyBetter = false;
+  const EPS = 1e-4;
+
+  const posKeys: MetricKey[] = ["interruptions", "handTraps", "floodgates", "resilience", "followup", "resources"];
+  for (const k of posKeys) {
+    if (a[k] < b[k] - EPS) return false;
+    if (a[k] > b[k] + EPS) strictlyBetter = true;
+  }
+
+  const negKeys: MetricKey[] = ["cost", "exposure"];
+  for (const k of negKeys) {
+    if (a[k] > b[k] + EPS) return false;
+    if (a[k] < b[k] - EPS) strictlyBetter = true;
+  }
+
+  return strictlyBetter;
+}
+
+
 interface Choice {
   profile: string;
   weights: Weights;
@@ -197,3 +237,9 @@ export function pickProfile(id: string) {
 export function setWeight(key: MetricKey, value: number) {
   set({ profile: "custom", weights: { ...choice.weights, [key]: value } });
 }
+
+/** Activates the weights learned from the player's choices. */
+export function applyLearnedWeights(learned: Weights) {
+  set({ profile: "learned", weights: { ...choice.weights, ...learned } });
+}
+

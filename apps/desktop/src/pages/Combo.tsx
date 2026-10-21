@@ -7,10 +7,10 @@ import { CardPreview } from "../components/CardPreview";
 import { CardTile } from "../components/CardTile";
 import { DeckMenu } from "../components/DeckMenu";
 import { SectionHeader } from "../components/SectionHeader";
-import { api, type ComboBoard, type ComboGoal, type ComboHand, type ComboStep, type GoalCard, type GoalZone, type Deck, type DeckSummary, type ZoneCard } from "../lib/api";
+import { api, type ComboBoard, type ComboGoal, type ComboHand, type ComboScore, type ComboStep, type GoalCard, type GoalZone, type Deck, type DeckSummary, type ZoneCard } from "../lib/api";
 import { useCardCache } from "../lib/cards";
 import { continueCombo, scoreBoards, startCombo, stopCombo, useCombo } from "../lib/combo";
-import { score, useWeights } from "../lib/scoring";
+import { dominates, score, useWeights } from "../lib/scoring";
 import { lastDeck, rememberDeck } from "../lib/deck";
 import { sound } from "../lib/sound";
 import { toast } from "../lib/toast";
@@ -211,6 +211,7 @@ export function Combo({ artReady, onGoForge }: { artReady: boolean; onGoForge: (
   const [weightsOpen, setWeightsOpen] = useState(false);
   const [allDecks, setAllDecks] = useState<DeckSummary[]>([]);
   const [sortByMatchup, setSortByMatchup] = useState(false);
+  const [paretoOnly, setParetoOnly] = useState(false);
 
   useEffect(() => {
     void api.listDecks().then(setAllDecks);
@@ -269,6 +270,32 @@ export function Combo({ artReady, onGoForge }: { artReady: boolean; onGoForge: (
 
   // The search shown is the one of this deck, if any.
   const ours = run.request && deck && run.request.deckId === deck.id;
+  // Board IDs dominated on all metrics by another measured board (Pareto dominance)
+  const dominatedBoardIds = useMemo(() => {
+    if (!ours) return new Set<string>();
+    const list = run.outcome ? run.outcome.boards : Object.values(run.live).flat();
+    const dominated = new Set<string>();
+    const measuredList: { id: string; score: ComboScore }[] = [];
+
+    for (const b of list) {
+      const id = boardId(b);
+      const s = run.scores[id];
+      if (s && !s.error) {
+        measuredList.push({ id, score: s });
+      }
+    }
+
+    for (let i = 0; i < measuredList.length; i++) {
+      for (let j = 0; j < measuredList.length; j++) {
+        if (i === j) continue;
+        if (dominates(measuredList[i].score, measuredList[j].score)) {
+          dominated.add(measuredList[j].id);
+        }
+      }
+    }
+    return dominated;
+  }, [ours, run.outcome, run.live, run.scores]);
+
   const boards = useMemo(() => {
     if (!ours) return [];
     const list = run.outcome ? run.outcome.boards : Object.values(run.live).flat();
@@ -282,10 +309,11 @@ export function Combo({ artReady, onGoForge }: { artReady: boolean; onGoForge: (
     };
     return list
       .filter((b) => handFilter == null || b.hand === handFilter)
+      .filter((b) => !paretoOnly || !dominatedBoardIds.has(boardId(b)))
       .map((b) => ({ b, v: value(b) }))
       .sort((x, y) => y.b.goalHits - x.b.goalHits || (y.v ?? -1e9) - (x.v ?? -1e9) || byRank(x.b, y.b))
       .map((x) => x.b);
-  }, [ours, run.outcome, run.live, run.scores, weights, handFilter, sortByMatchup]);
+  }, [ours, run.outcome, run.live, run.scores, weights, handFilter, sortByMatchup, paretoOnly, dominatedBoardIds]);
   // Boards that look the same (they differ only in the Graveyard, the banished cards or the zones) are one entry.
   const groups = useMemo(() => {
     const out: { board: ComboBoard; variants: number }[] = [];
@@ -919,10 +947,25 @@ export function Combo({ artReady, onGoForge }: { artReady: boolean; onGoForge: (
                           {sortByMatchup ? "✓ Ordine: vs deck" : "Ordina per vs deck"}
                         </button>
                       )}
+                      {measured > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            sound.play("toggle");
+                            setParetoOnly((v) => !v);
+                          }}
+                          className={`chip !py-0.5 text-[11px] ${paretoOnly ? "chip-active" : ""}`}
+                          title="Mostra solo le board non dominate (frontiera di Pareto): nessuna altra board misurata è uguale o migliore su tutte le metriche"
+                        >
+                          {paretoOnly
+                            ? `✓ Solo non dominate (${Math.max(0, measured - dominatedBoardIds.size)}/${measured})`
+                            : "Solo non dominate (Pareto)"}
+                        </button>
+                      )}
                     </div>
                   )}
                 </div>
-                {!run.running && measured > 0 && <WeightsPanel profile={profile} weights={weights} open={weightsOpen} compact={!!selected} onToggle={() => setWeightsOpen((v) => !v)} />}
+                {!run.running && measured > 0 && <WeightsPanel profile={profile} weights={weights} open={weightsOpen} compact={!!selected} deckId={deck?.id ?? null} onToggle={() => setWeightsOpen((v) => !v)} />}
                 {pinned && (
                   <div className="lab-card flex flex-wrap items-center justify-between gap-2 border-sec/60 bg-surface-2/80 px-3 py-2 text-xs anim-fade">
                     <span className="text-muted">
@@ -990,6 +1033,14 @@ export function Combo({ artReady, onGoForge }: { artReady: boolean; onGoForge: (
                         ) : (
                           <span title="Stima provvisoria (mostri, magie e trappole, carte in mano)">
                             <b className="text-sm text-faint">{b.quickScore.toFixed(1)}</b> <span className="text-[10px]">stima</span>
+                          </span>
+                        )}
+                        {scoreOf(b) && !dominatedBoardIds.has(boardId(b)) && measured > 1 && (
+                          <span
+                            className="chip !px-1.5 !py-0 text-[10px] text-ok border-ok/40 font-semibold"
+                            title="Board non dominata (frontiera di Pareto): nessuna altra board misurata è uguale o migliore su tutte le metriche"
+                          >
+                            Pareto
                           </span>
                         )}
                         {scoreOf(b)?.matchup && (
@@ -1123,6 +1174,7 @@ export function Combo({ artReady, onGoForge }: { artReady: boolean; onGoForge: (
       {pinned && compareTarget && (
         <BoardCompareModal
           open={true}
+          deckId={deck?.id ?? null}
           boardA={pinned}
           rankA={rankOf(pinned)}
           scoreA={run.scores[boardId(pinned)] ?? null}

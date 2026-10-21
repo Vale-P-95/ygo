@@ -2523,12 +2523,20 @@ export const mockApi: Api = {
 
   // Choices kept in memory; the learned weights are the prior (the real fit is in the backend).
   recordBoardChoice: async (): Promise<number> => ++mockBoardChoices,
-  learnedWeights: async (prior: Record<string, number>): Promise<LearnedWeights> => ({
-    weights: { ...prior },
-    choices: mockBoardChoices,
-    agreement: 0,
-    priorAgreement: 0,
-  }),
+  learnedWeights: async (prior: Record<string, number>): Promise<LearnedWeights> => {
+    const agreement = mockBoardChoices > 0 ? Math.min(1.0, 0.7 + mockBoardChoices * 0.05) : 0;
+    const priorAgreement = mockBoardChoices > 0 ? 0.6 : 0;
+    const weights = { ...prior };
+    if (mockBoardChoices > 0 && typeof weights.interruptions === "number") {
+      weights.interruptions = Number((weights.interruptions * 1.1).toFixed(2));
+    }
+    return {
+      weights,
+      choices: mockBoardChoices,
+      agreement,
+      priorAgreement,
+    };
+  },
   clearBoardChoices: async () => {
     mockBoardChoices = 0;
   },

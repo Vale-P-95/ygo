@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
-import type { Card, ComboBoard, ComboInterruption, ComboScore, ZoneCard } from "../../lib/api";
-import { METRICS, NEGATIVE, parts, PROFILES, score, useWeights, type Weights } from "../../lib/scoring";
+import { api, type Card, ComboBoard, ComboInterruption, ComboScore, ZoneCard } from "../../lib/api";
+import { METRICS, NEGATIVE, parts, PROFILES, score, useWeights, metricValues, type Weights } from "../../lib/scoring";
 import { sound } from "../../lib/sound";
 import { CardImage, Field, type HoverCard, type Pile as PileKind } from "./Field";
 import { ScoreBar } from "./Score";
@@ -104,6 +104,7 @@ const PILE_TITLES: Record<PileKind, string> = { grave: "Cimitero", banished: "Ba
 
 export function BoardCompareModal({
   open,
+  deckId,
   boardA,
   rankA,
   scoreA,
@@ -116,7 +117,10 @@ export function BoardCompareModal({
   onHoverEnd,
   onSwap,
   onClose,
+  onChoiceRecorded,
 }: {
+  deckId?: number | null;
+  onChoiceRecorded?: (count: number) => void;
   open: boolean;
   boardA: ComboBoard;
   rankA: number;
@@ -134,6 +138,40 @@ export function BoardCompareModal({
   const [pileA, setPileA] = useState<PileKind | null>(null);
   const [pileB, setPileB] = useState<PileKind | null>(null);
   const { profile } = useWeights();
+  const [choicesCount, setChoicesCount] = useState<number | null>(null);
+  const [recordedChoice, setRecordedChoice] = useState<"A" | "B" | null>(null);
+  const [recording, setRecording] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    let active = true;
+    api.learnedWeights(weights)
+      .then((lw) => {
+        if (active) setChoicesCount(lw.choices);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [open, weights]);
+
+  const handlePrefer = async (which: "A" | "B") => {
+    if (!scoreA || !scoreB || scoreA.error || scoreB.error || recording) return;
+    setRecording(true);
+    sound.play("chime");
+    try {
+      const chosen = which === "A" ? metricValues(scoreA) : metricValues(scoreB);
+      const other = which === "A" ? metricValues(scoreB) : metricValues(scoreA);
+      const count = await api.recordBoardChoice(deckId ?? null, chosen, other);
+      setChoicesCount(count);
+      setRecordedChoice(which);
+      onChoiceRecorded?.(count);
+    } catch {
+      sound.play("error");
+    } finally {
+      setRecording(false);
+    }
+  };
 
   useEffect(() => {
     if (!open) return;
@@ -186,9 +224,16 @@ export function BoardCompareModal({
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-surface-2/70 px-6 py-3.5">
           <div>
             <p className="eyebrow">Circolo Arcano · Confronto diretto</p>
-            <h2 id="board-compare-title" className="display mt-0.5 text-lg font-bold">
-              Board #{rankA} <span className="text-muted">vs</span> Board #{rankB}
-            </h2>
+            <div className="flex items-center gap-2 mt-0.5">
+              <h2 id="board-compare-title" className="display text-lg font-bold">
+                Board #{rankA} <span className="text-muted">vs</span> Board #{rankB}
+              </h2>
+              {choicesCount != null && choicesCount > 0 && (
+                <span className="chip !py-0.5 !px-2 text-[11px] text-muted">
+                  ★ {choicesCount} {choicesCount === 1 ? "scelta registrata" : "scelte registrate"}
+                </span>
+              )}
+            </div>
           </div>
 
           <div className="flex items-center gap-2">
@@ -253,6 +298,27 @@ export function BoardCompareModal({
                   </div>
 
                   {col.s && !col.s.error && <ScoreBar s={col.s} weights={weights} scale={posScale} />}
+
+                  <div className="flex items-center justify-between gap-2 border-b border-border/60 pb-2">
+                    <button
+                      type="button"
+                      disabled={recording || !scoreA || !scoreB || !!scoreA.error || !!scoreB.error}
+                      onClick={() => void handlePrefer(idx === 0 ? "A" : "B")}
+                      className={`btn !py-1 !px-2.5 text-xs flex items-center gap-1.5 transition-all shadow-xs ${
+                        recordedChoice === (idx === 0 ? "A" : "B")
+                          ? "btn-molten !border-gold text-gold"
+                          : "btn-ghost border border-sec/40 hover:bg-sec/15 text-sec"
+                      }`}
+                      title="Registra che preferisci questa board rispetto all'altra per calibrare i tuoi pesi personali"
+                    >
+                      <span>{recordedChoice === (idx === 0 ? "A" : "B") ? "★ Hai preferito questa" : "★ Preferisco questa"}</span>
+                    </button>
+                    {choicesCount != null && (
+                      <span className="text-[11px] text-muted tabular-nums">
+                        {choicesCount} {choicesCount === 1 ? "scelta registrata" : "scelte registrate"}
+                      </span>
+                    )}
+                  </div>
 
                   <Field
                     board={col.b}
