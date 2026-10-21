@@ -156,6 +156,10 @@ Il proprietario ha chiesto di trovare il compromesso tra le carte che l'avversar
   - **R1.** Il segnale "l'ultimo anello della catena è dell'avversario" restava acceso per tutta la risoluzione, quindi il sì/no di un tuo effetto che si risolveva sotto Maxx "C" veniva rifiutato. Ora vale solo per le finestre di catena.
   - **R2.** I passaggi della linea che il motore non chiede più si saltano prima di decidere se rifiutare una domanda.
   - Sulle quattro linee del passo 1, Maxx "C", Fuwalos e Purulia passano da un momento "fermato" per linea a 0, tranne K9 (1 su 21, a Razen). Le fermate vere di Ash, Saronir e Droll restano.
+- **Terzo giro del collaudo** (180 board, `docs/plans/collaudo-strumenti.md`): con le correzioni fin qui le fermate false di Maxx "C" e Mulcharmy passano da 1116 a 81. Le ultime due cause sono corrette:
+  - **R3.** Quando l'effetto atteso di una carta non è offerto, la linea non ripiega più su un altro effetto della stessa carta. Lo fa solo per un sì a una domanda, la cui descrizione non è quella dell'effetto. Prima K9-17 "Ripper" negava Maxx "C" invece di cercare.
+  - **R4.** Se la linea passa in una finestra dove la sua azione successiva è già offerta, gioca l'azione e salta i passaggi. La catena della handtrap aveva preso una finestra della Fase Finale e Blazing Cartesia restava fuori.
+  - Nella copia del collaudo, con R3 e R4 le fermate false vanno a 0 e quelle vere restano uguali.
 
 ### Maxx "C" e Mulcharmy, passo 2: dove fermare la linea (21/10/2026)
 - **La domanda.** L'avversario usa Maxx "C" (o una Mulcharmy) al primo momento utile. Conviene finire la linea, o fermarsi prima e regalargli meno carte?
@@ -167,7 +171,7 @@ Il proprietario ha chiesto di trovare il compromesso tra le carte che l'avversar
   - L'avversario ha 6 carte più quelle pescate, quindi più probabilità di avere un breaker. Gioca il più dannoso che ha, con la stessa formula esatta della resilienza contro X.
   - I floodgate contano solo se non ha breaker: un Dark Hole toglie anche quelli.
   - Se il deck non ha breaker che il turno di prova sa giocare, si usano quelli standard e si suppone che il deck ne giochi circa 5 su 40.
-  - Il punto migliore è quello col valore atteso più alto. A parità vince quello più avanti nella linea.
+  - Il punto migliore è quello col valore atteso più alto. A parità vince quello che regala meno carte, poi il primo: stesso risultato con meno azioni (proposta del collaudo).
 - **Dove si usa.** Nella CLI con `probe-line --vs <deck> --stops`. Nell'app con `api.comboStops(hand, key, vsDeckId)`: pochi secondi per board, si chiama a richiesta su una board.
 - **Numeri** (le stesse quattro linee del passo 1, contro Branded, con Maxx "C" al primo momento):
 

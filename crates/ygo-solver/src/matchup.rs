@@ -368,8 +368,15 @@ pub fn draw_trade_off(
                 expected,
             });
         }
-        // The best; on a tie, the later stop (more of the line played).
-        let best = points.iter().enumerate().max_by(|a, b| a.1.expected.total_cmp(&b.1.expected)).map_or(0, |(i, _)| i);
+        // The best; on a tie, the one giving fewer cards, then the first
+        // (as much, with less played).
+        let mut best = 0;
+        for (i, p) in points.iter().enumerate() {
+            let b = &points[best];
+            if p.expected > b.expected + 1e-9 || ((p.expected - b.expected).abs() <= 1e-9 && p.drawn < b.drawn) {
+                best = i;
+            }
+        }
         out.push(DrawTradeOff { code, stops: points, best, standard_breakers: rival.cards.is_empty() });
     }
     Ok(out)
@@ -574,13 +581,15 @@ fn pick_again(engine: &Engine, decision: &Decision, picks: &[Picked]) -> Option<
     Some(out)
 }
 
-/// An action by what it is, not by its place in a list.
+/// An action by what it is, not by its place in a list. `asked` when it
+/// was a yes to a question, whose description is not the effect's.
 #[derive(Debug, Clone, Copy, PartialEq)]
 struct ActionId {
     code: u32,
     location: u8,
     description: u64,
     kind: ActionKind,
+    asked: bool,
 }
 
 fn own_answers(engine: &Engine, deck: &DeckList, hand: &[u32], seed: u64, opponent: &Opponent, line: &Line) -> Result<Own, Error> {
@@ -596,6 +605,7 @@ fn own_answers(engine: &Engine, deck: &DeckList, hand: &[u32], seed: u64, oppone
                     location: card.location,
                     description: *description,
                     kind: ActionKind::Activate,
+                    asked: true,
                 }),
                 Decision::IdleCmd { .. } | Decision::SelectChain { .. } => {
                     duel.actions(&decision).iter().find(|a| &a.response == answer).and_then(|a| {
@@ -604,6 +614,7 @@ fn own_answers(engine: &Engine, deck: &DeckList, hand: &[u32], seed: u64, oppone
                             location: c.location,
                             description: a.description,
                             kind: a.kind,
+                            asked: false,
                         })
                     })
                 }
@@ -633,7 +644,10 @@ fn find_again(engine: &Engine, decision: &Decision, actions: &[Action], id: Acti
                 a.kind == id.kind && a.card.is_some_and(|c| db.canonical_code(c.code) == id.code && c.location == id.location)
             };
             let offered: Vec<&ygo_engine::Action> = actions.iter().filter(same).collect();
-            offered.iter().find(|a| a.description == id.description).or(offered.first()).map(|a| a.response.clone())
+            // The same effect; another effect of the card only for a yes
+            // asked before (the card's other effect would be another play:
+            // a negation instead of a search).
+            offered.iter().find(|a| a.description == id.description).or(offered.first().filter(|_| id.asked)).map(|a| a.response.clone())
         }
         _ => None,
     }
@@ -769,7 +783,19 @@ fn replay(engine: &Engine, deck: &DeckList, hand: &[u32], seed: u64, opponent: &
                 while next < own.answers.len() && own.kinds[next] != kind && own.answers[next] == PASS {
                     next += 1;
                 }
-                let expected = own.ids.get(next).copied().flatten();
+                let mut expected = own.ids.get(next).copied().flatten();
+                // A pass of the line where its next action is offered
+                // already (the handtrap's chain took a window the line
+                // passed in): the action is played, the passes left out.
+                if expected.is_none() && own.answers.get(next) == Some(&PASS.to_vec()) {
+                    let after = (next..own.answers.len()).find(|&k| own.answers[k] != PASS);
+                    if let Some((k, id)) = after.and_then(|k| own.ids[k].map(|id| (k, id))) {
+                        if find_again(engine, &decision, &actions, id).is_some() {
+                            next = k;
+                            expected = Some(id);
+                        }
+                    }
+                }
                 // The line's next action, found again by what it is.
                 if let Some(answer) = expected.and_then(|id| find_again(engine, &decision, &actions, id)) {
                     duel.respond(&answer);

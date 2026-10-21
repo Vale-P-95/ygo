@@ -152,3 +152,8 @@ Il proprietario ha chiesto una mappa quasi istantanea, come quella del sito. Le 
   - Le linee tenute non vedono le carte aggiunte; quelle hanno mani proprie, e il testo dice dove portano.
   - L'app tiene il lavoro fatto per ogni deck nella cache e lo riusa alla modifica successiva. Nella CLI: `links --deck <nuovo> --after <vecchio>`.
   - Sul deck Invoked, con una Ash Blossom cambiata in Called by the Grave: 2 mani da cercare invece di 23, 3,2 secondi invece di 18,5, stessa mappa (116 collegamenti, 74 usati).
+
+## Terzo giro del collaudo (21/10/2026)
+- **Materiali della bozza dal testo.** Ora devono essere mostri. Magie e Trappole con l'archetipo nel nome ("R.B. Stage Landing", "Artmage Vandalism -Assault-") risultavano materiali: 19 collegamenti in 2 deck su 6.
+- **Effetti ritardati.** Un effetto che si applica dopo, nella Fase Finale (Bystial Magnamhut che aggiunge un Drago), non ha più come causa l'ultima carta giocata: la causa si azzera a ogni cambio di fase. Prima Branded Banishment risultava "cercare" Starliege Seyfert.
+- **Numeri del collaudo con la bozza dal testo** (6 deck): i tempi scendono (branded 62 s, earth_machine 64 s); 112 collegamenti su 1118 vengono solo dal testo.

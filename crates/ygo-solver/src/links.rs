@@ -482,8 +482,10 @@ impl Names {
 fn text_links(engine: &Engine, cards: &[LinkCard], named: &Names) -> HashSet<Key> {
     let db = engine.cards();
     let mut out = HashSet::new();
+    let is_monster = |code: u32| db.get(code).is_some_and(|c| c.type_ & card_type::MONSTER != 0);
     for monster in cards.iter().filter(|c| c.extra) {
-        for m in cards.iter().filter(|m| named.named(m.code, monster.code)) {
+        // A material is a monster ("R.B. Stage Landing" holds the archetype too).
+        for m in cards.iter().filter(|m| is_monster(m.code) && named.named(m.code, monster.code)) {
             out.insert((m.code, monster.code, LinkKind::Material, Zone::Extra));
         }
     }
@@ -658,6 +660,9 @@ impl Reader {
                     self.chain.clear();
                     self.solving.clear();
                 }
+                // An effect applied later (in the End Phase) belongs to no
+                // action of this phase: better no cause than the last card.
+                Event::NewPhase { .. } => self.acting = None,
                 Event::Move { code, from, to, reason: why } if to.controller == 0 => {
                     let code = db.canonical_code(*code);
                     self.moved_from.insert(code, from.location);
