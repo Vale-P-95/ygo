@@ -360,7 +360,9 @@ export function Combo({ artReady, onGoForge }: { artReady: boolean; onGoForge: (
     }
     return out;
   }, [boards]);
-  const hands = (ours && (run.outcome?.hands ?? run.progress?.hands)) || [];
+  const hands = useMemo(() => {
+    return (ours && (run.outcome?.hands ?? run.progress?.hands)) || [];
+  }, [ours, run.outcome?.hands, run.progress?.hands]);
   const scoreOf = (b: ComboBoard) => {
     const s = run.scores[boardId(b)];
     return s && !s.error ? s : null;

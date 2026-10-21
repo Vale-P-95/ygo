@@ -803,7 +803,7 @@ if (typeof localStorage !== "undefined") {
   }
 }
 
-let statusState: DataStatus = {
+const statusState: DataStatus = {
   dataDir: "C:\\dev\\ygo-gemini\\data (mock)",
   cards: { version: "147.37", count: CARDS.size },
   engine: {
