@@ -3,7 +3,6 @@
 Regole in `AGENTS.md`. Per prendere un task, spostalo in "In corso" con agente, branch e file che tocchi (è il lock), poi committa e pusha questa modifica prima di cominciare.
 
 ## In corso
-- [ ] Velocità della ricerca: profilazione e correzioni a risultati invariati (resoconto in `docs/plans/velocita-ricerca.md` sul suo branch) — agente: claude-code, sessione sorella — branch: claude/search-speed — file: crates/ygo-solver/src/search.rs, card.rs, value.rs, probe.rs (solo velocità), crates/ygo-engine/src/, scripts/
 - [ ] Collaudo del turno di prova contro un deck e della mappa dei collegamenti su circa 45 deck di Master Duel Meta: resoconto con i problemi e le correzioni proposte (`docs/plans/collaudo-strumenti.md` sul suo branch); le correzioni ai crate le applica claude-code — agente: claude-code, sessione sorella — branch: claude/tools-qa — file: script nuovi in scripts/, docs/plans/collaudo-strumenti.md
 - [ ] Classificazione delle board più profonda, con criteri validati sui deck di Master Duel Meta (#47) — agente: claude-code — branch: claude/yugioh-deck-builder-simulator-cax0ya — file: crates/ygo-solver/src/probe.rs, value.rs, explain.rs, tests/probe.rs, crates/ygo-engine/src/message.rs, apps/desktop/src-tauri/src/lib.rs (score_view)
   - Piano: `docs/plans/classificazione-board.md` (passi D0–D17; giudizio dato da un pannello di agenti, non dal proprietario).
@@ -51,6 +50,7 @@ Regole in `AGENTS.md`. Per prendere un task, spostalo in "In corso" con agente, 
 ### Richieste dal backend per l'interfaccia
 
 ## Completati (recenti; lo storico è in `docs/PIANO.md`)
+- [x] Velocità della ricerca (sessione sorella): partite riusate, script caricati una volta per thread, solo le corse del turno di prova che servono, mimalloc anche per il C++, limite di nodi senza race. Ricerca −37%, CLI −41% sulle 16 mani con uscite identiche; `combo_hunt.py` −50% (PR #33, resoconto `docs/plans/velocita-ricerca.md`).
 - [x] Deck dell'avversario del kit a 35 carte e breaker con il Deck vero dell'avversario (ultime correzioni del collaudo, A4 e M1; numeri in `docs/plans/turno-di-prova-matchup.md`).
 - [x] Mappa dei collegamenti F2, interfaccia: percorso più corto evidenziato nel cerchio, con le carte intermedie cliccabili e il pulsante verso il Combo Lab (starter e obiettivo); nodi più grandi per le carte chiave, senza sovrapposizioni nei deck grandi; mano di prova anche in confronto (PR #32, piano `docs/plans/mappa-collegamenti-f2.md`). Da provare nell'app vera dal proprietario.
 - [x] Mappa dei collegamenti quasi in tempo reale e confronto tra versioni del deck, interfaccia: bozza dal testo subito e aggiornamento progressivo con la barra sopra la mappa, collegamenti «dal testo» tenui, confronto con la versione precedente (guadagnati, persi, carte tolte come nodi fantasma, carte che cambiano) (PR #31, piano `docs/plans/mappa-collegamenti-tempo-reale-confronto.md`). Da provare nell'app vera dal proprietario.
