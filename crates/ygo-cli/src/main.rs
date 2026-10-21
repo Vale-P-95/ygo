@@ -427,6 +427,10 @@ fn combos(dir: &Path, setup: &Setup, options: CombosOptions) -> Result<()> {
     let cancel = std::sync::atomic::AtomicBool::new(false);
     if let Some(card) = card {
         let card = *resolve_hand(&engine, &card)?.first().context("--card names no card")?;
+        // The deck's own copy: a name finds the original artwork, the deck
+        // may hold another.
+        let db = engine.cards();
+        let card = config.deck.main.iter().copied().find(|&c| db.canonical_code(c) == db.canonical_code(card)).unwrap_or(card);
         let hands = hands.max(1);
         let what = ygo_solver::CardSearch { card, hands, per_hand: config.time_limit / hands as u32, keep: top.max(1) };
         let results = ygo_solver::search_card(&engine, &config, &what, &cancel, |_, _, _| {});
