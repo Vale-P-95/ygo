@@ -2,6 +2,7 @@
 
 *Scritto il 21/10/2026 da Gemini (Antigravity). Task 3 di `docs/TASKS.md` (approvato dal proprietario il 21/10).*
 *Backend già implementato in `main` da Claude (`api.onLinksProgress` con `map` e `deckId`, `CardLink.text`, `api.deckLinksCompare` → `LinksComparison`).*
+*Revisione pre-codice di Claude integrata (colori dai token, verso del confronto prima → dopo, nodi fantasma per carte tolte, blocco confronto durante il caricamento).*
 
 ---
 
@@ -14,18 +15,19 @@
    - Aggiornare la mappa a ogni evento di avanzamento progressivo (filtrando per `deckId`), mantenendo una **barra di avanzamento in alto** durante il caricamento senza oscurare il grafico.
 2. **Collegamenti «dal testo»**:
    - Quando `CardLink.text` è vero e `possible` è falso: il collegamento proviene esclusivamente dal testo della carta ed è un effetto che le linee combo cercate non sfruttano.
-   - Resa grafica più tenue: tratto più sottile e tratteggiato/puntinato con opacità ridotta.
+   - Resa grafica più tenue: tratto più sottile e puntinato (`strokeDasharray="2 3"`) con opacità ridotta.
    - Nel pannello dettagli (`LinksCardDetail.tsx`) e nei tooltip: badge o dicitura «dal testo» con spiegazione chiara.
 3. **Confronto tra versioni del deck (`api.deckLinksCompare(deckIdA, deckIdB)`)**:
-   - Selettore per confrontare il deck attivo con un altro deck della Bottega (es. versione modificata o precedente).
-   - Gestione asincrona sicura con `requestIdRef` ed eventi di avanzamento filtrati per `deckId`.
+   - Verso naturale del confronto: l'utente apre la versione nuova (`deck.id`) e seleziona la versione precedente (`compareDeckId`), chiamando `api.deckLinksCompare(compareDeckId, deck.id)` (così «dopo» è la versione aperta, «prima» la precedente). Pulsante di inversione `⇄ Inverti ordine` per scambiare i due ruoli all'occorrenza.
+   - Confronto abilitato solo quando la lettura del deck attivo è completa (`!loading && data`), sfruttando la cache ed evitando doppie letture parallele del motore.
    - Panoramica del confronto:
      - Raggiungibilità media prima → dopo (`reachedBefore` → `reachedAfter`, es. `18,02 → 17,55` con delta colorato).
      - Conteggio e chip delle carte aggiunte (+) e tolte (-).
      - Conteggio dei collegamenti guadagnati (verdi) e persi (rossi).
    - Visualizzazione mappa in modalità confronto:
-     - Collegamenti guadagnati in verde (`#22c55e`).
-     - Collegamenti persi in rosso (`#ef4444`).
+     - Colori rigorosamente dai token: `var(--df-ok)` / `text-ok` (verde) e `var(--df-danger)` / `text-danger` (rosso).
+     - Carte tolte visualizzate come nodi «fantasma» (tenui con bordo tratteggiato rosso e label `(− tolta)`), collegati ai link persi.
+     - Toggle «Mostra collegamenti persi» per nascondere i link persi e i nodi fantasma se si desidera una mappa pulita della nuova versione.
    - Elenco interattivo delle carte modificate (`changed`: `chanceBefore` → `chanceAfter`, `keyBefore` → `keyAfter`, `reachAllBefore` → `reachAllAfter`).
 4. **Mock completo per lo sviluppo e i test (`mock.ts`)**:
    - Simulazione di `onLinksProgress` con bozza immediata a `done: 0` e mappe parziali con `deckId`.
@@ -53,7 +55,7 @@
 - Quando `loading` è vero ma `data` è già presente (grazie alla bozza o agli aggiornamenti progressivi):
   - **Non rimpiazzare** la schermata con il loader vuoto.
   - Mostrare invece una striscia di progresso sottile e animata subito sotto l'intestazione:
-    - Se `progress.done === 0`: «Bozza istantanea dal testo delle carte · Simulazione mani del motore in corso…»
+    - Se `progress.done === 0`: «Bozza immediata dal testo delle carte · Analisi delle mani del motore in corso…»
     - Se `progress.done > 0`: «Aggiornamento progressivo: {progress.done} / {progress.total} mani analizzate…»
   - Consentire all'utente di interagire normalmente con la mappa mentre il motore continua ad arricchirla.
 
@@ -62,31 +64,29 @@
   - Rilevare `isTextOnly = !l.possible && Boolean(l.text)`.
   - In SVG:
     - `strokeDasharray`: per i collegamenti solo dal testo usare pattern puntinato `"2 3"`.
-    - `strokeWidth`: più sottile (1 o 1.2px).
-    - `opacity`: più tenue (es. 0.35 quando focalizzato, 0.08 a riposo).
+    - `strokeWidth`: più sottile (1px).
+    - `opacity`: più tenue (0.45 quando focalizzato, 0.08 a riposo).
 - In `LinksCardDetail.tsx`:
   - Nei blocchi dei collegamenti uscenti ed entranti:
-    - Per i collegamenti con `isTextOnly`, mostrare un pill/etichetta `«dal testo»` e un tooltip «Questo effetto è presente nel testo della carta, ma le linee combo cercate non lo utilizzano».
+    - Per i collegamenti con `isTextOnly`, mostrare un chip tratteggiato `«dal testo»` con tooltip «Nominato nel testo della carta, ma le linee combo cercate non lo usano».
 
-### 2.4 Modalità confronto versioni (`LinksComparisonView`)
-- Componente o pannello `LinksCompare.tsx` integrato in `LinksTab.tsx`:
-  - Toggle / pulsante di intestazione: «Confronta versione» con selettore del secondo deck (tra i deck disponibili nella Bottega, escludendo quello attuale).
-  - Chiamata ad `api.deckLinksCompare(deck.id, compareDeckId)` protetta da `compareReqIdRef`.
-  - Barra riassuntiva:
-    - Carte aggiunte (+ N) e tolte (- N) con chip cliccabili.
-    - Collegamenti guadagnati (+ N, verde) e persi (- N, rosso).
-    - Raggiungibilità media: `reachedBefore.toFixed(2)` → `reachedAfter.toFixed(2)` con delta `(Δ +X.XX)`.
-  - Tabella delle carte cambiate:
-    - Mostra ogni carta in `comparison.changed`, con confronto visivo delle probabilità `chance`, del valore chiave `key` e della raggiungibilità `reachAll`.
-    - Cliccando su una carta la si seleziona nell'ispettore della mappa.
-  - Opzione di visualizzazione mappa con i link guadagnati/persi evidenziati.
+### 2.4 Modalità confronto versioni (`LinksCompare.tsx`)
+- Pulsante «⚖ Confronta versioni» in `LinksTab.tsx`, disabilitato durante il caricamento iniziale (`loading || !data`).
+- Selettore del deck precedente dalla Bottega con supporto inversione verso (`⇄ Inverti ordine`).
+- Chiamata ad `api.deckLinksCompare(beforeId, afterId)` protetta da `compareReqIdRef`.
+- Barra riassuntiva con token `text-ok` e `text-danger`:
+  - Carte aggiunte (+ N) e tolte (- N) con chip cliccabili.
+  - Collegamenti guadagnati (+ N, verde) e persi (- N, rosso).
+  - Raggiungibilità media: `reachedBefore.toFixed(2)` → `reachedAfter.toFixed(2)` con delta `(Δ +X.XX)`.
+- Nodi fantasma nel cerchio per le carte rimosse quando «Mostra collegamenti persi» è attivo.
+- Tabella delle carte cambiate (`changed`): chance, valore chiave e raggiungibilità prima → dopo.
 
 ---
 
 ## 3. Mock e fixture (`apps/desktop/src/lib/mock.ts`)
 
 1. **`deckLinks` progressivo**:
-   - Emissione a `t=0` di un evento `onLinksProgress` con `done: 0, total: 30, map: draftMap`, dove i collegamenti hanno `text: true`, alcuni con `possible: false, used: 0`.
+   - Emissione a `t=0` di un evento `onLinksProgress` con `done: 0, total: 30, map: draftMap`, dove i collegamenti hanno `text: true`, con collegamenti testuali dedicati (`possible: false, used: 0`).
    - Emissione a step successivi di `map` aggiornate e `done: 10, 20, 30`.
 2. **`deckLinksCompare` realistico**:
    - Calcolo esatto dei link `gained`, `lost`, delle carte `added`, `removed`.
@@ -104,5 +104,6 @@
 - Protocollo interfaccia rispettato:
   - `requestIdRef` su tutte le chiamate asincrone.
   - Messaggi di errore in italiano sempre visibili all'utente.
+  - Colori dai token di `src/index.css` (tema chiaro e scuro).
   - Nessun `as any`, `@ts-ignore` o cast forzato.
   - Pulizia listener ed effetti completa.

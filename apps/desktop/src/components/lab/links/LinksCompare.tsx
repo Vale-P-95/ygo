@@ -10,9 +10,12 @@ interface Props {
   onSelectCompareDeckId: (id: number | null) => void;
   comparison: LinksComparison | null;
   loading: boolean;
+  parentLoading?: boolean;
   error: string | null;
   showLostLinks: boolean;
   onToggleShowLostLinks: (show: boolean) => void;
+  isReversed: boolean;
+  onToggleReversed: () => void;
   getCard: (code: number) => Card | undefined;
   selectedCardCode: number | null;
   onSelectCard: (code: number | null) => void;
@@ -25,9 +28,12 @@ export function LinksCompare({
   onSelectCompareDeckId,
   comparison,
   loading,
+  parentLoading = false,
   error,
   showLostLinks,
   onToggleShowLostLinks,
+  isReversed,
+  onToggleReversed,
   getCard,
   selectedCardCode,
   onSelectCard,
@@ -44,7 +50,9 @@ export function LinksCompare({
       {/* Top controls: Deck selection & Mode */}
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/70 pb-3">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="font-semibold text-text text-xs">Confronta con:</span>
+          <span className="font-semibold text-text text-xs">
+            {isReversed ? "Confronta con la versione successiva:" : "Confronta con la versione precedente:"}
+          </span>
           <select
             value={compareDeckId ?? ""}
             onChange={(e) => {
@@ -53,15 +61,31 @@ export function LinksCompare({
               onSelectCompareDeckId(val);
             }}
             className="input !py-1 !px-2 text-xs bg-surface-1 border-border rounded min-w-[200px]"
-            disabled={loading}
+            disabled={loading || parentLoading}
           >
-            <option value="">Seleziona un altro deck della Bottega…</option>
+            <option value="">Seleziona un deck della Bottega…</option>
             {otherDecks.map((d) => (
               <option key={d.id} value={d.id}>
                 {d.name}
               </option>
             ))}
           </select>
+
+          {compareDeckId != null && (
+            <button
+              type="button"
+              onClick={() => {
+                sound.play("toggle");
+                onToggleReversed();
+              }}
+              disabled={loading || parentLoading}
+              className="chip !py-1 !px-2 text-xs flex items-center gap-1 text-muted hover:text-text"
+              title="Inverti l'ordine del confronto (prima ⇄ dopo)"
+            >
+              <span>⇄ Inverti verso ({isReversed ? "dopo → prima" : "prima → dopo"})</span>
+            </button>
+          )}
+
           {compareDeckId != null && (
             <button
               type="button"
@@ -130,7 +154,7 @@ export function LinksCompare({
                 <span
                   className={`chip !py-0 !px-1.5 text-[10px] font-semibold tabular-nums ${
                     deltaReached > 0.01
-                      ? "text-role-starter bg-role-starter/15 border-role-starter/30"
+                      ? "text-ok bg-ok/15 border-ok/30"
                       : deltaReached < -0.01
                         ? "text-danger bg-danger/15 border-danger/30"
                         : "text-muted"
@@ -148,7 +172,7 @@ export function LinksCompare({
                 Differenze carte
               </span>
               <div className="flex items-center gap-2 mt-0.5">
-                <span className="chip !py-0.5 !px-2 text-xs font-semibold text-role-starter bg-role-starter/15 border-role-starter/30">
+                <span className="chip !py-0.5 !px-2 text-xs font-semibold text-ok bg-ok/15 border-ok/30">
                   +{comparison.added.length} aggiunte
                 </span>
                 <span className="chip !py-0.5 !px-2 text-xs font-semibold text-danger bg-danger/15 border-danger/30">
@@ -168,7 +192,7 @@ export function LinksCompare({
                 Collegamenti
               </span>
               <div className="flex items-center gap-2 mt-0.5">
-                <span className="chip !py-0.5 !px-2 text-xs font-semibold text-role-starter bg-role-starter/15 border-role-starter/30">
+                <span className="chip !py-0.5 !px-2 text-xs font-semibold text-ok bg-ok/15 border-ok/30">
                   +{comparison.gained.length} guadagnati
                 </span>
                 <span className="chip !py-0.5 !px-2 text-xs font-semibold text-danger bg-danger/15 border-danger/30">
@@ -192,8 +216,8 @@ export function LinksCompare({
                       sound.play("page");
                       onSelectCard(selectedCardCode === code ? null : code);
                     }}
-                    className={`chip !py-0.5 !px-2 text-[11px] font-medium flex items-center gap-1.5 border-role-starter/40 text-role-starter ${
-                      selectedCardCode === code ? "chip-active ring-1 ring-role-starter" : ""
+                    className={`chip !py-0.5 !px-2 text-[11px] font-medium flex items-center gap-1.5 border-ok/40 text-ok ${
+                      selectedCardCode === code ? "chip-active ring-1 ring-ok" : ""
                     }`}
                     title="Carta aggiunta nella nuova versione"
                   >
@@ -281,7 +305,7 @@ export function LinksCompare({
                             <span
                               className={
                                 chanceDelta > 0.01
-                                  ? "text-role-starter font-medium"
+                                  ? "text-ok font-medium"
                                   : chanceDelta < -0.01
                                     ? "text-danger font-medium"
                                     : "text-text"
@@ -296,7 +320,7 @@ export function LinksCompare({
                             <span
                               className={
                                 keyDelta > 0.01
-                                  ? "text-role-starter font-medium"
+                                  ? "text-ok font-medium"
                                   : keyDelta < -0.01
                                     ? "text-danger font-medium"
                                     : "text-text"
@@ -311,7 +335,7 @@ export function LinksCompare({
                             <span
                               className={
                                 reachDelta > 0
-                                  ? "text-role-starter font-medium"
+                                  ? "text-ok font-medium"
                                   : reachDelta < 0
                                     ? "text-danger font-medium"
                                     : "text-text"

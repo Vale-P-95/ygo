@@ -58,6 +58,7 @@ export function LinksTab({
   const [compareLoading, setCompareLoading] = useState(false);
   const [compareError, setCompareError] = useState<string | null>(null);
   const [showLostLinks, setShowLostLinks] = useState(true);
+  const [isReversed, setIsReversed] = useState(false);
 
   const compareReqIdRef = useRef(0);
 
@@ -67,10 +68,11 @@ export function LinksTab({
     setComparison(null);
     setCompareError(null);
     setCompareLoading(false);
+    setIsReversed(false);
   }, [deck.id]);
 
-  const handleSelectCompareDeck = useCallback(
-    async (targetId: number | null) => {
+  const loadComparison = useCallback(
+    async (targetId: number | null, reversed: boolean) => {
       setCompareDeckId(targetId);
       setCompareError(null);
       if (targetId == null) {
@@ -83,7 +85,10 @@ export function LinksTab({
       const reqId = ++compareReqIdRef.current;
       setCompareLoading(true);
       try {
-        const res = await api.deckLinksCompare(deck.id, targetId);
+        // Normal direction: targetId is before (previous version), deck.id is after (current version)
+        const beforeId = reversed ? deck.id : targetId;
+        const afterId = reversed ? targetId : deck.id;
+        const res = await api.deckLinksCompare(beforeId, afterId);
         if (compareReqIdRef.current === reqId) {
           setComparison(res);
           const cardCodes = [
@@ -108,6 +113,21 @@ export function LinksTab({
     },
     [deck.id, requestCards],
   );
+
+  const handleSelectCompareDeck = useCallback(
+    (targetId: number | null) => {
+      void loadComparison(targetId, isReversed);
+    },
+    [loadComparison, isReversed],
+  );
+
+  const handleToggleReversed = useCallback(() => {
+    const nextReversed = !isReversed;
+    setIsReversed(nextReversed);
+    if (compareDeckId != null) {
+      void loadComparison(compareDeckId, nextReversed);
+    }
+  }, [isReversed, compareDeckId, loadComparison]);
 
   // Active data to display: if comparison is active, use comparison.after
   const activeData = comparison ? comparison.after : data;
@@ -185,10 +205,11 @@ export function LinksTab({
             </span>
           )}
 
-          {/* Toggle comparison view button */}
+          {/* Toggle comparison view button: disabled while parent map is loading */}
           {decks.length > 1 && (
             <button
               type="button"
+              disabled={loading || !data}
               onClick={() => {
                 sound.play("toggle");
                 setIsCompareOpen((open) => {
@@ -201,8 +222,12 @@ export function LinksTab({
               }}
               className={`chip !py-1 !px-2.5 text-xs flex items-center gap-1.5 transition-colors ${
                 isCompareOpen ? "chip-active" : "!bg-surface-2 hover:!bg-surface-3 text-text"
-              }`}
-              title="Confronta i collegamenti con un altro deck della Bottega"
+              } ${loading || !data ? "opacity-40 cursor-not-allowed" : ""}`}
+              title={
+                loading || !data
+                  ? "Attendi il completamento della lettura del deck…"
+                  : "Confronta i collegamenti con un altro deck della Bottega"
+              }
             >
               <span>⚖ Confronta versioni</span>
             </button>
@@ -253,9 +278,12 @@ export function LinksTab({
           onSelectCompareDeckId={handleSelectCompareDeck}
           comparison={comparison}
           loading={compareLoading}
+          parentLoading={loading}
           error={compareError}
           showLostLinks={showLostLinks}
           onToggleShowLostLinks={setShowLostLinks}
+          isReversed={isReversed}
+          onToggleReversed={handleToggleReversed}
           getCard={getCard}
           selectedCardCode={selectedCardCode}
           onSelectCard={(code) => setSelectedCardCode(code)}

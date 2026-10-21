@@ -55,13 +55,13 @@ export function LinksCircle({
     [comparison],
   );
 
-  // Cards to display: when comparing, also include removed cards from before
+  // Cards to display: when comparing and showLostLinks is enabled, show removed cards as ghost nodes
   const displayCards = useMemo(() => {
-    if (!comparison) return cards;
+    if (!comparison || !showLostLinks) return cards;
     const existing = new Set(cards.map((c) => c.code));
     const extraRemoved = comparison.before.cards.filter((c) => !existing.has(c.code));
     return [...cards, ...extraRemoved];
-  }, [cards, comparison]);
+  }, [cards, comparison, showLostLinks]);
 
   // Order cards: Main deck cards first, then Extra deck cards
   const orderedCards = useMemo(() => {
@@ -147,7 +147,7 @@ export function LinksCircle({
               <path d="M 0 1 L 9 5 L 0 9 z" fill={LINK_KINDS[kind].color} />
             </marker>
           ))}
-          {/* Comparison markers: gained (green) and lost (red) */}
+          {/* Comparison markers with CSS tokens (var(--df-ok) and var(--df-danger)) */}
           <marker
             id={`${markerIdPrefix}-arrow-gained`}
             viewBox="0 0 10 10"
@@ -158,7 +158,7 @@ export function LinksCircle({
             markerHeight="8"
             orient="auto-start-reverse"
           >
-            <path d="M 0 1 L 9 5 L 0 9 z" fill="#22c55e" />
+            <path d="M 0 1 L 9 5 L 0 9 z" fill="var(--df-ok)" />
           </marker>
           <marker
             id={`${markerIdPrefix}-arrow-lost`}
@@ -170,7 +170,7 @@ export function LinksCircle({
             markerHeight="7"
             orient="auto-start-reverse"
           >
-            <path d="M 0 1 L 9 5 L 0 9 z" fill="#ef4444" />
+            <path d="M 0 1 L 9 5 L 0 9 z" fill="var(--df-danger)" />
           </marker>
         </defs>
 
@@ -206,12 +206,12 @@ export function LinksCircle({
             let markerId = `${markerIdPrefix}-arrow-${l.kind}`;
 
             if (isGained) {
-              strokeColor = "#22c55e";
+              strokeColor = "var(--df-ok)";
               markerId = `${markerIdPrefix}-arrow-gained`;
               strokeWidth = Math.max(strokeWidth * 1.4, 2.5);
               opacity = isRelated || targetCode == null ? 0.95 : 0.15;
             } else if (isLost) {
-              strokeColor = "#ef4444";
+              strokeColor = "var(--df-danger)";
               markerId = `${markerIdPrefix}-arrow-lost`;
               strokeDash = "4 3";
               strokeWidth = 2;
@@ -289,7 +289,8 @@ export function LinksCircle({
             if (!matches) {
               nodeOpacity = 0.15;
             } else if (isRemoved) {
-              nodeOpacity = isFocused ? 0.9 : 0.45;
+              // Ghost node for removed card
+              nodeOpacity = isFocused ? 0.9 : 0.4;
             } else if (sampleHandCodes) {
               nodeOpacity = inSampleHand || isReachedFromHand ? 1 : 0.18;
             } else if (targetCode != null && !isConnected) {
@@ -360,7 +361,15 @@ export function LinksCircle({
                     cy={pos.y}
                     r={c.key > 0.2 ? 18 : 16}
                     fill="none"
-                    stroke={isAdded ? "#22c55e" : isRemoved ? "#ef4444" : c.key > 0.2 ? "var(--df-gold)" : "var(--sec)"}
+                    stroke={
+                      isAdded
+                        ? "var(--df-ok)"
+                        : isRemoved
+                          ? "var(--df-danger)"
+                          : c.key > 0.2
+                            ? "var(--df-gold)"
+                            : "var(--sec)"
+                    }
                     strokeWidth="2.5"
                     className="anim-fade"
                   />
@@ -373,7 +382,7 @@ export function LinksCircle({
                     cy={pos.y}
                     r={c.key > 0.2 ? 17 : 15}
                     fill="none"
-                    stroke={isAdded ? "#22c55e" : isRemoved ? "#ef4444" : "var(--role-custom-1)"}
+                    stroke={isAdded ? "var(--df-ok)" : isRemoved ? "var(--df-danger)" : "var(--role-custom-1)"}
                     strokeWidth="2"
                     strokeDasharray={isRemoved ? "3 2" : undefined}
                   />
@@ -386,18 +395,18 @@ export function LinksCircle({
                   r={c.key > 0.2 ? 14 : 12}
                   fill={
                     isRemoved
-                      ? "color-mix(in srgb, #ef4444 20%, var(--df-surface-2))"
+                      ? "var(--df-surface)"
                       : isAdded
-                        ? "color-mix(in srgb, #22c55e 20%, var(--df-surface-2))"
+                        ? "color-mix(in srgb, var(--df-ok) 20%, var(--df-surface-2))"
                         : c.extra
                           ? "color-mix(in srgb, var(--role-extender) 25%, var(--df-surface-2))"
                           : "var(--df-surface-2)"
                   }
                   stroke={
                     isAdded
-                      ? "#22c55e"
+                      ? "var(--df-ok)"
                       : isRemoved
-                        ? "#ef4444"
+                        ? "var(--df-danger)"
                         : c.key > 0.2
                           ? "var(--df-gold)"
                           : c.extra
@@ -405,6 +414,7 @@ export function LinksCircle({
                             : "var(--df-border-strong)"
                   }
                   strokeWidth={isFocused || inSampleHand ? 2.5 : 1.2}
+                  strokeDasharray={isRemoved ? "3 2" : undefined}
                 />
 
                 {/* Copies indicator badge or +/- for added/removed */}
@@ -415,9 +425,9 @@ export function LinksCircle({
                   className="text-[9px] font-bold"
                   fill={
                     isAdded
-                      ? "#22c55e"
+                      ? "var(--df-ok)"
                       : isRemoved
-                        ? "#ef4444"
+                        ? "var(--df-danger)"
                         : isFocused || inSampleHand
                           ? "var(--df-text)"
                           : "var(--df-muted)"
@@ -433,9 +443,9 @@ export function LinksCircle({
                   textAnchor={pos.isRight ? "start" : "end"}
                   className={`text-[10px] select-none transition-colors ${
                     isAdded
-                      ? "font-semibold fill-[#22c55e]"
+                      ? "font-semibold fill-[var(--df-ok)]"
                       : isRemoved
-                        ? "font-semibold fill-[#ef4444]"
+                        ? "font-semibold fill-[var(--df-danger)]"
                         : inSampleHand
                           ? "font-bold fill-[var(--df-gold)]"
                           : isFocused
@@ -446,8 +456,8 @@ export function LinksCircle({
                   }`}
                 >
                   {displayName}
-                  {isAdded && <tspan fill="#22c55e"> (+)</tspan>}
-                  {isRemoved && <tspan fill="#ef4444"> (−)</tspan>}
+                  {isAdded && <tspan fill="var(--df-ok)"> (+)</tspan>}
+                  {isRemoved && <tspan fill="var(--df-danger)"> (− tolta)</tspan>}
                   {inSampleHand && <tspan fill="var(--df-gold)"> (mano)</tspan>}
                   {c.key > 0.2 && <tspan fill="var(--df-gold)"> ★</tspan>}
                 </text>

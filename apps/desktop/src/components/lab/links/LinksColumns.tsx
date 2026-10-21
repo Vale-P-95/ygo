@@ -164,7 +164,7 @@ export function LinksColumns({
                         : isSelected
                           ? "border-[var(--sec)] bg-sec/10 shadow-xs"
                           : isAdded
-                            ? "border-role-starter/60 bg-role-starter/10"
+                            ? "border-ok/60 bg-ok/10"
                             : isRemoved
                               ? "border-danger/60 bg-danger/10 opacity-75"
                               : isReached
@@ -180,7 +180,7 @@ export function LinksColumns({
                         </span>
                         <div className="flex items-center gap-1 shrink-0">
                           {isAdded && (
-                            <span className="chip !py-0 !px-1 text-[9px] font-bold text-role-starter border-role-starter/50">
+                            <span className="chip !py-0 !px-1 text-[9px] font-bold text-ok border-ok/50">
                               + nuova
                             </span>
                           )}
@@ -220,7 +220,7 @@ export function LinksColumns({
                               <b
                                 className={
                                   ch.chanceAfter > ch.chanceBefore
-                                    ? "text-role-starter"
+                                    ? "text-ok"
                                     : ch.chanceAfter < ch.chanceBefore
                                       ? "text-danger"
                                       : "text-text"
