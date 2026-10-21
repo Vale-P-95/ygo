@@ -3,6 +3,7 @@
 Regole in `AGENTS.md`. Per prendere un task, spostalo in "In corso" con agente, branch e file che tocchi (è il lock), poi committa e pusha questa modifica prima di cominciare.
 
 ## In corso
+- [ ] Stato del campo e della mano a ogni passo della linea in `ComboStep` (campo facoltativo `field`, stessa forma del campo della board), richiesto per il riproduttore — agente: claude-code — branch: claude/yugioh-deck-builder-simulator-cax0ya — file: crates/ygo-solver/src/explain.rs, apps/desktop/src-tauri/src/lib.rs, apps/desktop/src/lib/api.ts (solo il tipo)
 - [ ] Classificazione delle board più profonda, con criteri validati sui deck di Master Duel Meta (#47) — agente: claude-code — branch: claude/yugioh-deck-builder-simulator-cax0ya — file: crates/ygo-solver/src/probe.rs, value.rs, explain.rs, apps/desktop/src-tauri/src/lib.rs (score_view)
   - Piano: `docs/plans/classificazione-board.md` (passi D0–D17; giudizio dato da un pannello di agenti, non dal proprietario).
   - [x] D0a: `combos --json/--save-lines`, `probe-line`.
@@ -36,7 +37,6 @@ Regole in `AGENTS.md`. Per prendere un task, spostalo in "In corso" con agente, 
 - [ ] Limiti noti delle carte piazzate: equipaggiamenti, materiali dei mostri dell'Extra Deck (PIANO §30.4).
 
 ### Richieste dal backend per l'interfaccia
-- [ ] Stato del campo e della mano a ogni passo della linea in `ComboStep` (con la stessa forma del campo della board) per collegare il tappetino al riproduttore passo per passo.
 
 ## Completati (recenti; lo storico è in `docs/PIANO.md`)
 - [x] Testi del Laboratorio allineati ai calcoli dopo la verifica delle statistiche (PIANO §30.7, PR #11).
