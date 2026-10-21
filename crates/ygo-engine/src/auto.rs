@@ -5,7 +5,7 @@
 use crate::actions::{Action, ActionKind};
 use crate::carddb::CardDb;
 use crate::consts::{card_type, location, position};
-use crate::duel::{Duel, Step};
+use crate::duel::{ChainLink, Duel, Step};
 use crate::message::Decision;
 use crate::Error;
 
@@ -165,16 +165,16 @@ impl Duel {
     /// to `answers` so the line can be replayed. Returns at the next real
     /// choice or at the end.
     pub fn advance_auto(&mut self, policy: &AutoPolicy, answers: &mut Vec<Vec<u8>>) -> Result<(Step, Vec<Action>), Error> {
-        self.advance_auto_seen(policy, answers, |_, _| {})
+        self.advance_auto_seen(policy, answers, |_, _, _| {})
     }
 
     /// Like [`Duel::advance_auto`], telling `seen` each decision answered
-    /// on the way and its answer.
+    /// on the way, its answer and the chain not resolved when it was asked.
     pub fn advance_auto_seen(
         &mut self,
         policy: &AutoPolicy,
         answers: &mut Vec<Vec<u8>>,
-        mut seen: impl FnMut(&Decision, &[u8]),
+        mut seen: impl FnMut(&Decision, &[u8], &[ChainLink]),
     ) -> Result<(Step, Vec<Action>), Error> {
         let mut events = Vec::new();
         loop {
@@ -184,7 +184,7 @@ impl Duel {
                     // The opponent does nothing on your turn.
                     if decision.player() == Some(1) {
                         let answer = passive_answer(&decision, &self.actions(&decision));
-                        seen(&decision, &answer);
+                        seen(&decision, &answer, self.chain());
                         self.respond(&answer);
                         answers.push(answer);
                         continue;
@@ -197,7 +197,7 @@ impl Duel {
                     }
                     match auto_answer(&decision, &actions, policy) {
                         Some(i) => {
-                            seen(&decision, &actions[i].response);
+                            seen(&decision, &actions[i].response, self.chain());
                             answers.push(actions[i].response.clone());
                             self.respond(&actions[i].response);
                         }
