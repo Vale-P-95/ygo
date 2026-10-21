@@ -178,10 +178,12 @@ struct KitStep {
     goals: Vec<(Probe, Want)>,
     /// A probe that must have worked for this step to make sense.
     needs: Option<Probe>,
+    /// A breaker is played without it when the engine does not offer it.
+    optional: bool,
 }
 
 #[derive(Debug, Clone, Copy)]
-enum Act {
+pub(crate) enum Act {
     Activate(u32, u8),
     NormalSummon(u32),
     SpecialSummon(u32),
@@ -203,6 +205,40 @@ pub struct Breaker {
     /// How often it matters: the average over breakers is weighted by it.
     pub weight: f64,
     steps: Vec<KitStep>,
+}
+
+impl Breaker {
+    /// A card of the opponent's own deck played as a breaker: activated from
+    /// the hand, or Special Summoned by its own procedure and then its effect
+    /// on the field, when it has one (it may also have done its work being
+    /// summoned, as the Kaiju do).
+    pub(crate) fn card(name: String, weight: f64, code: u32, summon: bool) -> Breaker {
+        let step = |act: Act, optional: bool| KitStep {
+            act,
+            picks: Vec::new(),
+            take_max: false,
+            option: 0,
+            triggers: vec![code],
+            attack: false,
+            goals: Vec::new(),
+            needs: None,
+            optional,
+        };
+        let steps = if summon {
+            vec![step(Act::SpecialSummon(code), false), step(Act::Activate(code, location::MZONE), true)]
+        } else {
+            vec![step(Act::Activate(code, location::HAND), false)]
+        };
+        Breaker { name, weight, steps }
+    }
+
+    /// The one card it plays, if it plays one.
+    pub(crate) fn code(&self) -> Option<u32> {
+        match self.steps.as_slice() {
+            [KitStep { act: Act::Activate(code, _) | Act::SpecialSummon(code) | Act::NormalSummon(code), .. }] => Some(*code),
+            _ => None,
+        }
+    }
 }
 
 /// The opponent's cards and what it does with them.
@@ -240,6 +276,7 @@ impl Kit {
             attack: false,
             goals,
             needs,
+            optional: false,
         };
         let want = |code: Option<u32>, location: u8, delta: i32| Want { code, location, delta };
         let mut steps = Vec::new();
@@ -391,6 +428,21 @@ impl Kit {
         &self.opponent
     }
 
+    /// This kit with other breakers, their cards in the opponent's hand.
+    pub(crate) fn with_breakers(&self, breakers: Vec<Breaker>) -> Kit {
+        let mut kit = self.clone();
+        for b in &breakers {
+            for s in &b.steps {
+                let (Act::Activate(code, _) | Act::SpecialSummon(code) | Act::NormalSummon(code)) = s.act;
+                if !kit.opponent.hand.contains(&code) {
+                    kit.opponent.hand.push(code);
+                }
+            }
+        }
+        kit.breakers = breakers;
+        kit
+    }
+
     /// The probes this kit can measure.
     pub fn probes(&self) -> Vec<Probe> {
         let mut out: Vec<Probe> = self.steps.iter().flat_map(|s| s.goals.iter().map(|(p, _)| *p)).collect();
@@ -403,11 +455,14 @@ impl Kit {
 /// Where your turn starts from in a run: the line of a board, or ending
 /// the turn at once (the empty board the floodgates are compared with).
 #[derive(Clone, Copy)]
-enum Prelude<'a> {
+pub(crate) enum Prelude<'a> {
     Line(&'a Line),
     EndAtOnce,
     /// These cards on the field from the start, then the turn ends.
     Placed(&'a [Placement]),
+    /// Your answers of a line (not the opponent's): the opponent passes
+    /// whenever it is asked, whatever its cards (another deck's).
+    Own(&'a [Vec<u8>]),
 }
 
 /// What a measure plays besides each response alone: all of them together
@@ -990,57 +1045,8 @@ impl<'a> Prober<'a> {
         // Board breakers, each in a run of its own.
         // Resilience is how the field holds: handtraps are out of the
         // breakers' reach and already counted on their own.
-        let total = interruptions.iter().filter(|i| i.location != location::HAND).map(|i| i.value).sum::<f64>() + 0.0;
-        let mut breakers = Vec::new();
-        // The breakers go for the monster worth the most first (the attack,
-        // the monster a Kaiju takes).
-        let targets: Vec<u32> = interruptions.iter().filter(|i| i.location == location::MZONE).map(|i| i.responder.code).collect();
-        for breaker in self.kit.breakers.iter().filter(|_| parts.breakers) {
-            let mut owned = breaker.steps.clone();
-            for s in &mut owned {
-                s.picks = targets.clone();
-            }
-            let steps: Vec<&KitStep> = owned.iter().collect();
-            let run = match self.run(prelude, &steps, Policy::Pass) {
-                Ok(run) if run.steps.iter().all(|s| s.available) => run,
-                _ => {
-                    breakers.push(BreakerResult {
-                        name: breaker.name.clone(),
-                        weight: breaker.weight,
-                        not_applicable: true,
-                        stopped_by: None,
-                        remaining: total,
-                    });
-                    continue;
-                }
-            };
-            let mut result = BreakerResult {
-                name: breaker.name.clone(),
-                weight: breaker.weight,
-                not_applicable: false,
-                stopped_by: None,
-                remaining: self.left(&run.state, &interruptions),
-            };
-            // A negation offered against it: try it (it spends one use).
-            let negators: Vec<&Interruption> = interruptions
-                .iter()
-                .filter(|i| i.effect.negates() && run.windows.iter().any(|w| w.options.iter().any(|(o, _)| *o == i.responder)))
-                .collect();
-            for negator in negators {
-                let none = HashSet::new();
-                let Ok(tried) = self.run(prelude, &steps, Policy::Use(negator.responder, &none)) else { continue };
-                if tried.steps.iter().any(|s| s.negated) {
-                    let spent = if negator.location == location::HAND { 0.0 } else { negator.value / negator.uses as f64 };
-                    let left = self.left(&tried.state, &interruptions) - spent;
-                    if left > result.remaining {
-                        result.remaining = left;
-                        result.stopped_by = Some(negator.responder);
-                    }
-                    break;
-                }
-            }
-            breakers.push(result);
-        }
+        let total = field_total(&interruptions);
+        let breakers = if parts.breakers { self.breakers(prelude, &interruptions, &self.kit.breakers) } else { Vec::new() };
         let weights: f64 = breakers.iter().map(|b| b.weight).sum();
         let resilience = if weights > 0.0 { breakers.iter().map(|b| b.weight * b.remaining).sum::<f64>() / weights } else { total };
 
@@ -1058,6 +1064,63 @@ impl<'a> Prober<'a> {
             resilience,
             offered,
         })
+    }
+
+    /// Each of `breakers` in a run of its own after the board: what is left
+    /// of the field's `interruptions`, or which of them negates it.
+    pub(crate) fn breakers(&self, prelude: Prelude, interruptions: &[Interruption], breakers: &[Breaker]) -> Vec<BreakerResult> {
+        let total = field_total(interruptions);
+        let mut out = Vec::new();
+        // The breakers go for the monster worth the most first (the attack,
+        // the monster a Kaiju takes).
+        let targets: Vec<u32> = interruptions.iter().filter(|i| i.location == location::MZONE).map(|i| i.responder.code).collect();
+        for breaker in breakers {
+            let mut owned = breaker.steps.clone();
+            for s in &mut owned {
+                s.picks = targets.clone();
+            }
+            let steps: Vec<&KitStep> = owned.iter().collect();
+            let run = match self.run(prelude, &steps, Policy::Pass) {
+                Ok(run) if run.steps.iter().zip(&owned).all(|(r, s)| r.available || s.optional) => run,
+                _ => {
+                    out.push(BreakerResult {
+                        name: breaker.name.clone(),
+                        weight: breaker.weight,
+                        not_applicable: true,
+                        stopped_by: None,
+                        remaining: total,
+                    });
+                    continue;
+                }
+            };
+            let mut result = BreakerResult {
+                name: breaker.name.clone(),
+                weight: breaker.weight,
+                not_applicable: false,
+                stopped_by: None,
+                remaining: self.left(&run.state, interruptions),
+            };
+            // A negation offered against it: try it (it spends one use).
+            let negators: Vec<&Interruption> = interruptions
+                .iter()
+                .filter(|i| i.effect.negates() && run.windows.iter().any(|w| w.options.iter().any(|(o, _)| *o == i.responder)))
+                .collect();
+            for negator in negators {
+                let none = HashSet::new();
+                let Ok(tried) = self.run(prelude, &steps, Policy::Use(negator.responder, &none)) else { continue };
+                if tried.steps.iter().any(|s| s.negated) {
+                    let spent = if negator.location == location::HAND { 0.0 } else { negator.value / negator.uses as f64 };
+                    let left = self.left(&tried.state, interruptions) - spent;
+                    if left > result.remaining {
+                        result.remaining = left;
+                        result.stopped_by = Some(negator.responder);
+                    }
+                    break;
+                }
+            }
+            out.push(result);
+        }
+        out
     }
 
     /// Interruption value of the field still usable in `state`: each
@@ -1103,6 +1166,7 @@ impl<'a> Prober<'a> {
         const NO_ANSWERS: &[Vec<u8>] = &[];
         let mut answers = match prelude {
             Prelude::Line(line) => line.answers.iter(),
+            Prelude::Own(answers) => answers.iter(),
             Prelude::EndAtOnce | Prelude::Placed(_) => NO_ANSWERS.iter(),
         };
         let mut trace =
@@ -1187,9 +1251,13 @@ impl<'a> Prober<'a> {
                 match prelude {
                     Prelude::Line(_) if decision.player() == Some(1) => duel.respond(&passive_answer(&decision, &actions)),
                     Prelude::Line(_) => duel.respond(&end_phase_answer(&decision, &actions, &idle_effects)),
-                    Prelude::EndAtOnce | Prelude::Placed(_) if decision.player() == Some(1) => {
+                    Prelude::EndAtOnce | Prelude::Placed(_) | Prelude::Own(_) if decision.player() == Some(1) => {
                         duel.respond(&passive_answer(&decision, &actions))
                     }
+                    Prelude::Own(_) => match answers.next() {
+                        Some(a) => duel.respond(a),
+                        None => duel.respond(&end_phase_answer(&decision, &actions, &idle_effects)),
+                    },
                     Prelude::EndAtOnce | Prelude::Placed(_) => duel.respond(&end_turn(&decision, &actions)),
                 }
                 continue;
@@ -1406,6 +1474,12 @@ impl<'a> Prober<'a> {
     }
 }
 
+/// Interruption value of the field (not the hand: handtraps are out of
+/// the breakers' reach).
+fn field_total(interruptions: &[Interruption]) -> f64 {
+    interruptions.iter().filter(|i| i.location != location::HAND).map(|i| i.value).sum::<f64>() + 0.0
+}
+
 /// Your End Phase after a provisional line: optional triggers are used,
 /// lists are picked forward, quick effects are not (activating Hyperinvoked
 /// Aeon there, then negating it with your own Invoked Mechaba, would undo
@@ -1428,7 +1502,7 @@ fn end_phase_answer(decision: &Decision, actions: &[Action], idle_effects: &Hash
 }
 
 /// Ends your turn at once (the empty board).
-fn end_turn(decision: &Decision, actions: &[Action]) -> Vec<u8> {
+pub(crate) fn end_turn(decision: &Decision, actions: &[Action]) -> Vec<u8> {
     match actions.iter().find(|a| a.kind == ActionKind::EndTurn) {
         Some(a) => a.response.clone(),
         None => passive_answer(decision, actions),
@@ -1436,7 +1510,7 @@ fn end_turn(decision: &Decision, actions: &[Action]) -> Vec<u8> {
 }
 
 /// Your answer to a chance to respond: pass, or the effect at `index`.
-fn window_answer(decision: &Decision, index: Option<usize>) -> Vec<u8> {
+pub(crate) fn window_answer(decision: &Decision, index: Option<usize>) -> Vec<u8> {
     match decision {
         Decision::EffectYesNo { .. } | Decision::YesNo { .. } => (index.is_some() as i32).to_le_bytes().to_vec(),
         _ => index.map_or(-1, |i| i as i32).to_le_bytes().to_vec(),
@@ -1445,7 +1519,7 @@ fn window_answer(decision: &Decision, index: Option<usize>) -> Vec<u8> {
 
 /// In a list where cards are picked one at a time, picking goes forward:
 /// finish when allowed, never take a card back (that would go round in circles).
-fn forward(decision: &Decision, actions: &[Action], prefer: impl Fn(&Action) -> bool) -> Option<Vec<u8>> {
+pub(crate) fn forward(decision: &Decision, actions: &[Action], prefer: impl Fn(&Action) -> bool) -> Option<Vec<u8>> {
     forward_by(decision, actions, |a| !prefer(a))
 }
 
@@ -1554,7 +1628,7 @@ fn opponent_answer(engine: &Engine, decision: &Decision, actions: &[Action], ste
 }
 
 /// The idle answer that plays `act`, if the engine offers it.
-fn find_act(engine: &Engine, actions: &[Action], act: Act) -> Option<Vec<u8>> {
+pub(crate) fn find_act(engine: &Engine, actions: &[Action], act: Act) -> Option<Vec<u8>> {
     let db = engine.cards();
     let is = |c: &CardRef, code: u32| db.canonical_code(c.code) == db.canonical_code(code);
     actions

@@ -6,6 +6,7 @@ import { toast } from "../../lib/toast";
 import { CardImage, Field, type HoverCard, type Pile as PileKind } from "./Field";
 import { ScoreBreakdown } from "./Score";
 import { ComboSteps, formatComboGuide, type ActiveStepInfo } from "./Steps";
+import { StopTradeOff } from "./StopTradeOff";
 
 type StepsView = "visual" | "text";
 const VIEW_KEY = "duelforge.combo.stepsView";
@@ -89,11 +90,13 @@ export function BoardDetail({ board, score, scoring, weights, hand, steps, steps
   const [activeCards, setActiveCards] = useState<Set<number> | null>(null);
   const [activeStep, setActiveStep] = useState<ActiveStepInfo | null>(null);
   const [resetNonce, setResetNonce] = useState(0);
+  const [requestedStep, setRequestedStep] = useState<{ step: number; nonce: number } | null>(null);
 
   // When steps or board changes, reset the active step.
   useEffect(() => {
     setActiveStep(null);
     setActiveCards(null);
+    setRequestedStep(null);
   }, [board.key]);
 
   const pickView = (v: StepsView) => {
@@ -138,7 +141,7 @@ export function BoardDetail({ board, score, scoring, weights, hand, steps, steps
                 {activeStep.choice ?? "Effetto risolto"}
               </span>
               {activeStep.field && (
-                <span className="hidden sm:inline-flex rounded-full border border-sec/30 bg-sec/15 px-1.5 py-0.2 text-[9px] text-sec font-medium">
+                <span className="hidden sm:inline-flex rounded-full border border-sec/30 bg-sec/15 px-1.5 py-0.5 text-[9px] text-sec font-medium">
                   campo al passo
                 </span>
               )}
@@ -211,7 +214,22 @@ export function BoardDetail({ board, score, scoring, weights, hand, steps, steps
       <section className="lab-card flex flex-col gap-3 p-4">
         <h3 className="text-sm font-semibold">Il punteggio</h3>
         {score ? (
-          <ScoreBreakdown s={score} weights={weights} getCard={getCard} onHover={onHover} onHoverEnd={onHoverEnd} />
+          <>
+            <ScoreBreakdown s={score} weights={weights} getCard={getCard} onHover={onHover} onHoverEnd={onHoverEnd} />
+            {score.matchup && !score.matchup.error && score.matchup.handTraps.some((h) => (h.drawn ?? 0) > 0) && (
+              <StopTradeOff
+                board={board}
+                matchup={score.matchup}
+                getCard={getCard}
+                onHover={onHover}
+                onHoverEnd={onHoverEnd}
+                onSelectStep={(st) => {
+                  setRequestedStep({ step: st, nonce: Date.now() });
+                  setView("visual");
+                }}
+              />
+            )}
+          </>
         ) : (
           <p className="text-xs text-faint">{scoring ? "Il turno di prova sta mettendo alla prova le board…" : "Questa board non è tra quelle messe alla prova (le migliori 30 della ricerca)."}</p>
         )}
@@ -269,6 +287,7 @@ export function BoardDetail({ board, score, scoring, weights, hand, steps, steps
             onActiveCards={setActiveCards}
             onActiveStep={setActiveStep}
             resetNonce={resetNonce}
+            requestedStep={requestedStep}
           />
         ) : (
           <ol className="combo-steps flex flex-col gap-2.5">

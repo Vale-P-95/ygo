@@ -1,7 +1,8 @@
-import type { ReactNode } from "react";
-import type { Card, ComboBreaker, ComboInterruption, ComboScore } from "../../lib/api";
-import { METRICS, NEGATIVE, parts, pickProfile, PROFILES, score, setWeight, useWeights, type Metric, type MetricKey, type Weights } from "../../lib/scoring";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { api, type Card, ComboBreaker, ComboInterruption, ComboRivalBreaker, ComboRivalHandTrap, ComboScore, type LearnedWeights } from "../../lib/api";
+import { METRICS, NEGATIVE, parts, pickProfile, PROFILES, score, setWeight, applyLearnedWeights, getPriorWeights, useWeights, type Metric, type MetricKey, type Weights } from "../../lib/scoring";
 import { sound } from "../../lib/sound";
+import { toast } from "../../lib/toast";
 import { InfoButton } from "../InfoButton";
 import { CardImage, type HoverCard } from "./Field";
 
@@ -55,14 +56,39 @@ export function WeightsPanel({
   weights,
   open,
   compact = false,
+  choicesVersion,
   onToggle,
+  onChoicesChanged,
 }: {
   profile: string;
   weights: Weights;
   open: boolean;
   compact?: boolean;
+  choicesVersion?: number;
   onToggle: () => void;
+  onChoicesChanged?: () => void;
 }) {
+  const [learned, setLearned] = useState<LearnedWeights | null>(null);
+  const [loadingLearned, setLoadingLearned] = useState(false);
+  const [clearing, setClearing] = useState(false);
+  const requestIdRef = useRef(0);
+
+  useEffect(() => {
+    let active = true;
+    const prior = getPriorWeights();
+    api.learnedWeights(prior)
+      .then((lw) => {
+        if (active) setLearned(lw);
+      })
+      .catch((e) => {
+        if (active) {
+          toast(`Impossibile leggere le preferenze: ${e instanceof Error ? e.message : String(e)}`, "error");
+        }
+      });
+    return () => {
+      active = false;
+    };
+  }, [profile, open, choicesVersion]);
   return (
     <div className="flex flex-col gap-2">
       <div className="flex flex-wrap items-center gap-1.5 text-xs">
@@ -76,6 +102,7 @@ export function WeightsPanel({
             type="button"
             className={`chip !py-0.5 ${profile === p.id ? "chip-active" : ""}`}
             onClick={() => {
+              requestIdRef.current++;
               sound.play("toggle");
               pickProfile(p.id);
             }}
@@ -84,6 +111,42 @@ export function WeightsPanel({
           </button>
         ))}
         {profile === "custom" && <span className="chip chip-active !py-0.5">Personalizzato</span>}
+        <button
+          type="button"
+          disabled={loadingLearned}
+          className={`chip !py-0.5 ${profile === "learned" ? "chip-active" : ""}`}
+          onClick={async () => {
+            sound.play("toggle");
+            setLoadingLearned(true);
+            const reqId = ++requestIdRef.current;
+            try {
+              const prior = getPriorWeights();
+              const res = await api.learnedWeights(prior);
+              if (reqId !== requestIdRef.current) return;
+              setLearned(res);
+              const sanitized: Partial<Weights> = {};
+              for (const m of METRICS) {
+                const val = (res.weights as Record<string, unknown>)[m.key];
+                if (typeof val === "number" && Number.isFinite(val)) {
+                  sanitized[m.key] = val;
+                }
+              }
+              applyLearnedWeights(sanitized);
+            } catch (e) {
+              if (reqId !== requestIdRef.current) return;
+              sound.play("error");
+              toast(`Impossibile calcolare i pesi imparati: ${e instanceof Error ? e.message : String(e)}`, "error");
+            } finally {
+              if (reqId === requestIdRef.current) {
+                setLoadingLearned(false);
+              }
+            }
+          }}
+          title="Pesi calibrati automaticamente sulle tue preferenze tra board registrate nel confronto"
+        >
+          ★ Imparato dalle tue scelte
+          {learned != null && learned.choices > 0 && <span className="ml-1 opacity-80 font-semibold">({learned.choices})</span>}
+        </button>
         <button type="button" className="ml-auto text-[11px] text-muted hover:text-text" onClick={onToggle} aria-expanded={open}>
           {open ? "Chiudi i pesi" : "Personalizza i pesi"}
         </button>
@@ -93,6 +156,67 @@ export function WeightsPanel({
           <p className={`${compact ? "2xl:col-span-2" : "xl:col-span-2"} text-[11px] text-muted`}>
             Più il peso è alto, più la voce conta. Le voci in rosso tolgono punti: più il peso è vicino a −1, più pesano contro la board.
           </p>
+          {profile === "learned" && learned && (
+            <div className={`${compact ? "2xl:col-span-2" : "xl:col-span-2"} rounded-lg border border-sec/40 bg-sec/10 p-2.5 text-xs anim-fade`}>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex flex-col gap-0.5">
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold text-text">
+                      ★ Profilo calibrato sulle tue scelte ({learned.choices} {learned.choices === 1 ? "confronto" : "confronti"})
+                    </span>
+                    {learned.choices > 0 && (
+                      <span className="chip !py-0 !px-1.5 text-[10px] text-sec font-medium">
+                        Accordo: {Math.round(learned.agreement * 100)}%
+                      </span>
+                    )}
+                  </div>
+                  {learned.choices === 0 ? (
+                    <p className="text-[11px] text-muted">
+                      Nessun confronto registrato finora. Apri «Confronta» tra due board e premi «★ Preferisco questa» per insegnare le tue preferenze.
+                    </p>
+                  ) : (
+                    <p className="text-[11px] text-muted">
+                      I pesi imparati spiegano il <b>{Math.round(learned.agreement * 100)}%</b> delle tue scelte (il profilo di partenza ne spiegava il {Math.round(learned.priorAgreement * 100)}%).
+                      {learned.choices < 4 && " Con poche scelte i pesi restano vicini al profilo di partenza per garantire stabilità."}
+                    </p>
+                  )}
+                </div>
+                {learned.choices > 0 && (
+                  <button
+                    type="button"
+                    disabled={clearing}
+                    onClick={async () => {
+                      if (!window.confirm("Vuoi azzerare tutte le preferenze di board registrate?")) return;
+                      setClearing(true);
+                      try {
+                        await api.clearBoardChoices();
+                        sound.play("knock");
+                        pickProfile("balanced");
+                        setLearned({
+                          weights: PROFILES[0].weights,
+                          choices: 0,
+                          agreement: 1,
+                          priorAgreement: 1,
+                        });
+                        onChoicesChanged?.();
+                        const cleared = await api.learnedWeights(PROFILES[0].weights);
+                        setLearned(cleared);
+                      } catch (e) {
+                        sound.play("error");
+                        toast(`Impossibile azzerare le scelte: ${e instanceof Error ? e.message : String(e)}`, "error");
+                      } finally {
+                        setClearing(false);
+                      }
+                    }}
+                    className="btn btn-ghost !py-1 !px-2 text-[11px] text-danger hover:bg-danger/10 border border-danger/30"
+                    title="Azzera le scelte registrate e ripristina il profilo bilanciato"
+                  >
+                    🗑 Azzera scelte
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
           {METRICS.map((m) => (
             <div key={m.key} className="flex items-center gap-2 text-xs">
               <span className="h-2.5 w-2.5 shrink-0 rounded-sm" style={{ background: m.color }} />
@@ -296,6 +420,160 @@ function Risk({ name, text, counts }: { name: string; text: string; counts: bool
   );
 }
 
+
+function RivalBreakerRow({
+  b,
+  s,
+  getCard,
+  onHover,
+  onHoverEnd,
+}: {
+  b: ComboRivalBreaker;
+  s: ComboScore;
+  getCard: (code: number) => Card | undefined;
+  onHover?: HoverCard;
+  onHoverEnd?: () => void;
+}) {
+  const card = getCard(b.code);
+  const cardName = card?.name ?? String(b.code);
+  const kept = s.interruptions > 0 ? Math.max(0, Math.min(1, b.remaining / s.interruptions)) : 0;
+  let status: string;
+  if (b.notApplicable) status = "non si può usare contro questa board";
+  else if (b.stoppedBy != null) {
+    const stopperName = getCard(b.stoppedBy)?.name ?? String(b.stoppedBy);
+    status = `lo neghi con ${stopperName} · restano ${num(b.remaining)}`;
+  } else if (kept >= 0.995) status = "non toglie nulla";
+  else if (b.remaining < 0.005) status = "toglie tutto";
+  else status = `restano ${num(b.remaining)}`;
+  const ok = b.notApplicable || b.stoppedBy != null || b.remaining >= HOLDS * s.interruptions - 1e-9;
+  const chancePct = Math.round(b.chance * 100);
+
+  return (
+    <li className="grid grid-cols-[minmax(0,11rem)_1fr] items-center gap-x-3 gap-y-0.5 text-xs py-0.5">
+      <span
+        className="flex items-center gap-1.5 min-w-0 cursor-default"
+        onPointerEnter={(e) => onHover?.(b.code, e.currentTarget)}
+        onPointerLeave={onHoverEnd}
+      >
+        <span className={ok ? "text-ok" : "text-danger"} aria-hidden>
+          {ok ? "✓ " : "✗ "}
+        </span>
+        <span className="truncate font-medium text-text" title={cardName}>
+          {cardName}
+        </span>
+        <span className="shrink-0 text-[10px] text-faint tabular-nums" title="Probabilità tra le 6 carte avversarie">
+          ({chancePct}%)
+        </span>
+      </span>
+      <span className="flex min-w-0 items-center gap-2">
+        <span className="meter w-16 shrink-0" aria-hidden>
+          <span style={{ width: `${b.notApplicable ? 100 : Math.round(kept * 100)}%`, background: "var(--metric-resilience)" }} />
+        </span>
+        <span className={`min-w-0 truncate text-[11px] ${b.notApplicable ? "text-faint" : "text-muted"}`} title={status}>
+          {status}
+        </span>
+      </span>
+    </li>
+  );
+}
+
+function RivalHandTrapRow({
+  h,
+  getCard,
+  onHover,
+  onHoverEnd,
+}: {
+  h: ComboRivalHandTrap;
+  getCard: (code: number) => Card | undefined;
+  onHover?: HoverCard;
+  onHoverEnd?: () => void;
+}) {
+  const card = getCard(h.code);
+  const cardName = card?.name ?? String(h.code);
+  const stopsLine = h.stops > 0;
+  const chancePct = Math.round(h.chance * 100);
+  const targets = h.at.map((c) => getCard(c)?.name ?? String(c));
+
+  return (
+    <li className="flex flex-col gap-0.5 text-xs py-1.5 border-b border-border/40 last:border-0">
+      <div className="flex items-baseline justify-between gap-2">
+        <span
+          className="flex items-center gap-1.5 min-w-0 cursor-default"
+          onPointerEnter={(e) => onHover?.(h.code, e.currentTarget)}
+          onPointerLeave={onHoverEnd}
+        >
+          <span className={stopsLine ? "text-danger" : "text-faint"} aria-hidden>
+            {stopsLine ? "●" : "○"}
+          </span>
+          <b className="truncate text-text" title={cardName}>
+            {cardName}
+          </b>
+          <span className="shrink-0 text-[10px] text-faint tabular-nums" title="Probabilità tra le 5 carte iniziali">
+            ({chancePct}%)
+          </span>
+        </span>
+        <span className={`shrink-0 text-[11px] font-medium tabular-nums ${stopsLine ? "text-warn" : h.drawn != null && h.drawn > 0 ? "text-warn font-semibold" : "text-faint"}`}>
+          {stopsLine
+            ? `ferma in ${plural(h.stops, "momento", "momenti")} su ${h.windows}`
+            : h.drawn != null && h.drawn > 0
+            ? `fa pescare fino a ${plural(h.drawn, "carta", "carte")}`
+            : `usata in ${h.windows} momenti (0 fermate)`}
+        </span>
+      </div>
+      {stopsLine && h.drawn != null && h.drawn > 0 && (
+        <p className="text-[11px] text-warn pl-3.5">
+          Fa pescare fino a <b className="tabular-nums">{plural(h.drawn, "carta", "carte")}</b>.
+        </p>
+      )}
+      {targets.length > 0 && (
+        <p className="text-[11px] text-muted pl-3.5">
+          Agisce su: <span className="text-text font-medium">{targets.join(", ")}</span>
+        </p>
+      )}
+      {h.moments && h.moments.length > 0 && (
+        <details className="mt-0.5 pl-3.5 group/moments">
+          <summary className="cursor-pointer text-[10px] text-muted hover:text-text select-none">
+            Momenti in cui si può usare ({h.moments.length})
+            <span className="ml-1 text-faint group-open/moments:hidden">· mostra</span>
+            <span className="ml-1 hidden text-faint group-open/moments:inline">· nascondi</span>
+          </summary>
+          <div className="mt-1 flex flex-col gap-0.5 border-l-2 border-border/70 pl-2">
+            {h.moments.map((m, idx) => {
+              const mCard = m.playing ? getCard(m.playing) : null;
+              const mName = mCard?.name ?? (m.playing ? String(m.playing) : "Inizio turno");
+              return (
+                <div key={idx} className="flex items-center justify-between text-[10px] py-0.5">
+                  <span className="flex items-center gap-1.5 min-w-0">
+                    <span className={m.stops ? "text-danger" : "text-faint"} aria-hidden>
+                      {m.stops ? "●" : "○"}
+                    </span>
+                    <span
+                      className="truncate text-text font-medium cursor-default"
+                      title={mName}
+                      onPointerEnter={m.playing ? (e) => onHover?.(m.playing!, e.currentTarget) : undefined}
+                      onPointerLeave={onHoverEnd}
+                    >
+                      {mName}
+                    </span>
+                    {m.stops && <span className="text-[9px] text-danger font-semibold">ferma la linea</span>}
+                  </span>
+                  {m.drawn > 0 ? (
+                    <span className="shrink-0 font-bold tabular-nums text-warn">
+                      +{m.drawn} {plural(m.drawn, "pescata", "pescate")}
+                    </span>
+                  ) : (
+                    <span className="shrink-0 text-faint tabular-nums">0 carte</span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </details>
+      )}
+    </li>
+  );
+}
+
 function Exposure({ s }: { s: ComboScore }) {
   const x = s.exposureDetail;
   if (!x) return <p className="text-xs text-muted">{s.exposureNote}</p>;
@@ -342,7 +620,7 @@ export function ScoreBreakdown({
     return <p className="text-xs text-faint">Il turno di prova non si è potuto giocare su questa board: {s.error}</p>;
   }
   const profileName = PROFILES.find((p) => p.id === profile)?.label;
-  const profileText = profileName ? `Nel profilo «${profileName}»` : "Con i tuoi pesi";
+  const profileText = profileName ? `Nel profilo «${profileName}»` : profile === "learned" ? "Con i pesi imparati" : "Con i tuoi pesi";
   const all = parts(s, weights);
   const total = score(s, weights);
   const positive = all.filter((p) => p.value > 0.005).reduce((t, p) => t + p.value, 0);
@@ -360,7 +638,7 @@ export function ScoreBreakdown({
       <div className="flex flex-col gap-1.5">
         <div className="flex items-baseline gap-2">
           <span className="text-2xl font-semibold tabular-nums">{fmt2(total)}</span>
-          <span className="text-xs text-muted">punti{profileName ? ` · profilo «${profileName}»` : " · pesi personalizzati"}</span>
+          <span className="text-xs text-muted">punti{profileName ? ` · profilo «${profileName}»` : profile === "learned" ? " · Imparato dalle tue scelte" : " · pesi personalizzati"}</span>
           <InfoButton title="Come si calcola il punteggio" className="ml-auto self-center">
             <p>Il motore mette alla prova la board: gioca il turno dell'avversario con le giocate più comuni e con i board breaker più usati, e guarda cosa riesci a fermare.</p>
             <p>Ogni voce qui sotto dà punti (misura × peso); quelle in rosso li tolgono. I pesi vengono dal profilo scelto sopra la lista delle board.</p>
@@ -431,35 +709,154 @@ export function ScoreBreakdown({
       )}
 
       <Section
-        title="Contro i board breaker"
+        title={s.matchup ? `Contro i board breaker · «${s.matchup.deckName}»` : "Contro i board breaker"}
         info={
           <>
             <Paragraphs lines={metric("resilience").explain} />
             <p>«Regge» vuol dire che resta almeno metà delle interruzioni dal campo, o che lo neghi. «Non si può usare»: con questa board l'avversario non può attivarlo, quindi non fa danni.</p>
+            {s.matchup && (
+              <p>Con un deck avversario selezionato, si misurano i breaker specifici presenti nel suo Main Deck contro la tua board.</p>
+            )}
           </>
         }
       >
         {s.interruptions < 0.005 ? (
           <p className="text-xs text-faint">Non ci sono interruzioni sul campo da proteggere.</p>
         ) : (
-          <details className="group">
-            <summary className="cursor-pointer text-xs select-none">
-              Regge a <b className="tabular-nums">{held}</b> su <b className="tabular-nums">{tried.length}</b> board breaker
-              <span className="ml-1.5 text-[11px] text-muted group-open:hidden">· mostra quali</span>
-              <span className="ml-1.5 hidden text-[11px] text-muted group-open:inline">· nascondi</span>
-            </summary>
-            <ul className="mt-2 flex flex-col gap-1">
-              {s.breakers.map((b) => (
-                <BreakerRow key={b.name} b={b} s={s} name={name} />
-              ))}
-            </ul>
-          </details>
+          <div className="flex flex-col gap-2.5">
+            {s.matchup && (
+              s.matchup.error ? (
+                <div className="rounded-lg border border-danger/40 bg-danger/10 p-2.5 text-xs text-danger">
+                  Misura contro «{s.matchup.deckName}» non riuscita: {s.matchup.error}
+                </div>
+              ) : (
+                <div className="rounded-lg border border-border/80 bg-surface-2/60 p-2.5 flex flex-col gap-2">
+                  <div className="flex items-baseline justify-between gap-2">
+                    <span className="text-xs font-semibold text-text">
+                      Resilienza contro «{s.matchup.deckName}»
+                    </span>
+                    <span className="text-xs font-bold tabular-nums text-sec">
+                      in media restano {num(s.matchup.resilience)} su {num(s.interruptions)}
+                    </span>
+                  </div>
+                  {s.matchup.standardBreakers ? (
+                    <p className="text-[11px] text-muted">
+                      Questo deck non ha board breaker giocabili dalla mano: valgono i breaker standard del kit.
+                    </p>
+                  ) : (
+                    <>
+                      <p className="text-[11px] text-muted">
+                        Probabilità che l'avversario abbia almeno un breaker giocabile tra 6 carte:{" "}
+                        <b className="text-text tabular-nums">{Math.round(s.matchup.breakerChance * 100)}%</b>.
+                      </p>
+                      {s.matchup.breakers.length > 0 && (
+                        <ul className="flex flex-col gap-0.5">
+                          {s.matchup.breakers.map((b) => (
+                            <RivalBreakerRow key={b.code} b={b} s={s} getCard={getCard} onHover={onHover} onHoverEnd={onHoverEnd} />
+                          ))}
+                        </ul>
+                      )}
+                    </>
+                  )}
+                </div>
+              )
+            )}
+
+            <details className="group" open={!s.matchup}>
+              <summary className="cursor-pointer text-xs select-none">
+                {s.matchup ? "Breaker del kit standard: regge a" : "Regge a"} <b className="tabular-nums">{held}</b> su <b className="tabular-nums">{tried.length}</b> board breaker
+                <span className="ml-1.5 text-[11px] text-muted group-open:hidden">· mostra quali</span>
+                <span className="ml-1.5 hidden text-[11px] text-muted group-open:inline">· nascondi</span>
+              </summary>
+              <ul className="mt-2 flex flex-col gap-1">
+                {s.breakers.map((b) => (
+                  <BreakerRow key={b.name} b={b} s={s} name={name} />
+                ))}
+              </ul>
+            </details>
+          </div>
         )}
       </Section>
 
-      {(s.exposureDetail || s.exposureNote) && (
-        <Section title="Dove si può fermare la linea" info={<Paragraphs lines={metric("exposure").explain} />}>
-          <Exposure s={s} />
+      {(s.exposureDetail || s.exposureNote || s.matchup) && (
+        <Section
+          title={s.matchup ? `Dove si può fermare la linea · «${s.matchup.deckName}»` : "Dove si può fermare la linea"}
+          info={<Paragraphs lines={metric("exposure").explain} />}
+        >
+          <div className="flex flex-col gap-2.5">
+            {s.matchup && (
+              <div className="rounded-lg border border-border/80 bg-surface-2/60 p-2.5 flex flex-col gap-2">
+                <div className="flex items-baseline justify-between gap-2">
+                  <span className="text-xs font-semibold text-text">
+                    Contro «{s.matchup.deckName}»
+                  </span>
+                  <span className="text-xs font-bold tabular-nums text-warn">
+                    {Math.round(s.matchup.handTrapChance * 100)}% probabilità di fermata
+                  </span>
+                </div>
+                <p className="text-[11px] text-muted">
+                  Probabilità che l'avversario peschi tra le sue 5 carte iniziali almeno una handtrap che altera o blocca la linea.
+                </p>
+                {s.matchup.handTraps.filter((h) => h.stops > 0).length > 0 ? (
+                  <ul className="flex flex-col">
+                    {s.matchup.handTraps
+                      .filter((h) => h.stops > 0)
+                      .map((h) => (
+                        <RivalHandTrapRow key={h.code} h={h} getCard={getCard} onHover={onHover} onHoverEnd={onHoverEnd} />
+                      ))}
+                  </ul>
+                ) : (
+                  <p className="text-xs text-ok">Nessuna handtrap del deck avversario è in grado di fermare questa linea.</p>
+                )}
+
+                {s.matchup.handTraps.some((h) => h.stops === 0) && (
+                  <div className="mt-1 border-t border-border/50 pt-2 flex flex-col gap-1.5">
+                    <p className="text-[11px] text-faint">Si usano ma non fermano la linea (fanno solo pescare o non alterano il risultato):</p>
+                    {s.matchup.handTraps.filter((h) => h.stops === 0 && h.drawn != null && h.drawn > 0).length > 0 && (
+                      <ul className="flex flex-col">
+                        {s.matchup.handTraps
+                          .filter((h) => h.stops === 0 && h.drawn != null && h.drawn > 0)
+                          .map((h) => (
+                            <RivalHandTrapRow key={h.code} h={h} getCard={getCard} onHover={onHover} onHoverEnd={onHoverEnd} />
+                          ))}
+                      </ul>
+                    )}
+                    {s.matchup.handTraps.filter((h) => h.stops === 0 && (h.drawn == null || h.drawn === 0)).length > 0 && (
+                      <div className="flex flex-wrap gap-1.5">
+                        {s.matchup.handTraps
+                          .filter((h) => h.stops === 0 && (h.drawn == null || h.drawn === 0))
+                          .map((h) => {
+                            const cName = getCard(h.code)?.name ?? String(h.code);
+                            return (
+                              <span
+                                key={h.code}
+                                className="chip !py-0.5 !px-2 text-[10px] text-muted"
+                                title={`${cName}: usata in ${h.windows} momenti ma la board finale rimane identica`}
+                                onPointerEnter={(e) => onHover?.(h.code, e.currentTarget)}
+                                onPointerLeave={onHoverEnd}
+                              >
+                                {cName} ({Math.round(h.chance * 100)}%)
+                              </span>
+                            );
+                          })}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            <details className="group" open={!s.matchup}>
+              <summary className="cursor-pointer text-xs select-none">
+                Handtrap più comuni (kit generico)
+                <span className="ml-1.5 text-[11px] text-muted group-open:hidden">· mostra</span>
+                <span className="ml-1.5 hidden text-[11px] text-muted group-open:inline">· nascondi</span>
+              </summary>
+              <div className="mt-2">
+                <Exposure s={s} />
+              </div>
+            </details>
+          </div>
         </Section>
       )}
     </div>

@@ -5,6 +5,8 @@
 pub mod card;
 pub mod coverage;
 pub mod explain;
+pub mod links;
+pub mod matchup;
 pub mod probe;
 pub mod roles;
 pub mod search;
@@ -13,6 +15,13 @@ pub mod value;
 pub use card::{resume_card, sample_hands, search_card, CardSearch, HandResult};
 pub use coverage::{Counts, Coverage, Kind as MechanicKind, Mechanic};
 pub use explain::{explain, exposure, ExplainedStep, Exposure, Happening, HappeningKind};
+pub use links::{
+    compare_links, deck_links, deck_links_again, CardChange, CardLink, DeckLinks, LinkCard, LinkKind, LinksBudget, LinksDiff, LinksWork,
+    Zone as LinkZone,
+};
+pub use matchup::{
+    draw_trade_off, matchup, rival_plays, DrawTradeOff, HandTrapMoment, Matchup, Rival, RivalBreaker, RivalHandTrap, RivalPlay, StopPoint,
+};
 pub use probe::{hand_traps, BreakerResult, Effect, Interruption, Kit, Measure, Probe, Prober, ResponderId};
 pub use roles::{guess_roles, RoleGuess};
 pub use search::{

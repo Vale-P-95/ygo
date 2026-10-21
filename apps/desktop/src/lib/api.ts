@@ -466,6 +466,89 @@ export interface ComboScore {
   exposure: number;
   exposureNote: string;
   exposureDetail: { ash: number; onField: number; summons: number; specialSummons: number; searches: number } | null;
+  /** Against the deck chosen with `comboScore(vsDeckId)`. */
+  matchup?: ComboMatchup | null;
+  error: string | null;
+}
+
+/** One of the opponent deck's board breakers against the board. */
+export interface ComboRivalBreaker {
+  code: number;
+  /** Chance it is among the 6 cards the opponent has in its turn. */
+  chance: number;
+  /** Interruption value of the field left after it. */
+  remaining: number;
+  stoppedBy: number | null;
+  notApplicable: boolean;
+}
+
+/** One of the opponent deck's handtraps against the line. */
+export interface ComboRivalHandTrap {
+  code: number;
+  /** Chance it is among the 5 cards the opponent holds during your turn. */
+  chance: number;
+  /** Moments of the line it can be used. */
+  windows: number;
+  /** Those where using it changes the field or hand you end with. */
+  stops: number;
+  /** Your cards being played at those moments. */
+  at: number[];
+  /** The most cards the opponent draws using it (Maxx "C", the Mulcharmy: they stop nothing but draw). Always sent by the backend. */
+  drawn?: number;
+  /** Each moment tried, in the order of the line (at most 24). Always sent by the backend. */
+  moments?: ComboHandTrapMoment[];
+}
+
+/** A point where a board's line can stop while the opponent draws from Maxx "C" or a Mulcharmy (mirrors `StopPointView`). */
+export interface ComboStopPoint {
+  /** Steps of the line played before ending the turn (as `comboExplain` lists them; all of them for the whole line). */
+  steps: number;
+  /** Your last card played then. */
+  playing: number | null;
+  /** Interruption and floodgate value of the board you end on. */
+  fieldValue: number;
+  floodgateValue: number;
+  /** Cards the opponent has drawn by the end of your turn. */
+  drawn: number;
+  /** Value expected in its turn, holding 6 cards plus those drawn (more chances of a breaker). */
+  expected: number;
+}
+
+/** Where to stop the line against one handtrap that draws (mirrors `DrawTradeOffView`). */
+export interface ComboDrawTradeOff {
+  /** The handtrap (Maxx "C", a Mulcharmy), used at the first moment it can be. */
+  code: number;
+  /** In the order of the line, the whole line last. */
+  stops: ComboStopPoint[];
+  /** Index in `stops` of the one that keeps the most for its turn. */
+  best: number;
+  /** The deck has no breaker the probe turn can play: the standard ones are used, assuming about 5 in its 40 cards. */
+  standardBreakers: boolean;
+}
+
+/** A moment of the line the opponent uses a handtrap at (mirrors `HandTrapMomentView`). */
+export interface ComboHandTrapMoment {
+  /** Your card being played then (the last you used). */
+  playing: number | null;
+  /** Using it then changes the field or hand you end with. */
+  stops: boolean;
+  /** Cards the opponent draws from then to the end of your turn, less those it shuffles back into the Deck. */
+  drawn: number;
+}
+
+/** The board and its line against a deck of the Bottega (mirrors `MatchupView`). */
+export interface ComboMatchup {
+  deckId: number;
+  deckName: string;
+  /** Interruption value of the field expected after the most harmful breaker the opponent has (all of it when it has none). */
+  resilience: number;
+  /** The deck has no breaker the probe turn can play: the resilience is the standard one. */
+  standardBreakers: boolean;
+  breakerChance: number;
+  breakers: ComboRivalBreaker[];
+  /** Chance the opponent has a handtrap that stops something in the line. */
+  handTrapChance: number;
+  handTraps: ComboRivalHandTrap[];
   error: string | null;
 }
 
@@ -519,6 +602,114 @@ export interface ComboStep {
   field?: ComboField | null;
 }
 
+/** How one card of the deck leads to another (`docs/plans/mappa-collegamenti.md`). */
+export type CardLinkKind = "search" | "summon" | "toGrave" | "recover" | "material" | "set";
+
+/** `from` leads to `to` (mirrors `CardLinkView`). */
+export interface CardLink {
+  from: number;
+  to: number;
+  /**
+   * search: adds it from the Deck to the hand; summon: Special Summons it; toGrave: sends it from the Deck to the GY
+   * (a Fusion Material from the Deck too); recover: gets it back from the GY or banishment to the hand; material: `from`
+   * is a material of `to`; set: puts it from the Deck on the field (Set, or placed in a Spell & Trap Zone or the Field Zone).
+   */
+  kind: CardLinkKind;
+  /** Where `to` comes from (a link from the GY or the hand brings no new card into play). */
+  zone: "deck" | "extra" | "grave" | "banished" | "hand";
+  /** The engine offered it: the effect can pick that card. */
+  possible: boolean;
+  /** Share of the Combo Lab's best lines that use it, 0 to 1 (0 when none does). */
+  used: number;
+  /**
+   * The card's text names it. With `possible` false, the link comes from the text alone: an effect the lines found never
+   * use (show it faint, «dal testo»). Always sent by the backend.
+   */
+  text?: boolean;
+}
+
+/** A card of the map (mirrors `LinkCardView`). */
+export interface LinkCard {
+  code: number;
+  copies: number;
+  /** In the Extra Deck. */
+  extra: boolean;
+  /**
+   * Cards it leads to in one step (any link), and with the cards brought into play from there in any number of steps
+   * (search, summon, material and set links from the Deck or the Extra Deck: sending to the GY or getting back brings no new card).
+   */
+  reach: number;
+  reachAll: number;
+  /**
+   * Exact chance that an opening hand of 5 holds it or a card that brings it into play in any number of steps
+   * (one card is enough: optimistic when a link needs more). For an Extra Deck monster no card names as material,
+   * the share of the hands searched whose best line summons it (`measured`).
+   */
+  chance: number;
+  /** `chance` is measured, not exact: show it as an estimate. Always sent by the backend. */
+  measured?: boolean;
+  /** Cards an opening hand reaches on average (sum of the chances) that are lost when this card's effects are negated: the key cards of the deck. */
+  key: number;
+}
+
+/** The map so far while it is read (mirrors `LinksProgressView`). */
+export interface LinksProgress {
+  deckId?: number;
+  /** Hands searched of `total`; 0 with the draft from the text. */
+  done: number;
+  total: number;
+  map?: DeckLinks;
+}
+
+/** The map of the links between the cards of a deck (mirrors `DeckLinksView`). */
+export interface DeckLinks {
+  deckId: number;
+  cards: LinkCard[];
+  links: CardLink[];
+  /** Hands played to read the links, and best lines counted for `used`. */
+  hands: number;
+  lines: number;
+}
+
+/** A card in both versions compared: its numbers before and after (mirrors `LinkCardChangeView`). */
+export interface LinkCardChange {
+  code: number;
+  chanceBefore: number;
+  chanceAfter: number;
+  keyBefore: number;
+  keyAfter: number;
+  reachAllBefore: number;
+  reachAllAfter: number;
+}
+
+/** Two versions of a deck on the links map (mirrors `LinksComparisonView`). */
+export interface LinksComparison {
+  /** The maps of the first deck and of the second. */
+  before: DeckLinks;
+  after: DeckLinks;
+  /** Links only in the second deck, only in the first (a link is the same with the same `from`, `to` and `kind`). */
+  gained: CardLink[];
+  lost: CardLink[];
+  /** Cards in both whose chance, key or reach changed (by 0.02 or more, or any reach), the most changed first. */
+  changed: LinkCardChange[];
+  /** Cards put in and taken out (codes, once each). */
+  added: number[];
+  removed: number[];
+  /** Cards an opening hand reaches on average (sum of the chances), with the first deck and with the second. */
+  reachedBefore: number;
+  reachedAfter: number;
+}
+
+/** Score weights learned from the boards you preferred (mirrors `LearnedWeightsView`). */
+export interface LearnedWeights {
+  /** By metric key (`MetricKey` in `scoring.ts`), on the metrics of the prior given. */
+  weights: Record<string, number>;
+  choices: number;
+  /** Share of your choices the learned weights explain (the board you preferred scores more), and the prior's. */
+  agreement: number;
+  priorAgreement: number;
+}
+
 const tauriApi = {
   dataStatus: () => invoke<DataStatus>("data_status"),
   updateData: (force = false) => invoke<DataStatus>("update_data", { force }),
@@ -550,6 +741,12 @@ const tauriApi = {
   listRecipes: (deckId: number) => invoke<Recipe[]>("list_recipes", { deckId }),
   saveRecipe: (deckId: number | null, name: string, cond: Cond) => invoke<Recipe>("save_recipe", { deckId, name, cond }),
   deleteRecipe: (id: number) => invoke<void>("delete_recipe", { id }),
+  /** Of two boards compared, you preferred the one with `chosen` metrics (by metric key); returns how many choices there are. */
+  recordBoardChoice: (deckId: number | null, chosen: Record<string, number>, other: Record<string, number>) =>
+    invoke<number>("record_board_choice", { deckId, chosen, other }),
+  /** The weights that explain your choices, starting from `prior` (the profile in use) and pulled towards it. */
+  learnedWeights: (prior: Record<string, number>) => invoke<LearnedWeights>("learned_weights", { prior }),
+  clearBoardChoices: () => invoke<void>("clear_board_choices"),
   matchLog: (deckId: number | null) => invoke<MatchLog>("match_log", { deckId }),
   logMatch: (entry: MatchEntry) => invoke<MatchEntry>("log_match", { entry }),
   updateMatch: (entry: MatchEntry) => invoke<MatchEntry>("update_match", { entry }),
@@ -568,12 +765,30 @@ const tauriApi = {
   exportDeck: (deck: Deck) => invoke<{ ydk: string; ydke: string }>("export_deck", { deck }),
   comboSearch: (request: ComboRequest) => invoke<ComboOutcome>("combo_search", { request }),
   comboContinue: (deckId: number, seconds: number) => invoke<ComboOutcome>("combo_continue", { deckId, seconds }),
-  comboScore: () => invoke<number>("combo_score"),
+  /** With `vsDeckId` (a deck of the Bottega), each board is also measured against it (`ComboScore.matchup`). */
+  comboScore: (vsDeckId?: number | null) => invoke<number>("combo_score", { vsDeckId: vsDeckId ?? null }),
   comboScores: () => invoke<ComboScore[]>("combo_scores"),
   onComboScore: (handler: (s: ComboScore) => void): Promise<UnlistenFn> => listen<ComboScore>("combo-score", (e) => handler(e.payload)),
   comboCancel: () => invoke<void>("combo_cancel"),
   comboExplain: (hand: number, key: string) => invoke<ComboStep[]>("combo_explain", { hand, key }),
+  /** Where to stop a board's line against the Maxx "C" or Mulcharmy of a deck of the Bottega: a few seconds. */
+  comboStops: (hand: number, key: string, vsDeckId: number) =>
+    invoke<ComboDrawTradeOff[]>("combo_stops", { hand, key, vsDeckId }),
   onComboProgress: (handler: (p: ComboProgress) => void): Promise<UnlistenFn> => listen<ComboProgress>("combo-progress", (e) => handler(e.payload)),
+  /** Laboratorio, "Collegamenti": the map of a deck, read by the engine (about half a minute the first time, then kept until its cards change). */
+  deckLinks: (deckId: number) => invoke<DeckLinks>("deck_links", { deckId }),
+  /**
+   * What changes on the map from deck A to deck B (two versions of a deck). B is read reusing A's hands: a few seconds
+   * when few cards change. Progress events come for both, each with its `deckId`.
+   */
+  deckLinksCompare: (deckIdA: number, deckIdB: number) =>
+    invoke<LinksComparison>("deck_links_compare", { deckIdA, deckIdB }),
+  /**
+   * The map as it is read: first (`done` 0) the draft from the cards' text, at once; then after each hand searched,
+   * the map so far. `deckId` and `map` are always sent by the backend.
+   */
+  onLinksProgress: (handler: (p: LinksProgress) => void): Promise<UnlistenFn> =>
+    listen<LinksProgress>("deck-links-progress", (e) => handler(e.payload)),
 };
 
 type Api = typeof tauriApi;

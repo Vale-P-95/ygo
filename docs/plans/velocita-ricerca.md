@@ -127,6 +127,9 @@ Memcheck vedeva il confronto delle immagini leggere i byte di riempimento di Lua
 - **Il turno di prova resta la parte più cara:** in una ricerca da 4000 nodi gioca circa 37 partite per board misurata, di cui il 90% sono le corse "usa questa risposta a questa finestra" (fino a 12 finestre per risposta). Ognuna rigioca tutto il tuo turno (il 44% del tempo di una corsa) e il turno avversario. Il motore non sa copiare una partita, quindi non si può ripartire dal punto in cui le corse si separano.
 - **Valgrind e i controlli `DUELFORGE_CHECK_REUSE` coprono le 16 mani del banco e 30 partite casuali del test.** Un deck con script che cambiano lo stato di base in modi non visti qui potrebbe comportarsi diversamente in una partita riusata: `DUELFORGE_FRESH_DUELS=1` torna alle partite nuove, `DUELFORGE_CHECK_REUSE=1` lo controlla.
 
+## Dopo il merge di `main` (21/10, sera)
+Conflitti in `probe.rs` risolti: il filtro dei board breaker ora avvolge `self.breakers(...)`, e il `Prelude::Own` di `main` resta com'era. Base rifatta con `origin/main` (4a786d0): le 16 mani danno uscite identiche. Ricerca da 266,7 a 168,4 s (−37%), tempo totale da 470,2 a 276,6 s (−41%). Fmt, clippy e test passano.
+
 ## Conclusione
 - **Guadagno totale** sulle 16 mani del banco (4000 nodi): ricerca −38% (da 254,6–262,5 a 158,9 s), tempo totale della CLI −43% (da 455–471 a 260,6 s), con uscite identiche a `main` (16 su 16). Su `combo_hunt.py` la ricerca dimezza; `roles` −42%, `card-values` −60%; su 4 thread "carta + resto" esplora dal 28% all'88% di nodi in più nello stesso tempo.
 - **Da dove viene:** soprattutto dal non ricaricare gli script del motore a ogni partita (correzioni 1, 2, 5), poi dalle corse inutili del turno di prova (4) e dall'allocatore per il C++ (6).

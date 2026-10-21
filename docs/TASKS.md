@@ -3,6 +3,11 @@
 Regole in `AGENTS.md`. Per prendere un task, spostalo in "In corso" con agente, branch e file che tocchi (è il lock), poi committa e pusha questa modifica prima di cominciare.
 
 ## In corso
+- [ ] Mappa dei collegamenti F2: rifiniture percorso verso Combo Lab, carte chiave e mano in confronto (piano `docs/plans/mappa-collegamenti-f2.md`) — agente: gemini — branch: gemini/links-f2 — file: apps/desktop/src/components/lab/links/LinksTab.tsx, apps/desktop/src/components/lab/links/LinksCircle.tsx, apps/desktop/src/components/lab/links/LinksCardDetail.tsx, apps/desktop/src/components/lab/links/LinksColumns.tsx, apps/desktop/src/components/lab/links/LinksStats.tsx
+- [ ] Deck dell'avversario del kit a 35 carte e breaker con il deck vero dell'avversario (ultime correzioni del collaudo; accordo con la sessione sulla velocità: Claude tocca solo `Kit::standard` e `Kit::with_breakers`, il resto di `probe.rs` resta alla sessione sulla velocità), con il banco prima e dopo — agente: claude-code — branch: claude/yugioh-deck-builder-simulator-cax0ya — file: crates/ygo-solver/src/probe.rs (solo `Kit::standard`, `Kit::with_breakers`), crates/ygo-solver/src/matchup.rs
+- [ ] Maxx "C" e Mulcharmy (approvato dal proprietario il 21/10): passo 1, quante carte pesca l'avversario a ogni momento della linea in cui le usa (`RivalHandTrap.drawn` e `moments`); passo 2, il punto migliore dove fermarsi (valore della board contro carte fatte pescare). Passi 1 e 2 fatti (numeri in `docs/plans/turno-di-prova-matchup.md`; `api.comboStops`), con le scelte di carte rigiocate per identità dopo una handtrap; resta l'interfaccia (Gemini) — agente: claude-code — branch: claude/yugioh-deck-builder-simulator-cax0ya — file: crates/ygo-solver/src/matchup.rs, crates/ygo-cli/src/main.rs, apps/desktop/src-tauri/src/lib.rs (MatchupView), apps/desktop/src/lib/api.ts (solo i tipi)
+- [ ] Velocità della ricerca: profilazione e correzioni a risultati invariati (resoconto in `docs/plans/velocita-ricerca.md` sul suo branch) — agente: claude-code, sessione sorella — branch: claude/search-speed — file: crates/ygo-solver/src/search.rs, card.rs, value.rs, probe.rs (solo velocità), crates/ygo-engine/src/, scripts/
+- [ ] Collaudo del turno di prova contro un deck e della mappa dei collegamenti su circa 45 deck di Master Duel Meta: resoconto con i problemi e le correzioni proposte (`docs/plans/collaudo-strumenti.md` sul suo branch); le correzioni ai crate le applica claude-code — agente: claude-code, sessione sorella — branch: claude/tools-qa — file: script nuovi in scripts/, docs/plans/collaudo-strumenti.md
 - [ ] Classificazione delle board più profonda, con criteri validati sui deck di Master Duel Meta (#47) — agente: claude-code — branch: claude/yugioh-deck-builder-simulator-cax0ya — file: crates/ygo-solver/src/probe.rs, value.rs, explain.rs, tests/probe.rs, crates/ygo-engine/src/message.rs, apps/desktop/src-tauri/src/lib.rs (score_view)
   - Piano: `docs/plans/classificazione-board.md` (passi D0–D17; giudizio dato da un pannello di agenti, non dal proprietario).
   - [x] D0a: `combos --json/--save-lines`, `probe-line`.
@@ -28,12 +33,21 @@ Regole in `AGENTS.md`. Per prendere un task, spostalo in "In corso" con agente, 
 ## Da fare (in ordine di priorità)
 
 ### Interfaccia (Gemini)
+- [x] **Piccola correzione rimasta dalla PR #18** (da fare per prima, anche dentro la PR della mappa): in `apps/desktop/src/pages/Combo.tsx` il chip «vs X: …» (righe ~995-1000) e l'ordinamento «vs deck» (riga ~278) non guardano `s.matchup.error`: una board con il calcolo contro il deck fallito mostra «vs X: 0,00» e viene ordinata come se valesse 0. Escluderla in entrambi i punti (`s.matchup && !s.matchup.error`), e nel chip mostrare «vs X: errore» come in `Score.tsx`.
+- [x] Turno di prova contro un deck scelto (#44, livello 1; backend pronto, piano in `docs/plans/turno-di-prova-matchup.md`). Nel Circolo Arcano:
+  - un selettore "Contro: generico / deck della Bottega" vicino al pulsante che misura le board;
+  - con un deck scelto si chiama `api.comboScore(vsDeckId)`: ogni `ComboScore` ha allora `matchup` (`ComboMatchup` in `api.ts`); cambiare deck rimisura tutte le board;
+  - nella scheda del punteggio, accanto alla resilienza generica, la "resilienza contro X" (`matchup.resilience`, con `breakerChance` e la lista `breakers`: carta, probabilità di averla, valore che lascia, chi la nega). Con `standardBreakers` il deck non ha breaker giocabili: va detto che si usano quelli standard;
+  - accanto all'esposizione, "fermata da X" (`handTrapChance`) e la lista `handTraps`: carta, probabilità, momenti in cui ferma la linea su quelli in cui si può usare (`stops`/`windows`), le tue carte in quei momenti (`at`). Le handtrap con `stops` a 0 (Maxx "C", Mulcharmy) si possono mostrare a parte: "si usano ma non fermano la linea";
+  - una colonna o un ordinamento "contro X" nella classifica delle board, e il backend finto (`mock.ts`) con un `matchup` di esempio.
+- [x] Mappa dei collegamenti tra le carte, interfaccia base (PR #22, piano `docs/plans/mappa-collegamenti.md`): scheda «Collegamenti» nel Laboratorio, cerchio carte, frecce colorate per tipo (`CardLink.kind`, incluso `"set"`), spessore per `used`, tratteggio per possibili; filtri per tipo con conteggi e per zona; pannello dettagli con `reach`, `reachAll`, `chance` (e `LinkCard.measured` per stime) e conteggi.
+- [ ] Mappa dei collegamenti F2: rifiniture percorso verso Combo Lab (con obiettivo carta d'arrivo), carte chiave più evidenti nel cerchio e colonne, mano sovrapposta in modalità confronto (piano `docs/plans/mappa-collegamenti-f2.md`).
+- [ ] Tornare a TypeScript 7 (`apps/desktop/package.json`) quando `typescript-eslint` lo supporta: con la PR #29 è fissato a 6.0.3 perché `typescript-eslint` 8 non regge ancora la versione 7. Poi, già che ci si è, `tseslint.config(...)` → `defineConfig` di `eslint/config` in `eslint.config.js`.
 - [ ] Pagina «Il Banditore» (`Novità`): confronto tra banlist (Master Duel, TCG, OCG) e impatto immediato sui deck salvati in bottega.
 
 ### Motore e ricerca (Claude)
 - [ ] Linee del video Invoked: come si classificano, correzioni generali (#45).
 - [ ] Scale e pesi delle metriche del punteggio (#43).
-- [ ] Turno di prova contro un deck avversario scelto dall'utente (#44): proposta in `docs/plans/turno-di-prova-matchup.md`, in attesa delle decisioni del proprietario.
 - [ ] Frontiera di Pareto e confronto tra board; preferenze apprese (#40).
 - [ ] Simulatore: giocare passo per passo una combo scelta (#36, alla fine).
 - [ ] Limiti noti delle carte piazzate: equipaggiamenti, materiali dei mostri dell'Extra Deck (PIANO §30.4).
@@ -41,6 +55,14 @@ Regole in `AGENTS.md`. Per prendere un task, spostalo in "In corso" con agente, 
 ### Richieste dal backend per l'interfaccia
 
 ## Completati (recenti; lo storico è in `docs/PIANO.md`)
+- [x] Mappa dei collegamenti quasi in tempo reale e confronto tra versioni del deck: bozza progressiva a `done: 0`, aggiornamento in streaming senza bloccare la mappa, collegamenti dal testo tenui, nodi fantasma per carte tolte e cruscotto differenze `api.deckLinksCompare` (PR #31, piano `docs/plans/mappa-collegamenti-tempo-reale-confronto.md`).
+- [x] Maxx "C" e Mulcharmy nel Circolo Arcano: carte pescate momento per momento, punti di arresto comboStops con miglior compromesso o linea completa, disclaimers sui breaker standard e salto al passo nella visualizzazione (PR #30, piano `docs/plans/maxx-c-mulcharmy-ui.md`).
+- [x] Controlli automatici dell'interfaccia nella CI: ESLint con `any` vietato ed `exhaustive-deps`, `pnpm lint` nel job «Frontend (TypeScript)» (PR #29, piano `docs/plans/eslint-interfaccia.md`).
+- [x] Mappa dei collegamenti tra le carte, backend (piano `docs/plans/mappa-collegamenti.md`): collegamenti letti dal motore, carte chiave, correzioni del collaudo, mappa quasi in tempo reale (bozza dal testo, aggiornamento progressivo, ricalcolo delle sole carte cambiate) e confronto tra versioni del deck (`api.deckLinksCompare`).
+- [x] Pesi imparati dalle tue scelte e frontiera di Pareto (#40) nel Circolo Arcano: confronto affiancato di due board con preferenza registrata, profilo «Imparato dalle tue scelte» e pesi basati su Bradley-Terry con prior preservato e reset, frontiera di Pareto con filtro handFilter e resilient matchup (PR #26, piano `docs/plans/pesi-imparati-pareto-ui.md`).
+- [x] Mappa dei collegamenti tra le carte, interfaccia: nuova scheda «Collegamenti» nel Laboratorio, cerchio interattivo SVG, vista a colonne, filtri per azione e zona, ispettore carte con carte chiave e probabilità mano iniziale, ponte rapido al Combo Lab e mock Invoked arricchito (PR #22, piano `docs/plans/mappa-collegamenti-ui.md`).
+- [x] Turno di prova contro un deck scelto (#44, livello 1) nel Circolo Arcano: selettore rivale ("Contro: generico / deck Bottega"), resilienza contro X e breaker con probabilità in 6 carte, handtrap rivali che fermano la linea con probabilità in 5 carte e momenti/carte coinvolti, ordinamento "vs deck", mock aggiornato e fix py-0.2 -> py-0.5 (piano `docs/plans/turno-di-prova-matchup-ui.md`).
+- [x] Turno di prova contro un deck scelto, livello 1, nel backend: resilienza contro i breaker del deck avversario e handtrap che fermano la linea, con le probabilità di averli in mano; `probe-line --vs`, `comboScore(vsDeckId)` (#44, PIANO §30.10).
 - [x] Collegamento del tappetino del Circolo Arcano al riproduttore passo per passo con `ComboStep.field`: campo, mano e pile aggiornati a ogni passo (PR #15).
 - [x] Visore Carta (`CardViewer`) interattivo: aggiunta/rimozione copie (+ Main/Extra, + Side, + Maybe, −) con limiti dal formato del deck (MD, TCG, OCG), assegnazione rapida dei ruoli in `deck.roles` e avvio esplorazione combo (PR #13, #14).
 - [x] Stato del campo e della mano a ogni passo della linea in `ComboStep.field` (backend; tipo `ComboField` in `api.ts`).

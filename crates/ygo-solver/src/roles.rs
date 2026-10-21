@@ -244,7 +244,7 @@ fn not_summonable_alone(engine: &Engine, code: u32) -> bool {
 
 /// Board breakers by their text: they destroy, banish, return, negate or
 /// take the opponent's cards, several at once or from a Spell or Trap.
-fn breakers_by_text(engine: &Engine, cards: &[u32]) -> Vec<u32> {
+pub(crate) fn breakers_by_text(engine: &Engine, cards: &[u32]) -> Vec<u32> {
     const ALL: [&str; 6] = ["destroy all", "banish all", "return all", "negate the effects of all", "shuffle all", "send all"];
     cards
         .iter()
@@ -252,13 +252,16 @@ fn breakers_by_text(engine: &Engine, cards: &[u32]) -> Vec<u32> {
         .filter(|&code| {
             let Some(card) = engine.cards().get(code) else { return false };
             let text = card.desc.to_lowercase();
-            let opponent = text.contains("your opponent controls") || text.contains("on the field");
-            let many = ALL.iter().any(|p| text.contains(p));
-            // The Kaiju: Tribute a monster your opponent controls to Special Summon.
-            let kaiju = text.contains("by tributing 1 monster your opponent controls");
+            let controls = text.contains("your opponent controls") || text.contains("your opponent currently controls");
+            let opponent = controls || text.contains("on the field");
+            let many = ALL.iter().any(|p| text.contains(p)) || (text.contains("as many") && text.contains("as possible"));
+            // The Kaiju and Lava Golem: Special Summoned to the opponent's
+            // field by Tributing its monsters (older texts say "your opponent controls").
+            let kaiju = text.contains("by tributing 1 monster your opponent controls")
+                || (text.contains("to your opponent's field") && text.contains("by tributing"));
             let spell_trap = card.type_ & (card_type::SPELL | card_type::TRAP) != 0;
-            let removes = ["destroy", "banish", "return", "negate"].iter().any(|w| text.contains(w));
-            kaiju || (opponent && many) || (opponent && spell_trap && removes && text.contains("your opponent controls"))
+            let removes = ["destroy", "banish", "return", "negate", "shuffle"].iter().any(|w| text.contains(w));
+            kaiju || (opponent && many) || (spell_trap && removes && controls)
         })
         .collect()
 }

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { CalculatorTab } from "../components/lab/CalculatorTab";
 import { CompareTab } from "../components/lab/CompareTab";
 import { ConditionPicker } from "../components/lab/ConditionPicker";
+import { LinksTab } from "../components/lab/links/LinksTab";
 import { LogTab } from "../components/lab/LogTab";
 import { MatchEntryPanel } from "../components/lab/MatchEntryPanel";
 import { OptimizerTab } from "../components/lab/OptimizerTab";
@@ -10,7 +11,7 @@ import { RolesPanel } from "../components/lab/RolesPanel";
 import { SimulatorTab } from "../components/lab/SimulatorTab";
 import { DeckMenu } from "../components/DeckMenu";
 import { SectionHeader } from "../components/SectionHeader";
-import { api, type Deck, type DeckSummary, type LabOverview, type MatchLog, type Recipe } from "../lib/api";
+import { api, type Deck, type DeckLinks, type DeckSummary, type LabOverview, type MatchLog, type Recipe } from "../lib/api";
 import { useCardCache } from "../lib/cards";
 import { BUILTIN_RECIPES, fromCond, toCond, type Group } from "../lib/conditions";
 import { BUILTIN_ROLES } from "../lib/roles";
@@ -19,10 +20,11 @@ import { sound } from "../lib/sound";
 import { toast } from "../lib/toast";
 import { sectionById } from "../sections";
 
-type Tab = "overview" | "compare" | "calculator" | "simulator" | "optimizer" | "log";
+type Tab = "overview" | "links" | "compare" | "calculator" | "simulator" | "optimizer" | "log";
 
 const TABS: { id: Tab; label: string }[] = [
   { id: "overview", label: "Panoramica" },
+  { id: "links", label: "Collegamenti" },
   { id: "compare", label: "Confronto" },
   { id: "calculator", label: "Calcolatore" },
   { id: "simulator", label: "Simulatore" },
@@ -65,15 +67,68 @@ export function Lab({
   const cards = useCardCache();
   const { request } = cards;
 
+  const [linksData, setLinksData] = useState<DeckLinks | null>(null);
+  const [linksLoading, setLinksLoading] = useState(false);
+  const [linksProgress, setLinksProgress] = useState<{ done: number; total: number } | null>(null);
+  const [linksError, setLinksError] = useState<string | null>(null);
+  const linksReqIdRef = useRef(0);
+
+  const loadLinks = useCallback(
+    async (targetDeckId: number) => {
+      const reqId = ++linksReqIdRef.current;
+      setLinksLoading(true);
+      setLinksError(null);
+      setLinksData(null);
+      setLinksProgress(null);
+
+      let unlisten: (() => void) | undefined;
+      try {
+        unlisten = await api.onLinksProgress((p) => {
+          if (linksReqIdRef.current === reqId) {
+            if (p.deckId == null || p.deckId === targetDeckId) {
+              setLinksProgress({ done: p.done, total: p.total });
+              if (p.map && deckIdRef.current === targetDeckId) {
+                setLinksData(p.map);
+                request(p.map.cards.map((c) => c.code));
+              }
+            }
+          }
+        });
+
+        const res = await api.deckLinks(targetDeckId);
+        if (linksReqIdRef.current === reqId && deckIdRef.current === res.deckId) {
+          setLinksData(res);
+          request(res.cards.map((c) => c.code));
+        }
+      } catch (err) {
+        if (linksReqIdRef.current === reqId && deckIdRef.current === targetDeckId) {
+          setLinksError(String(err));
+        }
+      } finally {
+        unlisten?.();
+        if (linksReqIdRef.current === reqId) {
+          setLinksLoading(false);
+          setLinksProgress(null);
+        }
+      }
+    },
+    [request],
+  );
+
   const open = useCallback(
     async (id: number) => {
       const d = await api.getDeck(id);
       if (!d) return;
       rememberDeck(id);
       deckIdRef.current = id;
+      linksReqIdRef.current++;
+      setLinksLoading(false);
       // The last analysis belongs to the deck left.
       setPreviousRoles(null);
       setReasons({});
+      setLinksData(null);
+      setLinksError(null);
+      setLinksProgress(null);
       setDeck(d);
       api.listRecipes(id).then(setRecipesState).catch(() => setRecipesState([]));
       setRoles(d.roles ?? {});
@@ -113,6 +168,12 @@ export function Lab({
   useEffect(() => {
     if (tab === "log") reloadLog();
   }, [tab, reloadLog, updatedAt]);
+
+  useEffect(() => {
+    if (tab === "links" && deck?.id != null && (!linksData || linksData.deckId !== deck.id) && !linksLoading && !linksError) {
+      void loadLinks(deck.id);
+    }
+  }, [tab, deck?.id, linksData, linksLoading, linksError, loadLinks]);
 
   const changeRoles = (next: Record<string, number[]>, id = deck?.id) => {
     setRoles(next);
@@ -187,6 +248,11 @@ export function Lab({
     try {
       const saved = await api.saveDeck({ ...deck, main, maybe, roles });
       setDeck(saved);
+      linksReqIdRef.current++;
+      setLinksLoading(false);
+      setLinksData(null);
+      setLinksError(null);
+      setLinksProgress(null);
       sound.play("forge");
       toast("Deck aggiornato: le copie tolte sono nella Maybe board", "ok");
     } catch (e) {
@@ -219,6 +285,34 @@ export function Lab({
       rememberDeck(deck.id);
       sound.play("forge");
       onGoCombo?.(cardId);
+    },
+    [deck?.id, onGoCombo],
+  );
+
+  const exploreComboAsGoal = useCallback(
+    (targetGoalCardId: number, startCardId?: number) => {
+      if (!deck?.id) return;
+      let existing: Record<string, unknown> = {};
+      try {
+        const raw = localStorage.getItem(`duelforge.combo.${deck.id}`);
+        if (raw) existing = JSON.parse(raw);
+      } catch {
+        existing = {};
+      }
+      const nextSetup = {
+        mode: startCardId ? ("card" as const) : ((existing.mode as "card" | "hand") ?? ("card" as const)),
+        hand: Array.isArray(existing.hand) ? existing.hand : [],
+        card: startCardId ?? (typeof existing.card === "number" ? existing.card : null),
+        keep: Array.isArray(existing.keep) ? existing.keep : [],
+        forbid: Array.isArray(existing.forbid) ? existing.forbid : [],
+        goal: [{ code: targetGoalCardId, zone: "any" }],
+        goalAll: true,
+        goalFirst: typeof existing.goalFirst === "boolean" ? existing.goalFirst : true,
+      };
+      localStorage.setItem(`duelforge.combo.${deck.id}`, JSON.stringify(nextSetup));
+      rememberDeck(deck.id);
+      sound.play("forge");
+      onGoCombo?.(targetGoalCardId);
     },
     [deck?.id, onGoCombo],
   );
@@ -277,12 +371,27 @@ export function Lab({
           </button>
         </div>
       ) : (
-        <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_312px] xl:grid-cols-[minmax(0,1fr)_336px]">
+        <div className={tab === "links" ? "grid min-h-0 flex-1 grid-cols-1" : "grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_312px] xl:grid-cols-[minmax(0,1fr)_336px]"}>
           <div key={tab} className="bg-blueprint min-h-0 overflow-y-auto px-4 py-4 xl:px-6 xl:py-5">
             {!deck || !overview ? (
               <p className="text-sm text-muted">Carico il deck…</p>
             ) : tab === "overview" ? (
               <OverviewTab overview={overview} hand={hand} roles={roles} getCard={cards.get} onExploreCombo={onGoCombo ? exploreCombo : undefined} />
+            ) : tab === "links" ? (
+              <LinksTab
+                key={deck.id}
+                deck={deck}
+                data={linksData}
+                loading={linksLoading}
+                progress={linksProgress}
+                error={linksError}
+                onReload={() => deck.id != null && void loadLinks(deck.id)}
+                decks={decks ?? []}
+                requestCards={request}
+                getCard={cards.get}
+                onGoCombo={onGoCombo ? exploreComboAsGoal : undefined}
+                hand={hand}
+              />
             ) : tab === "compare" ? (
               <CompareTab key={deck.id} deck={deck} overview={overview} decks={decks ?? []} hand={hand} getCard={cards.get} request={request} />
             ) : tab === "calculator" ? (
@@ -318,7 +427,7 @@ export function Lab({
                 getCard={cards.get}
                 onLogged={reloadLog}
               />
-            ) : (
+            ) : tab === "links" ? null : (
               <RolesPanel
                 main={deck.main}
                 roles={roles}

@@ -31,6 +31,18 @@ struct AppState {
     combo: Mutex<Option<ComboJob>>,
     /// Set to stop the running combo search.
     combo_cancel: AtomicBool,
+    /// The last map of links of each deck.
+    links: Mutex<HashMap<i64, LinksCache>>,
+}
+
+/// A map of links and the cards (Main and Extra Deck) it was read for.
+struct LinksCache {
+    cards: Vec<u32>,
+    map: ygo_solver::DeckLinks,
+    view: DeckLinksView,
+    /// What was searched for it: after a change of the deck, only the
+    /// hands the change needs are searched again.
+    work: ygo_solver::LinksWork,
 }
 
 impl AppState {
@@ -410,6 +422,52 @@ fn delete_recipe(state: State<'_, AppState>, id: i64) -> Result<(), String> {
     state.with_user(|u| u.delete_recipe(id))
 }
 
+/// Combo Lab: of two boards compared, the player preferred the one with
+/// `chosen` metrics. Returns how many choices are recorded.
+#[tauri::command]
+fn record_board_choice(
+    state: State<'_, AppState>,
+    deck_id: Option<i64>,
+    chosen: BTreeMap<String, f64>,
+    other: BTreeMap<String, f64>,
+) -> Result<usize, String> {
+    state.with_user(|u| {
+        u.add_board_choice(deck_id, &chosen, &other)?;
+        Ok(u.board_choices()?.len())
+    })
+}
+
+/// Score weights learned from the player's choices ([`ygo_stats::learn_weights`]).
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct LearnedWeightsView {
+    weights: BTreeMap<String, f64>,
+    choices: usize,
+    /// Share of the choices the learned weights explain, and the prior's.
+    agreement: f64,
+    prior_agreement: f64,
+}
+
+/// The score weights that explain the boards the player preferred,
+/// starting from `prior` (the profile in use) and pulled towards it.
+#[tauri::command]
+fn learned_weights(state: State<'_, AppState>, prior: BTreeMap<String, f64>) -> Result<LearnedWeightsView, String> {
+    let choices: Vec<ygo_stats::Choice> =
+        state.with_user(|u| u.board_choices())?.into_iter().map(|c| ygo_stats::Choice { chosen: c.chosen, other: c.other }).collect();
+    let learned = ygo_stats::learn_weights(&choices, &prior);
+    Ok(LearnedWeightsView {
+        weights: learned.weights,
+        choices: learned.choices,
+        agreement: learned.agreement,
+        prior_agreement: learned.prior_agreement,
+    })
+}
+
+#[tauri::command]
+fn clear_board_choices(state: State<'_, AppState>) -> Result<(), String> {
+    state.with_user(|u| u.clear_board_choices())
+}
+
 /// A version of the deck in the match log.
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -549,6 +607,8 @@ struct ComboJob {
     roles: BTreeMap<String, Vec<u32>>,
     /// Boards already put to the probe turn, by `(hand, key)`.
     scores: HashMap<(usize, u64), ScoreView>,
+    /// The deck they were also measured against.
+    vs: Option<i64>,
 }
 
 #[derive(Serialize, Clone)]
@@ -600,8 +660,195 @@ struct ScoreView {
     exposure: f64,
     exposure_note: String,
     exposure_detail: Option<ExposureView>,
+    /// Against the deck chosen in [`combo_score`].
+    matchup: Option<MatchupView>,
     /// The probe turn could not be played (the board is left out of the ranking).
     error: Option<String>,
+}
+
+/// The board and its line against a deck of the Bottega
+/// ([`ygo_solver::Matchup`]).
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct MatchupView {
+    deck_id: i64,
+    deck_name: String,
+    /// Interruption value of the field expected after the most harmful
+    /// breaker it has (all of it when it has none).
+    resilience: f64,
+    /// It has no breaker the probe turn can play: the resilience is the standard one.
+    standard_breakers: bool,
+    breaker_chance: f64,
+    breakers: Vec<RivalBreakerView>,
+    /// Chance it has a handtrap that stops something in the line.
+    hand_trap_chance: f64,
+    hand_traps: Vec<RivalHandTrapView>,
+    error: Option<String>,
+}
+
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct RivalBreakerView {
+    code: u32,
+    /// Chance it is among the 6 cards the opponent has in its turn.
+    chance: f64,
+    remaining: f64,
+    stopped_by: Option<u32>,
+    not_applicable: bool,
+}
+
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct RivalHandTrapView {
+    code: u32,
+    /// Chance it is among the 5 cards the opponent holds during your turn.
+    chance: f64,
+    /// Moments of the line it can be used, and those where it changes the
+    /// field or hand you end with.
+    windows: u32,
+    stops: u32,
+    /// Your cards being played at those moments.
+    at: Vec<u32>,
+    /// The most cards the opponent draws using it (Maxx "C", the Mulcharmy).
+    drawn: u32,
+    /// Each moment tried, in the order of the line.
+    moments: Vec<HandTrapMomentView>,
+}
+
+/// A moment of the line the opponent uses a handtrap at.
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct HandTrapMomentView {
+    /// Your card being played then.
+    playing: Option<u32>,
+    /// It changes the field or hand you end with.
+    stops: bool,
+    /// Cards the opponent draws from then to the end of your turn, less those
+    /// it shuffles back into the Deck.
+    drawn: u32,
+}
+
+fn matchup_view(deck_id: i64, deck_name: &str, matchup: Result<ygo_solver::Matchup, String>) -> MatchupView {
+    let mut view = MatchupView {
+        deck_id,
+        deck_name: deck_name.to_owned(),
+        resilience: 0.0,
+        standard_breakers: false,
+        breaker_chance: 0.0,
+        breakers: Vec::new(),
+        hand_trap_chance: 0.0,
+        hand_traps: Vec::new(),
+        error: None,
+    };
+    match matchup {
+        Ok(x) => {
+            view.resilience = x.resilience;
+            view.standard_breakers = x.standard_breakers;
+            view.breaker_chance = x.breaker_chance;
+            view.breakers = x
+                .breakers
+                .iter()
+                .map(|b| RivalBreakerView {
+                    code: b.code,
+                    chance: b.chance,
+                    remaining: b.remaining,
+                    stopped_by: b.stopped_by.map(|r| r.code),
+                    not_applicable: b.not_applicable,
+                })
+                .collect();
+            view.hand_trap_chance = x.hand_trap_chance;
+            view.hand_traps = x
+                .hand_traps
+                .iter()
+                .map(|h| RivalHandTrapView {
+                    code: h.code,
+                    chance: h.chance,
+                    windows: h.windows,
+                    stops: h.stops,
+                    at: h.at.clone(),
+                    drawn: h.drawn,
+                    moments: h.moments.iter().map(|m| HandTrapMomentView { playing: m.playing, stops: m.stops, drawn: m.drawn }).collect(),
+                })
+                .collect();
+        }
+        Err(e) => view.error = Some(e),
+    }
+    view
+}
+
+/// A point where a board's line can stop, while the opponent draws from
+/// Maxx "C" or a Mulcharmy ([`ygo_solver::StopPoint`]).
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct StopPointView {
+    /// Steps of the line played before ending the turn (as `combo_explain`
+    /// lists them; all of them for the whole line), and your last card then.
+    steps: usize,
+    playing: Option<u32>,
+    /// Interruption and floodgate value of the board you end on.
+    field_value: f64,
+    floodgate_value: f64,
+    /// Cards the opponent has drawn by the end of your turn.
+    drawn: u32,
+    /// Value expected in its turn, holding 6 cards plus those drawn.
+    expected: f64,
+}
+
+/// Where to stop the line against one handtrap that draws.
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct DrawTradeOffView {
+    code: u32,
+    /// In the order of the line, the whole line last.
+    stops: Vec<StopPointView>,
+    /// Index of the stop that keeps the most for its turn.
+    best: usize,
+    /// The deck has no breaker the probe turn can play: the standard ones
+    /// are used, assuming about 5 in its 40 cards.
+    standard_breakers: bool,
+}
+
+/// Combo Lab: where to stop a board's line when the opponent (a deck of the
+/// Bottega) uses Maxx "C" or a Mulcharmy at the first moment: for each of
+/// its handtraps that draw, the value the board keeps in its turn at each
+/// free moment of the line, the cards it draws, and the best stop. A few
+/// seconds (each stop is put to the probe turn).
+#[tauri::command(async)]
+fn combo_stops(state: State<'_, AppState>, hand: usize, key: String, vs_deck_id: i64) -> Result<Vec<DrawTradeOffView>, String> {
+    let engine = state.engine()?;
+    let (config, cards, line) = {
+        let job = state.combo.lock().map_err(|e| e.to_string())?;
+        let job = job.as_ref().ok_or("Nessuna ricerca da valutare")?;
+        let board =
+            job.boards.iter().find(|(h, b)| *h == hand && format!("{:016x}", b.key) == key).map(|(_, b)| b).ok_or("Board non trovata")?;
+        let (cards, _, _) = job.hands.get(hand).ok_or("Mano non trovata")?;
+        (job.config.clone(), cards.clone(), board.line.clone())
+    };
+    let deck = state.with_user(|u| u.get(vs_deck_id))?.ok_or("Il deck avversario non esiste più")?;
+    let list = ygo_engine::DeckList { main: deck.main.clone(), extra: deck.extra.clone(), side: deck.side.clone() };
+    let kit = ygo_solver::Kit::standard(&engine);
+    let rival = ygo_solver::Rival::new(&engine, &list, config.seed, &kit);
+    let offs = ygo_solver::draw_trade_off(&engine, &config.deck, &cards, config.seed, &line, &rival).map_err(|e| e.to_string())?;
+    Ok(offs
+        .into_iter()
+        .map(|o| DrawTradeOffView {
+            code: o.code,
+            stops: o
+                .stops
+                .iter()
+                .map(|p| StopPointView {
+                    steps: p.choices,
+                    playing: p.playing,
+                    field_value: p.field_value,
+                    floodgate_value: p.floodgate_value,
+                    drawn: p.drawn,
+                    expected: p.expected,
+                })
+                .collect(),
+            best: o.best,
+            standard_breakers: o.standard_breakers,
+        })
+        .collect())
 }
 
 /// What the line does that the handtraps played most can stop.
@@ -728,6 +975,7 @@ fn score_view(
             parts.push(format!("{} Evocazioni Speciali (carte per Maxx \"C\")", x.special_summons));
             parts.join(", ")
         }),
+        matchup: None,
         error: None,
     };
     match measured {
@@ -1063,6 +1311,7 @@ fn combo_search(app: tauri::AppHandle, state: State<'_, AppState>, request: Comb
         status: Vec::new(),
         roles: deck.roles.clone(),
         scores: HashMap::new(),
+        vs: None,
     };
     if let Ok(mut slot) = state.combo.lock() {
         *slot = None;
@@ -1092,20 +1341,239 @@ fn combo_continue(app: tauri::AppHandle, state: State<'_, AppState>, deck_id: i6
     Ok(outcome)
 }
 
+/// How one card of a deck leads to another (`docs/plans/mappa-collegamenti.md`).
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct CardLinkView {
+    from: u32,
+    to: u32,
+    /// "search" (from the Deck to the hand), "summon" (Special Summoned),
+    /// "toGrave" (from the Deck to the GY, a Fusion Material included),
+    /// "recover" (from the GY or banished back to the hand), "material"
+    /// (`from` is a material of `to`), "set" (from the Deck to the field:
+    /// Set, or placed in a Spell & Trap Zone or the Field Zone).
+    kind: String,
+    /// Where `to` comes from: "deck", "extra", "grave", "banished", "hand".
+    zone: String,
+    /// The engine offered it: the effect can pick that card.
+    possible: bool,
+    /// Share of the Combo Lab's best lines that use it, 0 to 1.
+    used: f64,
+    /// The card's text names it; alone (not `possible`), an effect the lines found never use.
+    text: bool,
+}
+
+/// A card of the map.
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct LinkCardView {
+    code: u32,
+    copies: u32,
+    extra: bool,
+    /// Cards it leads to in one step; with those brought into play from there
+    /// in any number of steps ([`ygo_solver::LinkCard`]).
+    reach: u32,
+    reach_all: u32,
+    /// Chance that an opening hand of 5 holds it or a card that brings it into play.
+    chance: f64,
+    /// `chance` is measured (an Extra Deck monster no card names: share of the
+    /// hands searched whose best line summons it), not exact.
+    measured: bool,
+    /// Cards an opening hand reaches on average that are lost when its effects are negated.
+    key: f64,
+}
+
+/// The map of the links between the cards of a deck.
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct DeckLinksView {
+    deck_id: i64,
+    cards: Vec<LinkCardView>,
+    links: Vec<CardLinkView>,
+    /// Hands played to read the links, and best lines counted for `used`.
+    hands: u32,
+    lines: u32,
+}
+
+/// Laboratorio, "Collegamenti": the map of the links between the cards of a
+/// deck, read by the engine (lines searched from hands holding each card,
+/// about half a minute), sending `deck-links-progress` events. Kept until
+/// the deck's cards change.
+#[tauri::command(async)]
+fn deck_links(app: tauri::AppHandle, state: State<'_, AppState>, deck_id: i64) -> Result<DeckLinksView, String> {
+    Ok(read_links(&app, &state, deck_id, None)?.1)
+}
+
+/// The map of `deck_id`, from the cache while its cards are the same. A
+/// changed deck reuses what was searched for its earlier version, or else
+/// for `like` (another version of it).
+fn read_links(
+    app: &tauri::AppHandle,
+    state: &State<'_, AppState>,
+    deck_id: i64,
+    like: Option<i64>,
+) -> Result<(ygo_solver::DeckLinks, DeckLinksView), String> {
+    let engine = state.engine()?;
+    let deck = state.with_user(|u| u.get(deck_id))?.ok_or("Il deck non esiste più")?;
+    let cards: Vec<u32> = deck.main.iter().chain(&deck.extra).copied().collect();
+    let previous = {
+        let cache = state.links.lock().map_err(|e| e.to_string())?;
+        match cache.get(&deck_id) {
+            Some(cached) if cached.cards == cards => return Ok((cached.map.clone(), cached.view.clone())),
+            Some(cached) => Some(cached.work.clone()),
+            None => like.and_then(|id| cache.get(&id)).map(|c| c.work.clone()),
+        }
+    };
+    let list = ygo_engine::DeckList { main: deck.main.clone(), extra: deck.extra.clone(), side: Vec::new() };
+    let threads = std::thread::available_parallelism().map_or(4, |n| n.get());
+    let budget = ygo_solver::LinksBudget { threads, ..ygo_solver::LinksBudget::default() };
+    // The map so far with each step: from the text at once, then hand by hand.
+    let progress = |done, total, map: &ygo_solver::DeckLinks| {
+        let _ = app.emit("deck-links-progress", LinksProgressView { deck_id, done, total, map: links_view(deck_id, map) });
+    };
+    let (map, work) = ygo_solver::deck_links_again(&engine, &list, 1, budget, &AtomicBool::new(false), progress, previous.as_ref());
+    let view = links_view(deck_id, &map);
+    state.links.lock().map_err(|e| e.to_string())?.insert(deck_id, LinksCache { cards, map: map.clone(), view: view.clone(), work });
+    Ok((map, view))
+}
+
+/// A card in both versions compared: its numbers before and after.
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct LinkCardChangeView {
+    code: u32,
+    chance_before: f64,
+    chance_after: f64,
+    key_before: f64,
+    key_after: f64,
+    reach_all_before: u32,
+    reach_all_after: u32,
+}
+
+/// Two versions of a deck on the links map: both maps and what changes.
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct LinksComparisonView {
+    before: DeckLinksView,
+    after: DeckLinksView,
+    /// Links only in the second deck, only in the first.
+    gained: Vec<CardLinkView>,
+    lost: Vec<CardLinkView>,
+    /// Cards in both whose chance, key or reach changed, the most changed first.
+    changed: Vec<LinkCardChangeView>,
+    /// Cards put in and taken out.
+    added: Vec<u32>,
+    removed: Vec<u32>,
+    /// Cards an opening hand reaches on average, with the first deck and with the second.
+    reached_before: f64,
+    reached_after: f64,
+}
+
+/// Laboratorio, "Collegamenti": what changes on the map from one deck to
+/// another (two versions of a deck). The second is read reusing what was
+/// searched for the first: a few cards changed, a few seconds more.
+#[tauri::command(async)]
+fn deck_links_compare(
+    app: tauri::AppHandle,
+    state: State<'_, AppState>,
+    deck_id_a: i64,
+    deck_id_b: i64,
+) -> Result<LinksComparisonView, String> {
+    let (old, before) = read_links(&app, &state, deck_id_a, None)?;
+    let (new, after) = read_links(&app, &state, deck_id_b, Some(deck_id_a))?;
+    let diff = ygo_solver::compare_links(&old, &new);
+    Ok(LinksComparisonView {
+        before,
+        after,
+        gained: diff.gained.iter().map(link_view).collect(),
+        lost: diff.lost.iter().map(link_view).collect(),
+        changed: diff
+            .changed
+            .iter()
+            .map(|c| LinkCardChangeView {
+                code: c.code,
+                chance_before: c.chance.0,
+                chance_after: c.chance.1,
+                key_before: c.key.0,
+                key_after: c.key.1,
+                reach_all_before: c.reach_all.0,
+                reach_all_after: c.reach_all.1,
+            })
+            .collect(),
+        added: diff.added,
+        removed: diff.removed,
+        reached_before: diff.reached.0,
+        reached_after: diff.reached.1,
+    })
+}
+
+/// The map as far as it is read: `done` hands of `total` searched (0: the
+/// draft from the cards' text).
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct LinksProgressView {
+    deck_id: i64,
+    done: usize,
+    total: usize,
+    map: DeckLinksView,
+}
+
+fn link_view(l: &ygo_solver::CardLink) -> CardLinkView {
+    CardLinkView {
+        from: l.from,
+        to: l.to,
+        kind: l.kind.key().to_owned(),
+        zone: l.zone.key().to_owned(),
+        possible: l.possible,
+        used: l.used,
+        text: l.text,
+    }
+}
+
+fn links_view(deck_id: i64, map: &ygo_solver::DeckLinks) -> DeckLinksView {
+    DeckLinksView {
+        deck_id,
+        cards: map
+            .cards
+            .iter()
+            .map(|c| LinkCardView {
+                code: c.code,
+                copies: c.copies,
+                extra: c.extra,
+                reach: c.reach,
+                reach_all: c.reach_all,
+                chance: c.chance,
+                measured: c.measured,
+                key: c.key,
+            })
+            .collect(),
+        links: map.links.iter().map(link_view).collect(),
+        hands: map.hands,
+        lines: map.lines,
+    }
+}
+
 /// Boards put to the probe turn after a search: the best of a precise hand,
 /// all those kept in "card + rest".
 const SCORED_BOARDS: usize = 30;
 
 /// Puts the best boards of the last search to the probe turn, on all cores,
 /// sending each result as a `combo-score` event; boards already measured
-/// are not measured again. Returns how many boards have a score.
+/// are not measured again. With `vs_deck_id` (a deck of the Bottega) each
+/// board is also measured against that deck's breakers and handtraps
+/// (another deck than last time measures all boards again). Returns how
+/// many boards have a score.
 #[tauri::command(async)]
-fn combo_score(app: tauri::AppHandle, state: State<'_, AppState>) -> Result<usize, String> {
+fn combo_score(app: tauri::AppHandle, state: State<'_, AppState>, vs_deck_id: Option<i64>) -> Result<usize, String> {
     let engine = state.engine()?;
     // What is needed, copied out so the search state stays free meanwhile.
     let (config, hands, todo, roles) = {
-        let job = state.combo.lock().map_err(|e| e.to_string())?;
-        let job = job.as_ref().ok_or("Nessuna ricerca da valutare")?;
+        let mut job = state.combo.lock().map_err(|e| e.to_string())?;
+        let job = job.as_mut().ok_or("Nessuna ricerca da valutare")?;
+        if job.vs != vs_deck_id {
+            job.scores.clear();
+            job.vs = vs_deck_id;
+        }
         let limit = if job.hands.len() == 1 { SCORED_BOARDS } else { usize::MAX };
         // One board per look: boards that differ only in the Graveyard or the banished cards score the same.
         let mut looks: HashSet<(usize, u64)> = HashSet::new();
@@ -1125,6 +1593,14 @@ fn combo_score(app: tauri::AppHandle, state: State<'_, AppState>) -> Result<usiz
     };
     state.combo_cancel.store(false, Ordering::Relaxed);
     let kit = ygo_solver::Kit::standard(&engine);
+    let rival = match vs_deck_id {
+        Some(id) => {
+            let deck = state.with_user(|u| u.get(id))?.ok_or("Il deck avversario non esiste più")?;
+            let list = ygo_engine::DeckList { main: deck.main.clone(), extra: deck.extra.clone(), side: deck.side.clone() };
+            Some((id, deck.name.clone(), ygo_solver::Rival::new(&engine, &list, config.seed, &kit)))
+        }
+        None => None,
+    };
     let next = std::sync::atomic::AtomicUsize::new(0);
     let results = Mutex::new(Vec::new());
     let threads = std::thread::available_parallelism().map_or(4, |n| n.get());
@@ -1145,7 +1621,15 @@ fn combo_score(app: tauri::AppHandle, state: State<'_, AppState>) -> Result<usiz
                     let exposure =
                         ygo_solver::exposure(&engine, &config.deck, &hands[*hand], config.seed, config.opponent.as_ref(), &board.line).ok();
                     let measured = prober.measure(&board.line).map_err(|e| e.to_string());
-                    let view = score_view(&engine, *hand, board, measured, exposure, &config.hand_traps, &roles);
+                    let matchup = rival.as_ref().map(|(id, name, rival)| {
+                        let m = measured.as_ref().map_err(String::clone).and_then(|m| {
+                            ygo_solver::matchup(&engine, &config.deck, &hands[*hand], config.seed, &board.line, m, rival)
+                                .map_err(|e| e.to_string())
+                        });
+                        matchup_view(*id, name, m)
+                    });
+                    let mut view = score_view(&engine, *hand, board, measured, exposure, &config.hand_traps, &roles);
+                    view.matchup = matchup;
                     let _ = app.emit("combo-score", view.clone());
                     if let Ok(mut r) = results.lock() {
                         r.push(((*hand, board.key), view));
@@ -1473,6 +1957,7 @@ pub fn run() {
                 engine: Mutex::new(None),
                 combo: Mutex::new(None),
                 combo_cancel: AtomicBool::new(false),
+                links: Mutex::new(HashMap::new()),
             };
             state.open_store();
             app.manage(state);
@@ -1521,6 +2006,9 @@ pub fn run() {
             list_recipes,
             save_recipe,
             delete_recipe,
+            record_board_choice,
+            learned_weights,
+            clear_board_choices,
             match_log,
             log_match,
             update_match,
@@ -1532,8 +2020,11 @@ pub fn run() {
             combo_continue,
             combo_score,
             combo_scores,
+            deck_links,
+            deck_links_compare,
             combo_cancel,
             combo_explain,
+            combo_stops,
             shelf_decks,
             set_deck_box,
             duplicate_deck,
