@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { createPortal } from "react-dom";
-import { cardImage, type Card } from "../lib/api";
+import { cardImage, type Card, type Deck } from "../lib/api";
+import { copyLimit, copiesInDeck, FORMAT_LABELS, isExtraDeckCard, type Zone, ZONE_LIMITS } from "../lib/deck";
 import { toggleFavorite, useFavorites } from "../lib/favorites";
+import { roleDefs } from "../lib/roles";
 import { sound } from "../lib/sound";
 import { CardDetails } from "./CardDetails";
 import { rarityCode } from "./CardTile";
@@ -18,14 +20,33 @@ interface Props {
   onPrev?: () => void;
   onNext?: () => void;
   onSearch?: (query: string) => void;
+  deck?: Deck | null;
+  onAddCard?: (zone: Zone) => void;
+  onRemoveCard?: (zone: Zone) => void;
+  onToggleRole?: (roleKey: string) => void;
+  onExploreCombo?: (cardId: number) => void;
 }
 
 /**
  * Full-size card viewer: wheel or +/- to zoom around the pointer, drag to
  * pan, double click to zoom in/out, L for a magnifying lens, arrows to move
  * through the results, Esc to close.
+ * When a deck is provided, includes quick workstation actions for adding/removing
+ * copies across zones respecting format banlists, role assignments, and combo lab exploration.
  */
-export function CardViewer({ card, position, onClose, onPrev, onNext, onSearch }: Props) {
+export function CardViewer({
+  card,
+  position,
+  onClose,
+  onPrev,
+  onNext,
+  onSearch,
+  deck,
+  onAddCard,
+  onRemoveCard,
+  onToggleRole,
+  onExploreCombo,
+}: Props) {
   const favorites = useFavorites();
   const [art, setArt] = useState(0);
   const [scale, setScale] = useState(1);
@@ -37,6 +58,20 @@ export function CardViewer({ card, position, onClose, onPrev, onNext, onSearch }
   const drag = useRef<{ x: number; y: number; ox: number; oy: number } | null>(null);
   const imageId = card.imageIds[art] ?? card.id;
   const rarity = rarityCode(card);
+
+  const limit = deck ? copyLimit(card, deck.format) : 3;
+  const totalInDeck = deck ? copiesInDeck(deck, card.id) : 0;
+  const isExtra = isExtraDeckCard(card);
+  const primaryZone: Zone = isExtra ? "extra" : "main";
+  const primaryLabel = isExtra ? "Extra Deck" : "Main Deck";
+
+  const zones: { zone: Zone; label: string; max: number }[] = deck
+    ? [
+        { zone: primaryZone, label: primaryLabel, max: ZONE_LIMITS[primaryZone] },
+        { zone: "side", label: "Side Deck", max: ZONE_LIMITS.side },
+        { zone: "maybe", label: "Maybe", max: ZONE_LIMITS.maybe },
+      ]
+    : [];
 
   useEffect(() => {
     sound.play("open");
@@ -240,6 +275,153 @@ export function CardViewer({ card, position, onClose, onPrev, onNext, onSearch }
               </button>
             </div>
           </div>
+
+          {deck && (
+            <section
+              className="mb-3 flex shrink-0 flex-col gap-2.5 rounded-xl border border-border/80 bg-surface-2/60 p-2.5 shadow-xs"
+              aria-label="Gestione deck per questa carta"
+            >
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex min-w-0 items-center gap-2">
+                  <span className="truncate text-xs font-semibold text-fg" title={deck.name || "Nuovo deck"}>
+                    {deck.name || "Nuovo deck"}
+                  </span>
+                  <span className="shrink-0 text-[10px] text-faint">
+                    ({FORMAT_LABELS[deck.format]})
+                  </span>
+                  <span
+                    className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                      limit === 0
+                        ? "border border-danger/40 bg-danger/15 text-danger"
+                        : limit < 3
+                          ? "border border-amber-500/40 bg-amber-500/15 text-amber-300"
+                          : "border border-border bg-surface-3 text-muted"
+                    }`}
+                  >
+                    {limit === 0
+                      ? "Proibita"
+                      : limit === 1
+                        ? "Limitata (max 1)"
+                        : limit === 2
+                          ? "Semi-limitata (max 2)"
+                          : "Max 3 copie"}
+                  </span>
+                  {limit > 0 && (
+                    <span className="text-[11px] text-muted tabular-nums">
+                      Nel deck: <b className={totalInDeck > limit ? "text-danger" : totalInDeck === limit && limit < 3 ? "text-amber-300" : "text-fg"}>{totalInDeck}</b>/{limit}
+                    </span>
+                  )}
+                </div>
+
+                {onExploreCombo && (
+                  <button
+                    type="button"
+                    onClick={() => onExploreCombo(card.id)}
+                    className="btn btn-ghost shrink-0 !px-2.5 !py-1 text-xs text-sec hover:bg-sec/15"
+                    title={`Cerca nel Circolo Arcano le combo con ${card.name}`}
+                  >
+                    ✦ Combo
+                  </button>
+                )}
+              </div>
+
+              <div className="grid grid-cols-3 gap-2">
+                {zones.map(({ zone, label, max }) => {
+                  const countInZone = deck[zone].filter((id) => id === card.id).length;
+                  const zoneFull = deck[zone].length >= max;
+                  const isInvalidType = card.kind === "skill" || card.kind === "token";
+                  const banlistBlocked = zone !== "maybe" && totalInDeck >= limit;
+                  const canAdd = !isInvalidType && !zoneFull && !banlistBlocked;
+                  const canRemove = countInZone > 0;
+
+                  return (
+                    <div
+                      key={zone}
+                      className="flex flex-col items-center justify-between rounded-lg border border-border/70 bg-surface/70 px-2 py-1.5"
+                    >
+                      <div className="flex w-full items-center justify-between text-[11px] text-muted">
+                        <span className="truncate font-medium">{label}</span>
+                        <span className="text-[10px] text-faint tabular-nums" title={`Capacità: ${deck[zone].length}/${max}`}>
+                          {deck[zone].length}/{max}
+                        </span>
+                      </div>
+
+                      <div className="my-1 flex items-center justify-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => onRemoveCard?.(zone)}
+                          disabled={!canRemove || !onRemoveCard}
+                          className="btn btn-ghost !h-6 !w-6 !p-0 text-sm font-bold disabled:opacity-30 disabled:cursor-not-allowed"
+                          aria-label={`Rimuovi una copia da ${label}`}
+                          title={canRemove ? `Rimuovi una copia da ${label}` : undefined}
+                        >
+                          −
+                        </button>
+                        <span
+                          className={`w-5 text-center text-sm font-bold tabular-nums ${
+                            countInZone > 0 ? "text-fg" : "text-faint"
+                          }`}
+                        >
+                          {countInZone}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => onAddCard?.(zone)}
+                          disabled={!canAdd || !onAddCard}
+                          className="btn btn-ghost !h-6 !w-6 !p-0 text-sm font-bold disabled:opacity-30 disabled:cursor-not-allowed"
+                          aria-label={`Aggiungi una copia a ${label}`}
+                          title={
+                            isInvalidType
+                              ? "Carte speciali non ammesse nel deck"
+                              : banlistBlocked
+                                ? limit === 0
+                                  ? `Proibita in ${FORMAT_LABELS[deck.format]}`
+                                  : `Limite formato raggiunto (${limit} ${limit === 1 ? "copia" : "copie"})`
+                                : zoneFull
+                                  ? `${label} pieno (${max}/${max})`
+                                  : `Aggiungi a ${label}`
+                          }
+                        >
+                          +
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {onToggleRole && (
+                <div className="flex flex-wrap items-center gap-1.5 border-t border-border/50 pt-2">
+                  <span className="mr-0.5 text-[10px] font-semibold tracking-wider text-faint uppercase">Ruoli:</span>
+                  {roleDefs(deck.roles ?? {}).map((d) => {
+                    const on = deck.roles?.[d.key]?.includes(card.id) ?? false;
+                    return (
+                      <button
+                        key={d.key}
+                        type="button"
+                        onClick={() => onToggleRole(d.key)}
+                        aria-pressed={on}
+                        title={`${d.label}: ${d.hint}${on ? " (assegnato)" : ""}`}
+                        className={`chip cursor-pointer !gap-1.5 !px-2 !py-0.5 !text-[11px] transition ${
+                          on ? "chip-active font-medium" : "opacity-75 hover:opacity-100"
+                        }`}
+                      >
+                        <i
+                          className="grid h-3.5 w-3.5 place-items-center rounded-full text-[8px] font-bold text-white not-italic"
+                          style={{ background: d.color }}
+                        >
+                          {d.letter}
+                        </i>
+                        {d.label}
+                        {on && <span className="text-[10px] font-bold text-sec">✓</span>}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </section>
+          )}
+
           <div className="min-h-0 overflow-y-auto pr-2">
             <CardDetails card={card} onSearch={onSearch} />
           </div>
