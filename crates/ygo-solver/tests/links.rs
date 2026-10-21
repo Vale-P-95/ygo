@@ -38,4 +38,7 @@ fn the_invoked_deck_links_aleister_invocation_and_the_invoked() {
     assert_eq!((ash.reach, ash.reach_all), (0, 0));
     assert!(ash.chance > 0.3 && ash.chance < 0.4, "{ash:?}");
     assert!(map.cards.iter().all(|c| c.reach_all >= c.reach), "{:?}", map.cards);
+    // Negating Aleister loses cards reached; negating a handtrap loses none.
+    let aleister = map.cards.iter().find(|c| c.code == code("Aleister the Invoker")).expect("Aleister");
+    assert!(aleister.key > 0.0 && ash.key == 0.0, "{aleister:?} {ash:?}");
 }

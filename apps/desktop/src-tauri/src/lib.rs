@@ -1222,6 +1222,8 @@ struct LinkCardView {
     reach_all: u32,
     /// Chance that an opening hand of 5 holds it or a card that brings it into play.
     chance: f64,
+    /// Cards an opening hand reaches on average that are lost when its effects are negated.
+    key: f64,
 }
 
 /// The map of the links between the cards of a deck.
@@ -1266,6 +1268,7 @@ fn deck_links(app: tauri::AppHandle, state: State<'_, AppState>, deck_id: i64) -
                 reach: c.reach,
                 reach_all: c.reach_all,
                 chance: c.chance,
+                key: c.key,
             })
             .collect(),
         links: map
