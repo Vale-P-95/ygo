@@ -483,12 +483,22 @@ impl Shared<'_> {
         self.before + self.start.elapsed()
     }
 
-    fn check_limits(&self) {
+    /// Cancelled, or out of time.
+    fn check_time(&self) {
         if self.cancel.load(Ordering::Relaxed) {
             self.set_stop(Stop::Cancelled);
         } else if self.start.elapsed() >= self.config.time_limit {
             self.set_stop(Stop::TimeLimit);
-        } else if self.nodes.load(Ordering::Relaxed) >= self.config.max_nodes {
+        }
+    }
+
+    /// [`Shared::check_time`], and the budget of nodes. Only the workers
+    /// check the nodes, between two edges: a check from another thread
+    /// would stop a dive wherever it happens to be, and one thread with a
+    /// budget of nodes would not search the same from run to run.
+    fn check_limits(&self) {
+        self.check_time();
+        if self.nodes.load(Ordering::Relaxed) >= self.config.max_nodes {
             self.set_stop(Stop::NodeLimit);
         }
     }
@@ -553,7 +563,7 @@ impl Shared<'_> {
             }
             q = self.wake.wait_timeout(q, Duration::from_millis(50)).ok()?.0;
             drop(q);
-            self.check_limits();
+            self.check_time();
             q = self.queue.lock().ok()?;
         }
     }
@@ -1578,7 +1588,7 @@ fn run_workers(shared: &Shared, threads: usize, mut progress: impl FnMut(&Progre
         }
         while !shared.stopped() {
             std::thread::sleep(Duration::from_millis(250));
-            shared.check_limits();
+            shared.check_time();
             progress(&shared.progress());
         }
     });
