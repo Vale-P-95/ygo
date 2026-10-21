@@ -85,7 +85,13 @@ export function Lab({
       try {
         unlisten = await api.onLinksProgress((p) => {
           if (linksReqIdRef.current === reqId) {
-            setLinksProgress(p);
+            if (p.deckId == null || p.deckId === targetDeckId) {
+              setLinksProgress({ done: p.done, total: p.total });
+              if (p.map && deckIdRef.current === targetDeckId) {
+                setLinksData(p.map);
+                request(p.map.cards.map((c) => c.code));
+              }
+            }
           }
         });
 
@@ -380,6 +386,8 @@ export function Lab({
                 progress={linksProgress}
                 error={linksError}
                 onReload={() => deck.id != null && void loadLinks(deck.id)}
+                decks={decks ?? []}
+                requestCards={request}
                 getCard={cards.get}
                 onGoCombo={onGoCombo ? exploreComboAsGoal : undefined}
                 hand={hand}

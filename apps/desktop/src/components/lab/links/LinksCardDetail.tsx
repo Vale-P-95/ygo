@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import type { Card, CardLink, LinkCard } from "../../../lib/api";
 import { sound } from "../../../lib/sound";
 import { CardImage } from "../../combo/Field";
-import { LINK_KINDS, LINK_ZONES } from "./types";
+import { isLinkTextOnly, LINK_KINDS, LINK_ZONES } from "./types";
 
 interface Props {
   card: LinkCard | null;
@@ -178,6 +178,14 @@ export function LinksCardDetail({
                       {meta.verb}
                     </span>
                     <span className="text-faint">{zoneMeta?.short ?? l.zone}</span>
+                    {isLinkTextOnly(l) && (
+                      <span
+                        className="chip !py-0 !px-1.5 text-[9px] text-muted border-dashed border-border"
+                        title="Nominato nel testo della carta, ma le linee combo cercate non lo usano"
+                      >
+                        dal testo
+                      </span>
+                    )}
                     {l.used > 0 && (
                       <span className="text-sec font-medium tabular-nums" title={`Usato nel ${Math.round(l.used * 100)}% delle linee migliori`}>
                         {Math.round(l.used * 100)}%
@@ -221,6 +229,14 @@ export function LinksCardDetail({
                     <span className="chip !py-0 !px-1 text-[9px]" style={{ color: meta.color, borderColor: meta.color }}>
                       {meta.verb}
                     </span>
+                    {isLinkTextOnly(l) && (
+                      <span
+                        className="chip !py-0 !px-1.5 text-[9px] text-muted border-dashed border-border"
+                        title="Nominato nel testo della carta, ma le linee combo cercate non lo usano"
+                      >
+                        dal testo
+                      </span>
+                    )}
                     {l.used > 0 && (
                       <span className="text-sec font-medium tabular-nums">
                         {Math.round(l.used * 100)}%
