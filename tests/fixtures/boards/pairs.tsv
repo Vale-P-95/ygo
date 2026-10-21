@@ -1,0 +1,14 @@
+# Coppie di board con un ordine atteso (docs/plans/classificazione-board.md, C3), lette da scripts/board_pairs.py.
+# Colonne (separate da tab): id, deck, condizioni della board A, condizioni della board B, atteso (A>B, B>A, A≈B, ?), sicurezza, perché.
+# Le condizioni descrivono le carte, non la posizione in classifica (cambia a ogni modifica della ricerca): vedi board_pairs.py.
+# La mano è quella della regola "-lines" degli studi; il deck x_* è un archetipo della cartella di studio.
+# Le coppie di invarianza (stesse carte in zone diverse) le controlla da solo scripts/rank_report.py su tutti i deck.
+P1	azamina	Red-Eyes Dark Dragoon; hand:-	Red-Eyes Dark Dragoon; !hand:-	B>A	sicura	Dragoon senza carta da scartare non nega
+P2	exodia	Fiendsmith's Desirae; !re: -> 	Fiendsmith's Desirae; re: -> 	B>A	sicura	Desirae attiva solo con un Link equipaggiato
+P3	pumpking_zombies	2xVortex	Vortex; Undying Legion; !2xVortex	B>A	sicura	solo 1 Vortex per turno
+P4	x_labrynth	Little Knight; Torrential Tribute	Arianna; Muckraker; Big Welcome; Torrential Tribute	B>A	sicura	Torrential distrugge il proprio Little Knight; B ha più fermate
+P5	labrynth	Arianna; Big Welcome; Dominus Spark; Infinite Impermanence; Daruma	Daruma; Dominus Spark; re:^Welcome Labrynth; !Big Welcome; Infinite Impermanence; hand:Arias	A>B	da confermare	Big Welcome più Arianna contro una Trappola in più
+P6	doomz	Varudras	2xDrastrius; Vidolia	A>B	sicura	negazione universale contro protezione dalla distruzione
+P7	phantom_knights	2xFog Blade; 2xImpulse; Infinite Impermanence	Fog Blade; !2xFog Blade	A>B	sicura	una Fog Blade in più
+P8	warrior_combo	Ha-Re; Fire Dance	Mayowashidori	?	da confermare	equipaggiamento contro carta in più
+P9	volcanic	Caesar	Lacrima	A>B	da confermare	il floodgate di B è finto (A9)

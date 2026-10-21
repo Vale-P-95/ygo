@@ -8,6 +8,13 @@ the probe turn failures, crashes, and the best board measured. Used to look
 for engine bugs and as a regression table.
 
     python3 scripts/combo_hunt.py /tmp/mdm --hands 2 --nodes 3000
+
+For the board classification (docs/plans/classificazione-board.md, C1):
+one hand per deck drawn with the "-lines" rule, the archetype decks too
+(named x_*), a fixed seed, and every board listed written as JSON with
+its line, for scripts/rank_report.py and scripts/board_pairs.py:
+
+    python3 scripts/combo_hunt.py /tmp/mdm --extra-decks /tmp/decks --lines-rule --top 8 --seed 1 --json /tmp/json-1
 """
 import argparse
 import os
@@ -27,19 +34,34 @@ def main() -> int:
     parser.add_argument("--top", type=int, default=5, help="boards put through the probe turn")
     parser.add_argument("--cli", default=os.path.join(ROOT, "target", "release", "duelforge-cli"))
     parser.add_argument("--logs", help="folder for the full output of each run")
+    parser.add_argument("--extra-decks", help="a second folder of .ydk files, named x_<name> (the archetype decks)")
+    parser.add_argument("--lines-rule", action="store_true", help='one hand per deck, drawn with the "<name>-lines" seed of the studies')
+    parser.add_argument("--seed", type=int, help="seed of the duels (the search and the probe turn)")
+    parser.add_argument("--json", help="folder for each run's boards (combos --json) and lines (--save-lines)")
+    parser.add_argument("--only", default="", help="only the decks whose name contains this")
+    parser.add_argument("--shard", default="0/1", help="K/N: only every Nth deck from the Kth")
     args = parser.parse_args()
 
+    decks = [(name[:-4], os.path.join(args.decks, name)) for name in os.listdir(args.decks) if name.endswith(".ydk")]
+    if args.extra_decks:
+        decks += [("x_" + name[:-4], os.path.join(args.extra_decks, name)) for name in os.listdir(args.extra_decks) if name.endswith(".ydk")]
+    k_shard, n_shard = map(int, args.shard.split("/"))
+    decks = [d for i, d in enumerate(sorted(decks)) if args.only in d[0] and i % n_shard == k_shard]
+    if args.json:
+        os.makedirs(args.json, exist_ok=True)
+
     problems = 0
-    for name in sorted(f[:-4] for f in os.listdir(args.decks) if f.endswith(".ydk")):
-        path = os.path.join(args.decks, name + ".ydk")
+    for name, path in decks:
         main_deck = [l for l in open(path).read().split("#extra")[0].split() if l.isdigit()]
-        for k in range(args.hands):
-            hand = random.Random(f"{name}-{k}").sample(main_deck, 5)
-            run = subprocess.run(
-                [args.cli, "--data", os.path.join(ROOT, "data"), "combos", "--deck", path, "--hand", ";".join(hand),
-                 "--nodes", str(args.nodes), "--seconds", "600", "--threads", "1", "--top", str(args.top), "--probe"],
-                capture_output=True, text=True,
-            )
+        for k in range(1 if args.lines_rule else args.hands):
+            hand = random.Random(f"{name}-lines" if args.lines_rule else f"{name}-{k}").sample(main_deck, 5)
+            command = [args.cli, "--data", os.path.join(ROOT, "data"), "combos", "--deck", path, "--hand", ";".join(hand),
+                       "--nodes", str(args.nodes), "--seconds", "600", "--threads", "1", "--top", str(args.top), "--probe"]
+            if args.seed is not None:
+                command += ["--seed", str(args.seed)]
+            if args.json:
+                command += ["--json", os.path.join(args.json, f"{name}-{k}.json"), "--save-lines", os.path.join(args.json, f"{name}-{k}.lines.json")]
+            run = subprocess.run(command, capture_output=True, text=True)
             out = run.stdout
             if args.logs:
                 os.makedirs(args.logs, exist_ok=True)
