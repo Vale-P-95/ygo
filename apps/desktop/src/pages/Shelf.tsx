@@ -51,13 +51,14 @@ export function Shelf({ artReady, onOpenDeck, onOpenLab, onOpenCombo, onNewDeck 
     });
   }, [load]);
 
+  const isDecksLoading = decks == null;
   useEffect(() => {
     const el = areaRef.current;
     if (!el) return;
     const observer = new ResizeObserver(() => setWidth(el.clientWidth));
     observer.observe(el);
     return () => observer.disconnect();
-  }, [decks == null]);
+  }, [isDecksLoading]);
 
   // Saves shortly after the last change, one timer per deck and kind of change.
   const later = (key: string, run: () => Promise<unknown>) => {
