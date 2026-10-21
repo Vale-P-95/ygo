@@ -1355,6 +1355,8 @@ struct CardLinkView {
     possible: bool,
     /// Share of the Combo Lab's best lines that use it, 0 to 1.
     used: f64,
+    /// The card's text names it; alone (not `possible`), an effect the lines found never use.
+    text: bool,
 }
 
 /// A card of the map.
@@ -1404,10 +1406,28 @@ fn deck_links(app: tauri::AppHandle, state: State<'_, AppState>, deck_id: i64) -
     let list = ygo_engine::DeckList { main: deck.main.clone(), extra: deck.extra.clone(), side: Vec::new() };
     let threads = std::thread::available_parallelism().map_or(4, |n| n.get());
     let budget = ygo_solver::LinksBudget { threads, ..ygo_solver::LinksBudget::default() };
-    let map = ygo_solver::deck_links(&engine, &list, 1, budget, &AtomicBool::new(false), |done, total| {
-        let _ = app.emit("deck-links-progress", RolesProgress { done, total });
+    // The map so far with each step: from the text at once, then hand by hand.
+    let map = ygo_solver::deck_links(&engine, &list, 1, budget, &AtomicBool::new(false), |done, total, map| {
+        let _ = app.emit("deck-links-progress", LinksProgressView { deck_id, done, total, map: links_view(deck_id, map) });
     });
-    let view = DeckLinksView {
+    let view = links_view(deck_id, &map);
+    state.links.lock().map_err(|e| e.to_string())?.insert(deck_id, LinksCache { cards, view: view.clone() });
+    Ok(view)
+}
+
+/// The map as far as it is read: `done` hands of `total` searched (0: the
+/// draft from the cards' text).
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct LinksProgressView {
+    deck_id: i64,
+    done: usize,
+    total: usize,
+    map: DeckLinksView,
+}
+
+fn links_view(deck_id: i64, map: &ygo_solver::DeckLinks) -> DeckLinksView {
+    DeckLinksView {
         deck_id,
         cards: map
             .cards
@@ -1433,13 +1453,12 @@ fn deck_links(app: tauri::AppHandle, state: State<'_, AppState>, deck_id: i64) -
                 zone: l.zone.key().to_owned(),
                 possible: l.possible,
                 used: l.used,
+                text: l.text,
             })
             .collect(),
         hands: map.hands,
         lines: map.lines,
-    };
-    state.links.lock().map_err(|e| e.to_string())?.insert(deck_id, LinksCache { cards, view: view.clone() });
-    Ok(view)
+    }
 }
 
 /// Boards put to the probe turn after a search: the best of a precise hand,

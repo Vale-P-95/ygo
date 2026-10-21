@@ -19,13 +19,25 @@ fn the_invoked_deck_links_aleister_invocation_and_the_invoked() {
     let deck = DeckList::from_ydk(&std::fs::read_to_string(root.join("tests/fixtures/decks/invoked-siracusa-md.ydk")).unwrap()).unwrap();
     let code = |name: &str| engine.cards().find_by_name(name).unwrap_or_else(|| panic!("{name}")).code;
     let budget = LinksBudget { hands_per_card: 1, nodes_per_hand: 500, lines_per_hand: 10, threads: 2, ..LinksBudget::default() };
-    let map = deck_links(&engine, &deck, 1, budget, &AtomicBool::new(false), |_, _| {});
+    // The text alone gives a draft at once, before any hand is searched.
+    let draft = std::sync::Mutex::new(None);
+    let map = deck_links(&engine, &deck, 1, budget, &AtomicBool::new(false), |done, _, map| {
+        if done == 0 {
+            *draft.lock().unwrap() = Some(map.clone());
+        }
+    });
+    let draft = draft.into_inner().unwrap().expect("the draft comes first");
+    let named = |from: &str, to: &str, kind: LinkKind| {
+        draft.links.iter().any(|l| l.from == code(from) && l.to == code(to) && l.kind == kind && l.text && !l.possible)
+    };
+    assert!(named("Aleister the Invoker", "Invocation", LinkKind::Search), "{:?}", draft.links);
+    assert!(named("Aleister the Invoker", "Invoked Mechaba", LinkKind::Material), "{:?}", draft.links);
     let link = |from: &str, to: &str, kind: LinkKind| map.links.iter().find(|l| l.from == code(from) && l.to == code(to) && l.kind == kind);
 
     // Aleister searches Invocation from the Deck and is a material Invoked
     // Mechaba names; Invocation Fusion Summons the Invoked from the Extra Deck.
     let search = link("Aleister the Invoker", "Invocation", LinkKind::Search).expect("Aleister adds Invocation");
-    assert!(search.possible && search.used > 0.0 && search.zone == LinkZone::Deck, "{search:?}");
+    assert!(search.possible && search.text && search.used > 0.0 && search.zone == LinkZone::Deck, "{search:?}");
     assert!(link("Aleister the Invoker", "Invoked Mechaba", LinkKind::Material).is_some(), "{:?}", map.links);
     let invoked = |c: u32| engine.cards().name(c).starts_with("Invoked ");
     let fusions = map.links.iter().filter(|l| l.from == code("Invocation") && l.kind == LinkKind::Summon && invoked(l.to)).count();

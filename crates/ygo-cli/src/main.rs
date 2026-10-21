@@ -1090,7 +1090,10 @@ fn links(dir: &Path, deck: &Path, nodes: u64, hands: usize, threads: Option<usiz
     let threads = threads.unwrap_or_else(|| std::thread::available_parallelism().map_or(4, |n| n.get()));
     let budget = ygo_solver::LinksBudget { hands_per_card: hands, nodes_per_hand: nodes, threads, ..ygo_solver::LinksBudget::default() };
     let started = std::time::Instant::now();
-    let map = ygo_solver::deck_links(&engine, &deck, 1, budget, &std::sync::atomic::AtomicBool::new(false), |done, total| {
+    let map = ygo_solver::deck_links(&engine, &deck, 1, budget, &std::sync::atomic::AtomicBool::new(false), |done, total, map| {
+        if done == 0 {
+            eprintln!("from the text, at once: {} links ({:.1} s)", map.links.len(), started.elapsed().as_secs_f64());
+        }
         eprint!("\r{done}/{total} hands");
     });
     eprintln!();
@@ -1120,13 +1123,13 @@ fn links(dir: &Path, deck: &Path, nodes: u64, hands: usize, threads: Option<usiz
         );
         for l in map.links.iter().filter(|l| l.from == c.code) {
             let used = if l.used > 0.0 { format!(" used {:.0}%", l.used * 100.0) } else { String::new() };
-            println!(
-                "    {:<9} {:<8} {}{}{used}",
-                l.kind.key(),
-                l.zone.key(),
-                db.name(l.to),
-                if l.possible { "" } else { " (seen used only)" }
-            );
+            let how = match (l.possible, l.text) {
+                (true, true) => "",
+                (true, false) => " (not in the text)",
+                (false, true) => " (text only)",
+                (false, false) => " (seen used only)",
+            };
+            println!("    {:<9} {:<8} {}{how}{used}", l.kind.key(), l.zone.key(), db.name(l.to));
         }
     }
     if let Some(path) = json {
@@ -1139,6 +1142,7 @@ fn links(dir: &Path, deck: &Path, nodes: u64, hands: usize, threads: Option<usiz
             })).collect::<Vec<_>>(),
             "links": map.links.iter().map(|l| serde_json::json!({
                 "from": l.from, "to": l.to, "kind": l.kind.key(), "zone": l.zone.key(), "possible": l.possible, "used": l.used,
+                "text": l.text,
             })).collect::<Vec<_>>(),
         });
         std::fs::write(path, serde_json::to_string_pretty(&doc)?)?;

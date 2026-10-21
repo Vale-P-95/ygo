@@ -621,6 +621,11 @@ export interface CardLink {
   possible: boolean;
   /** Share of the Combo Lab's best lines that use it, 0 to 1 (0 when none does). */
   used: number;
+  /**
+   * The card's text names it. With `possible` false, the link comes from the text alone: an effect the lines found never
+   * use (show it faint, «dal testo»). Always sent by the backend.
+   */
+  text?: boolean;
 }
 
 /** A card of the map (mirrors `LinkCardView`). */
@@ -645,6 +650,15 @@ export interface LinkCard {
   measured?: boolean;
   /** Cards an opening hand reaches on average (sum of the chances) that are lost when this card's effects are negated: the key cards of the deck. */
   key: number;
+}
+
+/** The map so far while it is read (mirrors `LinksProgressView`). */
+export interface LinksProgress {
+  deckId?: number;
+  /** Hands searched of `total`; 0 with the draft from the text. */
+  done: number;
+  total: number;
+  map?: DeckLinks;
 }
 
 /** The map of the links between the cards of a deck (mirrors `DeckLinksView`). */
@@ -734,8 +748,12 @@ const tauriApi = {
   onComboProgress: (handler: (p: ComboProgress) => void): Promise<UnlistenFn> => listen<ComboProgress>("combo-progress", (e) => handler(e.payload)),
   /** Laboratorio, "Collegamenti": the map of a deck, read by the engine (about half a minute the first time, then kept until its cards change). */
   deckLinks: (deckId: number) => invoke<DeckLinks>("deck_links", { deckId }),
-  onLinksProgress: (handler: (p: { done: number; total: number }) => void): Promise<UnlistenFn> =>
-    listen<{ done: number; total: number }>("deck-links-progress", (e) => handler(e.payload)),
+  /**
+   * The map as it is read: first (`done` 0) the draft from the cards' text, at once; then after each hand searched,
+   * the map so far. `deckId` and `map` are always sent by the backend.
+   */
+  onLinksProgress: (handler: (p: LinksProgress) => void): Promise<UnlistenFn> =>
+    listen<LinksProgress>("deck-links-progress", (e) => handler(e.payload)),
 };
 
 type Api = typeof tauriApi;
