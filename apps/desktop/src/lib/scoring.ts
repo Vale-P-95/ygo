@@ -142,9 +142,59 @@ export function parts(s: ComboScore, w: Weights): { metric: Metric; value: numbe
   return METRICS.map((metric) => ({ metric, value: w[metric.key] * s[metric.key] }));
 }
 
-interface Choice {
+/** Extracts the dictionary of metrics by key for preference recording. */
+export function metricValues(s: ComboScore): Record<MetricKey, number> {
+  return {
+    interruptions: s.interruptions,
+    handTraps: s.handTraps,
+    floodgates: s.floodgates,
+    resilience: s.resilience,
+    followup: s.followup,
+    resources: s.resources,
+    cost: s.cost,
+    exposure: s.exposure,
+  };
+}
+
+/**
+ * Checks if board score A Pareto-dominates board score B:
+ * A is at least equal to B in all metrics (lower is better for cost and exposure),
+ * and strictly better in at least one metric.
+ */
+export function dominates(a: ComboScore, b: ComboScore, includeMatchup: boolean = false): boolean {
+  if (a.error || b.error) return false;
+  let strictlyBetter = false;
+  const EPS = 1e-4;
+
+  const posKeys: MetricKey[] = ["interruptions", "handTraps", "floodgates", "resilience", "followup", "resources"];
+  for (const k of posKeys) {
+    if (a[k] < b[k] - EPS) return false;
+    if (a[k] > b[k] + EPS) strictlyBetter = true;
+  }
+
+  const negKeys: MetricKey[] = ["cost", "exposure"];
+  for (const k of negKeys) {
+    if (a[k] > b[k] + EPS) return false;
+    if (a[k] < b[k] - EPS) strictlyBetter = true;
+  }
+
+  if (includeMatchup) {
+    const aRes = a.matchup && !a.matchup.error ? a.matchup.resilience : null;
+    const bRes = b.matchup && !b.matchup.error ? b.matchup.resilience : null;
+    if (aRes == null || bRes == null) return false;
+    if (aRes < bRes - EPS) return false;
+    if (aRes > bRes + EPS) strictlyBetter = true;
+  }
+
+  return strictlyBetter;
+}
+
+
+export interface Choice {
   profile: string;
+  priorProfile: string;
   weights: Weights;
+  priorWeights: Weights;
 }
 
 const KEY = "duelforge.combo.weights";
@@ -153,16 +203,42 @@ function loadChoice(): Choice {
   try {
     const raw = localStorage.getItem(KEY);
     if (raw) {
-      const saved = JSON.parse(raw) as Choice;
-      // A profile is remembered by name: its weights are today's ones.
+      const saved = JSON.parse(raw) as Partial<Choice>;
+      const baseProfile = PROFILES.find((p) => p.id === saved.priorProfile) ?? PROFILES[0];
+      const priorWeights = saved.priorWeights ?? baseProfile.weights;
+      if (saved.profile === "learned") {
+        return {
+          profile: "learned",
+          priorProfile: saved.priorProfile ?? baseProfile.id,
+          weights: { ...baseProfile.weights, ...saved.weights },
+          priorWeights,
+        };
+      }
       const profile = PROFILES.find((p) => p.id === saved.profile);
-      if (profile) return { profile: profile.id, weights: profile.weights };
-      return { profile: saved.profile, weights: { ...PROFILES[0].weights, ...saved.weights } };
+      if (profile) {
+        return {
+          profile: profile.id,
+          priorProfile: profile.id,
+          weights: profile.weights,
+          priorWeights: profile.weights,
+        };
+      }
+      return {
+        profile: saved.profile ?? "custom",
+        priorProfile: saved.priorProfile ?? "custom",
+        weights: { ...PROFILES[0].weights, ...saved.weights },
+        priorWeights: saved.priorWeights ?? PROFILES[0].weights,
+      };
     }
   } catch {
     // A missing or broken choice falls back to the default.
   }
-  return { profile: PROFILES[0].id, weights: PROFILES[0].weights };
+  return {
+    profile: PROFILES[0].id,
+    priorProfile: PROFILES[0].id,
+    weights: PROFILES[0].weights,
+    priorWeights: PROFILES[0].weights,
+  };
 }
 
 let choice = loadChoice();
@@ -190,10 +266,43 @@ export function useWeights(): Choice {
 
 export function pickProfile(id: string) {
   const p = PROFILES.find((x) => x.id === id);
-  if (p) set({ profile: p.id, weights: p.weights });
+  if (p) {
+    set({
+      profile: p.id,
+      priorProfile: p.id,
+      weights: p.weights,
+      priorWeights: p.weights,
+    });
+  }
 }
 
-/** A weight changed by hand: the profile becomes "Personalizzato". */
+/** A weight changed by hand: the profile becomes "Personalizzato", keeping the original prior intact. */
 export function setWeight(key: MetricKey, value: number) {
-  set({ profile: "custom", weights: { ...choice.weights, [key]: value } });
+  const priorProfile = choice.priorProfile ?? "custom";
+  const priorWeights = choice.priorWeights ?? PROFILES[0].weights;
+  set({
+    profile: "custom",
+    priorProfile,
+    weights: { ...choice.weights, [key]: value },
+    priorWeights,
+  });
 }
+
+/** Activates the weights learned from the player's choices, keeping the original prior intact. */
+export function applyLearnedWeights(learned: Partial<Weights>) {
+  const isLearned = choice.profile === "learned";
+  const priorProfile = isLearned ? choice.priorProfile : choice.profile;
+  const priorWeights = isLearned ? choice.priorWeights : choice.weights;
+  set({
+    profile: "learned",
+    priorProfile,
+    weights: { ...choice.weights, ...learned },
+    priorWeights,
+  });
+}
+
+/** Returns the prior baseline weights used for Bradley-Terry regression. */
+export function getPriorWeights(): Weights {
+  return choice.priorWeights ?? PROFILES[0].weights;
+}
+

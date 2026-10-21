@@ -1,7 +1,8 @@
-import type { ReactNode } from "react";
-import type { Card, ComboBreaker, ComboInterruption, ComboRivalBreaker, ComboRivalHandTrap, ComboScore } from "../../lib/api";
-import { METRICS, NEGATIVE, parts, pickProfile, PROFILES, score, setWeight, useWeights, type Metric, type MetricKey, type Weights } from "../../lib/scoring";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { api, type Card, ComboBreaker, ComboInterruption, ComboRivalBreaker, ComboRivalHandTrap, ComboScore, type LearnedWeights } from "../../lib/api";
+import { METRICS, NEGATIVE, parts, pickProfile, PROFILES, score, setWeight, applyLearnedWeights, getPriorWeights, useWeights, type Metric, type MetricKey, type Weights } from "../../lib/scoring";
 import { sound } from "../../lib/sound";
+import { toast } from "../../lib/toast";
 import { InfoButton } from "../InfoButton";
 import { CardImage, type HoverCard } from "./Field";
 
@@ -55,14 +56,39 @@ export function WeightsPanel({
   weights,
   open,
   compact = false,
+  choicesVersion,
   onToggle,
+  onChoicesChanged,
 }: {
   profile: string;
   weights: Weights;
   open: boolean;
   compact?: boolean;
+  choicesVersion?: number;
   onToggle: () => void;
+  onChoicesChanged?: () => void;
 }) {
+  const [learned, setLearned] = useState<LearnedWeights | null>(null);
+  const [loadingLearned, setLoadingLearned] = useState(false);
+  const [clearing, setClearing] = useState(false);
+  const requestIdRef = useRef(0);
+
+  useEffect(() => {
+    let active = true;
+    const prior = getPriorWeights();
+    api.learnedWeights(prior)
+      .then((lw) => {
+        if (active) setLearned(lw);
+      })
+      .catch((e) => {
+        if (active) {
+          toast(`Impossibile leggere le preferenze: ${e instanceof Error ? e.message : String(e)}`, "error");
+        }
+      });
+    return () => {
+      active = false;
+    };
+  }, [profile, open, choicesVersion]);
   return (
     <div className="flex flex-col gap-2">
       <div className="flex flex-wrap items-center gap-1.5 text-xs">
@@ -76,6 +102,7 @@ export function WeightsPanel({
             type="button"
             className={`chip !py-0.5 ${profile === p.id ? "chip-active" : ""}`}
             onClick={() => {
+              requestIdRef.current++;
               sound.play("toggle");
               pickProfile(p.id);
             }}
@@ -84,6 +111,42 @@ export function WeightsPanel({
           </button>
         ))}
         {profile === "custom" && <span className="chip chip-active !py-0.5">Personalizzato</span>}
+        <button
+          type="button"
+          disabled={loadingLearned}
+          className={`chip !py-0.5 ${profile === "learned" ? "chip-active" : ""}`}
+          onClick={async () => {
+            sound.play("toggle");
+            setLoadingLearned(true);
+            const reqId = ++requestIdRef.current;
+            try {
+              const prior = getPriorWeights();
+              const res = await api.learnedWeights(prior);
+              if (reqId !== requestIdRef.current) return;
+              setLearned(res);
+              const sanitized: Partial<Weights> = {};
+              for (const m of METRICS) {
+                const val = (res.weights as Record<string, unknown>)[m.key];
+                if (typeof val === "number" && Number.isFinite(val)) {
+                  sanitized[m.key] = val;
+                }
+              }
+              applyLearnedWeights(sanitized);
+            } catch (e) {
+              if (reqId !== requestIdRef.current) return;
+              sound.play("error");
+              toast(`Impossibile calcolare i pesi imparati: ${e instanceof Error ? e.message : String(e)}`, "error");
+            } finally {
+              if (reqId === requestIdRef.current) {
+                setLoadingLearned(false);
+              }
+            }
+          }}
+          title="Pesi calibrati automaticamente sulle tue preferenze tra board registrate nel confronto"
+        >
+          ★ Imparato dalle tue scelte
+          {learned != null && learned.choices > 0 && <span className="ml-1 opacity-80 font-semibold">({learned.choices})</span>}
+        </button>
         <button type="button" className="ml-auto text-[11px] text-muted hover:text-text" onClick={onToggle} aria-expanded={open}>
           {open ? "Chiudi i pesi" : "Personalizza i pesi"}
         </button>
@@ -93,6 +156,67 @@ export function WeightsPanel({
           <p className={`${compact ? "2xl:col-span-2" : "xl:col-span-2"} text-[11px] text-muted`}>
             Più il peso è alto, più la voce conta. Le voci in rosso tolgono punti: più il peso è vicino a −1, più pesano contro la board.
           </p>
+          {profile === "learned" && learned && (
+            <div className={`${compact ? "2xl:col-span-2" : "xl:col-span-2"} rounded-lg border border-sec/40 bg-sec/10 p-2.5 text-xs anim-fade`}>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex flex-col gap-0.5">
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold text-text">
+                      ★ Profilo calibrato sulle tue scelte ({learned.choices} {learned.choices === 1 ? "confronto" : "confronti"})
+                    </span>
+                    {learned.choices > 0 && (
+                      <span className="chip !py-0 !px-1.5 text-[10px] text-sec font-medium">
+                        Accordo: {Math.round(learned.agreement * 100)}%
+                      </span>
+                    )}
+                  </div>
+                  {learned.choices === 0 ? (
+                    <p className="text-[11px] text-muted">
+                      Nessun confronto registrato finora. Apri «Confronta» tra due board e premi «★ Preferisco questa» per insegnare le tue preferenze.
+                    </p>
+                  ) : (
+                    <p className="text-[11px] text-muted">
+                      I pesi imparati spiegano il <b>{Math.round(learned.agreement * 100)}%</b> delle tue scelte (il profilo di partenza ne spiegava il {Math.round(learned.priorAgreement * 100)}%).
+                      {learned.choices < 4 && " Con poche scelte i pesi restano vicini al profilo di partenza per garantire stabilità."}
+                    </p>
+                  )}
+                </div>
+                {learned.choices > 0 && (
+                  <button
+                    type="button"
+                    disabled={clearing}
+                    onClick={async () => {
+                      if (!window.confirm("Vuoi azzerare tutte le preferenze di board registrate?")) return;
+                      setClearing(true);
+                      try {
+                        await api.clearBoardChoices();
+                        sound.play("knock");
+                        pickProfile("balanced");
+                        setLearned({
+                          weights: PROFILES[0].weights,
+                          choices: 0,
+                          agreement: 1,
+                          priorAgreement: 1,
+                        });
+                        onChoicesChanged?.();
+                        const cleared = await api.learnedWeights(PROFILES[0].weights);
+                        setLearned(cleared);
+                      } catch (e) {
+                        sound.play("error");
+                        toast(`Impossibile azzerare le scelte: ${e instanceof Error ? e.message : String(e)}`, "error");
+                      } finally {
+                        setClearing(false);
+                      }
+                    }}
+                    className="btn btn-ghost !py-1 !px-2 text-[11px] text-danger hover:bg-danger/10 border border-danger/30"
+                    title="Azzera le scelte registrate e ripristina il profilo bilanciato"
+                  >
+                    🗑 Azzera scelte
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
           {METRICS.map((m) => (
             <div key={m.key} className="flex items-center gap-2 text-xs">
               <span className="h-2.5 w-2.5 shrink-0 rounded-sm" style={{ background: m.color }} />
@@ -447,7 +571,7 @@ export function ScoreBreakdown({
     return <p className="text-xs text-faint">Il turno di prova non si è potuto giocare su questa board: {s.error}</p>;
   }
   const profileName = PROFILES.find((p) => p.id === profile)?.label;
-  const profileText = profileName ? `Nel profilo «${profileName}»` : "Con i tuoi pesi";
+  const profileText = profileName ? `Nel profilo «${profileName}»` : profile === "learned" ? "Con i pesi imparati" : "Con i tuoi pesi";
   const all = parts(s, weights);
   const total = score(s, weights);
   const positive = all.filter((p) => p.value > 0.005).reduce((t, p) => t + p.value, 0);
@@ -465,7 +589,7 @@ export function ScoreBreakdown({
       <div className="flex flex-col gap-1.5">
         <div className="flex items-baseline gap-2">
           <span className="text-2xl font-semibold tabular-nums">{fmt2(total)}</span>
-          <span className="text-xs text-muted">punti{profileName ? ` · profilo «${profileName}»` : " · pesi personalizzati"}</span>
+          <span className="text-xs text-muted">punti{profileName ? ` · profilo «${profileName}»` : profile === "learned" ? " · Imparato dalle tue scelte" : " · pesi personalizzati"}</span>
           <InfoButton title="Come si calcola il punteggio" className="ml-auto self-center">
             <p>Il motore mette alla prova la board: gioca il turno dell'avversario con le giocate più comuni e con i board breaker più usati, e guarda cosa riesci a fermare.</p>
             <p>Ogni voce qui sotto dà punti (misura × peso); quelle in rosso li tolgono. I pesi vengono dal profilo scelto sopra la lista delle board.</p>
