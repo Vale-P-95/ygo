@@ -18,9 +18,7 @@ Regole in `AGENTS.md`. Per prendere un task, spostalo in "In corso" con agente, 
   - [ ] Valori delle carte che dipendono dal contesto (mano vuota, equipaggiamenti): passa nella #47.
 
 - [x] Velocità del motore: mimalloc per Lua (−27% di tempo di ricerca, risultati identici) e meno replay inutili (−9%), sul branch di Claude in attesa di PR (PIANO §30.8).
-- [ ] Chiave dei nodi con i bersagli e i nomi dichiarati finché la catena è aperta (oggi due bersagli diversi sembrano lo stesso nodo) — agente: claude-code — branch: claude/yugioh-deck-builder-simulator-cax0ya — file: crates/ygo-solver/src/search.rs, crates/ygo-engine/src/auto.rs
-  - [ ] Chiave corretta; tolto il taglio dei replay che si basava sul limite vecchio.
-  - [ ] Bench prima e dopo, copertura, test di regressione; si tiene solo se le board non peggiorano.
+- [x] Chiave dei nodi con i bersagli e i nomi dichiarati: provata e tolta. Il banco migliorava (best 26,32 → 27,23), ma la caccia sui 45 deck con tre semi peggiorava di poco (somma −2,48, 5 deck peggio e 4 meglio). Numeri e idee per riprovarla nel PIANO §30.8.
 - [x] Controllo di salute del motore su 45 deck: nessuna linea interrotta (PIANO §30.8).
 
 ## Da fare (in ordine di priorità)
