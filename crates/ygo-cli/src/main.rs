@@ -569,7 +569,9 @@ fn state_json(
     let mut field: Vec<String> = Vec::new();
     for (z, c) in me.monsters.iter().enumerate() {
         if let Some(c) = c {
-            field.push(format!("{}{}", db.name(c.code), if z >= 5 { " [EMZ]" } else { "" }));
+            // A monster Set face-down cannot use its effects: it must show.
+            let face = if c.is_face_up() { "" } else { " (set)" };
+            field.push(format!("{}{face}{}", db.name(c.code), if z >= 5 { " [EMZ]" } else { "" }));
         }
     }
     for c in me.spells.iter().flatten() {
