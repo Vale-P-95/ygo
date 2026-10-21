@@ -16,14 +16,17 @@ search changes): each side of a pair is a list of conditions separated by
   (the board's signature with the zones left out), as `panel` writes.
 
     python3 scripts/board_pairs.py make $S/pairs --decks $S/mdm --extra-decks $S/decks --cli $CLI_BEFORE
-    python3 scripts/board_pairs.py eval $S/pairs --cli $CLI_AFTER
+    python3 scripts/board_pairs.py eval $S/pairs --cli $CLI_BEFORE --save $S/before.json
+    python3 scripts/board_pairs.py eval $S/pairs --cli $CLI_AFTER --against $S/before.json
     python3 scripts/board_pairs.py sheet $S/json-1 $S/sheet.md
     python3 scripts/board_pairs.py panel $S/json-1 $S/sheet.md $S/judge-1.json $S/judge-2.json $S/judge-3.json
 
 `make` searches each deck of the pairs once (hand of the "-lines" rule,
 one thread, a fixed seed) and saves the lines of the first board meeting
 each side; `eval` measures those lines again with `probe-line` (no
-search), so the same boards are compared whatever the search finds now.
+search), so the same boards are compared whatever the search finds now;
+with --against, it also lists the pairs whose outcome changed since a
+saved evaluation.
 `sheet` writes, for the judges, the first 5 distinct boards of each deck
 in a shuffled order and without scores; `panel` reads the judges'
 rankings of that sheet and prints, as lines for pairs.tsv, the pairs all
@@ -133,11 +136,14 @@ def make(a):
     json.dump({"seed": a.seed, "pairs": found}, open(os.path.join(a.out, "pairs.json"), "w"), indent=1)
 
 
-def measure(a, saved, side):
-    s = saved[side]
-    out = os.path.join(a.out, f"measure-{saved['deck']}-{s['index']}.json")
+def measure(a, saved, index):
+    """The composite of one saved line, measured again (None if it failed)."""
+    os.makedirs(os.path.join(a.out, "measures"), exist_ok=True)
+    out = os.path.join(a.out, "measures", f"{saved['deck']}-{index}.json")
+    if os.path.exists(out):
+        os.remove(out)
     subprocess.run([a.cli, "--data", os.path.join(ROOT, "data"), "probe-line", "--deck", saved["path"], "--hand", ";".join(saved["hand"]),
-                    "--seed", str(a.seed), "--lines", os.path.join(a.out, f"{saved['deck']}.lines.json"), "--index", str(s["index"]),
+                    "--seed", str(a.seed), "--lines", os.path.join(a.out, f"{saved['deck']}.lines.json"), "--index", str(index),
                     "--json", out], capture_output=True, text=True)
     items = json.load(open(out))["items"] if os.path.exists(out) else []
     return composite(items[0]["measure"]) if items and "measure" in items[0] else None
@@ -146,13 +152,24 @@ def measure(a, saved, side):
 def evaluate(a):
     saved = json.load(open(os.path.join(a.out, "pairs.json")))
     a.seed = saved["seed"]
+    pairs = read_pairs()
+    # Each board once, several at a time (a board can be in more than one pair).
+    boards = {}
+    for p in pairs:
+        s = saved["pairs"].get(p["id"])
+        for side in ("a", "b"):
+            if s and s[side]:
+                boards[(s["deck"], s[side]["index"])] = s
+    with cf.ThreadPoolExecutor(a.jobs) as ex:
+        futures = {k: ex.submit(measure, a, s, k[1]) for k, s in boards.items()}
+        measured = {k: f.result() for k, f in futures.items()}
     rows = []
-    for p in read_pairs():
+    for p in pairs:
         s = saved["pairs"].get(p["id"])
         if not s or not s["a"] or not s["b"]:
             rows.append((p, None, None, "non trovata"))
             continue
-        ca, cb = measure(a, s, "a"), measure(a, s, "b")
+        ca, cb = measured[(s["deck"], s["a"]["index"])], measured[(s["deck"], s["b"]["index"])]
         if ca is None or cb is None:
             rows.append((p, ca, cb, "misura fallita"))
             continue
@@ -168,8 +185,22 @@ def evaluate(a):
     for certainty in ("sicura", "da confermare"):
         judged = [r for r in rows if r[0]["certainty"] == certainty and (r[3] == "giusta" or r[3].startswith("sbagliata"))]
         right = sum(r[3] == "giusta" for r in judged)
-        print(f"\n{certainty}: {right} giuste su {len(judged)} misurate", end="")
+        even = sum("A≈B" in r[3] for r in judged)
+        print(f"\n{certainty}: {right} giuste su {len(judged)} misurate, {even} pari, {len(judged) - right - even} al contrario", end="")
     print()
+    results = {p["id"]: {"a": ca, "b": cb, "outcome": verdict} for p, ca, cb, verdict in rows}
+    if a.save:
+        json.dump(results, open(a.save, "w"), indent=1)
+    if a.against:
+        before = json.load(open(a.against))
+        changed = [(p, before.get(p["id"]), results[p["id"]]) for p, *_ in rows
+                   if before.get(p["id"], {}).get("outcome") != results[p["id"]]["outcome"]]
+        print(f"\nCambiate rispetto a {os.path.basename(a.against)}: {len(changed)}")
+        f = lambda x: "—" if x is None else f"{x:.2f}"  # noqa: E731
+        for p, old, new in changed:
+            old = old or {"a": None, "b": None, "outcome": "—"}
+            print(f"- {p['id']} {p['deck']} ({p['certainty']}): {old['outcome']} ({f(old['a'])} / {f(old['b'])}) → "
+                  f"{new['outcome']} ({f(new['a'])} / {f(new['b'])})")
 
 
 def sheet(a):
@@ -249,6 +280,9 @@ def main():
     e = sub.add_parser("eval")
     e.add_argument("out")
     e.add_argument("--cli", default=os.path.join(ROOT, "target", "release", "duelforge-cli"))
+    e.add_argument("--jobs", type=int, default=4, help="boards measured at once")
+    e.add_argument("--save", help="write each pair's measures and outcome to this JSON file")
+    e.add_argument("--against", help="a file written by --save: list the pairs whose outcome changed")
     s = sub.add_parser("sheet")
     s.add_argument("folder", help="a folder written by combo_hunt.py --json")
     s.add_argument("out_md")
