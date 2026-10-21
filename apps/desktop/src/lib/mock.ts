@@ -1757,6 +1757,13 @@ function buildMockScoreForBoard(b: ComboBoard, vsDeckId?: number | null): ComboS
           windows: 21,
           stops: 0,
           at: [],
+          drawn: 9,
+          moments: [
+            { playing: 86120751, stops: false, drawn: 9 }, // Aleister
+            { playing: 70383419, stops: false, drawn: 8 }, // Artemis
+            { playing: 97300502, stops: false, drawn: 5 }, // Secure Gardna
+            { playing: 74063034, stops: false, drawn: 2 }, // Invocation
+          ],
         },
         {
           code: 73642296, // Mulcharmy Fuwalos
@@ -1764,6 +1771,12 @@ function buildMockScoreForBoard(b: ComboBoard, vsDeckId?: number | null): ComboS
           windows: 14,
           stops: 0,
           at: [],
+          drawn: 7,
+          moments: [
+            { playing: 70383419, stops: false, drawn: 7 }, // Artemis
+            { playing: 97300502, stops: false, drawn: 4 }, // Secure Gardna
+            { playing: 74063034, stops: false, drawn: 2 }, // Invocation
+          ],
         },
       ],
       error: null,
@@ -2725,7 +2738,15 @@ export const mockApi: Api = {
       { steps: 13, playing: 97300502, fieldValue: 0.28, floodgateValue: 0.9, drawn: 8, expected: 0.8 },
       { steps: 15, playing: 74063034, fieldValue: 0.28, floodgateValue: 0.9, drawn: 9, expected: 0.78 },
     ];
-    return [{ code: 23434538, stops, best: 2, standardBreakers: false }];
+    const fuwalosStops = [
+      { steps: 9, playing: 70383419, fieldValue: 0, floodgateValue: 0.9, drawn: 3, expected: 0.65 },
+      { steps: 13, playing: 97300502, fieldValue: 0.28, floodgateValue: 0.9, drawn: 6, expected: 0.82 },
+      { steps: 15, playing: 74063034, fieldValue: 0.28, floodgateValue: 0.9, drawn: 7, expected: 0.79 },
+    ];
+    return [
+      { code: 23434538, stops, best: 2, standardBreakers: false },
+      { code: 73642296, stops: fuwalosStops, best: 1, standardBreakers: false },
+    ];
   },
 
   comboExplain: async (_hand: number, key: string): Promise<ComboStep[]> => {

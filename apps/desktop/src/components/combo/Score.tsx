@@ -512,14 +512,63 @@ function RivalHandTrapRow({
             ({chancePct}%)
           </span>
         </span>
-        <span className={`shrink-0 text-[11px] font-medium tabular-nums ${stopsLine ? "text-warn" : "text-faint"}`}>
-          {stopsLine ? `ferma in ${plural(h.stops, "momento", "momenti")} su ${h.windows}` : `usata in ${h.windows} momenti (0 fermate)`}
+        <span className={`shrink-0 text-[11px] font-medium tabular-nums ${stopsLine ? "text-warn" : h.drawn != null && h.drawn > 0 ? "text-warn font-semibold" : "text-faint"}`}>
+          {stopsLine
+            ? `ferma in ${plural(h.stops, "momento", "momenti")} su ${h.windows}`
+            : h.drawn != null && h.drawn > 0
+            ? `fa pescare fino a ${plural(h.drawn, "carta", "carte")}`
+            : `usata in ${h.windows} momenti (0 fermate)`}
         </span>
       </div>
+      {stopsLine && h.drawn != null && h.drawn > 0 && (
+        <p className="text-[11px] text-warn pl-3.5">
+          Fa pescare fino a <b className="tabular-nums">{plural(h.drawn, "carta", "carte")}</b>.
+        </p>
+      )}
       {targets.length > 0 && (
         <p className="text-[11px] text-muted pl-3.5">
           Agisce su: <span className="text-text font-medium">{targets.join(", ")}</span>
         </p>
+      )}
+      {h.moments && h.moments.length > 0 && (
+        <details className="mt-0.5 pl-3.5 group/moments">
+          <summary className="cursor-pointer text-[10px] text-muted hover:text-text select-none">
+            Momenti in cui si può usare ({h.moments.length})
+            <span className="ml-1 text-faint group-open/moments:hidden">· mostra</span>
+            <span className="ml-1 hidden text-faint group-open/moments:inline">· nascondi</span>
+          </summary>
+          <div className="mt-1 flex flex-col gap-0.5 border-l-2 border-border/70 pl-2">
+            {h.moments.map((m, idx) => {
+              const mCard = m.playing ? getCard(m.playing) : null;
+              const mName = mCard?.name ?? (m.playing ? String(m.playing) : "Inizio turno");
+              return (
+                <div key={idx} className="flex items-center justify-between text-[10px] py-0.5">
+                  <span className="flex items-center gap-1.5 min-w-0">
+                    <span className={m.stops ? "text-danger" : "text-faint"} aria-hidden>
+                      {m.stops ? "●" : "○"}
+                    </span>
+                    <span
+                      className="truncate text-text font-medium cursor-default"
+                      title={mName}
+                      onPointerEnter={m.playing ? (e) => onHover?.(m.playing!, e.currentTarget) : undefined}
+                      onPointerLeave={onHoverEnd}
+                    >
+                      {mName}
+                    </span>
+                    {m.stops && <span className="text-[9px] text-danger font-semibold">ferma la linea</span>}
+                  </span>
+                  {m.drawn > 0 ? (
+                    <span className="shrink-0 font-bold tabular-nums text-warn">
+                      +{m.drawn} {plural(m.drawn, "pescata", "pescate")}
+                    </span>
+                  ) : (
+                    <span className="shrink-0 text-faint tabular-nums">0 carte</span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </details>
       )}
     </li>
   );
@@ -761,26 +810,37 @@ export function ScoreBreakdown({
                 )}
 
                 {s.matchup.handTraps.some((h) => h.stops === 0) && (
-                  <div className="mt-1 border-t border-border/50 pt-2 flex flex-col gap-1">
+                  <div className="mt-1 border-t border-border/50 pt-2 flex flex-col gap-1.5">
                     <p className="text-[11px] text-faint">Si usano ma non fermano la linea (fanno solo pescare o non alterano il risultato):</p>
-                    <div className="flex flex-wrap gap-1.5">
-                      {s.matchup.handTraps
-                        .filter((h) => h.stops === 0)
-                        .map((h) => {
-                          const cName = getCard(h.code)?.name ?? String(h.code);
-                          return (
-                            <span
-                              key={h.code}
-                              className="chip !py-0.5 !px-2 text-[10px] text-muted"
-                              title={`${cName}: usata in ${h.windows} momenti ma la board finale rimane identica`}
-                              onPointerEnter={(e) => onHover?.(h.code, e.currentTarget)}
-                              onPointerLeave={onHoverEnd}
-                            >
-                              {cName} ({Math.round(h.chance * 100)}%)
-                            </span>
-                          );
-                        })}
-                    </div>
+                    {s.matchup.handTraps.filter((h) => h.stops === 0 && h.drawn != null && h.drawn > 0).length > 0 && (
+                      <ul className="flex flex-col">
+                        {s.matchup.handTraps
+                          .filter((h) => h.stops === 0 && h.drawn != null && h.drawn > 0)
+                          .map((h) => (
+                            <RivalHandTrapRow key={h.code} h={h} getCard={getCard} onHover={onHover} onHoverEnd={onHoverEnd} />
+                          ))}
+                      </ul>
+                    )}
+                    {s.matchup.handTraps.filter((h) => h.stops === 0 && (h.drawn == null || h.drawn === 0)).length > 0 && (
+                      <div className="flex flex-wrap gap-1.5">
+                        {s.matchup.handTraps
+                          .filter((h) => h.stops === 0 && (h.drawn == null || h.drawn === 0))
+                          .map((h) => {
+                            const cName = getCard(h.code)?.name ?? String(h.code);
+                            return (
+                              <span
+                                key={h.code}
+                                className="chip !py-0.5 !px-2 text-[10px] text-muted"
+                                title={`${cName}: usata in ${h.windows} momenti ma la board finale rimane identica`}
+                                onPointerEnter={(e) => onHover?.(h.code, e.currentTarget)}
+                                onPointerLeave={onHoverEnd}
+                              >
+                                {cName} ({Math.round(h.chance * 100)}%)
+                              </span>
+                            );
+                          })}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
