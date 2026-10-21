@@ -138,6 +138,66 @@ pub struct DeckLinks {
     pub lines: u32,
 }
 
+/// What changes from the map of one version of a deck to another's.
+#[derive(Debug, Clone, Default)]
+pub struct LinksDiff {
+    /// Links only in the new version, and only in the old one (by cards and kind).
+    pub gained: Vec<CardLink>,
+    pub lost: Vec<CardLink>,
+    /// Cards in both whose chance, key or reach changed, the most changed first.
+    pub changed: Vec<CardChange>,
+    /// Cards put in and taken out.
+    pub added: Vec<u32>,
+    pub removed: Vec<u32>,
+    /// Cards an opening hand reaches on average (the sum of the chances), before and after.
+    pub reached: (f64, f64),
+}
+
+/// A card in both versions: its numbers before and after.
+#[derive(Debug, Clone)]
+pub struct CardChange {
+    pub code: u32,
+    pub chance: (f64, f64),
+    pub key: (f64, f64),
+    pub reach_all: (u32, u32),
+}
+
+/// Smaller changes of a card's chance and key are noise of the hands searched.
+const CHANGE: f64 = 0.02;
+
+/// Compares the map of a deck (`old`) with that of another version (`new`).
+pub fn compare_links(old: &DeckLinks, new: &DeckLinks) -> LinksDiff {
+    let id = |l: &CardLink| (l.from, l.to, l.kind);
+    let before: HashSet<(u32, u32, LinkKind)> = old.links.iter().map(id).collect();
+    let after: HashSet<(u32, u32, LinkKind)> = new.links.iter().map(id).collect();
+    let card = |map: &DeckLinks, code: u32| map.cards.iter().find(|c| c.code == code).cloned();
+    let mut changed: Vec<CardChange> = new
+        .cards
+        .iter()
+        .filter_map(|n| {
+            let o = card(old, n.code)?;
+            let moved = (n.chance - o.chance).abs() >= CHANGE || (n.key - o.key).abs() >= CHANGE || n.reach_all != o.reach_all;
+            moved.then_some(CardChange {
+                code: n.code,
+                chance: (o.chance, n.chance),
+                key: (o.key, n.key),
+                reach_all: (o.reach_all, n.reach_all),
+            })
+        })
+        .collect();
+    let size = |c: &CardChange| (c.chance.1 - c.chance.0).abs() + (c.key.1 - c.key.0).abs();
+    changed.sort_by(|a, b| size(b).total_cmp(&size(a)).then(a.code.cmp(&b.code)));
+    let reached = |map: &DeckLinks| map.cards.iter().map(|c| c.chance).sum::<f64>();
+    LinksDiff {
+        gained: new.links.iter().filter(|l| !before.contains(&id(l))).cloned().collect(),
+        lost: old.links.iter().filter(|l| !after.contains(&id(l))).cloned().collect(),
+        changed,
+        added: new.cards.iter().filter(|c| card(old, c.code).is_none()).map(|c| c.code).collect(),
+        removed: old.cards.iter().filter(|c| card(new, c.code).is_none()).map(|c| c.code).collect(),
+        reached: (reached(old), reached(new)),
+    }
+}
+
 /// How much is searched to read the links.
 #[derive(Debug, Clone, Copy)]
 pub struct LinksBudget {

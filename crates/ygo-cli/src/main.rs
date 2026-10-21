@@ -171,6 +171,10 @@ enum Cmd {
         /// then the deck's reusing what was searched for it.
         #[arg(long)]
         after: Option<PathBuf>,
+        /// With --after: print what changes from the earlier version
+        /// instead of the whole map.
+        #[arg(long, requires = "after")]
+        diff: bool,
     },
     /// A deck's typical opening: the moves of its best lines from random
     /// hands, the most played first (the probe turn against a deck, level 2).
@@ -326,8 +330,8 @@ fn main() -> Result<()> {
         }
         Cmd::HandTraps { deck } => hand_traps(&cli.data, &deck),
         Cmd::RivalPlays { deck, hands, nodes, seed } => rival_plays(&cli.data, &deck, hands, nodes, seed),
-        Cmd::Links { deck, nodes, hands, threads, json, after } => {
-            links(&cli.data, &deck, nodes, hands, threads, json.as_deref(), after.as_deref())
+        Cmd::Links { deck, nodes, hands, threads, json, after, diff } => {
+            links(&cli.data, &deck, nodes, hands, threads, json.as_deref(), after.as_deref(), diff)
         }
         Cmd::CardValues { deck } => card_values(&cli.data, &deck),
         Cmd::KitMix { lines, top, seed } => kit_mix(&cli.data, &lines, top, seed),
@@ -1089,6 +1093,7 @@ fn search(dir: &Path, text: &str, limit: usize) -> Result<()> {
     Ok(())
 }
 
+#[allow(clippy::too_many_arguments)]
 fn links(
     dir: &Path,
     deck: &Path,
@@ -1097,6 +1102,7 @@ fn links(
     threads: Option<usize>,
     json: Option<&Path>,
     after: Option<&Path>,
+    diff: bool,
 ) -> Result<()> {
     let engine = load_engine(dir)?;
     let read = |path: &Path| -> Result<DeckList> {
@@ -1108,12 +1114,12 @@ fn links(
     let budget = ygo_solver::LinksBudget { hands_per_card: hands, nodes_per_hand: nodes, threads, ..ygo_solver::LinksBudget::default() };
     let cancel = std::sync::atomic::AtomicBool::new(false);
     // The earlier version first, its work kept for the deck's.
-    let previous = match after {
+    let earlier = match after {
         Some(path) => {
             let started = std::time::Instant::now();
-            let (_, work) = ygo_solver::deck_links_again(&engine, &read(path)?, 1, budget, &cancel, |_, _, _| {}, None);
+            let read = ygo_solver::deck_links_again(&engine, &read(path)?, 1, budget, &cancel, |_, _, _| {}, None);
             eprintln!("earlier version read in {:.1} s", started.elapsed().as_secs_f64());
-            Some(work)
+            Some(read)
         }
         None => None,
     };
@@ -1128,9 +1134,13 @@ fn links(
         }
         eprint!("\r{done}/{total} hands");
     };
-    let (map, _) = ygo_solver::deck_links_again(&engine, &deck, 1, budget, &cancel, progress, previous.as_ref());
+    let (map, _) = ygo_solver::deck_links_again(&engine, &deck, 1, budget, &cancel, progress, earlier.as_ref().map(|(_, work)| work));
     eprintln!();
     let db = engine.cards();
+    if let (true, Some((old, _))) = (diff, &earlier) {
+        print_links_diff(db, &ygo_solver::compare_links(old, &map), started.elapsed().as_secs_f64());
+        return Ok(());
+    }
     println!(
         "{} cards, {} links ({} used) from {} hands and {} lines in {:.1} s",
         map.cards.len(),
@@ -1181,6 +1191,32 @@ fn links(
         std::fs::write(path, serde_json::to_string_pretty(&doc)?)?;
     }
     Ok(())
+}
+
+fn print_links_diff(db: &ygo_engine::CardDb, diff: &ygo_solver::LinksDiff, seconds: f64) {
+    println!("read in {seconds:.1} s; an opening hand reaches {:.2} cards on average, {:.2} before", diff.reached.1, diff.reached.0);
+    let names = |codes: &[u32]| codes.iter().map(|&c| db.name(c)).collect::<Vec<_>>().join(", ");
+    println!("added: {}", names(&diff.added));
+    println!("removed: {}", names(&diff.removed));
+    for (title, links) in [("gained", &diff.gained), ("lost", &diff.lost)] {
+        println!("{} links {title}", links.len());
+        for l in links.iter() {
+            println!("    {:<40} {:<9} {:<8} {}", db.name(l.from), l.kind.key(), l.zone.key(), db.name(l.to));
+        }
+    }
+    println!("{} cards changed", diff.changed.len());
+    for c in &diff.changed {
+        println!(
+            "    {:<45} reached {:>3.0}% -> {:>3.0}% · key {:.2} -> {:.2} · reach {} -> {}",
+            db.name(c.code),
+            c.chance.0 * 100.0,
+            c.chance.1 * 100.0,
+            c.key.0,
+            c.key.1,
+            c.reach_all.0,
+            c.reach_all.1
+        );
+    }
 }
 
 fn rival_plays(dir: &Path, deck: &Path, hands: usize, nodes: u64, seed: u64) -> Result<()> {
