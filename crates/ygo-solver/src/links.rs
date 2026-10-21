@@ -11,7 +11,7 @@ use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
-use ygo_engine::consts::{location, reason};
+use ygo_engine::consts::{card_type, location, reason};
 use ygo_engine::{CardRef, Decision, DeckList, Duel, Engine, Event, Opponent, Step};
 
 use crate::card::sample_hands;
@@ -102,6 +102,8 @@ pub struct CardLink {
     pub possible: bool,
     /// Share of the lines played that use it, 0 to 1.
     pub used: f64,
+    /// The card's text names it (an effect the lines may never use).
+    pub text: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -168,31 +170,68 @@ impl Default for LinksBudget {
 /// A link seen in a line: from, to, kind, where `to` came from.
 type Key = (u32, u32, LinkKind, Zone);
 
-/// A link over all lines: the first zone seen, offered, the lines using it.
+/// A link over all lines: the first zone seen, offered, named by the text,
+/// the lines using it.
 struct Found {
     zone: Zone,
     offered: bool,
+    text: bool,
     lines: HashSet<usize>,
 }
 
 /// The links of one line: those offered and those used; the Extra Deck
 /// monsters it summons.
-#[derive(Default)]
+#[derive(Default, Clone)]
 struct Seen {
     possible: HashSet<Key>,
     used: HashSet<Key>,
     summoned: HashSet<u32>,
 }
 
-/// Reads the map of `deck`, calling `progress(done, total)` after each hand.
+/// The hands searched for a map and the lines played from each: kept to
+/// read the map again after the deck changes, searching only the hands
+/// the change needs ([`deck_links_again`]).
+#[derive(Debug, Clone, Default)]
+pub struct LinksWork {
+    hands: Vec<(Vec<u32>, Vec<Seen>)>,
+}
+
+impl std::fmt::Debug for Seen {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{} links used", self.used.len())
+    }
+}
+
+/// Reads the map of `deck`. `progress(done, total, map)` comes first with
+/// the map read from the cards' text alone (`done` 0), then after each
+/// hand searched with the map so far: a draft at once, filled in as the
+/// engine plays.
 pub fn deck_links(
     engine: &Engine,
     deck: &DeckList,
     seed: u64,
     budget: LinksBudget,
     cancel: &AtomicBool,
-    progress: impl Fn(usize, usize) + Sync,
+    progress: impl Fn(usize, usize, &DeckLinks) + Sync,
 ) -> DeckLinks {
+    deck_links_again(engine, deck, seed, budget, cancel, progress, None).0
+}
+
+/// [`deck_links`], reusing what was read for an earlier version of the
+/// deck: the hands whose cards are all still in it and whose lines use no
+/// card taken out are kept, and only the hands needed to give each card
+/// its hands again are searched (a card or two changed: a few seconds).
+/// The lines of a kept hand do not see the cards added; those get their
+/// own hands, and the text names what they lead to.
+pub fn deck_links_again(
+    engine: &Engine,
+    deck: &DeckList,
+    seed: u64,
+    budget: LinksBudget,
+    cancel: &AtomicBool,
+    progress: impl Fn(usize, usize, &DeckLinks) + Sync,
+    previous: Option<&LinksWork>,
+) -> (DeckLinks, LinksWork) {
     let db = engine.cards();
     let mut cards: Vec<LinkCard> = Vec::new();
     for (codes, extra) in [(&deck.main, false), (&deck.extra, true)] {
@@ -204,32 +243,64 @@ pub fn deck_links(
             }
         }
     }
+    let named = Names::new(engine, &cards);
+    let text = text_links(engine, &cards, &named);
 
-    // A few hands holding each card of the Main Deck.
+    // A few hands holding each card of the Main Deck. The first hand of
+    // every card, then the second ones: a map cut short by the time limit
+    // still has every card.
     let kit = Kit::standard(engine);
     let traps = hand_traps(engine, deck, seed, &kit);
-    // The first hand of every card, then the second ones: a map cut short
-    // by the time limit still has every card.
     let mut per_card: Vec<Vec<Vec<u32>>> = Vec::new();
     for card in cards.iter().filter(|c| !c.extra) {
         let Some(&copy) = deck.main.iter().find(|&&c| db.canonical_code(c) == card.code) else { continue };
         per_card.push(sample_hands(&deck.main, copy, budget.hands_per_card, seed).into_iter().map(|(hand, _)| hand).collect());
     }
+    // The hands kept from before: their cards still in the deck, their
+    // lines using none taken out.
+    let in_deck: HashSet<u32> = cards.iter().map(|c| c.code).collect();
+    let copies: HashMap<u32, u32> = cards.iter().map(|c| (c.code, c.copies)).collect();
+    let fits = |hand: &[u32]| {
+        let mut held: HashMap<u32, u32> = HashMap::new();
+        for &c in hand {
+            *held.entry(db.canonical_code(c)).or_default() += 1;
+        }
+        held.iter().all(|(c, n)| copies.get(c).is_some_and(|k| k >= n))
+    };
+    let kept: Vec<(Vec<u32>, Vec<Seen>)> = previous
+        .map(|w| {
+            w.hands
+                .iter()
+                .filter(|(hand, lines)| {
+                    fits(hand) && lines.iter().all(|l| l.used.iter().all(|(from, to, _, _)| in_deck.contains(from) && in_deck.contains(to)))
+                })
+                .cloned()
+                .collect()
+        })
+        .unwrap_or_default();
+    let holds = |hand: &[u32], code: u32| hand.iter().any(|&c| db.canonical_code(c) == code);
     let mut hands: Vec<Vec<u32>> = Vec::new();
     for round in 0..budget.hands_per_card {
-        for hand in per_card.iter().filter_map(|h| h.get(round)) {
-            if !hands.contains(hand) {
+        for (card, sampled) in cards.iter().filter(|c| !c.extra).zip(&per_card) {
+            // A card with its hands among those kept needs no new one.
+            let have = kept.iter().filter(|(h, _)| holds(h, card.code)).count() + hands.iter().filter(|h| holds(h, card.code)).count();
+            if have > round {
+                continue;
+            }
+            if let Some(hand) = sampled.get(round).filter(|h| !hands.contains(h) && !kept.iter().any(|(k, _)| k == *h)) {
                 hands.push(hand.clone());
             }
         }
     }
+    let first: Vec<Vec<Seen>> = kept.iter().map(|(_, lines)| lines.clone()).collect();
+    progress(0, hands.len(), &assemble(deck, &cards, &first, &text));
     let deadline = Instant::now() + budget.time;
 
-    let named = Names::new(engine, &cards);
     let next = AtomicUsize::new(0);
-    let done = AtomicUsize::new(0);
-    // The lines played of each hand, the best first.
-    let seen: Mutex<Vec<Vec<Seen>>> = Mutex::new(Vec::new());
+    // The lines played of each hand, the best first: those kept, then each
+    // hand searched.
+    let seen: Mutex<Vec<(Vec<u32>, Vec<Seen>)>> = Mutex::new(kept);
+    let kept_count = first.len();
     std::thread::scope(|s| {
         for _ in 0..budget.threads.clamp(1, hands.len().max(1)) {
             s.spawn(|| loop {
@@ -254,28 +325,44 @@ pub fn deck_links(
                     .filter_map(|b| play(engine, deck, hand, seed, config.opponent.as_ref(), &b.line, &named))
                     .collect();
                 if let Ok(mut all) = seen.lock() {
-                    all.push(lines);
+                    all.push((hand.clone(), lines));
+                    let lines: Vec<Vec<Seen>> = all.iter().map(|(_, l)| l.clone()).collect();
+                    progress(all.len() - kept_count, hands.len(), &assemble(deck, &cards, &lines, &text));
                 }
-                progress(done.fetch_add(1, Ordering::Relaxed) + 1, hands.len());
             });
         }
     });
-    let by_hand = seen.into_inner().unwrap_or_default();
+    let work = LinksWork { hands: seen.into_inner().unwrap_or_default() };
+    let by_hand: Vec<Vec<Seen>> = work.hands.iter().map(|(_, l)| l.clone()).collect();
+    (assemble(deck, &cards, &by_hand, &text), work)
+}
+
+/// The map from the lines played of each hand and the links the text names.
+fn assemble(deck: &DeckList, cards: &[LinkCard], by_hand: &[Vec<Seen>], text: &HashSet<Key>) -> DeckLinks {
+    let mut cards = cards.to_vec();
     let seen: Vec<&Seen> = by_hand.iter().flatten().collect();
 
     // Links between cards of the deck, one per card and kind, from the
     // first zone seen; used ones counted once per line.
     let in_deck: HashSet<u32> = cards.iter().map(|c| c.code).collect();
     let mut found: HashMap<(u32, u32, LinkKind), Found> = HashMap::new();
+    let mut add = |&(from, to, kind, zone): &Key, offered: bool, named: bool, line: Option<usize>| {
+        let entry = found.entry((from, to, kind)).or_insert(Found { zone, offered: false, text: false, lines: HashSet::new() });
+        entry.zone = entry.zone.min(zone);
+        entry.offered |= offered;
+        entry.text |= named;
+        entry.lines.extend(line);
+    };
     for (i, line) in seen.iter().enumerate() {
-        for (&(from, to, kind, zone), used) in line.possible.iter().map(|k| (k, false)).chain(line.used.iter().map(|k| (k, true))) {
-            let entry = found.entry((from, to, kind)).or_insert(Found { zone, offered: false, lines: HashSet::new() });
-            entry.zone = entry.zone.min(zone);
-            entry.offered |= !used;
-            if used {
-                entry.lines.insert(i);
-            }
+        for k in &line.possible {
+            add(k, true, false, None);
         }
+        for k in &line.used {
+            add(k, false, false, Some(i));
+        }
+    }
+    for k in text {
+        add(k, false, true, None);
     }
     let mut links: Vec<CardLink> = found
         .into_iter()
@@ -287,6 +374,7 @@ pub fn deck_links(
             zone: f.zone,
             possible: f.offered || !f.lines.is_empty(),
             used: f.lines.len() as f64 / seen.len().max(1) as f64,
+            text: f.text,
         })
         .collect();
     links.sort_by_key(|l| (l.from, l.kind, l.to));
@@ -387,6 +475,154 @@ impl Names {
     }
 }
 
+/// The links the cards' text names: an effect that adds, summons, sends,
+/// sets or places cards named in quotes (a card's name, or an archetype in
+/// it) from a zone, and the materials an Extra Deck monster names. A draft
+/// read at once, and the effects the lines found never use.
+fn text_links(engine: &Engine, cards: &[LinkCard], named: &Names) -> HashSet<Key> {
+    let db = engine.cards();
+    let mut out = HashSet::new();
+    let is_monster = |code: u32| db.get(code).is_some_and(|c| c.type_ & card_type::MONSTER != 0);
+    for monster in cards.iter().filter(|c| c.extra) {
+        // A material is a monster ("R.B. Stage Landing" holds the archetype too).
+        for m in cards.iter().filter(|m| is_monster(m.code) && named.named(m.code, monster.code)) {
+            out.insert((m.code, monster.code, LinkKind::Material, Zone::Extra));
+        }
+    }
+    for card in cards {
+        let Some(data) = db.get(card.code) else { continue };
+        let text = data.desc.to_lowercase();
+        for clause in clauses(&text) {
+            let Some((kind, zone)) = clause_kind(clause) else { continue };
+            for (name, what) in quoted(clause) {
+                for target in cards.iter().filter(|t| fits(engine, t, &name, what, zone, kind, named)) {
+                    out.insert((card.code, target.code, kind, zone));
+                }
+            }
+        }
+    }
+    out
+}
+
+/// The clauses of a text: split at the end of sentences, at ";" and ":",
+/// never inside quotes (names like "R.B.").
+fn clauses(text: &str) -> Vec<&str> {
+    let mut out = Vec::new();
+    let mut from = 0;
+    let mut quoted = false;
+    for (i, c) in text.char_indices() {
+        match c {
+            '"' => quoted = !quoted,
+            '.' | ';' | ':' | '\n' | '\r' if !quoted => {
+                out.push(&text[from..i]);
+                from = i + c.len_utf8();
+            }
+            _ => {}
+        }
+    }
+    out.push(&text[from..]);
+    out
+}
+
+/// What a clause does with the cards it names, and from where: the zones
+/// after "from your", the Deck first (it brings a new card).
+fn clause_kind(clause: &str) -> Option<(LinkKind, Zone)> {
+    let at = clause.find("from your ")?;
+    let place = &clause[at + 10..];
+    let place = &place[..place.find(" to ").unwrap_or(place.len())];
+    let zone = if place.contains("extra deck") {
+        Zone::Extra
+    } else if place.contains("deck") {
+        Zone::Deck
+    } else if place.contains("gy") || place.contains("graveyard") {
+        Zone::Grave
+    } else if place.contains("banish") {
+        Zone::Banished
+    } else if place.contains("hand") {
+        Zone::Hand
+    } else {
+        return None;
+    };
+    let summons = ["special summon", "fusion summon", "ritual summon", "synchro summon", "xyz summon", "link summon"];
+    let kind = if clause.contains("add") && clause.contains("to your hand") {
+        if zone == Zone::Deck {
+            LinkKind::Search
+        } else if matches!(zone, Zone::Grave | Zone::Banished) {
+            LinkKind::Recover
+        } else {
+            return None;
+        }
+    } else if summons.iter().any(|w| clause.contains(w)) {
+        LinkKind::Summon
+    } else if clause.contains("send") && clause.contains("to the gy") && zone == Zone::Deck {
+        LinkKind::ToGrave
+    } else if (clause.contains("set ") || clause.contains("place ")) && zone == Zone::Deck {
+        LinkKind::Set
+    } else {
+        return None;
+    };
+    Some((kind, zone))
+}
+
+/// The kind of card a quoted name stands for, from the word after it.
+#[derive(Clone, Copy, PartialEq)]
+enum What {
+    Any,
+    Monster,
+    Spell,
+    Trap,
+    SpellTrap,
+}
+
+/// The names in quotes in a clause, with the kind of card each stands for.
+fn quoted(clause: &str) -> Vec<(String, What)> {
+    let parts: Vec<&str> = clause.split('"').collect();
+    (1..parts.len())
+        .step_by(2)
+        .filter(|&i| !parts[i].trim().is_empty())
+        .map(|i| {
+            let after = parts.get(i + 1).map_or("", |a| a.trim_start());
+            let what = if after.starts_with("spell/trap") || after.starts_with("spell or trap") {
+                What::SpellTrap
+            } else if after.starts_with("spell") {
+                What::Spell
+            } else if after.starts_with("trap") {
+                What::Trap
+            } else if after.starts_with("monster") || after.split_whitespace().nth(1).is_some_and(|w| w.starts_with("monster")) {
+                What::Monster
+            } else {
+                What::Any
+            };
+            (parts[i].trim().to_owned(), what)
+        })
+        .collect()
+}
+
+/// `target` is a card `name` (in quotes) stands for, of kind `what`, that
+/// can come from `zone`: the card of that name, or one whose name holds it
+/// when no card has it as its name (an archetype).
+fn fits(engine: &Engine, target: &LinkCard, name: &str, what: What, zone: Zone, kind: LinkKind, named: &Names) -> bool {
+    let Some(card) = engine.cards().get(target.code) else { return false };
+    let Some(own) = named.names.get(&target.code) else { return false };
+    let exact = named.names.values().any(|n| n == name);
+    let by_name = if exact { own == name } else { own.contains(name) };
+    let kind_ok = match what {
+        What::Any => true,
+        What::Monster => card.type_ & card_type::MONSTER != 0,
+        What::Spell => card.type_ & card_type::SPELL != 0,
+        What::Trap => card.type_ & card_type::TRAP != 0,
+        What::SpellTrap => card.type_ & (card_type::SPELL | card_type::TRAP) != 0,
+    };
+    // An Extra Deck monster comes from the Extra Deck, and is summoned.
+    let zone_ok = match zone {
+        Zone::Extra => target.extra,
+        Zone::Deck | Zone::Hand => !target.extra,
+        Zone::Grave | Zone::Banished => true,
+    };
+    let kind_fits = kind != LinkKind::Summon || card.type_ & card_type::MONSTER != 0;
+    by_name && kind_ok && zone_ok && kind_fits
+}
+
 /// Follows a line played again: what causes each move, and its links.
 #[derive(Default)]
 struct Reader {
@@ -424,6 +660,9 @@ impl Reader {
                     self.chain.clear();
                     self.solving.clear();
                 }
+                // An effect applied later (in the End Phase) belongs to no
+                // action of this phase: better no cause than the last card.
+                Event::NewPhase { .. } => self.acting = None,
                 Event::Move { code, from, to, reason: why } if to.controller == 0 => {
                     let code = db.canonical_code(*code);
                     self.moved_from.insert(code, from.location);

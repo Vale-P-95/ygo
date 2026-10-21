@@ -128,3 +128,32 @@ Abbiamo il motore EDOPro e la ricerca delle combo, quindi possiamo leggere i col
   - Sui deck provati: Branded 63 secondi (48 mani su 68), Elfnote 49, Invoked 23.
 - **Per l'interfaccia.** `LINK_KINDS` deve avere la voce `set`. `LinkCard.measured` dice quando mostrare la probabilità come stima.
 
+
+## Mappa quasi in tempo reale (21/10/2026)
+Il proprietario ha chiesto una mappa quasi istantanea, come quella del sito. Le strade approvate sono tre, tutte fatte: bozza dal testo subito, aggiornamento progressivo, ricalcolo solo delle carte cambiate.
+- **Bozza dal testo, subito.**
+  - Prima di cercare qualunque mano, si leggono i testi delle carte del deck, con regole generali e senza nomi di carte:
+    - "add ... from your Deck to your hand" è cerca, "... from your GY to your hand" è recupera;
+    - "Special/Fusion/Ritual... Summon ... from your Deck/Extra Deck/GY/hand" è Evoca;
+    - "send ... from your Deck to the GY" è manda al Cimitero;
+    - "Set/place ... from your Deck" è posiziona;
+    - i materiali sono quelli nominati dal mostro dell'Extra Deck.
+  - Le carte tra virgolette valgono per nome esatto o per archetipo contenuto nel nome. Le filtra la parola che segue (monster, Spell, Trap) e la zona: un mostro dell'Extra Deck viene solo dall'Extra Deck.
+  - Sul deck Invoked: 74 collegamenti in 0,2 secondi.
+- **I collegamenti del testo restano.** Nella mappa finale un collegamento ha `text` quando il testo lo nomina.
+  - Se il motore non l'ha mai offerto (`possible` falso), è un effetto che le linee trovate non usano: Invoked deck, 16 su 117. Esempi: Invocation - "Chalice" → Invoked Elysium, Sacred Spirit Sword Aiwass → manda Aleister al Cimitero, Artemis → cerca Crowley.
+  - Contano anche nella raggiungibilità e nella probabilità.
+- **Aggiornamento progressivo.**
+  - L'evento `deck-links-progress` ora porta la mappa intera fin lì (`map`) e il deck (`deckId`).
+  - Con `done` 0 c'è la bozza dal testo; poi arriva una mappa aggiornata dopo ogni mano cercata.
+  - L'interfaccia può mostrare subito la bozza e aggiornarla mentre il motore gioca.
+- **Ricalcolo delle sole carte cambiate** (`deck_links_again`, `LinksWork`).
+  - Quando il deck cambia si tengono le mani cercate prima che hanno ancora tutte le loro carte e le cui linee non usano carte tolte. Si cercano solo le mani che servono perché ogni carta abbia di nuovo le sue.
+  - Le linee tenute non vedono le carte aggiunte; quelle hanno mani proprie, e il testo dice dove portano.
+  - L'app tiene il lavoro fatto per ogni deck nella cache e lo riusa alla modifica successiva. Nella CLI: `links --deck <nuovo> --after <vecchio>`.
+  - Sul deck Invoked, con una Ash Blossom cambiata in Called by the Grave: 2 mani da cercare invece di 23, 3,2 secondi invece di 18,5, stessa mappa (116 collegamenti, 74 usati).
+
+## Terzo giro del collaudo (21/10/2026)
+- **Materiali della bozza dal testo.** Ora devono essere mostri. Magie e Trappole con l'archetipo nel nome ("R.B. Stage Landing", "Artmage Vandalism -Assault-") risultavano materiali: 19 collegamenti in 2 deck su 6.
+- **Effetti ritardati.** Un effetto che si applica dopo, nella Fase Finale (Bystial Magnamhut che aggiunge un Drago), non ha più come causa l'ultima carta giocata: la causa si azzera a ogni cambio di fase. Prima Branded Banishment risultava "cercare" Starliege Seyfert.
+- **Numeri del collaudo con la bozza dal testo** (6 deck): i tempi scendono (branded 62 s, earth_machine 64 s); 112 collegamenti su 1118 vengono solo dal testo.
