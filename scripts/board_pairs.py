@@ -11,18 +11,23 @@ search changes): each side of a pair is a list of conditions separated by
 - "!Name": none;
 - "re:REGEX": a field entry matching the regular expression (an equipped
   card reads "Equip -> Monster", an Extra Monster Zone "Monster [EMZ]");
-- "hand:Name", "hand:-" (empty hand), "!hand:-" (not empty).
+- "hand:Name", "hand:-" (empty hand), "!hand:-" (not empty);
+- "sig=SIGNATURE": exactly these cards on the field and in the hand
+  (the board's signature with the zones left out), as `panel` writes.
 
     python3 scripts/board_pairs.py make $S/pairs --decks $S/mdm --extra-decks $S/decks --cli $CLI_BEFORE
     python3 scripts/board_pairs.py eval $S/pairs --cli $CLI_AFTER
     python3 scripts/board_pairs.py sheet $S/json-1 $S/sheet.md
+    python3 scripts/board_pairs.py panel $S/json-1 $S/sheet.md $S/judge-1.json $S/judge-2.json $S/judge-3.json
 
 `make` searches each deck of the pairs once (hand of the "-lines" rule,
 one thread, a fixed seed) and saves the lines of the first board meeting
 each side; `eval` measures those lines again with `probe-line` (no
 search), so the same boards are compared whatever the search finds now.
 `sheet` writes, for the judges, the first 5 distinct boards of each deck
-in a shuffled order and without scores.
+in a shuffled order and without scores; `panel` reads the judges'
+rankings of that sheet and prints, as lines for pairs.tsv, the pairs all
+judges put in the same order (no tie, no low confidence).
 """
 import argparse
 import json
@@ -52,6 +57,8 @@ def read_pairs():
 def meets(board, spec):
     field = board["field"]
     hand = board["hand_names"]
+    if spec.startswith("sig="):
+        return unzoned(board["signature"]) == spec[4:]
     for cond in (c.strip() for c in spec.split(";") if c.strip()):
         negate = cond.startswith("!")
         cond = cond[1:] if negate else cond
@@ -69,6 +76,11 @@ def meets(board, spec):
         if ok == negate:
             return False
     return True
+
+
+def unzoned(signature):
+    """The cards, wherever they are (the same board in other zones)."""
+    return re.sub(r" \[EMZ\]", "", signature)
 
 
 def composite(measure):
@@ -173,6 +185,45 @@ def sheet(a):
     open(a.out_md, "w", encoding="utf-8").write("\n".join(out))
 
 
+def panel(a):
+    """Pairs all the judges agree on, as pairs.tsv lines."""
+    letters = {}
+    deck = None
+    for line in open(a.sheet, encoding="utf-8"):
+        m = re.match(r"## (\S+)", line)
+        if m:
+            deck = m.group(1)
+            continue
+        m = re.match(r"- \*\*(\w)\*\* \(indice (\d+)\)", line)
+        if m and deck:
+            letters.setdefault(deck, {})[m.group(1)] = int(m.group(2))
+    judges = [json.load(open(j, encoding="utf-8")) for j in a.judges]
+    n = 0
+    for deck in sorted(letters):
+        verdicts = [j.get(deck) for j in judges]
+        if any(v is None or v.get("confidence") == "bassa" for v in verdicts):
+            continue
+        boards = {b["index"]: b for b in json.load(open(os.path.join(a.folder, deck + ".json"), encoding="utf-8"))["items"]}
+        tied = [{frozenset(t) for t in v.get("ties", []) for _ in [0]} for v in verdicts]
+        ranks = [{x: i for i, x in enumerate(v["order"])} for v in verdicts]
+        agreed = []
+        for x in letters[deck]:
+            for y in letters[deck]:
+                if x == y or any(any({x, y} <= t for t in ts) for ts in tied):
+                    continue
+                if all(r.get(x, 99) < r.get(y, 99) for r in ranks):
+                    gap = min(r[y] - r[x] for r in ranks)
+                    agreed.append((gap, x, y))
+        # The widest agreements first, two per deck at most.
+        for gap, x, y in sorted(agreed, reverse=True)[: a.per_deck]:
+            n += 1
+            bx, by = boards[letters[deck][x]], boards[letters[deck][y]]
+            why = "; ".join(v.get("note", "") for v in verdicts[:1])
+            name = deck[:-2] if deck.endswith("-0") else deck
+            print(f"J{n}\t{name}\tsig={unzoned(bx['signature'])}\tsig={unzoned(by['signature'])}\tA>B\tsicura\tgiudici d'accordo 3 su 3: {why}")
+    print(f"# {n} coppie", file=sys.stderr)
+
+
 def main():
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -190,8 +241,13 @@ def main():
     s = sub.add_parser("sheet")
     s.add_argument("folder", help="a folder written by combo_hunt.py --json")
     s.add_argument("out_md")
+    j = sub.add_parser("panel")
+    j.add_argument("folder", help="the folder the sheet was made from")
+    j.add_argument("sheet")
+    j.add_argument("judges", nargs="+", help="the judges' JSON files")
+    j.add_argument("--per-deck", type=int, default=2)
     a = p.parse_args()
-    {"make": make, "eval": evaluate, "sheet": sheet}[a.cmd](a)
+    {"make": make, "eval": evaluate, "sheet": sheet, "panel": panel}[a.cmd](a)
 
 
 if __name__ == "__main__":
