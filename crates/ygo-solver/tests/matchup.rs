@@ -50,14 +50,25 @@ impl Lab {
 fn a_deck_brings_the_breakers_and_handtraps_it_can_play() {
     let Some(lab) = lab() else { return };
     let kit = Kit::standard(&lab.engine);
-    let deck = lab.rival_deck(&[("Dark Hole", 1), ("Gameciel, the Sea Turtle Kaiju", 1), ("Evenly Matched", 1), ("Maxx \"C\"", 3)]);
+    let deck = lab.rival_deck(&[
+        ("Dark Hole", 1),
+        ("Gameciel, the Sea Turtle Kaiju", 1),
+        ("Dogoran, the Mad Flame Kaiju", 1),
+        ("Evenly Matched", 1),
+        ("Clockwork Night", 1),
+        ("Maxx \"C\"", 3),
+    ]);
     let rival = Rival::new(&lab.engine, &deck, 1, &kit);
     let breakers = rival.breakers();
-    // Dark Hole from the hand, the Kaiju by its own summon; Evenly Matched
-    // reads like a breaker, but it is played at the end of the Battle Phase.
+    // Dark Hole from the hand, the Kaiju by their own summon (Dogoran by
+    // the text, its monster on your field in place of yours); Evenly Matched
+    // reads like a breaker, but it is played at the end of the Battle Phase;
+    // Clockwork Night only lowers ATK.
     assert!(breakers.contains(&lab.code("Dark Hole")), "{breakers:?}");
     assert!(breakers.contains(&lab.code("Gameciel, the Sea Turtle Kaiju")), "{breakers:?}");
+    assert!(breakers.contains(&lab.code("Dogoran, the Mad Flame Kaiju")), "{breakers:?}");
     assert!(!breakers.contains(&lab.code("Evenly Matched")), "{breakers:?}");
+    assert!(!breakers.contains(&lab.code("Clockwork Night")), "{breakers:?}");
     assert!(rival.hand_traps.contains(&ASH) && rival.hand_traps.contains(&lab.code("Maxx \"C\"")), "{:?}", rival.hand_traps);
 }
 

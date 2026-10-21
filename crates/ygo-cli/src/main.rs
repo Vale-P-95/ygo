@@ -730,7 +730,17 @@ fn probe_line(dir: &Path, setup: &Setup, lines: &Path, index: Option<usize>, jso
         Some(path) => {
             let text = std::fs::read_to_string(path).with_context(|| format!("cannot read {}", path.display()))?;
             let rival = ygo_solver::Rival::new(&engine, &DeckList::from_ydk(&text)?, setup.seed, &kit);
-            let names = |codes: &[u32]| codes.iter().map(|&c| engine.cards().name(c)).collect::<Vec<_>>().join(", ");
+            // Once each: a card the kit plays two ways (Lightning Storm) is one card.
+            let names = |codes: &[u32]| {
+                let mut names: Vec<String> = Vec::new();
+                for &c in codes {
+                    let name = engine.cards().name(c);
+                    if !names.contains(&name) {
+                        names.push(name);
+                    }
+                }
+                names.join(", ")
+            };
             println!("against {}", path.display());
             println!(
                 "   breakers: {}",
@@ -765,8 +775,10 @@ fn probe_line(dir: &Path, setup: &Setup, lines: &Path, index: Option<usize>, jso
             let started = std::time::Instant::now();
             match ygo_solver::matchup(&engine, &deck, &hand, setup.seed, &line, m, rival) {
                 Ok(x) => {
-                    print_matchup(&engine, &x, started.elapsed());
+                    let took = started.elapsed();
+                    print_matchup(&engine, &x, took);
                     extra["matchup"] = matchup_json(&x);
+                    extra["matchup"]["seconds"] = took.as_secs_f64().into();
                 }
                 Err(e) => println!("   matchup failed: {e}"),
             }
@@ -1013,13 +1025,14 @@ fn links(dir: &Path, deck: &Path, nodes: u64, hands: usize, threads: Option<usiz
     cards.sort_by(|a, b| b.reach_all.cmp(&a.reach_all).then(b.reach.cmp(&a.reach)));
     for c in &cards {
         println!(
-            "{:<45} x{} {} reach {:>2} / {:>2} · reached by an opening hand {:>3.0}% · negated, {:.2} cards fewer reached",
+            "{:<45} x{} {} reach {:>2} / {:>2} · reached by an opening hand {:>3.0}%{} · negated, {:.2} cards fewer reached",
             db.name(c.code),
             c.copies,
             if c.extra { "extra" } else { "main " },
             c.reach,
             c.reach_all,
             c.chance * 100.0,
+            if c.measured { " (measured)" } else { "" },
             c.key
         );
         for l in map.links.iter().filter(|l| l.from == c.code) {
@@ -1039,7 +1052,7 @@ fn links(dir: &Path, deck: &Path, nodes: u64, hands: usize, threads: Option<usiz
             "lines": map.lines,
             "cards": map.cards.iter().map(|c| serde_json::json!({
                 "code": c.code, "name": db.name(c.code), "copies": c.copies, "extra": c.extra,
-                "reach": c.reach, "reachAll": c.reach_all, "chance": c.chance, "key": c.key,
+                "reach": c.reach, "reachAll": c.reach_all, "chance": c.chance, "measured": c.measured, "key": c.key,
             })).collect::<Vec<_>>(),
             "links": map.links.iter().map(|l| serde_json::json!({
                 "from": l.from, "to": l.to, "kind": l.kind.key(), "zone": l.zone.key(), "possible": l.possible, "used": l.used,

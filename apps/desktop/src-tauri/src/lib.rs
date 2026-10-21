@@ -1244,8 +1244,10 @@ struct CardLinkView {
     from: u32,
     to: u32,
     /// "search" (from the Deck to the hand), "summon" (Special Summoned),
-    /// "toGrave" (from the Deck to the GY), "recover" (from the GY or
-    /// banished back to the hand or Deck), "material" (`from` is a material of `to`).
+    /// "toGrave" (from the Deck to the GY, a Fusion Material included),
+    /// "recover" (from the GY or banished back to the hand), "material"
+    /// (`from` is a material of `to`), "set" (from the Deck to the field:
+    /// Set, or placed in a Spell & Trap Zone or the Field Zone).
     kind: String,
     /// Where `to` comes from: "deck", "extra", "grave", "banished", "hand".
     zone: String,
@@ -1268,6 +1270,9 @@ struct LinkCardView {
     reach_all: u32,
     /// Chance that an opening hand of 5 holds it or a card that brings it into play.
     chance: f64,
+    /// `chance` is measured (an Extra Deck monster no card names: share of the
+    /// hands searched whose best line summons it), not exact.
+    measured: bool,
     /// Cards an opening hand reaches on average that are lost when its effects are negated.
     key: f64,
 }
@@ -1314,6 +1319,7 @@ fn deck_links(app: tauri::AppHandle, state: State<'_, AppState>, deck_id: i64) -
                 reach: c.reach,
                 reach_all: c.reach_all,
                 chance: c.chance,
+                measured: c.measured,
                 key: c.key,
             })
             .collect(),

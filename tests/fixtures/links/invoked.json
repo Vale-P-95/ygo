@@ -8,16 +8,18 @@
    "code": 86120751,
    "copies": 3,
    "extra": false,
-   "key": 0.4197714921399154,
+   "key": 0.18858737279790105,
+   "measured": false,
    "reach": 8,
-   "reachAll": 11
+   "reachAll": 12
   },
   {
    "chance": 0.7417797352007878,
    "code": 57294268,
    "copies": 3,
    "extra": false,
-   "key": 0.6565588868220473,
+   "key": 0.056187766714078435,
+   "measured": false,
    "reach": 5,
    "reachAll": 12
   },
@@ -26,7 +28,8 @@
    "code": 84288367,
    "copies": 3,
    "extra": false,
-   "key": 1.3710334828755908,
+   "key": 0.8663329321224076,
+   "measured": false,
    "reach": 10,
    "reachAll": 14
   },
@@ -35,18 +38,20 @@
    "code": 10673071,
    "copies": 1,
    "extra": false,
-   "key": 0.0,
-   "reach": 0,
-   "reachAll": 0
+   "key": 0.23153517890359865,
+   "measured": false,
+   "reach": 2,
+   "reachAll": 11
   },
   {
    "chance": 0.125,
    "code": 875572,
    "copies": 1,
    "extra": false,
-   "key": 0.02349059585901969,
+   "key": 0.013039355144616849,
+   "measured": false,
    "reach": 4,
-   "reachAll": 10
+   "reachAll": 12
   },
   {
    "chance": 0.23717948717948734,
@@ -54,6 +59,7 @@
    "copies": 2,
    "extra": false,
    "key": 0.0,
+   "measured": false,
    "reach": 0,
    "reachAll": 0
   },
@@ -63,6 +69,7 @@
    "copies": 3,
    "extra": false,
    "key": 0.0,
+   "measured": false,
    "reach": 0,
    "reachAll": 0
   },
@@ -72,6 +79,7 @@
    "copies": 2,
    "extra": false,
    "key": 0.0,
+   "measured": false,
    "reach": 0,
    "reachAll": 0
   },
@@ -81,6 +89,7 @@
    "copies": 3,
    "extra": false,
    "key": 0.0,
+   "measured": false,
    "reach": 0,
    "reachAll": 0
   },
@@ -90,24 +99,27 @@
    "copies": 2,
    "extra": false,
    "key": 0.0,
+   "measured": false,
    "reach": 0,
    "reachAll": 0
   },
   {
-   "chance": 0.9488623238623238,
+   "chance": 0.9980440967283073,
    "code": 74063034,
    "copies": 2,
    "extra": false,
-   "key": 0.054479580795373295,
+   "key": 0.028686581318154936,
+   "measured": false,
    "reach": 10,
-   "reachAll": 11
+   "reachAll": 12
   },
   {
-   "chance": 0.8506401137980085,
+   "chance": 0.9980440967283073,
    "code": 37432075,
    "copies": 3,
    "extra": false,
-   "key": 0.09463866700708934,
+   "key": 0.05150545282123531,
+   "measured": false,
    "reach": 12,
    "reachAll": 13
   },
@@ -116,7 +128,8 @@
    "code": 63926180,
    "copies": 3,
    "extra": false,
-   "key": 0.7654192654192684,
+   "key": 0.569277273224639,
+   "measured": false,
    "reach": 1,
    "reachAll": 15
   },
@@ -125,27 +138,30 @@
    "code": 47679935,
    "copies": 3,
    "extra": false,
-   "key": 0.2523297589087079,
+   "key": 0.16504814531129952,
+   "measured": false,
    "reach": 1,
-   "reachAll": 12
+   "reachAll": 13
   },
   {
    "chance": 0.23717948717948734,
    "code": 48130397,
    "copies": 2,
    "extra": false,
-   "key": 0.009799272957163652,
+   "key": 0.031294452347079726,
+   "measured": false,
    "reach": 1,
-   "reachAll": 3
+   "reachAll": 12
   },
   {
    "chance": 0.33755060728744934,
    "code": 76334960,
    "copies": 3,
    "extra": false,
-   "key": 0.09463866700708934,
-   "reach": 7,
-   "reachAll": 10
+   "key": 0.056187766714078435,
+   "measured": false,
+   "reach": 17,
+   "reachAll": 21
   },
   {
    "chance": 0.125,
@@ -153,87 +169,97 @@
    "copies": 1,
    "extra": false,
    "key": 0.0,
+   "measured": false,
    "reach": 0,
    "reachAll": 0
   },
   {
-   "chance": 0.993361782835467,
+   "chance": 0.9980440967283073,
    "code": 33166263,
    "copies": 2,
    "extra": true,
    "key": 0.0,
+   "measured": false,
    "reach": 0,
    "reachAll": 0
   },
   {
-   "chance": 0.993361782835467,
+   "chance": 0.9980440967283073,
    "code": 43989315,
    "copies": 1,
    "extra": true,
-   "key": 0.025063525063522718,
+   "key": 0.007606290501026791,
+   "measured": false,
    "reach": 15,
    "reachAll": 18
   },
   {
-   "chance": 0.996957483799589,
+   "chance": 0.9980440967283073,
    "code": 70383419,
    "copies": 1,
    "extra": true,
-   "key": 0.8766397976924267,
+   "key": 1.052704526388732,
+   "measured": false,
    "reach": 2,
-   "reachAll": 2
+   "reachAll": 11
   },
   {
-   "chance": 0.993361782835467,
+   "chance": 0.9980440967283073,
    "code": 6772168,
    "copies": 1,
    "extra": true,
    "key": 0.0,
+   "measured": false,
    "reach": 1,
    "reachAll": 1
   },
   {
-   "chance": 0.996957483799589,
+   "chance": 0.9980440967283073,
    "code": 11270236,
    "copies": 1,
    "extra": true,
    "key": 0.0,
+   "measured": false,
    "reach": 0,
    "reachAll": 0
   },
   {
-   "chance": 0.993361782835467,
+   "chance": 0.9980440967283073,
    "code": 97300502,
    "copies": 1,
    "extra": true,
    "key": 0.0,
+   "measured": false,
    "reach": 1,
    "reachAll": 1
   },
   {
-   "chance": 0.993361782835467,
+   "chance": 0.9980440967283073,
    "code": 13529466,
    "copies": 1,
    "extra": true,
    "key": 0.0,
+   "measured": false,
    "reach": 1,
    "reachAll": 1
   },
   {
-   "chance": 0.993361782835467,
+   "chance": 0.9980440967283073,
    "code": 75286621,
    "copies": 1,
    "extra": true,
    "key": 0.0,
+   "measured": false,
    "reach": 1,
    "reachAll": 1
   },
   {
-   "chance": 0.993361782835467,
+   "chance": 0.9980440967283073,
    "code": 49513164,
    "copies": 1,
    "extra": true,
    "key": 0.0,
+   "measured": false,
    "reach": 1,
    "reachAll": 1
   },
@@ -243,33 +269,37 @@
    "copies": 1,
    "extra": true,
    "key": 0.0,
+   "measured": true,
    "reach": 0,
    "reachAll": 0
   },
   {
-   "chance": 0.0,
+   "chance": 0.36666666666666664,
    "code": 29301450,
    "copies": 1,
    "extra": true,
    "key": 0.0,
+   "measured": true,
    "reach": 0,
    "reachAll": 0
   },
   {
-   "chance": 0.0,
+   "chance": 0.7666666666666667,
    "code": 34755994,
    "copies": 1,
    "extra": true,
    "key": 0.0,
+   "measured": true,
    "reach": 0,
    "reachAll": 0
   },
   {
-   "chance": 0.0,
+   "chance": 0.06666666666666667,
    "code": 20714553,
    "copies": 1,
    "extra": true,
    "key": 0.0,
+   "measured": true,
    "reach": 0,
    "reachAll": 0
   },
@@ -279,8 +309,9 @@
    "copies": 1,
    "extra": true,
    "key": 0.0,
+   "measured": true,
    "reach": 7,
-   "reachAll": 11
+   "reachAll": 12
   }
  ],
  "links": [
@@ -323,6 +354,22 @@
    "to": 11270236,
    "used": 0.0033333333333333335,
    "zone": "extra"
+  },
+  {
+   "from": 10673071,
+   "kind": "set",
+   "possible": true,
+   "to": 37432075,
+   "used": 0.135,
+   "zone": "deck"
+  },
+  {
+   "from": 10673071,
+   "kind": "set",
+   "possible": true,
+   "to": 74063034,
+   "used": 0.06333333333333334,
+   "zone": "deck"
   },
   {
    "from": 13529466,
@@ -787,6 +834,86 @@
    "to": 97300502,
    "used": 0.045,
    "zone": "extra"
+  },
+  {
+   "from": 76334960,
+   "kind": "toGrave",
+   "possible": true,
+   "to": 875572,
+   "used": 0.0,
+   "zone": "deck"
+  },
+  {
+   "from": 76334960,
+   "kind": "toGrave",
+   "possible": true,
+   "to": 10673071,
+   "used": 0.0,
+   "zone": "deck"
+  },
+  {
+   "from": 76334960,
+   "kind": "toGrave",
+   "possible": true,
+   "to": 14558127,
+   "used": 0.0,
+   "zone": "deck"
+  },
+  {
+   "from": 76334960,
+   "kind": "toGrave",
+   "possible": true,
+   "to": 42141493,
+   "used": 0.0,
+   "zone": "deck"
+  },
+  {
+   "from": 76334960,
+   "kind": "toGrave",
+   "possible": true,
+   "to": 45223540,
+   "used": 0.0,
+   "zone": "deck"
+  },
+  {
+   "from": 76334960,
+   "kind": "toGrave",
+   "possible": true,
+   "to": 57294268,
+   "used": 0.0,
+   "zone": "deck"
+  },
+  {
+   "from": 76334960,
+   "kind": "toGrave",
+   "possible": true,
+   "to": 84192580,
+   "used": 0.0,
+   "zone": "deck"
+  },
+  {
+   "from": 76334960,
+   "kind": "toGrave",
+   "possible": true,
+   "to": 84288367,
+   "used": 0.0,
+   "zone": "deck"
+  },
+  {
+   "from": 76334960,
+   "kind": "toGrave",
+   "possible": true,
+   "to": 86120751,
+   "used": 0.0,
+   "zone": "deck"
+  },
+  {
+   "from": 76334960,
+   "kind": "toGrave",
+   "possible": true,
+   "to": 94145021,
+   "used": 0.0,
+   "zone": "deck"
   },
   {
    "from": 84288367,

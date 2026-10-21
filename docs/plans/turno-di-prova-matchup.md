@@ -126,5 +126,19 @@ Il collaudo su molti deck (`docs/plans/collaudo-strumenti.md`, branch `claude/to
 - **Azioni per identità.** Le azioni della linea si ritrovano per quello che sono (carta, zona, effetto, tipo di azione) e non per la loro posizione nella lista. Dopo Maxx "C" la lista può cambiare: K9-17 Izuna diventa Evocabile. Un trigger che la linea aveva come sì/no può anche arrivare in una finestra di trigger (Fur Hire).
 - **Domande nuove rifiutate.** Una domanda che la linea non aveva e che si può rifiutare riceve la risposta passiva, e la linea va avanti: una finestra di catena, un sì/no, una Main Phase dove resta solo da finire il turno.
 - **Fermata solo se manca qualcosa.** La linea è fermata solo se a fine linea manca qualcosa del campo o della mano. Finire con una carta in più, come K9 che punisce Maxx "C", non è una fermata.
-- **Risultato.** Su 5 deck contro Branded e Labrynth, Maxx "C" e le Mulcharmy sono a 0 su Tearlaments e a 1-3 momenti su circa 20 negli altri. Il resto dipende dal deck da 12 carte dell'avversario del kit: Maxx "C" lo svuota e le carte che guardano il deck dell'avversario cambiano. Si corregge in `Kit::standard`, con il banco, quando `probe.rs` si libera.
+- **Risultato.** Su 5 deck contro Branded e Labrynth, Maxx "C" e le Mulcharmy sono a 0 su Tearlaments e a 1-3 momenti su circa 20 negli altri. Il resto dipendeva dal deck da 12 carte dell'avversario del kit: Maxx "C" lo svuotava e le carte che guardano il deck dell'avversario cambiavano.
+- **Il Deck vero dell'avversario nel rigioco.** Nel rigioco delle handtrap l'avversario ora pesca dal suo Main Deck vero, non dalle 12 carte del kit. Per la ricerca e la mappa, che usano ancora il kit, resta da fare in `Kit::standard` con il banco, quando `probe.rs` si libera.
+
+### Seconde correzioni dal collaudo: i breaker (21/10/2026)
+- **Breaker falsi.** Una carta presa dal testo resta un breaker solo se, giocata contro il campo finto, gli toglie una carta o ne nega una.
+  - Il campo finto ha tre mostri (un mostro con effetto, un Fusion e un Link) e due carte coperte.
+  - L'avversario gioca la carta come farebbe davvero: mira alle tue carte, risponde sì, attiva gli effetti della carta, e dopo un'Evocazione usa una volta il suo effetto sul campo.
+  - Un Kaiju che arriva sul tuo campo al posto del mostro che tributa conta: si contano solo le carte del campo finto.
+  - Esempi: Clockwork Night toglie solo ATK e non conta più. Contro Cyber Dragon si usano quindi i breaker standard (resilienza 0,38 come la generica; prima era il campo intero).
+- **Il Deck vero dell'avversario.** Nella prova l'avversario ha il suo Main Deck e il suo Extra Deck, perché alcune carte pagano un costo da lì (Ultimate Slayer manda un mostro dall'Extra Deck) o prendono carte dal Deck (Interrupted Kaiju Slumber vuole due Kaiju).
+  - In cima al suo Deck c'è una carta neutra: la pescata del suo turno non gli toglie una carta che serve.
+- **Testo dei breaker.** Ora si riconoscono anche "as many ... as possible" (Slumber), "shuffle" (Ultimate Slayer) e "your opponent currently controls" (Dark Ruler No More).
+- **Prova** (linea Branded, prima board, contro un deck Invoked con 6 breaker aggiunti): riconosciuti Dark Hole, Dark Ruler No More, Gameciel, Dogoran, Ultimate Slayer e Interrupted Kaiju Slumber; scartata Clockwork Night.
+  - Ultimate Slayer e Slumber risultano "non applicabili" nella partita del breaker, perché lì l'avversario ha ancora il deck del kit, senza Extra Deck e senza Kaiju.
+  - Si sistema con `Kit::with_breakers` (`probe.rs`), insieme al deck del kit da 35 carte.
 
