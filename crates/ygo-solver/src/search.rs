@@ -649,13 +649,10 @@ fn rank(a: &Board, b: &Board) -> CmpOrdering {
 
 /// Key of a node: the state and the choice being asked (two steps of the
 /// same selection share the state but not the choice). Inside something
-/// being done (an activation, a summon, an effect resolving) or while a
-/// chain is open, the answers since your last free moment with no chain
-/// count too: the state does not say yet what is being done, and choosing
-/// Aleister the Invoker as material for Salamangreat Almiraj or for Artemis
-/// is the same choice of the same state. A target or a name declared shows
-/// only when its link resolves: in a chain window, reviving Arias or Lady
-/// Labrynth with the same effect is not the same moment.
+/// being done (an activation, a summon, an effect resolving), the answers
+/// since your last free moment count too: the state does not say yet what
+/// is being done, and choosing Aleister the Invoker as material for
+/// Salamangreat Almiraj or for Artemis is the same choice of the same state.
 fn node_key(state: &DuelState, chain: &[ChainLink], decision: &Decision, pending: &Pending) -> u64 {
     let mut h = DefaultHasher::new();
     canonical_fingerprint(state).hash(&mut h);
@@ -665,7 +662,7 @@ fn node_key(state: &DuelState, chain: &[ChainLink], decision: &Decision, pending
         chain.hash(&mut h);
     }
     decision.hash(&mut h);
-    if !is_free(decision) || !chain.is_empty() {
+    if !is_free(decision) {
         pending.value().hash(&mut h);
     }
     h.finish()
@@ -677,8 +674,8 @@ fn is_free(decision: &Decision) -> bool {
     decision.player() == Some(0) && matches!(decision, Decision::IdleCmd { .. } | Decision::BattleCmd { .. } | Decision::SelectChain { .. })
 }
 
-/// The answers given since your last free moment with no chain open,
-/// hashed. The cards picked in the selection being made are a set: picking A then B is picking B
+/// The answers given since your last free moment, hashed. The cards picked
+/// in the selection being made are a set: picking A then B is picking B
 /// then A (the same materials, chosen in another order).
 #[derive(Clone, Copy, Default)]
 struct Pending {
@@ -698,8 +695,7 @@ impl Pending {
         h.finish()
     }
 
-    /// `chain` is the chain not resolved when `decision` was asked.
-    fn answered(&mut self, decision: &Decision, answer: &[u8], chain: &[ChainLink]) {
+    fn answered(&mut self, decision: &Decision, answer: &[u8]) {
         if let Decision::SelectUnselectCard { selectable, unselectable, hint, .. } = decision {
             // A new selection (nothing picked yet) starts a new set.
             if unselectable.is_empty() {
@@ -720,7 +716,7 @@ impl Pending {
             }
         }
         let mut h = DefaultHasher::new();
-        if !is_free(decision) || !chain.is_empty() {
+        if !is_free(decision) {
             self.value().hash(&mut h);
         }
         answer.hash(&mut h);
@@ -1095,8 +1091,7 @@ const DISCREPANCY: f64 = 0.6;
 /// estimate of the best board the line reached after them (the boards
 /// before an answer do not depend on it), less [`DISCREPANCY`] for each
 /// answer of their line that is not the dive's; the other zones of a line's
-/// last choice, and the other answers of a choice the state does not show
-/// yet, go last.
+/// last choice go last.
 fn work(shared: &Shared, edge: Edge) -> Result<(), Error> {
     let mut dive = Dive { left: Vec::new(), boards: Vec::new() };
     let result = play(shared, &edge, &mut dive);
@@ -1120,7 +1115,7 @@ fn work(shared: &Shared, edge: Edge) -> Result<(), Error> {
             // The last board reading at this depth or deeper.
             let value = suffix.iter().rev().find(|(d, _)| *d >= left.depth).map_or(fallback, |&(_, v)| v);
             let bonus = if left.wanted { 10.0 } else { 0.0 };
-            let last = if left.last { END_PHASE_LAST } else { 0.0 };
+            let last = if left.last_zone { END_PHASE_LAST } else { 0.0 };
             NewEdge {
                 prefix: left.prefix,
                 answer: Some(left.answer),
@@ -1148,9 +1143,8 @@ struct LeftAnswer {
     depth: usize,
     wanted: bool,
     kind: ActionKind,
-    /// Queued last (see `play`): another zone for the monster of the line's
-    /// last choice, or another answer to a choice the state does not show yet.
-    last: bool,
+    /// Another zone for the monster of the line's last choice (see `play`).
+    last_zone: bool,
 }
 
 fn play(shared: &Shared, edge: &Edge, dive: &mut Dive) -> Result<(), Error> {
@@ -1182,7 +1176,7 @@ fn play(shared: &Shared, edge: &Edge, dive: &mut Dive) -> Result<(), Error> {
     for answer in &line.answers {
         if let Step::Decision { decision, events } = duel.advance()? {
             since_free.meet(&decision, events.len());
-            pending.answered(&decision, answer, duel.chain());
+            pending.answered(&decision, answer);
             if events.iter().any(|e| matches!(e, Event::Chaining { .. })) {
                 last_set = None;
             }
@@ -1202,7 +1196,7 @@ fn play(shared: &Shared, edge: &Edge, dive: &mut Dive) -> Result<(), Error> {
         if let Step::Decision { decision, events } = duel.advance()? {
             started = duel.actions(&decision).iter().any(|a| a.response == answer && starts(&decision, a.kind));
             since_free.meet(&decision, events.len());
-            pending.answered(&decision, &answer, duel.chain());
+            pending.answered(&decision, &answer);
             if events.iter().any(|e| matches!(e, Event::Chaining { .. })) {
                 last_set = None;
             }
@@ -1264,8 +1258,8 @@ fn play(shared: &Shared, edge: &Edge, dive: &mut Dive) -> Result<(), Error> {
             }
             return Ok(());
         }
-        let (step, mut actions) = duel.advance_auto_seen(&config.policy, &mut line.answers, |d, a, chain| {
-            pending.answered(d, a, chain);
+        let (step, mut actions) = duel.advance_auto_seen(&config.policy, &mut line.answers, |d, a| {
+            pending.answered(d, a);
             after_answer(&mut last_set, d, a);
             freed |= is_free(d);
         })?;
@@ -1356,7 +1350,7 @@ fn play(shared: &Shared, edge: &Edge, dive: &mut Dive) -> Result<(), Error> {
                 // the end anyway (`zone_variants`). Queued last.
                 if let Some(at) = given.as_ref().filter(|g| g.kind == ActionKind::Place).map(|g| g.depth) {
                     for left in dive.left.iter_mut().filter(|l| l.depth == at && l.kind == ActionKind::Place) {
-                        left.last = true;
+                        left.last_zone = true;
                     }
                 }
                 return Ok(());
@@ -1364,16 +1358,13 @@ fn play(shared: &Shared, edge: &Edge, dive: &mut Dive) -> Result<(), Error> {
         };
         let state = duel.state();
         // The last answer changed nothing shown and its link has not resolved
-        // yet: the engine keeps it for later (a target, a name declared). The
-        // other answers of the same kind there are real alternatives, but
-        // most lead to the same board once the chain resolves: tried first,
-        // they take the budget from the lines that differ (the best Invoked
-        // and Dracotail boards were lost). Queued last.
+        // yet: the engine keeps it for later (a target, a name declared), and
+        // this node's key does not tell it, since the answers given since your
+        // last free moment are forgotten here. The other answers of the same
+        // kind there lead to this same key: a replay each to find a duplicate.
         if let Some((depth, kind, before)) = hidden.take() {
             if (freed || is_free(&decision)) && !resolved && shown_state(&state) == before {
-                for left in dive.left.iter_mut().filter(|l| l.depth == depth && l.kind == kind) {
-                    left.last = true;
-                }
+                dive.left.retain(|l| l.depth != depth || l.kind != kind);
             }
         }
         shared.nodes.fetch_add(1, Ordering::Relaxed);
@@ -1537,7 +1528,7 @@ fn play(shared: &Shared, edge: &Edge, dive: &mut Dive) -> Result<(), Error> {
             depth,
             wanted: wanted(a),
             kind: a.kind,
-            last: false,
+            last_zone: false,
         }));
         let first = &actions[0];
         if matches!(decision, Decision::IdleCmd { .. }) && first.kind == ActionKind::Activate {
@@ -1549,16 +1540,16 @@ fn play(shared: &Shared, edge: &Edge, dive: &mut Dive) -> Result<(), Error> {
             depth,
             wanted: wanted(first),
             kind: first.kind,
-            last: false,
+            last_zone: false,
         });
+        hidden = (!free).then(|| (depth, first.kind, shown_state(&state)));
+        freed = false;
         record(audit, Some(&first.response));
         if let Some(c) = first.card.filter(|c| c.location == location::EXTRA) {
             placing = Some(c.code);
         }
-        hidden = (!free).then(|| (depth, first.kind, shown_state(&state)));
-        freed = false;
         undoable = starts(&decision, first.kind) || (undoable && !free);
-        pending.answered(&decision, &first.response, duel.chain());
+        pending.answered(&decision, &first.response);
         after_answer(&mut last_set, &decision, &first.response);
         duel.respond(&first.response);
         line.choose(first.response.clone(), italian::choice(first));
@@ -1961,42 +1952,16 @@ mod tests {
             hint: 7,
         };
         let mut ab = Pending::default();
-        ab.answered(&select(vec![]), &pick(0), &[]);
-        ab.answered(&select(vec![a]), &pick(0), &[]);
+        ab.answered(&select(vec![]), &pick(0));
+        ab.answered(&select(vec![a]), &pick(0));
         let mut ba = Pending::default();
-        ba.answered(&select(vec![]), &pick(1), &[]);
-        ba.answered(&select(vec![b]), &pick(0), &[]);
+        ba.answered(&select(vec![]), &pick(1));
+        ba.answered(&select(vec![b]), &pick(0));
         assert_eq!(ab.value(), ba.value());
         let mut ac = Pending::default();
-        ac.answered(&select(vec![]), &pick(0), &[]);
-        ac.answered(&select(vec![a]), &pick(1), &[]);
+        ac.answered(&select(vec![]), &pick(0));
+        ac.answered(&select(vec![a]), &pick(1));
         assert_ne!(ab.value(), ac.value());
-    }
-
-    #[test]
-    fn a_target_counts_until_its_link_resolves() {
-        let state = DuelState::default();
-        let target = Decision::SelectCard { player: 0, cancelable: false, min: 1, max: 1, cards: vec![card(1, 0), card(2, 1)], hint: 0 };
-        let window = Decision::SelectChain { player: 0, forced: false, triggers: false, chains: vec![] };
-        let link = [ChainLink { controller: 0, code: 10, description: 160, location: location::MZONE }];
-        let key = |picked: i32, chain: &[ChainLink]| {
-            let mut p = Pending::default();
-            p.answered(&target, &pick(picked), &[]);
-            node_key(&state, chain, &window, &p)
-        };
-        // The same effect with two targets, in the chain window after it.
-        assert_ne!(key(0, &link), key(1, &link));
-        // Once the chain resolved, what it did shows in the state.
-        assert_eq!(key(0, &[]), key(1, &[]));
-        // Passing in that window does not forget the target either.
-        let passed = |picked: i32, chain: &[ChainLink]| {
-            let mut p = Pending::default();
-            p.answered(&target, &pick(picked), &[]);
-            p.answered(&window, &(-1i32).to_le_bytes(), chain);
-            p.value()
-        };
-        assert_ne!(passed(0, &link), passed(1, &link));
-        assert_eq!(passed(0, &[]), passed(1, &[]));
     }
 
     #[test]
