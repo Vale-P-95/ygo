@@ -55,6 +55,11 @@ fn finds_invoked_boards_by_itself() {
     assert_eq!(steps.iter().filter(|s| s.choice.is_some()).count(), board.line.choices.len());
     let text: Vec<&String> = steps.iter().flat_map(|s| &s.events).collect();
     assert!(text.iter().any(|l| l.contains("tramite Evocazione Fusion")), "{text:#?}");
+    // Each step leaves a state: the field empty before the first choice,
+    // the board's after the last.
+    assert!(steps.iter().all(|s| s.state.is_some()));
+    assert!(steps[0].state.as_ref().unwrap().players[0].monsters.iter().all(Option::is_none));
+    assert_eq!(steps.last().unwrap().state.as_ref(), Some(&state));
 }
 
 #[test]

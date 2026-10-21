@@ -9,7 +9,7 @@ use crate::search::Line;
 /// One step of the explanation: the choice made (`None` for what happens
 /// before the first choice, such as the opening phases) and what followed,
 /// in Italian, and the same for a picture: what kind of choice, on which
-/// card, and what happened to which cards.
+/// card, what happened to which cards and the state it left.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct ExplainedStep {
     pub choice: Option<String>,
@@ -20,6 +20,9 @@ pub struct ExplainedStep {
     pub card: Option<u32>,
     /// What followed, one entry per event told in `events`.
     pub happened: Vec<Happening>,
+    /// The state once the step is done: when the next choice is asked, or
+    /// at the end of the line.
+    pub state: Option<DuelState>,
 }
 
 /// Something that happened to a card, for a picture of the step.
@@ -112,6 +115,7 @@ pub fn explain(
         tell(steps.last_mut().expect("one step"), &events);
         // A real choice starts a new step; automatic answers belong to the current one.
         if line.choice_at.get(next_choice) == Some(&i) {
+            steps.last_mut().expect("one step").state = Some(duel.state());
             let action = duel.actions(&decision).into_iter().find(|a| a.response == *answer);
             steps.push(ExplainedStep {
                 choice: line.choices.get(next_choice).cloned(),
@@ -126,9 +130,12 @@ pub fn explain(
     let tail = match duel.advance()? {
         Step::Decision { events, .. } | Step::End { events } => events,
     };
-    tell(steps.last_mut().expect("one step"), &tail);
+    let state = duel.state();
+    let last = steps.last_mut().expect("one step");
+    tell(last, &tail);
+    last.state = Some(state.clone());
     steps.retain(|s| s.choice.is_some() || !s.events.is_empty());
-    Ok((duel.state(), steps))
+    Ok((state, steps))
 }
 
 /// Where the handtraps played most can stop a line while you play it,

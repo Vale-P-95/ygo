@@ -505,6 +505,9 @@ export interface RoleGuess {
   reasons: string[];
 }
 
+/** Your side of the duel, in the board's shape. */
+export type ComboField = Pick<ComboBoard, "monsters" | "spells" | "handCards" | "grave" | "banished" | "deckCount" | "extraCount" | "extraFaceUp">;
+
 export interface ComboStep {
   choice: string | null;
   events: string[];
@@ -512,6 +515,8 @@ export interface ComboStep {
   /** The card the choice is about. */
   card: number | null;
   happened: ComboHappening[];
+  /** Your side once the step is done: when the next choice is asked, or at the end of the line. */
+  field?: ComboField | null;
 }
 
 const tauriApi = {
