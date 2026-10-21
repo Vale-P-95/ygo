@@ -180,5 +180,5 @@ Approvato dal proprietario come ultimo pezzo della mappa: cosa cambia sostituend
 - **Da guardare:**
   - **probabilità sature:** carte con `chance` ≥ 0,99, cioè quasi ogni mano iniziale ci arriva. Vaylantz ne ha 24, Memento 15, Invoked 15, Cyber Dragon 5. Lì la probabilità distingue poco: si potrebbe mostrare la differenza tra 5 e 6 carte, o i passi necessari;
   - **collegamenti solo dal testo:** D/D/D ne ha 228 su 373, Exosister 58 su 96. Le frasi d'archetipo ("D/D" monster) collegano quasi ogni carta a quasi ogni altra. Vanno controllati: se il testo è giusto ma le linee non li usano mai, l'interfaccia li mostra tenui, ma così sono tanti;
-  - **Maliss:** solo 13 collegamenti su 29 carte. Va verificato se mancano le Evocazioni dalla zona delle carte bandite.
+  - **Maliss:** solo 13 collegamenti su 29 carte, ma è corretto. La lista ha quasi solo Phantom Knights e Ignister (di Maliss c'è solo Maliss in Underground), 13 handtrap e Magie generiche, e mostri Link con materiali generici che nessun testo nomina.
 
