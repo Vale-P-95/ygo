@@ -6,7 +6,7 @@ use std::sync::atomic::AtomicBool;
 use std::time::Duration;
 
 use ygo_engine::{DeckList, Engine};
-use ygo_solver::{matchup, search, Goal, Kit, Prober, Rival, SearchConfig, Stop};
+use ygo_solver::{draw_trade_off, matchup, search, Goal, Kit, Prober, Rival, SearchConfig, Stop};
 
 const ALEISTER: u32 = 86120751;
 const CHALICE: u32 = 76334960;
@@ -102,6 +102,25 @@ fn a_handtrap_counts_where_it_stops_the_line() {
     assert!(ash.stops > 0 && ash.chance > 0.0, "{ash:?}");
     let maxx = of(lab.code("Maxx \"C\"")).expect("Maxx \"C\" is offered");
     assert!(maxx.windows > 0 && maxx.stops == 0, "{maxx:?}");
+    // It draws a card for each summon left in the line: the most at the
+    // first moment, fewer later on. Ash draws nothing.
+    let first = maxx.moments.first().expect("moments").drawn;
+    assert!(maxx.drawn > 0 && first == maxx.drawn, "{maxx:?}");
+    assert!(maxx.moments.last().is_some_and(|m| m.drawn <= first), "{maxx:?}");
+    assert_eq!(maxx.moments.len() as u32, maxx.windows.min(24));
+    assert_eq!(ash.drawn, 0, "{ash:?}");
+
+    // Where to stop the line against Maxx "C": the whole line comes last
+    // and draws as much as the first moment; the best stop keeps at least
+    // as much as the whole line, and no stop more than its board.
+    let offs = draw_trade_off(engine, &lab.deck, &hand, config.seed, line, &rival).expect("the stops are measured");
+    assert!(offs.iter().all(|o| o.code != ASH), "{offs:?}");
+    let off = offs.iter().find(|o| o.code == lab.code("Maxx \"C\"")).expect("Maxx \"C\" draws");
+    let whole = off.stops.last().expect("the whole line");
+    assert_eq!(whole.drawn, maxx.drawn, "{off:?}");
+    assert!(off.stops[off.best].expected >= whole.expected - 1e-9, "{off:?}");
+    assert!(off.stops.iter().all(|p| p.expected <= p.field_value + p.floodgate_value + 1e-9), "{off:?}");
+    assert!(off.stops.windows(2).all(|w| w[0].answers < w[1].answers && w[0].choices <= w[1].choices), "{off:?}");
     assert!(x.hand_trap_chance > 0.0 && x.hand_trap_chance < 1.0);
     // One Dark Hole: the field holds unless the opponent has it.
     let hole = x.breakers.iter().find(|b| b.code == lab.code("Dark Hole")).expect("Dark Hole");

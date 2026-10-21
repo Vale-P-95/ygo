@@ -14,6 +14,7 @@ import type {
   ComboProgress,
   ComboRequest,
   ComboScore,
+  ComboDrawTradeOff,
   ComboStep,
   Cond,
   DataStatus,
@@ -2690,6 +2691,18 @@ export const mockApi: Api = {
 
   comboCancel: async () => {
     comboCancelled = true;
+  },
+
+  comboStops: async (): Promise<ComboDrawTradeOff[]> => {
+    await delay(300);
+    // Maxx "C" against a line of 5 stops: the last piece is worth the cards it gives.
+    const stops = [
+      { steps: 4, playing: 86120751, fieldValue: 0, floodgateValue: 0, drawn: 1, expected: 0 },
+      { steps: 9, playing: 70383419, fieldValue: 0, floodgateValue: 0.9, drawn: 5, expected: 0.59 },
+      { steps: 13, playing: 97300502, fieldValue: 0.28, floodgateValue: 0.9, drawn: 8, expected: 0.8 },
+      { steps: 15, playing: 74063034, fieldValue: 0.28, floodgateValue: 0.9, drawn: 9, expected: 0.78 },
+    ];
+    return [{ code: 23434538, stops, best: 2, standardBreakers: false }];
   },
 
   comboExplain: async (_hand: number, key: string): Promise<ComboStep[]> => {

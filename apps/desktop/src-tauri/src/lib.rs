@@ -39,6 +39,9 @@ struct AppState {
 struct LinksCache {
     cards: Vec<u32>,
     view: DeckLinksView,
+    /// What was searched for it: after a change of the deck, only the
+    /// hands the change needs are searched again.
+    work: ygo_solver::LinksWork,
 }
 
 impl AppState {
@@ -705,6 +708,23 @@ struct RivalHandTrapView {
     stops: u32,
     /// Your cards being played at those moments.
     at: Vec<u32>,
+    /// The most cards the opponent draws using it (Maxx "C", the Mulcharmy).
+    drawn: u32,
+    /// Each moment tried, in the order of the line.
+    moments: Vec<HandTrapMomentView>,
+}
+
+/// A moment of the line the opponent uses a handtrap at.
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct HandTrapMomentView {
+    /// Your card being played then.
+    playing: Option<u32>,
+    /// It changes the field or hand you end with.
+    stops: bool,
+    /// Cards the opponent draws from then to the end of your turn, less those
+    /// it shuffles back into the Deck.
+    drawn: u32,
 }
 
 fn matchup_view(deck_id: i64, deck_name: &str, matchup: Result<ygo_solver::Matchup, String>) -> MatchupView {
@@ -739,12 +759,95 @@ fn matchup_view(deck_id: i64, deck_name: &str, matchup: Result<ygo_solver::Match
             view.hand_traps = x
                 .hand_traps
                 .iter()
-                .map(|h| RivalHandTrapView { code: h.code, chance: h.chance, windows: h.windows, stops: h.stops, at: h.at.clone() })
+                .map(|h| RivalHandTrapView {
+                    code: h.code,
+                    chance: h.chance,
+                    windows: h.windows,
+                    stops: h.stops,
+                    at: h.at.clone(),
+                    drawn: h.drawn,
+                    moments: h.moments.iter().map(|m| HandTrapMomentView { playing: m.playing, stops: m.stops, drawn: m.drawn }).collect(),
+                })
                 .collect();
         }
         Err(e) => view.error = Some(e),
     }
     view
+}
+
+/// A point where a board's line can stop, while the opponent draws from
+/// Maxx "C" or a Mulcharmy ([`ygo_solver::StopPoint`]).
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct StopPointView {
+    /// Steps of the line played before ending the turn (as `combo_explain`
+    /// lists them; all of them for the whole line), and your last card then.
+    steps: usize,
+    playing: Option<u32>,
+    /// Interruption and floodgate value of the board you end on.
+    field_value: f64,
+    floodgate_value: f64,
+    /// Cards the opponent has drawn by the end of your turn.
+    drawn: u32,
+    /// Value expected in its turn, holding 6 cards plus those drawn.
+    expected: f64,
+}
+
+/// Where to stop the line against one handtrap that draws.
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct DrawTradeOffView {
+    code: u32,
+    /// In the order of the line, the whole line last.
+    stops: Vec<StopPointView>,
+    /// Index of the stop that keeps the most for its turn.
+    best: usize,
+    /// The deck has no breaker the probe turn can play: the standard ones
+    /// are used, assuming about 5 in its 40 cards.
+    standard_breakers: bool,
+}
+
+/// Combo Lab: where to stop a board's line when the opponent (a deck of the
+/// Bottega) uses Maxx "C" or a Mulcharmy at the first moment: for each of
+/// its handtraps that draw, the value the board keeps in its turn at each
+/// free moment of the line, the cards it draws, and the best stop. A few
+/// seconds (each stop is put to the probe turn).
+#[tauri::command(async)]
+fn combo_stops(state: State<'_, AppState>, hand: usize, key: String, vs_deck_id: i64) -> Result<Vec<DrawTradeOffView>, String> {
+    let engine = state.engine()?;
+    let (config, cards, line) = {
+        let job = state.combo.lock().map_err(|e| e.to_string())?;
+        let job = job.as_ref().ok_or("Nessuna ricerca da valutare")?;
+        let board =
+            job.boards.iter().find(|(h, b)| *h == hand && format!("{:016x}", b.key) == key).map(|(_, b)| b).ok_or("Board non trovata")?;
+        let (cards, _, _) = job.hands.get(hand).ok_or("Mano non trovata")?;
+        (job.config.clone(), cards.clone(), board.line.clone())
+    };
+    let deck = state.with_user(|u| u.get(vs_deck_id))?.ok_or("Il deck avversario non esiste più")?;
+    let list = ygo_engine::DeckList { main: deck.main.clone(), extra: deck.extra.clone(), side: deck.side.clone() };
+    let kit = ygo_solver::Kit::standard(&engine);
+    let rival = ygo_solver::Rival::new(&engine, &list, config.seed, &kit);
+    let offs = ygo_solver::draw_trade_off(&engine, &config.deck, &cards, config.seed, &line, &rival).map_err(|e| e.to_string())?;
+    Ok(offs
+        .into_iter()
+        .map(|o| DrawTradeOffView {
+            code: o.code,
+            stops: o
+                .stops
+                .iter()
+                .map(|p| StopPointView {
+                    steps: p.choices,
+                    playing: p.playing,
+                    field_value: p.field_value,
+                    floodgate_value: p.floodgate_value,
+                    drawn: p.drawn,
+                    expected: p.expected,
+                })
+                .collect(),
+            best: o.best,
+            standard_breakers: o.standard_breakers,
+        })
+        .collect())
 }
 
 /// What the line does that the handtraps played most can stop.
@@ -1255,6 +1358,8 @@ struct CardLinkView {
     possible: bool,
     /// Share of the Combo Lab's best lines that use it, 0 to 1.
     used: f64,
+    /// The card's text names it; alone (not `possible`), an effect the lines found never use.
+    text: bool,
 }
 
 /// A card of the map.
@@ -1298,16 +1403,40 @@ fn deck_links(app: tauri::AppHandle, state: State<'_, AppState>, deck_id: i64) -
     let engine = state.engine()?;
     let deck = state.with_user(|u| u.get(deck_id))?.ok_or("Il deck non esiste più")?;
     let cards: Vec<u32> = deck.main.iter().chain(&deck.extra).copied().collect();
-    if let Some(cached) = state.links.lock().map_err(|e| e.to_string())?.get(&deck_id).filter(|c| c.cards == cards) {
-        return Ok(cached.view.clone());
-    }
+    let previous = {
+        let cache = state.links.lock().map_err(|e| e.to_string())?;
+        match cache.get(&deck_id) {
+            Some(cached) if cached.cards == cards => return Ok(cached.view.clone()),
+            Some(cached) => Some(cached.work.clone()),
+            None => None,
+        }
+    };
     let list = ygo_engine::DeckList { main: deck.main.clone(), extra: deck.extra.clone(), side: Vec::new() };
     let threads = std::thread::available_parallelism().map_or(4, |n| n.get());
     let budget = ygo_solver::LinksBudget { threads, ..ygo_solver::LinksBudget::default() };
-    let map = ygo_solver::deck_links(&engine, &list, 1, budget, &AtomicBool::new(false), |done, total| {
-        let _ = app.emit("deck-links-progress", RolesProgress { done, total });
-    });
-    let view = DeckLinksView {
+    // The map so far with each step: from the text at once, then hand by hand.
+    let progress = |done, total, map: &ygo_solver::DeckLinks| {
+        let _ = app.emit("deck-links-progress", LinksProgressView { deck_id, done, total, map: links_view(deck_id, map) });
+    };
+    let (map, work) = ygo_solver::deck_links_again(&engine, &list, 1, budget, &AtomicBool::new(false), progress, previous.as_ref());
+    let view = links_view(deck_id, &map);
+    state.links.lock().map_err(|e| e.to_string())?.insert(deck_id, LinksCache { cards, view: view.clone(), work });
+    Ok(view)
+}
+
+/// The map as far as it is read: `done` hands of `total` searched (0: the
+/// draft from the cards' text).
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct LinksProgressView {
+    deck_id: i64,
+    done: usize,
+    total: usize,
+    map: DeckLinksView,
+}
+
+fn links_view(deck_id: i64, map: &ygo_solver::DeckLinks) -> DeckLinksView {
+    DeckLinksView {
         deck_id,
         cards: map
             .cards
@@ -1333,13 +1462,12 @@ fn deck_links(app: tauri::AppHandle, state: State<'_, AppState>, deck_id: i64) -
                 zone: l.zone.key().to_owned(),
                 possible: l.possible,
                 used: l.used,
+                text: l.text,
             })
             .collect(),
         hands: map.hands,
         lines: map.lines,
-    };
-    state.links.lock().map_err(|e| e.to_string())?.insert(deck_id, LinksCache { cards, view: view.clone() });
-    Ok(view)
+    }
 }
 
 /// Boards put to the probe turn after a search: the best of a precise hand,
@@ -1812,6 +1940,7 @@ pub fn run() {
             deck_links,
             combo_cancel,
             combo_explain,
+            combo_stops,
             shelf_decks,
             set_deck_box,
             duplicate_deck,

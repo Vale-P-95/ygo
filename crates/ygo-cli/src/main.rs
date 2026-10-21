@@ -145,6 +145,10 @@ enum Cmd {
         /// Also against this deck (.ydk): its board breakers and handtraps.
         #[arg(long)]
         vs: Option<PathBuf>,
+        /// With --vs: where to stop the line when the deck's Maxx "C" or
+        /// Mulcharmy makes it draw (a few seconds a line).
+        #[arg(long)]
+        stops: bool,
     },
     /// The map of the links between the cards of a deck, read from the
     /// engine: which card adds, summons, sends or gets back which.
@@ -163,6 +167,10 @@ enum Cmd {
         /// Write the map to this JSON file.
         #[arg(long)]
         json: Option<PathBuf>,
+        /// An earlier version of the deck (.ydk): its map is read first,
+        /// then the deck's reusing what was searched for it.
+        #[arg(long)]
+        after: Option<PathBuf>,
     },
     /// A deck's typical opening: the moves of its best lines from random
     /// hands, the most played first (the probe turn against a deck, level 2).
@@ -313,10 +321,14 @@ fn main() -> Result<()> {
                 save_lines,
             },
         ),
-        Cmd::ProbeLine { setup, lines, index, json, vs } => probe_line(&cli.data, &setup, &lines, index, json.as_deref(), vs.as_deref()),
+        Cmd::ProbeLine { setup, lines, index, json, vs, stops } => {
+            probe_line(&cli.data, &setup, &lines, index, json.as_deref(), vs.as_deref(), stops)
+        }
         Cmd::HandTraps { deck } => hand_traps(&cli.data, &deck),
         Cmd::RivalPlays { deck, hands, nodes, seed } => rival_plays(&cli.data, &deck, hands, nodes, seed),
-        Cmd::Links { deck, nodes, hands, threads, json } => links(&cli.data, &deck, nodes, hands, threads, json.as_deref()),
+        Cmd::Links { deck, nodes, hands, threads, json, after } => {
+            links(&cli.data, &deck, nodes, hands, threads, json.as_deref(), after.as_deref())
+        }
         Cmd::CardValues { deck } => card_values(&cli.data, &deck),
         Cmd::KitMix { lines, top, seed } => kit_mix(&cli.data, &lines, top, seed),
         Cmd::Roles { deck } => roles(&cli.data, &deck),
@@ -716,7 +728,15 @@ fn line_from_json(v: &serde_json::Value) -> Result<ygo_solver::Line> {
 }
 
 /// Plays saved lines again and measures their boards (no search).
-fn probe_line(dir: &Path, setup: &Setup, lines: &Path, index: Option<usize>, json: Option<&Path>, vs: Option<&Path>) -> Result<()> {
+fn probe_line(
+    dir: &Path,
+    setup: &Setup,
+    lines: &Path,
+    index: Option<usize>,
+    json: Option<&Path>,
+    vs: Option<&Path>,
+    stops: bool,
+) -> Result<()> {
     let (engine, deck, mut hand) = start(dir, setup)?;
     let saved: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(lines)?)?;
     if hand.is_empty() {
@@ -782,6 +802,16 @@ fn probe_line(dir: &Path, setup: &Setup, lines: &Path, index: Option<usize>, jso
                 }
                 Err(e) => println!("   matchup failed: {e}"),
             }
+            if stops {
+                let started = std::time::Instant::now();
+                match ygo_solver::draw_trade_off(&engine, &deck, &hand, setup.seed, &line, rival) {
+                    Ok(offs) => {
+                        print_trade_off(&engine, &offs, started.elapsed());
+                        extra["stops"] = trade_off_json(&offs);
+                    }
+                    Err(e) => println!("   stops failed: {e}"),
+                }
+            }
         }
         out.push(state_json(&engine, &hand_traps, &state, measured.as_ref().ok(), took, exposure.as_ref(), extra));
     }
@@ -820,14 +850,72 @@ fn print_matchup(engine: &Engine, x: &ygo_solver::Matchup, took: std::time::Dura
     for h in &x.hand_traps {
         let at: Vec<String> = h.at.iter().map(|&c| db.name(c)).collect();
         println!(
-            "     handtrap {} ({:.0}%): stops {} of {} moments [{}]",
+            "     handtrap {} ({:.0}%): stops {} of {} moments [{}]{}",
             db.name(h.code),
             h.chance * 100.0,
             h.stops,
             h.windows,
-            at.join(", ")
+            at.join(", "),
+            if h.drawn > 0 { format!(" · draws up to {}", h.drawn) } else { String::new() }
         );
+        if h.drawn > 0 {
+            // The cards it draws at each moment, with your card then.
+            let moments: Vec<String> = h
+                .moments
+                .iter()
+                .map(|m| format!("{}{} {}", if m.stops { "*" } else { "" }, m.drawn, m.playing.map(|c| db.name(c)).unwrap_or_default()))
+                .collect();
+            println!("       drawn by moment: {}", moments.join(" · "));
+        }
     }
+}
+
+fn print_trade_off(engine: &Engine, offs: &[ygo_solver::DrawTradeOff], took: std::time::Duration) {
+    let db = engine.cards();
+    if offs.is_empty() {
+        println!("   stops ({:.1} s): no handtrap of the deck makes it draw", took.as_secs_f64());
+    }
+    for o in offs {
+        let best = &o.stops[o.best];
+        let whole = o.stops.last().expect("the whole line");
+        println!(
+            "   against {} ({:.1} s{}): best stop after {} answers ({}), {:.2} expected and {} cards drawn; whole line {:.2} and {}",
+            db.name(o.code),
+            took.as_secs_f64(),
+            if o.standard_breakers { ", standard breakers" } else { "" },
+            best.answers,
+            best.playing.map(|c| db.name(c)).unwrap_or_default(),
+            best.expected,
+            best.drawn,
+            whole.expected,
+            whole.drawn
+        );
+        for (i, p) in o.stops.iter().enumerate() {
+            println!(
+                "     {}{:>3} {:<40} field {:.2} · floodgates {:.2} · drawn {:>2} · expected {:.2}",
+                if i == o.best { "*" } else { " " },
+                p.answers,
+                p.playing.map(|c| db.name(c)).unwrap_or_default(),
+                p.field_value,
+                p.floodgate_value,
+                p.drawn,
+                p.expected
+            );
+        }
+    }
+}
+
+fn trade_off_json(offs: &[ygo_solver::DrawTradeOff]) -> serde_json::Value {
+    serde_json::json!(offs
+        .iter()
+        .map(|o| serde_json::json!({
+            "code": o.code, "best": o.best, "standard_breakers": o.standard_breakers,
+            "stops": o.stops.iter().map(|p| serde_json::json!({
+                "answers": p.answers, "playing": p.playing, "field_value": p.field_value,
+                "floodgate_value": p.floodgate_value, "drawn": p.drawn, "expected": p.expected,
+            })).collect::<Vec<_>>(),
+        }))
+        .collect::<Vec<_>>())
 }
 
 fn matchup_json(x: &ygo_solver::Matchup) -> serde_json::Value {
@@ -841,7 +929,8 @@ fn matchup_json(x: &ygo_solver::Matchup) -> serde_json::Value {
             "stopped_by": b.stopped_by.map(|r| r.code), "not_applicable": b.not_applicable,
         })).collect::<Vec<_>>(),
         "hand_traps": x.hand_traps.iter().map(|h| serde_json::json!({
-            "code": h.code, "chance": h.chance, "windows": h.windows, "stops": h.stops, "at": h.at,
+            "code": h.code, "chance": h.chance, "windows": h.windows, "stops": h.stops, "at": h.at, "drawn": h.drawn,
+            "moments": h.moments.iter().map(|m| serde_json::json!({ "playing": m.playing, "stops": m.stops, "drawn": m.drawn })).collect::<Vec<_>>(),
         })).collect::<Vec<_>>(),
     })
 }
@@ -1000,16 +1089,46 @@ fn search(dir: &Path, text: &str, limit: usize) -> Result<()> {
     Ok(())
 }
 
-fn links(dir: &Path, deck: &Path, nodes: u64, hands: usize, threads: Option<usize>, json: Option<&Path>) -> Result<()> {
+fn links(
+    dir: &Path,
+    deck: &Path,
+    nodes: u64,
+    hands: usize,
+    threads: Option<usize>,
+    json: Option<&Path>,
+    after: Option<&Path>,
+) -> Result<()> {
     let engine = load_engine(dir)?;
-    let text = std::fs::read_to_string(deck).with_context(|| format!("cannot read {}", deck.display()))?;
-    let deck = DeckList::from_ydk(&text)?;
+    let read = |path: &Path| -> Result<DeckList> {
+        let text = std::fs::read_to_string(path).with_context(|| format!("cannot read {}", path.display()))?;
+        Ok(DeckList::from_ydk(&text)?)
+    };
+    let deck = read(deck)?;
     let threads = threads.unwrap_or_else(|| std::thread::available_parallelism().map_or(4, |n| n.get()));
     let budget = ygo_solver::LinksBudget { hands_per_card: hands, nodes_per_hand: nodes, threads, ..ygo_solver::LinksBudget::default() };
+    let cancel = std::sync::atomic::AtomicBool::new(false);
+    // The earlier version first, its work kept for the deck's.
+    let previous = match after {
+        Some(path) => {
+            let started = std::time::Instant::now();
+            let (_, work) = ygo_solver::deck_links_again(&engine, &read(path)?, 1, budget, &cancel, |_, _, _| {}, None);
+            eprintln!("earlier version read in {:.1} s", started.elapsed().as_secs_f64());
+            Some(work)
+        }
+        None => None,
+    };
     let started = std::time::Instant::now();
-    let map = ygo_solver::deck_links(&engine, &deck, 1, budget, &std::sync::atomic::AtomicBool::new(false), |done, total| {
+    let progress = |done, total, map: &ygo_solver::DeckLinks| {
+        if done == 0 {
+            eprintln!(
+                "from the text, at once: {} links, {total} hands to search ({:.1} s)",
+                map.links.len(),
+                started.elapsed().as_secs_f64()
+            );
+        }
         eprint!("\r{done}/{total} hands");
-    });
+    };
+    let (map, _) = ygo_solver::deck_links_again(&engine, &deck, 1, budget, &cancel, progress, previous.as_ref());
     eprintln!();
     let db = engine.cards();
     println!(
@@ -1037,13 +1156,13 @@ fn links(dir: &Path, deck: &Path, nodes: u64, hands: usize, threads: Option<usiz
         );
         for l in map.links.iter().filter(|l| l.from == c.code) {
             let used = if l.used > 0.0 { format!(" used {:.0}%", l.used * 100.0) } else { String::new() };
-            println!(
-                "    {:<9} {:<8} {}{}{used}",
-                l.kind.key(),
-                l.zone.key(),
-                db.name(l.to),
-                if l.possible { "" } else { " (seen used only)" }
-            );
+            let how = match (l.possible, l.text) {
+                (true, true) => "",
+                (true, false) => " (not in the text)",
+                (false, true) => " (text only)",
+                (false, false) => " (seen used only)",
+            };
+            println!("    {:<9} {:<8} {}{how}{used}", l.kind.key(), l.zone.key(), db.name(l.to));
         }
     }
     if let Some(path) = json {
@@ -1056,6 +1175,7 @@ fn links(dir: &Path, deck: &Path, nodes: u64, hands: usize, threads: Option<usiz
             })).collect::<Vec<_>>(),
             "links": map.links.iter().map(|l| serde_json::json!({
                 "from": l.from, "to": l.to, "kind": l.kind.key(), "zone": l.zone.key(), "possible": l.possible, "used": l.used,
+                "text": l.text,
             })).collect::<Vec<_>>(),
         });
         std::fs::write(path, serde_json::to_string_pretty(&doc)?)?;

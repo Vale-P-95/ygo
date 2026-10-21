@@ -129,6 +129,64 @@ Il collaudo su molti deck (`docs/plans/collaudo-strumenti.md`, branch `claude/to
 - **Risultato.** Su 5 deck contro Branded e Labrynth, Maxx "C" e le Mulcharmy sono a 0 su Tearlaments e a 1-3 momenti su circa 20 negli altri. Il resto dipendeva dal deck da 12 carte dell'avversario del kit: Maxx "C" lo svuotava e le carte che guardano il deck dell'avversario cambiavano.
 - **Il Deck vero dell'avversario nel rigioco.** Nel rigioco delle handtrap l'avversario ora pesca dal suo Main Deck vero, non dalle 12 carte del kit. Per la ricerca e la mappa, che usano ancora il kit, resta da fare in `Kit::standard` con il banco, quando `probe.rs` si libera.
 
+### Maxx "C" e Mulcharmy, passo 1: le carte fatte pescare (21/10/2026)
+Il proprietario ha chiesto di trovare il compromesso tra le carte che l'avversario pesca con Maxx "C" o le Mulcharmy e le interazioni che la board tiene nel suo turno. Il passo 1 misura le pescate; il passo 2 cercherà il punto migliore dove fermare la linea.
+- **Cosa si misura.**
+  - Per ogni handtrap e ogni momento in cui l'avversario la può usare, si rigioca la linea usandola lì e si contano le carte che pesca fino alla fine del tuo turno.
+  - Si tolgono le carte che rimescola dalla mano nel Deck: è il limite di mano delle Mulcharmy nella End Phase.
+  - Vale per qualunque carta che fa pescare, senza nomi.
+- **Dove si legge.**
+  - `RivalHandTrap.drawn`: il massimo di carte pescate.
+  - `RivalHandTrap.moments`: per ogni momento la tua carta in gioco, se ferma la linea e quante carte pesca.
+  - Nell'app `ComboRivalHandTrap.drawn` e `moments`; nella CLI `probe-line --vs` scrive "draws up to N" e le carte pescate momento per momento.
+- **Scelte rigiocate per identità.** Dopo una handtrap, le scelte di carte della linea si rigiocano per quello che sono (codice, zona, giocatore) e non per la posizione nell'elenco.
+  - Il caso trovato: con Fuwalos l'elenco dell'Extra Deck cambiava ordine, e Invocation Evocava Invoked Caliga invece di Baybarron.
+  - Fuwalos sulla linea Invoked passa da 23 momenti su 25 "fermati" a 1.
+- **Numeri** (prima board di una mano per deck, contro Branded di Master Duel Meta: Maxx "C", Fuwalos, Purulia). Il numero è il massimo di carte che l'avversario pesca, cioè usandola al primo momento.
+
+| Linea | Maxx "C" | Fuwalos | Purulia | Quando smette di pagare |
+|---|---|---|---|---|
+| Invoked (Aleister, Chalice, Meltdown) | 9 | 7 | 2 | Maxx "C" a metà linea vale ancora 5 carte (S:P Little Knight), dopo Virakam 1 |
+| Tearlaments (Reinoheart, Havnis, Engraver) | 12 | 6 | 1 | Maxx "C" vale ancora 8 carte a Lacrima, 5 a Requiem |
+| Vanquish Soul K9 (Mad Love, Razen, Izuna) | 9 | 5 | 5 | Maxx "C" vale ancora 6 carte a Heavy Borger, 3 a Mad Love |
+| Branded (Aluber, Branded Fusion, Ecclesia) | 5 | 3 | 1 | da Ecclesia in poi 0 |
+
+- **Cosa dice.** Le linee lunghe (Tearlaments, Invoked) regalano molte carte se Maxx "C" arriva presto. Il passo 2 deve dire fino a dove conviene continuare: il valore della board a ogni punto di arresto contro le carte regalate.
+- **Due regressioni corrette** (trovate dal collaudo dopo la PR #23):
+  - **R1.** Il segnale "l'ultimo anello della catena è dell'avversario" restava acceso per tutta la risoluzione, quindi il sì/no di un tuo effetto che si risolveva sotto Maxx "C" veniva rifiutato. Ora vale solo per le finestre di catena.
+  - **R2.** I passaggi della linea che il motore non chiede più si saltano prima di decidere se rifiutare una domanda.
+  - Sulle quattro linee del passo 1, Maxx "C", Fuwalos e Purulia passano da un momento "fermato" per linea a 0, tranne K9 (1 su 21, a Razen). Le fermate vere di Ash, Saronir e Droll restano.
+- **Terzo giro del collaudo** (180 board, `docs/plans/collaudo-strumenti.md`): con le correzioni fin qui le fermate false di Maxx "C" e Mulcharmy passano da 1116 a 81. Le ultime due cause sono corrette:
+  - **R3.** Quando l'effetto atteso di una carta non è offerto, la linea non ripiega più su un altro effetto della stessa carta. Lo fa solo per un sì a una domanda, la cui descrizione non è quella dell'effetto. Prima K9-17 "Ripper" negava Maxx "C" invece di cercare.
+  - **R4.** Se la linea passa in una finestra dove la sua azione successiva è già offerta, gioca l'azione e salta i passaggi. La catena della handtrap aveva preso una finestra della Fase Finale e Blazing Cartesia restava fuori.
+  - Nella copia del collaudo, con R3 e R4 le fermate false vanno a 0 e quelle vere restano uguali.
+
+### Maxx "C" e Mulcharmy, passo 2: dove fermare la linea (21/10/2026)
+- **La domanda.** L'avversario usa Maxx "C" (o una Mulcharmy) al primo momento utile. Conviene finire la linea, o fermarsi prima e regalargli meno carte?
+- **Come si misura** (`draw_trade_off` in `matchup.rs`).
+  - I punti di arresto sono i momenti liberi della tua Main Phase lungo la linea, al massimo 12 distribuiti, più la linea intera. A ogni punto la linea finisce il turno lì.
+  - La board di ogni punto si misura con il turno di prova standard: interruzioni e floodgate.
+  - Le carte pescate dall'avversario si contano rigiocando la linea fermata lì, con la handtrap usata al primo momento. Contano anche la End Phase e il limite di mano delle Mulcharmy.
+- **Il valore atteso nel suo turno.**
+  - L'avversario ha 6 carte più quelle pescate, quindi più probabilità di avere un breaker. Gioca il più dannoso che ha, con la stessa formula esatta della resilienza contro X.
+  - I floodgate contano solo se non ha breaker: un Dark Hole toglie anche quelli.
+  - Se il deck non ha breaker che il turno di prova sa giocare, si usano quelli standard e si suppone che il deck ne giochi circa 5 su 40.
+  - Il punto migliore è quello col valore atteso più alto. A parità vince quello che regala meno carte, poi il primo: stesso risultato con meno azioni (proposta del collaudo).
+- **Dove si usa.** Nella CLI con `probe-line --vs <deck> --stops`. Nell'app con `api.comboStops(hand, key, vsDeckId)`: pochi secondi per board, si chiama a richiesta su una board.
+- **Numeri** (le stesse quattro linee del passo 1, contro Branded, con Maxx "C" al primo momento):
+
+| Linea | Linea intera | Punto migliore | Cosa dice |
+|---|---|---|---|
+| Invoked | 0,78 con 9 carte pescate | dopo Virakam: 0,80 con 8 | gli ultimi passi (Invocation) non aggiungono niente e regalano una carta |
+| Tearlaments | 1,27 con 12 | la linea intera | The Undying Legion arriva alla fine e vale da sola più di tutto il resto (da 0,28 a 1,27) |
+| Vanquish Soul K9 | 0,09 con 9 | dopo Snow Devil: 0,10 con 7 | gli ultimi tre passi (Rock of the Vanquisher) regalano 2 carte senza aggiungere interruzioni |
+| Branded | 0,49 con 5 | la linea intera | Albion the Branded Dragon arriva alla fine |
+
+- **Limiti.**
+  - Le carte pescate contano solo per la probabilità di un breaker nel suo turno. Non contano le risorse per la sua combo, né le handtrap per il tuo turno dopo: il costo vero di una carta pescata è più alto. Un peso in più per le carte regalate si può aggiungere come preferenza del giocatore.
+  - Si prova solo l'uso al primo momento, che è il più comune; l'avversario potrebbe aspettare.
+  - La linea fermata a metà finisce il turno così com'è: non cerca una chiusura diversa con le carte rimaste.
+
 ### Seconde correzioni dal collaudo: i breaker (21/10/2026)
 - **Breaker falsi.** Una carta presa dal testo resta un breaker solo se, giocata contro il campo finto, gli toglie una carta o ne nega una.
   - Il campo finto ha tre mostri (un mostro con effetto, un Fusion e un Link) e due carte coperte.
