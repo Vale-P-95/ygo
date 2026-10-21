@@ -1,14 +1,16 @@
-import type { Card, LinkCard } from "../../../lib/api";
+import { useMemo } from "react";
+import type { Card, CardLink, LinkCard } from "../../../lib/api";
 import { sound } from "../../../lib/sound";
 
 interface Props {
   cards: LinkCard[];
+  links: CardLink[];
   getCard: (code: number) => Card | undefined;
   selectedCode: number | null;
   onSelectCard: (code: number) => void;
 }
 
-export function LinksStats({ cards, getCard, selectedCode, onSelectCard }: Props) {
+export function LinksStats({ cards, links, getCard, selectedCode, onSelectCard }: Props) {
   const starters = [...cards]
     .filter((c) => !c.extra && c.reachAll > 0)
     .sort((a, b) => b.reachAll - a.reachAll || b.chance - a.chance)
@@ -19,7 +21,19 @@ export function LinksStats({ cards, getCard, selectedCode, onSelectCard }: Props
     .sort((a, b) => b.key - a.key)
     .slice(0, 4);
 
-  const isolated = cards.filter((c) => c.reach === 0 && !c.extra);
+  const incoming = useMemo(() => {
+    const s = new Set<number>();
+    links.forEach((l) => s.add(l.to));
+    return s;
+  }, [links]);
+
+  const outgoing = useMemo(() => {
+    const s = new Set<number>();
+    links.forEach((l) => s.add(l.from));
+    return s;
+  }, [links]);
+
+  const isolated = cards.filter((c) => !c.extra && !incoming.has(c.code) && !outgoing.has(c.code));
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
@@ -62,7 +76,7 @@ export function LinksStats({ cards, getCard, selectedCode, onSelectCard }: Props
       <div className="rounded-lg border border-border bg-surface-2/70 p-2.5 flex flex-col gap-1.5">
         <div className="flex items-center justify-between">
           <span className="font-semibold text-text flex items-center gap-1.5">
-            <span className="text-amber-500">★</span> Carte chiave
+            <span className="text-[var(--df-gold)]">★</span> Carte chiave
           </span>
           <span className="text-[10px] text-muted">da proteggere dalle negazioni</span>
         </div>
@@ -81,11 +95,11 @@ export function LinksStats({ cards, getCard, selectedCode, onSelectCard }: Props
                     sound.play("page");
                     onSelectCard(c.code);
                   }}
-                  className={`chip !py-0.5 !px-2 flex items-center gap-1.5 border-amber-500/40 ${active ? "chip-active !bg-amber-500/20" : ""}`}
+                  className={`chip !py-0.5 !px-2 flex items-center gap-1.5 border-[var(--df-gold)]/40 ${active ? "chip-active !bg-[var(--df-gold)]/20" : ""}`}
                   title={`${name}: se negata si perdono in media ${c.key.toFixed(2)} carte`}
                 >
                   <span className="truncate max-w-[120px]">{name}</span>
-                  <span className="text-[10px] font-bold text-amber-500 tabular-nums">−{c.key.toFixed(1)}</span>
+                  <span className="text-[10px] font-bold text-[var(--df-gold)] tabular-nums">−{c.key.toFixed(1)}</span>
                 </button>
               );
             })
@@ -114,7 +128,7 @@ export function LinksStats({ cards, getCard, selectedCode, onSelectCard }: Props
                   onSelectCard(c.code);
                 }}
                 className={`chip !py-0.5 !px-1.5 text-[11px] text-muted ${active ? "chip-active" : ""}`}
-                title={`${name}: nessuna carta del mazzo vi conduce direttamente`}
+                title={`${name}: nessun collegamento né in entrata né in uscita`}
               >
                 <span className="truncate max-w-[110px]">{name}</span>
               </button>

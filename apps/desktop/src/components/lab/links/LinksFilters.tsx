@@ -68,7 +68,7 @@ export function LinksFilters({ filters, onChange, layout, onLayoutChange, links 
         </div>
 
         <div className="flex items-center gap-2">
-          <div className="flex items-center rounded-lg border border-border bg-surface-1 p-0.5 text-[11px]" role="tablist">
+          <div className="flex items-center rounded-lg border border-border bg-surface-2 p-0.5 text-[11px]" role="tablist">
             <button
               type="button"
               className={`rounded-md px-2.5 py-0.5 font-medium transition-colors ${layout === "circle" ? "bg-surface-3 text-text shadow-xs" : "text-muted hover:text-text"}`}
@@ -136,7 +136,7 @@ export function LinksFilters({ filters, onChange, layout, onLayoutChange, links 
             placeholder="Filtra carte…"
             value={filters.searchQuery}
             onChange={(e) => onChange({ ...filters, searchQuery: e.target.value })}
-            className="input !py-0.5 !px-2 !text-xs max-w-[140px]"
+            className="field !py-0.5 !px-2 !text-xs max-w-[140px]"
           />
         </div>
       </div>

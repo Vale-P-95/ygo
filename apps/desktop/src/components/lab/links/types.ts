@@ -11,11 +11,11 @@ export interface LinkKindMeta {
 }
 
 export const LINK_KINDS: Record<CardLinkKind, LinkKindMeta> = {
-  search: { id: "search", label: "Aggiunge alla mano", verb: "cerca", color: "#10b981", bg: "rgba(16, 185, 129, 0.15)" },
-  summon: { id: "summon", label: "Evoca Specialmente", verb: "evoca", color: "#f59e0b", bg: "rgba(245, 158, 11, 0.15)" },
-  toGrave: { id: "toGrave", label: "Manda al Cimitero", verb: "manda al GY", color: "#ef4444", bg: "rgba(239, 68, 68, 0.15)" },
-  recover: { id: "recover", label: "Recupera", verb: "recupera", color: "#06b6d4", bg: "rgba(6, 182, 212, 0.15)" },
-  material: { id: "material", label: "Materiale di", verb: "è materiale di", color: "#8b5cf6", bg: "rgba(139, 92, 246, 0.15)" },
+  search: { id: "search", label: "Aggiunge alla mano", verb: "cerca", color: "var(--role-starter)", bg: "color-mix(in srgb, var(--role-starter) 15%, transparent)" },
+  summon: { id: "summon", label: "Evoca Specialmente", verb: "evoca", color: "var(--role-extender)", bg: "color-mix(in srgb, var(--role-extender) 15%, transparent)" },
+  toGrave: { id: "toGrave", label: "Manda al Cimitero", verb: "manda al Cimitero", color: "var(--role-brick)", bg: "color-mix(in srgb, var(--role-brick) 15%, transparent)" },
+  recover: { id: "recover", label: "Recupera", verb: "recupera", color: "var(--role-breaker)", bg: "color-mix(in srgb, var(--role-breaker) 15%, transparent)" },
+  material: { id: "material", label: "Materiale di", verb: "è materiale di", color: "var(--role-custom-1)", bg: "color-mix(in srgb, var(--role-custom-1) 15%, transparent)" },
 };
 
 export const LINK_ZONES: Record<CardLinkZone, { label: string; short: string }> = {

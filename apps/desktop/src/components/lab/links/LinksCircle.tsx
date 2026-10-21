@@ -45,6 +45,13 @@ export function LinksCircle({
 
   const targetCode = hoveredCardCode ?? activeCardCode;
 
+  const query = filters.searchQuery.trim().toLowerCase();
+  const matchesSearch = (code: number) => {
+    if (!query) return true;
+    const c = getCard(code);
+    return (c?.name?.toLowerCase().includes(query) ?? false) || String(code).includes(query);
+  };
+
   // Geometry
   const R = 230;
   const N = orderedCards.length;
@@ -87,8 +94,9 @@ export function LinksCircle({
               viewBox="0 0 10 10"
               refX="18"
               refY="5"
-              markerWidth="6"
-              markerHeight="6"
+              markerUnits="userSpaceOnUse"
+              markerWidth="7"
+              markerHeight="7"
               orient="auto-start-reverse"
             >
               <path d="M 0 1 L 9 5 L 0 9 z" fill={LINK_KINDS[kind].color} />
@@ -126,15 +134,19 @@ export function LinksCircle({
               } else {
                 opacity = 0.04;
               }
-            } else if (l.zone === "grave" || l.zone === "hand") {
+            } else if (l.zone !== "deck" && l.zone !== "extra") {
               opacity = 0.15;
+            }
+
+            if (query && !matchesSearch(l.from) && !matchesSearch(l.to)) {
+              opacity = 0.03;
             }
 
             const pathD = `M ${pFrom.x} ${pFrom.y} Q ${cx} ${cy} ${pTo.x} ${pTo.y}`;
 
             return (
               <path
-                key={idx}
+                key={`${l.from}-${l.to}-${l.kind}-${idx}`}
                 d={pathD}
                 fill="none"
                 stroke={meta.color}
@@ -161,7 +173,8 @@ export function LinksCircle({
             const isFocused = isSelected || isHovered;
             const isConnected = connectedCodes == null || connectedCodes.has(c.code);
 
-            const nodeOpacity = targetCode != null && !isConnected ? 0.3 : 1;
+            const matches = matchesSearch(c.code);
+            const nodeOpacity = !matches ? 0.15 : targetCode != null && !isConnected ? 0.3 : 1;
 
             // Truncated label for circle perimeter
             const displayName = name.length > 18 ? name.slice(0, 16) + "…" : name;
@@ -174,9 +187,10 @@ export function LinksCircle({
             return (
               <g
                 key={c.code}
-                className="cursor-pointer transition-opacity duration-200"
+                className={`transition-opacity duration-200 ${matches ? "cursor-pointer" : "pointer-events-none"}`}
                 opacity={nodeOpacity}
                 onClick={() => {
+                  if (!matches) return;
                   sound.play("page");
                   onSelectCard(isSelected ? null : c.code);
                 }}
@@ -190,7 +204,7 @@ export function LinksCircle({
                     cy={pos.y}
                     r={c.key > 0.2 ? 18 : 16}
                     fill="none"
-                    stroke={c.key > 0.2 ? "#f59e0b" : "var(--sec)"}
+                    stroke={c.key > 0.2 ? "var(--df-gold)" : "var(--sec)"}
                     strokeWidth="2.5"
                     className="anim-fade"
                   />
@@ -201,8 +215,8 @@ export function LinksCircle({
                   cx={pos.x}
                   cy={pos.y}
                   r={c.key > 0.2 ? 14 : 12}
-                  fill={c.extra ? "rgba(139, 92, 246, 0.25)" : "rgba(30, 41, 59, 0.85)"}
-                  stroke={c.key > 0.2 ? "#f59e0b" : c.extra ? "#8b5cf6" : "#64748b"}
+                  fill={c.extra ? "color-mix(in srgb, var(--role-extender) 25%, var(--df-surface-2))" : "var(--df-surface-2)"}
+                  stroke={c.key > 0.2 ? "var(--df-gold)" : c.extra ? "var(--role-extender)" : "var(--df-border-strong)"}
                   strokeWidth={isFocused ? 2 : 1.2}
                 />
 
@@ -231,7 +245,7 @@ export function LinksCircle({
                   }`}
                 >
                   {displayName}
-                  {c.key > 0.2 && <tspan fill="#f59e0b"> ★</tspan>}
+                  {c.key > 0.2 && <tspan fill="var(--df-gold)"> ★</tspan>}
                 </text>
               </g>
             );

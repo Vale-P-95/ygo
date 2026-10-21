@@ -21,21 +21,30 @@ export function LinksColumns({
   activeCardCode,
   onSelectCard,
 }: Props) {
+  const filteredLinks = useMemo(() => {
+    return links.filter((l) => {
+      if (filters.kind !== "all" && l.kind !== filters.kind) return false;
+      if (filters.zone !== "all" && l.zone !== filters.zone) return false;
+      if (filters.onlyUsed && l.used <= 0) return false;
+      return true;
+    });
+  }, [links, filters.kind, filters.zone, filters.onlyUsed]);
+
   const incomingMap = useMemo(() => {
     const map = new Map<number, number>();
-    for (const l of links) {
+    for (const l of filteredLinks) {
       map.set(l.to, (map.get(l.to) || 0) + 1);
     }
     return map;
-  }, [links]);
+  }, [filteredLinks]);
 
   const outgoingMap = useMemo(() => {
     const map = new Map<number, number>();
-    for (const l of links) {
+    for (const l of filteredLinks) {
       map.set(l.from, (map.get(l.from) || 0) + 1);
     }
     return map;
-  }, [links]);
+  }, [filteredLinks]);
 
   // Categorize cards
   const columns = useMemo(() => {
@@ -74,7 +83,7 @@ export function LinksColumns({
     return [
       { id: "starters", title: "Starter & Motori", subtitle: "Avviano i collegamenti", list: starters, color: "var(--sec)" },
       { id: "bridges", title: "Ponti & Estensioni", subtitle: "Connettono la linea", list: intermediates, color: "var(--metric-resources)" },
-      { id: "extra", title: "Extra Deck", subtitle: "Punti d'arrivo della board", list: extra, color: "#8b5cf6" },
+      { id: "extra", title: "Extra Deck", subtitle: "Punti d'arrivo della board", list: extra, color: "var(--role-extender)" },
       { id: "isolated", title: "Isolate & Handtrap", subtitle: "Nessun collegamento", list: isolated, color: "var(--muted)" },
     ];
   }, [cards, incomingMap, outgoingMap, filters.searchQuery, getCard]);
@@ -82,7 +91,7 @@ export function LinksColumns({
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3 w-full h-full p-1 overflow-x-auto">
       {columns.map((col) => (
-        <div key={col.id} className="flex flex-col gap-2 rounded-lg border border-border/70 bg-surface-1/60 p-2.5">
+        <div key={col.id} className="flex flex-col gap-2 rounded-lg border border-border/70 bg-surface-2/60 p-2.5">
           <div className="flex items-baseline justify-between border-b border-border/50 pb-1.5 px-0.5">
             <div className="min-w-0">
               <h4 className="text-xs font-semibold text-text truncate">{col.title}</h4>
@@ -111,6 +120,13 @@ export function LinksColumns({
                       sound.play("page");
                       onSelectCard(isSelected ? null : c.code);
                     }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        sound.play("page");
+                        onSelectCard(isSelected ? null : c.code);
+                      }
+                    }}
                     className={`flex items-center gap-2 rounded-md border p-1.5 text-xs transition-colors cursor-pointer select-none ${
                       isSelected
                         ? "border-[var(--sec)] bg-sec/10 shadow-xs"
@@ -132,15 +148,13 @@ export function LinksColumns({
                           Raggiunge: <b className="text-text tabular-nums">{c.reachAll}</b>
                         </span>
                         {c.key > 0.05 && (
-                          <span className="text-amber-500 font-semibold" title={`Chiave: -${c.key.toFixed(2)}`}>
+                          <span className="text-[var(--df-gold)] font-semibold" title={`Chiave: -${c.key.toFixed(2)}`}>
                             ★ −{c.key.toFixed(1)}
                           </span>
                         )}
-                        {!c.extra && c.chance > 0 && (
-                          <span className="ml-auto text-sec tabular-nums font-medium">
-                            {Math.round(c.chance * 100)}%
-                          </span>
-                        )}
+                        <span className="ml-auto text-sec tabular-nums font-medium">
+                          {c.extra ? (c.chance > 0 ? `${Math.round(c.chance * 100)}%` : "—") : `${Math.round(c.chance * 100)}%`}
+                        </span>
                       </div>
                     </div>
                   </div>

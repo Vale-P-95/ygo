@@ -2156,77 +2156,71 @@ export const mockApi: Api = {
       }
     }
 
-    // Curated rich links data matching the Invoked engine results
-    const sampleLinks: CardLink[] = [
-      { from: 86120752, to: 74063034, kind: "search", zone: "deck", possible: true, used: 0.82 },
-      { from: 86120752, to: 98159737, kind: "material", zone: "extra", possible: true, used: 0.75 },
-      { from: 86120752, to: 75286621, kind: "material", zone: "extra", possible: true, used: 0.70 },
-      { from: 86120752, to: 84815190, kind: "material", zone: "extra", possible: true, used: 0.30 },
-      { from: 74063034, to: 75286621, kind: "summon", zone: "extra", possible: true, used: 0.70 },
-      { from: 74063034, to: 84815190, kind: "summon", zone: "extra", possible: true, used: 0.30 },
-      { from: 74063034, to: 86120752, kind: "recover", zone: "grave", possible: true, used: 0.65 },
-      { from: 98159737, to: 65741786, kind: "material", zone: "extra", possible: true, used: 0.45 },
-      { from: 60764609, to: 75286621, kind: "material", zone: "extra", possible: true, used: 0.40 },
-      { from: 60764609, to: 65741786, kind: "material", zone: "extra", possible: true, used: 0.50 },
-      { from: 72270339, to: 29301450, kind: "material", zone: "extra", possible: true, used: 0.55 },
-      { from: 29301450, to: 4280258, kind: "material", zone: "extra", possible: true, used: 0.40 },
-    ];
+    const mainSet = new Set(deck?.main ?? []);
+    const extraSet = new Set(deck?.extra ?? []);
+    const aleisterCode = mainSet.has(86120751) ? 86120751 : 86120752;
 
-    // Compute reach and key for raw cards based on sampleLinks
+    // Curated rich links data matching the Invoked engine results
+    const allPossibleLinks: CardLink[] = [
+      { from: 47679935, to: aleisterCode, kind: "search", zone: "deck", possible: true, used: 0.90 },
+      { from: aleisterCode, to: 74063034, kind: "search", zone: "deck", possible: true, used: 0.95 },
+      { from: aleisterCode, to: 20714553, kind: "material", zone: "extra", possible: true, used: 0.85 },
+      { from: 20714553, to: 97973962, kind: "material", zone: "extra", possible: true, used: 0.80 },
+      { from: 74063034, to: 75286621, kind: "summon", zone: "extra", possible: true, used: 0.75 },
+      { from: 74063034, to: 70383419, kind: "summon", zone: "extra", possible: true, used: 0.25 },
+      { from: 74063034, to: aleisterCode, kind: "recover", zone: "banished", possible: true, used: 0.85 },
+      { from: aleisterCode, to: 75286621, kind: "material", zone: "extra", possible: true, used: 0.75 },
+      { from: 97973962, to: 75286621, kind: "material", zone: "extra", possible: true, used: 0.75 },
+      { from: 29301450, to: 34755994, kind: "material", zone: "extra", possible: true, used: 0.40 },
+    ];
+    const sampleLinks = allPossibleLinks.filter(
+      (l) => (mainSet.has(l.from) || extraSet.has(l.from)) && (mainSet.has(l.to) || extraSet.has(l.to))
+    );
+
+    // Compute reach and reachAll dynamically via BFS on validLinks
+    const outgoingByCard = new Map<number, CardLink[]>();
+    for (const l of sampleLinks) {
+      const list = outgoingByCard.get(l.from) ?? [];
+      list.push(l);
+      outgoingByCard.set(l.from, list);
+    }
+
     for (const c of rawCards) {
-      if (c.code === 86120752) { // Aleister
-        c.reach = 2;
-        c.reachAll = 11;
-        c.chance = 0.85;
+      const outgoing = outgoingByCard.get(c.code) ?? [];
+      const oneStepTargets = new Set(outgoing.map((l) => l.to));
+      c.reach = oneStepTargets.size;
+
+      // ReachAll: cards reachable through deck or extra in any number of steps
+      const reachable = new Set<number>();
+      const queue = [...outgoing.filter((l) => l.zone === "deck" || l.zone === "extra").map((l) => l.to)];
+      for (const t of queue) reachable.add(t);
+      while (queue.length > 0) {
+        const curr = queue.shift()!;
+        const next = outgoingByCard.get(curr) ?? [];
+        for (const l of next) {
+          if ((l.zone === "deck" || l.zone === "extra") && !reachable.has(l.to)) {
+            reachable.add(l.to);
+            queue.push(l.to);
+          }
+        }
+      }
+      c.reachAll = reachable.size;
+
+      if (c.code === aleisterCode) {
         c.key = 0.42;
-      } else if (c.code === 74063034) { // Invocation
-        c.reach = 8;
-        c.reachAll = 8;
-        c.chance = 0.72;
-        c.key = 0.05;
-      } else if (c.code === 60764609) { // Fiendsmith Engraver
-        c.reach = 3;
-        c.reachAll = 8;
-        c.chance = 0.78;
-        c.key = 0.38;
-      } else if (c.code === 72270339) { // Snake-Eye Ash
-        c.reach = 3;
-        c.reachAll = 7;
-        c.chance = 0.65;
-        c.key = 0.25;
-      } else if (c.code === 98159737) { // Artemis
-        c.reach = 1;
-        c.reachAll = 2;
-        c.chance = 0.80;
-        c.key = 0.15;
-      } else if (c.code === 75286621) { // Mechaba
-        c.reach = 0;
-        c.reachAll = 0;
+        c.chance = 0.85;
+      } else if (c.code === 47679935) {
+        c.key = 0.35;
         c.chance = 0.82;
+      } else if (c.code === 74063034) {
+        c.key = 0.15;
+        c.chance = 0.72;
+      } else if (c.extra) {
         c.key = 0;
-      } else if (c.code === 84815190) { // Augoeides
-        c.reach = 0;
-        c.reachAll = 0;
-        c.chance = 0.65;
+        c.chance = c.reachAll > 0 || sampleLinks.some((l) => l.to === c.code) ? 0.75 : 0;
+      } else {
         c.key = 0;
-      } else if (c.code === 65741786) { // S:P
-        c.reach = 0;
-        c.reachAll = 0;
-        c.chance = 0.70;
-        c.key = 0;
-      } else if (c.code === 4280258) { // Apollousa
-        c.reach = 0;
-        c.reachAll = 0;
-        c.chance = 0.45;
-        c.key = 0;
-      } else if (c.code === 29301450) { // Princess
-        c.reach = 1;
-        c.reachAll = 2;
-        c.chance = 0.50;
-        c.key = 0.10;
-      } else if (!c.extra) {
         c.chance = c.copies === 3 ? 0.34 : c.copies === 2 ? 0.24 : 0.12;
-        c.key = 0;
       }
     }
 

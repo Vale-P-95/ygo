@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
-import { api, type Card, type Deck, type DeckLinks } from "../../../lib/api";
+import { useMemo, useState } from "react";
+import type { Card, Deck, DeckLinks } from "../../../lib/api";
 import { sound } from "../../../lib/sound";
 import { LinksCardDetail } from "./LinksCardDetail";
 import { LinksCircle } from "./LinksCircle";
@@ -10,9 +10,14 @@ import type { LinksFilterState, LinksLayoutMode } from "./types";
 
 interface Props {
   deck: Deck;
+  data: DeckLinks | null;
+  loading: boolean;
+  progress: { done: number; total: number } | null;
+  error: string | null;
+  onReload: () => void;
   getCard: (code: number) => Card | undefined;
-  requestCards: (codes: number[]) => void;
   onGoCombo?: (cardId: number) => void;
+  hand?: "first" | "second";
 }
 
 const DEFAULT_FILTERS: LinksFilterState = {
@@ -22,53 +27,55 @@ const DEFAULT_FILTERS: LinksFilterState = {
   searchQuery: "",
 };
 
-export function LinksTab({ deck, getCard, requestCards, onGoCombo }: Props) {
-  const [data, setData] = useState<DeckLinks | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
+export function LinksTab({
+  deck,
+  data,
+  loading,
+  progress,
+  error,
+  onReload,
+  getCard,
+  onGoCombo,
+  hand = "first",
+}: Props) {
   const [filters, setFilters] = useState<LinksFilterState>(DEFAULT_FILTERS);
   const [layout, setLayout] = useState<LinksLayoutMode>("circle");
   const [selectedCardCode, setSelectedCardCode] = useState<number | null>(null);
   const [hoveredCardCode, setHoveredCardCode] = useState<number | null>(null);
-
-  const loadLinks = useCallback(
-    async (deckId: number) => {
-      setLoading(true);
-      setError(null);
-      setProgress(null);
-
-      let unlisten: (() => void) | undefined;
-      try {
-        unlisten = await api.onLinksProgress((p) => {
-          setProgress(p);
-        });
-
-        const res = await api.deckLinks(deckId);
-        setData(res);
-
-        // Preload card metadata for all cards in the map
-        const codes = res.cards.map((c) => c.code);
-        requestCards(codes);
-      } catch (err) {
-        setError(String(err));
-      } finally {
-        unlisten?.();
-        setLoading(false);
-        setProgress(null);
-      }
-    },
-    [requestCards]
-  );
-
-  useEffect(() => {
-    if (deck?.id != null) {
-      void loadLinks(deck.id);
-    }
-  }, [deck?.id, loadLinks]);
+  const [sampleHand, setSampleHand] = useState<number[] | null>(null);
 
   const selectedCard = data?.cards.find((c) => c.code === selectedCardCode) ?? null;
+
+  // Draw or clear sample hand overlay (5 cards going first, 6 going second)
+  const drawSampleHand = () => {
+    if (!deck.main || deck.main.length === 0) return;
+    sound.play("page");
+    const count = hand === "second" ? 6 : 5;
+    const shuffled = [...deck.main].sort(() => Math.random() - 0.5);
+    setSampleHand(shuffled.slice(0, count));
+  };
+
+  const clearSampleHand = () => {
+    sound.play("close");
+    setSampleHand(null);
+  };
+
+  // Find all cards reachable from current sample hand in any number of steps
+  const reachableFromHand = useMemo(() => {
+    if (!sampleHand || !data) return null;
+    const reached = new Set<number>(sampleHand);
+    let grew = true;
+    while (grew) {
+      grew = false;
+      for (const l of data.links) {
+        if (reached.has(l.from) && !reached.has(l.to)) {
+          reached.add(l.to);
+          grew = true;
+        }
+      }
+    }
+    return reached;
+  }, [sampleHand, data]);
 
   return (
     <div className="flex flex-col gap-4 text-xs anim-fade">
@@ -84,7 +91,7 @@ export function LinksTab({ deck, getCard, requestCards, onGoCombo }: Props) {
             )}
           </div>
           <p className="text-[11px] text-muted">
-            Come le carte del deck conducono l'una all'altra: ricerche, evocazioni, invio al cimitero, recuperi e materiali.
+            Come le carte del deck conducono l'una all'altra: ricerche, evocazioni, invio al Cimitero, recuperi e materiali.
           </p>
         </div>
 
@@ -94,11 +101,32 @@ export function LinksTab({ deck, getCard, requestCards, onGoCombo }: Props) {
               Mani campionate: {data.hands} · Linee: {data.lines}
             </span>
           )}
+          {data && (
+            sampleHand ? (
+              <button
+                type="button"
+                onClick={clearSampleHand}
+                className="chip chip-active !py-1 !px-2 text-xs flex items-center gap-1.5"
+                title="Rimuovi la mano di prova sovrapposta"
+              >
+                <span>✕ Chiudi mano ({sampleHand.length} carte)</span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={drawSampleHand}
+                className="btn btn-ghost !py-1 !px-2 text-xs flex items-center gap-1.5"
+                title="Sovrapponi una mano di prova casuale e illumina ciò che raggiunge"
+              >
+                <span>⚡ Sovrapponi mano ({hand === "second" ? "6" : "5"} carte)</span>
+              </button>
+            )
+          )}
           <button
             type="button"
             onClick={() => {
               sound.play("select");
-              if (deck?.id != null) void loadLinks(deck.id);
+              onReload();
             }}
             disabled={loading}
             className="btn btn-ghost !py-1 !px-2.5 text-xs flex items-center gap-1.5"
@@ -108,6 +136,31 @@ export function LinksTab({ deck, getCard, requestCards, onGoCombo }: Props) {
           </button>
         </div>
       </div>
+
+      {/* Hand overlay summary banner */}
+      {sampleHand && (
+        <div className="rounded-lg border border-sec/40 bg-sec/10 p-2.5 flex flex-wrap items-center justify-between gap-2 anim-fade">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="font-semibold text-sec text-xs">Mano di prova:</span>
+            {sampleHand.map((code, idx) => (
+              <button
+                key={`${code}-${idx}`}
+                type="button"
+                onClick={() => {
+                  sound.play("toggle");
+                  setSelectedCardCode(code);
+                }}
+                className={`chip !py-0.5 !px-1.5 text-[11px] font-medium ${selectedCardCode === code ? "chip-active" : ""}`}
+              >
+                {getCard(code)?.name ?? code}
+              </button>
+            ))}
+          </div>
+          <span className="text-[11px] text-muted">
+            Raggiunge <b>{reachableFromHand ? reachableFromHand.size : 0}</b> carte del mazzo
+          </span>
+        </div>
+      )}
 
       {/* Loading state with progress */}
       {loading && (
@@ -145,6 +198,7 @@ export function LinksTab({ deck, getCard, requestCards, onGoCombo }: Props) {
           {/* Summary ribbon */}
           <LinksStats
             cards={data.cards}
+            links={data.links}
             getCard={getCard}
             selectedCode={selectedCardCode}
             onSelectCard={(code) => setSelectedCardCode(code)}
@@ -157,7 +211,6 @@ export function LinksTab({ deck, getCard, requestCards, onGoCombo }: Props) {
             layout={layout}
             onLayoutChange={setLayout}
             links={data.links}
-            
           />
 
           {/* Visualization + Card Detail Panel */}
@@ -191,9 +244,9 @@ export function LinksTab({ deck, getCard, requestCards, onGoCombo }: Props) {
             <div className="sticky top-4">
               <LinksCardDetail
                 card={selectedCard}
+                allCards={data.cards}
                 getCard={getCard}
                 links={data.links}
-                
                 onSelectCard={(code) => setSelectedCardCode(code)}
                 onGoCombo={onGoCombo}
                 onClose={() => setSelectedCardCode(null)}
