@@ -554,6 +554,66 @@ $CLI --data data card-values --deck $S/mdm/<deck>.ydk        # tabella delle han
 
 ---
 
+### C7. Linea di base (21/10/2026)
+
+Codice: il branch di Claude con mimalloc e meno replay (`c9ad88b`). Ricerca come in C1: 45 deck (37 MDM e 8 archetipi), mano della regola "-lines", 3000 nodi, un thread, prime 8 board misurate. Comandi: `combo_hunt.py --seed 1|2|3 --json`, `rank_report.py`, `board_pairs.py make|eval|sheet`. Nessun crash e nessun "probe turn failed".
+
+| Numero (C5) | Oggi | Nel piano (20/10) | Obiettivo |
+|---|---|---|---|
+| 1. Coppie sicure con il vincitore giusto | 17 su 33 misurate (52%) | — | ≥ 80% |
+| 1. Coppie da confermare con il vincitore giusto | 7 su 45 misurate | — | più |
+| 2. Invarianza: gruppi con le stesse carte che misurano diverso di più di 0,05 | 4 (Δ max 0,65) | 17 in 11 deck | 0 |
+| 3. Zeri sbagliati (Dragoon a mano vuota, Desirae senza equip, Secreterion) | 0 | — | 0 |
+| 7. Coppie della top 8 invertite di più di 0,1 tra stima e misura | 131 su 1260 | 131 su 753 | ≤ 60 |
+| 7. Deck in cui il #1 elencato non è il migliore misurato | 12 su 45 | 12 su 45 | 0 |
+| 8. Deck con al massimo 2 campi distinti nella top 8 | 5 | 9 | meno |
+| 9. Tempo della misura per board | mediana 0,54 s, p95 1,56 s | — | — |
+| 6. Stabilità tra semi: Jaccard medio delle prime 5 | 0,24 (90 confronti) | — | non peggiore |
+
+Note:
+- **Invarianza.** La correzione dei costi del turno di prova (§30.6 del PIANO) ha tolto quasi tutti i casi. Restano Synchrons, con F.A. Dawn Dragster: 4,01 in una zona principale e 3,35 nella Zona Mostri Extra (Δ 0,65, due gruppi), e White Forest Azamina, al limite (0,05).
+- **Stabilità.** Il seme cambia anche l'ordine del deck: con la stessa mano le carte pescate o cercate cambiano (Azamina con il seme 2 trova board con un Infinite Impermanence pescato). Il Jaccard basso misura quindi sia questo sia il budget di nodi. Va confrontato prima e dopo, non con 1.
+- **Pannello di giudici.** Tre agenti hanno ordinato alla cieca le prime 5 board distinte di ogni deck (seme 1). Sono d'accordo sulla board migliore in 31 deck su 45; 66 dei 135 giudizi erano a bassa fiducia. Le coppie messe nello stesso ordine da tutti e tre sono in `pairs.tsv`: 74 in 39 deck, 30 sicure (nessun giudice incerto sul deck) e 44 da confermare.
+- **Coppie** (`board_pairs.py eval`, 83 coppie: P1–P9 più le 74 del pannello). 4 non si trovano più (P3, P6, P7, P9) e P8 non ha un atteso.
+  - Sicure: 17 giuste, 12 pari (|Δ| < 0,05) e 4 al contrario (J28 labrynth, J46 synchrons, J57 white_forest_azamina, J68 x_spright). Delle vecchie, P1 e P2 sono giuste e P4 è pari.
+  - Da confermare: 7 giuste, 24 pari e 14 al contrario (tra queste P5).
+  - Il difetto più frequente è la parità: 36 coppie su 78 misurano uguale. Di solito la differenza tra le due board è qualcosa che la misura oggi non conta: un campo che vale 0 interruzioni in entrambe (Clown Crew, Yummy: resta solo l'handtrap in mano, 0,64), una Trappola settata che non ferma niente nel kit (Volcanic Emission), un mostro in più senza effetto contro il kit, carte per il turno dopo. Sono i casi di D1–D7 (bersagli, kit, carte che il kit non usa), D13 (risorse) e D15 (protezione).
+  - Le 4 sicure al contrario si guardano una per una in D1–D7.
+
+### C8. Dopo D2, D3 e D4 (21/10/2026, pomeriggio)
+
+Prima delle correzioni, una correzione delle coppie stesse: il campo delle board non segnava i mostri settati coperti, e i giudici hanno preso per attive carte coperte (Spright Carrot, Droll & Lock Bird, Ash Blossom). Le 7 coppie con una board così sono diventate "da confermare" e J68 non ha più un atteso. Linea di base corretta: sicure 15 giuste su 29, da confermare 9 su 48.
+
+| Passo | Cosa | Coppie sicure (giuste / pari / al contrario) | Da confermare giuste | Ricerca (`bench_cross.py`, somma best) |
+|---|---|---|---|---|
+| D2 | Una fermata conta solo per il passo giocato; idem per i floodgate | 14 / 12 / 3 | 9 su 48 | −2,3% (inv-r2 e inv-r5 peggio, inv-r4 meglio) |
+| D3 | Un mostro conta come Evocato quando atterra; nega l'Evocazione solo prima | 14 / 11 / 4 | 10 su 48 | −1% |
+| D4 | Mostro girato coperto = effetti negati; materiale Xyz = bandito | 14 / 11 / 4 | 10 su 48 | +2,5% (tearlaments) |
+| Insieme | dalla mattina a dopo D4, board misurate con la misura nuova | — | — | 19,86 → 19,89 (inv-r2 e inv-r4 meglio, inv-remi e mitsurugi peggio) |
+| Seguito delle risposte | Gli effetti portati da una risposta (il mostro che Evoca, il suo effetto dal Cimitero) rispondono a loro volta; un mostro da Evocare si sceglie dal più forte, una carta propria da perdere dalla meno preziosa (A1, in parte) | **18** / 8 / 3 | 10 su 48 | −2,4% (inv-r2 peggio), first +5,9% |
+
+Note:
+- **Coppie cambiate e perché.** J27 era giusta solo grazie al doppio conteggio (D2), poi torna giusta con D3. J3 diventa pari: la sua board A riceveva per tre rimozioni il credito di "Evocazione fermata". J16 va al contrario: Dracotail Horn rimanda in mano un mostro già atterrato, e Effect Veiler vale poco contro il kit (3 attivazioni di mostri su 8).
+- **Valori delle carte.** Invoked Caliga da 0,96 a 0,72 e Invoked Oceanus (Extra) da 0,48 a 0,24: contavano i passi persi dopo quello fermato. Daruma Karma Cannon ora "nega l'effetto".
+- **Test nuovi** su board piazzate: `crates/ygo-solver/tests/probe.rs` (Trap Hole, Dimensional Fissure, Infinite Impermanence, Torrential Tribute, Solemn Warning, Daruma).
+- **Seguito delle risposte.** Big Welcome Labrynth, Welcome Labrynth, Angel Statue - Azurune e le Trappole che Evocano non fermavano niente da sole: il turno di prova usava solo le carte offerte senza risposte, e per Evocare sceglieva il primo mostro per codice (Labrynth Cooclock invece di Lovely Labrynth). Ora le carte portate da una risposta rispondono anche loro nelle prove di quella risposta (non nella run congiunta né nel conteggio degli usi), il mostro da Evocare è il più forte (Livello, poi ATK) e una carta propria da pagare o da rimandare in mano è la meno preziosa (prima quelle che non rispondono, poi il valore misurato, poi Livello e ATK). Coppie: P4, J3, J57, J62, J63 diventano giuste; J23 va al contrario perché Angel Statue nella board B ora conta (la board A ha Fiendsmith's Desirae che nega più carte con un'attivazione sola, cosa che la misura non conta).
+- **Giro completo di C5 con la misura di oggi** (45 deck, semi 1-3, 3000 nodi, prime 8 board): 135 ricerche su 135 senza problemi, 0 linee interrotte.
+
+  | Numero (C5) | Linea di base (C7) | Dopo D2-D4 e il seguito delle risposte |
+  |---|---|---|
+  | 1. Coppie sicure giuste | 15 su 29 (corretta) | 18 su 29 |
+  | 2. Invarianza (gruppi > 0,05) | 4 (Δ max 0,65) | 7 (Δ max 0,72) |
+  | 3. Zeri sbagliati | 0 | 0 |
+  | 7. Coppie della top 8 invertite tra stima e misura | 131 su 1260 | 129 su 1260 |
+  | 7. Deck con il #1 elencato non migliore | 12 | 11 |
+  | 8. Deck con al massimo 2 campi distinti | 5 | 1 |
+  | 9. Tempo della misura per board | mediana 0,54 s, p95 1,56 s | mediana 0,66 s, p95 2,11 s |
+  | 6. Stabilità tra semi (Jaccard prime 5) | 0,24 | 0,25 |
+
+  I gruppi di invarianza in più non sono regressioni. In Pumpking Zombies due board con le stesse carte valevano entrambe 0,86 (The Undying Legion azzerata nella run congiunta): il seguito delle risposte ne ha corretta una (1,41) e non l'altra. Elfnote ed Exosister differiscono di 0,06-0,09 solo nella resilienza (i breaker scelgono il mostro in base alla zona). Synchrons resta il caso noto: un mostro nella Zona Mostri Extra (Baronne de Fleur, F.A. Dawn Dragster) misura meno che in una zona principale.
+- **Pesi del kit calibrati sui dati (B2.2): provati, rinviati.** `duelforge-cli kit-mix` conta le giocate delle linee delle prime 5 board di 45 deck (225 linee, 4038 giocate): Evocazioni dall'Extra 17%, ricerche 16%, Magie 15%, trigger d'Evocazione 14%, effetti dal Cimitero 9%, Evocazioni Speciali dalla mano 6,5%, effetti dalla mano 5,4%, Evocazioni Normali 5,3%, effetti di mostri sul campo 5,3%, Evocazioni dal Deck 4,5%, Deck al Cimitero 2,2%. Con i pesi a metà tra quelli di oggi e queste frequenze: coppie da confermare +1, ricerca +1,8% (bench_cross), valori delle handtrap quasi uguali (Ash 0,73, Veiler e Impermanence 0,23: il dominio di Ash viene dalle azioni del kit, che toccano quasi tutte il Deck). Ma la mano "Reminiscent da solo" del test di regressione perde la board con Hyperinvoked Aeon (0,55 contro 0,45 con la misura nuova). Si riprende insieme alle azioni nuove del kit (B2.1), come prevede il piano.
+- **Cosa resta.** Le coppie sbagliate sono quasi tutte pari: le due board differiscono in carte che contro il kit valgono 0 (trappole che il kit non attiva mai, come Big Welcome o Volcanic Emission), in risorse per il turno dopo o in protezioni. D5 (copie) e D6 (run congiunta) toccano poco: nelle board delle coppie la run congiunta riduce 12 interruzioni su 253, quasi tutte per un conflitto vero di costi, e le copie sul campo sono quasi sempre limitate a una per turno. Il guadagno vero sta nel kit (B2, D10), nelle risorse e nel follow-up (D13) e nelle protezioni (D15).
+
 ## 5. Parte D: ordine di implementazione
 
 Tutto si fa su un branch `claude/board-score`, con lock in `docs/TASKS.md` su `probe.rs`, `value.rs`, `search.rs`, `lib.rs` e `api.ts` passo per passo. Ogni passo deve:

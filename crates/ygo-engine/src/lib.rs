@@ -15,6 +15,10 @@
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 
+// Lua's allocator (build.rs) is called only from C++: without this use,
+// rustc would not link the crate and mi_free would be undefined.
+use libmimalloc_sys as _;
+
 mod actions;
 mod announce;
 pub mod auto;

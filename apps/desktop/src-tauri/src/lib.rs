@@ -818,6 +818,14 @@ struct BoardView {
     /// Played to the opponent's turn (else read when the turn was ended).
     exact: bool,
     goal_hits: usize,
+    #[serde(flatten)]
+    field: FieldView,
+}
+
+/// Your side of the duel: the board's, or the one a step of its line left.
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct FieldView {
     monsters: Vec<Option<ZoneCard>>,
     spells: Vec<Option<ZoneCard>>,
     hand_cards: Vec<u32>,
@@ -829,9 +837,22 @@ struct BoardView {
     extra_face_up: Vec<u32>,
 }
 
-fn board_view(hand: usize, b: &ygo_solver::Board) -> BoardView {
-    let me = &b.state.players[0];
+fn field_view(state: &ygo_engine::DuelState) -> FieldView {
+    let me = &state.players[0];
     let zone = |z: &Option<ygo_engine::FieldCard>| z.as_ref().map(ZoneCard::of);
+    FieldView {
+        monsters: me.monsters.iter().map(zone).collect(),
+        spells: me.spells.iter().map(zone).collect(),
+        hand_cards: me.hand.clone(),
+        grave: me.grave.clone(),
+        banished: me.banished.iter().map(|&(c, _)| c).collect(),
+        deck_count: me.deck.len(),
+        extra_count: me.extra.len(),
+        extra_face_up: me.extra.iter().filter(|&&(_, up)| up).map(|&(c, _)| c).collect(),
+    }
+}
+
+fn board_view(hand: usize, b: &ygo_solver::Board) -> BoardView {
     BoardView {
         key: format!("{:016x}", b.key),
         hand,
@@ -841,14 +862,7 @@ fn board_view(hand: usize, b: &ygo_solver::Board) -> BoardView {
         found_after_ms: b.found_after.as_millis() as u64,
         exact: b.exact,
         goal_hits: b.goal_hits,
-        monsters: me.monsters.iter().map(zone).collect(),
-        spells: me.spells.iter().map(zone).collect(),
-        hand_cards: me.hand.clone(),
-        grave: me.grave.clone(),
-        banished: me.banished.iter().map(|&(c, _)| c).collect(),
-        deck_count: me.deck.len(),
-        extra_count: me.extra.len(),
-        extra_face_up: me.extra.iter().filter(|&&(_, up)| up).map(|&(c, _)| c).collect(),
+        field: field_view(&b.state),
     }
 }
 
@@ -1168,6 +1182,8 @@ struct ExplainedStepView {
     kind: Option<&'static str>,
     card: Option<u32>,
     happened: Vec<HappeningView>,
+    /// Your side once the step is done, in the board's shape.
+    field: Option<FieldView>,
 }
 
 #[derive(Serialize)]
@@ -1238,6 +1254,7 @@ fn combo_explain(state: State<'_, AppState>, hand: usize, key: String) -> Result
             kind: s.kind.map(action_kind_name),
             card: s.card,
             happened: s.happened.into_iter().map(happening_view).collect(),
+            field: s.state.as_ref().map(field_view),
         })
         .collect())
 }

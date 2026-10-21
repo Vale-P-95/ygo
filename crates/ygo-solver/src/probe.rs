@@ -22,7 +22,7 @@
 use std::collections::{HashMap, HashSet};
 
 use ygo_engine::auto::passive_answer;
-use ygo_engine::consts::{location, reason};
+use ygo_engine::consts::{hint, location, position, reason};
 use ygo_engine::{
     Action, ActionKind, CardDb, CardRef, Decision, DeckList, Duel, DuelState, Engine, Error, Event, Opponent, Placement, Step,
 };
@@ -426,6 +426,20 @@ enum Policy<'a> {
     UseAt(ResponderId, WindowAt),
 }
 
+/// What a run knows beyond its policy.
+#[derive(Clone, Copy, Default)]
+struct Context<'a> {
+    /// Your effects offered with no response at all: the others come from
+    /// one of your responses (a monster it summoned, its own effect from
+    /// the GY). They answer too, whenever offered, and what they stop is
+    /// the response's (Big Welcome Labrynth stops nothing itself: the
+    /// Labrynth monster it summons does).
+    known: Option<&'a HashSet<ResponderId>>,
+    /// What each of your responders is worth alone (by code): of two that
+    /// can pay a cost, the one worth less pays.
+    worth: Option<&'a HashMap<u32, f64>>,
+}
+
 /// A moment you could respond, and with what.
 #[derive(Debug, Clone)]
 struct Window {
@@ -481,6 +495,16 @@ struct Observer {
     step_negated: bool,
     /// The opponent's monster being summoned in this step, before any chain.
     summoning: Option<u32>,
+    /// The summons begun and not done yet, the last begun last, each with
+    /// the opponent's monsters in it (yours can be summoned while its summon
+    /// waits). Leaving the field before the summon is done is having it negated.
+    summons: Vec<Vec<u32>>,
+    /// The last event began a Special Summon: monsters summoned together
+    /// come in a row, before the summon is done.
+    special_now: bool,
+    /// The opponent's monsters that landed in this step (a summon done,
+    /// whatever happens to them after).
+    landed: Vec<u32>,
     /// The links of the chain being built that have not resolved yet.
     open: Vec<CardRef>,
 }
@@ -488,6 +512,7 @@ struct Observer {
 impl Observer {
     fn see(&mut self, engine: &Engine, event: &Event, uses: &mut [Use]) {
         let db = engine.cards();
+        let special_before = std::mem::replace(&mut self.special_now, matches!(event, Event::SpecialSummoning { .. }));
         // Keeps the strongest effect seen for a use.
         fn better(uses: &mut [Use], u: usize, e: Effect) {
             let slot = &mut uses[u].effect;
@@ -551,20 +576,33 @@ impl Observer {
                 }
             }
             Event::Move { code, from, to, reason: why } => {
+                let code = db.canonical_code(*code);
+                // Off the field before landing: the summon was negated.
+                let mut not_landed = false;
+                if from.controller == 1 && from.location == location::MZONE {
+                    for summon in self.summons.iter_mut().rev() {
+                        if let Some(i) = summon.iter().position(|&c| c == code) {
+                            summon.swap_remove(i);
+                            not_landed = true;
+                            break;
+                        }
+                    }
+                }
                 let Some(u) = self.solving else { return };
                 if from.controller != 1 || from.location & (location::MZONE | location::SZONE | location::HAND) == 0 {
                     return;
                 }
-                let code = db.canonical_code(*code);
                 if self.negated_code == Some(code) {
                     better(uses, u, Effect::NegateAndRemove);
                     return;
                 }
-                if self.summoning == Some(code) && from.location == location::MZONE {
+                if not_landed {
                     better(uses, u, Effect::NegateSummon);
                     return;
                 }
                 let effect = match to.location & !location::OVERLAY {
+                    // Attached to an Xyz Monster: out of play, as banished.
+                    _ if to.location & location::OVERLAY != 0 => Effect::Banish,
                     _ if to.controller == 0 && to.location & (location::MZONE | location::SZONE) != 0 => Effect::Position,
                     location::REMOVED => Effect::Banish,
                     location::DECK | location::EXTRA => Effect::ToDeck,
@@ -575,15 +613,30 @@ impl Observer {
                 };
                 better(uses, u, effect);
             }
-            Event::PositionChange { card, .. } => {
+            Event::PositionChange { card, to, .. } => {
                 if let Some(u) = self.solving {
                     if card.controller == 1 {
-                        better(uses, u, Effect::Position);
+                        // Face-down, a monster has no effects any more.
+                        let face_down = u32::from(*to) & (position::FACEDOWN_ATTACK | position::FACEDOWN_DEFENSE) != 0;
+                        better(uses, u, if face_down { Effect::NegateEffect } else { Effect::Position });
                     }
                 }
             }
-            Event::NormalSummoning { card } | Event::SpecialSummoning { card } if card.controller == 1 && self.step_links.is_empty() => {
-                self.summoning = Some(db.canonical_code(card.code));
+            Event::NormalSummoning { card } | Event::SpecialSummoning { card } | Event::FlipSummoning { card } => {
+                let code = db.canonical_code(card.code);
+                let theirs = (card.controller == 1).then_some(code);
+                match self.summons.last_mut() {
+                    Some(summon) if special_before && matches!(event, Event::SpecialSummoning { .. }) => summon.extend(theirs),
+                    _ => self.summons.push(theirs.into_iter().collect()),
+                }
+                if card.controller == 1 && self.step_links.is_empty() && !matches!(event, Event::FlipSummoning { .. }) {
+                    self.summoning = Some(code);
+                }
+            }
+            Event::Summoned | Event::SpecialSummoned => {
+                if let Some(mut summon) = self.summons.pop() {
+                    self.landed.append(&mut summon);
+                }
             }
             _ => {}
         }
@@ -610,6 +663,8 @@ impl Observer {
         self.step_links.clear();
         self.step_negated = false;
         self.summoning = None;
+        self.summons.clear();
+        self.landed.clear();
     }
 }
 
@@ -757,11 +812,12 @@ impl<'a> Prober<'a> {
         };
         let all_worked = worked(&all);
 
-        // Floodgates: what works on an empty board but not here, with no answer.
+        // Floodgates: what works on an empty board but not here, with no
+        // answer. A step whose prerequisite failed is not stopped a second
+        // time (no Glow-Up Bulb in the GY, no effect from there).
         let mut floodgates = Vec::new();
         for (step, (run, base_run)) in self.kit.steps.iter().zip(all.steps.iter().zip(&base.steps)) {
-            let prerequisite = step.needs.is_none_or(|p| all_worked.get(&p) == Some(&true) || floodgates.contains(&p));
-            if !prerequisite {
+            if step.needs.is_some_and(|p| all_worked.get(&p) != Some(&true)) {
                 continue;
             }
             for (i, (probe, _)) in step.goals.iter().enumerate() {
@@ -791,9 +847,20 @@ impl<'a> Prober<'a> {
             *at += 1;
         }
         let debug = std::env::var_os("DUELFORGE_DEBUG_PROBE").is_some();
+        let known: HashSet<ResponderId> = offered.iter().map(|(id, _, _)| *id).collect();
+        let follow = Context { known: Some(&known), worth: None };
+        // What a step needs: a probe lost only because the one it needs was
+        // stopped is not stopped again (negating Foolish Burial is not also
+        // stopping Glow-Up Bulb's effect from the GY).
+        let needs: HashMap<Probe, Probe> =
+            self.kit.steps.iter().flat_map(|s| s.goals.iter().filter_map(move |(p, _)| Some((*p, s.needs?)))).collect();
         let stopped_by = |run: &RunTrace| -> Vec<Probe> {
             let now = worked(run);
-            all_worked.iter().filter(|(p, ok)| **ok && now.get(p) != Some(&true)).map(|(p, _)| *p).collect()
+            all_worked
+                .iter()
+                .filter(|(p, ok)| **ok && now.get(p) != Some(&true) && needs.get(p).is_none_or(|n| now.get(n) == Some(&true)))
+                .map(|(p, _)| *p)
+                .collect()
         };
         let mut interruptions = Vec::new();
         for (id, loc, windows) in &offered {
@@ -804,7 +871,7 @@ impl<'a> Prober<'a> {
             let mut effect: Option<Effect> = None;
             let mut targeted = false;
             for &window in windows.iter().take(12) {
-                let Ok(run) = self.run(prelude, &all_steps, Policy::UseAt(*id, window)) else { continue };
+                let Ok(run) = self.run_with(prelude, &all_steps, Policy::UseAt(*id, window), follow) else { continue };
                 let stopped = stopped_by(&run);
                 if debug {
                     eprintln!("-- {} at {window:?}: stops {stopped:?}", self.engine.cards().name(id.code));
@@ -861,7 +928,16 @@ impl<'a> Prober<'a> {
         // offers once the others are used (its cost is gone) counts less.
         if interruptions.len() > 1 {
             let order: Vec<ResponderId> = interruptions.iter().map(|i| i.responder).collect();
-            if let Ok(run) = self.run(prelude, &all_steps, Policy::UseAll(&order)) {
+            // Without what the responses bring: what they stop earlier would
+            // leave the others nothing to stop, and they are not short of
+            // anything they need.
+            let mut worth: HashMap<u32, f64> = HashMap::new();
+            for i in &interruptions {
+                let w = worth.entry(i.responder.code).or_default();
+                *w = w.max(i.alone);
+            }
+            let context = Context { known: None, worth: Some(&worth) };
+            if let Ok(run) = self.run_with(prelude, &all_steps, Policy::UseAll(&order), context) {
                 for i in &mut interruptions {
                     let used = run.uses.iter().filter(|u| u.responder == i.responder).count() as u32;
                     if used < i.uses {
@@ -975,6 +1051,11 @@ impl<'a> Prober<'a> {
 
     /// Plays your turn, then the opponent's steps, answering as `policy` says.
     fn run(&self, prelude: Prelude, steps: &[&KitStep], policy: Policy) -> Result<RunTrace, Error> {
+        self.run_with(prelude, steps, policy, Context::default())
+    }
+
+    /// [`Prober::run`], knowing more (see [`Context`]).
+    fn run_with(&self, prelude: Prelude, steps: &[&KitStep], policy: Policy, context: Context) -> Result<RunTrace, Error> {
         let engine = self.engine;
         let mut duel = match prelude {
             Prelude::Placed(placed) => Duel::goldfish_vs_placed(engine, self.deck, self.hand, self.seed, &self.kit.opponent, placed)?,
@@ -1185,6 +1266,12 @@ impl<'a> Prober<'a> {
                                 Policy::UseAt(id, window) if window == (*step, at) => options.iter().position(|(o, _)| *o == id),
                                 _ => None,
                             };
+                            let pick = pick.or_else(|| {
+                                context
+                                    .known
+                                    .filter(|_| !trace.uses.is_empty())
+                                    .and_then(|known| options.iter().position(|(o, _)| !known.contains(o)))
+                            });
                             trace.windows.push(Window { step: *step, options: options.clone() });
                             let follow_up = matches!(decision, Decision::SelectChain { triggers: true, .. } | Decision::EffectYesNo { .. });
                             match (pick, last_use) {
@@ -1224,7 +1311,12 @@ impl<'a> Prober<'a> {
                                             || trace.windows.iter().any(|w| w.options.iter().any(|(r, _)| r.code == code)))
                                 })
                             };
-                            duel.respond(&your_answer(&decision, &actions, |a| observer.aim(db, a), answers))
+                            let power = |a: &Action| {
+                                let worth = a.card.and_then(|c| context.worth?.get(&db.canonical_code(c.code)).copied()).unwrap_or(0.0);
+                                let (level, attack) = a.card.and_then(|c| db.get(c.code)).map_or((0, 0), |c| (c.level, c.attack.max(0)));
+                                (worth, level, attack)
+                            };
+                            duel.respond(&your_answer(&decision, &actions, |a| observer.aim(db, a), answers, power))
                         }
                     }
                 }
@@ -1242,7 +1334,9 @@ impl<'a> Prober<'a> {
         Ok(trace)
     }
 
-    /// Whether each goal of a finished step was met.
+    /// Whether each goal of a finished step was met. A monster wanted on the
+    /// field counts once it landed: removed after that, the step worked
+    /// (what is lost is the steps that needed it).
     fn finish(&self, run: &mut StepRun, step: &KitStep, before: &DuelState, after: &DuelState, observer: &Observer) {
         let db = self.engine.cards();
         let count = |state: &DuelState, want: &Want| -> i32 {
@@ -1251,11 +1345,20 @@ impl<'a> Prober<'a> {
             (match want.location {
                 location::HAND => p.hand.iter().filter(|&&c| matches(c)).count(),
                 location::GRAVE => p.grave.iter().filter(|&&c| matches(c)).count(),
-                location::MZONE => p.monsters.iter().flatten().filter(|c| c.is_face_up() && matches(c.code)).count(),
                 _ => 0,
             }) as i32
         };
-        run.worked = step.goals.iter().map(|(_, want)| count(after, want) - count(before, want) >= want.delta).collect();
+        let landed = |want: &Want| -> i32 {
+            observer.landed.iter().filter(|&&c| want.code.is_none_or(|w| c == db.canonical_code(w))).count() as i32
+        };
+        run.worked = step
+            .goals
+            .iter()
+            .map(|(_, want)| match want.location {
+                location::MZONE => landed(want) >= want.delta,
+                _ => count(after, want) - count(before, want) >= want.delta,
+            })
+            .collect();
         run.negated = observer.step_negated;
     }
 }
@@ -1318,11 +1421,27 @@ fn forward_by<K: Ord>(decision: &Decision, actions: &[Action], key: impl Fn(&Act
 
 /// Your other decisions while answering: aim at the opponent's cards, the
 /// one it is using first (`aim`, 0 best, 3 for none of its cards). Your own
-/// cards to pick (a cost, a tribute) are those that answer nothing first
-/// (`answers`), then by code: the same board pays the same wherever its
-/// cards are, and keeps its handtraps when it can.
-fn your_answer(decision: &Decision, actions: &[Action], aim: impl Fn(&Action) -> u8, answers: impl Fn(&Action) -> bool) -> Vec<u8> {
-    let key = |a: &Action| (aim(a), answers(a), a.card.map_or(u32::MAX, |c| c.code));
+/// cards to pick (a cost, a tribute, a card to return) are those that
+/// answer nothing first (`answers`), then the weakest (`power`: the worth
+/// of a responder, then Level and ATK), then by code: the same board pays
+/// the same wherever its cards are, and keeps its handtraps when it can.
+/// Monsters to Special Summon are the strongest first: a response that
+/// summons brings its best card.
+fn your_answer(
+    decision: &Decision,
+    actions: &[Action],
+    aim: impl Fn(&Action) -> u8,
+    answers: impl Fn(&Action) -> bool,
+    power: impl Fn(&Action) -> (f64, u32, i32),
+) -> Vec<u8> {
+    let summoning =
+        matches!(decision, Decision::SelectCard { hint, .. } | Decision::SelectUnselectCard { hint, .. } if *hint == hint::MSG_SPSUMMON);
+    let key = |a: &Action| {
+        let (worth, level, attack) = power(a);
+        let (worth, level, attack) = ((worth * 1000.0) as i64, i64::from(level), i64::from(attack));
+        let order = if summoning { (0, -level, -attack) } else { (worth, level, attack) };
+        (aim(a), answers(a), order, a.card.map_or(u32::MAX, |c| c.code))
+    };
     if let Some(answer) = forward_by(decision, actions, key) {
         return answer;
     }

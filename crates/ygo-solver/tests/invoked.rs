@@ -55,6 +55,11 @@ fn finds_invoked_boards_by_itself() {
     assert_eq!(steps.iter().filter(|s| s.choice.is_some()).count(), board.line.choices.len());
     let text: Vec<&String> = steps.iter().flat_map(|s| &s.events).collect();
     assert!(text.iter().any(|l| l.contains("tramite Evocazione Fusion")), "{text:#?}");
+    // Each step leaves a state: the field empty before the first choice,
+    // the board's after the last.
+    assert!(steps.iter().all(|s| s.state.is_some()));
+    assert!(steps[0].state.as_ref().unwrap().players[0].monsters.iter().all(Option::is_none));
+    assert_eq!(steps.last().unwrap().state.as_ref(), Some(&state));
 }
 
 #[test]
@@ -163,8 +168,9 @@ fn cards_alone_on_the_field_are_worth_what_they_stop() {
     let value = |name: &str, spot: Spot| values.get(&engine, code(name), spot);
     // A negation that pays with a card of the same kind from the hand.
     assert!(value("Invoked Mechaba", Spot::Main) >= 0.9);
-    // A floodgate only from the Extra Monster Zone.
-    assert!(value("Invoked Oceanus", Spot::Extra) > 0.3);
+    // A floodgate only from the Extra Monster Zone: the cards sent to the
+    // opponent's GY are banished (not what would follow from the GY).
+    assert!(value("Invoked Oceanus", Spot::Extra) >= 0.2);
     assert_eq!(value("Invoked Oceanus", Spot::Main), 0.0);
     // The searcher of the deck does nothing on the opponent's turn.
     assert_eq!(value("Aleister the Invoker", Spot::Main), 0.0);

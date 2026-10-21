@@ -33,9 +33,17 @@ fn main() {
     } else {
         lua_build.flag("-xc++").flag("-include").flag(customize.to_str().expect("utf-8 path"));
     }
+    // lauxlib.c is compiled from a patched copy (see `patch_lauxlib`), which
+    // includes mimalloc.h from libmimalloc-sys.
+    lua_build.include(std::env::var("DEP_MIMALLOC_INCLUDE_DIR").expect("mimalloc include dir from libmimalloc-sys"));
+    let out_dir = PathBuf::from(std::env::var("OUT_DIR").expect("OUT_DIR"));
     for file in sources(&lua_src, "c") {
         let name = file.file_name().and_then(|n| n.to_str()).unwrap_or_default();
-        if !LUA_EXCLUDED.contains(&name) {
+        if name == "lauxlib.c" {
+            let patched = out_dir.join(name);
+            std::fs::write(&patched, patch_lauxlib(&std::fs::read_to_string(&file).expect("lauxlib.c"))).expect("patched lauxlib.c");
+            lua_build.file(patched);
+        } else if !LUA_EXCLUDED.contains(&name) {
             lua_build.file(file);
         }
     }
@@ -54,12 +62,42 @@ fn main() {
     }
     // field.cpp is compiled from a patched copy (see `patch_field`).
     let field = core.join("field.cpp");
-    let patched = PathBuf::from(std::env::var("OUT_DIR").expect("OUT_DIR")).join("field.cpp");
+    let patched = out_dir.join("field.cpp");
     let text = std::fs::read_to_string(&field).expect("field.cpp");
     std::fs::write(&patched, patch_field(&text)).expect("patched field.cpp");
     core_build.files(sources(&core, "cpp").into_iter().filter(|p| *p != field)).file(&patched);
     core_build.files(sources(&core.join("RNG"), "cpp"));
     core_build.compile("ocgcore");
+}
+
+/// Lua allocates through mimalloc instead of the C runtime's malloc: a duel
+/// lives a few milliseconds and makes and frees many small objects (with
+/// glibc, about 40% of a combo search's time went to malloc and free).
+/// Every Lua state comes from `luaL_newstate` (the core's interpreter and
+/// shim/compile.cpp) and nothing else frees Lua's blocks, so its memory never
+/// meets another allocator. mimalloc.h comes with the linked library, so the
+/// compiler checks the calls.
+/// Panics if upstream changed the code, so the patch is looked at again.
+fn patch_lauxlib(text: &str) -> String {
+    const ALLOC: &str = "  if (nsize == 0) {
+    free(ptr);
+    return NULL;
+  }
+  else
+    return realloc(ptr, nsize);";
+    const ALLOC_FIXED: &str = "  if (nsize == 0) {
+    mi_free(ptr);
+    return NULL;
+  }
+  else
+    return mi_realloc(ptr, nsize);";
+    const FUNCTION: &str = "static void *l_alloc (void *ud, void *ptr, size_t osize, size_t nsize) {";
+    const INCLUDE: &str = "#include \"mimalloc.h\"\n";
+    let text = text.replace("\r\n", "\n");
+    for old in [ALLOC, FUNCTION] {
+        assert_eq!(text.matches(old).count(), 1, "vendor/ygopro-core/lua/src/lauxlib.c changed: check the allocator patch in build.rs");
+    }
+    text.replace(ALLOC, ALLOC_FIXED).replace(FUNCTION, &format!("{INCLUDE}{FUNCTION}"))
 }
 
 /// Upstream bug: `reset_phase` and `reset_chain` remove effects while

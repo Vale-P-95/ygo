@@ -9,7 +9,9 @@ on:
   push:
     branches: [main]
     paths-ignore: ["docs/**", "**/*.md"]
+  # Opened (or reopened, or out of draft): not on every push to the branch.
   pull_request:
+    types: [opened, reopened, ready_for_review]
   workflow_dispatch:
     inputs:
       installer:
