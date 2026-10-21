@@ -65,6 +65,7 @@ function Dot({ color }: { color: string }) {
 function DeckEditor({ onGoCombo }: { onGoCombo?: () => void }) {
   const settings = useSettings();
   const cards = useCardCache();
+  const { request: requestCards } = cards;
   // The history functions are stable; the returned object is not.
   const { deck, set: setHistory, reset, undo, redo, canUndo, canRedo } = useDeckHistory(emptyDeck());
   const deckRef = useRef(deck);
@@ -119,12 +120,13 @@ function DeckEditor({ onGoCombo }: { onGoCombo?: () => void }) {
   }, [refreshDecks, openDeck]);
 
   useEffect(() => {
-    cards.request([...deck.main, ...deck.extra, ...deck.side, ...deck.maybe]);
-  }, [deck, cards.request]);
+    requestCards([...deck.main, ...deck.extra, ...deck.side, ...deck.maybe]);
+  }, [deck, requestCards]);
 
+  const viewerId = viewer?.id;
   useEffect(() => {
-    if (viewer) cards.request([viewer.id]);
-  }, [viewer?.id, cards.request]);
+    if (viewerId != null) requestCards([viewerId]);
+  }, [viewerId, requestCards]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {

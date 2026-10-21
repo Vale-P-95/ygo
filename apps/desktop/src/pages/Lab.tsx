@@ -167,7 +167,7 @@ export function Lab({
     if (tab === "links" && deck?.id != null && (!linksData || linksData.deckId !== deck.id) && !linksLoading && !linksError) {
       void loadLinks(deck.id);
     }
-  }, [tab, deck?.id, linksData, linksLoading, loadLinks]);
+  }, [tab, deck?.id, linksData, linksLoading, linksError, loadLinks]);
 
   const changeRoles = (next: Record<string, number[]>, id = deck?.id) => {
     setRoles(next);
