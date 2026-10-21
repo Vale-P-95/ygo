@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { CalculatorTab } from "../components/lab/CalculatorTab";
 import { CompareTab } from "../components/lab/CompareTab";
 import { ConditionPicker } from "../components/lab/ConditionPicker";
+import { LinksTab } from "../components/lab/links/LinksTab";
 import { LogTab } from "../components/lab/LogTab";
 import { MatchEntryPanel } from "../components/lab/MatchEntryPanel";
 import { OptimizerTab } from "../components/lab/OptimizerTab";
@@ -19,7 +20,7 @@ import { sound } from "../lib/sound";
 import { toast } from "../lib/toast";
 import { sectionById } from "../sections";
 
-type Tab = "overview" | "compare" | "calculator" | "simulator" | "optimizer" | "log";
+type Tab = "overview" | "links" | "compare" | "calculator" | "simulator" | "optimizer" | "log";
 
 const TABS: { id: Tab; label: string }[] = [
   { id: "overview", label: "Panoramica" },
@@ -277,12 +278,14 @@ export function Lab({
           </button>
         </div>
       ) : (
-        <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_312px] xl:grid-cols-[minmax(0,1fr)_336px]">
+        <div className={tab === "links" ? "grid min-h-0 flex-1 grid-cols-1" : "grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_312px] xl:grid-cols-[minmax(0,1fr)_336px]"}>
           <div key={tab} className="bg-blueprint min-h-0 overflow-y-auto px-4 py-4 xl:px-6 xl:py-5">
             {!deck || !overview ? (
               <p className="text-sm text-muted">Carico il deck…</p>
             ) : tab === "overview" ? (
               <OverviewTab overview={overview} hand={hand} roles={roles} getCard={cards.get} onExploreCombo={onGoCombo ? exploreCombo : undefined} />
+            ) : tab === "links" ? (
+              <LinksTab deck={deck} getCard={cards.get} requestCards={request} onGoCombo={onGoCombo ? exploreCombo : undefined} />
             ) : tab === "compare" ? (
               <CompareTab key={deck.id} deck={deck} overview={overview} decks={decks ?? []} hand={hand} getCard={cards.get} request={request} />
             ) : tab === "calculator" ? (

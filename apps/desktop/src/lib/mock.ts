@@ -6,6 +6,7 @@ import type {
   Checkpoint,
   Chip,
   ComboBoard,
+  CardLink,
   ComboGoal,
   ComboMatchup,
   ComboHand,
@@ -819,6 +820,7 @@ const rolesProgressListeners = new Set<(p: { done: number; total: number }) => v
 const simProgressListeners = new Set<(c: Checkpoint) => void>();
 const comboProgressListeners = new Set<(p: ComboProgress) => void>();
 const comboScoreListeners = new Set<(s: ComboScore) => void>();
+const linksProgressListeners = new Set<(p: { done: number; total: number }) => void>();
 let lastVsDeckId: number | null = null;
 let simCancelled = false;
 let comboCancelled = false;
@@ -2134,21 +2136,112 @@ export const mockApi: Api = {
     return found ? structuredClone(found) : null;
   },
 
-  // A minimal map (the deck's cards, no links): Gemini replaces it with a full example.
+  // Full links map example based on the Invoked deck fixture
   deckLinks: async (deckId: number): Promise<DeckLinks> => {
+    for (let step = 1; step <= 3; step++) {
+      await delay(40);
+      linksProgressListeners.forEach((fn) => fn({ done: step * 10, total: 30 }));
+    }
+
     const deck = decksState.find((d) => d.id === deckId);
-    const cards: DeckLinks["cards"] = [];
+    const rawCards: DeckLinks["cards"] = [];
     for (const [codes, extra] of [[deck?.main ?? [], false], [deck?.extra ?? [], true]] as const) {
       for (const code of codes) {
-        const card = cards.find((c) => c.code === code);
+        const card = rawCards.find((c) => c.code === code);
         if (card) card.copies += 1;
-        else cards.push({ code, copies: 1, extra, reach: 0, reachAll: 0, chance: 0, key: 0 });
+        else rawCards.push({ code, copies: 1, extra, reach: 0, reachAll: 0, chance: 0, key: 0 });
       }
     }
-    return { deckId, cards, links: [], hands: 0, lines: 0 };
+
+    // Curated rich links data matching the Invoked engine results
+    const sampleLinks: CardLink[] = [
+      { from: 86120752, to: 74063034, kind: "search", zone: "deck", possible: true, used: 0.82 },
+      { from: 86120752, to: 98159737, kind: "material", zone: "extra", possible: true, used: 0.75 },
+      { from: 86120752, to: 75286621, kind: "material", zone: "extra", possible: true, used: 0.70 },
+      { from: 86120752, to: 84815190, kind: "material", zone: "extra", possible: true, used: 0.30 },
+      { from: 74063034, to: 75286621, kind: "summon", zone: "extra", possible: true, used: 0.70 },
+      { from: 74063034, to: 84815190, kind: "summon", zone: "extra", possible: true, used: 0.30 },
+      { from: 74063034, to: 86120752, kind: "recover", zone: "grave", possible: true, used: 0.65 },
+      { from: 98159737, to: 65741786, kind: "material", zone: "extra", possible: true, used: 0.45 },
+      { from: 60764609, to: 75286621, kind: "material", zone: "extra", possible: true, used: 0.40 },
+      { from: 60764609, to: 65741786, kind: "material", zone: "extra", possible: true, used: 0.50 },
+      { from: 72270339, to: 29301450, kind: "material", zone: "extra", possible: true, used: 0.55 },
+      { from: 29301450, to: 4280258, kind: "material", zone: "extra", possible: true, used: 0.40 },
+    ];
+
+    // Compute reach and key for raw cards based on sampleLinks
+    for (const c of rawCards) {
+      if (c.code === 86120752) { // Aleister
+        c.reach = 2;
+        c.reachAll = 11;
+        c.chance = 0.85;
+        c.key = 0.42;
+      } else if (c.code === 74063034) { // Invocation
+        c.reach = 8;
+        c.reachAll = 8;
+        c.chance = 0.72;
+        c.key = 0.05;
+      } else if (c.code === 60764609) { // Fiendsmith Engraver
+        c.reach = 3;
+        c.reachAll = 8;
+        c.chance = 0.78;
+        c.key = 0.38;
+      } else if (c.code === 72270339) { // Snake-Eye Ash
+        c.reach = 3;
+        c.reachAll = 7;
+        c.chance = 0.65;
+        c.key = 0.25;
+      } else if (c.code === 98159737) { // Artemis
+        c.reach = 1;
+        c.reachAll = 2;
+        c.chance = 0.80;
+        c.key = 0.15;
+      } else if (c.code === 75286621) { // Mechaba
+        c.reach = 0;
+        c.reachAll = 0;
+        c.chance = 0.82;
+        c.key = 0;
+      } else if (c.code === 84815190) { // Augoeides
+        c.reach = 0;
+        c.reachAll = 0;
+        c.chance = 0.65;
+        c.key = 0;
+      } else if (c.code === 65741786) { // S:P
+        c.reach = 0;
+        c.reachAll = 0;
+        c.chance = 0.70;
+        c.key = 0;
+      } else if (c.code === 4280258) { // Apollousa
+        c.reach = 0;
+        c.reachAll = 0;
+        c.chance = 0.45;
+        c.key = 0;
+      } else if (c.code === 29301450) { // Princess
+        c.reach = 1;
+        c.reachAll = 2;
+        c.chance = 0.50;
+        c.key = 0.10;
+      } else if (!c.extra) {
+        c.chance = c.copies === 3 ? 0.34 : c.copies === 2 ? 0.24 : 0.12;
+        c.key = 0;
+      }
+    }
+
+    return {
+      deckId,
+      cards: rawCards,
+      links: sampleLinks,
+      hands: 30,
+      lines: 600,
+    };
   },
 
-  onLinksProgress: async (): Promise<UnlistenFn> => () => {},
+  onLinksProgress: async (handler: (p: { done: number; total: number }) => void): Promise<UnlistenFn> => {
+    linksProgressListeners.add(handler);
+    return () => {
+      linksProgressListeners.delete(handler);
+    };
+  },
 
   saveDeck: async (deck: Deck) => {
     const today = new Date().toISOString().slice(0, 10);
