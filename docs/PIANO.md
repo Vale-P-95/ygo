@@ -1315,3 +1315,25 @@ Tre agenti hanno confrontato il Laboratorio con riferimenti indipendenti, e ogni
 
 **Da fare nell'interfaccia** (testi da allineare): elenco in `docs/TASKS.md`.
 
+### 30.8 Velocità del motore e controllo di salute (notte del 21/10/2026)
+**Velocità.** Un profilo (perf e strumentazione) ha mostrato dove va il tempo di ogni replay:
+- creare la partita: 30-55%;
+- rigiocare la linea nel motore: 21-53%;
+- distruggere la partita: circa il 10%;
+- l'allocatore di memoria pesava per circa un terzo del totale.
+
+Cinque prototipi, ognuno in una copia separata del repository, misurati poi uno alla volta sulla macchina libera (7 esecuzioni alternate per mano, 2000 nodi, un thread):
+- **mimalloc per Lua** (entrato): ricerca −27% su una mano Invoked, una Branded e una Labrynth, con board e linee identiche al byte. Memoria di picco +10-30% con più thread. La versione di `libmimalloc-sys` è fissata e le funzioni sono controllate con l'header di mimalloc.
+- **Un heap mimalloc per partita, liberato in un colpo** (scartato): −4% di CPU in più, ma su Windows può bloccare la chiusura dell'app se una ricerca è in corso, e una partita passata tra thread può andare in crash.
+- **Pulizie lato Rust e opzioni del compilatore** (scartate): nessun guadagno oltre il rumore.
+- **Meno replay inutili** (entrato): 4 casi di replay che finivano su un nodo già visto non si mettono più in coda. Sul banco (16 mani, 4000 nodi) i replay scendono da 17381 a 15795 (−9,1%) a parità di nodi; best da 26.25 a 26.32, first invariato. Uno dei 4 casi si appoggia a un limite noto della chiave dei nodi: bersagli, nomi dichiarati e opzioni scelti durante un effetto non ne fanno parte, quindi un'altra scelta non viene mai esplorata (Muckraker che rianima Arias invece di Lady Labrynth). È da decidere se correggere la chiave; in quel caso quel caso va tolto.
+
+**Controllo di salute** (copertura delle meccaniche rifatta con la versione attuale). Il comando è stato fermato dal limite di tempo dopo 29 deck su 45 (CPU condivisa con le revisioni); i 16 mancanti sono da rifare. Sui 29 deck, rispetto all'audit del §30.2:
+- **Linee interrotte:** 0 prima e 0 dopo.
+- **Meglio:**
+  - 4 carte mai offerte prima ora lo sono (fra cui Albion e Chaos Angel);
+  - 11 mosse tenute ma mai scelte ora vengono provate (Diabellstar, Fiendsmith Engraver, Ghost Ogre);
+  - le attivazioni negate da una propria carta passano da 51 a 0;
+  - le carte che negavano le proprie catene da 5 a 0 (Dragoon, Blue-Eyes Spirit, Cyber Dragon Infinity: imparate).
+- **Peggio:** 1 caso, Wind Pegasus @Ignister in Clown Crew non viene più raggiunto, probabilmente per il budget di nodi.
+
