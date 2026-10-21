@@ -1,11 +1,11 @@
-import { useState } from "react";
-import type { Card, ComboBoard, ComboScore, ComboStep } from "../../lib/api";
+import { useEffect, useState } from "react";
+import type { Card, ComboBoard, ComboField, ComboScore, ComboStep } from "../../lib/api";
 import type { Weights } from "../../lib/scoring";
 import { sound } from "../../lib/sound";
 import { toast } from "../../lib/toast";
 import { CardImage, Field, type HoverCard, type Pile as PileKind } from "./Field";
 import { ScoreBreakdown } from "./Score";
-import { ComboSteps, formatComboGuide } from "./Steps";
+import { ComboSteps, formatComboGuide, type ActiveStepInfo } from "./Steps";
 
 type StepsView = "visual" | "text";
 const VIEW_KEY = "duelforge.combo.stepsView";
@@ -87,6 +87,15 @@ export function BoardDetail({ board, score, scoring, weights, hand, steps, steps
   const [pile, setPile] = useState<PileKind | null>(null);
   const [view, setView] = useState<StepsView>(savedView);
   const [activeCards, setActiveCards] = useState<Set<number> | null>(null);
+  const [activeStep, setActiveStep] = useState<ActiveStepInfo | null>(null);
+  const [resetNonce, setResetNonce] = useState(0);
+
+  // When steps or board changes, reset the active step.
+  useEffect(() => {
+    setActiveStep(null);
+    setActiveCards(null);
+  }, [board.key]);
+
   const pickView = (v: StepsView) => {
     setView(v);
     try {
@@ -108,30 +117,92 @@ export function BoardDetail({ board, score, scoring, weights, hand, steps, steps
     }
   };
 
-  const pileCodes: Record<PileKind, number[]> = { grave: board.grave, banished: board.banished, deck: [], extra: board.extraFaceUp };
+  const currentField: ComboField = activeStep?.field ?? board;
+  const pileCodes: Record<PileKind, number[]> = {
+    grave: currentField.grave,
+    banished: currentField.banished,
+    deck: [],
+    extra: currentField.extraFaceUp,
+  };
+
   return (
     <div className="flex flex-col gap-4">
       <section className="lab-card flex flex-col items-center gap-3 p-4">
-        {!board.exact && (
-          <p className="w-full rounded-lg bg-surface-3 px-2.5 py-1.5 text-[11px] text-muted">
-            Board letta quando passi il turno: gli effetti della End Phase non sono ancora stati giocati.
-          </p>
+        {activeStep ? (
+          <div className="flex w-full items-center justify-between rounded-lg border border-sec/40 bg-sec/10 px-3 py-1.5 text-xs anim-fade">
+            <div className="flex min-w-0 items-center gap-2">
+              <span className="chip chip-active shrink-0 !px-1.5 !py-0 text-[10px] font-bold">
+                {activeStep.number != null ? `Passo ${activeStep.number}` : `Momento ${activeStep.index + 1}`}
+              </span>
+              <span className="truncate font-medium text-text" title={activeStep.choice ?? undefined}>
+                {activeStep.choice ?? "Effetto risolto"}
+              </span>
+              {activeStep.field && (
+                <span className="hidden sm:inline-flex rounded-full border border-sec/30 bg-sec/15 px-1.5 py-0.2 text-[9px] text-sec font-medium">
+                  campo al passo
+                </span>
+              )}
+            </div>
+            <div className="flex shrink-0 items-center gap-2.5 ml-2">
+              <span className="text-[11px] tabular-nums text-muted">
+                {activeStep.index + 1} / {activeStep.total}
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  sound.play("toggle");
+                  setResetNonce((n) => n + 1);
+                }}
+                className="btn btn-ghost !px-2 !py-0.5 text-[11px] text-faint hover:text-text"
+                title="Torna alla board di fine turno"
+              >
+                Board finale ✕
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="flex w-full items-center justify-between px-1 text-xs text-muted">
+            <span className="font-medium text-text">Fine turno (board finale)</span>
+            {!board.exact && (
+              <span className="text-[11px] text-faint" title="Effetti della End Phase non ancora giocati">
+                Prima della End Phase
+              </span>
+            )}
+          </div>
         )}
+
         <Field
-          board={board}
+          board={currentField}
           getCard={getCard}
           onHover={onHover}
           onHoverEnd={onHoverEnd}
           pile={pile}
           onPile={(p) => setPile((cur) => (cur === p ? null : p))}
           highlightedCodes={activeCards}
+          label={activeStep ? `Il tuo campo al passo ${activeStep.index + 1}` : "Il tuo campo a fine turno"}
         />
+
         <div className="w-full border-t border-border pt-3">
-          <Pile title="Mano" codes={board.handCards} highlightedCodes={activeCards} getCard={getCard} onHover={onHover} onHoverEnd={onHoverEnd} />
+          <Pile
+            title={activeStep ? `Mano al passo (${currentField.handCards.length})` : `Mano (${currentField.handCards.length})`}
+            codes={currentField.handCards}
+            highlightedCodes={activeCards}
+            getCard={getCard}
+            onHover={onHover}
+            onHoverEnd={onHoverEnd}
+          />
         </div>
+
         {pile && (
           <div className="w-full anim-fade">
-            <Pile title={PILE_TITLES[pile]} codes={pileCodes[pile]} highlightedCodes={activeCards} getCard={getCard} onHover={onHover} onHoverEnd={onHoverEnd} />
+            <Pile
+              title={`${PILE_TITLES[pile]}${activeStep ? " al passo" : ""} (${pileCodes[pile].length})`}
+              codes={pileCodes[pile]}
+              highlightedCodes={activeCards}
+              getCard={getCard}
+              onHover={onHover}
+              onHoverEnd={onHoverEnd}
+            />
           </div>
         )}
         {!pile && <p className="w-full text-[11px] text-faint">Tocca Cimitero, bandite o Extra Deck per vedere le carte.</p>}
@@ -190,7 +261,15 @@ export function BoardDetail({ board, score, scoring, weights, hand, steps, steps
         ) : steps.length === 0 ? (
           <p className="text-sm text-faint">{stepsNote ?? "Nessun passo."}</p>
         ) : view === "visual" ? (
-          <ComboSteps steps={steps} getCard={getCard} onHover={onHover} onHoverEnd={onHoverEnd} onActiveCards={setActiveCards} />
+          <ComboSteps
+            steps={steps}
+            getCard={getCard}
+            onHover={onHover}
+            onHoverEnd={onHoverEnd}
+            onActiveCards={setActiveCards}
+            onActiveStep={setActiveStep}
+            resetNonce={resetNonce}
+          />
         ) : (
           <ol className="combo-steps flex flex-col gap-2.5">
             {steps.map((s, i) => (

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { cardImage, type Card, type ComboBoard, type ZoneCard } from "../../lib/api";
+import { cardImage, type Card, type ComboField, type ZoneCard } from "../../lib/api";
 
 export type HoverCard = (code: number, el: HTMLElement) => void;
 
@@ -139,7 +139,7 @@ function ZoneSlot({
 export type Pile = "grave" | "banished" | "deck" | "extra";
 
 interface FieldProps {
-  board: ComboBoard;
+  board: ComboField;
   getCard: (id: number) => Card | undefined;
   onHover?: HoverCard;
   onHoverEnd?: () => void;
@@ -148,6 +148,8 @@ interface FieldProps {
   onPile?: (pile: Pile) => void;
   /** Card codes highlighted by the active step in the step player. */
   highlightedCodes?: Set<number> | null;
+  /** Accessible label describing the current state of the field. */
+  label?: string;
 }
 
 /** A face-down card, drawn (no card artwork is bundled with the app). */
@@ -205,7 +207,7 @@ function PileSlot({ label, codes, count, back, active, highlighted, getCard, onH
  * The outer Spell & Trap Zones are also the Pendulum Zones. It fills the
  * width it is given.
  */
-export function Field({ board, getCard, onHover, onHoverEnd, pile, onPile, highlightedCodes }: FieldProps) {
+export function Field({ board, getCard, onHover, onHoverEnd, pile, onPile, highlightedCodes, label }: FieldProps) {
   const zone = (z: ZoneCard | null | undefined, monster: boolean, label?: string) =>
     z ? (
       <ZoneSlot
@@ -239,7 +241,7 @@ export function Field({ board, getCard, onHover, onHoverEnd, pile, onPile, highl
   // Columns: the left side, a gap, the five zones, a gap, the right side.
   const at = (column: number, row: number) => ({ gridColumn: column, gridRow: row });
   return (
-    <div className="combo-field" role="group" aria-label="Il tuo campo a fine turno">
+    <div className="combo-field" role="group" aria-label={label ?? "Il tuo campo a fine turno"}>
       <div className="combo-emz" style={at(4, 1)}>
         {zone(board.monsters[5], true, "EMZ")}
       </div>
@@ -273,7 +275,7 @@ export function Field({ board, getCard, onHover, onHoverEnd, pile, onPile, highl
 }
 
 /** The board in one line: every card on the field, monsters first. */
-export function BoardStrip({ board, width, getCard }: { board: ComboBoard; width: number; getCard: (id: number) => Card | undefined }) {
+export function BoardStrip({ board, width, getCard }: { board: ComboField; width: number; getCard: (id: number) => Card | undefined }) {
   const monsters = board.monsters.filter((z): z is ZoneCard => !!z);
   const spells = board.spells.slice(0, 6).filter((z): z is ZoneCard => !!z);
   const height = Math.round(width * 1.46);

@@ -19,6 +19,7 @@ import {
   lastDeck,
   rememberDeck,
   removeAt,
+  removeCard,
   sortIds,
   takeNewDeckRequest,
   useDeckHistory,
@@ -85,6 +86,8 @@ function DeckEditor({ onGoCombo }: { onGoCombo?: () => void }) {
   const [guessing, setGuessing] = useState<{ done: number; total: number } | null>(null);
   const [previousRoles, setPreviousRoles] = useState<Record<string, number[]> | null>(null);
   const getCard = cards.get;
+  const viewerCard = viewer ? getCard(viewer.id) : undefined;
+  const viewerIndex = viewer ? viewer.list.indexOf(viewer.id) : -1;
 
   const refreshDecks = useCallback(() => api.listDecks().then((list) => (setDecks(list), list)), []);
 
@@ -118,6 +121,10 @@ function DeckEditor({ onGoCombo }: { onGoCombo?: () => void }) {
   useEffect(() => {
     cards.request([...deck.main, ...deck.extra, ...deck.side, ...deck.maybe]);
   }, [deck, cards.request]);
+
+  useEffect(() => {
+    if (viewer) cards.request([viewer.id]);
+  }, [viewer?.id, cards.request]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -255,6 +262,36 @@ function DeckEditor({ onGoCombo }: { onGoCombo?: () => void }) {
     [ensureSaved, onGoCombo],
   );
 
+  const tryCardInCombo = useCallback(
+    async (cardId: number) => {
+      const id = await ensureSaved();
+      if (id == null) return;
+      let existing: Record<string, unknown> = {};
+      try {
+        const raw = localStorage.getItem(`duelforge.combo.${id}`);
+        if (raw) existing = JSON.parse(raw) as Record<string, unknown>;
+      } catch {
+        existing = {};
+      }
+      const nextSetup = {
+        mode: "card" as const,
+        hand: Array.isArray(existing.hand) ? existing.hand : [],
+        card: cardId,
+        keep: Array.isArray(existing.keep) ? existing.keep : [],
+        forbid: Array.isArray(existing.forbid) ? existing.forbid : [],
+        goal: Array.isArray(existing.goal) ? existing.goal : [],
+        goalAll: typeof existing.goalAll === "boolean" ? existing.goalAll : true,
+        goalFirst: typeof existing.goalFirst === "boolean" ? existing.goalFirst : true,
+      };
+      localStorage.setItem(`duelforge.combo.${id}`, JSON.stringify(nextSetup));
+      rememberDeck(id);
+      setViewer(null);
+      sound.play("forge");
+      onGoCombo?.();
+    },
+    [ensureSaved, onGoCombo],
+  );
+
   const forged = useCallback((zone: Zone, index: number) => {
     sound.play("select");
     setFresh({ zone, index, nonce: Date.now() });
@@ -284,6 +321,40 @@ function DeckEditor({ onGoCombo }: { onGoCombo?: () => void }) {
       update(removeAt(deckRef.current, zone, index));
     },
     [update],
+  );
+
+  const handleViewerAdd = useCallback(
+    (zone: Zone) => {
+      if (!viewerCard) return;
+      tryAdd(deckRef.current, viewerCard, zone);
+    },
+    [viewerCard, tryAdd],
+  );
+
+  const handleViewerRemove = useCallback(
+    (zone: Zone) => {
+      if (!viewerCard) return;
+      const current = deckRef.current;
+      const next = removeCard(current, viewerCard.id, zone);
+      if (next !== current) {
+        sound.play("close");
+        update(next);
+      }
+    },
+    [viewerCard, update],
+  );
+
+  const toggleViewerRole = useCallback(
+    (roleKey: string) => {
+      if (!viewerCard) return;
+      const currentRoles = deckRef.current.roles ?? {};
+      const list = currentRoles[roleKey] ?? [];
+      const on = list.includes(viewerCard.id);
+      sound.play(on ? "toggle" : "select");
+      const nextList = on ? list.filter((id) => id !== viewerCard.id) : [...list, viewerCard.id];
+      setRoles({ ...currentRoles, [roleKey]: nextList });
+    },
+    [viewerCard, setRoles],
   );
 
   useEffect(() => {
@@ -388,8 +459,6 @@ function DeckEditor({ onGoCombo }: { onGoCombo?: () => void }) {
   }, [activeRole, deck.roles]);
   const main = counts(deck.main, getCard);
   const extraTypes = ["Fusion", "Synchro", "Xyz", "Link"].map((t) => [t, deck.extra.filter((id) => getCard(id)?.typeLine.includes(t)).length] as const);
-  const viewerCard = viewer ? getCard(viewer.id) : undefined;
-  const viewerIndex = viewer ? viewer.list.indexOf(viewer.id) : -1;
   const hoverCard = hover ? getCard(hover.id) : undefined;
   const themeArt = sectionById("deck-builder").themeCard!;
 
@@ -533,6 +602,11 @@ function DeckEditor({ onGoCombo }: { onGoCombo?: () => void }) {
         <CardViewer
           card={viewerCard}
           position={`${viewerIndex + 1} / ${viewer.list.length}`}
+          deck={deck}
+          onAddCard={handleViewerAdd}
+          onRemoveCard={handleViewerRemove}
+          onToggleRole={toggleViewerRole}
+          onExploreCombo={onGoCombo ? (id) => void tryCardInCombo(id) : undefined}
           onClose={() => setViewer(null)}
           onPrev={viewerIndex > 0 ? () => setViewer({ ...viewer, id: viewer.list[viewerIndex - 1] }) : undefined}
           onNext={viewerIndex < viewer.list.length - 1 ? () => setViewer({ ...viewer, id: viewer.list[viewerIndex + 1] }) : undefined}
