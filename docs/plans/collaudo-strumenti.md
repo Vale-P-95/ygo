@@ -316,19 +316,108 @@ Rimisurata su 6 deck (branded, r_b, maliss, earth_machine, kaiju, chimera):
   - Haggard Lizardose e S:P Little Knight "search" Bystial Druiswurm, Branded Banishment "search" Starliege Seyfert (`used` sotto l'1%). Accanto c'è il collegamento vero, Bystial Magnamhut "search", quindi è sempre la ricerca di Magnamhut nella Fase Finale, data alla carta dell'ultima azione. Forse quel trigger non passa né da un `EffectYesNo` né da una `SelectChain` (attivazione automatica). Da controllare con una traccia in `Reader::see`.
 - **A3 (materiali di R.B. Shepherd's Crook):** c'è ancora; Clockwork Knight, Mulcharmy Fuwalos e Night Train Blue Traveler sono ancora materiali.
 
-## Conclusione
-Le prime correzioni da fare, in ordine:
-1. **Rigioco delle handtrap (`matchup.rs`):** B e C/D sono in `d5af0ba`. Restano da fare:
-   - R1 e R2 (sopra), due righe ciascuna: da 385 a 121 fermate false;
-   - l'identità anche per le scelte di carte;
-   - la A (deck dell'avversario di 35 carte).
+## Terzo giro: commit `eedda66` (PR #25)
+Stesse 180 board e stessa mappa su 6 deck, con il binario di `eedda66`. Le prove delle correzioni in più sono in una copia nello scratchpad, dietro variabili d'ambiente.
 
-   Con tutto, le fermate false di Maxx "C" e Mulcharmy passano da 1116 a circa 0, e le fermate vere restano.
-2. **Causa dei trigger facoltativi nella mappa (`links.rs`, `play`):** fatta in `d5af0ba`.
-3. **Materiali tagliati al punto (`links.rs`, `Names::new`):** tagliare solo a fine riga.
-4. **Breaker dell'avversario (`matchup.rs` `playable`, `roles.rs`):** tenere solo quelli che tolgono qualcosa al campo finto; aggiungere "as many ... as possible" e "shuffle ... into the Deck"; usare il Main Deck e l'Extra Deck veri dell'avversario.
-5. **Deck dell'avversario del kit a 35 carte (`probe.rs`):** cambia la ricerca, quindi va fatta con il protocollo bench prima/dopo.
-6. Poi la mappa: tipo "posiziona dal Deck" (contratto con l'interfaccia), materiali dal Deck come "manda al Cimitero", `chance` senza il Cimitero, "recupera" solo verso la mano, tempo massimo.
+### Turno di prova contro un deck
+Fermate di Maxx "C", Fuwalos e Purulia sommate:
+
+| Versione | Fermate false | Per deck |
+|---|---|---|
+| prima (`7c0e640`) | 1116 | fur_hire 467, k9 396, tearlaments 106, blue_eyes 66, dracotail 48, branded 33 |
+| `d5af0ba` | 385 | (vedi sopra) |
+| `eedda66` | 81 | k9 33, synchrons 33, dracotail 15 |
+| `eedda66` + R3 + R4 (sotto) | **0** | — |
+
+Fermate per handtrap (momenti fermati / momenti in cui si può usare):
+
+| Handtrap | Prima | `eedda66` | `eedda66` + R3 + R4 |
+|---|---|---|---|
+| Maxx "C" | 550/3955 | 45/3955 | 0/3955 |
+| Mulcharmy Fuwalos | 388/3164 | 24/3164 | 0/3164 |
+| Mulcharmy Purulia | 178/1582 | 12/1582 | 0/1582 |
+| Labrynth Chandraglier | — | 9/791 | 0/791 |
+| Ash Blossom & Joyous Spring | 592/640 | 592/640 | 592/640 |
+| Ghost Ogre & Snow Rabbit | 414/450 | 414/450 | 414/450 |
+| Nibiru, the Primal Being | 303/303 | 303/303 | 303/303 |
+| Dominus Impulse | 298/298 | 298/298 | 298/298 |
+| Dominus Spark | 442/456 | 437/456 | 436/456 |
+| Droll & Lock Bird | 216/309 | 213/309 | 213/309 |
+| Ghost Belle & Haunted Mansion | 142/146 | 142/146 | 142/146 |
+| Songs of the Dominators | 139/142 | 143/146 | 143/146 |
+| Ghost Mourner & Moonlit Chill | 112/193 | 108/193 | 105/193 |
+| Bystial Druiswurm | 257/431 | 130/431 | 127/431 |
+| Bystial Magnamhut | 254/431 | 127/431 | 127/431 |
+| Effect Veiler | 163/617 | 118/617 | 115/617 |
+| Infinite Impermanence | 133/681 | 118/681 | 115/681 |
+
+- Le fermate vere restano: Ash, Ogre, Nibiru, Dominus, Belle uguali; Bystial, Veiler e Impermanence quasi uguali a `eedda66`.
+- Labrynth Chandraglier è nuova tra le handtrap (setta una Trappola "Labrynth"): non deve fermare niente, e con R3 e R4 non ferma niente.
+
+#### R3. `find_again` ripiega su un altro effetto della stessa carta (k9, synchrons: 66)
+- **Riprodurre:**
+  ```
+  DUELFORGE_DEBUG_MATCHUP=1 duelforge-cli probe-line --deck <mdm>/k9.ydk --lines <out>/k9.lines.json --vs <mdm>/kaiju.ydk --index 0
+  ```
+  Maxx "C" al momento 12: "lost K9-17 Izuna, Vallon...".
+- **Causa:**
+  - Maxx "C" si attiva quando la linea sta per attivare K9-17 "Ripper" (effetto di ricerca, descrizione `...048`). Nella `SelectChain` di risposta a Maxx "C" Ripper offre solo l'altro effetto, "When your opponent activates a monster effect in the hand or GY: negate that effect" (`...049`).
+  - `find_again` non trova la descrizione e prende `offered.first()`, l'effetto di negazione: Ripper nega Maxx "C", spende il materiale, e la linea si sfasa.
+- **Correzione provata:** ripiegare su un altro effetto della stessa carta solo quando l'azione attesa viene da un `EffectYesNo` (lì la descrizione della domanda non è quella dell'effetto). In tutti gli altri casi serve la stessa descrizione.
+- Togliere del tutto il ripiego non basta: Fur Hire torna a 12 fermate (il trigger di Rex, Freight in una `SelectChain`), e Labrynth Chandraglier ne fa 24 su white_forest_azamina.
+
+#### R4. I passaggi della linea finiscono su finestre in cui c'è la sua azione (dracotail: 15)
+- **Riprodurre:** `probe-line --deck <mdm>/dracotail.ydk ... --vs <mdm>/kaiju.ydk --index 0`, Maxx "C" al momento 25: "lost Blazing Cartesia".
+- **Causa:**
+  - Maxx "C" si concatena al trigger di Fase Finale di Incredible Ecclesia, e la sua catena occupa una delle finestre della Fase Finale.
+  - Le due risposte "passo" della linea (80, 81) cadono su finestre in cui il trigger di Blazing Cartesia è già offerto. Si passa, e la Fase Finale finisce senza Cartesia.
+- **Correzione provata:** quando la risposta della linea è un passo, si guarda la prima risposta dopo i passi. Se quell'azione è già offerta nella domanda di adesso, si gioca lei e si saltano i passi.
+
+#### `--stops` (dove fermare la linea contro Maxx "C")
+Provato sulla prima board di tearlaments, branded, k9 e white_forest_azamina contro kaiju.
+- **Il punto migliore è sempre la linea intera.** Mi sembra sensato: in queste linee la board si chiude solo alla fine.
+  - branded: campo 0 fino alla risposta 61, poi 0,35;
+  - white_forest_azamina: 0,82 alla 64, 2,26 alla fine;
+  - tearlaments: 0,48 già alla 18, ma senza le carte che bloccano (0,30); la fine vale 0,44 + 0,30.
+- **Tempo:** 3,6-7,3 s per handtrap e per board (due handtrap su kaiju: 7-15 s). Va bene a richiesta, non per ogni board del Combo Lab.
+- **Parità:** a parità di valore atteso e di carte pescate (branded: 70, 73 e 82 valgono tutte 0,22 con 9 carte pescate) si sceglie l'ultimo punto. Proporrei il primo: meno azioni, stesso risultato.
+- La riga "drawn by moment" (carte pescate se la handtrap arriva in quel momento) è chiara e utile per l'interfaccia.
+
+### Mappa con `eedda66` (6 deck)
+
+| Deck | Collegamenti (`7c0e640` → `d5af0ba` → `eedda66`) | Di cui "posiziona" | Tempo (s) |
+|---|---|---|---|
+| branded | 394 → 382 → 402 | 18 | 92 → 90 → 62 |
+| r_b | 129 → 123 → 151 | 1 | 30 → 32 → 23 |
+| maliss | 18 → 18 → 17 | 1 | 31 → 19 → 13 |
+| earth_machine | 458 → 342 → 311 | 0 | 190 → 85 → 64 |
+| kaiju | 46 → 39 → 41 | 0 | 107 → 81 → 49 |
+| chimera | 165 → 156 → 196 | 12 | 80 → 60 → 50 |
+
+- I tempi del primo giro erano gonfiati dalle altre misure; anche gli ultimi giravano accanto alla matrice (un thread).
+- **Collegamenti strani** segnalati dal testo: 71 → 27 → 44. Sono tutti giusti, tranne 2:
+  - Branded Fusion "toGrave" (19): è la M3, ora i materiali dal Deck vanno al Cimitero. Lo script li segnalava perché il testo non dice "GY" (corretto in `scripts/links_report.py`);
+  - Subspace Battle (13) e Transaction Rollback (10): giusti (B3);
+  - **restano 2:** Branded Banishment "search" Starliege Seyfert.
+- **Haggard Lizardose e S:P Little Knight** "search" Bystial Druiswurm: spariti.
+  - La traccia in `Reader::see` mostra il meccanismo. Bystial Magnamhut ("during the End Phase of this turn, add 1 Dragon monster") registra un effetto ritardato. La sua `SelectCard` arriva dopo `ChainSolved` e `ChainEnd`, fuori da ogni catena, quindi la causa è `acting`.
+  - In questo giro `acting` era Magnamhut stessa; quando l'ultima azione era un'altra carta, la ricerca andava a quella. Branded Banishment → Seyfert è probabilmente lo stesso caso.
+  - **Proposta:** azzerare `acting` a ogni cambio di fase (`NewPhase`), così un effetto ritardato non viene dato a nessuno invece che alla carta sbagliata. Meglio ancora: far passare dal motore il messaggio `HINT_CARD`, che gli script mandano proprio quando un effetto ritardato si applica, e usarlo come causa.
+- **A3 (R.B.):** dal motore è corretta, Shepherd's Crook ha solo materiali "R.B.". Ma la **bozza dal testo** (`text: true`) aggiunge come materiali anche Magie e Trappole il cui nome contiene l'archetipo:
+  - R.B. Stage Landing, R.B. Operation Test, R.B. Funk Dock, R.B. Next Phase;
+  - in chimera, Artmage Vandalism -Assault- e Artmage Pact -Awakening- verso Artmage Diactorus, Non-Finito, Nerva.
+  - 19 collegamenti in 2 deck su 6. **Correzione:** nella bozza dal testo, il materiale deve essere un mostro (`type & MONSTER`).
+- **"Posiziona dal Deck"** (M2) c'è: branded 18, chimera 12. Restano senza: Triple Tactics Thrust (si posiziona solo se l'avversario ha attivato un effetto di mostro: in goldfish mai) e Urgent Schedule (falso positivo della regex).
+- Collegamenti solo dalla bozza del testo: 112 su 1118.
+
+## Conclusione
+Dopo `eedda66` restano queste correzioni, in ordine:
+1. **R3 e R4 in `replay`/`find_again` (`matchup.rs`):** ripiego su un altro effetto della stessa carta solo per le risposte venute da un `EffectYesNo`; un passo della linea lascia il posto alla sua prossima azione se è già offerta. Provate sulle 180 board: fermate false di Maxx "C" e Mulcharmy da 81 a 0, fermate vere invariate.
+2. **Bozza dal testo nella mappa:** solo mostri come materiali (19 collegamenti falsi in r_b e chimera).
+3. **Effetti ritardati nella mappa (`Reader::see`):** azzerare `acting` al cambio di fase, o usare `HINT_CARD` come causa.
+4. **`--stops`:** a parità, il primo punto.
+5. **Deck dell'avversario del kit a 35 carte (`probe.rs`):** resta per la ricerca, con il bench. Nel rigioco delle handtrap è già risolto: l'avversario pesca dal suo deck vero.
+6. Il resto della prima lista (M4 `chance` senza Cimitero, tempo massimo per la mappa) l'ho visto citato come fatto in PR #24. Non l'ho ancora misurato: i 6 deck di questo giro non bastano per la `chance`, servirebbe un giro sui 40.
 
 Gli script per ripetere tutto: `scripts/links_report.py` e `scripts/matchup_report.py` (con `--cli` per confrontare due build, `--skip-run` per rifare solo le tabelle).
 
@@ -458,4 +547,91 @@ index f026f0b..f6120d1 100644
      let base = replay(engine, deck, hand, seed, &opponent, own, None)?;
      let mut out = Vec::new();
      for &code in hand_traps {
+```
+
+## Appendice 2: la prova di R3 e R4 su `eedda66`
+Le correzioni sono accese da `QA_YN_ZERO` (R3) e `QA_LOOKAHEAD` (R4); `QA_NO_FALLBACK` è la variante scartata. Ci sono anche tracce di debug (`QA_TRACE`, `QA_EV`).
+
+```diff
+diff --git a/crates/ygo-solver/src/matchup.rs b/crates/ygo-solver/src/matchup.rs
+index 7d387a7..d0a65df 100644
+--- a/crates/ygo-solver/src/matchup.rs
++++ b/crates/ygo-solver/src/matchup.rs
+@@ -594,7 +594,7 @@ fn own_answers(engine: &Engine, deck: &DeckList, hand: &[u32], seed: u64, oppone
+                 Decision::EffectYesNo { card, description, .. } if *answer == window_answer(&decision, Some(0)) => Some(ActionId {
+                     code: db.canonical_code(card.code),
+                     location: card.location,
+-                    description: *description,
++                    description: if std::env::var_os("QA_YN_ZERO").is_some() { 0 } else { *description },
+                     kind: ActionKind::Activate,
+                 }),
+                 Decision::IdleCmd { .. } | Decision::SelectChain { .. } => {
+@@ -633,7 +633,7 @@ fn find_again(engine: &Engine, decision: &Decision, actions: &[Action], id: Acti
+                 a.kind == id.kind && a.card.is_some_and(|c| db.canonical_code(c.code) == id.code && c.location == id.location)
+             };
+             let offered: Vec<&ygo_engine::Action> = actions.iter().filter(same).collect();
+-            offered.iter().find(|a| a.description == id.description).or(offered.first()).map(|a| a.response.clone())
++            offered.iter().find(|a| a.description == id.description).or(offered.first().filter(|_| if std::env::var_os("QA_YN_ZERO").is_some() { id.description == 0 } else { std::env::var_os("QA_NO_FALLBACK").is_none() || matches!(decision, Decision::SelectChain { triggers: true, .. }) })).map(|a| a.response.clone())
+         }
+         _ => None,
+     }
+@@ -737,6 +737,11 @@ fn replay(engine: &Engine, deck: &DeckList, hand: &[u32], seed: u64, opponent: &
+         if duel.turn_info().0 > 1 {
+             break;
+         }
++        if used && std::env::var_os("QA_EV").is_some() {
++            for e in &events {
++                if !matches!(e, Event::Move { .. }) || true { eprintln!("QA EV {e:?}"); }
++            }
++        }
+         for e in &events {
+             match e {
+                 Event::Chaining { card, .. }
+@@ -769,9 +774,25 @@ fn replay(engine: &Engine, deck: &DeckList, hand: &[u32], seed: u64, opponent: &
+                 while next < own.answers.len() && own.kinds[next] != kind && own.answers[next] == PASS {
+                     next += 1;
+                 }
++                // QA: a pass of the line where its next action is already offered
++                // (a handtrap's chain took one of its windows): play the action.
++                if std::env::var_os("QA_LOOKAHEAD").is_some() && own.answers.get(next) == Some(&PASS.to_vec()) {
++                    let mut k = next;
++                    while k < own.answers.len() && own.answers[k] == PASS {
++                        k += 1;
++                    }
++                    if let Some(answer) = own.ids.get(k).copied().flatten().and_then(|id| find_again(engine, &decision, &actions, id)) {
++                        if std::env::var_os("QA_TRACE").is_some() { eprintln!("QA T lookahead {next}->{k}"); }
++                        duel.respond(&answer);
++                        asked = Some(decision);
++                        next = k + 1;
++                        continue;
++                    }
++                }
+                 let expected = own.ids.get(next).copied().flatten();
+                 // The line's next action, found again by what it is.
+                 if let Some(answer) = expected.and_then(|id| find_again(engine, &decision, &actions, id)) {
++                    if std::env::var_os("QA_TRACE").is_some() { eprintln!("QA T next={next} found {expected:?}"); }
+                     duel.respond(&answer);
+                     asked = Some(decision);
+                     next += 1;
+@@ -785,6 +806,7 @@ fn replay(engine: &Engine, deck: &DeckList, hand: &[u32], seed: u64, opponent: &
+                 let same_question = own.kinds.get(next) == Some(&kind) && expected.is_none();
+                 let to_theirs = theirs_on_top && matches!(decision, Decision::SelectChain { .. });
+                 if declinable(&decision) && (to_theirs || !same_question) {
++                    if std::env::var_os("QA_TRACE").is_some() { eprintln!("QA T declined next={next} {decision:?}"); }
+                     duel.respond(&passive_answer(&decision, &actions));
+                     continue;
+                 }
+@@ -802,6 +824,12 @@ fn replay(engine: &Engine, deck: &DeckList, hand: &[u32], seed: u64, opponent: &
+             // After a handtrap, the cards the line picks are found again by
+             // what they are, not by their place in the list.
+             let again = own.picks.get(next).and_then(Option::as_ref).filter(|_| used).and_then(|p| pick_again(engine, &decision, p));
++            if std::env::var_os("QA_TRACE").is_some() {
++                let r = again.as_ref().unwrap_or(answer);
++                let picks: Vec<String> = actions.iter().filter(|a| &a.response == r).filter_map(|a| a.card).map(|c| db.name(c.code)).collect();
++                eprintln!("QA {} next={next} kind={:?} picks={picks:?} answer={r:?} cards={:?}", if used {"T"} else {"B"}, std::mem::discriminant(&decision),
++                    match &decision { Decision::SelectCard { cards, .. } => cards.iter().map(|c| db.name(c.code)).collect::<Vec<_>>(), _ => Vec::new() });
++            }
+             duel.respond(again.as_ref().unwrap_or(answer));
+             asked = Some(decision);
+             next += 1;
 ```

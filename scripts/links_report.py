@@ -23,15 +23,14 @@ ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
 CDB = os.path.join(ROOT, "data", "cdb", "cards.cdb")
 
 # What a sentence of the text says the card does, and the link kind and
-# zone the map should have for it.
+# zone the map should have for it ("set": Set or place from the Deck).
 PATTERNS = [
     ("search", "deck", re.compile(r"add [^.]*?from your deck(?: or gy)? to your hand")),
     ("summon", "deck", re.compile(r"special summon [^.]*?from your (?:hand or )?deck")),
     ("summon", "extra", re.compile(r"(?:special|fusion|synchro|xyz|link|ritual) summon [^.]*?from your extra deck")),
     ("toGrave", "deck", re.compile(r"send [^.]*?from your deck to the gy")),
     ("recover", "grave", re.compile(r"add [^.]*?from your (?:deck or )?gy to your hand")),
-    # Not a kind of the map: Set from the Deck (seen as missing on purpose).
-    ("set", "deck", re.compile(r"set [^.]*?from your deck")),
+    ("set", "deck", re.compile(r"(?:set|place) [^.]*?from your deck")),
 ]
 
 # Words the text of the cause must hold for a link of each kind.
@@ -41,6 +40,7 @@ NEEDS = {
     "summon": ("summon",),
     "toGrave": ("gy", "graveyard"),
     "material": (),
+    "set": ("set", "place"),
 }
 
 
@@ -103,14 +103,14 @@ def analyse(out_dir, deck_names):
         used = [l for l in links if l["used"] > 0]
         rows.append((name, dict(wall=timing["wall"], cards=len(cards), links=len(links), used=len(used), hands=doc["hands"], lines=doc["lines"],
                                 isolated=sum(1 for c in cards if c["reach"] == 0 and not any(l["to"] == c["code"] for l in links)),
-                                kinds={k: sum(1 for l in links if l["kind"] == k) for k in ("search", "summon", "toGrave", "recover", "material")})))
+                                kinds={k: sum(1 for l in links if l["kind"] == k) for k in ("search", "summon", "toGrave", "recover", "material", "set")})))
         # Missing: a sentence of the text and no link of that kind (and zone) from the card.
         for c in cards:
             if c["code"] not in txt:
                 continue
             for kind, zone, sentence, targets in expected(c["code"], txt[c["code"]][1], cards):
                 have = [l for l in links if l["from"] == c["code"] and l["kind"] == kind and l["zone"] == zone]
-                if kind == "set" or not have:
+                if not have:
                     tn = ", ".join(sorted({t["name"] for t in targets})) if targets else "(generic)"
                     missing.append((name, c["name"], kind, zone, sentence[:110], tn))
         # Odd: a link whose cause's text has none of the words its kind needs,
@@ -134,15 +134,15 @@ def analyse(out_dir, deck_names):
 
 
 def write(out_dir, rows, missing, odd):
-    lines = ["# Links report", "", "| Deck | Time (s) | Cards | Links | Used | Search | Summon | ToGrave | Recover | Material | Isolated | Hands | Lines |",
-             "|---|---|---|---|---|---|---|---|---|---|---|---|---|"]
+    lines = ["# Links report", "", "| Deck | Time (s) | Cards | Links | Used | Search | Summon | ToGrave | Recover | Material | Set | Isolated | Hands | Lines |",
+             "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|"]
     for name, r in rows:
         if r is None:
-            lines.append(f"| {name} | failed | | | | | | | | | | | |")
+            lines.append(f"| {name} | failed | | | | | | | | | | | | |")
             continue
         k = r["kinds"]
         lines.append(f"| {name} | {r['wall']} | {r['cards']} | {r['links']} | {r['used']} | {k['search']} | {k['summon']} | {k['toGrave']} | "
-                     f"{k['recover']} | {k['material']} | {r['isolated']} | {r['hands']} | {r['lines']} |")
+                     f"{k['recover']} | {k['material']} | {k['set']} | {r['isolated']} | {r['hands']} | {r['lines']} |")
     lines += ["", f"## Missing by text ({len(missing)})", "", "| Deck | Card | Kind | Zone | Text | Targets in the deck |", "|---|---|---|---|---|---|"]
     lines += [f"| {' | '.join(str(x).replace('|', '/') for x in m)} |" for m in missing]
     lines += ["", f"## Odd links ({len(odd)})", "", "| Deck | From | Kind | Zone | To | Used | Why |", "|---|---|---|---|---|---|---|"]
