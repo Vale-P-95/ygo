@@ -109,5 +109,22 @@ Abbiamo il motore EDOPro e la ricerca delle combo, quindi possiamo leggere i col
 
 ## Correzioni dal collaudo (21/10/2026)
 - **Causa di un trigger a cui si risponde sì.** Ora è la carta del trigger. Prima la causa era la carta dell'ultima azione: Branded in High Spirits risultava Evocare dal Cimitero 9 mostri che Evoca Guiding Quem.
-- **Mappa vera per il backend finto.** In `tests/fixtures/links/invoked.json` c'è la mappa vera del deck Invoked della fixture (solo codici): 31 carte, 89 collegamenti.
+- **Mappa vera per il backend finto.** In `tests/fixtures/links/invoked.json` c'è la mappa vera del deck Invoked della fixture (solo codici): 31 carte, 101 collegamenti (aggiornata con le correzioni sotto).
+
+## Seconde correzioni dal collaudo (21/10/2026)
+- **Materiali.** La riga dei materiali è la prima riga del testo del mostro, dopo l'eventuale Effetto Pendulum. Prima si tagliava al primo punto, e il materiale "R.B." diventava "r", contenuto in quasi ogni nome.
+- **Materiali dal Deck.** Un Materiale da Fusione mandato dal Deck (Branded Fusion) è anche un collegamento "manda al Cimitero".
+- **Recupera.** Vale solo verso la mano. Rimescolare nel Deck dal Cimitero non è più un collegamento.
+- **Tipo nuovo `set`, "posiziona dal Deck".** Una carta messa dal Deck sul campo: coperta, oppure posizionata in una Zona Magie e Trappole o nella Zona Terreno.
+  - Esempi: Elfnote Tinia → Elfnotes: Welcome Home (usato nel 64% delle linee), Virakam → Invocation, Albion the Branded Dragon → le Magie e Trappole "Branded".
+  - Nel contratto è `CardLinkKind` `"set"`.
+- **Probabilità senza saturazione.** `reachAll` e `chance` seguono solo i collegamenti che portano in gioco una carta nuova: cerca, Evoca, materiale, posiziona.
+  - Mandare al Cimitero non conta più. Prima Foolish Burial e That Grass Looks Greener "portavano" quasi tutto il deck.
+  - Branded: le carte del Main Deck con `chance` del 95% o più passano da 34 a 3.
+- **Mostri dell'Extra Deck senza materiali nominati.** Prima avevano `chance` 0. Ora `chance` è la quota delle mani cercate in cui la linea migliore li Evoca, con `measured: true` (misurata, non esatta).
+  - Branded: 2 mostri così, Invoked: 5.
+- **Tempo.** Al massimo 15 secondi per mano e 60 per la mappa intera, poi le mani rimaste si saltano.
+  - Le mani si cercano a turno: prima una per ogni carta, poi la seconda. Così una mappa tagliata ha comunque tutte le carte.
+  - Sui deck provati: Branded 63 secondi (48 mani su 68), Elfnote 49, Invoked 23.
+- **Per l'interfaccia.** `LINK_KINDS` deve avere la voce `set`. `LinkCard.measured` dice quando mostrare la probabilità come stima.
 

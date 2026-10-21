@@ -18,7 +18,7 @@ fn the_invoked_deck_links_aleister_invocation_and_the_invoked() {
     let engine = Engine::load(&data).expect("game data loads");
     let deck = DeckList::from_ydk(&std::fs::read_to_string(root.join("tests/fixtures/decks/invoked-siracusa-md.ydk")).unwrap()).unwrap();
     let code = |name: &str| engine.cards().find_by_name(name).unwrap_or_else(|| panic!("{name}")).code;
-    let budget = LinksBudget { hands_per_card: 1, nodes_per_hand: 500, lines_per_hand: 10, threads: 2 };
+    let budget = LinksBudget { hands_per_card: 1, nodes_per_hand: 500, lines_per_hand: 10, threads: 2, ..LinksBudget::default() };
     let map = deck_links(&engine, &deck, 1, budget, &AtomicBool::new(false), |_, _| {});
     let link = |from: &str, to: &str, kind: LinkKind| map.links.iter().find(|l| l.from == code(from) && l.to == code(to) && l.kind == kind);
 
