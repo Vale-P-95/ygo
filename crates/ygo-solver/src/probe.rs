@@ -22,7 +22,7 @@
 use std::collections::{HashMap, HashSet};
 
 use ygo_engine::auto::passive_answer;
-use ygo_engine::consts::{location, reason};
+use ygo_engine::consts::{location, position, reason};
 use ygo_engine::{
     Action, ActionKind, CardDb, CardRef, Decision, DeckList, Duel, DuelState, Engine, Error, Event, Opponent, Placement, Step,
 };
@@ -587,6 +587,8 @@ impl Observer {
                     return;
                 }
                 let effect = match to.location & !location::OVERLAY {
+                    // Attached to an Xyz Monster: out of play, as banished.
+                    _ if to.location & location::OVERLAY != 0 => Effect::Banish,
                     _ if to.controller == 0 && to.location & (location::MZONE | location::SZONE) != 0 => Effect::Position,
                     location::REMOVED => Effect::Banish,
                     location::DECK | location::EXTRA => Effect::ToDeck,
@@ -597,10 +599,12 @@ impl Observer {
                 };
                 better(uses, u, effect);
             }
-            Event::PositionChange { card, .. } => {
+            Event::PositionChange { card, to, .. } => {
                 if let Some(u) = self.solving {
                     if card.controller == 1 {
-                        better(uses, u, Effect::Position);
+                        // Face-down, a monster has no effects any more.
+                        let face_down = u32::from(*to) & (position::FACEDOWN_ATTACK | position::FACEDOWN_DEFENSE) != 0;
+                        better(uses, u, if face_down { Effect::NegateEffect } else { Effect::Position });
                     }
                 }
             }

@@ -141,3 +141,13 @@ fn a_summon_negated_never_lands() {
     let covers = covers(&m, solemn);
     assert!(covers.contains(&Probe::NormalSummon) || covers.contains(&Probe::ExtraSummon), "{covers:?}");
 }
+
+#[test]
+fn a_monster_turned_face_down_has_its_effects_negated() {
+    let Some(lab) = lab() else { return };
+    // Destructive Daruma Karma Cannon turns the monsters face-down: they
+    // lose their effects, more than a change of position.
+    let m = lab.measure(&[("Destructive Daruma Karma Cannon", At::Set)], &[]);
+    let daruma = lab.code("Destructive Daruma Karma Cannon");
+    assert!(effect(&m, daruma).is_some_and(|e| e <= Effect::NegateEffect), "{:?}", effect(&m, daruma));
+}
