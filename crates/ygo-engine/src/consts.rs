@@ -142,6 +142,8 @@ pub mod msg {
 
 pub mod hint {
     pub const SELECTMSG: u8 = 3;
+    /// The select hint of a choice of monsters to Special Summon (`HINTMSG_SPSUMMON`).
+    pub const MSG_SPSUMMON: u64 = 509;
 }
 
 pub mod duel_flags {

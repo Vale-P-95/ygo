@@ -39,12 +39,18 @@ impl Lab {
     /// Measures these cards on your field, with `hand` in your hand (cards
     /// that do nothing on the opponent's turn when empty).
     fn measure(&self, field: &[(&str, At)], hand: &[&str]) -> Measure {
+        self.measure_with(field, hand, &[])
+    }
+
+    /// [`Lab::measure`], with these cards added to your Deck.
+    fn measure_with(&self, field: &[(&str, At)], hand: &[&str], in_deck: &[&str]) -> Measure {
         let mut hand: Vec<u32> = hand.iter().map(|n| self.code(n)).collect();
         if hand.is_empty() {
             hand = ["Alexandrite Dragon", "Pot of Greed", "Trap Hole"].iter().map(|n| self.code(n)).collect();
         }
         let mut deck = self.deck.clone();
         deck.main.extend(&hand);
+        deck.main.extend(in_deck.iter().map(|n| self.code(n)));
         let mut monsters = 0;
         let mut spells = 1;
         let placed: Vec<Placement> = field
@@ -150,4 +156,17 @@ fn a_monster_turned_face_down_has_its_effects_negated() {
     let m = lab.measure(&[("Destructive Daruma Karma Cannon", At::Set)], &[]);
     let daruma = lab.code("Destructive Daruma Karma Cannon");
     assert!(effect(&m, daruma).is_some_and(|e| e <= Effect::NegateEffect), "{:?}", effect(&m, daruma));
+}
+
+#[test]
+fn a_response_is_worth_what_it_brings() {
+    let Some(lab) = lab() else { return };
+    // Big Welcome Labrynth stops nothing itself: it Special Summons a
+    // Labrynth monster from the Deck (the strongest, Lovely Labrynth of the
+    // Silver Castle), whose effect destroys a card when the Trap resolves.
+    // It then returns one of your monsters to the hand: the weakest.
+    let field = [("Alexandrite Dragon", At::Monster), ("Big Welcome Labrynth", At::Set)];
+    let m = lab.measure_with(&field, &[], &["Lovely Labrynth of the Silver Castle", "Labrynth Cooclock"]);
+    let welcome = covers(&m, lab.code("Big Welcome Labrynth"));
+    assert!(!welcome.is_empty(), "{:?}", m.interruptions);
 }
