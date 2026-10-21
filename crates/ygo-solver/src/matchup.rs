@@ -202,6 +202,117 @@ pub fn matchup(
     Ok(out)
 }
 
+/// One move of a deck's typical opening (the probe turn against a chosen
+/// deck, level 2): a card played from somewhere, and how often its best
+/// lines play it.
+#[derive(Debug, Clone)]
+pub struct RivalPlay {
+    pub code: u32,
+    /// Activated, Normal Summoned or Special Summoned.
+    pub kind: ActionKind,
+    /// Where the card was.
+    pub location: u8,
+    /// Share of the lines that play it, and that play it first.
+    pub share: f64,
+    pub first: f64,
+    /// Its average place in the lines that play it (1 = first move).
+    pub order: f64,
+}
+
+/// The moves of `deck`'s best lines from `hands` random opening hands
+/// (searched with `nodes` nodes each), the most played first.
+pub fn rival_plays(engine: &Engine, deck: &DeckList, seed: u64, hands: usize, nodes: u64, threads: usize) -> Vec<RivalPlay> {
+    let db = engine.cards();
+    let kit = Kit::standard(engine);
+    let traps = hand_traps(engine, deck, seed, &kit);
+    // Random hands of 5, the same for the same seed.
+    let mut state = seed ^ 0x9e37_79b9_7f4a_7c15;
+    let mut next = move || {
+        state = state.wrapping_add(0x9e37_79b9_7f4a_7c15);
+        let mut z = state;
+        z = (z ^ (z >> 30)).wrapping_mul(0xbf58_476d_1ce4_e5b9);
+        z = (z ^ (z >> 27)).wrapping_mul(0x94d0_49bb_1331_11eb);
+        z ^ (z >> 31)
+    };
+    let samples: Vec<Vec<u32>> = (0..hands)
+        .map(|_| {
+            let mut main = deck.main.clone();
+            for i in (1..main.len()).rev() {
+                main.swap(i, (next() % (i as u64 + 1)) as usize);
+            }
+            main.truncate(5);
+            main
+        })
+        .collect();
+    let at = std::sync::atomic::AtomicUsize::new(0);
+    let lines: std::sync::Mutex<Vec<Vec<(u32, ActionKind, u8)>>> = std::sync::Mutex::new(Vec::new());
+    std::thread::scope(|s| {
+        for _ in 0..threads.clamp(1, samples.len().max(1)) {
+            s.spawn(|| loop {
+                let i = at.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                let Some(hand) = samples.get(i) else { break };
+                let mut config = crate::search::SearchConfig::new(deck.clone(), hand.clone());
+                config.seed = seed;
+                config.threads = 1;
+                config.max_nodes = nodes;
+                config.time_limit = std::time::Duration::from_secs(60);
+                config.opponent = Some(kit.opponent().clone());
+                config.hand_traps = traps.clone();
+                let result = crate::search::search(engine, &config, &std::sync::atomic::AtomicBool::new(false), |_| {});
+                let Some(best) = result.boards.first() else { continue };
+                let Ok(mut duel) = Duel::goldfish_against(engine, deck, hand, seed, Some(kit.opponent())) else { continue };
+                let mut moves = Vec::new();
+                for answer in &best.line.answers {
+                    let Ok(Step::Decision { decision, .. }) = duel.advance() else { break };
+                    if decision.player() == Some(0) && matches!(decision, Decision::IdleCmd { .. } | Decision::SelectChain { .. }) {
+                        let actions = duel.actions(&decision);
+                        if let Some(a) = actions.iter().find(|a| &a.response == answer) {
+                            if let (ActionKind::Activate | ActionKind::NormalSummon | ActionKind::SpecialSummon, Some(card)) =
+                                (a.kind, a.card)
+                            {
+                                moves.push((db.canonical_code(card.code), a.kind, card.location));
+                            }
+                        }
+                    }
+                    duel.respond(answer);
+                }
+                if let Ok(mut all) = lines.lock() {
+                    all.push(moves);
+                }
+            });
+        }
+    });
+    let lines = lines.into_inner().unwrap_or_default();
+    let mut found: HashMap<(u32, ActionKind, u8), (u32, u32, usize)> = HashMap::new();
+    for line in &lines {
+        let mut seen: Vec<(u32, ActionKind, u8)> = Vec::new();
+        for (i, m) in line.iter().enumerate() {
+            if seen.contains(m) {
+                continue;
+            }
+            seen.push(*m);
+            let entry = found.entry(*m).or_default();
+            entry.0 += 1;
+            entry.1 += u32::from(i == 0);
+            entry.2 += i + 1;
+        }
+    }
+    let total = lines.len().max(1) as f64;
+    let mut plays: Vec<RivalPlay> = found
+        .into_iter()
+        .map(|((code, kind, location), (lines, first, places))| RivalPlay {
+            code,
+            kind,
+            location,
+            share: f64::from(lines) / total,
+            first: f64::from(first) / total,
+            order: places as f64 / f64::from(lines.max(1)),
+        })
+        .collect();
+    plays.sort_by(|a, b| b.share.total_cmp(&a.share).then(a.order.total_cmp(&b.order)).then(a.code.cmp(&b.code)));
+    plays
+}
+
 /// Chance that none of `copies` cards of a deck of `size` is among `drawn`.
 pub(crate) fn none_drawn(size: usize, copies: u32, drawn: usize) -> f64 {
     (0..drawn).map(|i| (size as f64 - f64::from(copies) - i as f64).max(0.0) / size.saturating_sub(i).max(1) as f64).product()

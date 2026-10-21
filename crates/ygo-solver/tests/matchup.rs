@@ -97,3 +97,15 @@ fn a_handtrap_counts_where_it_stops_the_line() {
     assert!(hole.chance > 0.0 && hole.chance < 0.5, "{hole:?}");
     assert!(x.resilience >= hole.remaining && x.resilience <= measure.field_value + 1e-9, "{x:?}");
 }
+
+#[test]
+fn a_deck_opens_with_its_starters() {
+    let Some(lab) = lab() else { return };
+    // The Invoked deck's best lines play Aleister, Invocation or the cards
+    // that bring them; none opens with a handtrap.
+    let plays = ygo_solver::rival_plays(&lab.engine, &lab.deck, 1, 4, 400, 2);
+    assert!(!plays.is_empty());
+    let names: Vec<String> = plays.iter().map(|p| lab.engine.cards().name(p.code)).collect();
+    assert!(names.iter().any(|n| n.contains("Aleister") || n.contains("Invocation") || n.contains("Aiwass")), "{names:?}");
+    assert!(plays.iter().all(|p| p.share > 0.0 && p.share <= 1.0 && p.order >= 1.0), "{plays:?}");
+}

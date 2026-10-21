@@ -114,3 +114,10 @@ Obiettivo: nel turno di prova contro un deck X, l'avversario gioca **le sue moss
 ### Stima
 1-1,5 giorni di backend, più l'interfaccia (Gemini).
 
+### Livello 2, primo passo fatto: le mosse tipiche di un deck (21/10/2026)
+- `rival_plays` in `matchup.rs`, comando `duelforge-cli rival-plays --deck <ydk> [--hands 12] [--nodes 1500]`.
+- Cerca le linee migliori del deck da mani casuali e ne legge le mosse: carta, come la gioca (attivata, Evocata Normalmente o Specialmente) e da dove. Per ogni mossa dà quante linee la giocano, quante la giocano per prima e in che posizione arriva in media.
+- **Branded** (12 mani, 36 s): Ecclesia e Cartesia attivate sul campo nel 50% delle linee; Branded Opening, Branded in High Spirits, Branded Fusion e The Fallen & The Virtuous nel 33%; per prime l'Evocazione Normale di Ecclesia (25%) o di Aluber (17%).
+- **Labrynth** (12 mani, 13 s): Evocazione Normale di Arianna per prima nel 33% delle linee, poi Lady Labrynth dalla mano; Arias dalla mano per primo nel 17%.
+- Il passo che manca è trasformare queste mosse nei passi del turno di prova, in `probe.rs`, quando la sessione sulla velocità lo libera.
+
