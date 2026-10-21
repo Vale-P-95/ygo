@@ -77,3 +77,40 @@ Linea Invoked (mano `inv-r2` del banco, prima board) e linea Branded (mano casua
 - I breaker dell'Extra Deck e quelli che arrivano con una combo (Apollousa, Baronne de Fleur) non si giocano: per i deck che rompono le board così la resilienza contro X è ottimista. Serve il livello 2.
 - Una handtrap si prova una volta per momento, con la risposta più semplice dell'avversario (i suoi bersagli sono le tue carte, la prima della lista). Non si cerca la sua scelta migliore né la tua risposta migliore (una linea alternativa dopo l'interruzione): è il "punteggio sotto interruzione" del PIANO §9 livello 2.
 - Un caso su 16 momenti (Maxx "C" su una linea Branded) risulta una fermata per un effetto "quando" che perde il tempismo: da controllare se diventa frequente.
+
+## Livello 2: piano (21/10/2026)
+Obiettivo: nel turno di prova contro un deck X, l'avversario gioca **le sue mosse tipiche** e non le 11 azioni del kit generico. Le interruzioni si misurano contro quello che X fa davvero nel suo turno.
+
+### Come
+1. **Le linee di X.**
+   - Si cercano le linee migliori di X da 8-12 mani campionate del suo deck, con la ricerca del Combo Lab (circa 1000 nodi per mano).
+   - Una volta per deck, poi in cache: costa circa 10-20 secondi, come la mappa dei collegamenti.
+2. **I passi.**
+   - Ogni linea diventa una sequenza di passi come quelli del kit: carta e azione (attivare dalla mano o dal campo, Evocare Normalmente o Specialmente), le carte scelte e gli obiettivi osservati nella linea (carte aggiunte, mostri atterrati, carte mandate al Cimitero).
+   - Non si rigiocano le risposte grezze della linea: con la tua board sul campo le scelte cambiano. Si rigiocano i passi, come oggi fa il kit, quindi le stesse funzioni del turno di prova.
+   - Ogni passo dipende dal precedente (`needs`): fermare il primo passo non conta anche come fermare quelli dopo (D2).
+3. **I pesi.**
+   - Ogni passo pesa quanto spesso compare nelle linee di X, al posto dei pesi fissi del kit.
+   - Le prime mosse di una linea pesano di più, perché fermarle ferma tutto il resto: è il punto dove un'interruzione vale di più contro X.
+4. **La misura.**
+   - Per ogni tua risposta: quali passi di X ferma e la parte della sua linea media che resta.
+   - Per la board: le "interruzioni contro X", accanto a quelle generiche e alla resilienza contro X del livello 1.
+   - Con lo stesso giro si vedono anche i floodgate contro X: i passi di X che con la tua board non si possono fare.
+
+### Cosa serve nel codice
+- **In `probe.rs`:**
+  - costruire un `Kit` con passi dati da fuori;
+  - pesare le probe per passo invece che per tipo.
+  - È un file caldo: si fa quando la sessione sulla velocità lo libera.
+- **In `matchup.rs`:**
+  - leggere le linee di X e trasformarle in passi, riusando il conteggio delle mosse di `duelforge-cli kit-mix`;
+  - la misura contro X.
+- **Interfaccia:** le interruzioni "contro X" nella scheda del punteggio.
+
+### Rischi
+- **Passi non riproducibili.** Un passo di X può non essere ripetibile nel turno 2: ad esempio una carta già usata, o una condizione "se non controlli carte". In quel caso il passo è "non disponibile" e non conta. Se succede spesso, si giocano le prime 3-4 mosse e non la linea intera.
+- **Tempo.** Più passi del kit generico significano più partite per board. Il guadagno della sessione sulla velocità (partite create più in fretta) arriva al momento giusto.
+
+### Stima
+1-1,5 giorni di backend, più l'interfaccia (Gemini).
+
