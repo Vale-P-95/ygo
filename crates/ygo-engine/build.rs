@@ -171,7 +171,8 @@ fn patch_field(text: &str) -> String {
 /// one (shim/reuse.cpp): the new field gets the next duel's options instead
 /// of fixed defaults, the random numbers are seeded again like in a new
 /// duel, the messages not read are dropped, and the effects the base
-/// scripts created are kept (the shim puts them back). No full garbage
+/// scripts created are kept (the shim puts them back); called outside a
+/// reset (Debug.ReloadFieldBegin) it does what upstream does. No full garbage
 /// collection: the collector gets to the garbage as it goes, and the groups
 /// still alive are emptied as upstream does. Panics if upstream changed the
 /// code, so the patch is looked at again.
@@ -191,24 +192,33 @@ fn patch_duel(text: &str) -> String {
 ";
     const CLEAR_FIXED: &str = "thread_local const df_reset_info* df_reset = nullptr;
 void duel::clear() {
-	const OCG_DuelOptions& default_options = *df_reset->options;
-	const auto& seed = default_options.seed;
-	random = RNG::Xoshiro256StarStar({ seed[0], seed[1], seed[2], seed[3] });
-	messages.clear();
+	// Debug.ReloadFieldBegin calls it too, outside a reset: then as upstream.
+	static constexpr OCG_DuelOptions upstream_options{ {},0,{8000,5,1},{8000,5,1} };
+	const OCG_DuelOptions& default_options = df_reset ? *df_reset->options : upstream_options;
+	if(df_reset) {
+		const auto& seed = default_options.seed;
+		random = RNG::Xoshiro256StarStar({ seed[0], seed[1], seed[2], seed[3] });
+		messages.clear();
+	}
 	for(auto& pcard : cards)
 		delete pcard;
 	for(auto& peffect : effects) {
-		if(df_reset->keep->count(peffect))
+		if(df_reset && df_reset->keep->count(peffect))
 			continue;
 		lua->unregister_effect(peffect);
 		delete peffect;
 	}
 	delete game_field;
+	if(!df_reset)
+		lua->collect(true);
 	cards.clear();
 ";
     const EFFECTS: &str = "	effects.clear();
 	game_field = new field(this, default_options);";
-    const EFFECTS_FIXED: &str = "	effects = { df_reset->keep->begin(), df_reset->keep->end() };
+    const EFFECTS_FIXED: &str = "	if(df_reset)
+		effects = { df_reset->keep->begin(), df_reset->keep->end() };
+	else
+		effects.clear();
 	game_field = new field(this, default_options);";
     const INCLUDE: &str = "#include \"interpreter.h\"\n";
     let text = text.replace("\r\n", "\n");

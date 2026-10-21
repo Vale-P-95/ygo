@@ -130,6 +130,16 @@ Memcheck vedeva il confronto delle immagini leggere i byte di riempimento di Lua
 ## Dopo il merge di `main` (21/10, sera)
 Conflitti in `probe.rs` risolti: il filtro dei board breaker ora avvolge `self.breakers(...)`, e il `Prelude::Own` di `main` resta com'era. Base rifatta con `origin/main` (4a786d0): le 16 mani danno uscite identiche. Ricerca da 266,7 a 168,4 s (−37%), tempo totale da 470,2 a 276,6 s (−41%). Fmt, clippy e test passano.
 
+## Revisione della PR #33
+Cinque punti corretti:
+1. `Debug.ReloadFieldBegin` chiama `duel::clear` fuori da uno svuotamento: ora lì fa quello che fa upstream, invece di leggere un puntatore nullo.
+2. Le funzioni di un effetto di base cambiate durante la partita si riconoscono confrontando il valore nel registro, non il numero del riferimento: `Set*` libera il vecchio e spesso riprende lo stesso numero.
+3. La fotografia tiene i flag della partita: con flag diversi la partita non si riusa (alcuni script di base si caricano secondo i flag).
+4. Alcuni riferimenti del registro si liberavano solo con `lua_close` (contatori di attività, limiti di catena, condizioni di `SetUniqueOnField`): dopo 1000 svuotamenti la partita si rifà nuova, così non crescono senza limite sui thread lunghi dell'app.
+5. Le dichiarazioni `extern "C"` sono fuori dal namespace anonimo.
+
+Controlli: le 16 mani danno uscite identiche a `main` (ricerca 154,4 s, totale 256,8 s); `DUELFORGE_CHECK_REUSE=1` sulle 16 mani senza differenze; test, fmt e clippy verdi.
+
 ## Conclusione
 - **Guadagno totale** sulle 16 mani del banco (4000 nodi): ricerca −38% (da 254,6–262,5 a 158,9 s), tempo totale della CLI −43% (da 455–471 a 260,6 s), con uscite identiche a `main` (16 su 16). Su `combo_hunt.py` la ricerca dimezza; `roles` −42%, `card-values` −60%; su 4 thread "carta + resto" esplora dal 28% all'88% di nodi in più nello stesso tempo.
 - **Da dove viene:** soprattutto dal non ricaricare gli script del motore a ogni partita (correzioni 1, 2, 5), poi dalle corse inutili del turno di prova (4) e dall'allocatore per il C++ (6).

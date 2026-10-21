@@ -58,10 +58,20 @@ struct Snapshot {
 	std::unordered_set<effect*> keep;
 	field_info infos;
 	uint32_t global_flag;
+	// The duel's flags: some base scripts load differently by them
+	// (proc_rush.lua with DUEL_INVERTED_QUICK_PRIORITY).
+	uint64_t flags;
+	// Resets since the snapshot: a few registry references are never let go
+	// of before lua_close (activity counters, chain limits, unique-on-field
+	// conditions), so after RESETS_PER_DUEL the duel is made new.
+	unsigned resets;
 	// An image of each table as it was last put back (shim/table.cpp).
 	std::unordered_map<const void*, std::vector<uint64_t>> images;
 };
 const char* const SNAPSHOT_CPP = "duelforge.snapshot.cpp";
+
+// See `Snapshot::resets`.
+constexpr unsigned RESETS_PER_DUEL = 1000;
 
 Snapshot* cpp_snapshot(lua_State* L) {
 	lua_getfield(L, LUA_REGISTRYINDEX, SNAPSHOT_CPP);
@@ -84,11 +94,15 @@ std::array<int32_t, REF_FIELDS> refs(effect& e) {
 }
 
 void visit(lua_State* L, int value, int snap);
+}
 
+// shim/table.cpp
 extern "C" {
 void df_table_image(const void* table, void* out);
 int df_table_same(const void* table, const void* image);
 }
+
+namespace {
 
 void take_image(Snapshot& cpp, const void* table) {
 	df_table_image(table, &cpp.images[table]);
@@ -332,6 +346,8 @@ int df_duel_snapshot(OCG_Duel ocg_duel) {
 	std::sort(cpp->effects.begin(), cpp->effects.end(), [](const auto& a, const auto& b) { return a.pristine->id < b.pristine->id; });
 	cpp->infos = field.infos;
 	cpp->global_flag = field.core.global_flag;
+	cpp->flags = field.core.duel_options;
+	cpp->resets = 0;
 	try {
 		luaL_checkstack(L, 16, nullptr);
 		lua_createtable(L, 6, 0);
@@ -459,7 +475,7 @@ int df_duel_reset(OCG_Duel ocg_duel, const OCG_DuelOptions* options) {
 	lua_State* L = lua->lua_state;
 	const int top = lua_gettop(L);
 	auto* cpp = cpp_snapshot(L);
-	if(!cpp)
+	if(!cpp || cpp->flags != options->flags || ++cpp->resets > RESETS_PER_DUEL)
 		return 0;
 	card* old_temp = pduel->game_field->temp_card;
 	for(const auto& base : cpp->effects) {
@@ -534,7 +550,15 @@ int df_duel_reset(OCG_Duel ocg_duel, const OCG_DuelOptions* options) {
 			const auto now = refs(*base.peffect);
 			const auto fields = ref_fields(pristine);
 			for(int i = 0; i < REF_FIELDS; ++i) {
-				const bool same = !gone && fields[i] && now[i] == *fields[i];
+				// The same reference may hold another value: Set* lets the
+				// old one go and takes a new one, often the same number.
+				bool same = !gone && fields[i] && now[i] == *fields[i];
+				if(same) {
+					lua_rawgeti(L, LUA_REGISTRYINDEX, now[i]);
+					lua_rawgeti(L, lua_side, i + 2);
+					same = lua_rawequal(L, -1, -2);
+					lua_pop(L, 2);
+				}
 				if(same)
 					continue;
 				// Changed during the duel: the snapshot's value again.
