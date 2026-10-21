@@ -200,3 +200,17 @@ Il proprietario ha chiesto di trovare il compromesso tra le carte che l'avversar
   - Ultimate Slayer e Slumber risultano "non applicabili" nella partita del breaker, perché lì l'avversario ha ancora il deck del kit, senza Extra Deck e senza Kaiju.
   - Si sistema con `Kit::with_breakers` (`probe.rs`), insieme al deck del kit da 35 carte.
 
+### Il Deck dell'avversario: 35 carte, e quello vero nei breaker (21/10/2026)
+Le ultime due correzioni del collaudo (A4 e M1), in `Kit::standard` e `Kit::with_breakers` (`probe.rs`).
+- **35 carte.** Il Deck dell'avversario del kit aveva 12 carte, e gli effetti che lo guardano vedevano molto meno che in partita.
+  - Ora ne ha 35, quante ne ha l'avversario durante il tuo primo turno (40 meno le 5 in mano). Le carte semplici in più stanno in fondo, così le carte che il kit cerca restano.
+  - La ricerca gioca contro lo stesso avversario, quindi le linee trovate lo vedono già.
+  - Esempio del collaudo (Branded, That Grass Looks Greener in mano): mandava al Cimitero 38 carte, ora 14, quante in una partita vera.
+- **Il Deck vero dell'avversario nei breaker.** Contro un deck scelto, i suoi breaker si giocavano con il Deck e l'Extra Deck del kit: Ultimate Slayer (costo dall'Extra Deck) e Interrupted Kaiju Slumber (Kaiju dal Deck) risultavano «non applicabili».
+  - Ora carte a caso del suo Main Deck, mescolate con il seme della partita, prendono il posto di quelle semplici in fondo. Il Deck resta da 35 carte, come quello contro cui sono state trovate le linee, e il suo Extra Deck si aggiunge a quello del kit.
+  - `Rival::kit` mostra il kit risultante.
+- **Banco** (protocollo di `AGENTS.md`, sulla `main` di stasera):
+  - 16 mani a 4000 nodi: board, nodi, replay e punteggi identici, cambiano solo i tempi (rumore);
+  - `combo_hunt.py` su 37 deck, 2 mani, seme 7: 74 righe uguali, salvo una mano zoodiac con 584 board invece di 585 e la stessa board migliore. Nessun problema.
+  - Le mani del banco non usano effetti che guardano il Deck dell'avversario: il cambio si vede su quelle che li usano, come That Grass Looks Greener.
+- **Test:** in `tests/matchup.rs` il Deck del kit ha 35 carte, quello contro un deck ha le sue carte e il suo Extra Deck, e Ultimate Slayer contro la board di Invoked Mechaba è giocabile.
