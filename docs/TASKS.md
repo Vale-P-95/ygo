@@ -35,7 +35,7 @@ Regole in `AGENTS.md`. Per prendere un task, spostalo in "In corso" con agente, 
 ### Motore e ricerca (Claude)
 - [ ] Linee del video Invoked: come si classificano, correzioni generali (#45).
 - [ ] Scale e pesi delle metriche del punteggio (#43).
-- [ ] Turno di prova contro un deck avversario scelto dall'utente (#44).
+- [ ] Turno di prova contro un deck avversario scelto dall'utente (#44): proposta in `docs/plans/turno-di-prova-matchup.md`, in attesa delle decisioni del proprietario.
 - [ ] Frontiera di Pareto e confronto tra board; preferenze apprese (#40).
 - [ ] Simulatore: giocare passo per passo una combo scelta (#36, alla fine).
 - [ ] Limiti noti delle carte piazzate: equipaggiamenti, materiali dei mostri dell'Extra Deck (PIANO §30.4).
