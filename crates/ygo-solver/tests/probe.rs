@@ -5,7 +5,7 @@ use std::path::PathBuf;
 
 use ygo_engine::consts::{location, position};
 use ygo_engine::{DeckList, Engine, Placement};
-use ygo_solver::{Kit, Measure, Probe, Prober};
+use ygo_solver::{Effect, Kit, Measure, Probe, Prober};
 
 struct Lab {
     engine: Engine,
@@ -106,4 +106,38 @@ fn infinite_impermanence_set_answers_the_monsters_already_on_the_field() {
     let m = lab.measure(&[("Alexandrite Dragon", At::Monster), ("Infinite Impermanence", At::Set)], &[]);
     let imperm = covers(&m, lab.code("Infinite Impermanence"));
     assert!(imperm.contains(&Probe::FieldIgnition) && imperm.contains(&Probe::DeckSummon), "{imperm:?}");
+}
+
+fn effect(m: &Measure, card: u32) -> Option<Effect> {
+    m.interruptions.iter().find(|i| i.responder.code == card).map(|i| i.effect)
+}
+
+#[test]
+fn a_monster_destroyed_after_landing_was_summoned() {
+    let Some(lab) = lab() else { return };
+    // Trap Hole destroys Celtic Guardian once its Normal Summon is done:
+    // the summon worked, Link Spider (Celtic is its material) is what is lost.
+    let m = lab.measure(&[("Trap Hole", At::Set)], &[]);
+    let hole = lab.code("Trap Hole");
+    assert_eq!(effect(&m, hole), Some(Effect::Destroy));
+    let covers = covers(&m, hole);
+    assert!(!covers.contains(&Probe::NormalSummon) && covers.contains(&Probe::ExtraSummon), "{covers:?}");
+    // Torrential Tribute destroys every monster once a summon is done: it
+    // negates no summon, and stops only what needed the monsters.
+    let m = lab.measure(&[("Torrential Tribute", At::Set)], &[]);
+    let torrential = m.interruptions.iter().find(|i| i.responder.code == lab.code("Torrential Tribute")).expect("Torrential");
+    assert_eq!(torrential.effect, Effect::Destroy);
+    assert!(torrential.coverage < 0.5, "{torrential:?}");
+}
+
+#[test]
+fn a_summon_negated_never_lands() {
+    let Some(lab) = lab() else { return };
+    // Solemn Warning also negates an activation that summons (and then
+    // shows that, the stronger effect).
+    let m = lab.measure(&[("Solemn Warning", At::Set)], &[]);
+    let solemn = lab.code("Solemn Warning");
+    assert!(effect(&m, solemn).is_some_and(|e| e <= Effect::NegateSummon), "{:?}", effect(&m, solemn));
+    let covers = covers(&m, solemn);
+    assert!(covers.contains(&Probe::NormalSummon) || covers.contains(&Probe::ExtraSummon), "{covers:?}");
 }

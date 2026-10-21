@@ -481,6 +481,16 @@ struct Observer {
     step_negated: bool,
     /// The opponent's monster being summoned in this step, before any chain.
     summoning: Option<u32>,
+    /// The summons begun and not done yet, the last begun last, each with
+    /// the opponent's monsters in it (yours can be summoned while its summon
+    /// waits). Leaving the field before the summon is done is having it negated.
+    summons: Vec<Vec<u32>>,
+    /// The last event began a Special Summon: monsters summoned together
+    /// come in a row, before the summon is done.
+    special_now: bool,
+    /// The opponent's monsters that landed in this step (a summon done,
+    /// whatever happens to them after).
+    landed: Vec<u32>,
     /// The links of the chain being built that have not resolved yet.
     open: Vec<CardRef>,
 }
@@ -488,6 +498,7 @@ struct Observer {
 impl Observer {
     fn see(&mut self, engine: &Engine, event: &Event, uses: &mut [Use]) {
         let db = engine.cards();
+        let special_before = std::mem::replace(&mut self.special_now, matches!(event, Event::SpecialSummoning { .. }));
         // Keeps the strongest effect seen for a use.
         fn better(uses: &mut [Use], u: usize, e: Effect) {
             let slot = &mut uses[u].effect;
@@ -551,16 +562,27 @@ impl Observer {
                 }
             }
             Event::Move { code, from, to, reason: why } => {
+                let code = db.canonical_code(*code);
+                // Off the field before landing: the summon was negated.
+                let mut not_landed = false;
+                if from.controller == 1 && from.location == location::MZONE {
+                    for summon in self.summons.iter_mut().rev() {
+                        if let Some(i) = summon.iter().position(|&c| c == code) {
+                            summon.swap_remove(i);
+                            not_landed = true;
+                            break;
+                        }
+                    }
+                }
                 let Some(u) = self.solving else { return };
                 if from.controller != 1 || from.location & (location::MZONE | location::SZONE | location::HAND) == 0 {
                     return;
                 }
-                let code = db.canonical_code(*code);
                 if self.negated_code == Some(code) {
                     better(uses, u, Effect::NegateAndRemove);
                     return;
                 }
-                if self.summoning == Some(code) && from.location == location::MZONE {
+                if not_landed {
                     better(uses, u, Effect::NegateSummon);
                     return;
                 }
@@ -582,8 +604,21 @@ impl Observer {
                     }
                 }
             }
-            Event::NormalSummoning { card } | Event::SpecialSummoning { card } if card.controller == 1 && self.step_links.is_empty() => {
-                self.summoning = Some(db.canonical_code(card.code));
+            Event::NormalSummoning { card } | Event::SpecialSummoning { card } | Event::FlipSummoning { card } => {
+                let code = db.canonical_code(card.code);
+                let theirs = (card.controller == 1).then_some(code);
+                match self.summons.last_mut() {
+                    Some(summon) if special_before && matches!(event, Event::SpecialSummoning { .. }) => summon.extend(theirs),
+                    _ => self.summons.push(theirs.into_iter().collect()),
+                }
+                if card.controller == 1 && self.step_links.is_empty() && !matches!(event, Event::FlipSummoning { .. }) {
+                    self.summoning = Some(code);
+                }
+            }
+            Event::Summoned | Event::SpecialSummoned => {
+                if let Some(mut summon) = self.summons.pop() {
+                    self.landed.append(&mut summon);
+                }
             }
             _ => {}
         }
@@ -610,6 +645,8 @@ impl Observer {
         self.step_links.clear();
         self.step_negated = false;
         self.summoning = None;
+        self.summons.clear();
+        self.landed.clear();
     }
 }
 
@@ -1252,7 +1289,9 @@ impl<'a> Prober<'a> {
         Ok(trace)
     }
 
-    /// Whether each goal of a finished step was met.
+    /// Whether each goal of a finished step was met. A monster wanted on the
+    /// field counts once it landed: removed after that, the step worked
+    /// (what is lost is the steps that needed it).
     fn finish(&self, run: &mut StepRun, step: &KitStep, before: &DuelState, after: &DuelState, observer: &Observer) {
         let db = self.engine.cards();
         let count = |state: &DuelState, want: &Want| -> i32 {
@@ -1261,11 +1300,20 @@ impl<'a> Prober<'a> {
             (match want.location {
                 location::HAND => p.hand.iter().filter(|&&c| matches(c)).count(),
                 location::GRAVE => p.grave.iter().filter(|&&c| matches(c)).count(),
-                location::MZONE => p.monsters.iter().flatten().filter(|c| c.is_face_up() && matches(c.code)).count(),
                 _ => 0,
             }) as i32
         };
-        run.worked = step.goals.iter().map(|(_, want)| count(after, want) - count(before, want) >= want.delta).collect();
+        let landed = |want: &Want| -> i32 {
+            observer.landed.iter().filter(|&&c| want.code.is_none_or(|w| c == db.canonical_code(w))).count() as i32
+        };
+        run.worked = step
+            .goals
+            .iter()
+            .map(|(_, want)| match want.location {
+                location::MZONE => landed(want) >= want.delta,
+                _ => count(after, want) - count(before, want) >= want.delta,
+            })
+            .collect();
         run.negated = observer.step_negated;
     }
 }
