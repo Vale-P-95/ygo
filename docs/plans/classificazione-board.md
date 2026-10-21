@@ -597,6 +597,20 @@ Note:
 - **Valori delle carte.** Invoked Caliga da 0,96 a 0,72 e Invoked Oceanus (Extra) da 0,48 a 0,24: contavano i passi persi dopo quello fermato. Daruma Karma Cannon ora "nega l'effetto".
 - **Test nuovi** su board piazzate: `crates/ygo-solver/tests/probe.rs` (Trap Hole, Dimensional Fissure, Infinite Impermanence, Torrential Tribute, Solemn Warning, Daruma).
 - **Seguito delle risposte.** Big Welcome Labrynth, Welcome Labrynth, Angel Statue - Azurune e le Trappole che Evocano non fermavano niente da sole: il turno di prova usava solo le carte offerte senza risposte, e per Evocare sceglieva il primo mostro per codice (Labrynth Cooclock invece di Lovely Labrynth). Ora le carte portate da una risposta rispondono anche loro nelle prove di quella risposta (non nella run congiunta né nel conteggio degli usi), il mostro da Evocare è il più forte (Livello, poi ATK) e una carta propria da pagare o da rimandare in mano è la meno preziosa (prima quelle che non rispondono, poi il valore misurato, poi Livello e ATK). Coppie: P4, J3, J57, J62, J63 diventano giuste; J23 va al contrario perché Angel Statue nella board B ora conta (la board A ha Fiendsmith's Desirae che nega più carte con un'attivazione sola, cosa che la misura non conta).
+- **Giro completo di C5 con la misura di oggi** (45 deck, semi 1-3, 3000 nodi, prime 8 board): 135 ricerche su 135 senza problemi, 0 linee interrotte.
+
+  | Numero (C5) | Linea di base (C7) | Dopo D2-D4 e il seguito delle risposte |
+  |---|---|---|
+  | 1. Coppie sicure giuste | 15 su 29 (corretta) | 18 su 29 |
+  | 2. Invarianza (gruppi > 0,05) | 4 (Δ max 0,65) | 7 (Δ max 0,72) |
+  | 3. Zeri sbagliati | 0 | 0 |
+  | 7. Coppie della top 8 invertite tra stima e misura | 131 su 1260 | 129 su 1260 |
+  | 7. Deck con il #1 elencato non migliore | 12 | 11 |
+  | 8. Deck con al massimo 2 campi distinti | 5 | 1 |
+  | 9. Tempo della misura per board | mediana 0,54 s, p95 1,56 s | mediana 0,66 s, p95 2,11 s |
+  | 6. Stabilità tra semi (Jaccard prime 5) | 0,24 | 0,25 |
+
+  I gruppi di invarianza in più non sono regressioni. In Pumpking Zombies due board con le stesse carte valevano entrambe 0,86 (The Undying Legion azzerata nella run congiunta): il seguito delle risposte ne ha corretta una (1,41) e non l'altra. Elfnote ed Exosister differiscono di 0,06-0,09 solo nella resilienza (i breaker scelgono il mostro in base alla zona). Synchrons resta il caso noto: un mostro nella Zona Mostri Extra (Baronne de Fleur, F.A. Dawn Dragster) misura meno che in una zona principale.
 - **Pesi del kit calibrati sui dati (B2.2): provati, rinviati.** `duelforge-cli kit-mix` conta le giocate delle linee delle prime 5 board di 45 deck (225 linee, 4038 giocate): Evocazioni dall'Extra 17%, ricerche 16%, Magie 15%, trigger d'Evocazione 14%, effetti dal Cimitero 9%, Evocazioni Speciali dalla mano 6,5%, effetti dalla mano 5,4%, Evocazioni Normali 5,3%, effetti di mostri sul campo 5,3%, Evocazioni dal Deck 4,5%, Deck al Cimitero 2,2%. Con i pesi a metà tra quelli di oggi e queste frequenze: coppie da confermare +1, ricerca +1,8% (bench_cross), valori delle handtrap quasi uguali (Ash 0,73, Veiler e Impermanence 0,23: il dominio di Ash viene dalle azioni del kit, che toccano quasi tutte il Deck). Ma la mano "Reminiscent da solo" del test di regressione perde la board con Hyperinvoked Aeon (0,55 contro 0,45 con la misura nuova). Si riprende insieme alle azioni nuove del kit (B2.1), come prevede il piano.
 - **Cosa resta.** Le coppie sbagliate sono quasi tutte pari: le due board differiscono in carte che contro il kit valgono 0 (trappole che il kit non attiva mai, come Big Welcome o Volcanic Emission), in risorse per il turno dopo o in protezioni. D5 (copie) e D6 (run congiunta) toccano poco: nelle board delle coppie la run congiunta riduce 12 interruzioni su 253, quasi tutte per un conflitto vero di costi, e le copie sul campo sono quasi sempre limitate a una per turno. Il guadagno vero sta nel kit (B2, D10), nelle risorse e nel follow-up (D13) e nelle protezioni (D15).
 
