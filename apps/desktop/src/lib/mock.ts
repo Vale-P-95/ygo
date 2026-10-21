@@ -7,6 +7,7 @@ import type {
   Chip,
   ComboBoard,
   ComboGoal,
+  ComboMatchup,
   ComboHand,
   ComboOutcome,
   ComboProgress,
@@ -818,6 +819,7 @@ const rolesProgressListeners = new Set<(p: { done: number; total: number }) => v
 const simProgressListeners = new Set<(c: Checkpoint) => void>();
 const comboProgressListeners = new Set<(p: ComboProgress) => void>();
 const comboScoreListeners = new Set<(s: ComboScore) => void>();
+let lastVsDeckId: number | null = null;
 let simCancelled = false;
 let comboCancelled = false;
 
@@ -1693,7 +1695,74 @@ function buildMockBoardsForHand(handIdx: number, deckId: number, goal: ComboGoal
   ];
 }
 
-function buildMockScoreForBoard(b: ComboBoard): ComboScore {
+function buildMockScoreForBoard(b: ComboBoard, vsDeckId?: number | null): ComboScore {
+  const getMatchup = (deckId: number | null | undefined): ComboMatchup | undefined => {
+    if (deckId == null) return undefined;
+    const rival = decksState.find((d) => d.id === deckId);
+    const deckName = rival?.name ?? "Deck Bottega";
+    return {
+      deckId,
+      deckName,
+      resilience: Number((Math.min(b.quickScore * 0.45, 1.85)).toFixed(2)),
+      standardBreakers: deckId === 99999,
+      breakerChance: 0.28,
+      breakers: [
+        {
+          code: 24299458, // Forbidden Droplet
+          chance: 0.28,
+          remaining: 0.54,
+          stoppedBy: null,
+          notApplicable: false,
+        },
+        {
+          code: 12580477, // Raigeki
+          chance: 0.15,
+          remaining: 1.2,
+          stoppedBy: 84815190,
+          notApplicable: false,
+        },
+      ],
+      handTrapChance: 0.65,
+      handTraps: [
+        {
+          code: 14558127, // Ash Blossom & Joyous Spring
+          chance: 0.42,
+          windows: 2,
+          stops: 2,
+          at: [98159737, 72270339],
+        },
+        {
+          code: 62015408, // Bystial Saronir
+          chance: 0.35,
+          windows: 17,
+          stops: 9,
+          at: [98159737],
+        },
+        {
+          code: 94145021, // Droll & Lock Bird
+          chance: 0.28,
+          windows: 2,
+          stops: 1,
+          at: [72270339],
+        },
+        {
+          code: 23434538, // Maxx "C"
+          chance: 0.45,
+          windows: 21,
+          stops: 0,
+          at: [],
+        },
+        {
+          code: 73642296, // Mulcharmy Fuwalos
+          chance: 0.38,
+          windows: 14,
+          stops: 0,
+          at: [],
+        },
+      ],
+      error: null,
+    };
+  };
   if (b.key === "se-safe-4summon-sp-flamberge") {
     return {
       hand: b.hand,
@@ -1866,6 +1935,7 @@ function buildMockScoreForBoard(b: ComboBoard): ComboScore {
       exposure: 4,
       exposureNote: "Esposta a Ash Blossom, Veiler/Impermanence, Droll e Nibiru",
       exposureDetail: { ash: 2, onField: 2, summons: 8, specialSummons: 7, searches: 3 },
+      matchup: getMatchup(vsDeckId),
       error: null,
     };
   }
@@ -2512,16 +2582,17 @@ export const mockApi: Api = {
     };
   },
 
-  comboScore: async (): Promise<number> => {
+  comboScore: async (vsDeckId?: number | null): Promise<number> => {
+    lastVsDeckId = vsDeckId ?? null;
     for (const b of lastScoredBoards) {
       await delay(45);
-      const s = buildMockScoreForBoard(b);
+      const s = buildMockScoreForBoard(b, lastVsDeckId);
       comboScoreListeners.forEach((fn) => fn(s));
     }
     return lastScoredBoards.length;
   },
 
-  comboScores: async (): Promise<ComboScore[]> => lastScoredBoards.map(buildMockScoreForBoard),
+  comboScores: async (): Promise<ComboScore[]> => lastScoredBoards.map((b) => buildMockScoreForBoard(b, lastVsDeckId)),
 
   onComboScore: async (handler: (s: ComboScore) => void): Promise<UnlistenFn> => {
     comboScoreListeners.add(handler);

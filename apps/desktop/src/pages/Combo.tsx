@@ -9,7 +9,7 @@ import { DeckMenu } from "../components/DeckMenu";
 import { SectionHeader } from "../components/SectionHeader";
 import { api, type ComboBoard, type ComboGoal, type ComboHand, type ComboStep, type GoalCard, type GoalZone, type Deck, type DeckSummary, type ZoneCard } from "../lib/api";
 import { useCardCache } from "../lib/cards";
-import { continueCombo, startCombo, stopCombo, useCombo } from "../lib/combo";
+import { continueCombo, scoreBoards, startCombo, stopCombo, useCombo } from "../lib/combo";
 import { score, useWeights } from "../lib/scoring";
 import { lastDeck, rememberDeck } from "../lib/deck";
 import { sound } from "../lib/sound";
@@ -209,6 +209,14 @@ export function Combo({ artReady, onGoForge }: { artReady: boolean; onGoForge: (
   const run = useCombo();
   const { profile, weights } = useWeights();
   const [weightsOpen, setWeightsOpen] = useState(false);
+  const [allDecks, setAllDecks] = useState<DeckSummary[]>([]);
+  const [sortByMatchup, setSortByMatchup] = useState(false);
+
+  useEffect(() => {
+    void api.listDecks().then(setAllDecks);
+  }, []);
+
+  const rivalDecks = useMemo(() => allDecks.filter((d) => !deck || d.id !== deck.id), [allDecks, deck]);
   const cards = useCardCache();
   const { request } = cards;
 
@@ -267,6 +275,9 @@ export function Combo({ artReady, onGoForge }: { artReady: boolean; onGoForge: (
     // Measured boards by their score, the others after them by the quick estimate.
     const value = (b: ComboBoard) => {
       const s = run.scores[boardId(b)];
+      if (sortByMatchup && s?.matchup && !s.error) {
+        return s.matchup.resilience;
+      }
       return s && !s.error ? score(s, weights) : null;
     };
     return list
@@ -274,7 +285,7 @@ export function Combo({ artReady, onGoForge }: { artReady: boolean; onGoForge: (
       .map((b) => ({ b, v: value(b) }))
       .sort((x, y) => y.b.goalHits - x.b.goalHits || (y.v ?? -1e9) - (x.v ?? -1e9) || byRank(x.b, y.b))
       .map((x) => x.b);
-  }, [ours, run.outcome, run.live, run.scores, weights, handFilter]);
+  }, [ours, run.outcome, run.live, run.scores, weights, handFilter, sortByMatchup]);
   // Boards that look the same (they differ only in the Graveyard, the banished cards or the zones) are one entry.
   const groups = useMemo(() => {
     const out: { board: ComboBoard; variants: number }[] = [];
@@ -847,17 +858,69 @@ export function Combo({ artReady, onGoForge }: { artReady: boolean; onGoForge: (
 
             {ours && boards.length > 0 ? (
               <section className="flex flex-col gap-1.5">
-                <div className="flex items-baseline justify-between px-1">
-                  <h3 className="text-sm font-semibold">{run.running ? "Le migliori board finora" : "Le board finali"}</h3>
-                  <span className="text-[11px] text-faint" aria-live="polite">
-                    {run.running
-                      ? "stima provvisoria finché la ricerca gira"
-                      : run.scoring
-                        ? `turno di prova in corso: ${measured} board misurate…`
-                        : measured
-                          ? "punteggio misurato con il turno di prova"
-                          : "stima provvisoria"}
-                  </span>
+                <div className="flex flex-wrap items-center justify-between gap-2 px-1">
+                  <div className="flex items-baseline gap-2">
+                    <h3 className="text-sm font-semibold">{run.running ? "Le migliori board finora" : "Le board finali"}</h3>
+                    <span className="text-[11px] text-faint" aria-live="polite">
+                      {run.running
+                        ? "stima provvisoria finché la ricerca gira"
+                        : run.scoring
+                          ? `turno di prova in corso: ${measured} board misurate…`
+                          : measured
+                            ? "punteggio misurato con il turno di prova"
+                            : "stima provvisoria"}
+                    </span>
+                  </div>
+                  {!run.running && (
+                    <div className="flex flex-wrap items-center gap-2 text-xs">
+                      <label className="flex items-center gap-1.5 text-muted">
+                        <span>Contro:</span>
+                        <select
+                          value={run.vsDeckId ?? ""}
+                          onChange={(e) => {
+                            const id = e.target.value ? Number(e.target.value) : null;
+                            sound.play("toggle");
+                            void scoreBoards(id);
+                          }}
+                          disabled={run.scoring}
+                          className="select !py-0.5 !text-xs max-w-[200px]"
+                          title="Scegli un deck della Bottega per misurare breaker e handtrap reali dell'avversario"
+                        >
+                          <option value="">Avversario generico</option>
+                          {rivalDecks.map((d) => (
+                            <option key={d.id} value={d.id}>
+                              {d.name} ({d.mainCount} carte)
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          sound.play("select");
+                          void scoreBoards(run.vsDeckId);
+                        }}
+                        disabled={run.scoring}
+                        className="btn btn-ghost !px-2 !py-0.5 text-[11px]"
+                        title="Misura le board che mancano con l'avversario scelto"
+                      >
+                        {run.scoring ? "Misurazione…" : "↻ Rimisura"}
+                      </button>
+                      {run.vsDeckId != null && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            sound.play("toggle");
+                            setSortByMatchup((v) => !v);
+                          }}
+                          className={`chip !py-0.5 text-[11px] ${sortByMatchup ? "chip-active" : ""}`}
+                          title="Ordina per resilienza contro il deck avversario"
+                        >
+                          {sortByMatchup ? "✓ Ordine: vs deck" : "Ordina per vs deck"}
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </div>
                 {!run.running && measured > 0 && <WeightsPanel profile={profile} weights={weights} open={weightsOpen} compact={!!selected} onToggle={() => setWeightsOpen((v) => !v)} />}
                 {pinned && (
@@ -927,6 +990,14 @@ export function Combo({ artReady, onGoForge }: { artReady: boolean; onGoForge: (
                         ) : (
                           <span title="Stima provvisoria (mostri, magie e trappole, carte in mano)">
                             <b className="text-sm text-faint">{b.quickScore.toFixed(1)}</b> <span className="text-[10px]">stima</span>
+                          </span>
+                        )}
+                        {scoreOf(b)?.matchup && (
+                          <span
+                            className="chip !px-1.5 !py-0 text-[10px] text-sec font-semibold"
+                            title={`Resilienza contro ${scoreOf(b)!.matchup!.deckName}: in media restano ${scoreOf(b)!.matchup!.resilience.toFixed(2)} su ${scoreOf(b)!.interruptions.toFixed(2)}`}
+                          >
+                            vs {scoreOf(b)!.matchup!.deckName}: {scoreOf(b)!.matchup!.resilience.toFixed(2)}
                           </span>
                         )}
                         <span>

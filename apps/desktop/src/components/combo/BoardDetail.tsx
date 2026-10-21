@@ -138,7 +138,7 @@ export function BoardDetail({ board, score, scoring, weights, hand, steps, steps
                 {activeStep.choice ?? "Effetto risolto"}
               </span>
               {activeStep.field && (
-                <span className="hidden sm:inline-flex rounded-full border border-sec/30 bg-sec/15 px-1.5 py-0.2 text-[9px] text-sec font-medium">
+                <span className="hidden sm:inline-flex rounded-full border border-sec/30 bg-sec/15 px-1.5 py-0.5 text-[9px] text-sec font-medium">
                   campo al passo
                 </span>
               )}

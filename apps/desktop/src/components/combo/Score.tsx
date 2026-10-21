@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import type { Card, ComboBreaker, ComboInterruption, ComboScore } from "../../lib/api";
+import type { Card, ComboBreaker, ComboInterruption, ComboRivalBreaker, ComboRivalHandTrap, ComboScore } from "../../lib/api";
 import { METRICS, NEGATIVE, parts, pickProfile, PROFILES, score, setWeight, useWeights, type Metric, type MetricKey, type Weights } from "../../lib/scoring";
 import { sound } from "../../lib/sound";
 import { InfoButton } from "../InfoButton";
@@ -296,6 +296,111 @@ function Risk({ name, text, counts }: { name: string; text: string; counts: bool
   );
 }
 
+
+function RivalBreakerRow({
+  b,
+  s,
+  getCard,
+  onHover,
+  onHoverEnd,
+}: {
+  b: ComboRivalBreaker;
+  s: ComboScore;
+  getCard: (code: number) => Card | undefined;
+  onHover?: HoverCard;
+  onHoverEnd?: () => void;
+}) {
+  const card = getCard(b.code);
+  const cardName = card?.name ?? String(b.code);
+  const kept = s.interruptions > 0 ? Math.max(0, Math.min(1, b.remaining / s.interruptions)) : 0;
+  let status: string;
+  if (b.notApplicable) status = "non si può usare contro questa board";
+  else if (b.stoppedBy != null) {
+    const stopperName = getCard(b.stoppedBy)?.name ?? String(b.stoppedBy);
+    status = `lo neghi con ${stopperName} · restano ${num(b.remaining)}`;
+  } else if (kept >= 0.995) status = "non toglie nulla";
+  else if (b.remaining < 0.005) status = "toglie tutto";
+  else status = `restano ${num(b.remaining)}`;
+  const ok = b.notApplicable || b.stoppedBy != null || b.remaining >= HOLDS * s.interruptions - 1e-9;
+  const chancePct = Math.round(b.chance * 100);
+
+  return (
+    <li className="grid grid-cols-[minmax(0,11rem)_1fr] items-center gap-x-3 gap-y-0.5 text-xs py-0.5">
+      <span
+        className="flex items-center gap-1.5 min-w-0 cursor-default"
+        onPointerEnter={(e) => onHover?.(b.code, e.currentTarget)}
+        onPointerLeave={onHoverEnd}
+      >
+        <span className={ok ? "text-ok" : "text-danger"} aria-hidden>
+          {ok ? "✓ " : "✗ "}
+        </span>
+        <span className="truncate font-medium text-text" title={cardName}>
+          {cardName}
+        </span>
+        <span className="shrink-0 text-[10px] text-faint tabular-nums" title="Probabilità tra le 6 carte avversarie">
+          ({chancePct}%)
+        </span>
+      </span>
+      <span className="flex min-w-0 items-center gap-2">
+        <span className="meter w-16 shrink-0" aria-hidden>
+          <span style={{ width: `${b.notApplicable ? 100 : Math.round(kept * 100)}%`, background: "var(--metric-resilience)" }} />
+        </span>
+        <span className={`min-w-0 truncate text-[11px] ${b.notApplicable ? "text-faint" : "text-muted"}`} title={status}>
+          {status}
+        </span>
+      </span>
+    </li>
+  );
+}
+
+function RivalHandTrapRow({
+  h,
+  getCard,
+  onHover,
+  onHoverEnd,
+}: {
+  h: ComboRivalHandTrap;
+  getCard: (code: number) => Card | undefined;
+  onHover?: HoverCard;
+  onHoverEnd?: () => void;
+}) {
+  const card = getCard(h.code);
+  const cardName = card?.name ?? String(h.code);
+  const stopsLine = h.stops > 0;
+  const chancePct = Math.round(h.chance * 100);
+  const targets = h.at.map((c) => getCard(c)?.name ?? String(c));
+
+  return (
+    <li className="flex flex-col gap-0.5 text-xs py-1.5 border-b border-border/40 last:border-0">
+      <div className="flex items-baseline justify-between gap-2">
+        <span
+          className="flex items-center gap-1.5 min-w-0 cursor-default"
+          onPointerEnter={(e) => onHover?.(h.code, e.currentTarget)}
+          onPointerLeave={onHoverEnd}
+        >
+          <span className={stopsLine ? "text-danger" : "text-faint"} aria-hidden>
+            {stopsLine ? "●" : "○"}
+          </span>
+          <b className="truncate text-text" title={cardName}>
+            {cardName}
+          </b>
+          <span className="shrink-0 text-[10px] text-faint tabular-nums" title="Probabilità tra le 5 carte iniziali">
+            ({chancePct}%)
+          </span>
+        </span>
+        <span className={`shrink-0 text-[11px] font-medium tabular-nums ${stopsLine ? "text-warn" : "text-faint"}`}>
+          {stopsLine ? `ferma in ${plural(h.stops, "momento", "momenti")} su ${h.windows}` : `usata in ${h.windows} momenti (0 fermate)`}
+        </span>
+      </div>
+      {targets.length > 0 && (
+        <p className="text-[11px] text-muted pl-3.5">
+          Agisce su: <span className="text-text font-medium">{targets.join(", ")}</span>
+        </p>
+      )}
+    </li>
+  );
+}
+
 function Exposure({ s }: { s: ComboScore }) {
   const x = s.exposureDetail;
   if (!x) return <p className="text-xs text-muted">{s.exposureNote}</p>;
@@ -431,35 +536,143 @@ export function ScoreBreakdown({
       )}
 
       <Section
-        title="Contro i board breaker"
+        title={s.matchup ? `Contro i board breaker · «${s.matchup.deckName}»` : "Contro i board breaker"}
         info={
           <>
             <Paragraphs lines={metric("resilience").explain} />
             <p>«Regge» vuol dire che resta almeno metà delle interruzioni dal campo, o che lo neghi. «Non si può usare»: con questa board l'avversario non può attivarlo, quindi non fa danni.</p>
+            {s.matchup && (
+              <p>Con un deck avversario selezionato, si misurano i breaker specifici presenti nel suo Main Deck contro la tua board.</p>
+            )}
           </>
         }
       >
         {s.interruptions < 0.005 ? (
           <p className="text-xs text-faint">Non ci sono interruzioni sul campo da proteggere.</p>
         ) : (
-          <details className="group">
-            <summary className="cursor-pointer text-xs select-none">
-              Regge a <b className="tabular-nums">{held}</b> su <b className="tabular-nums">{tried.length}</b> board breaker
-              <span className="ml-1.5 text-[11px] text-muted group-open:hidden">· mostra quali</span>
-              <span className="ml-1.5 hidden text-[11px] text-muted group-open:inline">· nascondi</span>
-            </summary>
-            <ul className="mt-2 flex flex-col gap-1">
-              {s.breakers.map((b) => (
-                <BreakerRow key={b.name} b={b} s={s} name={name} />
-              ))}
-            </ul>
-          </details>
+          <div className="flex flex-col gap-2.5">
+            {s.matchup && (
+              s.matchup.error ? (
+                <div className="rounded-lg border border-danger/40 bg-danger/10 p-2.5 text-xs text-danger">
+                  Misura contro «{s.matchup.deckName}» non riuscita: {s.matchup.error}
+                </div>
+              ) : (
+                <div className="rounded-lg border border-border/80 bg-surface-2/60 p-2.5 flex flex-col gap-2">
+                  <div className="flex items-baseline justify-between gap-2">
+                    <span className="text-xs font-semibold text-text">
+                      Resilienza contro «{s.matchup.deckName}»
+                    </span>
+                    <span className="text-xs font-bold tabular-nums text-sec">
+                      in media restano {num(s.matchup.resilience)} su {num(s.interruptions)}
+                    </span>
+                  </div>
+                  {s.matchup.standardBreakers ? (
+                    <p className="text-[11px] text-muted">
+                      Questo deck non ha board breaker giocabili dalla mano: valgono i breaker standard del kit.
+                    </p>
+                  ) : (
+                    <>
+                      <p className="text-[11px] text-muted">
+                        Probabilità che l'avversario abbia almeno un breaker giocabile tra 6 carte:{" "}
+                        <b className="text-text tabular-nums">{Math.round(s.matchup.breakerChance * 100)}%</b>.
+                      </p>
+                      {s.matchup.breakers.length > 0 && (
+                        <ul className="flex flex-col gap-0.5">
+                          {s.matchup.breakers.map((b) => (
+                            <RivalBreakerRow key={b.code} b={b} s={s} getCard={getCard} onHover={onHover} onHoverEnd={onHoverEnd} />
+                          ))}
+                        </ul>
+                      )}
+                    </>
+                  )}
+                </div>
+              )
+            )}
+
+            <details className="group" open={!s.matchup}>
+              <summary className="cursor-pointer text-xs select-none">
+                {s.matchup ? "Breaker del kit standard: regge a" : "Regge a"} <b className="tabular-nums">{held}</b> su <b className="tabular-nums">{tried.length}</b> board breaker
+                <span className="ml-1.5 text-[11px] text-muted group-open:hidden">· mostra quali</span>
+                <span className="ml-1.5 hidden text-[11px] text-muted group-open:inline">· nascondi</span>
+              </summary>
+              <ul className="mt-2 flex flex-col gap-1">
+                {s.breakers.map((b) => (
+                  <BreakerRow key={b.name} b={b} s={s} name={name} />
+                ))}
+              </ul>
+            </details>
+          </div>
         )}
       </Section>
 
-      {(s.exposureDetail || s.exposureNote) && (
-        <Section title="Dove si può fermare la linea" info={<Paragraphs lines={metric("exposure").explain} />}>
-          <Exposure s={s} />
+      {(s.exposureDetail || s.exposureNote || s.matchup) && (
+        <Section
+          title={s.matchup ? `Dove si può fermare la linea · «${s.matchup.deckName}»` : "Dove si può fermare la linea"}
+          info={<Paragraphs lines={metric("exposure").explain} />}
+        >
+          <div className="flex flex-col gap-2.5">
+            {s.matchup && (
+              <div className="rounded-lg border border-border/80 bg-surface-2/60 p-2.5 flex flex-col gap-2">
+                <div className="flex items-baseline justify-between gap-2">
+                  <span className="text-xs font-semibold text-text">
+                    Contro «{s.matchup.deckName}»
+                  </span>
+                  <span className="text-xs font-bold tabular-nums text-warn">
+                    {Math.round(s.matchup.handTrapChance * 100)}% probabilità di fermata
+                  </span>
+                </div>
+                <p className="text-[11px] text-muted">
+                  Probabilità che l'avversario peschi tra le sue 5 carte iniziali almeno una handtrap che altera o blocca la linea.
+                </p>
+                {s.matchup.handTraps.filter((h) => h.stops > 0).length > 0 ? (
+                  <ul className="flex flex-col">
+                    {s.matchup.handTraps
+                      .filter((h) => h.stops > 0)
+                      .map((h) => (
+                        <RivalHandTrapRow key={h.code} h={h} getCard={getCard} onHover={onHover} onHoverEnd={onHoverEnd} />
+                      ))}
+                  </ul>
+                ) : (
+                  <p className="text-xs text-ok">Nessuna handtrap del deck avversario è in grado di fermare questa linea.</p>
+                )}
+
+                {s.matchup.handTraps.some((h) => h.stops === 0) && (
+                  <div className="mt-1 border-t border-border/50 pt-2 flex flex-col gap-1">
+                    <p className="text-[11px] text-faint">Si usano ma non fermano la linea (fanno solo pescare o non alterano il risultato):</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {s.matchup.handTraps
+                        .filter((h) => h.stops === 0)
+                        .map((h) => {
+                          const cName = getCard(h.code)?.name ?? String(h.code);
+                          return (
+                            <span
+                              key={h.code}
+                              className="chip !py-0.5 !px-2 text-[10px] text-muted"
+                              title={`${cName}: usata in ${h.windows} momenti ma la board finale rimane identica`}
+                              onPointerEnter={(e) => onHover?.(h.code, e.currentTarget)}
+                              onPointerLeave={onHoverEnd}
+                            >
+                              {cName} ({Math.round(h.chance * 100)}%)
+                            </span>
+                          );
+                        })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            <details className="group" open={!s.matchup}>
+              <summary className="cursor-pointer text-xs select-none">
+                Handtrap più comuni (kit generico)
+                <span className="ml-1.5 text-[11px] text-muted group-open:hidden">· mostra</span>
+                <span className="ml-1.5 hidden text-[11px] text-muted group-open:inline">· nascondi</span>
+              </summary>
+              <div className="mt-2">
+                <Exposure s={s} />
+              </div>
+            </details>
+          </div>
         </Section>
       )}
     </div>
