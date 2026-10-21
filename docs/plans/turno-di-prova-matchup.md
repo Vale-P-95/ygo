@@ -129,6 +129,31 @@ Il collaudo su molti deck (`docs/plans/collaudo-strumenti.md`, branch `claude/to
 - **Risultato.** Su 5 deck contro Branded e Labrynth, Maxx "C" e le Mulcharmy sono a 0 su Tearlaments e a 1-3 momenti su circa 20 negli altri. Il resto dipendeva dal deck da 12 carte dell'avversario del kit: Maxx "C" lo svuotava e le carte che guardano il deck dell'avversario cambiavano.
 - **Il Deck vero dell'avversario nel rigioco.** Nel rigioco delle handtrap l'avversario ora pesca dal suo Main Deck vero, non dalle 12 carte del kit. Per la ricerca e la mappa, che usano ancora il kit, resta da fare in `Kit::standard` con il banco, quando `probe.rs` si libera.
 
+### Maxx "C" e Mulcharmy, passo 1: le carte fatte pescare (21/10/2026)
+Il proprietario ha chiesto di trovare il compromesso tra le carte che l'avversario pesca con Maxx "C" o le Mulcharmy e le interazioni che la board tiene nel suo turno. Il passo 1 misura le pescate; il passo 2 cercherà il punto migliore dove fermare la linea.
+- **Cosa si misura.**
+  - Per ogni handtrap e ogni momento in cui l'avversario la può usare, si rigioca la linea usandola lì e si contano le carte che pesca fino alla fine del tuo turno.
+  - Si tolgono le carte che rimescola dalla mano nel Deck: è il limite di mano delle Mulcharmy nella End Phase.
+  - Vale per qualunque carta che fa pescare, senza nomi.
+- **Dove si legge.**
+  - `RivalHandTrap.drawn`: il massimo di carte pescate.
+  - `RivalHandTrap.moments`: per ogni momento la tua carta in gioco, se ferma la linea e quante carte pesca.
+  - Nell'app `ComboRivalHandTrap.drawn` e `moments`; nella CLI `probe-line --vs` scrive "draws up to N" e le carte pescate momento per momento.
+- **Scelte rigiocate per identità.** Dopo una handtrap, le scelte di carte della linea si rigiocano per quello che sono (codice, zona, giocatore) e non per la posizione nell'elenco.
+  - Il caso trovato: con Fuwalos l'elenco dell'Extra Deck cambiava ordine, e Invocation Evocava Invoked Caliga invece di Baybarron.
+  - Fuwalos sulla linea Invoked passa da 23 momenti su 25 "fermati" a 1.
+- **Numeri** (prima board di una mano per deck, contro Branded di Master Duel Meta: Maxx "C", Fuwalos, Purulia). Il numero è il massimo di carte che l'avversario pesca, cioè usandola al primo momento.
+
+| Linea | Maxx "C" | Fuwalos | Purulia | Quando smette di pagare |
+|---|---|---|---|---|
+| Invoked (Aleister, Chalice, Meltdown) | 9 | 7 | 2 | Maxx "C" a metà linea vale ancora 5 carte (S:P Little Knight), dopo Virakam 1 |
+| Tearlaments (Reinoheart, Havnis, Engraver) | 12 | 6 | 1 | Maxx "C" vale ancora 8 carte a Lacrima, 5 a Requiem |
+| Vanquish Soul K9 (Mad Love, Razen, Izuna) | 9 | 5 | 5 | Maxx "C" vale ancora 6 carte a Heavy Borger, 3 a Mad Love |
+| Branded (Aluber, Branded Fusion, Ecclesia) | 5 | 3 | 1 | da Ecclesia in poi 0 |
+
+- **Cosa dice.** Le linee lunghe (Tearlaments, Invoked) regalano molte carte se Maxx "C" arriva presto. Il passo 2 deve dire fino a dove conviene continuare: il valore della board a ogni punto di arresto contro le carte regalate.
+- **Resta da guardare.** In ogni linea c'è un momento in cui tutte e tre "fermano" la linea (Magical Meltdown, The Fallen & The Virtuous, Fiendsmith Engraver, Razen). È probabilmente un effetto "quando" che perde il tempismo per la catena della handtrap.
+
 ### Seconde correzioni dal collaudo: i breaker (21/10/2026)
 - **Breaker falsi.** Una carta presa dal testo resta un breaker solo se, giocata contro il campo finto, gli toglie una carta o ne nega una.
   - Il campo finto ha tre mostri (un mostro con effetto, un Fusion e un Link) e due carte coperte.

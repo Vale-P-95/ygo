@@ -820,13 +820,23 @@ fn print_matchup(engine: &Engine, x: &ygo_solver::Matchup, took: std::time::Dura
     for h in &x.hand_traps {
         let at: Vec<String> = h.at.iter().map(|&c| db.name(c)).collect();
         println!(
-            "     handtrap {} ({:.0}%): stops {} of {} moments [{}]",
+            "     handtrap {} ({:.0}%): stops {} of {} moments [{}]{}",
             db.name(h.code),
             h.chance * 100.0,
             h.stops,
             h.windows,
-            at.join(", ")
+            at.join(", "),
+            if h.drawn > 0 { format!(" · draws up to {}", h.drawn) } else { String::new() }
         );
+        if h.drawn > 0 {
+            // The cards it draws at each moment, with your card then.
+            let moments: Vec<String> = h
+                .moments
+                .iter()
+                .map(|m| format!("{}{} {}", if m.stops { "*" } else { "" }, m.drawn, m.playing.map(|c| db.name(c)).unwrap_or_default()))
+                .collect();
+            println!("       drawn by moment: {}", moments.join(" · "));
+        }
     }
 }
 
@@ -841,7 +851,8 @@ fn matchup_json(x: &ygo_solver::Matchup) -> serde_json::Value {
             "stopped_by": b.stopped_by.map(|r| r.code), "not_applicable": b.not_applicable,
         })).collect::<Vec<_>>(),
         "hand_traps": x.hand_traps.iter().map(|h| serde_json::json!({
-            "code": h.code, "chance": h.chance, "windows": h.windows, "stops": h.stops, "at": h.at,
+            "code": h.code, "chance": h.chance, "windows": h.windows, "stops": h.stops, "at": h.at, "drawn": h.drawn,
+            "moments": h.moments.iter().map(|m| serde_json::json!({ "playing": m.playing, "stops": m.stops, "drawn": m.drawn })).collect::<Vec<_>>(),
         })).collect::<Vec<_>>(),
     })
 }

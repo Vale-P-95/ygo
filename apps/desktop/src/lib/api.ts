@@ -493,6 +493,20 @@ export interface ComboRivalHandTrap {
   stops: number;
   /** Your cards being played at those moments. */
   at: number[];
+  /** The most cards the opponent draws using it (Maxx "C", the Mulcharmy: they stop nothing but draw). Always sent by the backend. */
+  drawn?: number;
+  /** Each moment tried, in the order of the line (at most 24). Always sent by the backend. */
+  moments?: ComboHandTrapMoment[];
+}
+
+/** A moment of the line the opponent uses a handtrap at (mirrors `HandTrapMomentView`). */
+export interface ComboHandTrapMoment {
+  /** Your card being played then (the last you used). */
+  playing: number | null;
+  /** Using it then changes the field or hand you end with. */
+  stops: boolean;
+  /** Cards the opponent draws from then to the end of your turn, less those it shuffles back into the Deck. */
+  drawn: number;
 }
 
 /** The board and its line against a deck of the Bottega (mirrors `MatchupView`). */

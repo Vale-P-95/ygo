@@ -705,6 +705,23 @@ struct RivalHandTrapView {
     stops: u32,
     /// Your cards being played at those moments.
     at: Vec<u32>,
+    /// The most cards the opponent draws using it (Maxx "C", the Mulcharmy).
+    drawn: u32,
+    /// Each moment tried, in the order of the line.
+    moments: Vec<HandTrapMomentView>,
+}
+
+/// A moment of the line the opponent uses a handtrap at.
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct HandTrapMomentView {
+    /// Your card being played then.
+    playing: Option<u32>,
+    /// It changes the field or hand you end with.
+    stops: bool,
+    /// Cards the opponent draws from then to the end of your turn, less those
+    /// it shuffles back into the Deck.
+    drawn: u32,
 }
 
 fn matchup_view(deck_id: i64, deck_name: &str, matchup: Result<ygo_solver::Matchup, String>) -> MatchupView {
@@ -739,7 +756,15 @@ fn matchup_view(deck_id: i64, deck_name: &str, matchup: Result<ygo_solver::Match
             view.hand_traps = x
                 .hand_traps
                 .iter()
-                .map(|h| RivalHandTrapView { code: h.code, chance: h.chance, windows: h.windows, stops: h.stops, at: h.at.clone() })
+                .map(|h| RivalHandTrapView {
+                    code: h.code,
+                    chance: h.chance,
+                    windows: h.windows,
+                    stops: h.stops,
+                    at: h.at.clone(),
+                    drawn: h.drawn,
+                    moments: h.moments.iter().map(|m| HandTrapMomentView { playing: m.playing, stops: m.stops, drawn: m.drawn }).collect(),
+                })
                 .collect();
         }
         Err(e) => view.error = Some(e),

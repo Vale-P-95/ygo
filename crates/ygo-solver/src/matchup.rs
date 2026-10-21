@@ -123,6 +123,23 @@ pub struct RivalHandTrap {
     pub stops: u32,
     /// Your cards being played at those moments, the first first.
     pub at: Vec<u32>,
+    /// The most cards the opponent draws using it (Maxx "C", the
+    /// Mulcharmy), at the moment that draws it most.
+    pub drawn: u32,
+    /// Each moment tried, in the order of the line.
+    pub moments: Vec<HandTrapMoment>,
+}
+
+/// A moment of your line the opponent uses a handtrap at.
+#[derive(Debug, Clone)]
+pub struct HandTrapMoment {
+    /// Your card being played then (the last you used).
+    pub playing: Option<u32>,
+    /// It changes the field or hand you end with.
+    pub stops: bool,
+    /// Cards the opponent draws from then to the end of your turn, less
+    /// those it shuffles back into the Deck.
+    pub drawn: u32,
 }
 
 /// The board and its line against the opponent's deck.
@@ -331,6 +348,73 @@ struct Own {
     /// same action can sit elsewhere in the list (another card became
     /// playable), or come as a trigger window instead of a yes or no.
     ids: Vec<Option<ActionId>>,
+    /// The cards each answer picks in a selection, by what they are: after
+    /// a handtrap the list can hold them in another order (a card back in
+    /// the Extra Deck moves the others).
+    picks: Vec<Option<Vec<Picked>>>,
+}
+
+/// A card picked in a selection: what it is, where, whose.
+#[derive(Debug, Clone, Copy, PartialEq)]
+struct Picked {
+    code: u32,
+    location: u8,
+    controller: u8,
+}
+
+impl Picked {
+    fn of(engine: &Engine, card: &CardRef) -> Picked {
+        Picked { code: engine.cards().canonical_code(card.code), location: card.location, controller: card.controller }
+    }
+}
+
+/// The cards of a selection, in the order the engine lists them.
+fn selection(decision: &Decision) -> Option<Vec<CardRef>> {
+    match decision {
+        Decision::SelectCard { cards, .. } => Some(cards.clone()),
+        Decision::SelectTribute { cards, .. } => Some(cards.iter().map(|(c, _)| *c).collect()),
+        Decision::SelectUnselectCard { selectable, .. } => Some(selectable.clone()),
+        _ => None,
+    }
+}
+
+/// The cards `answer` picks in `decision`: indices after a 0 and a count,
+/// or one card after a 1 when cards are picked one at a time.
+fn picked(engine: &Engine, decision: &Decision, answer: &[u8]) -> Option<Vec<Picked>> {
+    let word = |i: usize| answer.get(i * 4..i * 4 + 4).map(|b| i32::from_le_bytes([b[0], b[1], b[2], b[3]]));
+    let cards = selection(decision)?;
+    let at: Vec<usize> = match (decision, word(0)?) {
+        (Decision::SelectUnselectCard { .. }, 1) => vec![usize::try_from(word(1)?).ok()?],
+        (Decision::SelectCard { .. } | Decision::SelectTribute { .. }, 0) => {
+            (0..usize::try_from(word(1)?).ok()?).map(|k| word(2 + k).and_then(|v| usize::try_from(v).ok())).collect::<Option<_>>()?
+        }
+        _ => return None,
+    };
+    at.iter().map(|&i| cards.get(i).map(|c| Picked::of(engine, c))).collect()
+}
+
+/// The answer to `decision` that picks `picks` again, wherever they are listed.
+fn pick_again(engine: &Engine, decision: &Decision, picks: &[Picked]) -> Option<Vec<u8>> {
+    let cards = selection(decision)?;
+    let mut taken = vec![false; cards.len()];
+    let mut at = Vec::new();
+    for p in picks {
+        let i = (0..cards.len()).find(|&i| !taken[i] && Picked::of(engine, &cards[i]) == *p)?;
+        taken[i] = true;
+        at.push(i as u32);
+    }
+    let mut out = Vec::new();
+    if let Decision::SelectUnselectCard { .. } = decision {
+        out.extend_from_slice(&1i32.to_le_bytes());
+        out.extend_from_slice(&at.first()?.to_le_bytes());
+    } else {
+        out.extend_from_slice(&0i32.to_le_bytes());
+        out.extend_from_slice(&(at.len() as u32).to_le_bytes());
+        for i in at {
+            out.extend_from_slice(&i.to_le_bytes());
+        }
+    }
+    Some(out)
 }
 
 /// An action by what it is, not by its place in a list.
@@ -345,7 +429,7 @@ struct ActionId {
 fn own_answers(engine: &Engine, deck: &DeckList, hand: &[u32], seed: u64, opponent: &Opponent, line: &Line) -> Result<Own, Error> {
     let db = engine.cards();
     let mut duel = Duel::goldfish_against(engine, deck, hand, seed, Some(opponent))?;
-    let mut own = Own { answers: Vec::new(), kinds: Vec::new(), ids: Vec::new() };
+    let mut own = Own { answers: Vec::new(), kinds: Vec::new(), ids: Vec::new(), picks: Vec::new() };
     for answer in &line.answers {
         let Step::Decision { decision, .. } = duel.advance()? else { break };
         if decision.player() != Some(1) {
@@ -368,6 +452,7 @@ fn own_answers(engine: &Engine, deck: &DeckList, hand: &[u32], seed: u64, oppone
                 }
                 _ => None,
             };
+            own.picks.push(picked(engine, &decision, answer));
             own.answers.push(answer.clone());
             own.kinds.push(std::mem::discriminant(&decision));
             own.ids.push(id);
@@ -428,6 +513,9 @@ struct Replay {
     end: Vec<(u8, u32, u32)>,
     /// The line could not be played on as it was.
     diverged: bool,
+    /// Cards the opponent drew during your turn, less those it shuffled
+    /// back from its hand into the Deck (the hand limit of a Mulcharmy).
+    drawn: u32,
 }
 
 /// Passing in a chain window.
@@ -456,6 +544,9 @@ fn replay(
     // Your last decision, answered with the line's answer.
     let mut asked: Option<Decision> = None;
     let mut rejected = 0;
+    // The opponent's cards drawn until its turn begins.
+    let mut drawn: i64 = 0;
+    let mut over = false;
     for _ in 0..4000 {
         let step = match duel.advance() {
             // After a handtrap your line may be asked something new, of the
@@ -470,6 +561,20 @@ fn replay(
             }
             step => step?,
         };
+        let (Step::Decision { events, .. } | Step::End { events }) = &step;
+        for e in events {
+            match e {
+                _ if over => break,
+                Event::NewTurn { player: 1 } => over = true,
+                Event::Draw { player: 1, codes } => drawn += codes.len() as i64,
+                Event::Move { from, to, .. }
+                    if from.controller == 1 && from.location == location::HAND && to.location == location::DECK =>
+                {
+                    drawn -= 1;
+                }
+                _ => {}
+            }
+        }
         let Step::Decision { decision, events } = step else { break };
         if duel.turn_info().0 > 1 {
             break;
@@ -520,14 +625,17 @@ fn replay(
                 // handtrap changed the line.
                 if own.kinds.get(next).is_some_and(|k| *k != kind) || expected.is_some() {
                     if std::env::var_os("DUELFORGE_DEBUG_MATCHUP").is_some() {
-                        eprintln!("   diverged at answer {next}: asked {decision:?}, line had {:?}", own.answers[next]);
+                        eprintln!("   diverged at answer {next}: asked {decision:?}, line had {:?} {:?}", own.answers[next], expected);
                     }
                     out.diverged = true;
                     break;
                 }
             }
             let Some(answer) = own.answers.get(next) else { break };
-            duel.respond(answer);
+            // After a handtrap, the cards the line picks are found again by
+            // what they are, not by their place in the list.
+            let again = own.picks.get(next).and_then(Option::as_ref).filter(|_| used).and_then(|p| pick_again(engine, &decision, p));
+            duel.respond(again.as_ref().unwrap_or(answer));
             asked = Some(decision);
             next += 1;
             continue;
@@ -573,6 +681,7 @@ fn replay(
         }
         out.windows.push(Moment { offered, playing: last });
     }
+    out.drawn = drawn.max(0) as u32;
     let me = &duel.state().players[0];
     out.end = me
         .monsters
@@ -610,6 +719,7 @@ fn hand_trap_stops(
         }
         let mut stops = 0;
         let mut at = Vec::new();
+        let mut moments = Vec::new();
         for &w in windows.iter().take(MAX_TRIES) {
             let tried = replay(engine, deck, hand, seed, &opponent, own, Some((code, w)));
             if std::env::var_os("DUELFORGE_DEBUG_MATCHUP").is_some() {
@@ -626,6 +736,7 @@ fn hand_trap_stops(
             }
             // Stopped: something of your field or hand is missing at the end
             // (ending with more, as when it lets you summon one more card, is not).
+            let drawn = tried.as_ref().map_or(0, |r| r.drawn);
             let stopped = tried.ok().is_none_or(|r| r.diverged || !missing(&base.end, &r.end).is_empty());
             if stopped {
                 stops += 1;
@@ -633,8 +744,10 @@ fn hand_trap_stops(
                     at.push(card);
                 }
             }
+            moments.push(HandTrapMoment { playing: base.windows[w].playing, stops: stopped, drawn });
         }
-        out.push(RivalHandTrap { code, chance: 0.0, windows: windows.len() as u32, stops, at });
+        let drawn = moments.iter().map(|m| m.drawn).max().unwrap_or(0);
+        out.push(RivalHandTrap { code, chance: 0.0, windows: windows.len() as u32, stops, at, drawn, moments });
     }
     Ok(out)
 }
