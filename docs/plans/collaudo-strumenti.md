@@ -306,6 +306,16 @@ Stesse 180 board, rimisurate con il binario di `d5af0ba` (la A, deck dell'avvers
 - **k9 e synchrons, 33 ciascuno:** la linea aspetta una scelta di carte (`SelectCard`, risposta da 12 byte) che dopo Maxx "C" non arriva, e il motore chiede un `IdleCmd`. In `d5af0ba` l'identità copre solo `IdleCmd`, `SelectChain` ed `EffectYesNo`; le scelte di carte restano per indice. Se la lista cambia (Maxx "C" nel Cimitero dell'avversario per un effetto su "either GY", una carta in più in mano), l'indice sceglie un'altra carta e la linea si sfasa più avanti. La copia sperimentale copriva anche le scelte di una carta sola, e lì k9 e synchrons erano a 0. **Proposta:** estendere l'identità alle `SelectCard` di una carta (e alle multiple, carta per carta).
 - **dracotail, 15:** Maxx "C" usato in Fase Finale, poi il trigger di Fase Finale di Blazing Cartesia non viene più offerto. Era già così nella copia sperimentale: da capire nel motore.
 
+### La mappa con `d5af0ba`
+Rimisurata su 6 deck (branded, r_b, maliss, earth_machine, kaiju, chimera):
+- **Collegamenti strani** (segnalati dal testo): da 71 a 27.
+  - Spariti: Branded in High Spirits, Infinitrack Goliath, Superdreadnought Rail Cannon Juggernaut Liebe, Vernusylph of the Thawing Mountains, Fiendsmith's Agnumday, Moon of the Closed Heaven, Deception of the Sinful Spoils.
+  - Collegamenti in meno: branded 394 → 382, earth_machine 458 → 342, kaiju 46 → 39, chimera 165 → 156.
+- **Restano:**
+  - Transaction Rollback e Subspace Battle: sono giusti (B3).
+  - Haggard Lizardose e S:P Little Knight "search" Bystial Druiswurm, Branded Banishment "search" Starliege Seyfert (`used` sotto l'1%). Accanto c'è il collegamento vero, Bystial Magnamhut "search", quindi è sempre la ricerca di Magnamhut nella Fase Finale, data alla carta dell'ultima azione. Forse quel trigger non passa né da un `EffectYesNo` né da una `SelectChain` (attivazione automatica). Da controllare con una traccia in `Reader::see`.
+- **A3 (materiali di R.B. Shepherd's Crook):** c'è ancora; Clockwork Knight, Mulcharmy Fuwalos e Night Train Blue Traveler sono ancora materiali.
+
 ## Conclusione
 Le prime correzioni da fare, in ordine:
 1. **Rigioco delle handtrap (`matchup.rs`):** B e C/D sono in `d5af0ba`. Restano da fare:
