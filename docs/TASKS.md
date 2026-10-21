@@ -3,6 +3,8 @@
 Regole in `AGENTS.md`. Per prendere un task, spostalo in "In corso" con agente, branch e file che tocchi (è il lock), poi committa e pusha questa modifica prima di cominciare.
 
 ## In corso
+- [ ] Mappa dei collegamenti tra le carte, backend (piano `docs/plans/mappa-collegamenti.md`): F0 contratto fatto (`DeckLinks` in `api.ts`, comando `deck_links`), poi F1 collegamenti letti dal motore e F2 uso, raggiungibilità, probabilità, percorsi — agente: claude-code — branch: claude/yugioh-deck-builder-simulator-cax0ya — file: crates/ygo-solver/src/links.rs (nuovo), lib.rs, crates/ygo-cli/src/main.rs, apps/desktop/src-tauri/src/lib.rs, apps/desktop/src/lib/api.ts (solo i tipi)
+- [ ] Velocità della ricerca: profilazione e correzioni a risultati invariati (resoconto in `docs/plans/velocita-ricerca.md` sul suo branch) — agente: claude-code, sessione sorella — branch: claude/search-speed — file: crates/ygo-solver/src/search.rs, card.rs, value.rs, probe.rs (solo velocità), crates/ygo-engine/src/, scripts/
 - [ ] Classificazione delle board più profonda, con criteri validati sui deck di Master Duel Meta (#47) — agente: claude-code — branch: claude/yugioh-deck-builder-simulator-cax0ya — file: crates/ygo-solver/src/probe.rs, value.rs, explain.rs, tests/probe.rs, crates/ygo-engine/src/message.rs, apps/desktop/src-tauri/src/lib.rs (score_view)
   - Piano: `docs/plans/classificazione-board.md` (passi D0–D17; giudizio dato da un pannello di agenti, non dal proprietario).
   - [x] D0a: `combos --json/--save-lines`, `probe-line`.
@@ -34,6 +36,9 @@ Regole in `AGENTS.md`. Per prendere un task, spostalo in "In corso" con agente, 
   - nella scheda del punteggio, accanto alla resilienza generica, la "resilienza contro X" (`matchup.resilience`, con `breakerChance` e la lista `breakers`: carta, probabilità di averla, valore che lascia, chi la nega). Con `standardBreakers` il deck non ha breaker giocabili: va detto che si usano quelli standard;
   - accanto all'esposizione, "fermata da X" (`handTrapChance`) e la lista `handTraps`: carta, probabilità, momenti in cui ferma la linea su quelli in cui si può usare (`stops`/`windows`), le tue carte in quei momenti (`at`). Le handtrap con `stops` a 0 (Maxx "C", Mulcharmy) si possono mostrare a parte: "si usano ma non fermano la linea";
   - una colonna o un ordinamento "contro X" nella classifica delle board, e il backend finto (`mock.ts`) con un `matchup` di esempio.
+- [ ] Mappa dei collegamenti tra le carte, interfaccia (piano `docs/plans/mappa-collegamenti.md`; il proprietario ha scelto una scheda «Collegamenti» nel Laboratorio). Dopo il turno di prova contro un deck. Si parte dal backend finto: in `mock.ts` c'è solo uno stub (le carte del deck, senza collegamenti), da sostituire con un esempio completo sul deck Invoked (una ventina di carte, collegamenti dei cinque tipi, alcuni solo `possible`, altri con `used`).
+  - Cerchio di carte con frecce colorate per tipo (`CardLink.kind`), spessore per `used`, tratteggio per i solo possibili; filtri per tipo con i conteggi; al passaggio o al clic si accendono le frecce della carta e un riquadro mostra `reach`, `reachAll` e i conteggi per tipo.
+  - Poi (F2): mano di prova sovrapposta (si accende ciò che raggiunge), percorso più corto tra due carte calcolato sui `links` con un pulsante verso il Combo Lab (obiettivo = carta d'arrivo), probabilità `chance` per carta, vista a colonne (starter → intermedie → Extra Deck).
 - [ ] Pagina «Il Banditore» (`Novità`): confronto tra banlist (Master Duel, TCG, OCG) e impatto immediato sui deck salvati in bottega.
 
 ### Motore e ricerca (Claude)

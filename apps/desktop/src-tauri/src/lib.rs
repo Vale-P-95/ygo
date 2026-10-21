@@ -1183,6 +1183,68 @@ fn combo_continue(app: tauri::AppHandle, state: State<'_, AppState>, deck_id: i6
     Ok(outcome)
 }
 
+/// How one card of a deck leads to another (`docs/plans/mappa-collegamenti.md`).
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct CardLinkView {
+    from: u32,
+    to: u32,
+    /// "search" (from the Deck to the hand), "summon" (Special Summoned),
+    /// "toGrave" (from the Deck to the GY), "recover" (from the GY or
+    /// banished back to the hand or Deck), "material" (`from` is a material of `to`).
+    kind: String,
+    /// The engine offered it: the effect can pick that card.
+    possible: bool,
+    /// Share of the Combo Lab's best lines that use it, 0 to 1.
+    used: f64,
+}
+
+/// A card of the map.
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct LinkCardView {
+    code: u32,
+    copies: u32,
+    extra: bool,
+    /// Cards it leads to in one step, and in any number of steps.
+    reach: u32,
+    reach_all: u32,
+    /// Chance that an opening hand of 5 reaches it: it, or a card with a path to it.
+    chance: f64,
+}
+
+/// The map of the links between the cards of a deck.
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct DeckLinksView {
+    deck_id: i64,
+    cards: Vec<LinkCardView>,
+    links: Vec<CardLinkView>,
+    /// Hands played to read the links, and best lines counted for `used`.
+    hands: u32,
+    lines: u32,
+}
+
+/// Laboratorio, "Collegamenti": the map of a deck. For now its cards only;
+/// the links read by the engine come next (plan F1).
+#[tauri::command(async)]
+fn deck_links(state: State<'_, AppState>, deck_id: i64) -> Result<DeckLinksView, String> {
+    let engine = state.engine()?;
+    let deck = state.with_user(|u| u.get(deck_id))?.ok_or("Il deck non esiste più")?;
+    let db = engine.cards();
+    let mut cards: Vec<LinkCardView> = Vec::new();
+    for (codes, extra) in [(&deck.main, false), (&deck.extra, true)] {
+        for &c in codes {
+            let code = db.canonical_code(c);
+            match cards.iter_mut().find(|k| k.code == code) {
+                Some(k) => k.copies += 1,
+                None => cards.push(LinkCardView { code, copies: 1, extra, reach: 0, reach_all: 0, chance: 0.0 }),
+            }
+        }
+    }
+    Ok(DeckLinksView { deck_id, cards, links: Vec::new(), hands: 0, lines: 0 })
+}
+
 /// Boards put to the probe turn after a search: the best of a precise hand,
 /// all those kept in "card + rest".
 const SCORED_BOARDS: usize = 30;
@@ -1646,6 +1708,7 @@ pub fn run() {
             combo_continue,
             combo_score,
             combo_scores,
+            deck_links,
             combo_cancel,
             combo_explain,
             shelf_decks,

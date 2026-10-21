@@ -1,6 +1,6 @@
 # Mappa dei collegamenti tra le carte del deck: piano
 
-*Scritto il 21/10/2026 da Claude Code, da approvare con il proprietario. Spunto: le grafiche di ygo-decklab ("Which card fetches what?").*
+*Scritto il 21/10/2026 da Claude Code. Spunto: le grafiche di ygo-decklab ("Which card fetches what?"). Approvato dal proprietario il 21/10: scheda «Collegamenti» nel Laboratorio, si parte subito (Claude sul backend, Gemini sull'interfaccia dopo quella del turno di prova contro un deck). F0 fatto: tipi `DeckLinks` in `api.ts` e comando `deck_links` (per ora solo le carte).*
 
 ## Cosa mostra ygo-decklab
 Dagli screenshot del deck Invoked (#4 del meta TCG):
@@ -63,7 +63,7 @@ Abbiamo il motore EDOPro e la ricerca delle combo, quindi possiamo leggere i col
 - Sul deck Invoked, i collegamenti che il sito mostra devono esserci, salvo quelli impossibili per il motore. Quelli in più vanno guardati uno per uno: sono la prova che il motore vede meglio, o un difetto da correggere.
 - Su 5-6 deck di Master Duel Meta: il tempo per costruire la mappa (obiettivo sotto il minuto, poi in cache) e i collegamenti strani da controllare a mano.
 
-## Decisioni per il proprietario
-1. **Dove**: una scheda del Laboratorio (consigliato, vicino a ruoli e probabilità) o della Fucina.
-2. **Quando**: dopo l'interfaccia del #44 per Gemini; per Claude subito dopo il #44 (consigliato) o dopo la classificazione delle board (#47).
-3. **Sessione sorella**: per la velocità della ricerca o per il livello 2 del turno di prova, non per la mappa.
+## Decisioni del proprietario (21/10/2026)
+1. **Dove**: una scheda «Collegamenti» nel Laboratorio.
+2. **Quando**: subito per Claude; Gemini dopo l'interfaccia del turno di prova contro un deck.
+3. **Sessione sorella**: lavora sulla velocità della ricerca (branch `claude/search-speed`), non sulla mappa.
