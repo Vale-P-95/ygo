@@ -203,7 +203,7 @@ pub fn matchup(
 }
 
 /// Chance that none of `copies` cards of a deck of `size` is among `drawn`.
-fn none_drawn(size: usize, copies: u32, drawn: usize) -> f64 {
+pub(crate) fn none_drawn(size: usize, copies: u32, drawn: usize) -> f64 {
     (0..drawn).map(|i| (size as f64 - f64::from(copies) - i as f64).max(0.0) / size.saturating_sub(i).max(1) as f64).product()
 }
 

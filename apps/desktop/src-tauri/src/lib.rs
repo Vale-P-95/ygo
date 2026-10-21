@@ -31,6 +31,14 @@ struct AppState {
     combo: Mutex<Option<ComboJob>>,
     /// Set to stop the running combo search.
     combo_cancel: AtomicBool,
+    /// The last map of links of each deck.
+    links: Mutex<HashMap<i64, LinksCache>>,
+}
+
+/// A map of links and the cards (Main and Extra Deck) it was read for.
+struct LinksCache {
+    cards: Vec<u32>,
+    view: DeckLinksView,
 }
 
 impl AppState {
@@ -1193,6 +1201,8 @@ struct CardLinkView {
     /// "toGrave" (from the Deck to the GY), "recover" (from the GY or
     /// banished back to the hand or Deck), "material" (`from` is a material of `to`).
     kind: String,
+    /// Where `to` comes from: "deck", "extra", "grave", "banished", "hand".
+    zone: String,
     /// The engine offered it: the effect can pick that card.
     possible: bool,
     /// Share of the Combo Lab's best lines that use it, 0 to 1.
@@ -1206,10 +1216,11 @@ struct LinkCardView {
     code: u32,
     copies: u32,
     extra: bool,
-    /// Cards it leads to in one step, and in any number of steps.
+    /// Cards it leads to in one step; with those brought into play from there
+    /// in any number of steps ([`ygo_solver::LinkCard`]).
     reach: u32,
     reach_all: u32,
-    /// Chance that an opening hand of 5 reaches it: it, or a card with a path to it.
+    /// Chance that an opening hand of 5 holds it or a card that brings it into play.
     chance: f64,
 }
 
@@ -1225,24 +1236,55 @@ struct DeckLinksView {
     lines: u32,
 }
 
-/// Laboratorio, "Collegamenti": the map of a deck. For now its cards only;
-/// the links read by the engine come next (plan F1).
+/// Laboratorio, "Collegamenti": the map of the links between the cards of a
+/// deck, read by the engine (lines searched from hands holding each card,
+/// about half a minute), sending `deck-links-progress` events. Kept until
+/// the deck's cards change.
 #[tauri::command(async)]
-fn deck_links(state: State<'_, AppState>, deck_id: i64) -> Result<DeckLinksView, String> {
+fn deck_links(app: tauri::AppHandle, state: State<'_, AppState>, deck_id: i64) -> Result<DeckLinksView, String> {
     let engine = state.engine()?;
     let deck = state.with_user(|u| u.get(deck_id))?.ok_or("Il deck non esiste più")?;
-    let db = engine.cards();
-    let mut cards: Vec<LinkCardView> = Vec::new();
-    for (codes, extra) in [(&deck.main, false), (&deck.extra, true)] {
-        for &c in codes {
-            let code = db.canonical_code(c);
-            match cards.iter_mut().find(|k| k.code == code) {
-                Some(k) => k.copies += 1,
-                None => cards.push(LinkCardView { code, copies: 1, extra, reach: 0, reach_all: 0, chance: 0.0 }),
-            }
-        }
+    let cards: Vec<u32> = deck.main.iter().chain(&deck.extra).copied().collect();
+    if let Some(cached) = state.links.lock().map_err(|e| e.to_string())?.get(&deck_id).filter(|c| c.cards == cards) {
+        return Ok(cached.view.clone());
     }
-    Ok(DeckLinksView { deck_id, cards, links: Vec::new(), hands: 0, lines: 0 })
+    let list = ygo_engine::DeckList { main: deck.main.clone(), extra: deck.extra.clone(), side: Vec::new() };
+    let threads = std::thread::available_parallelism().map_or(4, |n| n.get());
+    let budget = ygo_solver::LinksBudget { threads, ..ygo_solver::LinksBudget::default() };
+    let map = ygo_solver::deck_links(&engine, &list, 1, budget, &AtomicBool::new(false), |done, total| {
+        let _ = app.emit("deck-links-progress", RolesProgress { done, total });
+    });
+    let view = DeckLinksView {
+        deck_id,
+        cards: map
+            .cards
+            .iter()
+            .map(|c| LinkCardView {
+                code: c.code,
+                copies: c.copies,
+                extra: c.extra,
+                reach: c.reach,
+                reach_all: c.reach_all,
+                chance: c.chance,
+            })
+            .collect(),
+        links: map
+            .links
+            .iter()
+            .map(|l| CardLinkView {
+                from: l.from,
+                to: l.to,
+                kind: l.kind.key().to_owned(),
+                zone: l.zone.key().to_owned(),
+                possible: l.possible,
+                used: l.used,
+            })
+            .collect(),
+        hands: map.hands,
+        lines: map.lines,
+    };
+    state.links.lock().map_err(|e| e.to_string())?.insert(deck_id, LinksCache { cards, view: view.clone() });
+    Ok(view)
 }
 
 /// Boards put to the probe turn after a search: the best of a precise hand,
@@ -1649,6 +1691,7 @@ pub fn run() {
                 engine: Mutex::new(None),
                 combo: Mutex::new(None),
                 combo_cancel: AtomicBool::new(false),
+                links: Mutex::new(HashMap::new()),
             };
             state.open_store();
             app.manage(state);

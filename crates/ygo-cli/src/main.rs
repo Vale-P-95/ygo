@@ -146,6 +146,24 @@ enum Cmd {
         #[arg(long)]
         vs: Option<PathBuf>,
     },
+    /// The map of the links between the cards of a deck, read from the
+    /// engine: which card adds, summons, sends or gets back which.
+    Links {
+        /// Deck in .ydk format.
+        #[arg(long)]
+        deck: PathBuf,
+        /// Search nodes for each hand.
+        #[arg(long, default_value_t = 1000)]
+        nodes: u64,
+        /// Hands searched for each card of the Main Deck.
+        #[arg(long, default_value_t = 2)]
+        hands: usize,
+        #[arg(long)]
+        threads: Option<usize>,
+        /// Write the map to this JSON file.
+        #[arg(long)]
+        json: Option<PathBuf>,
+    },
     /// The handtraps of a deck, read from the engine: cards it can use from
     /// the hand during the opponent's turn.
     HandTraps {
@@ -284,6 +302,7 @@ fn main() -> Result<()> {
         ),
         Cmd::ProbeLine { setup, lines, index, json, vs } => probe_line(&cli.data, &setup, &lines, index, json.as_deref(), vs.as_deref()),
         Cmd::HandTraps { deck } => hand_traps(&cli.data, &deck),
+        Cmd::Links { deck, nodes, hands, threads, json } => links(&cli.data, &deck, nodes, hands, threads, json.as_deref()),
         Cmd::CardValues { deck } => card_values(&cli.data, &deck),
         Cmd::KitMix { lines, top, seed } => kit_mix(&cli.data, &lines, top, seed),
         Cmd::Roles { deck } => roles(&cli.data, &deck),
@@ -952,6 +971,67 @@ fn search(dir: &Path, text: &str, limit: usize) -> Result<()> {
         println!("{:>9}  {} [{}]{stats}", card.id, card.name, card.human_type);
     }
     println!("{} results in {:.1} ms", ids.len(), elapsed.as_secs_f64() * 1000.0);
+    Ok(())
+}
+
+fn links(dir: &Path, deck: &Path, nodes: u64, hands: usize, threads: Option<usize>, json: Option<&Path>) -> Result<()> {
+    let engine = load_engine(dir)?;
+    let text = std::fs::read_to_string(deck).with_context(|| format!("cannot read {}", deck.display()))?;
+    let deck = DeckList::from_ydk(&text)?;
+    let threads = threads.unwrap_or_else(|| std::thread::available_parallelism().map_or(4, |n| n.get()));
+    let budget = ygo_solver::LinksBudget { hands_per_card: hands, nodes_per_hand: nodes, threads, ..ygo_solver::LinksBudget::default() };
+    let started = std::time::Instant::now();
+    let map = ygo_solver::deck_links(&engine, &deck, 1, budget, &std::sync::atomic::AtomicBool::new(false), |done, total| {
+        eprint!("\r{done}/{total} hands");
+    });
+    eprintln!();
+    let db = engine.cards();
+    println!(
+        "{} cards, {} links ({} used) from {} hands and {} lines in {:.1} s",
+        map.cards.len(),
+        map.links.len(),
+        map.links.iter().filter(|l| l.used > 0.0).count(),
+        map.hands,
+        map.lines,
+        started.elapsed().as_secs_f64()
+    );
+    let mut cards = map.cards.clone();
+    cards.sort_by(|a, b| b.reach_all.cmp(&a.reach_all).then(b.reach.cmp(&a.reach)));
+    for c in &cards {
+        println!(
+            "{:<45} x{} {} reach {:>2} / {:>2} · reached by an opening hand {:>3.0}%",
+            db.name(c.code),
+            c.copies,
+            if c.extra { "extra" } else { "main " },
+            c.reach,
+            c.reach_all,
+            c.chance * 100.0
+        );
+        for l in map.links.iter().filter(|l| l.from == c.code) {
+            let used = if l.used > 0.0 { format!(" used {:.0}%", l.used * 100.0) } else { String::new() };
+            println!(
+                "    {:<9} {:<8} {}{}{used}",
+                l.kind.key(),
+                l.zone.key(),
+                db.name(l.to),
+                if l.possible { "" } else { " (seen used only)" }
+            );
+        }
+    }
+    if let Some(path) = json {
+        let doc = serde_json::json!({
+            "hands": map.hands,
+            "lines": map.lines,
+            "cards": map.cards.iter().map(|c| serde_json::json!({
+                "code": c.code, "name": db.name(c.code), "copies": c.copies, "extra": c.extra,
+                "reach": c.reach, "reachAll": c.reach_all, "chance": c.chance,
+            })).collect::<Vec<_>>(),
+            "links": map.links.iter().map(|l| serde_json::json!({
+                "from": l.from, "to": l.to, "kind": l.kind.key(), "zone": l.zone.key(), "possible": l.possible, "used": l.used,
+            })).collect::<Vec<_>>(),
+        });
+        std::fs::write(path, serde_json::to_string_pretty(&doc)?)?;
+    }
     Ok(())
 }
 

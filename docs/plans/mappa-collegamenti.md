@@ -67,3 +67,30 @@ Abbiamo il motore EDOPro e la ricerca delle combo, quindi possiamo leggere i col
 1. **Dove**: una scheda «Collegamenti» nel Laboratorio.
 2. **Quando**: subito per Claude; Gemini dopo l'interfaccia del turno di prova contro un deck.
 3. **Sessione sorella**: lavora sulla velocità della ricerca (branch `claude/search-speed`), non sulla mappa.
+
+## F1: com'è fatto (21/10/2026)
+- **Dove sta.**
+  - Codice: `crates/ygo-solver/src/links.rs`.
+  - CLI: `duelforge-cli links --deck <ydk> [--nodes 1000] [--hands 2] [--json <file>]`.
+  - App: `api.deckLinks(deckId)`, con avanzamento `deck-links-progress` e una cache finché le carte del deck non cambiano.
+- **Come legge i collegamenti.**
+  - Per ogni carta del Main Deck si cercano 2 mani che la contengono (1000 nodi ciascuna) e si rigiocano le 20 linee migliori di ogni mano.
+  - **Collegamenti possibili:** a ogni scelta di carte del motore, le carte offerte diventano collegamenti "causa → carta". Il tipo dipende dal suggerimento dello script (aggiungere, Evocare, mandare al Cimitero, materiali) e dalla zona di partenza. La causa è la carta il cui effetto si sta risolvendo, oppure, per i costi e le Evocazioni, la carta appena attivata.
+  - **Collegamenti usati:** si contano dai movimenti delle carte e dalle Evocazioni. `used` è la frazione delle linee che li usano.
+  - **Materiali:** contano solo quelli nominati dal mostro dell'Extra Deck nella riga dei materiali (il nome, o un archetipo tra virgolette contenuto nel nome). I materiali generici, come "2 mostri con effetto", non fanno collegamento.
+  - **Zona (`zone`).** Ogni collegamento dice da dove arriva la carta: Deck, Extra Deck, Cimitero, bandite, mano. Rianimare o recuperare dal Cimitero non porta in gioco una carta nuova: Invoked Sorath, che rianima qualunque mostro di Livello 6 o inferiore, collega quasi tutto, ma solo dal Cimitero.
+- **Raggiungibilità e probabilità.**
+  - `reach` conta le carte a un passo, con qualunque collegamento.
+  - `reachAll` aggiunge le carte portate in gioco da lì in più passi, solo con collegamenti dal Deck o dall'Extra Deck.
+  - `chance` è la probabilità esatta che una mano di 5 tenga la carta o una carta che la porta in gioco.
+- **Numeri sul deck Invoked** (fixture di test):
+  - 31 carte e 89 collegamenti (78 visti usati) da 30 mani e 600 linee, in 27 secondi su tutti i core.
+  - Aleister the Invoker: cerca Invocation (usato nel 30% delle linee) ed è materiale nominato di 7 Invoked.
+  - Invocation: Evoca 9 Invoked dall'Extra Deck.
+  - Aiwass: cerca i due Aleister ed Evoca gli Invoked.
+  - Probabilità di arrivare ad Aleister the Invoker con la mano iniziale: 85%. Ash Blossom: 34%, solo tenendola.
+- **Limiti.**
+  - Si vedono gli effetti giocati nelle linee trovate: un effetto che la ricerca non usa mai in quelle mani non compare.
+  - `chance` è ottimista quando un collegamento richiede più carte, ad esempio una Fusione che vuole anche il secondo materiale.
+  - I mostri dell'Extra Deck che nessuna carta nomina (Link e Synchro con materiali generici) hanno `chance` 0: l'interfaccia mostra un trattino.
+

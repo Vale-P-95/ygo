@@ -1358,3 +1358,9 @@ Richiesta #44, piano in `docs/plans/turno-di-prova-matchup.md`. Il backend misur
 - **Riconoscimento dei breaker.** I Kaiju e Lava Golem con il testo nuovo ("by Tributing 1 monster they control") ora sono riconosciuti anche nei ruoli della Fucina.
 - **Costo.** Circa 1 secondo in più per board. Interfaccia: richiesta a Gemini in `docs/TASKS.md`.
 
+### 30.11 Mappa dei collegamenti tra le carte (21/10/2026)
+Spunto: le grafiche "quale carta prende quale" di ygo-decklab. Piano in `docs/plans/mappa-collegamenti.md`: il proprietario ha scelto una scheda «Collegamenti» nel Laboratorio.
+- **Collegamenti letti dal motore, non dal testo.** Si cercano linee da mani che tengono ogni carta e si rigiocano. A ogni scelta di carte, quelle offerte sono collegamenti possibili (aggiungere dal Deck, Evocare, mandare al Cimitero, recuperare, materiale nominato), e quelle mosse sono collegamenti usati, con la frazione delle linee che li usano.
+- **Zona di partenza.** Ogni collegamento dice da dove arriva la carta. La raggiungibilità in più passi e la probabilità esatta di arrivare a una carta con la mano iniziale contano solo i collegamenti che portano carte nuove dal Deck o dall'Extra Deck.
+- **Costo.** Sul deck Invoked: 89 collegamenti da 600 linee in 27 secondi. Nell'app la mappa resta in cache finché le carte del deck non cambiano. Interfaccia: Gemini.
+
