@@ -453,6 +453,82 @@ Per la #47 e i pesi (#43, D17 in `docs/plans/classificazione-board.md`): poche c
 - **Posizione dei mostri:** si sa solo se sono coperti (`(set)`) e se sono nella Zona Mostri Extra (`[EMZ]`). Attacco o difesa scoperta no.
 - **Zone Pendulum:** una carta Pendulum nelle Zone Magie e Trappole risulta come mostro.
 
+## Corsia 3: collaudo del livello 2 con le linee vere (L4, commit `48efae0`)
+### Metodo
+- **Script:** `scripts/moves_report.py`, che lancia `probe-line --vs X --moves` e fa le tabelle.
+- **Board:** la prima di `combo_hunt.py --hands 2 --top 8 --seed 7` (mano `-0`) di Invoked, Branded, Tearlaments, Labrynth, K9 e Dracotail.
+- **Avversari:** 37 deck di Master Duel Meta del 22/10 (i 6 sopra e altri 31).
+- **Prove:** 444, cioè 6 × 37 × 2 semi, 2 alla volta su 4 core. I tempi "da soli" sono misurati a macchina libera.
+
+### Numeri
+
+| Obiettivo | Risultato | |
+|---|---|---|
+| Mosse fatte su campo vuoto ≥ 90% | **88,0%** (19701 su 22391) | quasi; 21 deck su 37 sopra il 90% |
+| Misura `against its lines` ≤ 4 s per board | mediana 6,0 s, 90° percentile 11,4 s (2 alla volta); da soli 1,2-9,2 s su 6 casi | no |
+| Nessun errore | 37 errori, tutti della board Tearlaments (livello 1, sotto) | no |
+| Mosse in comune tra seme 1 e seme 7 ≥ 70% | **71%** (Labrynth e Invoked contro 37 deck) | sì |
+
+- **Mosse fatte su campo vuoto, per deck avversario** (board Invoked; le altre board danno gli stessi numeri, perché il rigioco su campo vuoto non dipende dalla tua board):
+  - lunalight 60%, branded 63%, megalith 64%, chimera 74%, earth_machine 76%, labrynth 80%, elfnote_kewl_tune 81%, invoked 82%, enneacraft e gem_knights 83%;
+  - poi 85-89% (ancient_gear, fire_king, dracotail, cyber_dragon, fur_hire, mitsurugi);
+  - 21 deck al 90% o più. Prima delle linee vere era il 62% (collaudo della notte).
+- **Stati delle mosse:** fatte 18382, perse con una precedente 1016, fermate dalla board 303, non fatte nemmeno su campo vuoto 2690 (per seme).
+- **Tempi.** `its lines` (letto una volta per deck): 8-10 s di mediana, 86 s per Elfnote Kewl Tune. `against its lines` da solo:
+  - branded contro k9 4,4 s;
+  - labrynth contro tearlaments 5,5 s;
+  - dracotail contro invoked 9,2 s;
+  - k9 contro snake_eye 8,2 s;
+  - invoked contro chimera 1,2 s;
+  - branded contro elfnote_kewl_tune 5,6 s.
+
+  Contro lunalight: 85-500 s (4 board su 6).
+- **Stabilità tra semi.** `--seed` con `--moves` non cambia niente: con il seme 1 e il seme 7 l'uscita è identica, carattere per carattere, perché le linee usano il seme salvato nel file. Per misurare la stabilità ho riscritto il seme del file delle linee a 1. Solo Labrynth e Invoked si rigiocano ancora: K9 e Dracotail no, cambia l'ordine del Deck.
+
+  | Board | Contro | Δ value (media, max) | Δ floodgate | Δ «resta» | Mosse in comune |
+  |---|---|---|---|---|---|
+  | Labrynth | 37 deck | 0,24, 0,73 | 4,6 punti, 32 | 9,6 punti, 36 | 71% |
+  | Invoked | 37 deck | 0,04, 0,12 | 0,1 punti, 4 | 5,9 punti, 19 | 71% |
+
+### Problemi
+#### L4-1 (alta). La carta pescata nel turno 2 sposta le scelte della linea dell'avversario
+- **Riprodurre:**
+  ```
+  DUELFORGE_DEBUG_PROBE=2 duelforge-cli probe-line --deck <mdm>/invoked.ydk --lines <hunt>/invoked-0.lines.json --index 0 --vs <mdm>/lunalight.ydk --moves
+  ```
+- **Cosa succede:**
+  - Nel rigioco la mano dell'avversario ha 6 carte: le 5 della sua linea più Alexandrite Dragon, la carta di riempimento del kit, pescata nel turno 2. Esempio: "opponent hand: Mulcharmy Purulia, Luna Light Perfume, Dominus Impulse, Lunalight Masquerade, Dominus Impulse, Alexandrite Dragon".
+  - Le scelte di carte della sua linea sono per indice. Esempi:
+    - lunalight: "Select Alexandrite Dragon (opponent's Hand)" come scarto, dove la linea scartava Lunalight Wolf;
+    - earth_machine: lo stesso per il costo di Clockwork Night.
+  - Da lì le mosse dopo si perdono. Nessuna mossa non fatta è la prima della sua linea.
+  - Su earth_machine, lunalight, megalith, branded e chimera, "Select Alexandrite Dragon" compare da 19 a 36 volte per prova.
+- **Correzione:**
+  - la pescata del turno 2 dal Deck vero dell'avversario, nell'ordine della sua ricerca, oppure la linea rigiocata senza la carta in più;
+  - le scelte di carte della sua linea ritrovate per identità, come `find_again` per la tua linea.
+
+#### L4-2 (alta). La board Tearlaments non si misura contro nessun deck (livello 1)
+- **Riprodurre:**
+  ```
+  duelforge-cli probe-line --deck <mdm>/tearlaments.ydk --lines <hunt>/tearlaments-0.lines.json --index 0 --vs <mdm>/k9.ydk
+  ```
+- **Esce:** "matchup failed: the engine rejected the response: Some(AnnounceCard { player: 0, opcodes: [1, ...] }) answered [0, 0, 0, 0]", contro tutti i 37 deck.
+- Succede anche con il binario di `main` (`8b367cd`). La mano ha That Grass Looks Greener, e la linea dichiara una carta alla scelta 22 ("Dichiari Tearlaments Reinoheart").
+- **Ipotesi:** nel rigioco della linea contro l'avversario del kit (deck di 35 carte dopo A4), That Grass Looks Greener manda al Cimitero un altro numero di carte. Le risposte della linea si sfasano, e alla dichiarazione arriva una risposta di un'altra domanda.
+- **Proposta:** in `replay` e `own_answers`, una `AnnounceCard` si rigioca per codice dichiarato; se le domande prima si sfasano, la linea è fermata, non un errore.
+
+#### L4-3 (media). Lunalight: la misura impiega 85-500 s
+- Su 4 board su 6: branded 389 s, dracotail 463 s, k9 500 s, labrynth 85 s. È anche il deck con meno mosse fatte (60%).
+- **Proposta:** un tempo massimo per la misura contro le sue linee, e una traccia per capire dove gira.
+
+#### L4-4 (media). `--seed` non cambia le linee dell'avversario
+- Con `--moves` le 12 mani dell'avversario e il rigioco usano il seme salvato nel file delle tue linee. `--seed` è ignorato.
+- Per la stabilità tra semi, come chiesto dal piano, serve un modo di cambiare solo le mani dell'avversario. **Proposta:** `--seed` decide le sue mani, il file decide il seme della tua linea.
+
+#### L4-5 (bassa). Tempi oltre l'obiettivo
+- La misura contro le linee supera i 4 s in 4 casi su 6, misurati da soli (4,4-9,2 s).
+- Con L4-1 corretta le mosse rigiocate cambiano, quindi i tempi vanno rimisurati dopo.
+
 ## Conclusione
 Dopo `eedda66` restano queste correzioni, in ordine:
 1. **R3 e R4 in `replay`/`find_again` (`matchup.rs`):** ripiego su un altro effetto della stessa carta solo per le risposte venute da un `EffectYesNo`; un passo della linea lascia il posto alla sua prossima azione se è già offerta. Provate sulle 180 board: fermate false di Maxx "C" e Mulcharmy da 81 a 0, fermate vere invariate.
