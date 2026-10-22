@@ -85,3 +85,18 @@ pub struct Facets {
     pub archetypes: Vec<String>,
     pub formats: Vec<String>,
 }
+
+/// A card whose status changed with a list update.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BanChange {
+    /// `tcg`, `ocg` or `md`.
+    pub format: String,
+    pub id: u32,
+    /// `YYYY-MM-DD`: when the list took effect (Master Duel) or when the card
+    /// data showed the change (TCG, OCG).
+    pub date: String,
+    /// Forbidden, Limited or Semi-Limited; `None` is unlimited.
+    pub before: Option<String>,
+    pub after: Option<String>,
+}

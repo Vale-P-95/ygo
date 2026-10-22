@@ -1156,7 +1156,7 @@ fn update_cards(dir: &Path, force: bool) -> Result<()> {
     let runtime = tokio::runtime::Runtime::new()?;
     let installed = runtime.block_on(async {
         let client = sync::http_client()?;
-        sync::update_cards(&client, current.as_deref(), &new_db, &|p| {
+        sync::update_cards(&client, current.as_deref(), Some(&db_path), &new_db, &|p| {
             if !matches!(p.stage, sync::Stage::Downloading) || p.total == Some(p.done) {
                 println!("{:?} {}", p.stage, p.item);
             }

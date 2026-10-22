@@ -8,8 +8,8 @@ use tauri::http::{Response, StatusCode};
 use tauri::{Emitter, Manager, State};
 use ygo_data::sync::{self, Progress};
 use ygo_data::{
-    banlist, deck, matchlog, Banlist, Card, CardChange, CardStore, Chip, Deck, DeckBox, DeckList, DeckSummary, Facets, Format, ImageCache,
-    ImageSize, Legality, MatchEntry, Recipe, SavedSearch, Tag, UserStore,
+    banlist, deck, matchlog, BanChange, Banlist, Card, CardChange, CardStore, Chip, Deck, DeckBox, DeckList, DeckSummary, Facets, Format,
+    ImageCache, ImageSize, Legality, MatchEntry, Recipe, SavedSearch, Tag, UserStore,
 };
 use ygo_engine::{Engine, ScriptStore};
 
@@ -177,7 +177,11 @@ async fn update_data(app: tauri::AppHandle, state: State<'_, AppState>, force: b
     };
     let current = if force { None } else { state.with_store(|s| Ok(s.version())).ok().flatten() };
     let new_db = state.data_dir.join("cards.db.new");
-    if sync::update_cards(&state.client, current.as_deref(), &new_db, &report).await.map_err(|e| e.to_string())?.is_some() {
+    if sync::update_cards(&state.client, current.as_deref(), Some(&state.cards_db()), &new_db, &report)
+        .await
+        .map_err(|e| e.to_string())?
+        .is_some()
+    {
         // Close the old database before replacing its file.
         *state.store.lock().map_err(|e| e.to_string())? = None;
         sync::install_file(&new_db, &state.cards_db()).map_err(|e| e.to_string())?;
@@ -220,6 +224,13 @@ fn get_cards(state: State<'_, AppState>, ids: Vec<u32>) -> Result<Vec<Card>, Str
 #[tauri::command(async)]
 fn card_facets(state: State<'_, AppState>) -> Result<Facets, String> {
     state.with_store(|s| s.facets())
+}
+
+/// Cards whose Forbidden & Limited status changed with a list update,
+/// newest first (Il Banditore); only `format`'s (`tcg`, `ocg`, `md`) when given.
+#[tauri::command(async)]
+fn ban_changes(state: State<'_, AppState>, format: Option<String>) -> Result<Vec<BanChange>, String> {
+    state.with_store(|s| s.ban_changes(format.as_deref()))
 }
 
 #[tauri::command(async)]
@@ -2181,6 +2192,7 @@ pub fn run() {
             search_cards,
             get_cards,
             card_facets,
+            ban_changes,
             list_favorites,
             set_favorite,
             list_saved_searches,

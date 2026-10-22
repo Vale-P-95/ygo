@@ -1,7 +1,7 @@
 //! Import + search on a small synthetic card list shaped like the
 //! YGOPRODeck `cardinfo.php?misc=yes` response.
 
-use ygo_data::{import, parse_query, Banlist, CardKind, CardStore};
+use ygo_data::{import, parse_query, BanChange, Banlist, CardKind, CardStore};
 
 const SAMPLE: &str = r#"{"data": [
   {"id": 1001, "name": "Forge Golem", "type": "Effect Monster", "humanReadableCardType": "Effect Monster",
@@ -142,6 +142,104 @@ fn master_duel_list_is_applied_and_survives_card_updates() {
     let cards = import::parse_cardinfo(SAMPLE.as_bytes()).unwrap();
     store.replace_all(&cards, "test-2").unwrap();
     assert_eq!(store.get_many(&[1001]).unwrap()[0].ban_md.as_deref(), Some("Forbidden"));
+}
+
+#[test]
+fn master_duel_list_changes_are_recorded() {
+    let mut store = store();
+    let first = Banlist::parse(
+        r#"{"format": "md", "effective": "2026-10-06", "cards": [
+            {"id": 1001, "name": "Forge Golem", "limit": 0},
+            {"id": 1005, "name": "Laboratory Lockdown", "limit": 1}]}"#,
+    )
+    .unwrap();
+    store.set_banlist(&first).unwrap();
+    assert!(store.ban_changes(None).unwrap().is_empty(), "the first list is not a change");
+    store.set_banlist(&first).unwrap();
+    assert!(store.ban_changes(None).unwrap().is_empty(), "the same list again changes nothing");
+
+    let second = Banlist::parse(
+        r#"{"format": "md", "effective": "2026-11-01", "cards": [
+            {"id": 1001, "name": "Forge Golem", "limit": 1},
+            {"id": 1003, "name": "Forge Titan", "limit": 2}]}"#,
+    )
+    .unwrap();
+    store.set_banlist(&second).unwrap();
+    let changes: Vec<(u32, Option<String>, Option<String>)> =
+        store.ban_changes(Some("md")).unwrap().into_iter().map(|c| (c.id, c.before, c.after)).collect();
+    let s = |x: &str| Some(x.to_owned());
+    assert_eq!(changes, [(1001, s("Forbidden"), s("Limited")), (1003, None, s("Semi-Limited")), (1005, s("Limited"), None)]);
+    assert!(store.ban_changes(None).unwrap().iter().all(|c| c.date == "2026-11-01" && c.format == "md"));
+
+    // A corrected list on the same date keeps the status before the first one.
+    let corrected = Banlist::parse(
+        r#"{"format": "md", "effective": "2026-11-01", "cards": [
+            {"id": 1001, "name": "Forge Golem", "limit": 2},
+            {"id": 1005, "name": "Laboratory Lockdown", "limit": 1}]}"#,
+    )
+    .unwrap();
+    store.set_banlist(&corrected).unwrap();
+    let changes: Vec<(u32, Option<String>, Option<String>)> =
+        store.ban_changes(Some("md")).unwrap().into_iter().map(|c| (c.id, c.before, c.after)).collect();
+    assert_eq!(changes, [(1001, s("Forbidden"), s("Semi-Limited"))], "1003 and 1005 are back as they were");
+}
+
+#[test]
+fn card_updates_carry_lists_and_history_over() {
+    let dir = std::env::temp_dir().join(format!("duelforge-carry-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let old_path = dir.join("cards.db");
+    let new_path = dir.join("cards.db.new");
+    let _ = std::fs::remove_file(&old_path);
+    let _ = std::fs::remove_file(&new_path);
+
+    let mut old = CardStore::open(&old_path).unwrap();
+    old.replace_all(&import::parse_cardinfo(SAMPLE.as_bytes()).unwrap(), "v1").unwrap();
+    let list = |date: &str, limit: u8| {
+        Banlist::parse(&format!(
+            r#"{{"format": "md", "effective": "{date}", "cards": [{{"id": 1001, "name": "Forge Golem", "limit": {limit}}}]}}"#
+        ))
+        .unwrap()
+    };
+    old.set_banlist(&list("2026-10-06", 0)).unwrap();
+    old.set_banlist(&list("2026-11-01", 1)).unwrap();
+    drop(old);
+
+    // The next card data: Anvil of Sparks unlimited in TCG, Forge Titan forbidden in OCG.
+    let mut cards = import::parse_cardinfo(SAMPLE.as_bytes()).unwrap();
+    for c in &mut cards {
+        match c.id {
+            1004 => c.ban_tcg = None,
+            1003 => c.ban_ocg = Some("Forbidden".into()),
+            _ => {}
+        }
+    }
+    let mut new = CardStore::open(&new_path).unwrap();
+    new.replace_all(&cards, "v2").unwrap();
+    new.carry_over(&old_path, "2026-11-05").unwrap();
+
+    assert_eq!(new.banlist_date("md").as_deref(), Some("2026-11-01"));
+    assert_eq!(new.get_many(&[1001]).unwrap()[0].ban_md.as_deref(), Some("Limited"));
+    let change = |format: &str, id, date: &str, before: Option<&str>, after: Option<&str>| BanChange {
+        format: format.into(),
+        id,
+        date: date.into(),
+        before: before.map(str::to_owned),
+        after: after.map(str::to_owned),
+    };
+    assert_eq!(
+        new.ban_changes(None).unwrap(),
+        [
+            change("ocg", 1003, "2026-11-05", None, Some("Forbidden")),
+            change("tcg", 1004, "2026-11-05", Some("Limited"), None),
+            change("md", 1001, "2026-11-01", Some("Forbidden"), Some("Limited")),
+        ]
+    );
+    // Applying the same Master Duel list again, as the app does on opening, adds nothing.
+    new.set_banlist(&list("2026-11-01", 1)).unwrap();
+    assert_eq!(new.ban_changes(Some("md")).unwrap().len(), 1);
+    drop(new);
+    std::fs::remove_dir_all(&dir).unwrap();
 }
 
 #[test]
