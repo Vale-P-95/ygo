@@ -57,9 +57,10 @@ fn the_invoked_deck_links_aleister_invocation_and_the_invoked() {
     let ash = map.cards.iter().find(|c| c.code == code("Ash Blossom & Joyous Spring")).expect("Ash");
     assert_eq!((ash.reach, ash.reach_all), (0, 0));
     assert!(ash.chance > 0.3 && ash.chance < 0.4, "{ash:?}");
-    // The chances are measured on the hands searched, not every card at
-    // 99%: a turn cannot follow every link at once.
-    assert!(map.cards.iter().all(|c| c.measured), "{:?}", map.cards);
+    // The chances are measured on the hands searched (a card held in every
+    // hand keeps the draft's), not every card at 99%: a turn cannot follow
+    // every link at once.
+    assert!(map.cards.iter().filter(|c| c.extra).all(|c| c.measured), "{:?}", map.cards);
     assert!(map.cards.iter().filter(|c| c.chance >= 0.99).count() < 3, "{:?}", map.cards);
     assert!(map.cards.iter().all(|c| c.reach_all >= c.reach), "{:?}", map.cards);
     // Negating Aleister loses cards reached; negating a handtrap loses none.

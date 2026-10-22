@@ -725,12 +725,13 @@ export interface LinkCard {
   reach: number;
   reachAll: number;
   /**
-   * Exact chance that an opening hand of 5 holds it or a card that brings it into play in any number of steps
-   * (one card is enough: optimistic when a link needs more). For an Extra Deck monster no card names as material,
-   * the share of the hands searched whose best line summons it (`measured`).
+   * Chance that an opening hand of 5 brings it into play: holds it, or its best line adds it to the hand or puts it on the
+   * field. Holding it is exact; the rest is measured on the hands searched (an Extra Deck monster is all measured), so it
+   * accounts for what one turn can do (one Normal Summon, once-per-turn effects). In the draft, before any hand is
+   * searched: a hand holding it or a card that brings it in one step.
    */
   chance: number;
-  /** `chance` is measured, not exact: show it as an estimate. Always sent by the backend. */
+  /** `chance` is measured on the hands searched (an estimate, ±0.05 or so), not the draft's. Always sent by the backend. */
   measured?: boolean;
   /** Cards an opening hand reaches on average (sum of the chances) that are lost when this card's effects are negated: the key cards of the deck. */
   key: number;

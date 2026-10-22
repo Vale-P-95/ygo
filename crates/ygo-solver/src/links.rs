@@ -116,16 +116,18 @@ pub struct LinkCard {
     /// the Extra Deck: getting back a card already used brings no new one).
     pub reach: u32,
     pub reach_all: u32,
-    /// Chance that an opening hand of 5 holds it or a card that brings it
-    /// into play in any number of steps. For an Extra Deck monster no card
-    /// names (summoned with any materials), the share of the hands searched
-    /// whose best line summons it.
+    /// Chance that an opening hand of 5 brings it into play: holds it, or
+    /// its best line adds it to the hand or puts it on the field. Holding
+    /// it is exact; the rest is measured on the hands searched, each
+    /// weighted back to its chance in a real duel (an Extra Deck monster
+    /// is all measured). In the draft, before any hand is searched: a hand
+    /// holding it or a card that brings it in one step.
     pub chance: f64,
-    /// `chance` is that share, measured and not exact.
+    /// `chance` is measured on the hands searched, not the draft's.
     pub measured: bool,
-    /// Cards an opening hand reaches on average (the sum of the chances)
-    /// that are lost when this card's effects are negated: how much the
-    /// deck leans on it.
+    /// Cards an opening hand reaches on average that are lost when this
+    /// card's effects are negated (its links followed in any number of
+    /// steps, the earlier chance): how much the deck leans on it.
     pub key: f64,
 }
 
@@ -226,6 +228,10 @@ impl Default for LinksBudget {
         }
     }
 }
+
+/// Hands of each card drawn with one seed for all the cards (see
+/// [`deck_links_again`]).
+const SHARED_HANDS: usize = 2;
 
 /// A link seen in a line: from, to, kind, where `to` came from.
 type Key = (u32, u32, LinkKind, Zone);
@@ -345,11 +351,21 @@ pub fn deck_links_again(
     let mut per_card: Vec<Vec<Vec<u32>>> = Vec::new();
     for card in cards.iter().filter(|c| !c.extra) {
         let Some(&copy) = deck.main.iter().find(|&&c| db.canonical_code(c) == card.code) else { continue };
-        // A seed of its own for each card: with one seed for all, the
-        // other four cards were drawn at the same places of the deck, and
-        // most hands of the map were the same hand but one card.
+        // The first hands with one seed for all the cards: the other four
+        // cards are drawn at the same places of the deck, so most of these
+        // hands are the same hand but one card. They are kept, as the links
+        // read from them; the next hands, drawn with a seed of each card's
+        // own, make the chance measured on all of them close to that of
+        // hands drawn at random.
+        let shared = budget.hands_per_card.min(SHARED_HANDS);
+        let mut sampled: Vec<Vec<u32>> = sample_hands(&deck.main, copy, shared, seed).into_iter().map(|(hand, _)| hand).collect();
         let own = seed.wrapping_add(u64::from(card.code).wrapping_mul(7919));
-        per_card.push(sample_hands(&deck.main, copy, budget.hands_per_card, own).into_iter().map(|(hand, _)| hand).collect());
+        for (hand, _) in sample_hands(&deck.main, copy, budget.hands_per_card + shared, own) {
+            if sampled.len() < budget.hands_per_card && !sampled.contains(&hand) {
+                sampled.push(hand);
+            }
+        }
+        per_card.push(sampled);
     }
     // The hands kept from before: their cards still in the deck, their
     // lines using none taken out.

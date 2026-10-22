@@ -1,55 +1,52 @@
 {
- "deck": "tests/fixtures/decks/invoked-siracusa-md.ydk",
- "hands": 30,
- "lines": 600,
  "cards": [
   {
-   "chance": 0.8506401137980085,
+   "chance": 0.9050413839797709,
    "code": 86120751,
    "copies": 3,
    "extra": false,
-   "key": 0.18858737279790105,
-   "measured": false,
+   "key": 0.31633657949447525,
+   "measured": true,
    "reach": 8,
    "reachAll": 12
   },
   {
-   "chance": 0.7417797352007878,
+   "chance": 0.5311057796437914,
    "code": 57294268,
    "copies": 3,
    "extra": false,
-   "key": 0.056187766714078435,
-   "measured": false,
+   "key": 0.10148812780392547,
+   "measured": true,
    "reach": 5,
    "reachAll": 12
   },
   {
-   "chance": 0.5771236823868402,
+   "chance": 0.6050782466521333,
    "code": 84288367,
    "copies": 3,
    "extra": false,
-   "key": 0.8663329321224076,
-   "measured": false,
+   "key": 0.9940821388189818,
+   "measured": true,
    "reach": 11,
    "reachAll": 14
   },
   {
-   "chance": 0.9980440967283073,
+   "chance": 0.3692193800403225,
    "code": 10673071,
    "copies": 1,
    "extra": false,
-   "key": 0.23153517890359865,
-   "measured": false,
+   "key": 0.21003999951368257,
+   "measured": true,
    "reach": 2,
    "reachAll": 11
   },
   {
-   "chance": 0.125,
+   "chance": 0.2221258671952428,
    "code": 875572,
    "copies": 1,
    "extra": false,
-   "key": 0.26303935514461685,
-   "measured": false,
+   "key": 0.2748933143669987,
+   "measured": true,
    "reach": 11,
    "reachAll": 14
   },
@@ -59,7 +56,7 @@
    "copies": 2,
    "extra": false,
    "key": 0.0,
-   "measured": false,
+   "measured": true,
    "reach": 0,
    "reachAll": 0
   },
@@ -69,7 +66,7 @@
    "copies": 3,
    "extra": false,
    "key": 0.0,
-   "measured": false,
+   "measured": true,
    "reach": 0,
    "reachAll": 0
   },
@@ -79,7 +76,7 @@
    "copies": 2,
    "extra": false,
    "key": 0.0,
-   "measured": false,
+   "measured": true,
    "reach": 0,
    "reachAll": 0
   },
@@ -89,7 +86,7 @@
    "copies": 3,
    "extra": false,
    "key": 0.0,
-   "measured": false,
+   "measured": true,
    "reach": 0,
    "reachAll": 0
   },
@@ -99,27 +96,27 @@
    "copies": 2,
    "extra": false,
    "key": 0.0,
-   "measured": false,
+   "measured": true,
    "reach": 0,
    "reachAll": 0
   },
   {
-   "chance": 0.9980440967283073,
+   "chance": 0.6974592513851308,
    "code": 74063034,
    "copies": 2,
    "extra": false,
-   "key": 0.028686581318154936,
-   "measured": false,
+   "key": 0.053244033507198196,
+   "measured": true,
    "reach": 10,
    "reachAll": 12
   },
   {
-   "chance": 0.9980440967283073,
+   "chance": 0.6711016167965269,
    "code": 37432075,
    "copies": 3,
    "extra": false,
-   "key": 0.05150545282123531,
-   "measured": false,
+   "key": 0.09303078382026442,
+   "measured": true,
    "reach": 12,
    "reachAll": 13
   },
@@ -128,8 +125,8 @@
    "code": 63926180,
    "copies": 3,
    "extra": false,
-   "key": 0.569277273224639,
-   "measured": false,
+   "key": 0.6145776343144824,
+   "measured": true,
    "reach": 3,
    "reachAll": 15
   },
@@ -138,8 +135,8 @@
    "code": 47679935,
    "copies": 3,
    "extra": false,
-   "key": 0.16504814531129952,
-   "measured": false,
+   "key": 0.21034850640114655,
+   "measured": true,
    "reach": 1,
    "reachAll": 13
   },
@@ -148,18 +145,18 @@
    "code": 48130397,
    "copies": 2,
    "extra": false,
-   "key": 0.031294452347079726,
-   "measured": false,
-   "reach": 1,
-   "reachAll": 12
+   "key": 0.0,
+   "measured": true,
+   "reach": 0,
+   "reachAll": 0
   },
   {
    "chance": 0.33755060728744934,
    "code": 76334960,
    "copies": 3,
    "extra": false,
-   "key": 0.056187766714078435,
-   "measured": false,
+   "key": 0.10148812780392547,
+   "measured": true,
    "reach": 19,
    "reachAll": 23
   },
@@ -169,97 +166,97 @@
    "copies": 1,
    "extra": false,
    "key": 0.0,
-   "measured": false,
+   "measured": true,
    "reach": 0,
    "reachAll": 0
   },
   {
-   "chance": 0.9980440967283073,
+   "chance": 0.0,
    "code": 33166263,
    "copies": 2,
    "extra": true,
    "key": 0.0,
-   "measured": false,
+   "measured": true,
    "reach": 1,
    "reachAll": 1
   },
   {
-   "chance": 0.9980440967283073,
+   "chance": 0.7247121940315189,
    "code": 43989315,
    "copies": 1,
    "extra": true,
    "key": 0.0,
-   "measured": false,
+   "measured": true,
    "reach": 16,
    "reachAll": 20
   },
   {
-   "chance": 0.9980440967283073,
+   "chance": 0.28512350508550344,
    "code": 70383419,
    "copies": 1,
    "extra": true,
-   "key": 1.0527045263887338,
-   "measured": false,
+   "key": 1.0240179450705753,
+   "measured": true,
    "reach": 2,
    "reachAll": 11
   },
   {
-   "chance": 0.9980440967283073,
+   "chance": 0.07276181960433663,
    "code": 6772168,
    "copies": 1,
    "extra": true,
    "key": 0.0,
-   "measured": false,
+   "measured": true,
    "reach": 1,
    "reachAll": 1
   },
   {
-   "chance": 0.9980440967283073,
+   "chance": 0.040236950933273716,
    "code": 11270236,
    "copies": 1,
    "extra": true,
    "key": 0.0,
-   "measured": false,
+   "measured": true,
    "reach": 0,
    "reachAll": 0
   },
   {
-   "chance": 0.9980440967283073,
+   "chance": 0.2870235833240192,
    "code": 97300502,
    "copies": 1,
    "extra": true,
    "key": 0.0,
-   "measured": false,
+   "measured": true,
    "reach": 1,
    "reachAll": 1
   },
   {
-   "chance": 0.9980440967283073,
+   "chance": 0.16228903543087064,
    "code": 13529466,
    "copies": 1,
    "extra": true,
    "key": 0.0,
-   "measured": false,
+   "measured": true,
    "reach": 1,
    "reachAll": 1
   },
   {
-   "chance": 0.9980440967283073,
+   "chance": 0.28702358332401917,
    "code": 75286621,
    "copies": 1,
    "extra": true,
    "key": 0.0,
-   "measured": false,
+   "measured": true,
    "reach": 1,
    "reachAll": 1
   },
   {
-   "chance": 0.9980440967283073,
+   "chance": 0.5153682798703476,
    "code": 49513164,
    "copies": 1,
    "extra": true,
    "key": 0.0,
-   "measured": false,
+   "measured": true,
    "reach": 1,
    "reachAll": 1
   },
@@ -274,7 +271,7 @@
    "reachAll": 0
   },
   {
-   "chance": 0.36666666666666664,
+   "chance": 0.3441376997876383,
    "code": 29301450,
    "copies": 1,
    "extra": true,
@@ -284,27 +281,27 @@
    "reachAll": 0
   },
   {
-   "chance": 0.125,
+   "chance": 0.7645020677322006,
    "code": 34755994,
    "copies": 1,
    "extra": true,
    "key": 0.0,
-   "measured": false,
+   "measured": true,
    "reach": 1,
    "reachAll": 14
   },
   {
-   "chance": 0.125,
+   "chance": 0.06572035319101373,
    "code": 20714553,
    "copies": 1,
    "extra": true,
    "key": 0.0,
-   "measured": false,
+   "measured": true,
    "reach": 0,
    "reachAll": 0
   },
   {
-   "chance": 0.0,
+   "chance": 0.04694310942215268,
    "code": 97973962,
    "copies": 1,
    "extra": true,
@@ -314,6 +311,9 @@
    "reachAll": 12
   }
  ],
+ "deck": "tests/fixtures/decks/invoked-siracusa-md.ydk",
+ "hands": 26,
+ "lines": 520,
  "links": [
   {
    "from": 875572,
@@ -321,13 +321,13 @@
    "possible": true,
    "text": true,
    "to": 6772168,
-   "used": 0.035,
+   "used": 0.0,
    "zone": "extra"
   },
   {
    "from": 875572,
    "kind": "summon",
-   "possible": false,
+   "possible": true,
    "text": true,
    "to": 11270236,
    "used": 0.0,
@@ -339,7 +339,7 @@
    "possible": true,
    "text": true,
    "to": 13529466,
-   "used": 0.008333333333333333,
+   "used": 0.023076923076923078,
    "zone": "extra"
   },
   {
@@ -375,7 +375,7 @@
    "possible": true,
    "text": true,
    "to": 43989315,
-   "used": 0.235,
+   "used": 0.22884615384615384,
    "zone": "extra"
   },
   {
@@ -384,13 +384,13 @@
    "possible": true,
    "text": true,
    "to": 49513164,
-   "used": 0.385,
+   "used": 0.3403846153846154,
    "zone": "extra"
   },
   {
    "from": 875572,
    "kind": "summon",
-   "possible": false,
+   "possible": true,
    "text": true,
    "to": 70383419,
    "used": 0.0,
@@ -399,16 +399,16 @@
   {
    "from": 875572,
    "kind": "summon",
-   "possible": false,
+   "possible": true,
    "text": true,
    "to": 75286621,
-   "used": 0.0,
+   "used": 0.03076923076923077,
    "zone": "extra"
   },
   {
    "from": 875572,
    "kind": "summon",
-   "possible": false,
+   "possible": true,
    "text": true,
    "to": 97300502,
    "used": 0.0,
@@ -420,7 +420,7 @@
    "possible": true,
    "text": true,
    "to": 11270236,
-   "used": 0.0033333333333333335,
+   "used": 0.0038461538461538464,
    "zone": "extra"
   },
   {
@@ -429,7 +429,7 @@
    "possible": true,
    "text": false,
    "to": 37432075,
-   "used": 0.135,
+   "used": 0.15384615384615385,
    "zone": "deck"
   },
   {
@@ -438,7 +438,7 @@
    "possible": true,
    "text": true,
    "to": 74063034,
-   "used": 0.06333333333333334,
+   "used": 0.05384615384615385,
    "zone": "deck"
   },
   {
@@ -462,10 +462,10 @@
   {
    "from": 34755994,
    "kind": "search",
-   "possible": false,
+   "possible": true,
    "text": true,
    "to": 875572,
-   "used": 0.0,
+   "used": 0.03076923076923077,
    "zone": "deck"
   },
   {
@@ -474,7 +474,7 @@
    "possible": true,
    "text": false,
    "to": 6772168,
-   "used": 0.02,
+   "used": 0.019230769230769232,
    "zone": "extra"
   },
   {
@@ -483,7 +483,7 @@
    "possible": true,
    "text": false,
    "to": 11270236,
-   "used": 0.025,
+   "used": 0.04423076923076923,
    "zone": "extra"
   },
   {
@@ -492,7 +492,7 @@
    "possible": true,
    "text": false,
    "to": 13529466,
-   "used": 0.03666666666666667,
+   "used": 0.05576923076923077,
    "zone": "extra"
   },
   {
@@ -510,7 +510,7 @@
    "possible": true,
    "text": false,
    "to": 43989315,
-   "used": 0.13333333333333333,
+   "used": 0.19038461538461537,
    "zone": "extra"
   },
   {
@@ -519,7 +519,7 @@
    "possible": true,
    "text": false,
    "to": 49513164,
-   "used": 0.03166666666666667,
+   "used": 0.03653846153846154,
    "zone": "extra"
   },
   {
@@ -528,7 +528,7 @@
    "possible": true,
    "text": false,
    "to": 70383419,
-   "used": 0.06666666666666667,
+   "used": 0.07692307692307693,
    "zone": "extra"
   },
   {
@@ -537,7 +537,7 @@
    "possible": true,
    "text": false,
    "to": 75286621,
-   "used": 0.08166666666666667,
+   "used": 0.046153846153846156,
    "zone": "extra"
   },
   {
@@ -546,7 +546,7 @@
    "possible": true,
    "text": false,
    "to": 97300502,
-   "used": 0.051666666666666666,
+   "used": 0.05384615384615385,
    "zone": "extra"
   },
   {
@@ -555,7 +555,7 @@
    "possible": true,
    "text": false,
    "to": 57294268,
-   "used": 0.09666666666666666,
+   "used": 0.10961538461538461,
    "zone": "grave"
   },
   {
@@ -564,7 +564,7 @@
    "possible": true,
    "text": false,
    "to": 74063034,
-   "used": 0.08166666666666667,
+   "used": 0.11730769230769231,
    "zone": "grave"
   },
   {
@@ -573,7 +573,7 @@
    "possible": true,
    "text": false,
    "to": 86120751,
-   "used": 0.09,
+   "used": 0.08653846153846154,
    "zone": "grave"
   },
   {
@@ -582,7 +582,7 @@
    "possible": true,
    "text": false,
    "to": 875572,
-   "used": 0.15666666666666668,
+   "used": 0.18269230769230768,
    "zone": "grave"
   },
   {
@@ -609,7 +609,7 @@
    "possible": true,
    "text": true,
    "to": 11270236,
-   "used": 0.005,
+   "used": 0.013461538461538462,
    "zone": "extra"
   },
   {
@@ -627,7 +627,7 @@
    "possible": true,
    "text": false,
    "to": 14558127,
-   "used": 0.07333333333333333,
+   "used": 0.026923076923076925,
    "zone": "grave"
   },
   {
@@ -645,7 +645,7 @@
    "possible": true,
    "text": false,
    "to": 42141493,
-   "used": 0.01,
+   "used": 0.013461538461538462,
    "zone": "grave"
   },
   {
@@ -654,7 +654,7 @@
    "possible": true,
    "text": false,
    "to": 45223540,
-   "used": 0.013333333333333334,
+   "used": 0.021153846153846155,
    "zone": "grave"
   },
   {
@@ -663,7 +663,7 @@
    "possible": true,
    "text": true,
    "to": 49513164,
-   "used": 0.02,
+   "used": 0.0,
    "zone": "extra"
   },
   {
@@ -672,7 +672,7 @@
    "possible": true,
    "text": false,
    "to": 57294268,
-   "used": 0.08833333333333333,
+   "used": 0.10576923076923077,
    "zone": "grave"
   },
   {
@@ -681,7 +681,7 @@
    "possible": true,
    "text": true,
    "to": 70383419,
-   "used": 0.115,
+   "used": 0.16346153846153846,
    "zone": "extra"
   },
   {
@@ -690,7 +690,7 @@
    "possible": true,
    "text": true,
    "to": 75286621,
-   "used": 0.06833333333333333,
+   "used": 0.075,
    "zone": "extra"
   },
   {
@@ -699,7 +699,7 @@
    "possible": true,
    "text": false,
    "to": 86120751,
-   "used": 0.13333333333333333,
+   "used": 0.19423076923076923,
    "zone": "grave"
   },
   {
@@ -708,7 +708,7 @@
    "possible": true,
    "text": false,
    "to": 94145021,
-   "used": 0.10166666666666667,
+   "used": 0.09423076923076923,
    "zone": "grave"
   },
   {
@@ -717,7 +717,7 @@
    "possible": true,
    "text": true,
    "to": 97300502,
-   "used": 0.06666666666666667,
+   "used": 0.05384615384615385,
    "zone": "extra"
   },
   {
@@ -726,7 +726,7 @@
    "possible": true,
    "text": true,
    "to": 11270236,
-   "used": 0.005,
+   "used": 0.013461538461538462,
    "zone": "extra"
   },
   {
@@ -735,17 +735,8 @@
    "possible": true,
    "text": true,
    "to": 86120751,
-   "used": 0.06666666666666667,
+   "used": 0.1326923076923077,
    "zone": "deck"
-  },
-  {
-   "from": 48130397,
-   "kind": "summon",
-   "possible": true,
-   "text": false,
-   "to": 70383419,
-   "used": 0.005,
-   "zone": "extra"
   },
   {
    "from": 49513164,
@@ -753,7 +744,7 @@
    "possible": true,
    "text": true,
    "to": 11270236,
-   "used": 0.085,
+   "used": 0.11346153846153846,
    "zone": "extra"
   },
   {
@@ -762,7 +753,7 @@
    "possible": true,
    "text": false,
    "to": 37432075,
-   "used": 0.42,
+   "used": 0.475,
    "zone": "deck"
   },
   {
@@ -771,7 +762,7 @@
    "possible": true,
    "text": true,
    "to": 74063034,
-   "used": 0.22,
+   "used": 0.07692307692307693,
    "zone": "deck"
   },
   {
@@ -780,7 +771,7 @@
    "possible": true,
    "text": true,
    "to": 6772168,
-   "used": 0.125,
+   "used": 0.075,
    "zone": "extra"
   },
   {
@@ -789,7 +780,7 @@
    "possible": true,
    "text": true,
    "to": 43989315,
-   "used": 0.24166666666666667,
+   "used": 0.2653846153846154,
    "zone": "extra"
   },
   {
@@ -798,7 +789,7 @@
    "possible": true,
    "text": true,
    "to": 70383419,
-   "used": 0.20333333333333334,
+   "used": 0.17307692307692307,
    "zone": "extra"
   },
   {
@@ -807,7 +798,7 @@
    "possible": true,
    "text": true,
    "to": 84288367,
-   "used": 0.06666666666666667,
+   "used": 0.15384615384615385,
    "zone": "deck"
   },
   {
@@ -834,7 +825,7 @@
    "possible": true,
    "text": true,
    "to": 10673071,
-   "used": 0.2733333333333333,
+   "used": 0.25769230769230766,
    "zone": "deck"
   },
   {
@@ -843,7 +834,7 @@
    "possible": true,
    "text": true,
    "to": 11270236,
-   "used": 0.0016666666666666668,
+   "used": 0.0019230769230769232,
    "zone": "extra"
   },
   {
@@ -852,7 +843,7 @@
    "possible": true,
    "text": false,
    "to": 6772168,
-   "used": 0.105,
+   "used": 0.11153846153846154,
    "zone": "extra"
   },
   {
@@ -861,7 +852,7 @@
    "possible": true,
    "text": false,
    "to": 11270236,
-   "used": 0.0033333333333333335,
+   "used": 0.0038461538461538464,
    "zone": "extra"
   },
   {
@@ -870,7 +861,7 @@
    "possible": true,
    "text": false,
    "to": 13529466,
-   "used": 0.09666666666666666,
+   "used": 0.14038461538461539,
    "zone": "extra"
   },
   {
@@ -879,7 +870,7 @@
    "possible": true,
    "text": false,
    "to": 33166263,
-   "used": 0.008333333333333333,
+   "used": 0.009615384615384616,
    "zone": "extra"
   },
   {
@@ -888,7 +879,7 @@
    "possible": true,
    "text": false,
    "to": 43989315,
-   "used": 0.125,
+   "used": 0.07884615384615384,
    "zone": "extra"
   },
   {
@@ -897,7 +888,7 @@
    "possible": true,
    "text": false,
    "to": 49513164,
-   "used": 0.0033333333333333335,
+   "used": 0.0038461538461538464,
    "zone": "extra"
   },
   {
@@ -906,7 +897,7 @@
    "possible": true,
    "text": false,
    "to": 70383419,
-   "used": 0.07333333333333333,
+   "used": 0.06153846153846154,
    "zone": "extra"
   },
   {
@@ -915,7 +906,7 @@
    "possible": true,
    "text": false,
    "to": 75286621,
-   "used": 0.04833333333333333,
+   "used": 0.11538461538461539,
    "zone": "extra"
   },
   {
@@ -924,7 +915,7 @@
    "possible": true,
    "text": false,
    "to": 97300502,
-   "used": 0.03833333333333333,
+   "used": 0.057692307692307696,
    "zone": "extra"
   },
   {
@@ -933,7 +924,7 @@
    "possible": true,
    "text": false,
    "to": 86120751,
-   "used": 0.10166666666666667,
+   "used": 0.1423076923076923,
    "zone": "banished"
   },
   {
@@ -942,7 +933,7 @@
    "possible": true,
    "text": true,
    "to": 11270236,
-   "used": 0.0016666666666666668,
+   "used": 0.0057692307692307696,
    "zone": "extra"
   },
   {
@@ -951,7 +942,7 @@
    "possible": true,
    "text": true,
    "to": 6772168,
-   "used": 0.0033333333333333335,
+   "used": 0.013461538461538462,
    "zone": "extra"
   },
   {
@@ -969,7 +960,7 @@
    "possible": true,
    "text": true,
    "to": 13529466,
-   "used": 0.021666666666666667,
+   "used": 0.007692307692307693,
    "zone": "extra"
   },
   {
@@ -987,7 +978,7 @@
    "possible": true,
    "text": true,
    "to": 43989315,
-   "used": 0.11166666666666666,
+   "used": 0.14038461538461539,
    "zone": "extra"
   },
   {
@@ -996,7 +987,7 @@
    "possible": true,
    "text": true,
    "to": 49513164,
-   "used": 0.09,
+   "used": 0.11538461538461539,
    "zone": "extra"
   },
   {
@@ -1005,7 +996,7 @@
    "possible": true,
    "text": true,
    "to": 70383419,
-   "used": 0.05,
+   "used": 0.0038461538461538464,
    "zone": "extra"
   },
   {
@@ -1014,7 +1005,7 @@
    "possible": true,
    "text": true,
    "to": 75286621,
-   "used": 0.085,
+   "used": 0.10961538461538461,
    "zone": "extra"
   },
   {
@@ -1023,7 +1014,7 @@
    "possible": true,
    "text": true,
    "to": 97300502,
-   "used": 0.045,
+   "used": 0.051923076923076926,
    "zone": "extra"
   },
   {
@@ -1122,7 +1113,7 @@
    "possible": true,
    "text": true,
    "to": 57294268,
-   "used": 0.24833333333333332,
+   "used": 0.19423076923076923,
    "zone": "deck"
   },
   {
@@ -1131,7 +1122,7 @@
    "possible": true,
    "text": true,
    "to": 86120751,
-   "used": 0.5933333333333334,
+   "used": 0.5923076923076923,
    "zone": "deck"
   },
   {
@@ -1149,7 +1140,7 @@
    "possible": true,
    "text": true,
    "to": 11270236,
-   "used": 0.055,
+   "used": 0.06346153846153846,
    "zone": "extra"
   },
   {
@@ -1158,7 +1149,7 @@
    "possible": true,
    "text": true,
    "to": 13529466,
-   "used": 0.008333333333333333,
+   "used": 0.015384615384615385,
    "zone": "extra"
   },
   {
@@ -1176,7 +1167,7 @@
    "possible": true,
    "text": true,
    "to": 43989315,
-   "used": 0.0033333333333333335,
+   "used": 0.0038461538461538464,
    "zone": "extra"
   },
   {
@@ -1185,7 +1176,7 @@
    "possible": true,
    "text": true,
    "to": 49513164,
-   "used": 0.011666666666666667,
+   "used": 0.013461538461538462,
    "zone": "extra"
   },
   {
@@ -1212,7 +1203,7 @@
    "possible": true,
    "text": true,
    "to": 97300502,
-   "used": 0.0033333333333333335,
+   "used": 0.0038461538461538464,
    "zone": "extra"
   },
   {
@@ -1221,7 +1212,7 @@
    "possible": true,
    "text": true,
    "to": 74063034,
-   "used": 0.3,
+   "used": 0.475,
    "zone": "deck"
   },
   {
@@ -1230,7 +1221,7 @@
    "possible": true,
    "text": true,
    "to": 6772168,
-   "used": 0.041666666666666664,
+   "used": 0.07115384615384615,
    "zone": "extra"
   },
   {
@@ -1239,7 +1230,7 @@
    "possible": true,
    "text": true,
    "to": 13529466,
-   "used": 0.17,
+   "used": 0.22692307692307692,
    "zone": "extra"
   },
   {
@@ -1248,7 +1239,7 @@
    "possible": true,
    "text": true,
    "to": 43989315,
-   "used": 0.21166666666666667,
+   "used": 0.2,
    "zone": "extra"
   },
   {
@@ -1257,7 +1248,7 @@
    "possible": true,
    "text": true,
    "to": 49513164,
-   "used": 0.26166666666666666,
+   "used": 0.24807692307692308,
    "zone": "extra"
   },
   {
@@ -1266,7 +1257,7 @@
    "possible": true,
    "text": true,
    "to": 70383419,
-   "used": 0.10166666666666667,
+   "used": 0.13076923076923078,
    "zone": "extra"
   },
   {
@@ -1275,7 +1266,7 @@
    "possible": true,
    "text": true,
    "to": 75286621,
-   "used": 0.255,
+   "used": 0.3230769230769231,
    "zone": "extra"
   },
   {
@@ -1284,7 +1275,7 @@
    "possible": true,
    "text": true,
    "to": 97300502,
-   "used": 0.19166666666666668,
+   "used": 0.20576923076923076,
    "zone": "extra"
   },
   {
@@ -1302,7 +1293,7 @@
    "possible": true,
    "text": true,
    "to": 74063034,
-   "used": 0.0033333333333333335,
+   "used": 0.0019230769230769232,
    "zone": "deck"
   },
   {
@@ -1311,7 +1302,7 @@
    "possible": true,
    "text": true,
    "to": 6772168,
-   "used": 0.0033333333333333335,
+   "used": 0.0057692307692307696,
    "zone": "extra"
   },
   {
@@ -1320,7 +1311,7 @@
    "possible": true,
    "text": true,
    "to": 13529466,
-   "used": 0.0,
+   "used": 0.015384615384615385,
    "zone": "extra"
   },
   {
@@ -1347,7 +1338,7 @@
    "possible": true,
    "text": true,
    "to": 70383419,
-   "used": 0.005,
+   "used": 0.0019230769230769232,
    "zone": "extra"
   },
   {
@@ -1356,7 +1347,7 @@
    "possible": true,
    "text": true,
    "to": 75286621,
-   "used": 0.02,
+   "used": 0.013461538461538462,
    "zone": "extra"
   },
   {
@@ -1365,7 +1356,7 @@
    "possible": true,
    "text": true,
    "to": 97300502,
-   "used": 0.013333333333333334,
+   "used": 0.015384615384615385,
    "zone": "extra"
   }
  ]

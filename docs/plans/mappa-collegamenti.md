@@ -186,3 +186,79 @@ Approvato dal proprietario come ultimo pezzo della mappa: cosa cambia sostituend
     - Quelli di D/D/D che restano sono veri: effetti d'archetipo con condizioni che nelle mani provate non si verificano (Gilgamesh distrutto: «Special Summon 1 "D/D" monster from your Extra Deck or GY»);
   - **Maliss:** solo 13 collegamenti su 29 carte, ma è corretto. La lista ha quasi solo Phantom Knights e Ignister (di Maliss c'è solo Maliss in Underground), 13 handtrap e Magie generiche, e mostri Link con materiali generici che nessun testo nomina.
 
+
+## Probabilità misurata sulle mani cercate (22/10/2026, corsia 6)
+`chance` seguiva i collegamenti in un numero qualunque di passi. Così ignorava le risorse del turno: una sola Evocazione Normale, gli effetti «una volta per turno», le carte spese lungo il percorso. Era un limite superiore e si saturava. Ora è misurata sulle mani che la mappa cerca già.
+
+### Come ho misurato la verità
+- `duelforge-cli links --deck <d> --truth 200 --json <file>`: 200 mani iniziali di 5 a caso (seed fisso), cercate come la mappa (1000 nodi, 15 s, stesso kit avversario), con le linee migliori rigiocate.
+- Una carta è «portata in gioco» se la linea migliore la tiene in mano dall'inizio, la aggiunge alla mano o la mette sul campo (Evocata, posizionata, coperta). La verità di una carta è la quota delle 200 mani in cui succede.
+- Rumore della verità: confrontando metà delle mani con l'altra metà, circa 0,03 di errore medio. Sotto quella soglia le varianti non si distinguono.
+- **Prime N linee invece della migliore:** con le prime 3 la quota sale in media di 0,01-0,02, con le prime 20 di 0,04-0,10. Ho tenuto la migliore: è quella che il giocatore gioca.
+- Costo: 90-130 s per deck (318 s per elfnote_kewl_tune) su 4 core.
+- Deck: invoked, snake_eye, elfnote_kewl_tune e psychics (i più saturi della lista di oggi; Vaylantz, Memento e Cyber Dragon non ci sono più), artmage, e branded che non satura. Poi blue_eyes, power_patron, live_twin e code_talker come controllo.
+- `scripts/links_chance.py <cartella>` confronta le varianti con la verità: errore medio, carte sature, carte più sbagliate.
+
+### Errore medio contro la verità
+Carte del Main Deck; tra parentesi le carte con `chance` ≥ 0,99. Nessuna carta della verità arriva a 0,99 su questi 6 deck.
+
+| variante | artmage | branded | elfnote_kewl_tune | invoked | psychics | snake_eye | media |
+|---|---|---|---|---|---|---|---|
+| prima: chiusura in ogni numero di passi | 0,350 (2) | 0,406 (0) | 0,377 (7) | 0,173 (6) | 0,341 (5) | 0,417 (8) | 0,344 |
+| chiusura in 1 passo | 0,133 (0) | 0,125 (0) | 0,173 (0) | 0,048 (0) | 0,187 (0) | 0,156 (0) | 0,137 |
+| chiusura in 2 passi | 0,273 (0) | 0,308 (0) | 0,338 (0) | 0,154 (1) | 0,285 (0) | 0,287 (0) | 0,274 |
+| chiusura in 3 passi | 0,330 (0) | 0,387 (0) | 0,374 (1) | 0,172 (6) | 0,320 (2) | 0,376 (1) | 0,327 |
+| chiusura sui soli collegamenti usati | 0,304 (1) | 0,372 (0) | 0,351 (2) | 0,151 (4) | 0,282 (2) | 0,417 (8) | 0,313 |
+| quota delle mani cercate, pesata | 0,181 (0) | 0,108 (0) | 0,143 (0) | 0,127 (0) | 0,139 (0) | 0,082 (0) | 0,130 |
+| la stessa, prime 3 linee | 0,162 (0) | 0,122 (0) | 0,139 (0) | 0,132 (0) | 0,135 (0) | 0,088 (0) | 0,130 |
+| **tenuta esatta + resto misurato (scelta)** | 0,087 (0) | 0,049 (0) | 0,039 (0) | 0,058 (0) | 0,069 (0) | 0,052 (0) | **0,059** |
+| la stessa, spinta verso la chiusura in 1 passo | 0,085 (0) | 0,048 (0) | 0,040 (0) | 0,055 (0) | 0,069 (0) | 0,052 (0) | 0,058 |
+| la stessa, con sole mani nuove (vedi sotto) | 0,052 (0) | 0,040 (0) | 0,057 (0) | 0,059 (0) | 0,055 (0) | 0,052 (0) | 0,053 |
+
+- Con l'Extra Deck l'errore medio passa da 0,374 a 0,057.
+- **Deck di controllo:** blue_eyes da 0,171 a 0,102, power_patron da 0,172 a 0,077, live_twin da 0,119 a 0,048, code_talker da 0,509 a 0,049.
+- **Le carte più sbagliate prima** erano quelle che il deck *può* portare in gioco ma una mano non porta quasi mai, perché il percorso richiede risorse già usate. Snake-Eye Ash 0,92 contro 0,24 vero; Branded Opening 0,94 contro 0,09; Virakam 1,00 contro 0,28; Gamma Summon 1,00 contro 0,30; Elfnote Fortuna 0,99 contro 0,40.
+- **La chiusura in 1 passo** va bene solo su Invoked, dove i percorsi sono corti. Sugli altri deck sbaglia per eccesso: un collegamento possibile non è un collegamento giocato. In 2 o 3 passi torna verso la saturazione.
+- **La quota misurata da sola** sbaglia sulle carte senza collegamenti, come le handtrap: le poche mani cercate che le tengono pesano troppo. Per questo la tenuta si conta esatta.
+
+### La misura scelta
+- `chance` = probabilità esatta di tenere la carta + (1 − quella) × quota delle mani cercate *senza* la carta la cui linea migliore la porta in gioco. Per un mostro dell'Extra Deck è tutta misurata.
+- **Pesi delle mani.** La mappa cerca mani che contengono una carta data: quella carta più 4 a caso. Una mano così esce tanto più spesso quante copie della carta tiene, diviso le copie nel deck. Su tutte le carte, una mano conta quindi 1 / (somma sulle sue carte di 1 / copie). Con questi pesi le quote sono quelle di mani a caso: c'è un test unitario che lo verifica.
+- **La bozza dal testo**, prima di ogni mano, usa la chiusura in 1 passo: è la migliore tra le chiusure.
+- Ho provato anche a spingere la quota verso la bozza mentre le mani sono poche. Aiuta poco il Main Deck e peggiora l'Extra Deck, dove la bozza è debole. Non l'ho tenuta.
+- Nessun caso per nome di carta: pesi e quote valgono per qualunque deck.
+
+### Le mani della mappa erano quasi tutte uguali
+- `sample_hands` usava lo stesso seed per ogni carta: le altre 4 carte si pescavano negli stessi punti del deck. Ogni mano era «la carta + le stesse 4 carte».
+- Con un seed per carta l'errore scende a 0,053 e la mappa cerca meno mani (982 invece di 1561 sui 41 deck). Però cambiano i collegamenti trovati: 430 persi e 489 nuovi, alcuni molto usati (Junoldo → Medius, usato nel 35% delle linee). Con 4 mani per carta se ne perdono ancora 316.
+- **Compromesso scelto:** le prime 2 mani di ogni carta restano quelle di prima (seed comune), e se ne aggiunge una terza con il seed della carta (`hands_per_card` passa da 2 a 3, anche nella CLI). I collegamenti di prima restano tutti; l'errore è 0,059 invece di 0,053.
+
+### Giro sui 41 deck di Master Duel Meta
+`scripts/links_report.py` prima e dopo, impostazioni di default.
+
+| | prima | dopo |
+|---|---|---|
+| carte del Main Deck con `chance` ≥ 0,99 | 29 | 6 |
+| mostri dell'Extra Deck con `chance` ≥ 0,99 | 20 | 2 |
+| collegamenti | 5135 | 5345 (0 persi, 210 nuovi) |
+| mani cercate | 1561 | 1905 |
+| tempo per deck: media / mediana / massimo | 25,0 / 22,8 / 57,6 s | 30,7 / 27,4 / 63,0 s |
+| deck oltre 60 s (tempo totale del processo) | 0 | 3 |
+
+- Prima erano saturi snake_eye 8, elfnote_kewl_tune 7, invoked 6, psychics 5, artmage 2, doomz 1. Ora nessuno di questi.
+- Restano a ≥ 0,99: power_patron 3 (Jupredo, Vidolium, Junoldo: 0,79-0,85 veri), blue_eyes 1 (Mausoleum of White), code_talker 1 (Salamangreat Sanctuary, satura anche nella verità), live_twin 1 (Fiendsmith Engraver, 0,90 vero), e due mostri dell'Extra Deck. Sono carte davvero molto raggiunte, sopravvalutate di 0,1-0,2 dalle mani a seed comune.
+- **Tempi.** La terza mano costa 6 s in media. I 3 deck oltre i 60 s (earth_machine, ryu_ge, tearlaments) restano tagliati dal tetto della mappa, come prima: le mani in più si saltano per ultime, e i collegamenti delle prime due restano.
+- **Ricerca delle combo invariata:** `combos --json --threads 1 --nodes 4000` sulle mani di `tests/fixtures/hands/bench.tsv` dà le stesse board, linee e misure prima e dopo. Le mani provate sono 12 su 16: le altre 4 usano deck che oggi non sono nella lista (ignister, labrynth, mitsurugi, yummy_mimighoul). In una mano (inv-r2) cambia solo l'ultima cifra decimale di `countered`, l'ordine di una somma. `search.rs` non è toccato.
+
+### Cosa cambia per l'interfaccia
+- Nessun campo nuovo. `chance` ha un significato nuovo, scritto nei commenti di `LinkCard` (`links.rs`, `src-tauri/src/lib.rs`, `api.ts`): «una mano iniziale porta in gioco la carta», non più «la può raggiungere».
+- `measured` ora è vero per quasi tutte le carte appena c'è una mano cercata. L'interfaccia può mostrare tutte le probabilità come stime («circa 45%»), con un margine di ±0,05.
+- La bozza dal testo (`done` 0) ha `measured` falso e la chiusura in 1 passo.
+- Le probabilità si muovono un po' durante l'aggiornamento progressivo: è il rumore delle prime mani.
+
+### Cosa resta aperto
+- `key` (carte chiave) si calcola ancora sulla chiusura in ogni numero di passi. Con la `chance` misurata non si può negare una carta senza cercare di nuovo. Una via: `key` sulla chiusura in 1 passo, da validare come qui.
+- Il confronto tra versioni (`compare_links`) ora vede anche il rumore delle mani: una carta tolta cambia le mani tenute. La soglia `CHANGE` di 0,02 è bassa per la misura nuova; forse 0,05.
+- Mano di 5 e di 6 carte: non fatto. Servirebbe una seconda verità con 6 carte; la misura si estende con la tenuta esatta a 6 e le mani cercate di 6.
+- La verità usa la ricerca a 1000 nodi, come la mappa. Con più nodi la linea migliore cambia un po'; non l'ho misurato.
+- L'errore residuo, circa 0,06 contro 0,03 di rumore della verità, viene dalle poche mani della mappa (27-83 per deck). Più mani lo abbassano lentamente: con sole mani nuove, 0,056 a 2 mani per carta, 0,053 a 3 e 0,051 a 4.
