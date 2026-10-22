@@ -91,3 +91,91 @@ Correlazione di rango (Spearman) con la verità, per gruppo. `score` è il punte
 - Nelle coppie di board dello stesso deck (differenza di verità ≥ 0,02), il punteggio mette prima quella giusta 3 volte su 4 sulla taratura e quasi 9 su 10 sulla verifica.
 - Il livello 1 (resilienza contro i breaker del meta) non aggiunge ordine rispetto al punteggio: ρ 0,73 contro 0,84 sulla taratura.
 - I dati per tarare i pesi sono in `tests/fixtures/boards/objective-bench.json`.
+
+## Le coppie del proprietario nel banco
+- **Script:** `scripts/owner_bench.py`. Ritrova le 90 board di `tests/fixtures/boards/owner-pairs.json` per firma senza zone, con lo stesso cimitero e le stesse bandite, nelle cartelle di `combo_hunt.py --json`. Le rimisura con `main` una alla volta e le mette nel banco con gli stessi avversari e pesi (Lunalight saltato).
+  ```
+  python3 scripts/owner_bench.py $S/owner --own $S/mdm2 --meta-decks $S/mdm6 --meta $S/bench/meta.json --hunt $S/h7m $S/h7bm $S/o1h $S/op_make
+  python3 scripts/objective_bench.py $S/owner --decks $S/owner/decks --hunt - --skip lunalight
+  python3 scripts/owner_bench.py $S/owner --table tests/fixtures/boards/owner-verdicts.tsv --json tests/fixtures/boards/owner-bench.json
+  ```
+- **Board non trovate (14 di 90):**
+  - O2–O7 sono ricostruite dalla firma e non hanno una linea (12 board);
+  - O1b: la linea J21, scritta con una build vecchia, su `main` non si rigioca;
+  - O1a: l'ho ritrovata in una ricerca nuova di `main` sulla stessa mano, ma contro tutti gli avversari fallisce con lo stesso errore della mano 0 di Elfnote Kewl Tune ("SelectChain { chains: [] } answered [1, 0, 0, 0]"). Il difetto non dipende dalla build della linea.
+- **Giro:** 77 board, 532 invocazioni, nessuna oltre il limite, nessuna coppia dubbia, 6,3 ore. 76 board hanno la verità.
+- **Su queste board** la misura generica di oggi segue la verità con ρ 0,83 (taratura 0,84, verifica 0,74). Nelle coppie dello stesso deck l'ordine è giusto 53 volte su 62 e 24 su 25.
+
+### Tabella per coppia
+"Verità" è la quota delle mosse del meta che la board ferma. Le differenze sono B − A: positive se B è meglio. Due board sono pari sotto 0,02 di verità o sotto 0,05 di punteggio.
+
+| Coppia | Deck | Tipo | Proprietario | Verità A | Verità B | B−A | Generica oggi B−A | Punteggio di prima B−A | Note |
+|---|---|---|---|---|---|---|---|---|---|
+| O1 | elfnote_kewl_tune | da confermare | B | — | — | — | — | +0.14 | la linea non rifà più la board: O1b |
+| O2 | branded | da confermare | A | — | — | — | — | — | ricostruite dalla firma: nessuna linea |
+| O3 | elfnote | da confermare | B | — | — | — | — | — | ricostruite dalla firma: nessuna linea |
+| O4 | elfnote_kewl_tune | da confermare | B | — | — | — | — | — | ricostruite dalla firma: nessuna linea |
+| O5 | invoked | da confermare | A | — | — | — | — | — | ricostruite dalla firma: nessuna linea |
+| O6 | maliss | da confermare | A | — | — | — | — | — | ricostruite dalla firma: nessuna linea |
+| O7 | mitsurugi | da confermare | A | — | — | — | — | — | ricostruite dalla firma: nessuna linea |
+| O8 | elfnote | controllo | A | 0.83 | 0.83 | -0.01 | -0.16 | -0.10 |  |
+| O9 | labrynth | controllo | A | 0.69 | 0.69 | -0.00 | +0.02 | +0.02 |  |
+| O10 | snake_eye | controllo | A | 0.86 | 0.83 | -0.03 | -0.30 | -0.31 |  |
+| O11 | yubel | controllo | A | 0.62 | 0.62 | +0.00 | +0.00 | +0.00 |  |
+| O12 | blue_eyes | nuova | B | 0.71 | 0.70 | -0.01 | -0.08 | -0.05 |  |
+| O13 | blue_eyes | nuova | pari | 0.71 | 0.71 | -0.00 | +0.00 | +0.00 |  |
+| O14 | blue_eyes | nuova | B | 0.71 | 0.71 | +0.00 | +0.00 | +0.00 |  |
+| O15 | branded | nuova | A | 0.60 | 0.61 | +0.00 | +0.00 | +0.00 |  |
+| O16 | dracotail | nuova | B | 0.80 | 0.72 | -0.08 | -0.00 | -0.00 |  |
+| O17 | elfnote | nuova | A | 0.77 | 0.80 | +0.03 | -0.06 | -0.07 |  |
+| O18 | exodia | nuova | A | 0.42 | 0.50 | +0.08 | +0.11 | +0.11 |  |
+| O19 | exodia | nuova | A | 0.74 | 0.74 | +0.00 | +0.00 | +0.00 |  |
+| O20 | fur_hire | nuova | pari | 0.67 | 0.68 | +0.01 | +0.00 | +0.00 |  |
+| O21 | fur_hire | nuova | B | 0.67 | 0.68 | +0.00 | +0.00 | +0.00 |  |
+| O22 | invoked | nuova | pari | 0.36 | 0.38 | +0.01 | +0.10 | +0.10 |  |
+| O23 | invoked | nuova | B | 0.68 | 0.62 | -0.05 | -0.08 | -0.08 |  |
+| O24 | labrynth | nuova | B | 0.51 | 0.51 | -0.00 | +0.00 | +0.00 |  |
+| O25 | maliss | nuova | pari | 0.69 | 0.68 | -0.00 | +0.00 | +0.00 |  |
+| O26 | maliss | nuova | pari | 0.68 | 0.69 | +0.00 | +0.00 | +0.00 |  |
+| O27 | snake_eye | nuova | A | 0.71 | 0.71 | +0.00 | +0.00 | +0.00 |  |
+| O28 | snake_eye | nuova | B | 0.71 | 0.71 | -0.00 | +0.04 | +0.00 |  |
+| O29 | synchrons | nuova | B | 0.75 | 0.77 | +0.02 | +0.06 | +0.02 |  |
+| O30 | synchrons | nuova | B | 0.74 | 0.74 | +0.00 | -0.04 | -0.04 |  |
+| O31 | tearlaments | nuova | A | 0.72 | 0.72 | +0.00 | +0.01 | +0.00 |  |
+| O32 | tearlaments | nuova | A | 0.76 | 0.77 | +0.00 | +0.01 | +0.00 |  |
+| O33 | yubel | nuova | B | 0.65 | 0.68 | +0.02 | +0.12 | +0.11 |  |
+| O34 | branded | nuova | A | 0.73 | 0.62 | -0.11 | +0.00 | +0.00 |  |
+| O35 | dracotail | nuova | B | 0.62 | 0.62 | -0.00 | -0.11 | -0.11 |  |
+| O36 | dracotail | nuova | B | 0.64 | 0.62 | -0.01 | +0.02 | +0.02 |  |
+| O37 | exodia | nuova | A | 0.71 | 0.71 | +0.00 | +0.00 | +0.00 |  |
+| O38 | fur_hire | nuova | A | 0.67 | 0.67 | +0.01 | +0.11 | +0.11 |  |
+| O39 | labrynth | nuova | A | 0.50 | 0.50 | -0.01 | +0.14 | +0.14 |  |
+| O40 | mitsurugi | nuova | A | 0.74 | 0.73 | -0.01 | -0.11 | -0.11 |  |
+| O41 | synchrons | nuova | B | 0.85 | 0.85 | -0.00 | +0.00 | +0.00 |  |
+| O42 | tearlaments | nuova | A | 0.67 | 0.67 | +0.00 | +0.00 | +0.00 |  |
+| O43 | white_forest_azamina | nuova | B | 0.69 | 0.69 | +0.00 | +0.00 | +0.00 |  |
+| O44 | white_forest_azamina | nuova | B | 0.35 | 0.34 | -0.00 | +0.00 | +0.00 |  |
+| O45 | yubel | nuova | pari | 0.62 | 0.63 | +0.00 | +0.00 | +0.00 |  |
+
+| Misura | D'accordo col proprietario (pari compresi) | Stesso verso sulle coppie non pari |
+|---|---|---|
+| Verità del banco | 9 su 38 | 10 su 32 |
+| Misura generica di oggi | 11 su 38 | 8 su 32 |
+| Punteggio di prima | 11 su 39 | 8 su 33 |
+
+### Lettura
+- **Il banco quasi non separa queste coppie.** In 31 coppie su 38 le due board differiscono di meno di 0,02 di verità.
+  - Le coppie erano state scelte proprio perché il punteggio le dava vicine o pari.
+  - Le differenze stanno quasi sempre in una carta in mano, nel cimitero, o in un mostro senza effetti nel turno avversario. Il turno vero dell'avversario ne risente poco.
+- **I 9 accordi della verità** sono per due terzi i 6 "pari" del proprietario, che il banco dà pari anche lui. Restano O10, O33 e O34.
+- **Sulle 7 coppie dove la verità decide**, è d'accordo col proprietario 3 volte (O10, O33, O34) e no 4 volte (O16, O17, O18, O23). Su questi numeri il banco non conferma né smentisce il proprietario.
+- **Misura generica:** come prima, perché i pesi non cambiano. Dà pari 25 coppie su 38, e il proprietario quasi mai.
+
+### Cosa dicono le note del proprietario
+I criteri che usa e come li tratta oggi il turno di prova:
+- **Un'interruzione nel turno avversario vale.** Una carta sul campo che non interagisce nel suo turno (Track Maker in O1, Regina in O28) vale poco anche se è un mostro in più. Il turno di prova conta solo le risposte che fermano mosse, quindi va nella stessa direzione. Il campo (`field`) invece dà valore anche ai corpi senza effetto.
+- **Un mostro senza effetti nel turno avversario vale poco:** O12, un Blue-Eyes White Dragon in più contro una trappola in più. Il banco lo conferma: verità −0,01, quasi pari, mentre il punteggio dà −0,08.
+- **Una carta in più in mano decide solo a board uguali** (O2, O5: "le board sono identiche ma ho una carta in più in mano"). È un criterio di spareggio: va dopo il resto, non sommato con peso fisso come `hand`.
+- **Una trappola che si attiva dalla mano vale più in mano che piazzata** (O9, le Dominus). Oggi una trappola piazzata conta come risposta sul campo e una in mano no, a meno che sia una handtrap.
+- **Un mostro nel cimitero può essere un'interruzione** (O14: Neo Blue-Eyes Ultimate Dragon che va al cimitero nel turno avversario). Le risposte dal cimitero contano solo se l'effetto si attiva da lì nella linea dell'avversario.
+- **Lo spostamento di zona per schivare un bersaglio conta** (O3 Tinia, O10). Il turno di prova non lo misura.

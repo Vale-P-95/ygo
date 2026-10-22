@@ -101,7 +101,7 @@
     "floodgates": 0.0,
     "resilience": 0.8853,
     "countered": 1.0,
-    "truth": null
+    "truth": 0.8315855670103093
    },
    "b": {
     "field": 1.5778,
@@ -109,7 +109,7 @@
     "floodgates": 0.0,
     "resilience": 0.7967,
     "countered": 1.0,
-    "truth": null
+    "truth": 0.8260505154639176
    },
    "missing": []
   },
@@ -124,7 +124,7 @@
     "floodgates": 0.0,
     "resilience": 0.7847,
     "countered": 1.0,
-    "truth": null
+    "truth": 0.6908041237113403
    },
    "b": {
     "field": 0.9615,
@@ -132,7 +132,7 @@
     "floodgates": 0.0,
     "resilience": 0.7446,
     "countered": 1.0,
-    "truth": null
+    "truth": 0.6862175257731958
    },
    "missing": []
   },
@@ -147,7 +147,7 @@
     "floodgates": 0.0,
     "resilience": 1.7523,
     "countered": 0.20634920634920637,
-    "truth": null
+    "truth": 0.8616381443298969
    },
    "b": {
     "field": 2.5778,
@@ -155,7 +155,7 @@
     "floodgates": 0.0,
     "resilience": 1.5418,
     "countered": 0.20634920634920637,
-    "truth": null
+    "truth": 0.8268896907216495
    },
    "missing": []
   },
@@ -170,7 +170,7 @@
     "floodgates": 0.0,
     "resilience": 0.4795,
     "countered": 0.4285714285714285,
-    "truth": null
+    "truth": 0.623
    },
    "b": {
     "field": 0.9418,
@@ -178,7 +178,7 @@
     "floodgates": 0.0,
     "resilience": 0.4795,
     "countered": 0.4285714285714285,
-    "truth": null
+    "truth": 0.623
    },
    "missing": []
   },
@@ -193,7 +193,7 @@
     "floodgates": 0.0,
     "resilience": 0.7613,
     "countered": 1.0,
-    "truth": null
+    "truth": 0.7081721649484536
    },
    "b": {
     "field": 1.5244,
@@ -201,7 +201,7 @@
     "floodgates": 0.0,
     "resilience": 0.5805,
     "countered": 1.0,
-    "truth": null
+    "truth": 0.6992443298969072
    },
    "missing": []
   },
@@ -216,7 +216,7 @@
     "floodgates": 0.0,
     "resilience": 0.3726,
     "countered": 1.0,
-    "truth": null
+    "truth": 0.7117567010309278
    },
    "b": {
     "field": 1.2807,
@@ -224,7 +224,7 @@
     "floodgates": 0.0,
     "resilience": 0.3726,
     "countered": 1.0,
-    "truth": null
+    "truth": 0.7081721649484536
    },
    "missing": []
   },
@@ -239,7 +239,7 @@
     "floodgates": 0.0,
     "resilience": 0.3726,
     "countered": 1.0,
-    "truth": null
+    "truth": 0.7081721649484536
    },
    "b": {
     "field": 1.2807,
@@ -247,7 +247,7 @@
     "floodgates": 0.0,
     "resilience": 0.3726,
     "countered": 1.0,
-    "truth": null
+    "truth": 0.7081721649484536
    },
    "missing": []
   },
@@ -262,7 +262,7 @@
     "floodgates": 0.0,
     "resilience": 0.0,
     "countered": null,
-    "truth": null
+    "truth": 0.6035226804123711
    },
    "b": {
     "field": 0.0,
@@ -270,7 +270,7 @@
     "floodgates": 0.0,
     "resilience": 0.0,
     "countered": null,
-    "truth": null
+    "truth": 0.6053494845360825
    },
    "missing": []
   },
@@ -285,7 +285,7 @@
     "floodgates": 0.0,
     "resilience": 0.5179,
     "countered": 1.0,
-    "truth": null
+    "truth": 0.7955525773195876
    },
    "b": {
     "field": 0.8676,
@@ -293,7 +293,7 @@
     "floodgates": 0.0,
     "resilience": 0.5071,
     "countered": 1.0,
-    "truth": null
+    "truth": 0.7199453608247423
    },
    "missing": []
   },
@@ -308,7 +308,7 @@
     "floodgates": 0.0,
     "resilience": 0.1479,
     "countered": null,
-    "truth": null
+    "truth": 0.7721309278350516
    },
    "b": {
     "field": 0.7185,
@@ -316,7 +316,7 @@
     "floodgates": 0.0,
     "resilience": 0.1127,
     "countered": 0.5467625899280575,
-    "truth": null
+    "truth": 0.7993597938144329
    },
    "missing": []
   },
@@ -331,7 +331,7 @@
     "floodgates": 0.0,
     "resilience": 0.5072,
     "countered": null,
-    "truth": null
+    "truth": 0.41572474226804124
    },
    "b": {
     "field": 0.5946,
@@ -339,7 +339,7 @@
     "floodgates": 0.0,
     "resilience": 0.5072,
     "countered": null,
-    "truth": null
+    "truth": 0.49650721649484536
    },
    "missing": []
   },
@@ -354,7 +354,7 @@
     "floodgates": 0.0,
     "resilience": 0.9568,
     "countered": null,
-    "truth": null
+    "truth": 0.7350546391752577
    },
    "b": {
     "field": 1.165,
@@ -362,7 +362,7 @@
     "floodgates": 0.0,
     "resilience": 0.9568,
     "countered": null,
-    "truth": null
+    "truth": 0.7350546391752577
    },
    "missing": []
   },
@@ -377,7 +377,7 @@
     "floodgates": 0.0,
     "resilience": 0.0,
     "countered": 1.0,
-    "truth": null
+    "truth": 0.6711134020618557
    },
    "b": {
     "field": 0.0,
@@ -385,7 +385,7 @@
     "floodgates": 0.0,
     "resilience": 0.0,
     "countered": 1.0,
-    "truth": null
+    "truth": 0.6763680412371135
    },
    "missing": []
   },
@@ -400,7 +400,7 @@
     "floodgates": 0.0,
     "resilience": 0.0,
     "countered": 1.0,
-    "truth": null
+    "truth": 0.6739432989690722
    },
    "b": {
     "field": 0.0,
@@ -408,7 +408,7 @@
     "floodgates": 0.0,
     "resilience": 0.0,
     "countered": 1.0,
-    "truth": null
+    "truth": 0.6754659793814433
    },
    "missing": []
   },
@@ -423,7 +423,7 @@
     "floodgates": 0.0,
     "resilience": 0.2524,
     "countered": null,
-    "truth": null
+    "truth": 0.3648824742268041
    },
    "b": {
     "field": 0.3863,
@@ -431,7 +431,7 @@
     "floodgates": 0.0,
     "resilience": 0.2657,
     "countered": null,
-    "truth": null
+    "truth": 0.37873195876288657
    },
    "missing": []
   },
@@ -446,7 +446,7 @@
     "floodgates": 0.0,
     "resilience": 0.1366,
     "countered": 1.0,
-    "truth": null
+    "truth": 0.6781896907216495
    },
    "b": {
     "field": 0.637,
@@ -454,7 +454,7 @@
     "floodgates": 0.0,
     "resilience": 0.0937,
     "countered": -0.0,
-    "truth": null
+    "truth": 0.6246628865979381
    },
    "missing": []
   },
@@ -469,7 +469,7 @@
     "floodgates": 0.0,
     "resilience": 0.7117,
     "countered": null,
-    "truth": null
+    "truth": 0.5066391752577319
    },
    "b": {
     "field": 0.8344,
@@ -477,7 +477,7 @@
     "floodgates": 0.0,
     "resilience": 0.7117,
     "countered": null,
-    "truth": null
+    "truth": 0.5059257731958763
    },
    "missing": []
   },
@@ -492,7 +492,7 @@
     "floodgates": 0.0,
     "resilience": 0.1137,
     "countered": 0.52,
-    "truth": null
+    "truth": 0.6857329896907217
    },
    "b": {
     "field": 0.4459,
@@ -500,7 +500,7 @@
     "floodgates": 0.0,
     "resilience": 0.1137,
     "countered": 0.52,
-    "truth": null
+    "truth": 0.6836639175257733
    },
    "missing": []
   },
@@ -515,7 +515,7 @@
     "floodgates": 0.0,
     "resilience": 0.1137,
     "countered": 0.52,
-    "truth": null
+    "truth": 0.6838546391752578
    },
    "b": {
     "field": 0.4459,
@@ -523,7 +523,7 @@
     "floodgates": 0.0,
     "resilience": 0.1137,
     "countered": 0.52,
-    "truth": null
+    "truth": 0.6855422680412372
    },
    "missing": []
   },
@@ -538,7 +538,7 @@
     "floodgates": 0.0,
     "resilience": 0.7439,
     "countered": 1.0,
-    "truth": null
+    "truth": 0.7083783505154638
    },
    "b": {
     "field": 1.3344,
@@ -546,7 +546,7 @@
     "floodgates": 0.0,
     "resilience": 0.7439,
     "countered": 1.0,
-    "truth": null
+    "truth": 0.7083783505154638
    },
    "missing": []
   },
@@ -561,7 +561,7 @@
     "floodgates": 0.0,
     "resilience": 0.6814,
     "countered": 1.0,
-    "truth": null
+    "truth": 0.7083783505154638
    },
    "b": {
     "field": 1.3344,
@@ -569,7 +569,7 @@
     "floodgates": 0.0,
     "resilience": 0.7439,
     "countered": 1.0,
-    "truth": null
+    "truth": 0.7060742268041237
    },
    "missing": []
   },
@@ -584,7 +584,7 @@
     "floodgates": 0.0,
     "resilience": 0.9499,
     "countered": 1.0,
-    "truth": null
+    "truth": 0.7507298969072165
    },
    "b": {
     "field": 1.9744,
@@ -592,7 +592,7 @@
     "floodgates": 0.0,
     "resilience": 1.0176,
     "countered": 1.0,
-    "truth": null
+    "truth": 0.7672381443298969
    },
    "missing": []
   },
@@ -607,7 +607,7 @@
     "floodgates": 0.0,
     "resilience": 0.8571,
     "countered": 1.0,
-    "truth": null
+    "truth": 0.7430103092783505
    },
    "b": {
     "field": 1.7748,
@@ -615,7 +615,7 @@
     "floodgates": 0.0,
     "resilience": 0.7983,
     "countered": 1.0,
-    "truth": null
+    "truth": 0.744578350515464
    },
    "missing": []
   },
@@ -630,7 +630,7 @@
     "floodgates": 0.0,
     "resilience": 0.2603,
     "countered": null,
-    "truth": null
+    "truth": 0.716001030927835
    },
    "b": {
     "field": 1.091,
@@ -638,7 +638,7 @@
     "floodgates": 0.0,
     "resilience": 0.2692,
     "countered": null,
-    "truth": null
+    "truth": 0.7170463917525773
    },
    "missing": []
   },
@@ -653,7 +653,7 @@
     "floodgates": 0.0,
     "resilience": 0.9474,
     "countered": 1.0,
-    "truth": null
+    "truth": 0.7637886597938144
    },
    "b": {
     "field": 1.3015,
@@ -661,7 +661,7 @@
     "floodgates": 0.0,
     "resilience": 0.972,
     "countered": 1.0,
-    "truth": null
+    "truth": 0.7651185567010309
    },
    "missing": []
   },
@@ -676,7 +676,7 @@
     "floodgates": 0.0,
     "resilience": 0.4594,
     "countered": 1.0,
-    "truth": null
+    "truth": 0.6543350515463917
    },
    "b": {
     "field": 0.8243,
@@ -684,7 +684,7 @@
     "floodgates": 0.0,
     "resilience": 0.5084,
     "countered": null,
-    "truth": null
+    "truth": 0.6773061855670103
    },
    "missing": []
   },
@@ -699,7 +699,7 @@
     "floodgates": 0.0,
     "resilience": 0.2139,
     "countered": 1.0,
-    "truth": null
+    "truth": 0.7315680412371134
    },
    "b": {
     "field": 0.7237,
@@ -707,7 +707,7 @@
     "floodgates": 0.0,
     "resilience": 0.2139,
     "countered": 1.0,
-    "truth": null
+    "truth": 0.6181061855670102
    },
    "missing": []
   },
@@ -722,7 +722,7 @@
     "floodgates": 0.0,
     "resilience": 0.4693,
     "countered": 1.0,
-    "truth": null
+    "truth": 0.622139175257732
    },
    "b": {
     "field": 0.8837,
@@ -730,7 +730,7 @@
     "floodgates": 0.0,
     "resilience": 0.5076,
     "countered": 1.0,
-    "truth": null
+    "truth": 0.6200350515463918
    },
    "missing": []
   },
@@ -745,7 +745,7 @@
     "floodgates": 0.0,
     "resilience": 0.5076,
     "countered": 1.0,
-    "truth": null
+    "truth": 0.6350721649484536
    },
    "b": {
     "field": 0.9013,
@@ -753,7 +753,7 @@
     "floodgates": 0.0,
     "resilience": 0.5102,
     "countered": 1.0,
-    "truth": null
+    "truth": 0.6224762886597938
    },
    "missing": []
   },
@@ -768,7 +768,7 @@
     "floodgates": 0.0,
     "resilience": 0.9568,
     "countered": null,
-    "truth": null
+    "truth": 0.7094298969072166
    },
    "b": {
     "field": 1.165,
@@ -776,7 +776,7 @@
     "floodgates": 0.0,
     "resilience": 0.9568,
     "countered": null,
-    "truth": null
+    "truth": 0.7094298969072166
    },
    "missing": []
   },
@@ -791,7 +791,7 @@
     "floodgates": 0.0,
     "resilience": 0.0,
     "countered": null,
-    "truth": null
+    "truth": 0.6658422680412371
    },
    "b": {
     "field": 0.083,
@@ -799,7 +799,7 @@
     "floodgates": 0.0,
     "resilience": 0.048,
     "countered": 1.0,
-    "truth": null
+    "truth": 0.6749917525773196
    },
    "missing": []
   },
@@ -814,7 +814,7 @@
     "floodgates": 0.0,
     "resilience": 0.4894,
     "countered": 1.0,
-    "truth": null
+    "truth": 0.5045474226804124
    },
    "b": {
     "field": 0.6687,
@@ -822,7 +822,7 @@
     "floodgates": 0.0,
     "resilience": 0.5704,
     "countered": null,
-    "truth": null
+    "truth": 0.4995298969072165
    },
    "missing": []
   },
@@ -837,7 +837,7 @@
     "floodgates": 0.0,
     "resilience": 0.9266,
     "countered": 1.0,
-    "truth": null
+    "truth": 0.7377649484536082
    },
    "b": {
     "field": 1.2281,
@@ -845,7 +845,7 @@
     "floodgates": 0.0,
     "resilience": 0.8865,
     "countered": 1.0,
-    "truth": null
+    "truth": 0.729760824742268
    },
    "missing": []
   },
@@ -860,7 +860,7 @@
     "floodgates": 0.0,
     "resilience": 1.2215,
     "countered": 1.0,
-    "truth": null
+    "truth": 0.8478773195876289
    },
    "b": {
     "field": 2.2281,
@@ -868,7 +868,7 @@
     "floodgates": 0.0,
     "resilience": 1.2215,
     "countered": 1.0,
-    "truth": null
+    "truth": 0.8468319587628866
    },
    "missing": []
   },
@@ -883,7 +883,7 @@
     "floodgates": 0.0,
     "resilience": 0.1284,
     "countered": 1.0,
-    "truth": null
+    "truth": 0.6699999999999999
    },
    "b": {
     "field": 0.3996,
@@ -891,7 +891,7 @@
     "floodgates": 0.0,
     "resilience": 0.1284,
     "countered": 1.0,
-    "truth": null
+    "truth": 0.6699999999999999
    },
    "missing": []
   },
@@ -906,7 +906,7 @@
     "floodgates": 0.0,
     "resilience": 0.5098,
     "countered": null,
-    "truth": null
+    "truth": 0.6877979381443299
    },
    "b": {
     "field": 1.0,
@@ -914,7 +914,7 @@
     "floodgates": 0.0,
     "resilience": 0.5098,
     "countered": null,
-    "truth": null
+    "truth": 0.6877979381443299
    },
    "missing": []
   },
@@ -929,7 +929,7 @@
     "floodgates": 0.0,
     "resilience": 0.4189,
     "countered": 1.0,
-    "truth": null
+    "truth": 0.345259793814433
    },
    "b": {
     "field": 0.4911,
@@ -937,7 +937,7 @@
     "floodgates": 0.0,
     "resilience": 0.4189,
     "countered": 1.0,
-    "truth": null
+    "truth": 0.34421443298969073
    },
    "missing": []
   },
@@ -952,7 +952,7 @@
     "floodgates": 0.0,
     "resilience": 0.4795,
     "countered": 0.4285714285714285,
-    "truth": null
+    "truth": 0.623
    },
    "b": {
     "field": 0.9418,
@@ -960,7 +960,7 @@
     "floodgates": 0.0,
     "resilience": 0.4795,
     "countered": 0.4285714285714285,
-    "truth": null
+    "truth": 0.6250907216494845
    },
    "missing": []
   }
