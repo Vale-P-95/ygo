@@ -161,7 +161,7 @@ def table(out, verdicts_path):
         ta, tb = (truth.get(pid + s, {}).get("truth") for s in "ab")
         dt = tb - ta if ta is not None and tb is not None else None
         dg = b["today"] - a["today"] if a and b and a.get("today") is not None and b.get("today") is not None and not notes else None
-        db = p["b"]["score"] - p["a"]["score"]
+        db = p["b"]["score"] - p["a"]["score"] if p["a"].get("score") is not None and p["b"].get("score") is not None else None
         for k, d, tie in (("truth", dt, TIE_TRUTH), ("today", dg, TIE_SCORE), ("before", db, TIE_SCORE)):
             if d is None or not v:
                 continue
