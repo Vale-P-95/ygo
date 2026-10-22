@@ -254,7 +254,9 @@ impl CardStore {
                     .push(format!("c.id IN (SELECT id FROM banlists WHERE format = 'md' AND status IN ({}))", placeholders(q.bans.len())));
                 args.extend(q.bans.iter().map(|b| Value::Text(if b == "Banned" { "Forbidden".into() } else { b.clone() })));
             } else {
-                clauses.push(format!("c.ban_tcg IN ({})", placeholders(q.bans.len())));
+                // OCG cards follow the OCG list, everything else the TCG one.
+                let column = if q.formats.iter().any(|f| f == "OCG") { "c.ban_ocg" } else { "c.ban_tcg" };
+                clauses.push(format!("{column} IN ({})", placeholders(q.bans.len())));
                 args.extend(q.bans.iter().map(|b| Value::Text(b.clone())));
             }
         }
