@@ -36,17 +36,19 @@ pub(crate) struct Script {
     pub(crate) idle: Vec<bool>,
 }
 
-/// A card picked in a selection: what it is, where, whose.
+/// A card picked in a selection: what it is, where, and whether it is the
+/// chooser's own (the line of a deck is found as player 0 and played again
+/// as player 1, in its turn after yours).
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub(crate) struct Picked {
     code: u32,
     location: u8,
-    controller: u8,
+    own: bool,
 }
 
 impl Picked {
-    fn of(engine: &Engine, card: &CardRef) -> Picked {
-        Picked { code: engine.cards().canonical_code(card.code), location: card.location, controller: card.controller }
+    fn of(engine: &Engine, card: &CardRef, chooser: Option<u8>) -> Picked {
+        Picked { code: engine.cards().canonical_code(card.code), location: card.location, own: Some(card.controller) == chooser }
     }
 }
 
@@ -72,7 +74,7 @@ pub(crate) fn picked(engine: &Engine, decision: &Decision, answer: &[u8]) -> Opt
         }
         _ => return None,
     };
-    at.iter().map(|&i| cards.get(i).map(|c| Picked::of(engine, c))).collect()
+    at.iter().map(|&i| cards.get(i).map(|c| Picked::of(engine, c, decision.player()))).collect()
 }
 
 /// The answer to `decision` that picks `picks` again, wherever they are listed.
@@ -81,7 +83,7 @@ pub(crate) fn pick_again(engine: &Engine, decision: &Decision, picks: &[Picked])
     let mut taken = vec![false; cards.len()];
     let mut at = Vec::new();
     for p in picks {
-        let i = (0..cards.len()).find(|&i| !taken[i] && Picked::of(engine, &cards[i]) == *p)?;
+        let i = (0..cards.len()).find(|&i| !taken[i] && Picked::of(engine, &cards[i], decision.player()) == *p)?;
         taken[i] = true;
         at.push(i as u32);
     }
