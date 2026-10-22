@@ -1176,11 +1176,12 @@ function searchCatalog(rawQuery: string): SearchResult {
       } else if (fmt === "tcg") {
         if (!c.banTcg || !normalizedBans.includes(c.banTcg)) return false;
       } else {
-        const matchesAny =
-          (c.banTcg && normalizedBans.includes(c.banTcg)) ||
-          (c.banMd && normalizedBans.includes(c.banMd)) ||
-          (c.banOcg && normalizedBans.includes(c.banOcg));
-        if (!matchesAny) return false;
+        // Without format, ban: follows the TCG list, matching ygo-data query parser
+        if (!c.banTcg || !normalizedBans.includes(c.banTcg)) return false;
+
+
+
+
       }
     }
     if (filterKind && c.kind !== filterKind && c.frame !== filterKind) return false;
