@@ -7,6 +7,7 @@ Corsie di lavoro in parallelo del 22/10/2026 (piano in `docs/plans/piano-prossim
 - [x] **Scheda del punteggio** (Gemini, PR #54, unita il 22/10): testi di follow-up, risorse e costo in `scoring.ts`, «Con una risposta alla tua prima interruzione…» (`ComboScore.countered`) e il pannello «Protezione dei pezzi» (`api.boardProtection`, `PieceProtection.tsx`). Provata con il backend finto, `typecheck`, `lint` e `build`; da provare nell'app vera. Lock tolto.
 - [x] **Il Banditore v2** (Gemini, PR #55, unita il 22/10): ricerca con lista OCG (`formato:ocg`) nel `Promise.all` iniziale e in `mock.ts`, vista «Cosa è cambiato con l'ultima lista» (`api.banChanges`), raggruppamento per data/formato, apertura Visore Carta, messaggio esplicito per storico iniziale vuoto. Lock tolto.
 - [x] **Test automatici dell'interfaccia** (Gemini, PR #57, unita il 22/10): unit test con Vitest per le funzioni pure in `lib/` (`probability`, `query`, `conditions`, `deck`, `scoring`) e `Banditore.tsx`, script "test" e step nella CI. 75 test passati. Lock tolto.
+- [ ] **Revisione dell'interfaccia, passo 0: fondamenta.** Scala tipografica e spaziature come token in `src/index.css`, `lucide-react`, componenti base (`Toolbar`, `FilterChip`, `IconButton`, `SidePanel`, `HelpPopover`), script di screenshot con Playwright e test logica toolbar. Agente: gemini. Branch: `gemini/ui-foundations`. File: `apps/desktop/package.json`, `apps/desktop/pnpm-lock.yaml`, `apps/desktop/src/index.css`, `apps/desktop/src/components/ui/*`, `apps/desktop/scripts/screens.mjs`, `docs/plans/ui-revisione-2.md`, `docs/TASKS.md`.
 - [x] **Corsia 1.** Turno di prova contro un deck, livello 2, con le linee vere dell'avversario (piano P1, L1–L6):
   - l'avversario rigioca le linee migliori che il motore trova per il suo deck, con la sua mano vera e l'ordine del suo Deck;
   - le risposte si ritrovano per identità dove la tua board cambia le domande.
@@ -100,6 +101,14 @@ Corsie di lavoro in parallelo del 22/10/2026 (piano in `docs/plans/piano-prossim
 ## Da fare (in ordine di priorità)
 
 ### Interfaccia (Gemini)
+- [ ] **Revisione dell'interfaccia, seconda parte** (dalle prove del proprietario nell'app vera, 22/10). Piano: `docs/plans/ui-revisione-2.md`. Un branch e una PR per passo, in quest'ordine:
+  - [ ] Passo 0, fondamenta: scala tipografica e spaziature, set di icone unico, componenti di base (`Toolbar`, `FilterChip`, `IconButton`, `SidePanel`, `HelpPopover`), script di screenshot.
+  - [ ] Passo 1, Collegamenti: cerchio a tutta larghezza, nodi con l'immagine della carta, barra dei filtri su una riga, pannello utile senza selezione, probabilità come stima (dopo la PR #61).
+  - [ ] Passo 2, Fucina: ispettore della carta a sinistra (passaggio del mouse, un clic per fissarla, doppio clic come oggi).
+  - [ ] Passo 3, ricerca e filtri del catalogo su una riga.
+  - [ ] Passo 4, passata su tutte le sezioni: scritte piccole, testi fissi, barre affollate.
+  - [ ] Passo 5, Bottega: scatole smussate con materiali veri, mensole di legno.
+  - [ ] Passo 6, effetti visivi e suoni nuovi, ognuno con il suo interruttore nelle Impostazioni.
 - [x] **Piccola correzione rimasta dalla PR #18** (da fare per prima, anche dentro la PR della mappa): in `apps/desktop/src/pages/Combo.tsx` il chip «vs X: …» (righe ~995-1000) e l'ordinamento «vs deck» (riga ~278) non guardano `s.matchup.error`: una board con il calcolo contro il deck fallito mostra «vs X: 0,00» e viene ordinata come se valesse 0. Escluderla in entrambi i punti (`s.matchup && !s.matchup.error`), e nel chip mostrare «vs X: errore» come in `Score.tsx`.
 - [x] Turno di prova contro un deck scelto (#44, livello 1; backend pronto, piano in `docs/plans/turno-di-prova-matchup.md`). Nel Circolo Arcano:
   - un selettore "Contro: generico / deck della Bottega" vicino al pulsante che misura le board;
