@@ -33,11 +33,11 @@ Corsie di lavoro in parallelo del 22/10/2026 (piano in `docs/plans/piano-prossim
 - [ ] **Corsia 4, terzo task.** Esposizione come valore perso (#47, D12 = B6 V1 di `docs/plans/classificazione-board.md`): nel punteggio l'esposizione diventa `E = Σ_h p_h · loss_h` in interruzioni, al posto del numero di punti critici, che resta nel dettaglio.
 
   Agente: claude-code, sessione della corsia 4. Branch: `claude/placed-cards` (ripartito da `main` dbd7c58). File: `crates/ygo-solver/src/probe.rs`, `explain.rs`; `apps/desktop/src-tauri/src/lib.rs`, `apps/desktop/src/lib/api.ts`, `mock.ts`; in `crates/ygo-cli/src/main.rs` la parte di `combos` e `probe-line` che stampa l'esposizione; script miei in `scripts/`; `docs/plans/esposizione.md`.
-  - [ ] `ChokePoint` con la posizione nella linea.
-  - [ ] `Prelude::Cut` e `Prober::quick_value`.
-  - [ ] `loss_h`, il termine di Maxx "C" e Mulcharmy, `p_h` dalle liste e una tabella di default per l'app.
-  - [ ] `E` nel punteggio (`score_view`), prime 8 board, cache; contratto `lib.rs` ↔ `api.ts`; testo per Gemini.
-  - [ ] Banco, caccia, coppie, tempo per board.
+  - [x] `ChokePoint` con la posizione nella linea.
+  - [x] `Prelude::Cut` e `Prober::quick_value`.
+  - [x] `loss_h`, il termine di Maxx "C" e Mulcharmy, `p_h` dalle liste e una tabella di default per l'app.
+  - [x] `E` nel punteggio (`score_view`), prime 8 board, cache; contratto `lib.rs` ↔ `api.ts`; testo per Gemini.
+  - [x] Banco, caccia, tempo per board (numeri in `docs/plans/esposizione.md`); le coppie non si riproducono con le liste del 22/10: da rifare con la cartella delle coppie del coordinatore.
 - [x] **Corsia 4, secondo task**, unita il 22/10 (PR #50). Ordine della ricerca e stima rapida (#47, D14 = B11 di `docs/plans/classificazione-board.md`): il #1 stampato è il migliore misurato; inversioni tra stima e misura nella top 8 (C5.7) ≤ 60; campi distinti nella top 8 (C5.8). Si accetta solo se `best` del banco non scende più del 5%.
 
   Agente: claude-code, sessione della corsia 4. Branch: `claude/placed-cards` (ripartito da `main`). File: `crates/ygo-solver/src/search.rs`, `value.rs`, `crates/ygo-cli/src/main.rs` (solo la parte `combos`), script miei in `scripts/`, `docs/plans/ordine-ricerca.md`.
