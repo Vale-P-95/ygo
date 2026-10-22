@@ -9,7 +9,8 @@ Corsie di lavoro in parallelo del 22/10/2026 (piano in `docs/plans/piano-prossim
   - le risposte si ritrovano per identità dove la tua board cambia le domande.
 
   - [x] L1–L3: `rival_lines`/`rival_line` (mano e risposte della linea migliore), `Kit::with_line` e il `Follower` (`follow.rs`) nel ciclo del turno di prova, `against_moves` linea per linea; banco identico.
-  - [ ] L4: collaudo su 37 deck (corsia 3). L5: contratto per l'interfaccia. L6: interfaccia (Gemini).
+  - [x] L5: contratto per l'interfaccia: `api.comboMoves(hand, key, vsDeckId)` → `ComboMoves` (`lib.rs` `combo_moves`, `api.ts`, `mock.ts`). Le linee del deck avversario si leggono una volta per deck (10-30 s) e restano in memoria; poi pochi secondi per board.
+  - [ ] L4: collaudo su 37 deck (corsia 3). L6: interfaccia (Gemini, richiesta sotto in «Interfaccia»).
 
   Agente: claude-code (coordinatore). Branch: `claude/yugioh-deck-builder-simulator-cax0ya`. File: `crates/ygo-solver/src/probe.rs`, `matchup.rs`, `follow.rs` (nuovo), `lib.rs`, `tests/matchup.rs`, `crates/ygo-cli/src/main.rs`, e `shuffle` resa pubblica in `crates/ygo-engine/src/duel.rs` e `lib.rs`. Per L5 anche `apps/desktop/src-tauri/src/lib.rs` e `apps/desktop/src/lib/api.ts`: si prendono solo quando servono, controllando che la corsia 2 non li tenga.
 - [ ] **Corsia 2.** Deck lenti (piano P3):
@@ -63,6 +64,21 @@ Corsie di lavoro in parallelo del 22/10/2026 (piano in `docs/plans/piano-prossim
   - accanto all'esposizione, "fermata da X" (`handTrapChance`) e la lista `handTraps`: carta, probabilità, momenti in cui ferma la linea su quelli in cui si può usare (`stops`/`windows`), le tue carte in quei momenti (`at`). Le handtrap con `stops` a 0 (Maxx "C", Mulcharmy) si possono mostrare a parte: "si usano ma non fermano la linea";
   - una colonna o un ordinamento "contro X" nella classifica delle board, e il backend finto (`mock.ts`) con un `matchup` di esempio.
 - [x] Mappa dei collegamenti tra le carte, interfaccia base (PR #22, piano `docs/plans/mappa-collegamenti.md`): scheda «Collegamenti» nel Laboratorio, cerchio carte, frecce colorate per tipo (`CardLink.kind`, incluso `"set"`), spessore per `used`, tratteggio per possibili; filtri per tipo con conteggi e per zona; pannello dettagli con `reach`, `reachAll`, `chance` (e `LinkCard.measured` per stime) e conteggi.
+- [ ] **Turno di prova contro un deck, livello 2: interfaccia** (dopo Il Banditore v1; backend pronto, piano P1 in `docs/plans/piano-prossimi-passi.md`). Nel Circolo Arcano, nella scheda del punteggio di una board misurata «contro X» (livello 1), un pulsante «Contro le sue linee» che chiama `api.comboMoves(hand, key, vsDeckId)` a richiesta, per la board aperta.
+  - **Attese:** la prima volta per un deck servono 10-30 secondi (il backend legge le sue linee migliori da 12 mani), poi pochi secondi per board. Il messaggio di attesa lo deve dire.
+  - **Riepilogo** (`ComboMoves`):
+    - «con tutte le tue risposte resta il X% delle sue mosse» (`left`);
+    - «la tua board da sola ferma il X%» (`floodgateShare`);
+    - il valore (`value`);
+    - quante linee sono state misurate (`measured` su `lines.length`).
+    - Se `madeShare` è sotto 0,8, un avviso: «il turno di prova ha rigiocato solo il X% delle sue mosse».
+  - **Le sue linee:**
+    - per ogni linea, la mano (`hand`) e le mosse in ordine, con il loro stato da `moves` (stesso indice di linea): fatta, fermata dalla board, persa con una precedente, non rigiocata;
+    - una linea senza mosse si mostra come «solo carte Settate».
+  - **Le tue risposte** (`stops`):
+    - carta, posto, effetto, quota (`coverage`) e valore;
+    - le mosse che ferma (`moves`, indici in `moves`) evidenziate nelle linee al passaggio del mouse o al clic.
+  - **Regole:** protocollo dell'interfaccia di `AGENTS.md` (id di richiesta, azzeramento al cambio di board o di deck, errori in italiano). Nel backend finto c'è già un esempio (`mock.ts`, `comboMoves`).
 - [ ] Tornare a TypeScript 7 (`apps/desktop/package.json`) quando `typescript-eslint` lo supporta: con la PR #29 è fissato a 6.0.3 perché `typescript-eslint` 8 non regge ancora la versione 7. Poi, già che ci si è, `tseslint.config(...)` → `defineConfig` di `eslint/config` in `eslint.config.js`.
 - [ ] Pagina «Il Banditore» (`Novità`), v1: confronto tra banlist (Master Duel, TCG, OCG) e impatto immediato sui deck salvati in Bottega. Non serve backend nuovo: ogni carta ha già `banTcg`, `banOcg` e `banMd` in `api.ts`. La v2 («cosa è cambiato con l'ultima lista») aspetta il backend della corsia 2.
 
