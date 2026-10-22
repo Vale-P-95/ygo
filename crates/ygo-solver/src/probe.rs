@@ -751,9 +751,11 @@ pub(crate) enum Prelude<'a> {
     EndAtOnce,
     /// These cards on the field from the start, then the turn ends.
     Placed(&'a [Placement]),
-    /// Your answers of a line (not the opponent's): the opponent passes
-    /// whenever it is asked, whatever its cards (another deck's).
-    Own(&'a [Vec<u8>]),
+    /// Your answers of a line (not the opponent's), played again by what
+    /// they do: the opponent passes whenever it is asked, and its cards are
+    /// another deck's, so a random effect on its hand (Elfnote Tinia) can
+    /// change the questions after it.
+    Own(&'a Script),
     /// A line played up to its answer at this index (not included), given
     /// at a free moment of yours: the turn ends there, as if a handtrap
     /// had stopped what came next ([`Prober::expected_loss`]).
@@ -2101,11 +2103,15 @@ impl<'a> Prober<'a> {
             _ => None,
         };
         let mut answered = 0usize;
+        let mut own = match prelude {
+            Prelude::Own(script) => Some(Follower::new(script)),
+            _ => None,
+        };
         const NO_ANSWERS: &[Vec<u8>] = &[];
         let mut answers = match prelude {
             Prelude::Line(line) => line.answers.iter(),
             Prelude::Cut(line, at) => line.answers[..at.min(line.answers.len())].iter(),
-            Prelude::Own(answers) => answers.iter(),
+            Prelude::Own(_) => NO_ANSWERS.iter(),
             Prelude::EndAtOnce | Prelude::Placed(_) => NO_ANSWERS.iter(),
         };
         let mut trace = RunTrace {
@@ -2250,8 +2256,10 @@ impl<'a> Prober<'a> {
                     Prelude::EndAtOnce | Prelude::Placed(_) | Prelude::Own(_) if decision.player() == Some(1) => {
                         duel.respond(&passive_answer(&decision, &actions))
                     }
-                    Prelude::Own(_) => match answers.next() {
-                        Some(a) => duel.respond(a),
+                    Prelude::Own(_) => match own.as_mut().and_then(|f| f.answer(engine, &decision, &actions, false)) {
+                        Some(followed) => duel.respond(&followed.answer),
+                        // The line is over at a free moment: the turn ends.
+                        None if matches!(decision, Decision::IdleCmd { .. }) => duel.respond(&end_turn(&decision, &actions)),
                         None => duel.respond(&end_phase_answer(&decision, &actions, &idle_effects)),
                     },
                     Prelude::EndAtOnce | Prelude::Placed(_) => duel.respond(&end_turn(&decision, &actions)),
