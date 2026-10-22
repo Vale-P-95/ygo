@@ -295,3 +295,27 @@ Fra 27c9ba0 ed e424904 sono entrati anche altri cambi della ricerca e di `combos
 - **elfnote_kewl_tune-1** (103,5 s prima): con e424904 fa 33 s.
 
 **Da decidere.** Per tenere ogni mano sotto 60 s con `--probe`, si possono misurare meno varianti per campo (una, o tre solo per le prime board) oppure misurarle tutte in un solo turno di prova. È una scelta di `crates/ygo-cli` e della corsia che ha fatto 21c8885, non del motore.
+
+## Le varianti di `combos --probe` (22/10/2026, corsia 2)
+**Cambio.** Da 21c8885 `combos --probe` misurava fino a tre varianti di ogni campo elencato. Ora ogni campo si misura una volta, e le altre due varianti solo per i tre campi stampati per primi. Un campo può solo guadagnare dalle sue varianti, quindi quei tre restano in testa e il #1 stampato resta il migliore misurato. Con `--top 5`: al massimo 11 turni di prova invece di 15.
+
+**Ordine** (41 deck, una mano per deck con la regola "-lines", 3000 nodi, seme 1, prime 8 board, `rank_report.py`; prima `main` 18325a7):
+
+| | Prima | Dopo |
+|---|---|---|
+| deck con il #1 stampato non il migliore misurato (`printed`) | 0 su 41 | 0 su 41 |
+| coppie invertite di più di 0,1 | 173 su 1110 | 172 su 1110 |
+| somma del migliore misurato | 59,86 | 59,42 |
+| misura per board, mediana / p95 | 0,50 / 2,02 s | 0,50 / 1,87 s |
+| `combo_hunt.py` | 41 ok, 0 problemi | uguale |
+
+La somma scende in 3 deck, dove la variante migliore era di un campo oltre il terzo: elfnote_kewl_tune 1,336 → 1,032, snake_eye 2,767 → 2,723, vampire 1,238 → 1,147.
+
+**Tempi** (mani di `combo_hunt --seed 7`, da sole):
+
+| Mano | Prima | Dopo | Turno di prova e resto |
+|---|---|---|---|
+| dracotail-0 | 69,3 s | 64,2 s | 43,3 → 36,9 s |
+| elfnote_kewl_tune-0 | 54,3 s | 47,4 s | 30,7 → 24,5 s |
+
+dracotail-0 resta sopra 60 s: le sue 11 misure costano circa 3 s l'una. Per scendere ancora servirebbe misurare due varianti invece di tre, o rendere più veloce la misura stessa.
