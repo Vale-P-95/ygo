@@ -1798,15 +1798,22 @@ impl<'a> Prober<'a> {
                     };
                     // A chance to answer your own link is not a window at all.
                     let to_yourself = mine_on_top && matches!(decision, Decision::SelectChain { triggers: false, .. });
-                    match (window, current.as_ref()) {
-                        (Some(_), _) if to_yourself => duel.respond(&window_answer(&decision, None)),
-                        (Some(options), Some((step, _))) => {
+                    // Before the opponent's first step (its Draw and Standby
+                    // Phases) the windows belong to a step of their own after
+                    // the others, `steps.len()`: effects that can only be used
+                    // then (setting a Trap, a Quick Summon) are tried there.
+                    let step = current.as_ref().map_or(steps.len(), |(i, _)| *i);
+                    let before = step == steps.len();
+                    match window {
+                        Some(_) if to_yourself => duel.respond(&window_answer(&decision, None)),
+                        Some(options) => {
                             let at = windows_in_step;
                             windows_in_step += 1;
                             let pick = match policy {
-                                Policy::Use(id, skip) if !skip.contains(&(*step, at)) => options.iter().position(|(o, _)| *o == id),
-                                Policy::UseAll(ids) => ids.iter().find_map(|id| options.iter().position(|(o, _)| o == id)),
-                                Policy::UseAt(id, window) if window == (*step, at) => options.iter().position(|(o, _)| *o == id),
+                                Policy::Use(id, skip) if !skip.contains(&(step, at)) => options.iter().position(|(o, _)| *o == id),
+                                // All together: nothing to stop before the first step.
+                                Policy::UseAll(ids) if !before => ids.iter().find_map(|id| options.iter().position(|(o, _)| o == id)),
+                                Policy::UseAt(id, window) if window == (step, at) => options.iter().position(|(o, _)| *o == id),
                                 _ => None,
                             };
                             let pick = pick.or_else(|| {
@@ -1815,17 +1822,11 @@ impl<'a> Prober<'a> {
                                     .filter(|_| !trace.uses.is_empty())
                                     .and_then(|known| options.iter().position(|(o, _)| !known.contains(o)))
                             });
-                            trace.windows.push(Window { step: *step, options: options.clone() });
+                            trace.windows.push(Window { step, options: options.clone() });
                             let follow_up = matches!(decision, Decision::SelectChain { triggers: true, .. } | Decision::EffectYesNo { .. });
                             match (pick, last_use) {
                                 (Some(i), _) => {
-                                    trace.uses.push(Use {
-                                        responder: options[i].0,
-                                        step: *step,
-                                        window: at,
-                                        effect: None,
-                                        targeted: false,
-                                    });
+                                    trace.uses.push(Use { responder: options[i].0, step, window: at, effect: None, targeted: false });
                                     last_use = Some(trace.uses.len() - 1);
                                     observer.waiting = last_use;
                                     duel.respond(&window_answer(&decision, Some(i)));
@@ -1837,8 +1838,7 @@ impl<'a> Prober<'a> {
                                 (None, _) => duel.respond(&window_answer(&decision, None)),
                             }
                         }
-                        (Some(_), None) => duel.respond(&window_answer(&decision, None)),
-                        (None, _) => {
+                        None => {
                             let db = engine.cards();
                             // Your cards seen answering in this run, or the ones it uses.
                             let used: &[ResponderId] = match &policy {

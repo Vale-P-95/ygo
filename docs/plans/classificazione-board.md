@@ -702,7 +702,10 @@ Gli effetti dei mostri rimasti sul campo si sovrappongono alla resilienza: in J4
 
 Branded #1 (Pot of Desires): 10 carte del Deck e 2 Fusioni nel Cimitero, costo 0,7. Il testo della metrica nell'interfaccia è chiesto a Gemini in TASKS. Le coppie non lo verificano: la loro misura composta non ha né risorse né costo.
 
-**Resta di D13:** le finestre prima dei passi del kit (B9, `PRE`).
+**Le finestre prima dei passi del kit (B9, `PRE`).** Nella Draw e nella Standby avversarie, prima del primo passo, le tue finestre ora sono un passo a sé, `steps.len()`, dopo gli altri: gli indici di oggi non cambiano. Le prove singole e il conteggio degli usi ci provano le tue risposte; la run congiunta no, perché lì non c'è niente da fermare.
+- Finestre così ci sono in 105 board delle coppie su 118, quasi sempre per Maxx "C" e i Mulcharmy. Le risposte offerte solo lì sono poche: Labrynth Stovie Torbie, Cooclock e Chandraglier, Elfnote Regina, Clown Crew New Face, Kashtira Shangri-Ira.
+- Coppie: nessuna cambia. Le Trappole settate in Standby non si attivano nello stesso turno.
+- Banco della ricerca identico in tutti i 16 casi, tempo +2%; misura per board con mediana uguale e p95 da 1,76 a 1,90 s.
 
 ## 5. Parte D: ordine di implementazione
 

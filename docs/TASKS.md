@@ -46,7 +46,7 @@ Corsie di lavoro in parallelo del 22/10/2026 (piano in `docs/plans/piano-prossim
   - [x] D10: il kit pesato sulle linee vere. `kit-mix` divide le attivazioni per provenienza e per "tocca il Deck" (50% nelle linee vere, 78% del peso nel kit). Due azioni nuove senza Deck (Dian Keto, Bystial Magnamhut) e pesi dalle quote. Ash da 0,71 a 0,53; coppie sicure giuste da 18 a 20 su 29; ricerca +3,2% (piano §C9). Non fatte: l'Evocazione Xyz o Synchro e il trigger d'Evocazione senza Deck.
   - [x] D13, prima parte: il tuo turno dopo il board breaker peggiore. Gli effetti che ripartono da Cimitero e bandite entrano nel follow-up (0,3 l'uno); le risorse non contano più il Cimitero. Coppie sicure giuste da 20 a 22 su 29 (piano §C10).
   - [x] D13, costo (B8): non più le carte della mano usate oltre la prima (quelle rimaste sono già contate), ma 0,05 per carta del Deck pagata come costo, 0,1 per mostro dell'Extra Deck finito nel Cimitero o bandito, 1 ogni 4000 LP pagati. Testo dell'interfaccia chiesto a Gemini sotto.
-  - [ ] D13, resto: le finestre prima dei passi del kit (B9, `PRE`).
+  - [x] D13, finestre prima dei passi del kit (B9, `PRE`): le tue risposte nella Draw e nella Standby avversarie si provano; coppie e banco invariati (piano §C10).
 - [x] Correzioni dalla caccia ai bug della ricerca (12 problemi confermati): fatte; l'ultima (valori delle carte che dipendono dal contesto) passa nella #47. Lock tolto.
   - [x] Set in un solo ordine anche dopo una finestra di catena; ricerca fermata a metà che riparte dal punto giusto.
   - [x] Carte rapide tenute per dopo nel dive; handtrap giudicate da ciò che permettono (Labrynth Cooclock); carte da tenere rispettate durante la ricerca.
