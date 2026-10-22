@@ -89,6 +89,7 @@ File: `src/components/lab/links/*`.
 - **La probabilità come stima** (seguito della PR #61, corsia 6). Quando `measured` è vero si scrive «≈ 45%», con un tooltip che spiega che è misurata sulle mani cercate (±5%).
   - Si fa in questo passo, appena la #61 è in `main`.
   - Non serve cambiare `api.ts`: i campi ci sono già.
+- *Completato il 22/10/2026 (Gemini):* resa dinamica la geometria del cerchio con `ResizeObserver` e calcolo puro in `layout.ts` (testato con 40-60 carte senza sovrapposizione); nodi con artwork ritagliata (40-64 px), bordo colorato per tipo di carta Yu-Gi-Oh, badge copie, zoom al passaggio ed effetto freccia animata leggera; barra filtri monoriga con `Toolbar`, `FilterChip` e icone (collasso in «Filtri» < 1440 px); pannello destro arricchito con legenda colori e classifica interattiva carte chiave senza selezione, e stima esplicita «≈ X%» quando `measured`.
 
 ### Passo 2. Fucina: l'ispettore della carta (`gemini/ui-forge-inspector`)
 File: `src/pages/DeckBuilder.tsx`, un componente nuovo `src/components/CardInspector.tsx`, `CardTile.tsx` e `Catalog.tsx` solo per gli eventi.

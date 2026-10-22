@@ -68,6 +68,7 @@ export function ChartTooltip() {
     const focus = (e: FocusEvent) => {
       const el = (e.target as Element | null)?.closest?.("[data-tip]") as HTMLElement | SVGElement | null;
       if (!el?.dataset.tip) return;
+      if (typeof el.matches === "function" && !el.matches(":focus-visible")) return;
       const r = el.getBoundingClientRect();
       showTip(el.dataset.tip, r.right, r.top);
     };

@@ -14,22 +14,14 @@ export const ATTRIBUTE_COLORS: Record<string, string> = {
 
 /** Accent of each card frame, used for the stripe above the name. */
 export function frameColor(frame: string): string {
-  if (frame.endsWith("_pendulum")) return "linear-gradient(90deg, #d9783b, #1d9e74)";
-  const colors: Record<string, string> = {
-    normal: "#d8b46e",
-    effect: "#cf7a43",
-    fusion: "#8f5cbf",
-    synchro: "#d9d9d9",
-    xyz: "#3b3b3b",
-    link: "#2f72b8",
-    ritual: "#5a86c9",
-    spell: "#1d9e74",
-    trap: "#b8457f",
-    token: "#9a9a9a",
-    skill: "#3a7bd5",
-  };
-  return colors[frame] ?? "#888";
+  if (frame.endsWith("_pendulum")) {
+    const base = frame.split("_")[0];
+    return `linear-gradient(90deg, var(--frame-${base}, #cf7a43), var(--frame-spell))`;
+  }
+  const base = frame.split("_")[0];
+  return `var(--frame-${base}, var(--df-border-strong))`;
 }
+
 
 const MARKERS = ["Top-Left", "Top", "Top-Right", "Left", "", "Right", "Bottom-Left", "Bottom", "Bottom-Right"];
 
