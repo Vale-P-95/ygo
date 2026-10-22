@@ -77,6 +77,7 @@ fn main() {
         .file(&patched_duel)
         .file(shim.join("reuse.cpp"))
         .file(shim.join("hand.cpp"))
+        .file(shim.join("count.cpp"))
         .file(shim.join("new.cpp"));
     core_build.files(sources(&core.join("RNG"), "cpp"));
     core_build.compile("ocgcore");

@@ -41,6 +41,7 @@ def main() -> int:
     parser.add_argument("--json", help="folder for each run's boards (combos --json) and lines (--save-lines)")
     parser.add_argument("--only", default="", help="only the decks whose name contains this")
     parser.add_argument("--shard", default="0/1", help="K/N: only every Nth deck from the Kth")
+    parser.add_argument("--lua-count", help="folder for each run's Lua instructions per engine request (DUELFORGE_LUA_COUNT)")
     args = parser.parse_args()
 
     decks = [(name[:-4], os.path.join(args.decks, name)) for name in os.listdir(args.decks) if name.endswith(".ydk")]
@@ -62,7 +63,14 @@ def main() -> int:
                 command += ["--seed", str(args.seed)]
             if args.json:
                 command += ["--json", os.path.join(args.json, f"{name}-{k}.json"), "--save-lines", os.path.join(args.json, f"{name}-{k}.lines.json")]
-            run = subprocess.run(command, capture_output=True, text=True)
+            env = None
+            if args.lua_count:
+                os.makedirs(args.lua_count, exist_ok=True)
+                counts = os.path.join(args.lua_count, f"{name}-{k}.bin")
+                if os.path.exists(counts):
+                    os.remove(counts)
+                env = dict(os.environ, DUELFORGE_LUA_COUNT=counts)
+            run = subprocess.run(command, capture_output=True, text=True, env=env)
             out = run.stdout
             if args.logs:
                 os.makedirs(args.logs, exist_ok=True)

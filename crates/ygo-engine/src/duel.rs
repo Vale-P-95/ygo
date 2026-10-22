@@ -438,6 +438,7 @@ impl Duel {
         if status != OCG_DUEL_CREATION_SUCCESS || raw.is_null() {
             return Err(Error::Engine(format!("duel creation failed (status {status})")));
         }
+        lua_count::install(raw);
         let duel = Self::with(raw, ManuallyDrop::new(ctx));
         for base in ["constant.lua", "utility.lua"] {
             if !duel.load_script(base) {
@@ -747,7 +748,9 @@ impl Duel {
 
     /// Runs the engine until it needs a decision or the duel ends.
     pub fn advance(&mut self) -> Result<Step, Error> {
+        let counted = lua_count::start();
         let step = self.advance_once();
+        lua_count::finish(counted);
         if let Some(mut shadow) = self.shadow.take() {
             shadow.last_turn = self.last_turn;
             let fresh = shadow.advance_once();
@@ -970,6 +973,69 @@ pub fn shuffle<T>(items: &mut [T], seed: u64) {
     for i in (1..items.len()).rev() {
         let j = (next() % (i as u64 + 1)) as usize;
         items.swap(i, j);
+    }
+}
+
+/// Lua instructions per engine request, measured with
+/// `DUELFORGE_LUA_COUNT=<file>`: what a limit per request would cut. Each
+/// request (from an answer to the next decision) adds two little-endian
+/// `u32` to the file at exit: thousands of instructions, and microseconds.
+/// Without the variable no hook is installed and nothing is recorded.
+mod lua_count {
+    use std::os::raw::c_int;
+    use std::path::PathBuf;
+    use std::sync::{Mutex, OnceLock};
+    use std::time::Instant;
+
+    use crate::ffi::{df_lua_count_install, df_lua_count_take, OCG_Duel};
+
+    static RECORDS: Mutex<Vec<u32>> = Mutex::new(Vec::new());
+
+    extern "C" {
+        fn atexit(f: extern "C" fn()) -> c_int;
+    }
+
+    fn output() -> Option<&'static PathBuf> {
+        static OUTPUT: OnceLock<Option<PathBuf>> = OnceLock::new();
+        OUTPUT
+            .get_or_init(|| {
+                let path = std::env::var_os("DUELFORGE_LUA_COUNT").map(PathBuf::from)?;
+                unsafe { atexit(write) };
+                Some(path)
+            })
+            .as_ref()
+    }
+
+    extern "C" fn write() {
+        let (Some(path), Ok(records)) = (output(), RECORDS.lock()) else { return };
+        let bytes: Vec<u8> = records.iter().flat_map(|v| v.to_le_bytes()).collect();
+        let written =
+            std::fs::OpenOptions::new().create(true).append(true).open(path).and_then(|mut f| std::io::Write::write_all(&mut f, &bytes));
+        if let Err(e) = written {
+            eprintln!("DUELFORGE_LUA_COUNT: cannot write {}: {e}", path.display());
+        }
+    }
+
+    pub fn install(raw: OCG_Duel) {
+        if output().is_some() {
+            unsafe { df_lua_count_install(raw) };
+        }
+    }
+
+    /// Starts a request: what Lua ran before it is not its own.
+    pub fn start() -> Option<Instant> {
+        output()?;
+        unsafe { df_lua_count_take() };
+        Some(Instant::now())
+    }
+
+    pub fn finish(started: Option<Instant>) {
+        let Some(started) = started else { return };
+        let ticks = unsafe { df_lua_count_take() };
+        let micros = started.elapsed().as_micros();
+        if let Ok(mut records) = RECORDS.lock() {
+            records.extend([ticks.min(u32::MAX as u64) as u32, micros.min(u32::MAX as u128) as u32]);
+        }
     }
 }
 
