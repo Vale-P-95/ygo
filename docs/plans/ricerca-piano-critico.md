@@ -70,6 +70,10 @@
   - Una board con il 99% del valore dell'oracolo è fra le prime 3 in 1 mano su 8. La board stessa dell'oracolo in nessuna: spesso c'è una board diversa con lo stesso valore (mostri Link in più che la misura non conta). Per questo `measure` riporta tutte e due le posizioni.
   - **Il valore misurato non cresce sempre con il budget:** maliss da 100% a 88%, inv-r5 da 68% a 61%. Le board da misurare sono le 10 migliori per la stima rapida. Con più nodi la stima ne mette davanti altre, e la board che si misurava meglio esce dalla lista. È lo stesso problema delle inversioni tra stima e misura (C5.7).
 - **Obiettivo Invoked** (Oceanus nella Zona Mostri Extra + S:P). Con la mano Aleister, "Grail", Magical Meltdown, Ash e Fuwalos, nemmeno 40 000 nodi trovano una board con tutte e due. A 4000 nodi escono board con S:P e Caliga o Mechaba, oppure con Oceanus senza S:P.
+- **Aeon a 3 materiali: il motore la sa giocare.**
+  - In una posizione costruita (Invoked Sorath, Magistus Chorozo e Invoked Oceanus nel Cimitero), l'effetto di Sorath dal Cimitero offre Hyperinvoked Aeon. Scelti Sorath e Oceanus, il motore offre sia «finisci» sia Chorozo come terzo materiale.
+  - La linea migliore trovata su inv-r5 Evoca Aeon con 2 materiali (Sorath e Chorozo), ma lì un terzo valido non c'è: nel Cimitero Invoked Elysium è LIGHT come Sorath, e Aeon vuole attributi diversi. Elysium ha tutti gli attributi solo scoperta sul campo.
+  - Quindi niente azione non offerta né risposta automatica sbagliata. Manca una linea che prepari tre Fusioni di attributo diverso, e la misura non dà alla ricerca un motivo per farlo: sono le cecità della misura descritte sopra (Aeon vale quasi zero, il kit ha un solo mostro nell'Extra Deck).
 - **Il giro vero, per il proprietario:**
   ```
   python3 scripts/oracle.py build <out> --decks <mdm> --mult 50 --seeds 1,2,3 --jobs 4
