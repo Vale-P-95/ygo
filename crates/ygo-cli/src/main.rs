@@ -129,7 +129,8 @@ enum Cmd {
         save_lines: Option<PathBuf>,
     },
     /// Measure lines saved by `combos --save-lines` with the probe turn,
-    /// without searching (the same boards before and after a change).
+    /// without searching (the same boards before and after a change). The
+    /// lines are played with the seed saved with them.
     ProbeLine {
         #[command(flatten)]
         setup: Setup,
@@ -757,15 +758,18 @@ fn probe_line(
     if hand.is_empty() {
         hand = saved["hand"].as_array().map(|h| h.iter().filter_map(|c| c.as_u64().map(|c| c as u32)).collect()).unwrap_or_default();
     }
+    // The lines are played in the duel they were found in, with the seed saved
+    // with them: with another one a shuffle or a mill differs and the line breaks.
+    let seed = saved["seed"].as_u64().unwrap_or(setup.seed);
     let kit = ygo_solver::Kit::standard(&engine);
     let opponent = Some(kit.opponent().clone());
-    let hand_traps = ygo_solver::hand_traps(&engine, &deck, setup.seed, &kit);
-    let mut prober = ygo_solver::Prober::new(&engine, &deck, &hand, setup.seed, &kit);
+    let hand_traps = ygo_solver::hand_traps(&engine, &deck, seed, &kit);
+    let mut prober = ygo_solver::Prober::new(&engine, &deck, &hand, seed, &kit);
     let rival = match vs {
         Some(path) => {
             let text = std::fs::read_to_string(path).with_context(|| format!("cannot read {}", path.display()))?;
             let rival_deck = DeckList::from_ydk(&text)?;
-            let rival = ygo_solver::Rival::new(&engine, &rival_deck, setup.seed, &kit);
+            let rival = ygo_solver::Rival::new(&engine, &rival_deck, seed, &kit);
             // Once each: a card the kit plays two ways (Lightning Storm) is one card.
             let names = |codes: &[u32]| {
                 let mut names: Vec<String> = Vec::new();
@@ -787,7 +791,7 @@ fn probe_line(
             let plays = if moves {
                 let started = std::time::Instant::now();
                 let threads = std::thread::available_parallelism().map_or(4, |n| n.get());
-                let plays = ygo_solver::rival_plays(&engine, &rival_deck, setup.seed, 12, 1000, threads);
+                let plays = ygo_solver::rival_plays(&engine, &rival_deck, seed, 12, 1000, threads);
                 let typical = ygo_solver::typical_moves(&plays);
                 println!(
                     "   typical moves ({:.1} s): {}",
@@ -806,11 +810,11 @@ fn probe_line(
     let mut out = Vec::new();
     for (i, item) in items.iter().enumerate().filter(|(i, _)| index.is_none_or(|k| k == *i)) {
         let line = line_from_json(item)?;
-        let (state, _) = ygo_solver::explain(&engine, &deck, &hand, setup.seed, opponent.as_ref(), &line)?;
+        let (state, _) = ygo_solver::explain(&engine, &deck, &hand, seed, opponent.as_ref(), &line)?;
         let started = std::time::Instant::now();
         let measured = prober.measure(&line);
         let took = started.elapsed();
-        let exposure = ygo_solver::exposure(&engine, &deck, &hand, setup.seed, opponent.as_ref(), &line).ok();
+        let exposure = ygo_solver::exposure(&engine, &deck, &hand, seed, opponent.as_ref(), &line).ok();
         let me = &state.players[0];
         println!(
             "#{} field: {}",
@@ -824,7 +828,7 @@ fn probe_line(
         let mut extra = serde_json::json!({ "index": i });
         if let (Some((rival, rival_deck, plays)), Ok(m)) = (&rival, &measured) {
             let started = std::time::Instant::now();
-            match ygo_solver::matchup(&engine, &deck, &hand, setup.seed, &line, m, rival) {
+            match ygo_solver::matchup(&engine, &deck, &hand, seed, &line, m, rival) {
                 Ok(x) => {
                     let took = started.elapsed();
                     print_matchup(&engine, &x, took);
@@ -835,7 +839,7 @@ fn probe_line(
             }
             if stops {
                 let started = std::time::Instant::now();
-                match ygo_solver::draw_trade_off(&engine, &deck, &hand, setup.seed, &line, rival) {
+                match ygo_solver::draw_trade_off(&engine, &deck, &hand, seed, &line, rival) {
                     Ok(offs) => {
                         print_trade_off(&engine, &offs, started.elapsed());
                         extra["stops"] = trade_off_json(&offs);
@@ -845,7 +849,7 @@ fn probe_line(
             }
             if moves {
                 let started = std::time::Instant::now();
-                match ygo_solver::against_moves(&engine, &deck, &hand, setup.seed, &line, rival_deck, plays, &kit) {
+                match ygo_solver::against_moves(&engine, &deck, &hand, seed, &line, rival_deck, plays, &kit) {
                     Ok(x) => print_moves(&engine, &x, started.elapsed()),
                     Err(e) => println!("   moves failed: {e}"),
                 }
@@ -858,7 +862,7 @@ fn probe_line(
             "kind": "boards",
             "deck": setup.deck.display().to_string(),
             "hand": hand,
-            "seed": setup.seed,
+            "seed": seed,
             "hand_traps": hand_traps,
             "items": out,
         });
