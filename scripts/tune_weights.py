@@ -37,11 +37,20 @@ METRICS = ("field", "hand", "floodgates", "resilience")
 LABELS = {"field": "interruzioni", "hand": "handtrap", "floodgates": "floodgate", "resilience": "resilienza"}
 
 
+def rows_of(results):
+    """The rows of results.json, or of the compact objective-bench.json (one
+    list per row in the order of `columns`, the boards apart)."""
+    if "columns" not in results:
+        return results["rows"]
+    weight = {o["deck"]: o["weight"] for o in results["meta"]["opponents"]}
+    return [dict(zip(results["columns"], r), **results["boards"][r[0]], weight=weight[r[1]]) for r in results["rows"]]
+
+
 def boards_of(results, made_min):
     """One entry per board: the meta-weighted truth and the generic measures."""
     by = {}
-    for r in results["rows"]:
-        if "left" not in r or r.get("made", 0) < made_min or not r.get("generic"):
+    for r in rows_of(results):
+        if r.get("left") is None or (r.get("made") or 0) < made_min or not r.get("generic"):
             continue
         by.setdefault(r["board"], []).append(r)
     out = []
@@ -119,18 +128,20 @@ def owner_check(path, weights_list, gap):
     """How often the weights agree with the owner's verdicts, on the pairs of
     owner-pairs.json measured by owner_bench.py (verdict A, B or pari)."""
     data = json.load(open(path))
+    measures = [(name, lambda x, w=w: score(x, w)) for name, w in weights_list]
+    measures.append(("verità del banco", lambda x: x["truth"] if x.get("truth") is not None else None))
     lines = []
-    for name, w in weights_list:
+    for name, value in measures:
         agree = total = 0
         for p in data.get("pairs", []):
             a, b, v = p.get("a"), p.get("b"), p.get("verdict")
-            if not a or not b or v not in ("A", "B"):
+            if not a or not b or v not in ("A", "B") or value(a) is None or value(b) is None:
                 continue
-            delta = score(b, w) - score(a, w)
+            delta = value(b) - value(a)
             total += 1
             agree += (delta > gap and v == "B") or (delta < -gap and v == "A")
         lines.append(f"| {name} | {agree} su {total} |")
-    return ["", "## Verdetti del proprietario", "", "| Pesi | D'accordo |", "|---|---|"] + lines
+    return ["", "## Verdetti del proprietario (coppie con una preferenza)", "", "| Misura | D'accordo |", "|---|---|"] + lines
 
 
 def main():
