@@ -748,9 +748,14 @@ impl Duel {
 
     /// Runs the engine until it needs a decision or the duel ends.
     pub fn advance(&mut self) -> Result<Step, Error> {
-        let counted = lua_count::start();
+        let request = lua_count::start();
         let step = self.advance_once();
-        lua_count::finish(counted);
+        if lua_count::finish(request) {
+            // The scripts stopped half-way: the duel is not worth going on with.
+            self.reusable = false;
+            self.shadow = None;
+            return Err(Error::Engine("a card script ran too long (DUELFORGE_LUA_LIMIT)".into()));
+        }
         if let Some(mut shadow) = self.shadow.take() {
             shadow.last_turn = self.last_turn;
             let fresh = shadow.advance_once();
@@ -976,18 +981,24 @@ pub fn shuffle<T>(items: &mut [T], seed: u64) {
     }
 }
 
-/// Lua instructions per engine request, measured with
-/// `DUELFORGE_LUA_COUNT=<file>`: what a limit per request would cut. Each
-/// request (from an answer to the next decision) adds two little-endian
-/// `u32` to the file at exit: thousands of instructions, and microseconds.
-/// Without the variable no hook is installed and nothing is recorded.
+/// Lua instructions per engine request (from an answer to the next
+/// decision). A request stops after `DUELFORGE_LUA_LIMIT` instructions
+/// (10 million by default, 0 for no limit): a few positions make a card
+/// script loop for seconds, while no request of 82 searches on 41 decks of
+/// Master Duel Meta ran 3 million (`docs/plans/velocita-ricerca.md`).
+///
+/// With `DUELFORGE_LUA_COUNT=<file>` each request also adds two
+/// little-endian `u32` to the file at exit: thousands of instructions, and
+/// microseconds.
 mod lua_count {
     use std::os::raw::c_int;
     use std::path::PathBuf;
     use std::sync::{Mutex, OnceLock};
     use std::time::Instant;
 
-    use crate::ffi::{df_lua_count_install, df_lua_count_take, OCG_Duel};
+    use crate::ffi::{df_lua_hook_install, df_lua_request_end, df_lua_request_start, OCG_Duel};
+
+    const DEFAULT_LIMIT: u64 = 10_000_000;
 
     static RECORDS: Mutex<Vec<u32>> = Mutex::new(Vec::new());
 
@@ -1006,6 +1017,15 @@ mod lua_count {
             .as_ref()
     }
 
+    fn limit() -> u64 {
+        static LIMIT: OnceLock<u64> = OnceLock::new();
+        *LIMIT.get_or_init(|| std::env::var("DUELFORGE_LUA_LIMIT").ok().and_then(|v| v.parse().ok()).unwrap_or(DEFAULT_LIMIT))
+    }
+
+    fn hooked() -> bool {
+        limit() > 0 || output().is_some()
+    }
+
     extern "C" fn write() {
         let (Some(path), Ok(records)) = (output(), RECORDS.lock()) else { return };
         let bytes: Vec<u8> = records.iter().flat_map(|v| v.to_le_bytes()).collect();
@@ -1017,25 +1037,36 @@ mod lua_count {
     }
 
     pub fn install(raw: OCG_Duel) {
-        if output().is_some() {
-            unsafe { df_lua_count_install(raw) };
+        if hooked() {
+            // Finer when counting; the limit alone does not need it.
+            let step = if output().is_some() { 1000 } else { 10_000 };
+            unsafe { df_lua_hook_install(raw, step) };
         }
     }
+
+    pub struct Request(Option<Instant>);
 
     /// Starts a request: what Lua ran before it is not its own.
-    pub fn start() -> Option<Instant> {
-        output()?;
-        unsafe { df_lua_count_take() };
-        Some(Instant::now())
+    pub fn start() -> Request {
+        if !hooked() {
+            return Request(None);
+        }
+        unsafe { df_lua_request_start(limit()) };
+        Request(Some(Instant::now()))
     }
 
-    pub fn finish(started: Option<Instant>) {
-        let Some(started) = started else { return };
-        let ticks = unsafe { df_lua_count_take() };
-        let micros = started.elapsed().as_micros();
-        if let Ok(mut records) = RECORDS.lock() {
-            records.extend([ticks.min(u32::MAX as u64) as u32, micros.min(u32::MAX as u128) as u32]);
+    /// Ends a request; true when the limit stopped it.
+    pub fn finish(request: Request) -> bool {
+        let Request(Some(started)) = request else { return false };
+        let mut stopped: c_int = 0;
+        let done = unsafe { df_lua_request_end(&mut stopped) };
+        if output().is_some() {
+            let micros = started.elapsed().as_micros();
+            if let Ok(mut records) = RECORDS.lock() {
+                records.extend([(done / 1000).min(u32::MAX as u64) as u32, micros.min(u32::MAX as u128) as u32]);
+            }
         }
+        stopped != 0
     }
 }
 
@@ -1054,6 +1085,26 @@ mod tests {
         sorted.sort();
         assert_eq!(sorted, (0..40).collect::<Vec<_>>());
         assert_ne!(a, (0..40).collect::<Vec<_>>());
+    }
+
+    #[test]
+    fn a_request_stops_at_the_lua_limit() {
+        let root = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let data = std::env::var_os("DUELFORGE_DATA").map(std::path::PathBuf::from).unwrap_or_else(|| root.join("data"));
+        if !data.join("scripts/constant.lua").is_file() {
+            eprintln!("skipped: no game data in {}", data.display());
+            return;
+        }
+        let engine = Engine::load(&data).unwrap();
+        let ydk = std::fs::read_to_string(root.join("tests/fixtures/decks/invoked-siracusa-md.ydk")).unwrap();
+        let mut duel = Duel::goldfish_vs(&engine, &DeckList::from_ydk(&ydk).unwrap(), &[], 1, &Opponent::default()).unwrap();
+        // A script that never ends, run as a request would be.
+        let request = lua_count::start();
+        assert!(!duel.run_lua_source("loop.lua", "while true do end"), "the loop fails");
+        assert!(lua_count::finish(request), "the limit stopped it");
+        // Outside a request nothing is counted against it.
+        assert!(duel.run_lua_source("short.lua", "local n = 0 for i = 1, 100 do n = n + i end"));
+        duel.reusable = false;
     }
 
     #[test]
