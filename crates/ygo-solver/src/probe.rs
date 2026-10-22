@@ -29,7 +29,7 @@ use ygo_engine::{
 };
 
 use crate::explain::{ChokeKind, ChokePoint};
-use crate::follow::{Follower, Script};
+use crate::follow::{line_picks, pick_again, Follower, Script};
 use crate::matchup::RivalLine;
 use crate::search::Line;
 
@@ -601,6 +601,13 @@ impl Kit {
         .into_iter()
         .filter_map(|(r, at, name)| Some((r, at, code(name)?)))
         .collect();
+        // An Extra Deck like a real one (15 cards): a
+        // card taken from it is a small loss, not the end of its Extra
+        // Deck summons (Link Spider alone was a floodgate when banished).
+        // Monsters with no effect, so they change nothing while there.
+        for (name, copies) in GENERIC_EXTRA {
+            extra.extend(code(name).into_iter().flat_map(|c| std::iter::repeat_n(c, copies)));
+        }
         Kit { opponent: Opponent { hand, deck, extra }, steps, breakers, counters, removals, script: None }
     }
 
@@ -807,6 +814,31 @@ pub struct ExpectedLoss {
     pub cuts: usize,
 }
 
+/// What the opponent's cards your turn took away are worth, in
+/// interruptions, by where they were (B5a; the weights are a start, to
+/// calibrate with D17): a card of its 15-card Extra Deck about a fifteenth
+/// of losing its Extra Deck summons (0.6), a card of its hand about one of
+/// its six cards, a card of its Deck little, a card of its field like a
+/// destroyed monster.
+pub fn attrition(taken: &[(u32, u8)]) -> f64 {
+    taken
+        .iter()
+        .map(|&(_, from)| match from {
+            location::EXTRA => 0.04,
+            location::HAND => 0.15,
+            location::DECK => 0.01,
+            _ => 0.3,
+        })
+        .sum::<f64>()
+        + 0.0
+}
+
+/// The rest of the kit opponent's Extra Deck besides Link Spider: a Fusion
+/// and a Link Monster with no effect, seven copies each. Copies of two
+/// cards, not fourteen cards: what to take from it is then a choice of how
+/// many of each, not one board for every set of cards taken.
+const GENERIC_EXTRA: [(&str, usize); 2] = [("Flame Swordsman", 7), ("Gaia Saber, the Lightning Shadow", 7)];
+
 /// What a measure plays besides each response alone: all of them together
 /// (what they share), and the board breakers. Each costs runs (a duel each).
 #[derive(Clone, Copy)]
@@ -906,6 +938,9 @@ struct RunTrace {
     follow_up: Option<FollowUp>,
     /// The opponent answered one of your links ([`Context::counter`]).
     countered: bool,
+    /// The opponent's cards your turn took away (sent to the GY, banished
+    /// or taken by you) and where they were: its code and location.
+    taken: Vec<(u32, u8)>,
 }
 
 /// Follows the events of a run to tell what each use of the responder did.
@@ -1039,7 +1074,12 @@ impl Observer {
                 let effect = match to.location & !location::OVERLAY {
                     // Attached to an Xyz Monster: out of play, as banished.
                     _ if to.location & location::OVERLAY != 0 => Effect::Banish,
-                    _ if to.controller == 0 && to.location & (location::MZONE | location::SZONE) != 0 => Effect::Position,
+                    // Taken: the opponent loses it and you get it, at least
+                    // as good as destroying it.
+                    _ if to.controller == 0 && to.location & (location::MZONE | location::SZONE) != 0 => Effect::Destroy,
+                    // A monster put in its owner's Spell & Trap Zone (as a
+                    // Continuous Spell) is out of play like a banished one.
+                    location::SZONE if from.location == location::MZONE => Effect::Banish,
                     location::REMOVED => Effect::Banish,
                     location::DECK | location::EXTRA => Effect::ToDeck,
                     location::HAND => Effect::Bounce,
@@ -1238,6 +1278,11 @@ pub struct Measure {
     /// when the opponent answers the first of them it can (none if it could
     /// answer none, or they stop nothing).
     pub countered: Option<f64>,
+    /// The opponent's cards your turn took away (sent to the GY, banished
+    /// or taken), with where they were: its Extra Deck, Deck, hand or field.
+    pub taken: Vec<(u32, u8)>,
+    /// What they are worth, in interruptions ([`attrition`]).
+    pub attrition: f64,
     /// How long each part of the measure took.
     pub seconds: MeasureSeconds,
 }
@@ -1536,6 +1581,8 @@ impl<'a> Prober<'a> {
             offered,
             follow_up,
             countered,
+            attrition: attrition(&all.taken),
+            taken: all.taken,
             seconds,
         })
     }
@@ -1938,6 +1985,16 @@ impl<'a> Prober<'a> {
             Prelude::Placed(placed) => Duel::goldfish_vs_placed(engine, self.deck, self.hand, self.seed, opponent, placed)?,
             _ => Duel::goldfish_vs(engine, self.deck, self.hand, self.seed, opponent)?,
         };
+        // Your line was found against the kit's opponent: against another one
+        // (other cards in its Extra Deck), the opponent's cards it picks are
+        // picked again by what they are.
+        let repick = match (prelude, context.opponent) {
+            (Prelude::Line(line), Some(other)) if *other != self.kit.opponent => {
+                line_picks(engine, self.deck, self.hand, self.seed, &self.kit.opponent, line).ok()
+            }
+            _ => None,
+        };
+        let mut answered = 0usize;
         const NO_ANSWERS: &[Vec<u8>] = &[];
         let mut answers = match prelude {
             Prelude::Line(line) => line.answers.iter(),
@@ -1952,6 +2009,7 @@ impl<'a> Prober<'a> {
             state: DuelState::default(),
             follow_up: None,
             countered: false,
+            taken: Vec::new(),
         };
         let mut observer = Observer::default();
         let mut next = 0usize;
@@ -1996,7 +2054,19 @@ impl<'a> Prober<'a> {
                 Step::Decision { decision, events } => (decision, events),
                 Step::End { .. } => break,
             };
+            let your_turn = duel.turn_info().0 <= 1;
             for e in &events {
+                if let (true, Event::Move { code, from, to, .. }) = (your_turn, e) {
+                    // On your turn the opponent only passes: what leaves its
+                    // Extra Deck, Deck, hand or field for its GY, banishment
+                    // or your side is your doing.
+                    let kept =
+                        matches!(from.location, location::EXTRA | location::DECK | location::HAND | location::MZONE | location::SZONE);
+                    let away = matches!(to.location, location::GRAVE | location::REMOVED) || to.controller == 0;
+                    if from.controller == 1 && kept && away && (from.location, from.controller) != (to.location, to.controller) {
+                        trace.taken.push((*code, from.location));
+                    }
+                }
                 observer.see(engine, e, &mut trace.uses);
                 match e {
                     Event::Chaining { card, .. } => {
@@ -2048,7 +2118,12 @@ impl<'a> Prober<'a> {
             // The answers of your turn's line need no list of actions.
             if turn <= 1 && matches!(prelude, Prelude::Line(_) | Prelude::Cut(..)) {
                 if let Some(a) = answers.next() {
-                    duel.respond(a);
+                    let picks = repick.as_ref().and_then(|r| r.get(answered)?.as_deref());
+                    answered += 1;
+                    match picks.and_then(|p| pick_again(engine, &decision, p)) {
+                        Some(again) => duel.respond(&again),
+                        None => duel.respond(a),
+                    }
                     continue;
                 }
             }
