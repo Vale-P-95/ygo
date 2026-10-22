@@ -328,7 +328,7 @@ export const CardInspector = memo(function CardInspector({
         <div className="flex items-center justify-between text-xs">
           <span className="text-muted font-medium">Copie nel deck</span>
           <span className="font-bold tabular-nums">
-            <span className={totalCopies > limit ? "text-danger" : "text-sec font-bold"}>{totalCopies}</span>
+            <span className={totalCopies > limit ? "text-danger" : "text-text font-bold"}>{totalCopies}</span>
             <span className="text-muted font-normal"> / {limit}</span>
             <span className="ml-1 text-xs text-muted font-normal">
               ({isExtra ? `Extra: ${copiesInExtra}` : `Main: ${copiesInMain}`}, Side: {copiesInSide})
@@ -419,7 +419,7 @@ export const CardInspector = memo(function CardInspector({
       {/* Pendulum description if applicable */}
       {card.pendDesc && (
         <div className="rounded-lg border border-border/80 bg-surface-2/60 p-2.5 text-xs">
-          <p className="eyebrow text-xs text-sec mb-1 font-semibold uppercase">Effetto Pendulum</p>
+          <p className="eyebrow text-xs text-text mb-1 font-bold uppercase tracking-wider">Effetto Pendulum</p>
           <p className="whitespace-pre-line text-xs leading-relaxed text-text">
             {card.pendDesc}
           </p>
@@ -428,7 +428,7 @@ export const CardInspector = memo(function CardInspector({
 
       {/* Main card description */}
       <div className="rounded-lg border border-border/80 bg-surface-2/60 p-2.5 text-xs">
-        <p className="eyebrow text-xs text-sec mb-1 font-semibold uppercase">
+        <p className="eyebrow text-xs text-text mb-1 font-bold uppercase tracking-wider">
           {card.pendDesc ? "Effetto Mostro" : "Testo della carta"}
         </p>
         <p className="whitespace-pre-line text-xs leading-relaxed text-text">
