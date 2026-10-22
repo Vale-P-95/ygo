@@ -190,3 +190,35 @@ Gli altri 39 deck sforano al massimo di 7,4 s (tearlaments, quasi tutto apprendi
 **Limiti.**
 - La ricerca stessa può fermarsi qualche secondo dopo il limite: una richiesta del motore su questi deck dura fino a qualche secondo, e il limite si controlla tra una richiesta e l'altra.
 - Il limite di istruzioni Lua per ogni richiesta del motore (piano P3, «in misura») non è stato provato.
+
+## Istruzioni Lua per richiesta del motore (22/10/2026, corsia 2)
+**Misura.** Con `DUELFORGE_LUA_COUNT=<file>` uno shim (`crates/ygo-engine/shim/count.cpp`) mette un hook di conteggio sullo stato Lua del duello; le coroutine del motore lo ereditano. Per ogni richiesta (da una risposta alla decisione dopo) si salvano le istruzioni, in migliaia, e il tempo. Senza la variabile nessun hook. `combo_hunt.py --lua-count <cartella>` salva un file per giro e `scripts/lua_count.py` li legge: per soglia, le richieste sopra, il loro tempo e il massimo che un tetto lì farebbe risparmiare. Con l'hook il motore va un po' più piano (circa l'8% sulla mano lenta).
+
+**Giro a 20 s** (41 deck × 2 mani, seme 7, senza limite di nodi, 4 giri insieme come per la scadenza): 25,9 milioni di richieste.
+- La richiesta più lunga fa 2,96 milioni di istruzioni (elfnote_kewl_tune, mano 1); nessuna arriva a 3 milioni. Il 99,9% delle richieste di ogni giro sta sotto 1,4 milioni.
+- Sforano di più di 10 s elfnote (14,3 s), dracotail (10,7 s) ed elfnote_kewl_tune (10,1 s). Sono i 10 s di grazia dell'apprendimento più qualche secondo di ricerca oltre il limite, non richieste Lua lunghe: le loro richieste più lunghe fanno 795 mila, 108 mila e 2,96 milioni di istruzioni.
+- Per questi deck nessuna soglia sicura toglie i secondi oltre il limite: sotto 3 milioni si fermerebbero anche richieste normali (61 sopra 2 milioni, 992 sopra 100 mila nei 82 giri), e tutte le richieste sopra 1 milione valgono al massimo 3,3 s nei tre giri lenti.
+
+**Mano lenta** (Kewl Tune Mix, Ash Blossom, Ghost Mourner, Kewl Tune Cue, Kewl Tune Reco; seme 7, 1000 nodi, limite 60 s, da sola): 42 712 richieste in 76,8 s di motore, ricerca finita a 64,1 s, 75,4 s in tutto.
+- 25 richieste sopra 10 milioni di istruzioni valgono 69,8 s: 13 da 104-125 milioni (4,1-5,5 s l'una) e 12 da 13-19 milioni (circa 0,8 s l'una).
+- Sono sempre le stesse due richieste, una da 18,7 milioni e una da 104,4 milioni, ripetute ogni 5-6 s: ogni volta che la ricerca rigioca quella linea le paga di nuovo. Così la ricerca fa solo 116 nodi.
+
+| Soglia (istruzioni) | Richieste sopra nei 82 giri | Richieste sopra nella mano lenta | Tempo loro | Risparmio massimo |
+|---|---|---|---|---|
+| 2 milioni | 61 | 48 | 75,0 s | 70,8 s |
+| 3 milioni | 0 | 47 | 74,9 s | 68,7 s |
+| 5 milioni | 0 | 36 | 72,9 s | 65,1 s |
+| 10 milioni | 0 | 25 | 69,8 s | 58,9 s |
+| 20 milioni | 0 | 13 | 60,1 s | 48,9 s |
+| 50 milioni | 0 | 13 | 60,1 s | 32,1 s |
+
+Il risparmio massimo suppone che il tempo di una richiesta cresca con le istruzioni: un tetto la ferma alla soglia.
+
+**Raccomandazione.**
+- Un tetto di **10 milioni di istruzioni per richiesta**. Nessuna delle 25,9 milioni di richieste normali ci arriva (la più lunga fa 2,96 milioni, margine di 3,4 volte). Sulla mano lenta toglie fino a 59 s dei 77 s di motore.
+- Per gli sforamenti di elfnote, dracotail ed elfnote_kewl_tune nel giro a 20 s il tetto non serve: lì pesano la grazia dell'apprendimento e la ricerca che controlla il limite solo tra una richiesta e l'altra.
+- Da fare nella PR del tetto, con banco e `combo_hunt --seed 7`:
+  - una richiesta fermata rende la linea interrotta, che si scarta come le altre;
+  - il duello non si riusa, perché lo stato Lua resta a metà;
+  - meglio ancora ricordare il prefisso di linea che ha superato il tetto e non rigiocarlo, perché la stessa richiesta torna a ogni replay.
+- La mano lenta usa una copia locale della lista, quindi va ricontrollata con una lista vera che contenga Ghost Mourner.
