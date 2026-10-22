@@ -1602,6 +1602,11 @@ const LEARN_BOARDS: usize = 2;
 const LEARN_AMONG: usize = 200;
 /// Boards measured in the round at the end of the search.
 const LEARN_LAST: usize = 4;
+/// Time a round of learning may take past the search's time limit (or past
+/// its start, when it starts later): measuring a board takes well under a
+/// second, but with quick effects that check every combination of
+/// materials at each chain window (Kewl Tune) it can take minutes.
+const LEARN_GRACE: Duration = Duration::from_secs(10);
 
 /// Your cards on the field of `state`, by kind of zone, as keys, with a
 /// weight: 2 for a monster from the Extra Deck, else 1.
@@ -1676,12 +1681,18 @@ fn learn_round(shared: &Shared, count: usize) {
     };
     let config = shared.config;
     let mut prober = Prober::new(shared.engine, &config.deck, &config.hand, config.seed, kit);
+    prober.until(shared.start + config.time_limit.max(shared.start.elapsed()) + LEARN_GRACE);
     let mut raised = false;
     for board in &picked {
         if shared.cancel.load(Ordering::Relaxed) {
             break;
         }
-        let Ok(measure) = prober.measure_alone(&board.line) else { continue };
+        let measured = prober.measure_alone(&board.line);
+        // Cut short: what it learnt is not the whole board's.
+        if prober.out_of_time() {
+            break;
+        }
+        let Ok(measure) = measured else { continue };
         let me = &board.state.players[0];
         for i in measure.interruptions.iter().filter(|i| i.alone > 0.0) {
             let code = i.responder.code;

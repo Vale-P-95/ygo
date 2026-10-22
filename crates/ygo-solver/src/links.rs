@@ -588,8 +588,22 @@ fn clauses(text: &str) -> Vec<&str> {
 /// after "from your", the Deck first (it brings a new card).
 fn clause_kind(clause: &str) -> Option<(LinkKind, Zone)> {
     let at = clause.find("from your ")?;
-    let place = &clause[at + 10..];
-    let place = &place[..place.find(" to ").unwrap_or(place.len())];
+    // A restriction ("you cannot Special Summon monsters from your Extra
+    // Deck, except ...") brings no card.
+    if clause[..at].contains("cannot") || clause[..at].contains("can't") {
+        return None;
+    }
+    // The zones listed right after "from your" ("hand, Deck, or GY"), not
+    // the words of the rest of the clause (a restriction on the Extra Deck
+    // after a summon from the Deck).
+    const ZONE_WORDS: [&str; 13] =
+        ["hand", "deck", "main", "extra", "gy", "graveyard", "banishment", "banished", "face-up", "and/or", "or", "and", "your"];
+    let place: Vec<&str> = clause[at + 10..]
+        .split_whitespace()
+        .map(|w| w.trim_matches(|c: char| !c.is_alphanumeric() && c != '/'))
+        .take_while(|w| ZONE_WORDS.contains(w))
+        .collect();
+    let place = place.join(" ");
     let zone = if place.contains("extra deck") {
         Zone::Extra
     } else if place.contains("deck") {
@@ -838,4 +852,22 @@ fn play(
         reader.see(engine, &events, named);
     }
     Some(reader.out)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_clause_reads_the_zones_right_after_from_your() {
+        // The zones listed after "from your", not the Extra Deck of a
+        // restriction later in the clause.
+        let summon = "you can special summon 2 \"d/d\" monsters from your hand and/or deck in defense position, \
+                      also you cannot special summon monsters from the extra deck for the rest of this turn";
+        assert!(matches!(clause_kind(summon), Some((LinkKind::Summon, Zone::Deck))));
+        assert!(matches!(clause_kind("add 1 \"x\" from your gy or banishment to your hand"), Some((LinkKind::Recover, Zone::Grave))));
+        assert!(matches!(clause_kind("special summon 1 \"x\" from your main deck"), Some((LinkKind::Summon, Zone::Deck))));
+        // A restriction brings no card.
+        assert!(clause_kind("you cannot special summon monsters from your extra deck, except \"d/d\" monsters").is_none());
+    }
 }

@@ -20,7 +20,8 @@ pub use links::{
     Zone as LinkZone,
 };
 pub use matchup::{
-    draw_trade_off, matchup, rival_plays, DrawTradeOff, HandTrapMoment, Matchup, Rival, RivalBreaker, RivalHandTrap, RivalPlay, StopPoint,
+    against_moves, draw_trade_off, matchup, rival_plays, typical_moves, DrawTradeOff, HandTrapMoment, Matchup, MoveStop, MovesMatchup,
+    Rival, RivalBreaker, RivalHandTrap, RivalMove, RivalPlay, StopPoint,
 };
 pub use probe::{hand_traps, BreakerResult, Effect, Interruption, Kit, Measure, Probe, Prober, ResponderId};
 pub use roles::{guess_roles, RoleGuess};

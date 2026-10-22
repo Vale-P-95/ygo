@@ -119,8 +119,10 @@ Memcheck vedeva il confronto delle immagini leggere i byte di riempimento di Lua
 ## Idee scartate
 - **Garbage collector generazionale di Lua** dopo la fotografia (−1% di istruzioni in più). Il motore chiama un passo del collector a ogni gruppo creato quando ne esistono più di 2048; in modalità generazionale ogni passo è una raccolta intera, e una ricerca Invoked restava bloccata per mezz'ora.
 
+- **mimalloc come allocatore globale di Rust** nella CLI (provato dalla sessione principale dopo la PR #33, 21/10). Uscite identiche, ma la ricerca sulle 16 mani passa da 192,5 a 207,7 s (+8%, più lenta in 14 mani su 16): con questo carico l'allocatore di sistema va meglio per gli oggetti di Rust. Tolto.
+
 ## Trovato per strada
-- `combos --card "Aleister the Invoker"` risponde "not in the Main Deck" se il deck ha l'artwork alternativo (86120752); con il passcode funziona. Già su `main`, non toccato.
+- `combos --card "Aleister the Invoker"` rispondeva "not in the Main Deck" se il deck ha l'artwork alternativo (86120752). Corretto nella PR #34: si cerca la copia del deck con lo stesso codice canonico.
 
 ## Limiti
 - **Con più thread** il guadagno è minore: Labrynth in 30 s su 4 thread fa +16% di nodi al secondo con il riuso (+29% su un thread). Ogni thread tiene la sua partita con gli script di base (qualche MB), e più memoria si contende la cache.
@@ -149,3 +151,16 @@ Controlli: le 16 mani danno uscite identiche a `main` (ricerca 154,4 s, totale 2
   - nel turno di prova, il 90% delle corse sono "usa questa risposta a questa finestra": se si trovasse un criterio esatto per riconoscere finestre equivalenti se ne giocherebbero meno;
   - la scalabilità su più thread (+16% su 4 thread contro +29% su uno): ogni thread tiene una partita con gli script di base, e la cache si satura;
   - il resto è il motore che gioca le scelte (circa due terzi del tempo), in `vendor/` che non si tocca.
+
+## Un deck lento: Elfnote Kewl Tune (22/10/2026, notte)
+Leggendo le mosse tipiche di Elfnote Kewl Tune con 24 mani (seme 7) sono serviti 463 secondi: le altre letture stanno sotto i 70.
+- **La mano:** Kewl Tune Mix, Ash Blossom, Ghost Mourner, Kewl Tune Cue, Kewl Tune Reco; 1000 nodi, un thread, `--seconds 60`. La ricerca arriva a 1000 nodi in 50 secondi, ma finisce dopo 170.
+- **Perché:** il motore è lento su questi stati (6-9 nodi al secondo contro circa 100). Lo stack del motore mostra `check_matching` che chiama se stesso decine di volte: gli effetti rapidi dei Kewl Tune Evocano Synchro e controllano ogni combinazione di materiali. Una sola richiesta del motore usa fino a 27 milioni di istruzioni Lua.
+- **Dove va il tempo dopo il limite:**
+  - il giro di apprendimento finale (4 board al turno di prova): circa 75 secondi, perché a ogni finestra di catena il motore riprova quelle combinazioni;
+  - `confirm_best` (Fase Finale vera delle board migliori) e `zone_variants`: circa 45 secondi.
+- **Correzione:** i giri di apprendimento hanno una scadenza, 10 secondi dopo il limite di tempo della ricerca (o dopo il loro inizio, se cominciano più tardi). Se una board non finisce entro la scadenza, la sua misura non si usa e il giro si ferma.
+  - Sulla mano lenta: da 170 a 116 secondi, stessa board migliore (14,4).
+  - Banco (16 mani, 4000 nodi): uscite identiche in tutto tranne i tempi. Sulle mani normali una board si misura in meno di un secondo e la scadenza non scatta.
+  - `combo_hunt.py --seed 7` (37 deck, 74 mani): 73 identiche. In `radiant_typhoon_zoodiac-1` le board passano da 584 a 585, ma la build di prima rifatta tre volte dà sempre 585, e la nuova 24 volte su 24 (stesse linee). La differenza non si ripete e non viene dalla scadenza.
+- **Resta:** `confirm_best` e `zone_variants` non guardano il limite di tempo. Tagliarli cambia le board confermate, quindi è da decidere. L'alternativa è un limite di istruzioni Lua per ogni richiesta del motore: si potrebbe mettere nello shim, ma cambierebbe le linee trovate su questi deck.

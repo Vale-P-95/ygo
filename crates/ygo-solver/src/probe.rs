@@ -458,15 +458,7 @@ impl Kit {
                 }
             }
         }
-        // Shuffled with the seed, the same Deck for the same duel.
-        let mut state = seed ^ 0x9e37_79b9_7f4a_7c15;
-        for i in (1..main.len()).rev() {
-            state = state.wrapping_add(0x9e37_79b9_7f4a_7c15);
-            let mut z = state;
-            z = (z ^ (z >> 30)).wrapping_mul(0xbf58_476d_1ce4_e5b9);
-            z = (z ^ (z >> 27)).wrapping_mul(0x94d0_49bb_1331_11eb);
-            main.swap(i, ((z ^ (z >> 31)) % (i as u64 + 1)) as usize);
-        }
+        shuffle(&mut main, seed);
         let deck = &mut kit.opponent.deck;
         let filler = deck.last().copied();
         let plain = deck.iter().take_while(|&&c| Some(c) == filler).count().min(main.len());
@@ -476,12 +468,76 @@ impl Kit {
         kit
     }
 
+    /// The opponent of `rival` playing `moves` instead of the kit's steps:
+    /// its typical moves (a card, how it is played and from where), in
+    /// their usual order, and no breakers. The cards played from the hand
+    /// are in its hand; the others come from the moves before them (a
+    /// monster summoned, then its effect on the field). Its Deck is its
+    /// own, at the size of the kit's, the plain card on top for the draw of
+    /// its turn, and its Extra Deck. A move it cannot make is skipped.
+    pub(crate) fn with_moves(&self, moves: &[(Act, u8)], rival: &DeckList, seed: u64) -> Kit {
+        let mut hand: Vec<u32> = Vec::new();
+        let mut main = rival.main.clone();
+        for &(act, from) in moves {
+            let (Act::Activate(code, _) | Act::SpecialSummon(code) | Act::NormalSummon(code)) = act;
+            if from == location::HAND && !hand.contains(&code) {
+                hand.push(code);
+                if let Some(i) = main.iter().position(|&c| c == code) {
+                    main.swap_remove(i);
+                }
+            }
+        }
+        shuffle(&mut main, seed);
+        let filler = self.opponent.deck.last().copied();
+        main.truncate(self.opponent.deck.len().saturating_sub(filler.is_some() as usize));
+        main.extend(filler);
+        let steps = moves
+            .iter()
+            .map(|&(act, _)| {
+                // A summon works when the monster lands; an activation when
+                // it is not negated (judged by the measure).
+                let goals = match act {
+                    Act::NormalSummon(code) => vec![(Probe::NormalSummon, Want { code: Some(code), location: location::MZONE, delta: 1 })],
+                    Act::SpecialSummon(code) => {
+                        vec![(Probe::SpecialFromHand, Want { code: Some(code), location: location::MZONE, delta: 1 })]
+                    }
+                    Act::Activate(..) => Vec::new(),
+                };
+                let (Act::Activate(code, _) | Act::SpecialSummon(code) | Act::NormalSummon(code)) = act;
+                KitStep {
+                    act,
+                    picks: Vec::new(),
+                    take_max: false,
+                    option: 0,
+                    triggers: vec![code],
+                    attack: false,
+                    goals,
+                    needs: None,
+                    optional: false,
+                }
+            })
+            .collect();
+        Kit { opponent: Opponent { hand, deck: main, extra: rival.extra.clone() }, steps, breakers: Vec::new() }
+    }
+
     /// The probes this kit can measure.
     pub fn probes(&self) -> Vec<Probe> {
         let mut out: Vec<Probe> = self.steps.iter().flat_map(|s| s.goals.iter().map(|(p, _)| *p)).collect();
         out.sort();
         out.dedup();
         out
+    }
+}
+
+/// `cards` shuffled with `seed`: the same Deck for the same duel.
+fn shuffle(cards: &mut [u32], seed: u64) {
+    let mut state = seed ^ 0x9e37_79b9_7f4a_7c15;
+    for i in (1..cards.len()).rev() {
+        state = state.wrapping_add(0x9e37_79b9_7f4a_7c15);
+        let mut z = state;
+        z = (z ^ (z >> 30)).wrapping_mul(0xbf58_476d_1ce4_e5b9);
+        z = (z ^ (z >> 27)).wrapping_mul(0x94d0_49bb_1331_11eb);
+        cards.swap(i, ((z ^ (z >> 31)) % (i as u64 + 1)) as usize);
     }
 }
 
@@ -819,6 +875,8 @@ pub struct Prober<'a> {
     kit: &'a Kit,
     /// The empty board: what each probe does with no answer at all.
     baseline: Option<RunTrace>,
+    /// When the runs stop (a search's learning round).
+    deadline: Option<std::time::Instant>,
 }
 
 /// One of your effects that stops what the opponent does.
@@ -854,6 +912,40 @@ pub struct BreakerResult {
     pub remaining: f64,
 }
 
+/// One of your effects against the opponent's typical moves
+/// ([`Kit::with_moves`]): the moves it stops, by index.
+#[derive(Debug, Clone)]
+pub struct MoveInterruption {
+    pub responder: ResponderId,
+    pub location: u8,
+    pub effect: Effect,
+    pub targeted: bool,
+    pub stops: Vec<usize>,
+    /// Share it takes away of the moves' weight your board lets the
+    /// opponent make (those lost with the ones it stops included).
+    pub coverage: f64,
+    pub value: f64,
+}
+
+/// The board against the opponent's typical moves.
+#[derive(Debug, Clone, Default)]
+pub struct MovesMeasure {
+    /// Each move: made on an empty board, and against this board with no answer.
+    pub possible: Vec<bool>,
+    pub here: Vec<bool>,
+    /// Moves your board stops with no answer at all (by index).
+    pub floodgated: Vec<usize>,
+    pub interruptions: Vec<MoveInterruption>,
+    /// Share of the moves' weight your board stops with no answer (those
+    /// lost with them included).
+    pub floodgate_share: f64,
+    /// Interruption value against these moves (sum of `interruptions`).
+    pub value: f64,
+    /// Share of the moves' weight your board lets the opponent make that is
+    /// still made with all your answers used, the strongest first.
+    pub left: f64,
+}
+
 /// What the probe turn measured on a board.
 #[derive(Debug, Clone, Default)]
 pub struct Measure {
@@ -877,7 +969,20 @@ pub struct Measure {
 
 impl<'a> Prober<'a> {
     pub fn new(engine: &'a Engine, deck: &'a DeckList, hand: &'a [u32], seed: u64, kit: &'a Kit) -> Self {
-        Prober { engine, deck, hand, seed, kit, baseline: None }
+        Prober { engine, deck, hand, seed, kit, baseline: None, deadline: None }
+    }
+
+    /// From `deadline` on, every run fails at its next decision: a measure
+    /// with your effects checked at each chain window can take minutes
+    /// (quick Synchro Summons with many materials), more than a search may
+    /// wait.
+    pub(crate) fn until(&mut self, deadline: std::time::Instant) {
+        self.deadline = Some(deadline);
+    }
+
+    /// Past the deadline: a measure taken now may be missing runs.
+    pub(crate) fn out_of_time(&self) -> bool {
+        self.deadline.is_some_and(|d| std::time::Instant::now() >= d)
     }
 
     /// Measures the board reached by `line`.
@@ -1099,6 +1204,99 @@ impl<'a> Prober<'a> {
         })
     }
 
+    /// The board against the moves of a kit made with [`Kit::with_moves`],
+    /// each weighing `weights[i]`. A move is made when it is played and not
+    /// negated (a summon: when the monster lands). A response is worth the
+    /// share of the moves' weight it takes away at its best moment, or used
+    /// whenever offered: the moves it makes fail and those lost with them
+    /// (a monster summoned, then its effect on the field). It shows the
+    /// moves it stops itself: once one failed, the moves after it count only
+    /// if they were tried and failed too (stopping the first move is not
+    /// stopping the others, D2).
+    pub(crate) fn against_moves(&self, prelude: Prelude, weights: &[f64]) -> Result<MovesMeasure, Error> {
+        let steps: Vec<&KitStep> = self.kit.steps.iter().collect();
+        let made = |t: &RunTrace, i: usize| {
+            let run = &t.steps[i];
+            run.available && !run.negated && run.worked.iter().all(|w| *w)
+        };
+        let failed = |reference: &RunTrace, t: &RunTrace| -> Vec<usize> {
+            let mut out = Vec::new();
+            let mut clean = true;
+            for i in 0..steps.len() {
+                if made(reference, i) && !made(t, i) {
+                    if clean || t.steps[i].available {
+                        out.push(i);
+                    }
+                    clean = false;
+                }
+            }
+            out
+        };
+        let weight = |moves: &[usize]| moves.iter().map(|&i| weights.get(i).copied().unwrap_or(0.0)).sum::<f64>() + 0.0;
+        let made_weight = |t: &RunTrace| weight(&(0..steps.len()).filter(|&i| made(t, i)).collect::<Vec<_>>());
+        let base = self.run(Prelude::EndAtOnce, &steps, Policy::Pass)?;
+        let all = self.run(prelude, &steps, Policy::Pass)?;
+        let possible: Vec<usize> = (0..steps.len()).filter(|&i| made(&base, i)).collect();
+        let floodgated = failed(&base, &all);
+        let total = weight(&possible);
+        // What your board lets the opponent make with no answer.
+        let reference = made_weight(&all);
+
+        // Your effects offered with no answer, and where (as in the measure).
+        let mut offered: Vec<(ResponderId, u8, Vec<WindowAt>)> = Vec::new();
+        let mut in_step: HashMap<usize, usize> = HashMap::new();
+        for w in &all.windows {
+            let at = in_step.entry(w.step).or_default();
+            for &(id, loc) in &w.options {
+                match offered.iter_mut().find(|(o, _, _)| *o == id) {
+                    Some((_, _, windows)) => windows.push((w.step, *at)),
+                    None => offered.push((id, loc, vec![(w.step, *at)])),
+                }
+            }
+            *at += 1;
+        }
+        let known: HashSet<ResponderId> = offered.iter().map(|(id, _, _)| *id).collect();
+        let follow = Context { known: Some(&known), worth: None };
+        let none = HashSet::new();
+        let mut interruptions = Vec::new();
+        for (id, loc, windows) in &offered {
+            // Its best moment, or every moment it is offered.
+            let policies = windows.iter().take(12).map(|&w| Policy::UseAt(*id, w)).chain([Policy::Use(*id, &none)]);
+            let mut best: Option<(f64, RunTrace)> = None;
+            for policy in policies {
+                let Ok(run) = self.run_with(prelude, &steps, policy, follow) else { continue };
+                let taken = reference - made_weight(&run);
+                if taken > 1e-9 && best.as_ref().is_none_or(|(b, _)| taken > *b + 1e-9) {
+                    best = Some((taken, run));
+                }
+            }
+            let Some((taken, run)) = best else { continue };
+            let effect = run.uses.iter().filter_map(|u| u.effect).min().unwrap_or(Effect::Lock);
+            let targeted = run.uses.iter().any(|u| u.targeted);
+            let coverage = if reference > 0.0 { (taken / reference).min(1.0) } else { 0.0 };
+            let value = effect.value() * if targeted { 0.85 } else { 1.0 } * coverage;
+            let stops = failed(&all, &run);
+            interruptions.push(MoveInterruption { responder: *id, location: *loc, effect, targeted, stops, coverage, value });
+        }
+        interruptions.sort_by(|a, b| b.value.total_cmp(&a.value));
+        // All of them together, the strongest first: what is left of the
+        // opponent's moves (two answers that stop the same move count once).
+        let order: Vec<ResponderId> = interruptions.iter().map(|i| i.responder).collect();
+        let left = match self.run_with(prelude, &steps, Policy::UseAll(&order), follow) {
+            Ok(run) if reference > 0.0 && !order.is_empty() => (made_weight(&run) / reference).min(1.0),
+            _ => 1.0,
+        };
+        Ok(MovesMeasure {
+            left,
+            possible: (0..steps.len()).map(|i| made(&base, i)).collect(),
+            here: (0..steps.len()).map(|i| made(&all, i)).collect(),
+            floodgate_share: if total > 0.0 { (total - reference).max(0.0) / total } else { 0.0 },
+            floodgated,
+            value: interruptions.iter().map(|i| i.value).sum::<f64>() + 0.0,
+            interruptions,
+        })
+    }
+
     /// Each of `breakers` in a run of its own after the board: what is left
     /// of the field's `interruptions`, or which of them negates it.
     pub(crate) fn breakers(&self, prelude: Prelude, interruptions: &[Interruption], breakers: &[Breaker]) -> Vec<BreakerResult> {
@@ -1229,6 +1427,9 @@ impl<'a> Prober<'a> {
         let label =
             |actions: &[Action], answer: &[u8]| actions.iter().find(|a| a.response == answer).map_or("?".to_owned(), |a| a.label.clone());
         for _ in 0..4000 {
+            if self.out_of_time() {
+                return Err(Error::Engine("the probe turn ran out of time".to_owned()));
+            }
             let (decision, events) = match duel.advance()? {
                 Step::Decision { decision, events } => (decision, events),
                 Step::End { .. } => break,

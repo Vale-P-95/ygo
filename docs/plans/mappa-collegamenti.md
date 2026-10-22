@@ -173,3 +173,16 @@ Approvato dal proprietario come ultimo pezzo della mappa: cosa cambia sostituend
   - persi Meltdown → cerca Aleister e Terraforming → cerca Meltdown; Terraforming non porta più a nessuna carta (raggiungibilità da 14 a 0);
   - Aleister in mano iniziale dall'88% al 77%, una mano raggiunge in media 17,55 carte invece di 18,02;
   - le carte che non portano a nulla (Ash Blossom) salgono dal 34% al 36%, perché il deck ha 3 carte in meno.
+
+## Giro su 37 deck dopo la PR #33 sulla velocità (22/10/2026, notte)
+`duelforge-cli links` con le impostazioni di default (2 mani per carta, 1000 nodi), sui 37 deck di Master Duel Meta:
+- **Tempi.** Nessun errore; in media 23 secondi a deck, al massimo 56 (yummy_mimighoul, warrior_combo). Branded scende da 62-63 a 48 secondi, Invoked 12.
+- **Da guardare:**
+  - **probabilità sature:** carte con `chance` ≥ 0,99, cioè quasi ogni mano iniziale ci arriva. Vaylantz ne ha 24, Memento 15, Invoked 15, Cyber Dragon 5. Lì la probabilità distingue poco: si potrebbe mostrare la differenza tra 5 e 6 carte, o i passi necessari;
+  - **collegamenti solo dal testo:** D/D/D ne aveva 228 su 373, Exosister 58 su 96, Dracotail 47 su 219. Controllati, avevano due difetti della bozza dal testo, corretti in `clause_kind`:
+    - la zona era presa da tutto il resto della frase dopo «from your»: «… from your hand and/or Deck…, also you cannot Special Summon monsters from the Extra Deck» diventava un'Evocazione dall'Extra Deck. Ora sono solo le zone elencate subito dopo («hand, Deck, or GY»);
+    - un divieto («you cannot Special Summon monsters from your Extra Deck, except "D/D" monsters») diventava un collegamento verso ogni mostro nominato. Ora una frase con «cannot» o «can't» prima di «from your» non porta collegamenti.
+    - Collegamenti solo dal testo dopo la correzione: Dracotail 47 → 17, D/D/D 228 → 218, Exosister 58 → 51, Artmage 47 → 41; Invoked invariato. Nessun collegamento confermato dal motore si perde.
+    - Quelli di D/D/D che restano sono veri: effetti d'archetipo con condizioni che nelle mani provate non si verificano (Gilgamesh distrutto: «Special Summon 1 "D/D" monster from your Extra Deck or GY»);
+  - **Maliss:** solo 13 collegamenti su 29 carte, ma è corretto. La lista ha quasi solo Phantom Knights e Ignister (di Maliss c'è solo Maliss in Underground), 13 handtrap e Magie generiche, e mostri Link con materiali generici che nessun testo nomina.
+
