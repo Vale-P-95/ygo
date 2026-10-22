@@ -1238,6 +1238,21 @@ pub struct Measure {
     /// when the opponent answers the first of them it can (none if it could
     /// answer none, or they stop nothing).
     pub countered: Option<f64>,
+    /// How long each part of the measure took.
+    pub seconds: MeasureSeconds,
+}
+
+/// The time of each part of a measure, in seconds.
+#[derive(Debug, Clone, Copy, Default, PartialEq)]
+pub struct MeasureSeconds {
+    /// The empty board, the board with no answer, and each response alone.
+    pub responses: f64,
+    /// All the responses together, and the opponent's answer to the first.
+    pub together: f64,
+    /// The board breakers.
+    pub breakers: f64,
+    /// Your next turn after the worst breaker.
+    pub follow_up: f64,
 }
 
 /// Your next turn, after the opponent's: the board breaker that takes away
@@ -1281,6 +1296,19 @@ impl<'a> Prober<'a> {
         self.measure_from(Prelude::Placed(placed), Parts::ALL)
     }
 
+    /// [`Prober::measure`] without the board breakers: no
+    /// [`Measure::breakers`] nor follow-up, and the [`Measure::resilience`]
+    /// of a board none is tried on (to see what the measure costs by part).
+    pub fn measure_unbroken(&mut self, line: &Line) -> Result<Measure, Error> {
+        self.measure_from(Prelude::Line(line), Parts { together: true, breakers: false })
+    }
+
+    /// The quick value of the board `line` reaches ([`Prober::quick_value`]):
+    /// two runs, in interruptions.
+    pub fn quick_measure(&mut self, line: &Line) -> Result<f64, Error> {
+        self.quick_value(Prelude::Line(line))
+    }
+
     /// [`Prober::measure`] of each interruption alone ([`Interruption::alone`]):
     /// the runs that only change the rest are not played.
     pub(crate) fn measure_alone(&mut self, line: &Line) -> Result<Measure, Error> {
@@ -1295,6 +1323,7 @@ impl<'a> Prober<'a> {
     }
 
     fn measure_from(&mut self, prelude: Prelude, parts: Parts) -> Result<Measure, Error> {
+        let started = std::time::Instant::now();
         let all_steps: Vec<&KitStep> = self.kit.steps.iter().collect();
         if self.baseline.is_none() {
             self.baseline = Some(self.run(Prelude::EndAtOnce, &all_steps, Policy::Pass)?);
@@ -1436,6 +1465,8 @@ impl<'a> Prober<'a> {
         // your first link it can (report only).
         let answer = parts.breakers && !self.kit.counters.is_empty();
         let mut countered = None;
+        let mut seconds = MeasureSeconds { responses: started.elapsed().as_secs_f64(), ..MeasureSeconds::default() };
+        let together_started = std::time::Instant::now();
         if parts.together && (interruptions.len() > 1 || answer && !interruptions.is_empty()) {
             let order: Vec<ResponderId> = interruptions.iter().map(|i| i.responder).collect();
             // Without what the responses bring: what they stop earlier would
@@ -1480,10 +1511,15 @@ impl<'a> Prober<'a> {
         // Resilience is how the field holds: handtraps are out of the
         // breakers' reach and already counted on their own.
         let total = field_total(&interruptions);
+        seconds.together = together_started.elapsed().as_secs_f64();
+        let breakers_started = std::time::Instant::now();
         let breakers = if parts.breakers { self.breakers(prelude, &interruptions, &self.kit.breakers) } else { Vec::new() };
+        seconds.breakers = breakers_started.elapsed().as_secs_f64();
+        let follow_up_started = std::time::Instant::now();
         let weights: f64 = breakers.iter().map(|b| b.weight).sum();
         let resilience = if weights > 0.0 { breakers.iter().map(|b| b.weight * b.remaining).sum::<f64>() / weights } else { total };
         let follow_up = if parts.breakers { self.follow_up(prelude, &interruptions, &breakers) } else { None };
+        seconds.follow_up = follow_up_started.elapsed().as_secs_f64();
 
         let hand_value = interruptions.iter().filter(|i| i.location == location::HAND).map(|i| i.value).sum::<f64>() + 0.0;
         let mut offered: Vec<(u32, u8)> = all.windows.iter().flat_map(|w| w.options.iter().map(|(id, loc)| (id.code, *loc))).collect();
@@ -1500,6 +1536,7 @@ impl<'a> Prober<'a> {
             offered,
             follow_up,
             countered,
+            seconds,
         })
     }
 
