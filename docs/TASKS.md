@@ -41,7 +41,12 @@ Corsie di lavoro in parallelo del 22/10/2026 (piano in `docs/plans/piano-prossim
   - [x] il collaudo dei deck lenti (corsia 2, 22/10): con `combo_hunt --seed 7` su `main` e424904 resta sopra 60 s solo dracotail-0 (70,7 s da solo), per i turni di prova delle varianti di `--probe` (21c8885); il tetto Lua lì non scatta. Numeri in `docs/plans/velocita-ricerca.md`.
 
   Agente: claude-code, sessione sorella del collaudo. Branch: `claude/tools-qa`. File: script nuovi in `scripts/`, `docs/plans/collaudo-strumenti.md`, `tests/fixtures/boards/`.
-- [ ] **Corsia 4, quinto task.** B5a, attrito avversario (`docs/plans/ricerca-piano-critico.md`, `ricerca-letteratura.md` §1, «Il caso Aeon»). Controllo: su Invoked la linea di Aeon con il bando dall'Extra Deck avversario sta sopra quella col «No», nella misura e nella stima; banco, `combo_hunt` e `search_regression` non peggiorano oltre il 2% (test appaiato per mano).
+- [ ] **Corsia 4, sesto task.** Difetti del livello 2 dal banco oggettivo (corsia 3) e dalla corsia 7: contro il deck scelto la tua linea si sfasava (Elfnote Kewl Tune su una catena vuota, Tearlaments e Earth Machine con 0 linee, railway contro Snake-Eye). La linea si rigioca per identità.
+
+  Agente: claude-code, sessione della corsia 4. Branch: `claude/placed-cards`. File: in `crates/ygo-solver/src/probe.rs` `Prelude::Own` e il suo ramo in `run_with`; `follow.rs` (`Script::up_to`); in `matchup.rs` `replay` (ramo per identità, recupero di `Rejected`, picks), `rival_breakers`, `against_moves`, `draw_trade_off`; la stampa di `print_moves` in `crates/ygo-cli/src/main.rs`.
+  - [x] La correzione.
+  - [ ] `moves_report` e `matchup_report` prima e dopo; protocollo del motore; controllo senza `--vs`; rimisura di Kewl Tune per il banco oggettivo.
+- [x] **Corsia 4, quinto task**, unita il 22/10 (PR #73). B5a, attrito avversario (`docs/plans/ricerca-piano-critico.md`, `ricerca-letteratura.md` §1, «Il caso Aeon»). Controllo: su Invoked la linea di Aeon con il bando dall'Extra Deck avversario sta sopra quella col «No», nella misura e nella stima; banco, `combo_hunt` e `search_regression` non peggiorano oltre il 2% (test appaiato per mano).
 
   Agente: claude-code, sessione della corsia 4. Branch: `claude/placed-cards`. File: `crates/ygo-solver/src/probe.rs` (kit, `Measure`, Observer, `run_with`), `follow.rs`; in `search.rs` solo `quick_score` e il passaggio dell'avversario di partenza; `crates/ygo-engine/src/italian.rs` (un'etichetta); la parte di `crates/ygo-cli/src/main.rs` che stampa la misura.
   - [x] Il sì opzionale di Aeon: nessuna regola lo rifiuta; la ricerca lo trova, ma la stima non vede l'avversario e a parità vince la linea più corta.
