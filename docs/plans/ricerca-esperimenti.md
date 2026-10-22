@@ -96,7 +96,15 @@ Contro il riferimento «tutte le 60 misurate»:
 - «B6 su tutte → 20» in 35, al 73%.
 
 ### Livello 2 (gradino 4)
-*In corso: livello 2 sulle prime 8 board della misura completa di ogni mano, contro Snake-Eye (contro Branded per la mano Snake-Eye).*
+`probe-line --vs <mdm>/snake_eye.ydk --moves` (contro Branded per la mano Snake-Eye) sulle prime 8 board di ogni mano per la misura completa: 328 board, circa 40 minuti di CPU. Il livello 2 ordina per `left` (quota delle mosse dell'avversario che restano con tutte le tue risposte, più bassa è meglio), a parità per `value`.
+
+- **Due mani escluse, da segnalare.**
+  - In `railway-0` il livello 2 risponde «0 lines» per tutte le board, anche se le 12 linee di Snake-Eye sono state lette.
+  - In `elfnote_kewl_tune-0` dà `matchup failed: the engine rejected the response` su 8 board su 8. Il rifiuto arriva su una SelectCard con hint 506 (aggiungi alla mano).
+- **Ordine.** Sulle 39 mani rimaste, l'accordo tra misura completa e livello 2 sulle prime 8 è debole: Spearman 0,52 e Kendall 0,46 in mediana.
+- **Dove sta il #1 del livello 2 nell'ordine della misura completa** (38 mani dove il livello 2 distingue): primo in 19, tra i primi 3 in 26, tra i primi 4 in 28, tra i primi 6 in 35.
+- **Costo.** 7,0 s a board in mediana (p90 16,9 s), più circa 10-25 s per leggere le linee del deck una volta. Le 4 board del gradino 4 costano quindi circa 28 s, più di tutta la misura completa di oggi (30 × 0,53 s).
+- **Conclusione.** Il gradino 4 del piano («livello 2 su 3-4») vede la board che il livello 2 preferisce solo in 28 mani su 38. Per vederla in 35 su 38 servono 6 board, e il costo raddoppia. Propongo di tenere il livello 2 a richiesta, come oggi nell'app, e di non metterlo nella cascata automatica. Va rifatto contro più deck: qui c'è il solo Snake-Eye.
 
 ### Conclusione e proposta per B14
 1. **Il gradino «misura senza breaker» del piano va sostituito.** Costa il 74% della misura completa, perché il 70% del tempo è il ciclo delle risposte, non i breaker.
@@ -111,7 +119,8 @@ Contro il riferimento «tutte le 60 misurate»:
    - **veloce:** stima su 20 → misura economica su 20, se ne tengono 10 → completa su 10. Il tempo è il 46%, con #1 identico in 38 mani su 41 e top 3 almeno 2 su 3 in 34. Il #1 perde il 26% in una mano, meno del 3% nelle altre due.
    - Il controllo del piano (tempo −50% con il #1 identico e almeno 2 su 3 della top 3) non si raggiunge del tutto con questi gradini. Il «veloce» ci arriva vicino: 46% del tempo, 38 mani su 41.
 4. **B6 (`quick_value`, già nel codice ma privato) costa pochissimo (3,5%) ma ordina come la stima** (Spearman 0,60 con la completa). Da solo serve poco; combinato con la stima migliora l'ordine (§2).
-5. **Da rifare quando il gradino esiste nel codice:** gli stessi comandi senza la patch, con il tempo vero della valutazione nell'app (comprese le varianti di zona, che qui non ci sono).
+5. **Livello 2 fuori dalla cascata automatica.** Ordina in modo diverso dalla misura completa (Spearman 0,52) e costa 7 s a board: si tiene a richiesta (sopra).
+6. **Da rifare quando il gradino esiste nel codice:** gli stessi comandi senza la patch, con il tempo vero della valutazione nell'app (comprese le varianti di zona, che qui non ci sono). La PR #71 (corsia 4) ha già portato in `combos --json` i tempi per parte (`seconds_by_part`), `--quick-value` (B6) e `--no-breakers`. Manca solo il gradino economico, con meno finestre per risposta.
 
 ## 2. Taratura della stima in stile Texel (preparazione di B9)
 
@@ -219,9 +228,50 @@ La linea più economica del solver per r1 (A, 11 azioni, 6 carte spese) usa Alei
   - Si chiude solo con una ricerca che li chiede davvero: B8, con il posto di ogni carta e i vincoli sui materiali.
   - In alternativa, rigiocando nel motore la linea delle guide, passo per passo, con `play --steps`.
 - **Proposte per il piano.**
-  - **B4.** Le 4 mani e l'obiettivo di base entrano nell'insieme fisso di «obiettivi raggiungibili». Oggi la nostra ricerca è a 0 su 4, il solver a 4 su 4: è il controllo più semplice per B4.
+  - **B4.** Le 4 mani e l'obiettivo di base entrano nell'insieme fisso di «obiettivi raggiungibili» (`tests/fixtures/research/invoked-goals.tsv`). Oggi la nostra ricerca è a 0 su 4, il solver a 4 su 4. La causa principale è nella diagnosi qui sotto.
   - **Idee dal solver per B4.** Nella sua uscita il solver dichiara una «sonda» iniziale (10 s, 7 000 stati) e poi rollout NRPA guidati dal conteggio delle Evocazioni che il bersaglio richiede («1 Fusion, 1 Link»). Quel conteggio è la versione più semplice della distanza rilassata di B4: costa poco, e l'ha già chi gioca su questo motore.
   - **B8.** Il vincolo «materiali ≥ N» va chiesto in modo esplicito. Nessuno dei due strumenti lo ha oggi.
+
+### Diagnosi: dove la nostra ricerca perde la linea (richiesta della coordinatrice)
+**1. Il motore accetta la linea del solver.**
+- Per leggere le linee del solver ho fatto una patch locale di sola stampa nel clone esterno: con `--verbose` stampa l'etichetta e i byte di ogni risposta registrata.
+- Ho tradotto la linea più economica di r1 nei passi di `duelforge-cli play --steps`. Il nostro motore offre ogni azione e arriva alla stessa board: Oceanus nella Zona Principale, S:P Little Knight nella Zona Extra, in mano Aleister the Invoker e Ash Blossom. I passi:
+  ```
+  Normal Summon Crowley;No;Artemis;Select Crowley;Activate Aleister the Reminiscent;Select Artemis;Yes;Select Invoked Mechaba;
+  Select Invocation (Deck);Activate Invocation - "Sword";Select Invoked Elysium;Select Artemis;Select Invoked Mechaba;
+  Special Summon S:P;Select Aleister the Reminiscent;Select Invoked Elysium;No;Activate Invocation - "Sword" (GY);
+  Select Aleister the Reminiscent;Activate Invocation (Hand);Select Invoked Oceanus;Select Crowley;Select Aleister the Reminiscent
+  ```
+- L'unica differenza: il solver attiva "Sword" nella finestra di catena dopo la ricerca di Reminiscent. Il nostro `play` passa quella finestra da solo, e "Sword" (Magia Rapida) si attiva subito dopo dalla Main Phase, con lo stesso effetto.
+- Quindi **non è un difetto del motore**.
+
+**2. La causa principale: nel modo obiettivo la ricerca sceglie per prime le carte dell'obiettivo anche quando la scelta le manda via.**
+- `dive_order` mette per prima ogni azione che `Goal::involves` riconosce, cioè ogni azione la cui carta è una carta dell'obiettivo. Lo stesso segno (`wanted`) dà la precedenza anche alle alternative messe in coda.
+- Ma `involves` guarda solo la carta, non dove va. Il costo di Aleister the Reminiscent («bandisci 1 Invoked dall'Extra Deck») offre Invoked Oceanus nella lista, e la ricerca lo sceglie per primo: Oceanus è bandito, e l'obiettivo diventa impossibile su tutto quel ramo.
+- **Misura**, 3000 nodi, 40 board per mano, con il `main` di oggi:
+  - con l'obiettivo «Invoked Oceanus», Oceanus è bandito in 40 board su 40 di r1, contro 0 su 40 della ricerca senza obiettivo, che trova Oceanus in campo in altre board;
+  - con «Oceanus + S:P» è bandito in 151 board su 160 delle quattro mani.
+- **Seconda forma dello stesso difetto.** Corretto il costo, in r1 è S:P Little Knight a finire bandito (30 board su 60): la ricerca la sceglie per prima come materiale di Fusione che Invocation bandisce.
+- **Prova.** Una patch locale, mai committata, in un worktree nello scratchpad con la variabile `DIAG_GOAL_LEAVING`:
+  - toglie il segno `wanted` quando la selezione ha un suggerimento del motore che manda via la carta: Tributo, scarto, distruzione, bandire, Cimitero, Deck (`HINTMSG` 500-504 e 507) e materiali di Fusione, Synchro, Xyz e Link (511-513 e 533);
+  - con questa patch, un core per corsa e 60 s, l'obiettivo «Oceanus + S:P» si raggiunge in **3 mani su 4**: r5 in 0,1 s, r6 in 7,9 s, r4 in 10,7 s. Senza la patch è 0 su 4.
+  - «Oceanus@extra + S:P» si raggiunge in 1 mano su 4: r5 in 15,5 s, con S:P in una Zona Principale.
+
+**3. Cosa resta in r1.**
+- Con la patch r1 non arriva all'obiettivo in 60 s (24 000 nodi), ma arriva a pezzi della linea: Elysium + S:P in 54,8 s, Artemis + Elysium in 36,5 s.
+- Con l'obiettivo «Oceanus + S:P + Invocation - "Sword"» trova una linea in 14,3 s: la carta in più nell'obiettivo guida la ricerca su un'altra strada.
+- La linea del solver è lunga, 23 passi della CLI. La stima la preferisce poco, perché S:P e Oceanus valgono meno di Caliga e Mechaba, e il segno `wanted` aiuta solo nel passo in cui la carta compare.
+- Questo è il caso di B4: una distanza dall'obiettivo (h_add sulla mappa dei collegamenti) che ordina i fratelli lungo tutta la linea, non solo all'ultimo passo.
+
+**4. «Oceanus nella Zona Extra + S:P».**
+- S:P Little Knight è un Link: si Evoca nella Zona Extra o in una Zona Principale indicata da una freccia Link.
+- Con Oceanus nella Zona Extra, quindi, S:P deve andare in una Zona Principale puntata da un altro Link. Nella linea di r5 trovata con la patch succede.
+- È un obiettivo più stretto di quello di base, non un errore del motore.
+
+**Cosa cambiare, in modo generale** (in `search.rs`, per la corsia 2 o per chi prende B4):
+1. **Il segno `wanted` solo per le scelte che portano la carta verso il campo.** Le scelte che la mandano via (i suggerimenti sopra) non lo prendono. Meglio ancora: vanno per ultime, quando la carta è una carta dell'obiettivo ancora da mettere in campo. Il suggerimento c'è già nella `Decision` (`hint`, usato in `probe.rs` per `MSG_SPSUMMON`). Nessun nome di carta.
+2. **Una carta dell'obiettivo bandita, mandata al Cimitero o usata come materiale** quando l'obiettivo la vuole in campo, e non ce n'è un'altra copia raggiungibile, rende il ramo inutile per l'obiettivo. Se ne può tenere conto nella priorità, non come potatura, così il verdetto «impossibile» resta corretto.
+3. **Test di regressione:** le 4 mani di `tests/fixtures/research/invoked-goals.tsv`. Oggi 0 su 4; con la correzione 1, 3 su 4. r1 resta il primo caso per B4.
 
 ## 4. Bibliografia (§7 di `ricerca-letteratura.md`)
 Fatto in `ricerca-letteratura.md`, §8: verifica di ogni fonte con il segno di confidenza, correzioni e note sulle cinque aree mancanti. In breve:

@@ -25,7 +25,7 @@ from rank_report import composite  # noqa: E402
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from b14_stages import kendall, spearman  # noqa: E402
 
-LINE = re.compile(r"against its lines \(([\d.]+) s\): (\d+) lines · (\d+)% of their moves made on an empty board · value ([\d.]+) · "
+LINE = re.compile(r"against its lines \(([\d.]+) s\): (\d+) lines · (-?\d+)% of their moves made on an empty board · value ([\d.]+) · "
                   r"floodgates stop (\d+)% · (\d+)% of the rest left")
 
 
@@ -39,6 +39,9 @@ def main():
         found = LINE.findall(out)
         if len(found) != len(order):
             print(f"{name}: {len(found)} level 2 results for {len(order)} boards, left out", file=sys.stderr)
+            continue
+        if all(f[1] == "0" for f in found):
+            print(f"{name}: no line of the opponent measured (matchup failed or 0 lines), left out", file=sys.stderr)
             continue
         boards = {b["index"]: b for b in json.load(open(os.path.join(full_dir, name + ".json"), encoding="utf-8"))["items"]}
         full = [composite(boards[i]) for i in order]
