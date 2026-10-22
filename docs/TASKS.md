@@ -25,7 +25,7 @@ Corsie di lavoro in parallelo del 22/10/2026 (piano in `docs/plans/piano-prossim
   - poi il collaudo del livello 2 con le linee vere (L4) e quello dei deck lenti.
 
   Agente: claude-code, sessione sorella del collaudo. Branch: `claude/tools-qa`. File: script nuovi in `scripts/`, `docs/plans/collaudo-strumenti.md`, `tests/fixtures/boards/`.
-- [ ] **Corsia 4.** Carte piazzate e ruoli (PIANO §30.4):
+- [x] **Corsia 4.** Carte piazzate e ruoli (PIANO §30.4), unita il 22/10 (PR #42):
   - gli equipaggiamenti piazzati con il mostro equipaggiato;
   - i mostri dell'Extra Deck piazzati con i materiali (Apollousa non più a 0 ATK);
   - la prova dell'estensore che non riparte da un turno nuovo (Evocazione Normale ed effetti "una volta per turno" già usati restano usati).
@@ -103,7 +103,7 @@ Corsie di lavoro in parallelo del 22/10/2026 (piano in `docs/plans/piano-prossim
 - [ ] Scale e pesi delle metriche del punteggio (#43).
 - [ ] Frontiera di Pareto e confronto tra board; preferenze apprese (#40).
 - [ ] Simulatore: giocare passo per passo una combo scelta (#36, alla fine).
-- [ ] Limiti noti delle carte piazzate: equipaggiamenti, materiali dei mostri dell'Extra Deck (PIANO §30.4).
+- [x] Limiti noti delle carte piazzate: equipaggiamenti, materiali dei mostri dell'Extra Deck (PIANO §30.4, PR #42).
 - [ ] **Più avanti, dopo la #47 e la #43:** valutatore imparato. Una rete piccola stima il turno di prova durante la ricerca, al posto di `quick_score`, come NNUE in Stockfish; il motore e le regole restano gli stessi (`docs/plans/valutatore-imparato.md`).
 
 ### Richieste dal backend per l'interfaccia

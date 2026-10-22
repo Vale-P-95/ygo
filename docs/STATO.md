@@ -23,8 +23,7 @@ Breve indice per chi arriva. Il dettaglio è in `docs/PIANO.md` (v1.9, §30), le
 
 ## Bug e limiti noti
 - **Valori delle carte sul campo**: non dipendono dal contesto (mano vuota, equipaggiamenti); passa nella #47 (§30.6).
-- **Carte piazzate** (ruoli, valori): gli equipaggiamenti non hanno bersaglio e i mostri dell'Extra Deck non hanno materiali (Apollousa a 0 ATK) (§30.4).
-- **Ruoli**: la prova dell'estensore riparte da un turno nuovo (§30.4).
+- **Carte piazzate**: gli effetti "se usato come materiale" delle carte materiale non si giocano. Equipaggiamenti, materiali e prova dell'estensore nello stesso turno sono corretti (PR #42, §30.4).
 - **Board breaker**: riconosciuti dal testo; contro un deck scelto il motore prova quali si giocano dalla mano, ma quelli dell'Extra Deck o che arrivano con una combo restano fuori (§29.10, §30.10).
 - **Chiave dei nodi**: bersagli e nomi dichiarati durante un effetto non ne fanno parte, quindi un'altra scelta dello stesso effetto non si esplora. Una correzione è stata provata e tolta perché peggiorava di poco la caccia sui 45 deck (§30.8).
 - **Bench**: alcune mani (branded, mitsurugi) trovano il board migliore solo alla fine del budget, quindi oscillano a ogni cambio della ricerca (§30.6).
