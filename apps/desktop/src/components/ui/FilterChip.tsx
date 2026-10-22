@@ -50,7 +50,6 @@ export function FilterChip({
     <button
       type={type}
       data-tip={tooltip}
-      title={tooltip}
       aria-pressed={active}
       disabled={disabled || (isZero && !active)}
       onClick={onClick}

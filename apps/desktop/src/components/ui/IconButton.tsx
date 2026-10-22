@@ -47,7 +47,7 @@ export function IconButton({
   ariaLabel,
   variant = "default",
   size = "md",
-  active = false,
+  active,
   disabled = false,
   className = "",
   type = "button",
@@ -62,9 +62,8 @@ export function IconButton({
     <button
       type={type}
       data-tip={tooltip}
-      title={tooltip}
       aria-label={ariaLabel}
-      aria-pressed={active}
+      aria-pressed={active !== undefined ? active : undefined}
       disabled={disabled}
       onClick={onClick}
       className={`inline-flex items-center justify-center transition cursor-pointer select-none disabled:pointer-events-none disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/70 focus-visible:ring-offset-1 focus-visible:ring-offset-bg active:scale-95 ${SIZE_CLASSES[size]} ${VARIANT_CLASSES[variant]} ${activeClass} ${className}`}
