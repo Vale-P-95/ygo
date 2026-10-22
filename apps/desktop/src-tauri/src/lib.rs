@@ -1895,13 +1895,14 @@ fn links_view(deck_id: i64, map: &ygo_solver::DeckLinks) -> DeckLinksView {
 /// Boards of a precise hand put to the cheap measure after a search, the
 /// first in the search's order, and of those the best by it put to the full
 /// one, which goes on from the cheap one (B14, `docs/plans/velocita-ricerca.md`):
-/// the same best board as measuring the 30 in full, in less time. With fewer
-/// windows the cheap measure misses responses that stop something only
-/// later. "Card + rest" puts all the boards kept to the full measure.
+/// the same best board as measuring the 30 in full, in less time. The cheap
+/// measure is the full one without the breakers: with fewer windows it
+/// misses responses that stop something only later. "Card + rest" puts all
+/// the boards kept to the full measure.
 const CHEAP_BOARDS: usize = 30;
 const SCORED_BOARDS: usize = 15;
 /// What the cheap measure tries.
-const CHEAP_MEASURE: ygo_solver::probe::Cheap = ygo_solver::probe::Cheap { windows: 8, use_rounds: 1 };
+const CHEAP_MEASURE: ygo_solver::probe::Cheap = ygo_solver::probe::Cheap { windows: 16, use_rounds: 3 };
 
 /// The value a cheap measure ranks the boards by: field, hand and floodgates
 /// as the page weighs them, with no breaker played.
