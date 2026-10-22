@@ -213,7 +213,7 @@ export function LinksCardDetail({
           <p className="eyebrow text-small text-muted">In mano iniziale</p>
           <p className="text-body font-semibold tabular-nums text-sec mt-0.5">{chance.text}</p>
           <p className="text-small text-faint leading-tight mt-0.5">
-            {card.extra && card.chance === 0
+            {card.extra && card.chance === 0 && card.measured
               ? "non raggiunta nelle mani cercate"
               : chance.isEstimated
               ? "stima cercata (±5%)"
