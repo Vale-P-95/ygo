@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CardViewer } from "../components/CardViewer";
 import { SectionHeader } from "../components/SectionHeader";
-import { api, cardImage, formatDate, type Card, type DataStatus, type Deck, type DeckFormat } from "../lib/api";
+import { api, cardImage, formatDate, type BanChange, type Card, type DataStatus, type Deck, type DeckFormat } from "../lib/api";
 import { copyLimit, FORMAT_LABELS } from "../lib/deck";
 import { sectionById } from "../sections";
 
@@ -62,7 +62,22 @@ interface Props {
   onOpenDeckInForge: (deckId: number) => void;
 }
 
-type TabMode = "confronto" | "impatto";
+type TabMode = "confronto" | "variazioni" | "impatto";
+
+export function getChangeType(before: string | null, after: string | null): { label: string; kind: "restriction" | "loosening" | "neutral" } {
+  const order = (s: string | null) => {
+    const status = normalizeBanStatus(s);
+    if (status === "Forbidden") return 0;
+    if (status === "Limited") return 1;
+    if (status === "Semi-Limited") return 2;
+    return 3;
+  };
+  const b = order(before);
+  const a = order(after);
+  if (a < b) return { label: "Restrizione", kind: "restriction" };
+  if (a > b) return { label: a === 3 ? "Sbandita (Illimitata)" : "Allentamento", kind: "loosening" };
+  return { label: "Modifica", kind: "neutral" };
+}
 
 export function Banditore({ artReady = true, onOpenDeckInForge }: Props) {
   const [activeTab, setActiveTab] = useState<TabMode>("confronto");
@@ -78,6 +93,14 @@ export function Banditore({ artReady = true, onOpenDeckInForge }: Props) {
   const [cardsLoading, setCardsLoading] = useState(true);
   const [cardsError, setCardsError] = useState<string | null>(null);
   const [viewerCard, setViewerCard] = useState<Card | null>(null);
+
+  // --- Tab 3: Cosa è cambiato state ---
+  const [changesFormat, setChangesFormat] = useState<DeckFormat | "all">("all");
+  const [changes, setChanges] = useState<BanChange[]>([]);
+  const [changesCardMap, setChangesCardMap] = useState<Map<number, Card>>(new Map());
+  const [changesLoading, setChangesLoading] = useState(false);
+  const [changesError, setChangesError] = useState<string | null>(null);
+  const changesReqIdRef = useRef(0);
 
   // --- Tab 2: Impatto sui Deck state ---
   const [decks, setDecks] = useState<Deck[]>([]);
@@ -135,10 +158,11 @@ export function Banditore({ artReady = true, onOpenDeckInForge }: Props) {
         Promise.all([
           api.search("ban:forbidden ban:limited ban:semi"),
           api.search("formato:md ban:forbidden ban:limited ban:semi"),
+          api.search("formato:ocg ban:forbidden ban:limited ban:semi"),
         ])
-          .then(([tcgRes, mdRes]) => {
+          .then(([tcgRes, mdRes, ocgRes]) => {
             if (reqId !== cardsReqIdRef.current) return;
-            const uniqueIds = Array.from(new Set([...tcgRes.ids, ...mdRes.ids]));
+            const uniqueIds = Array.from(new Set([...tcgRes.ids, ...mdRes.ids, ...ocgRes.ids]));
             if (uniqueIds.length === 0) {
               setCards([]);
               setCardsLoading(false);
@@ -242,6 +266,51 @@ export function Banditore({ artReady = true, onOpenDeckInForge }: Props) {
       });
   }, []);
 
+  const loadChanges = useCallback((format: DeckFormat | "all") => {
+    const reqId = ++changesReqIdRef.current;
+    setChangesLoading(true);
+    setChangesError(null);
+    setChanges([]);
+    setChangesCardMap(new Map());
+
+    const apiFormat = format === "all" ? undefined : format;
+    api
+      .banChanges(apiFormat)
+      .then(async (res) => {
+        if (reqId !== changesReqIdRef.current) return;
+        setChanges(res);
+        if (res.length === 0) {
+          setChangesCardMap(new Map());
+          setChangesLoading(false);
+          return;
+        }
+        const cardIds = Array.from(new Set(res.map((c) => c.id)));
+        try {
+          const loadedCards = await api.getCards(cardIds);
+          if (reqId !== changesReqIdRef.current) return;
+          const map = new Map<number, Card>();
+          for (const c of loadedCards) map.set(c.id, c);
+          setChangesCardMap(map);
+          setChangesLoading(false);
+        } catch (err) {
+          if (reqId !== changesReqIdRef.current) return;
+          setChangesError(`Errore nel caricamento delle carte variate: ${err instanceof Error ? err.message : String(err)}`);
+          setChangesLoading(false);
+        }
+      })
+      .catch((err) => {
+        if (reqId !== changesReqIdRef.current) return;
+        setChangesError(`Errore durante il caricamento delle variazioni della banlist: ${err instanceof Error ? err.message : String(err)}`);
+        setChangesLoading(false);
+      });
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === "variazioni") {
+      loadChanges(changesFormat);
+    }
+  }, [activeTab, changesFormat, loadChanges]);
+
   useEffect(() => {
     if (activeTab === "impatto") {
       loadDecksImpact();
@@ -285,6 +354,35 @@ export function Banditore({ artReady = true, onOpenDeckInForge }: Props) {
 
   // Tab 1: Count stats
   const divergenceCount = useMemo(() => cards.filter(hasFormatDivergence).length, [cards]);
+
+  // Tab 3: Grouped changes by date and format
+  const groupedChanges = useMemo(() => {
+    const latestDateByFmt = new Map<"tcg" | "ocg" | "md", string>();
+    for (const c of changes) {
+      const cur = latestDateByFmt.get(c.format);
+      if (!cur || c.date > cur) {
+        latestDateByFmt.set(c.format, c.date);
+      }
+    }
+
+    const groupsMap = new Map<string, { format: "tcg" | "ocg" | "md"; date: string; isLatestForFormat: boolean; items: BanChange[] }>();
+    for (const c of changes) {
+      const key = `${c.format}__${c.date}`;
+      let g = groupsMap.get(key);
+      if (!g) {
+        g = {
+          format: c.format,
+          date: c.date,
+          isLatestForFormat: latestDateByFmt.get(c.format) === c.date,
+          items: [],
+        };
+        groupsMap.set(key, g);
+      }
+      g.items.push(c);
+    }
+
+    return Array.from(groupsMap.values()).sort((a, b) => b.date.localeCompare(a.date));
+  }, [changes]);
 
   // Tab 2: Evaluate Violations for a deck
   const evaluateDeck = useCallback(
@@ -359,6 +457,23 @@ export function Banditore({ artReady = true, onOpenDeckInForge }: Props) {
 
           <button
             type="button"
+            onClick={() => setActiveTab("variazioni")}
+            className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition-all ${
+              activeTab === "variazioni"
+                ? "border border-sec/40 bg-sec/15 text-sec shadow-sm"
+                : "border border-transparent text-muted hover:border-border hover:bg-surface-2 hover:text-text"
+            }`}
+          >
+            <span>📜 Cosa è cambiato</span>
+            {changes.length > 0 && (
+              <span className="rounded-full bg-surface-3 px-2 py-0.5 text-xs text-muted">
+                {changes.length}
+              </span>
+            )}
+          </button>
+
+          <button
+            type="button"
             onClick={() => setActiveTab("impatto")}
             className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition-all ${
               activeTab === "impatto"
@@ -381,6 +496,7 @@ export function Banditore({ artReady = true, onOpenDeckInForge }: Props) {
               {divergenceCount} {divergenceCount === 1 ? "divergenza rilevata" : "divergenze rilevate"} tra MD, TCG e OCG
             </span>
           )}
+          {activeTab === "variazioni" && <span>Cronologia delle variazioni per formato</span>}
           {activeTab === "impatto" && <span>Verifica la legalità dei tuoi mazzi nei 3 formati</span>}
         </div>
       </div>
@@ -597,6 +713,171 @@ export function Banditore({ artReady = true, onOpenDeckInForge }: Props) {
                     );
                   })}
                 </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ========================================================================= */}
+        {/* TAB 3: COSA È CAMBIATO                                                   */}
+        {/* ========================================================================= */}
+        {activeTab === "variazioni" && (
+          <div className="mx-auto max-w-7xl space-y-6">
+            {/* Filter toolbar */}
+            <div className="flex flex-wrap items-center justify-between gap-4 rounded-xl border border-border bg-surface p-4 shadow-sm">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-semibold text-muted">Formato:</span>
+                <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label="Filtro formato variazioni">
+                  {(["all", "md", "tcg", "ocg"] as const).map((fmt) => (
+                    <button
+                      key={fmt}
+                      type="button"
+                      role="radio"
+                      aria-checked={changesFormat === fmt}
+                      onClick={() => setChangesFormat(fmt)}
+                      className={`chip !py-1 !px-3 text-xs ${
+                        changesFormat === fmt ? "chip-active" : ""
+                      }`}
+                    >
+                      {fmt === "all" ? "Tutti i formati" : FORMAT_LABELS[fmt]}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 text-xs text-muted">
+                {changesLoading ? (
+                  <span>Caricamento variazioni in corso…</span>
+                ) : (
+                  <span>
+                    {changes.length} {changes.length === 1 ? "variazione trovata" : "variazioni trovate"}
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Error display */}
+            {changesError && (
+              <div className="rounded-xl border border-danger/40 bg-danger/10 p-4 text-xs text-danger flex items-center justify-between gap-2">
+                <span>{changesError}</span>
+                <button
+                  type="button"
+                  onClick={() => loadChanges(changesFormat)}
+                  className="btn btn-ghost !py-1 !px-2.5 text-xs border border-danger/30 text-danger shrink-0"
+                >
+                  Riprova
+                </button>
+              </div>
+            )}
+
+            {/* Loading skeleton */}
+            {changesLoading && !changesError && (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <div key={i} className="h-28 rounded-xl border border-border bg-surface p-4 animate-pulse" />
+                ))}
+              </div>
+            )}
+
+            {/* Empty state */}
+            {!changesLoading && !changesError && changes.length === 0 && (
+              <div className="flex flex-col items-center justify-center gap-3 rounded-2xl border border-dashed border-border bg-surface p-12 text-center">
+                <span className="text-4xl">📜</span>
+                <h3 className="text-base font-semibold text-text">Nessuna variazione registrata</h3>
+                <p className="max-w-md text-xs leading-relaxed text-muted">
+                  Lo storico delle variazioni parte dal primo aggiornamento dei dati successivo a questa versione.
+                  Per TCG e OCG la data corrisponde al giorno di sincronizzazione dei dati di YGOPRODeck.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => loadChanges(changesFormat)}
+                  className="btn btn-ghost !py-1.5 !px-3.5 text-xs border border-border text-muted hover:text-text mt-1"
+                >
+                  Ricarica
+                </button>
+              </div>
+            )}
+
+            {/* Grouped list of changes */}
+            {!changesLoading && !changesError && changes.length > 0 && (
+              <div className="space-y-6">
+                {groupedChanges.map((group) => (
+                  <div
+                    key={`${group.format}-${group.date}`}
+                    className="rounded-2xl border border-border bg-surface overflow-hidden shadow-sm"
+                  >
+                    {/* Group header */}
+                    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-surface-2 px-5 py-3">
+                      <div className="flex items-center gap-2.5">
+                        <span className="chip !py-0.5 !px-2.5 text-xs font-semibold text-sec">
+                          {FORMAT_LABELS[group.format]}
+                        </span>
+                        <span className="text-sm font-semibold text-text">
+                          {formatDate(group.date)}
+                        </span>
+                        {group.isLatestForFormat && (
+                          <span className="rounded-full border border-ok/40 bg-ok/10 px-2 py-0.5 text-[10px] font-bold text-ok tracking-wide">
+                            ★ Ultima lista
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-xs text-muted">
+                        {group.items.length} {group.items.length === 1 ? "carta variata" : "carte variate"}
+                      </span>
+                    </div>
+
+                    {/* Cards grid */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 p-4">
+                      {group.items.map((change, idx) => {
+                        const card = changesCardMap.get(change.id);
+                        const cName = card?.name ?? `Carta #${change.id}`;
+                        const changeInfo = getChangeType(change.before, change.after);
+                        const beforeLabel = change.before ? statusLabel(normalizeBanStatus(change.before)) : "Illimitata (3)";
+                        const afterLabel = change.after ? statusLabel(normalizeBanStatus(change.after)) : "Illimitata (3)";
+
+                        return (
+                          <button
+                            type="button"
+                            key={`${change.id}-${idx}`}
+                            onClick={() => card && setViewerCard(card)}
+                            className="flex items-center gap-3 rounded-xl border border-border/80 bg-surface-2/40 hover:bg-surface-2 hover:border-sec/40 p-3 transition-all cursor-pointer group text-left w-full"
+                            title="Clicca per aprire nel Visore Carta"
+                          >
+                            <img
+                              src={cardImage(change.id, "cropped")}
+                              alt={cName}
+                              className="h-16 w-11 rounded object-cover shadow-sm shrink-0 border border-border/50 group-hover:scale-105 transition-transform"
+                              loading="lazy"
+                            />
+                            <div className="flex flex-col min-w-0 flex-1 gap-1">
+                              <span className="truncate text-xs font-semibold text-text group-hover:text-sec transition-colors">
+                                {cName}
+                              </span>
+                              <div className="flex items-center gap-1.5 text-[11px] text-muted">
+                                <span className="line-through text-faint">{beforeLabel}</span>
+                                <span>➔</span>
+                                <span className="font-semibold text-text">{afterLabel}</span>
+                              </div>
+                              <div className="flex items-center gap-1 mt-0.5">
+                                <span
+                                  className={`rounded px-1.5 py-0.5 text-[10px] font-medium border ${
+                                    changeInfo.kind === "restriction"
+                                      ? "border-danger/30 bg-danger/10 text-danger"
+                                      : changeInfo.kind === "loosening"
+                                        ? "border-ok/30 bg-ok/10 text-ok"
+                                        : "border-border bg-surface-3 text-muted"
+                                  }`}
+                                >
+                                  {changeInfo.label}
+                                </span>
+                              </div>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
           </div>
