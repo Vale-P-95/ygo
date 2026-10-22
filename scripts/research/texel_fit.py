@@ -75,10 +75,11 @@ FEATURES = [
     "summons", "special_summons", "searches", "deck_cost", "lp_paid",
     "cards_used", "choices",
 ]
+BOARD_FEATURES = list(FEATURES)
 
 
 def features(board, cards):
-    f = dict.fromkeys(FEATURES, 0.0)
+    f = dict.fromkeys(BOARD_FEATURES, 0.0)
     for entry in board["field"]:
         name, face_down, emz, equip = parse_field(entry)
         card = cards.name(name) or dict(kind="monster" if emz else "", type_line="", race="", desc="")
@@ -122,10 +123,30 @@ def features(board, cards):
     f["lp_paid"] = x.get("lp_paid", 0) / 1000
     f["cards_used"] = board.get("cards_used", 0)
     f["choices"] = board.get("choices", 0) / 10
-    return [f[k] for k in FEATURES]
+    return [f[k] for k in BOARD_FEATURES]
 
 
-def load(folders, cards):
+def probe_features(folder, name):
+    """Cheap probe values of each board of a hand, by index, from a timed
+    probe-line run (scripts/research/b14_stages.py, load): the B6 quick
+    value and the unbroken measure of that run."""
+    path = os.path.join(folder, name + ".json")
+    if not os.path.exists(path):
+        return None
+    items = json.load(open(path, encoding="utf-8"))["items"]
+    times = [dict(kv.split("=") for kv in line.split()[1:])
+             for line in open(os.path.join(folder, name + ".err"), encoding="utf-8") if line.startswith("B14TIMING")]
+    if len(times) != len(items):
+        return None
+    out = {}
+    for b, t in zip(items, times):
+        m = b.get("measure")
+        if m:
+            out[b["index"]] = (float(t["quick_value"]), m["field"] + 0.9 * m["hand"] + 0.8 * m["floodgates"])
+    return out
+
+
+def load(folders, cards, probe_dir=None):
     hands = {}
     for folder in folders:
         for path in sorted(glob.glob(os.path.join(folder, "*.json"))):
@@ -136,11 +157,17 @@ def load(folders, cards):
             if len(boards) < 2:
                 continue
             name = os.path.basename(path)[:-5]
+            x = [features(b, cards) for b in boards]
+            if probe_dir:
+                probes = probe_features(probe_dir, name)
+                if probes is None or any(b["index"] not in probes for b in boards):
+                    continue
+                x = [row + list(probes[b["index"]]) for row, b in zip(x, boards)]
             hands[name] = dict(
                 deck=name.rsplit("-", 1)[0],
                 quick=[b["quick_score"] for b in boards],
                 full=[composite(b) for b in boards],
-                x=[features(b, cards) for b in boards],
+                x=x,
             )
     return hands
 
@@ -248,14 +275,21 @@ def main():
     p.add_argument("--splits", type=int, default=10)
     p.add_argument("--lam", type=float, nargs="+", default=[0.001, 0.01, 0.1])
     p.add_argument("--seed", type=int, default=1)
+    p.add_argument("--probe", help="folder of a timed probe-line run with a cheap stage (see probe_features): "
+                   "its B6 value and unbroken measure become two more features")
+    p.add_argument("--only-probe", action="store_true", help="with --probe, the board features left out")
     args = p.parse_args()
     cards = Cards(args.db)
-    hands = load(args.folders, cards)
+    if args.probe:
+        FEATURES.extend(["probe_b6", "probe_unbroken"])
+    hands = load(args.folders, cards, args.probe)
     decks = sorted({h["deck"] for h in hands.values()})
     nb = sum(len(h["quick"]) for h in hands.values())
     print(f"{len(hands)} mani di {len(decks)} deck, {nb} board, {sum(len(pairs(h)) for h in hands.values())} coppie con misure distanti più di 0,1\n")
 
     use = list(range(len(FEATURES)))
+    if args.only_probe:
+        use = use[-2:]
     rng = random.Random(args.seed)
     results = {"oggi": [], **{f"lam {lam}": [] for lam in args.lam}}
     weights = {lam: [] for lam in args.lam}
@@ -277,7 +311,7 @@ def main():
         results["oggi"].append(evaluate(hands, test, lambda h: h["quick"]))
         for lam in args.lam:
             theta = fit(hands, train, use, scale, prior, lam)
-            weights[lam].append([t / s[1] for t, s in zip(theta[1:], scale)] + [theta[0]])
+            weights[lam].append([t / scale[k][1] for t, k in zip(theta[1:], use)] + [theta[0]])
             results[f"lam {lam}"].append(evaluate(hands, test, lambda h, th=theta: score(h, th, use, scale)))
 
     print(f"Verifica sul 30% dei deck lasciati fuori, {args.splits} divisioni a caso (somme sulle divisioni):\n")
@@ -294,7 +328,7 @@ def main():
     print(f"\nPesi medi con lam {lam} (per unità della caratteristica; stima = a · quick_score + Σ w · x), con la deviazione tra le divisioni:\n")
     ws = weights[lam]
     rows = []
-    for k, name in enumerate(FEATURES + ["a (quick_score)"]):
+    for k, name in enumerate([FEATURES[u] for u in use] + ["a (quick_score)"]):
         col = [w[k] for w in ws]
         rows.append((name, statistics.fmean(col), statistics.pstdev(col)))
     for name, m, s in sorted(rows, key=lambda r: -abs(r[1])):
