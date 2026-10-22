@@ -1165,7 +1165,8 @@ const DISCREPANCY: f64 = 0.6;
 /// last choice go last.
 fn work(shared: &Shared, edge: Edge) -> Result<(), Error> {
     let started = Instant::now();
-    let mut dive = Dive { left: Vec::new(), boards: Vec::new(), end: stats::End::Error, nodes: 0, replay: Duration::ZERO };
+    let mut dive =
+        Dive { left: Vec::new(), boards: Vec::new(), end: stats::End::Error, nodes: 0, replay: Duration::ZERO, replayed: 0, after_free: 0 };
     let result = play(shared, &edge, &mut dive);
     if let Some(stats) = &shared.stats {
         stats.dive(&dive, started.elapsed());
@@ -1210,10 +1211,14 @@ fn work(shared: &Shared, edge: Edge) -> Result<(), Error> {
 struct Dive {
     left: Vec<LeftAnswer>,
     boards: Vec<(usize, f64)>,
-    /// For the stats: why the dive ended, its nodes, the time of its replay.
+    /// For the stats: why the dive ended, its nodes, the time of its replay,
+    /// the answers it replayed and how many of them came after the last
+    /// free moment (where a copy of the duel could start them).
     end: stats::End,
     nodes: u64,
     replay: Duration,
+    replayed: u64,
+    after_free: u64,
 }
 
 struct LeftAnswer {
@@ -1255,7 +1260,12 @@ fn play(shared: &Shared, edge: &Edge, dive: &mut Dive) -> Result<(), Error> {
     let mut trial: Option<(u32, HashSet<Offer>)> = None;
     let mut quiet = false;
     for answer in &line.answers {
+        dive.replayed += 1;
+        dive.after_free += 1;
         if let Step::Decision { decision, events } = duel.advance()? {
+            if is_free(&decision) {
+                dive.after_free = 1;
+            }
             since_free.meet(&decision, events.len());
             pending.answered(&decision, answer);
             if events.iter().any(|e| matches!(e, Event::Chaining { .. })) {
@@ -2153,6 +2163,8 @@ mod stats {
         replay: Duration,
         time: Duration,
         best: Option<f64>,
+        replayed: u64,
+        after_free: u64,
     }
 
     #[derive(Default)]
@@ -2186,7 +2198,15 @@ mod stats {
         pub(super) fn dive(&self, dive: &Dive, time: Duration) {
             let best = dive.boards.iter().map(|b| b.1).fold(None, |m: Option<f64>, v| Some(m.map_or(v, |m| m.max(v))));
             if let Ok(mut d) = self.dives.lock() {
-                d.push(DiveRecord { end: dive.end, nodes: dive.nodes, replay: dive.replay, time, best });
+                d.push(DiveRecord {
+                    end: dive.end,
+                    nodes: dive.nodes,
+                    replay: dive.replay,
+                    time,
+                    best,
+                    replayed: dive.replayed,
+                    after_free: dive.after_free,
+                });
             }
         }
 
@@ -2268,8 +2288,10 @@ mod stats {
             let mut unchanged: Vec<String> =
                 self.no_change.lock().map(|n| n.iter().map(|(k, v)| format!("\"{k}\":{v}")).collect()).unwrap_or_default();
             unchanged.sort();
+            let replayed: u64 = dives.iter().map(|d| d.replayed).sum();
+            let after_free: u64 = dives.iter().map(|d| d.after_free).sum();
             eprintln!(
-                "search-stats {{\"elapsed_s\":{:.3},\"learning_s\":{:.3},\"best\":{top:.4},\"ends\":{{{}}},\"boards\":{{\"none\":{},\"weak\":{},\"near\":{}}},\"no_change\":{{{}}},\"best_line_ranks\":[{}]}}",
+                "search-stats {{\"replayed\":{replayed},\"after_free\":{after_free},\"elapsed_s\":{:.3},\"learning_s\":{:.3},\"best\":{top:.4},\"ends\":{{{}}},\"boards\":{{\"none\":{},\"weak\":{},\"near\":{}}},\"no_change\":{{{}}},\"best_line_ranks\":[{}]}}",
                 elapsed.as_secs_f64(),
                 self.learning.lock().map_or(0.0, |l| l.as_secs_f64()),
                 ends.join(","),
