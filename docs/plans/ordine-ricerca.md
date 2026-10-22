@@ -43,6 +43,13 @@ Il "#1 stampato non il migliore" si conta con la posizione stampata (`printed`).
 
 Le quattro mani `inv-*` che non partono sono le stesse prima e dopo (carte che la lista Invoked di oggi non ha).
 
+## Test di regressione della ricerca
+Tre attese di `crates/ygo-solver/tests/search_regression.rs` cambiano. Il perché è scritto nel test.
+- **Reminiscent da sola** e **Reminiscent, Aiwass e Grail** trovano le stesse board di prima. La stima ha però un'altra scala, perché un mostro misurato vale 0,3 come corpo invece di +1 o +2: 9,9 invece di 15,0, e 14,6. Le soglie scendono a 9,5 e 14,0.
+- **Due Aleister e Sword** ora trova Mechaba e Caliga con Invocation - "Sword" scoperta: due mostri invece di tre. Misura 2,32. Le board con un terzo mostro trovate prima misuravano al massimo 2,09: le metteva prima il +1 o +2 fisso per mostro. Le attese passano a 2 mostri.
+
+`cargo test --release` dei cinque crate è verde, compreso `search_regression`. Clippy è pulito.
+
 ## Cosa resta
 **L'obiettivo C5.7 (≤ 60 inversioni) non è raggiunto: 174.**
 
