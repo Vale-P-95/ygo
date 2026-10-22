@@ -16,7 +16,7 @@ Steps:
 
     python3 scripts/owner_bench.py $S/owner --own $S/mdm2 --meta-decks $S/mdm6 --meta $S/bench/meta.json --hunt $S/h7m $S/h7bm $S/op_make
     python3 scripts/objective_bench.py $S/owner --decks $S/owner/decks --hunt - --skip lunalight
-    python3 scripts/owner_bench.py $S/owner --table tests/fixtures/boards/owner-verdicts.tsv
+    python3 scripts/owner_bench.py $S/owner --table tests/fixtures/boards/owner-verdicts.tsv --json tests/fixtures/boards/owner-bench.json
 """
 import argparse
 import glob
@@ -122,7 +122,11 @@ def measure(out, cli):
                                 "--json", path + ".json"], stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
             open(path + ".log", "w").write(f"# rc {r.returncode}\n" + r.stdout)
         it = json.load(open(path + ".json"))["items"][0] if os.path.exists(path + ".json") else None
-        b["today"] = round(composite(it["measure"]), 3) if it and it.get("measure") else None
+        ms = it.get("measure") if it else None
+        b["today"] = round(composite(ms), 3) if ms else None
+        b["generic"] = {k: round(ms[k], 4) if isinstance(ms.get(k), float) else ms.get(k) for k in ("field", "hand", "floodgates", "resilience")} if ms else None
+        if ms:
+            b["generic"]["countered"] = len(ms["countered"]) if isinstance(ms.get("countered"), list) else ms.get("countered")
         b["same_board"] = bool(it) and unzoned(it["signature"]) == unzoned(b["signature"])
     # The boards a line no longer makes stay out of the run against the meta.
     bad = [b for b in boards if not b["same_board"]]
@@ -137,7 +141,7 @@ def verdict_of(delta, tie):
     return "pari" if delta is None or abs(delta) < tie else ("B" if delta > 0 else "A")
 
 
-def table(out, verdicts_path):
+def table(out, verdicts_path, json_path=None):
     pairs = {p["id"]: p for p in json.load(open(PAIRS))["pairs"]}
     rows = [line.rstrip("\n").split("\t") for line in open(verdicts_path) if line.strip() and not line.startswith("#")]
     head, rows = rows[0], rows[1:]
@@ -182,6 +186,12 @@ def table(out, verdicts_path):
     if len(tb) >= 3:
         lines += ["", f"ρ (misura generica di oggi, verità) sulle {len(tb)} board: {spearman([x for x, _ in tb], [y for _, y in tb]):.2f}"]
     open(os.path.join(out, "owner-table.md"), "w").write("\n".join(lines) + "\n")
+    if json_path:
+        # The verdicts with today's generic measures and the bench's truth, for tune_weights.py.
+        side = lambda i: dict(boards[i]["generic"] or {}, truth=truth.get(i, {}).get("truth")) if i in boards else None  # noqa: E731
+        doc = [dict(id=pid, deck=p["deck"], kind=p["kind"], verdict=owner.get(pid), a=side(pid + "a"), b=side(pid + "b"),
+                    missing=[i for i in (pid + "a", pid + "b") if i in missing]) for pid, p in pairs.items()]
+        json.dump(dict(pairs=doc), open(json_path, "w"), indent=1)
     print("\n".join(lines))
 
 
@@ -194,9 +204,10 @@ def main():
     p.add_argument("--hunt", nargs="*", default=[], help="combo_hunt.py --json folders, in order of preference")
     p.add_argument("--cli", default=os.path.join(ROOT, "target", "release", "duelforge-cli"))
     p.add_argument("--table", help="the owner's verdicts (owner-verdicts.tsv): only the table")
+    p.add_argument("--json", help="with --table: also the pairs as JSON (verdict, generic measures and truth of each board)")
     a = p.parse_args()
     if a.table:
-        table(a.out, a.table)
+        table(a.out, a.table, a.json)
         return
     if not os.path.exists(os.path.join(a.out, "boards.json")):
         prep(a.out, a.own, a.meta_decks, a.meta, a.hunt)
