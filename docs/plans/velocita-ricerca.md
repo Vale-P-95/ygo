@@ -192,7 +192,7 @@ Gli altri 39 deck sforano al massimo di 7,4 s (tearlaments, quasi tutto apprendi
 - Il limite di istruzioni Lua per ogni richiesta del motore (piano P3, «in misura») non è stato provato.
 
 ## Istruzioni Lua per richiesta del motore (22/10/2026, corsia 2)
-**Misura.** Con `DUELFORGE_LUA_COUNT=<file>` uno shim (`crates/ygo-engine/shim/count.cpp`) mette un hook di conteggio sullo stato Lua del duello; le coroutine del motore lo ereditano. Per ogni richiesta (da una risposta alla decisione dopo) si salvano le istruzioni, in migliaia, e il tempo. Senza la variabile nessun hook. `combo_hunt.py --lua-count <cartella>` salva un file per giro e `scripts/lua_count.py` li legge: per soglia, le richieste sopra, il loro tempo e il massimo che un tetto lì farebbe risparmiare. Con l'hook il motore va un po' più piano (circa l'8% sulla mano lenta).
+**Misura.** Con `DUELFORGE_LUA_COUNT=<file>` uno shim (`crates/ygo-engine/shim/count.cpp`) mette un hook di conteggio sullo stato Lua del duello; le coroutine del motore lo ereditano. Per ogni richiesta (da una risposta alla decisione dopo) si salvano le istruzioni, in migliaia, e il tempo. Senza la variabile nessun hook. `combo_hunt.py --lua-count <cartella>` salva un file per giro e `scripts/lua_count.py` li legge: per soglia, le richieste sopra, il loro tempo e il massimo che un tetto lì farebbe risparmiare. Con l'hook la mano lenta dura 78,1 s invece di 76,7 s.
 
 **Giro a 20 s** (41 deck × 2 mani, seme 7, senza limite di nodi, 4 giri insieme come per la scadenza): 25,9 milioni di richieste.
 - La richiesta più lunga fa 2,96 milioni di istruzioni (elfnote_kewl_tune, mano 1); nessuna arriva a 3 milioni. Il 99,9% delle richieste di ogni giro sta sotto 1,4 milioni.
@@ -213,6 +213,10 @@ Gli altri 39 deck sforano al massimo di 7,4 s (tearlaments, quasi tutto apprendi
 | 50 milioni | 0 | 13 | 60,1 s | 32,1 s |
 
 Il risparmio massimo suppone che il tempo di una richiesta cresca con le istruzioni: un tetto la ferma alla soglia.
+
+**Senza la variabile niente cambia** (stesso binario, confrontato con `main`):
+- banco: 16 mani su 16 identiche;
+- `combo_hunt.py --seed 7`: 82 righe su 82 identiche, nessun problema.
 
 **Raccomandazione.**
 - Un tetto di **10 milioni di istruzioni per richiesta**. Nessuna delle 25,9 milioni di richieste normali ci arriva (la più lunga fa 2,96 milioni, margine di 3,4 volte). Sulla mano lenta toglie fino a 59 s dei 77 s di motore.
