@@ -104,6 +104,17 @@ impl Rival {
         &self.cards
     }
 
+    /// The opponent of the replays of your line: its handtraps in its hand,
+    /// and its Main Deck (what Maxx "C" draws) cut to as many cards as the
+    /// kit's Deck the line was found against. Some of your effects look at
+    /// the size of its Deck (That Grass Looks Greener sends cards until
+    /// yours is no bigger): with another size the line's answers no longer
+    /// fit its questions.
+    fn replay_opponent(&self) -> Opponent {
+        let size = self.standard.opponent().deck.len();
+        Opponent { hand: self.hand_traps.clone(), deck: self.main.iter().copied().cycle().take(size).collect(), extra: Vec::new() }
+    }
+
     fn copies(&self, code: u32) -> u32 {
         self.copies.get(&code).copied().unwrap_or(0)
     }
@@ -251,7 +262,7 @@ pub fn matchup(
         (out.resilience, out.breaker_chance) = rival.against(&out.breakers, measure.field_value, ITS_TURN);
     }
 
-    out.hand_traps = hand_trap_stops(engine, deck, hand, seed, &rival.main, &own, &rival.hand_traps)?;
+    out.hand_traps = hand_trap_stops(engine, deck, hand, seed, &rival.replay_opponent(), &own, &rival.hand_traps)?;
     for h in &mut out.hand_traps {
         h.chance = 1.0 - rival.none_of(&[h.code], OPENING);
     }
@@ -312,7 +323,7 @@ pub fn draw_trade_off(
 ) -> Result<Vec<DrawTradeOff>, Error> {
     let db = engine.cards();
     let own = own_answers(engine, deck, hand, seed, rival.standard.opponent(), line)?;
-    let opponent = Opponent { hand: rival.hand_traps.clone(), deck: rival.main.clone(), extra: Vec::new() };
+    let opponent = rival.replay_opponent();
     let base = replay(engine, deck, hand, seed, &opponent, &own, Play::default())?;
     // The handtraps that draw, at the first moment each can be used.
     let mut drawing: Vec<(u32, usize)> = Vec::new();
@@ -879,13 +890,11 @@ fn hand_trap_stops(
     deck: &DeckList,
     hand: &[u32],
     seed: u64,
-    rival: &[u32],
+    opponent: &Opponent,
     own: &Script,
     hand_traps: &[u32],
 ) -> Result<Vec<RivalHandTrap>, Error> {
-    // Its own Deck: the kit's few cards run out when it draws (Maxx "C").
-    let opponent = Opponent { hand: hand_traps.to_vec(), deck: rival.to_vec(), extra: Vec::new() };
-    let base = replay(engine, deck, hand, seed, &opponent, own, Play::default())?;
+    let base = replay(engine, deck, hand, seed, opponent, own, Play::default())?;
     let mut out = Vec::new();
     for &code in hand_traps {
         let windows: Vec<usize> = (0..base.windows.len()).filter(|&w| base.windows[w].offered.iter().any(|(c, _)| *c == code)).collect();
@@ -896,7 +905,7 @@ fn hand_trap_stops(
         let mut at = Vec::new();
         let mut moments = Vec::new();
         for &w in windows.iter().take(MAX_TRIES) {
-            let tried = replay(engine, deck, hand, seed, &opponent, own, Play { use_at: Some((code, w)), stop_at: None });
+            let tried = replay(engine, deck, hand, seed, opponent, own, Play { use_at: Some((code, w)), stop_at: None });
             if std::env::var_os("DUELFORGE_DEBUG_MATCHUP").is_some() {
                 let db = engine.cards();
                 match &tried {

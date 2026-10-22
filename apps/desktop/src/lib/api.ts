@@ -479,7 +479,22 @@ export interface ComboScore {
   exposureDetail: { ash: number; onField: number; summons: number; specialSummons: number; searches: number } | null;
   /** Against the deck chosen with `comboScore(vsDeckId)`. */
   matchup?: ComboMatchup | null;
+  /**
+   * Share (0-1) of what your effects stop together that they still stop when the opponent answers the first of them it can,
+   * with Infinite Impermanence. `null` when it can answer none, or they stop nothing. Shown, not weighed.
+   */
+  countered: number | null;
   error: string | null;
+}
+
+/** A card of the board that interrupts, against removals aimed at it with only its own effects to answer (mirrors `PieceView`). */
+export interface ComboPiece {
+  code: number;
+  /** "mano", "campo", "Cimitero", "bandita". */
+  place: string;
+  /** Removals it is still usable after: "distruggere", "bandire", "girare coperto", "negare". */
+  holds: string[];
+  falls: string[];
 }
 
 /** One of the opponent deck's board breakers against the board. */
@@ -847,6 +862,8 @@ const tauriApi = {
     invoke<ComboDrawTradeOff[]>("combo_stops", { hand, key, vsDeckId }),
   /** Level 2 of the probe turn against a deck, for one board: the deck's lines are read once (10-30 s), then a few seconds a board. */
   comboMoves: (hand: number, key: string, vsDeckId: number) => invoke<ComboMoves>("combo_moves", { hand, key, vsDeckId }),
+  /** What each card of a board that interrupts holds against (destroy, banish, face-down, negate): a few seconds, for the board open. */
+  boardProtection: (hand: number, key: string) => invoke<ComboPiece[]>("board_protection", { hand, key }),
   onComboProgress: (handler: (p: ComboProgress) => void): Promise<UnlistenFn> => listen<ComboProgress>("combo-progress", (e) => handler(e.payload)),
   /** Laboratorio, "Collegamenti": the map of a deck, read by the engine (about half a minute the first time, then kept until its cards change). */
   deckLinks: (deckId: number) => invoke<DeckLinks>("deck_links", { deckId }),

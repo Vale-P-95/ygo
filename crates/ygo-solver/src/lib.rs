@@ -24,7 +24,7 @@ pub use matchup::{
     against_moves, draw_trade_off, matchup, plays_of, rival_line, rival_lines, rival_plays, DrawTradeOff, HandTrapMoment, Matchup,
     MoveStop, MovesMatchup, Rival, RivalBreaker, RivalHandTrap, RivalLine, RivalMove, RivalPlay, StopPoint,
 };
-pub use probe::{hand_traps, BreakerResult, Effect, FollowUp, Interruption, Kit, Measure, Probe, Prober, ResponderId};
+pub use probe::{hand_traps, BreakerResult, Effect, FollowUp, Interruption, Kit, Measure, Probe, Prober, Protection, Removal, ResponderId};
 pub use roles::{guess_roles, RoleGuess};
 pub use search::{
     look_key, quick_score, resume, search, Board, Frontier, Goal, GoalCard, GoalZone, Line, Progress, SearchConfig, SearchResult, Stop,

@@ -156,6 +156,11 @@ enum Cmd {
         /// deck).
         #[arg(long)]
         moves: bool,
+        /// What each card of the board that interrupts holds against:
+        /// removals aimed at it (destroy, banish, face-down, negate), with
+        /// only its own effects to answer (a run each).
+        #[arg(long)]
+        protection: bool,
     },
     /// The map of the links between the cards of a deck, read from the
     /// engine: which card adds, summons, sends or gets back which.
@@ -333,8 +338,8 @@ fn main() -> Result<()> {
                 save_lines,
             },
         ),
-        Cmd::ProbeLine { setup, lines, index, json, vs, stops, moves } => {
-            probe_line(&cli.data, &setup, &lines, index, json.as_deref(), vs.as_deref(), stops, moves)
+        Cmd::ProbeLine { setup, lines, index, json, vs, stops, moves, protection } => {
+            probe_line(&cli.data, &setup, &lines, index, json.as_deref(), vs.as_deref(), stops, moves, protection)
         }
         Cmd::HandTraps { deck } => hand_traps(&cli.data, &deck),
         Cmd::RivalPlays { deck, hands, nodes, seed } => rival_plays(&cli.data, &deck, hands, nodes, seed),
@@ -692,6 +697,7 @@ fn state_json(
             "floodgates": m.floodgate_value,
             "resilience": m.resilience,
             "follow_up": m.follow_up.map(|f| serde_json::json!({ "rebuild": f.rebuild, "gained": f.gained })),
+            "countered": m.countered,
             "floodgate_list": m.floodgates.iter().map(|p| p.label()).collect::<Vec<_>>(),
             "offered": m.offered.iter().map(|&(c, l)| serde_json::json!([c, l])).collect::<Vec<_>>(),
             "interruptions": m.interruptions.iter().map(|i| serde_json::json!({
@@ -761,6 +767,7 @@ fn probe_line(
     vs: Option<&Path>,
     stops: bool,
     moves: bool,
+    protection: bool,
 ) -> Result<()> {
     let (engine, deck, mut hand) = start(dir, setup)?;
     let saved: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(lines)?)?;
@@ -838,6 +845,32 @@ fn probe_line(
             Err(e) => println!("   probe turn failed: {e}"),
         }
         let mut extra = serde_json::json!({ "index": i });
+        if let (true, Ok(m)) = (protection, &measured) {
+            let started = std::time::Instant::now();
+            let pieces = prober.protection(&line, &m.interruptions);
+            println!("   protection ({:.1} s):", started.elapsed().as_secs_f64());
+            let labels = |rs: &[ygo_solver::Removal]| rs.iter().map(|r| r.label()).collect::<Vec<_>>().join(", ");
+            for p in &pieces {
+                println!(
+                    "     {}: holds against {} · falls to {}",
+                    engine.cards().name(p.responder.code),
+                    if p.holds.is_empty() { "nothing".to_owned() } else { labels(&p.holds) },
+                    if p.falls.is_empty() { "nothing".to_owned() } else { labels(&p.falls) }
+                );
+            }
+            extra["protection"] = pieces
+                .iter()
+                .map(|p| {
+                    serde_json::json!({
+                        "card": engine.cards().name(p.responder.code),
+                        "code": p.responder.code,
+                        "location": location::name(p.location),
+                        "holds": p.holds.iter().map(|r| r.label()).collect::<Vec<_>>(),
+                        "falls": p.falls.iter().map(|r| r.label()).collect::<Vec<_>>(),
+                    })
+                })
+                .collect();
+        }
         if let (Some((rival, rival_deck, lines)), Ok(m)) = (&rival, &measured) {
             let started = std::time::Instant::now();
             match ygo_solver::matchup(&engine, &deck, &hand, seed, &line, m, rival) {
@@ -1060,6 +1093,9 @@ fn print_measure(engine: &Engine, m: &ygo_solver::Measure, took: std::time::Dura
     );
     if let Some(f) = m.follow_up {
         println!("   your next turn, after the worst breaker: {} effects to rebuild with · {} cards gained", f.rebuild, f.gained);
+    }
+    if let Some(kept) = m.countered {
+        println!("   with an answer to your first interruption: {:.0}% of what your effects stop is still stopped", kept * 100.0);
     }
     for i in &m.interruptions {
         let covers: Vec<&str> = i.covers.iter().map(|p| p.label()).collect();

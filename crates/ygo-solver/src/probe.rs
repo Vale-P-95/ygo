@@ -179,6 +179,38 @@ impl Effect {
     }
 }
 
+/// A way to take one card of your board out of the opponent's way, aimed
+/// at it (the protection of each piece, D15).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub enum Removal {
+    Destroy,
+    Banish,
+    FaceDown,
+    Negate,
+}
+
+impl Removal {
+    pub fn label(self) -> &'static str {
+        match self {
+            Removal::Destroy => "distruggere",
+            Removal::Banish => "bandire",
+            Removal::FaceDown => "girare coperto",
+            Removal::Negate => "negare",
+        }
+    }
+}
+
+/// One card of your board against each removal aimed at it, with only its
+/// own effects to answer: the removals it is still usable after, and those
+/// it is not.
+#[derive(Debug, Clone)]
+pub struct Protection {
+    pub responder: ResponderId,
+    pub location: u8,
+    pub holds: Vec<Removal>,
+    pub falls: Vec<Removal>,
+}
+
 /// One of your effects: the card (original code) and which of its effects.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ResponderId {
@@ -205,6 +237,24 @@ struct KitStep {
     needs: Option<Probe>,
     /// A breaker is played without it when the engine does not offer it.
     optional: bool,
+}
+
+impl KitStep {
+    /// A step that only picks `picks` wherever asked (the targets of the
+    /// opponent's answer to one of your links).
+    fn aiming(picks: Vec<u32>) -> KitStep {
+        KitStep {
+            act: Act::Activate(0, location::HAND),
+            picks,
+            take_max: false,
+            option: 0,
+            triggers: Vec::new(),
+            attack: false,
+            goals: Vec::new(),
+            needs: None,
+            optional: false,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -234,6 +284,8 @@ pub struct Breaker {
     /// How often it matters: the average over breakers is weighted by it.
     pub weight: f64,
     steps: Vec<KitStep>,
+    /// Its cards the opponent has only in its run (see [`Arsenal`]).
+    arsenal: Arsenal,
 }
 
 impl Breaker {
@@ -258,7 +310,7 @@ impl Breaker {
         } else {
             vec![step(Act::Activate(code, location::HAND), false)]
         };
-        Breaker { name, weight, steps }
+        Breaker { name, weight, steps, arsenal: Arsenal::default() }
     }
 
     /// The one card it plays, if it plays one.
@@ -276,9 +328,25 @@ pub struct Kit {
     opponent: Opponent,
     steps: Vec<KitStep>,
     pub breakers: Vec<Breaker>,
+    /// What the opponent answers your first interruption with, when it can
+    /// ([`Measure::countered`]).
+    counters: Vec<u32>,
+    /// The cards that remove one of yours ([`Prober::protection`]), and
+    /// where the cards they can aim at are.
+    removals: Vec<(Removal, u8, u32)>,
     /// The opponent plays a line of its deck again instead of the steps
     /// one by one (the probe turn against a deck, level 2).
     script: Option<Arc<LineScript>>,
+}
+
+/// Cards added to the opponent's hand and Extra Deck only in the runs that
+/// play them: one card more in its hand changes the random cards your
+/// effects take from it and the monster it summons when one lets it, in the
+/// search as in the other runs of the measure.
+#[derive(Debug, Clone, Default)]
+struct Arsenal {
+    hand: Vec<u32>,
+    extra: Vec<u32>,
 }
 
 /// A line of the opponent's deck to play again in its turn: its answers,
@@ -447,7 +515,7 @@ impl Kit {
             let mut s = step(act, vec![], vec![], None);
             s.option = option;
             s.take_max = take_max;
-            breakers.push(Breaker { name: label.to_owned(), weight, steps: vec![s] });
+            breakers.push(Breaker { name: label.to_owned(), weight, steps: vec![s], arsenal: Arsenal::default() });
         };
         breaker("Dark Hole", "Dark Hole", 1.0, false, 0, false);
         breaker("Raigeki", "Raigeki", 1.0, false, 0, false);
@@ -470,8 +538,41 @@ impl Kit {
                 name: "Attacco da 4200 ATK".to_owned(),
                 weight: 0.6,
                 steps: vec![step(Act::SpecialSummon(cyber), vec![], vec![], None), attack],
+                arsenal: Arsenal::default(),
             });
         }
+
+        // The cards added from D15 on are in the opponent's hand and Extra
+        // Deck only in the runs that play them (an [`Arsenal`]).
+        // The breakers the Master Duel Meta lists play in their Main Deck
+        // (by axis): a targeted negation used before anything else (Infinite
+        // Impermanence comes from the hand while its controller has no
+        // cards), and a Fusion your negations cannot answer that takes your
+        // monsters as materials (Super Polymerization, with the two Fusions
+        // those lists play it for: any two monsters with the same Attribute
+        // are materials for one of them).
+        if let Some(imperm) = code("Infinite Impermanence") {
+            breakers.push(Breaker {
+                name: "Infinite Impermanence".to_owned(),
+                weight: 1.0,
+                steps: vec![step(Act::Activate(imperm, location::HAND), vec![], vec![], None)],
+                arsenal: Arsenal { hand: vec![imperm], extra: Vec::new() },
+            });
+        }
+        if let (Some(poly), Some(mudragon), Some(garura)) =
+            (code("Super Polymerization"), code("Mudragon of the Swamp"), code("Garura, Wings of Resonant Life"))
+        {
+            breakers.push(Breaker {
+                name: "Super Polymerization".to_owned(),
+                weight: 1.0,
+                steps: vec![step(Act::Activate(poly, location::HAND), vec![], vec![], None)],
+                arsenal: Arsenal { hand: vec![poly], extra: vec![mudragon, garura] },
+            });
+        }
+        // The opponent's answer to your first interruption it can answer:
+        // Infinite Impermanence on a monster's effect while the opponent has
+        // no cards. Ghost Ogre was tried too and left out for the reason above.
+        let counters: Vec<u32> = [code("Infinite Impermanence")].into_iter().flatten().collect();
 
         // The last cards of the Deck are drawn or sent first (the draw of the
         // turn, Pot of Greed, the top card Glow-Up Bulb sends): plain ones,
@@ -486,7 +587,20 @@ impl Kit {
             let missing = DECK.saturating_sub(deck.len());
             deck.splice(0..0, std::iter::repeat_n(filler, missing));
         }
-        Kit { opponent: Opponent { hand, deck, extra }, steps, breakers, script: None }
+        // Removals aimed at one card, each the plainest card of its kind (the
+        // protection of each piece), in the hand for that report only.
+        let removals: Vec<(Removal, u8, u32)> = [
+            (Removal::Destroy, location::MZONE, "Offerings to the Doomed"),
+            (Removal::Banish, location::MZONE, "Spiritual Entanglement"),
+            (Removal::FaceDown, location::MZONE, "Book of Moon"),
+            (Removal::Negate, location::MZONE, "Infinite Impermanence"),
+            (Removal::Destroy, location::SZONE, "Mystical Space Typhoon"),
+            (Removal::Banish, location::SZONE, "Cosmic Cyclone"),
+        ]
+        .into_iter()
+        .filter_map(|(r, at, name)| Some((r, at, code(name)?)))
+        .collect();
+        Kit { opponent: Opponent { hand, deck, extra }, steps, breakers, counters, removals, script: None }
     }
 
     /// The opponent's cards: give them to the search too
@@ -494,6 +608,18 @@ impl Kit {
     /// same in the probe turn.
     pub fn opponent(&self) -> &Opponent {
         &self.opponent
+    }
+
+    /// The opponent's cards with `arsenal` too.
+    fn armed(&self, arsenal: &Arsenal) -> Opponent {
+        let mut armed = self.opponent.clone();
+        for &c in &arsenal.hand {
+            if !armed.hand.contains(&c) {
+                armed.hand.push(c);
+            }
+        }
+        armed.extra.extend(&arsenal.extra);
+        armed
     }
 
     /// This kit with the breakers of `rival`, their cards in the opponent's
@@ -524,6 +650,10 @@ impl Kit {
         deck.splice(0..plain, main.into_iter().take(plain));
         kit.opponent.extra.extend(&rival.extra);
         kit.breakers = breakers;
+        // Its own breakers and nothing more: the kit's answer and removals
+        // are not its cards.
+        kit.counters.clear();
+        kit.removals.clear();
         kit
     }
 
@@ -578,6 +708,8 @@ impl Kit {
             opponent: Opponent { hand: line.hand.clone(), deck: main, extra: rival.extra.clone() },
             steps,
             breakers: Vec::new(),
+            counters: Vec::new(),
+            removals: Vec::new(),
             script: Some(Arc::new(LineScript { script: line.script.clone(), step_of: line.move_of.clone() })),
         }
     }
@@ -672,6 +804,12 @@ struct Context<'a> {
     worth: Option<&'a HashMap<u32, f64>>,
     /// Once the opponent is done, play on to your next Main Phase.
     turn_three: bool,
+    /// The opponent answers your first link it can with one of the kit's
+    /// counters, aimed at that link's card, else at these (your
+    /// responders, the one worth the most first).
+    counter: Option<&'a [u32]>,
+    /// The opponent's cards, if not the kit's.
+    opponent: Option<&'a Opponent>,
 }
 
 /// A moment you could respond, and with what.
@@ -707,6 +845,8 @@ struct RunTrace {
     uses: Vec<Use>,
     state: DuelState,
     follow_up: Option<FollowUp>,
+    /// The opponent answered one of your links ([`Context::counter`]).
+    countered: bool,
 }
 
 /// Follows the events of a run to tell what each use of the responder did.
@@ -742,6 +882,8 @@ struct Observer {
     landed: Vec<u32>,
     /// The links of the chain being built that have not resolved yet.
     open: Vec<CardRef>,
+    /// The opponent's next link is its answer to yours, not its step's.
+    answering: bool,
 }
 
 impl Observer {
@@ -759,7 +901,7 @@ impl Observer {
             Event::Chaining { card, chain_link, .. } => {
                 self.links.insert(*chain_link, (card.controller, card.code));
                 self.open.push(*card);
-                if card.controller == 1 {
+                if card.controller == 1 && !std::mem::take(&mut self.answering) {
                     self.step_links.push(*chain_link);
                     self.summoning = None;
                 }
@@ -1033,6 +1175,10 @@ pub struct Measure {
     /// What you have for your next turn after the breaker that takes away
     /// the most (none if the run could not get there).
     pub follow_up: Option<FollowUp>,
+    /// Share of what all your effects stop together that they still stop
+    /// when the opponent answers the first of them it can (none if it could
+    /// answer none, or they stop nothing).
+    pub countered: Option<f64>,
 }
 
 /// Your next turn, after the opponent's: the board breaker that takes away
@@ -1242,7 +1388,11 @@ impl<'a> Prober<'a> {
 
         // All together, the strongest first: an effect the engine no longer
         // offers once the others are used (its cost is gone) counts less.
-        if parts.together && interruptions.len() > 1 {
+        // With the breakers, the same once more with the opponent answering
+        // your first link it can (report only).
+        let answer = parts.breakers && !self.kit.counters.is_empty();
+        let mut countered = None;
+        if parts.together && (interruptions.len() > 1 || answer && !interruptions.is_empty()) {
             let order: Vec<ResponderId> = interruptions.iter().map(|i| i.responder).collect();
             // Without what the responses bring: what they stop earlier would
             // leave the others nothing to stop, and they are not short of
@@ -1254,10 +1404,28 @@ impl<'a> Prober<'a> {
             }
             let context = Context { worth: Some(&worth), ..Context::default() };
             if let Ok(run) = self.run_with(prelude, &all_steps, Policy::UseAll(&order), context) {
-                for i in &mut interruptions {
-                    let used = run.uses.iter().filter(|u| u.responder == i.responder).count() as u32;
-                    if used < i.uses {
-                        i.value = i.alone * used as f64 / i.uses as f64;
+                if interruptions.len() > 1 {
+                    for i in &mut interruptions {
+                        let used = run.uses.iter().filter(|u| u.responder == i.responder).count() as u32;
+                        if used < i.uses {
+                            i.value = i.alone * used as f64 / i.uses as f64;
+                        }
+                    }
+                }
+                // Both with its answer in the opponent's hand: the cards in its
+                // hand change what your random effects take from it.
+                if answer {
+                    let stopped = |run: &RunTrace| stopped_by(run).iter().map(|p| p.weight()).sum::<f64>();
+                    let armed = self.kit.armed(&Arsenal { hand: self.kit.counters.clone(), extra: Vec::new() });
+                    let targets: Vec<u32> =
+                        interruptions.iter().filter(|i| i.location == location::MZONE).map(|i| i.responder.code).collect();
+                    let context = Context { opponent: Some(&armed), ..context };
+                    let all_stopped = self.run_with(prelude, &all_steps, Policy::UseAll(&order), context).map_or(0.0, |r| stopped(&r));
+                    if all_stopped > 0.0 {
+                        let context = Context { counter: Some(&targets), ..context };
+                        if let Ok(answered) = self.run_with(prelude, &all_steps, Policy::UseAll(&order), context) {
+                            countered = answered.countered.then(|| (stopped(&answered) / all_stopped).min(1.0));
+                        }
                     }
                 }
                 interruptions.sort_by(|a, b| b.value.total_cmp(&a.value));
@@ -1287,6 +1455,7 @@ impl<'a> Prober<'a> {
             resilience,
             offered,
             follow_up,
+            countered,
         })
     }
 
@@ -1397,7 +1566,9 @@ impl<'a> Prober<'a> {
                 s.picks = targets.clone();
             }
             let steps: Vec<&KitStep> = owned.iter().collect();
-            let run = match self.run(prelude, &steps, Policy::Pass) {
+            let armed = self.kit.armed(&breaker.arsenal);
+            let context = Context { opponent: Some(&armed), ..Context::default() };
+            let run = match self.run_with(prelude, &steps, Policy::Pass, context) {
                 Ok(run) if run.steps.iter().zip(&owned).all(|(r, s)| r.available || s.optional) => run,
                 _ => {
                     out.push(BreakerResult {
@@ -1424,7 +1595,7 @@ impl<'a> Prober<'a> {
                 .collect();
             for negator in negators {
                 let none = HashSet::new();
-                let Ok(tried) = self.run(prelude, &steps, Policy::Use(negator.responder, &none)) else { continue };
+                let Ok(tried) = self.run_with(prelude, &steps, Policy::Use(negator.responder, &none), context) else { continue };
                 if tried.steps.iter().any(|s| s.negated) {
                     let spent = if negator.location == location::HAND { 0.0 } else { negator.value / negator.uses as f64 };
                     let left = self.left(&tried.state, interruptions) - spent;
@@ -1436,6 +1607,47 @@ impl<'a> Prober<'a> {
                 }
             }
             out.push(result);
+        }
+        out
+    }
+
+    /// Each card of your board that interrupts, against each of the kit's
+    /// removals aimed at it after the board `line` reaches (a run each).
+    /// The card answers with its own effects only: what it does for itself,
+    /// with the lasting protections of the board (Stardust Sifr's).
+    pub fn protection(&self, line: &Line, interruptions: &[Interruption]) -> Vec<Protection> {
+        self.protection_from(Prelude::Line(line), interruptions)
+    }
+
+    /// [`Prober::protection`] of a board put straight on the field.
+    pub fn protection_placed(&self, placed: &[Placement], interruptions: &[Interruption]) -> Vec<Protection> {
+        self.protection_from(Prelude::Placed(placed), interruptions)
+    }
+
+    fn protection_from(&self, prelude: Prelude, interruptions: &[Interruption]) -> Vec<Protection> {
+        let opponent = self.kit.armed(&Arsenal { hand: self.kit.removals.iter().map(|r| r.2).collect(), extra: Vec::new() });
+        let context = Context { opponent: Some(&opponent), ..Context::default() };
+        let mut out: Vec<Protection> = Vec::new();
+        for i in interruptions.iter().filter(|i| matches!(i.location, location::MZONE | location::SZONE) && i.value > 0.0) {
+            if out.iter().any(|p| p.responder.code == i.responder.code) {
+                continue;
+            }
+            let own: Vec<ResponderId> =
+                interruptions.iter().filter(|o| o.responder.code == i.responder.code).map(|o| o.responder).collect();
+            let mut protection = Protection { responder: i.responder, location: i.location, holds: Vec::new(), falls: Vec::new() };
+            for &(removal, _, code) in self.kit.removals.iter().filter(|(_, at, _)| *at == i.location) {
+                let mut step = KitStep::aiming(vec![i.responder.code]);
+                step.act = Act::Activate(code, location::HAND);
+                let Ok(run) = self.run_with(prelude, &[&step], Policy::UseAll(&own), context) else { continue };
+                // Not played: it had nothing to aim at, this card included.
+                let hit = run.steps[0].available && self.left(&run.state, std::slice::from_ref(i)) <= 0.0;
+                if hit {
+                    protection.falls.push(removal);
+                } else {
+                    protection.holds.push(removal);
+                }
+            }
+            out.push(protection);
         }
         out
     }
@@ -1486,7 +1698,8 @@ impl<'a> Prober<'a> {
             s.picks = targets.clone();
         }
         let steps: Vec<&KitStep> = owned.iter().collect();
-        let context = Context { turn_three: true, ..Context::default() };
+        let armed = self.kit.armed(worst.map_or(&Arsenal::default(), |b| &b.arsenal));
+        let context = Context { turn_three: true, opponent: Some(&armed), ..Context::default() };
         self.run_with(prelude, &steps, Policy::Pass, context).ok()?.follow_up
     }
 
@@ -1538,9 +1751,10 @@ impl<'a> Prober<'a> {
     /// [`Prober::run`], knowing more (see [`Context`]).
     fn run_with(&self, prelude: Prelude, steps: &[&KitStep], policy: Policy, context: Context) -> Result<RunTrace, Error> {
         let engine = self.engine;
+        let opponent = context.opponent.unwrap_or(&self.kit.opponent);
         let mut duel = match prelude {
-            Prelude::Placed(placed) => Duel::goldfish_vs_placed(engine, self.deck, self.hand, self.seed, &self.kit.opponent, placed)?,
-            _ => Duel::goldfish_vs(engine, self.deck, self.hand, self.seed, &self.kit.opponent)?,
+            Prelude::Placed(placed) => Duel::goldfish_vs_placed(engine, self.deck, self.hand, self.seed, opponent, placed)?,
+            _ => Duel::goldfish_vs(engine, self.deck, self.hand, self.seed, opponent)?,
         };
         const NO_ANSWERS: &[Vec<u8>] = &[];
         let mut answers = match prelude {
@@ -1554,6 +1768,7 @@ impl<'a> Prober<'a> {
             uses: Vec::new(),
             state: DuelState::default(),
             follow_up: None,
+            countered: false,
         };
         let mut observer = Observer::default();
         let mut next = 0usize;
@@ -1575,6 +1790,10 @@ impl<'a> Prober<'a> {
         // answer the opponent's, never your own (Invoked Mechaba would
         // negate your own Effect Veiler).
         let mut mine_on_top = false;
+        // The card of your last link, and the targets of the opponent's
+        // answer to it while it picks them.
+        let mut your_link: Option<u32> = None;
+        let mut aiming: Option<KitStep> = None;
         // The effects you could activate at your last free moment of the
         // Main Phase: in your End Phase, those are quick effects, the
         // others are the End Phase's triggers.
@@ -1594,7 +1813,14 @@ impl<'a> Prober<'a> {
             for e in &events {
                 observer.see(engine, e, &mut trace.uses);
                 match e {
-                    Event::Chaining { card, .. } => mine_on_top = card.controller == 0,
+                    Event::Chaining { card, .. } => {
+                        mine_on_top = card.controller == 0;
+                        if mine_on_top {
+                            your_link = Some(card.code);
+                        } else {
+                            aiming = None;
+                        }
+                    }
                     Event::ChainEnd => mine_on_top = false,
                     _ => {}
                 }
@@ -1773,7 +1999,26 @@ impl<'a> Prober<'a> {
                             }
                         }
                     } else {
-                        let step = current.as_ref().map(|(i, _)| steps[*i]);
+                        // Its answer to your first link it can answer, once.
+                        if let (Some(others), false, true, Decision::SelectChain { forced: false, .. }) =
+                            (context.counter, trace.countered, mine_on_top, &decision)
+                        {
+                            let db = engine.cards();
+                            let counter = actions.iter().find(|a| {
+                                a.kind == ActionKind::Activate
+                                    && a.card.is_some_and(|c| {
+                                        self.kit.counters.iter().any(|&k| db.canonical_code(k) == db.canonical_code(c.code))
+                                    })
+                            });
+                            if let Some(a) = counter {
+                                trace.countered = true;
+                                observer.answering = true;
+                                aiming = Some(KitStep::aiming(your_link.into_iter().chain(others.iter().copied()).collect()));
+                                duel.respond(&a.response);
+                                continue;
+                            }
+                        }
+                        let step = aiming.as_ref().or(current.as_ref().map(|(i, _)| steps[*i]));
                         duel.respond(&opponent_answer(engine, &decision, &actions, step));
                     }
                 }
@@ -2011,7 +2256,12 @@ fn opponent_answer(engine: &Engine, decision: &Decision, actions: &[Action], ste
     let listed = |list: &[u32], code: u32| list.iter().any(|&c| db.canonical_code(c) == db.canonical_code(code));
     let picks: &[u32] = step.map_or(&[], |s| &s.picks);
     let triggers: &[u32] = step.map_or(&[], |s| &s.triggers);
-    if let Some(answer) = forward(decision, actions, |a| a.card.is_some_and(|c| listed(picks, c.code))) {
+    // The picks in their order (a breaker's targets: the card worth the
+    // most first), then any other card.
+    let rank = |a: &Action| {
+        a.card.and_then(|c| picks.iter().position(|&p| db.canonical_code(p) == db.canonical_code(c.code))).unwrap_or(picks.len())
+    };
+    if let Some(answer) = forward_by(decision, actions, rank) {
         return answer;
     }
     let first = |kinds: &[ActionKind]| actions.iter().find(|a| kinds.contains(&a.kind));
@@ -2042,7 +2292,7 @@ fn opponent_answer(engine: &Engine, decision: &Decision, actions: &[Action], ste
         }
         Decision::EffectYesNo { .. } | Decision::YesNo { .. } => first(&[ActionKind::Yes]),
         _ => {
-            let picked = actions.iter().find(|a| a.card.is_some_and(|c| listed(picks, c.code)));
+            let picked = actions.iter().filter(|a| rank(a) < picks.len()).min_by_key(|a| rank(a));
             let most = if step.is_some_and(|s| s.take_max) {
                 actions
                     .iter()

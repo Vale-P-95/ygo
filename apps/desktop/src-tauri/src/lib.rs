@@ -683,6 +683,11 @@ struct ScoreView {
     exposure_detail: Option<ExposureView>,
     /// Against the deck chosen in [`combo_score`].
     matchup: Option<MatchupView>,
+    /// Share of what your effects stop together that they still stop when
+    /// the opponent answers the first of them it can, with Infinite
+    /// Impermanence ([`ygo_solver::Measure::countered`]): none if it can
+    /// answer none, or they stop nothing. Shown, not weighed.
+    countered: Option<f64>,
     /// The probe turn could not be played (the board is left out of the ranking).
     error: Option<String>,
 }
@@ -1053,6 +1058,47 @@ fn combo_moves(state: State<'_, AppState>, hand: usize, key: String, vs_deck_id:
     })
 }
 
+/// One card of the board that interrupts, against removals aimed at it
+/// ([`ygo_solver::Protection`]).
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct PieceView {
+    code: u32,
+    /// "mano", "campo", "Cimitero", "bandita".
+    place: &'static str,
+    /// What it is still usable after, in Italian: "distruggere", "bandire",
+    /// "girare coperto", "negare".
+    holds: Vec<String>,
+    falls: Vec<String>,
+}
+
+/// Combo Lab: what each card of a board that interrupts holds against,
+/// for the board open (a few seconds): the probe turn is measured again,
+/// then a removal aimed at each card plays alone, a run each. The card
+/// answers with its own effects only; the board's lasting protections
+/// (Stardust Sifr's) count.
+#[tauri::command(async)]
+fn board_protection(state: State<'_, AppState>, hand: usize, key: String) -> Result<Vec<PieceView>, String> {
+    let engine = state.engine()?;
+    let (config, cards, line) = {
+        let job = state.combo.lock().map_err(|e| e.to_string())?;
+        let job = job.as_ref().ok_or("Nessuna ricerca da valutare")?;
+        let board =
+            job.boards.iter().find(|(h, b)| *h == hand && format!("{:016x}", b.key) == key).map(|(_, b)| b).ok_or("Board non trovata")?;
+        let (cards, _, _) = job.hands.get(hand).ok_or("Mano non trovata")?;
+        (job.config.clone(), cards.clone(), board.line.clone())
+    };
+    let kit = ygo_solver::Kit::standard(&engine);
+    let mut prober = ygo_solver::Prober::new(&engine, &config.deck, &cards, config.seed, &kit);
+    let measured = prober.measure(&line).map_err(|e| e.to_string())?;
+    let labels = |rs: &[ygo_solver::Removal]| rs.iter().map(|r| r.label().to_owned()).collect();
+    Ok(prober
+        .protection(&line, &measured.interruptions)
+        .iter()
+        .map(|p| PieceView { code: p.responder.code, place: place_name(p.location), holds: labels(&p.holds), falls: labels(&p.falls) })
+        .collect())
+}
+
 /// What the line does that the handtraps played most can stop.
 #[derive(Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -1209,10 +1255,12 @@ fn score_view(
             parts.join(", ")
         }),
         matchup: None,
+        countered: None,
         error: None,
     };
     match measured {
         Ok(m) => {
+            view.countered = m.countered;
             view.interruptions = m.field_value;
             view.hand_traps = m.hand_value;
             view.floodgates = m.floodgate_value;
@@ -2261,6 +2309,7 @@ pub fn run() {
             combo_explain,
             combo_stops,
             combo_moves,
+            board_protection,
             shelf_decks,
             set_deck_box,
             duplicate_deck,

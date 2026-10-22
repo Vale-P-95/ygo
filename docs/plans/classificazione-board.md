@@ -707,6 +707,40 @@ Branded #1 (Pot of Desires): 10 carte del Deck e 2 Fusioni nel Cimitero, costo 0
 - Coppie: nessuna cambia. Le Trappole settate in Standby non si attivano nello stesso turno.
 - Banco della ricerca identico in tutti i 16 casi, tempo +2%; misura per board con mediana uguale e p95 da 1,76 a 1,90 s.
 
+### C11. D15: breaker per assi, risposta alla tua prima interruzione, protezione dei pezzi (22/10/2026)
+
+**Quali breaker giocano davvero i deck.** Nelle 37 liste di Master Duel Meta (Main Deck, senza Side) non c'è nessun Dark Hole, Raigeki, Lightning Storm, Book of Eclipse o Kaiju. Ci sono Infinite Impermanence (43 copie in 17 deck), Super Polymerization (18 in 9), Forbidden Droplet (15 in 6), Triple Tactics Talent (14 in 13), Ghost Ogre (37 in 21) ed Evenly Matched mai. Se ne aggiungono due, un asse ciascuno, con peso 1 come gli altri:
+- **Infinite Impermanence** (con bersaglio, rapida, nega): dalla mano finché l'avversario non ha carte, sul tuo mostro che vale di più;
+- **Super Polymerization** (non si può concatenare, prende i tuoi mostri come materiali), con le due Fusioni per cui le liste la giocano: Mudragon of the Swamp e Garura. Due mostri con lo stesso Attributo bastano per una delle due.
+
+Triple Tactics Talent vuole che tu abbia attivato un effetto di mostro nella sua Main Phase, ed Evenly Matched non c'è nelle liste: restano fuori. I pesi di tutti i breaker restano quelli di prima; si rivedono con D17.
+
+**I breaker mirano alla carta che vale di più.** Era scritto così, ma l'avversario prendeva la prima carta che il motore elencava tra i bersagli. In white_forest_azamina il Kaiju e l'attacco da 4200 ATK prendevano Diabellstar Vengeance (0,21) invece di Azamina Ilia Silvia (0,80).
+
+**La risposta alla tua prima interruzione** (`Measure::countered`, solo da mostrare). Si gioca ancora la run congiunta (tutte le tue risposte, la più forte prima), con l'avversario che risponde al primo tuo anello a cui può rispondere con Infinite Impermanence. Il numero è la quota di quello che fermano tutte insieme che fermano ancora. Conta in 10 board delle coppie su 115: Synchrons (0,21-0,71), Elfnote (0,43), D/D/D (0,68), Spright (0,74), cioè dove una negazione si usa più volte. In 57 non risponde: 7 board non fermano niente; nelle altre la tua prima interruzione non è l'effetto di un mostro sul campo (è una Trappola o una handtrap), oppure l'avversario ha già carte sul campo e Impermanence non si attiva dalla mano.
+
+Anche Ghost Ogre è stato provato e tolto: una carta in più nella mano dell'avversario cambia le carte prese a caso dai tuoi effetti (Elfnote Tinia bandisce una carta a caso dalla sua mano) e il mostro che evoca quando un tuo effetto glielo permette (Dominus Spark). Per la stessa ragione **le carte nuove del kit stanno nella mano e nell'Extra Deck dell'avversario solo nelle run che le giocano** (`Arsenal`: quelle di ogni breaker, della risposta, delle rimozioni). Nella mano di tutte le run cambiavano anche la ricerca: il banco perdeva il 4% (inv-r4 trovava una board peggiore di 0,8).
+
+**La protezione dei pezzi** (`Prober::protection`, solo da mostrare, a richiesta: `probe-line --protection`, `api.boardProtection`). Per ogni carta della board che interrompe, una rimozione mirata a lei, una run ciascuna:
+- distruggere: Offerings to the Doomed (mostri), Mystical Space Typhoon (Magie e Trappole);
+- bandire: Spiritual Entanglement, Cosmic Cyclone;
+- girare coperto: Book of Moon;
+- negare: Infinite Impermanence.
+
+La carta risponde solo con i suoi effetti. Contano invece le protezioni durature della board: Stardust Sifr tiene una Infinite Impermanence settata al riparo da Mystical Space Typhoon. Esempi: Desirae con Fiendsmith's Sequence equipaggiata regge a tutto (non si può prendere come bersaglio), Baronne e Dawn Dragster reggono a tutto (negano), Stardust Sifr regge solo alla distruzione, S:P Little Knight solo al girare coperto, Azamina Ilia Silvia a niente.
+
+**Numeri.**
+
+| | prima (D13) | dopo |
+|---|---|---|
+| Coppie sicure: giuste, pari, al contrario | 22 / 5 / 2 | 22 / 5 / 2 |
+| Coppie da confermare: giuste, pari, al contrario | 14 / 19 / 13 | 16 / 18 / 12 |
+| Banco: ricerca (nodi, replay, board) | | identica in tutti i 16 casi |
+| Banco: somma di best / first | 24,80 / 20,56 | 24,95 / 20,65 |
+| Misura per board: mediana / p95 | 0,5 / 2,1 s | 0,5 / 2,4 s |
+
+Cambiano tre coppie da confermare: J51 e J52 (vaylantz) da pari a giuste, J19 (elfnote) da al contrario a pari. Le coppie sicure sbagliate restano le stesse. Sono quasi tutte pari: le due board differiscono in carte che contro il kit valgono 0 (Volcanic, Phantom Knights) o nei bersagli di un equipaggiamento (Tearlaments).
+
 ## 5. Parte D: ordine di implementazione
 
 Tutto si fa su un branch `claude/board-score`, con lock in `docs/TASKS.md` su `probe.rs`, `value.rs`, `search.rs`, `lib.rs` e `api.ts` passo per passo. Ogni passo deve:
