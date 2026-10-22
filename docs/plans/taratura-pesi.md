@@ -48,9 +48,16 @@
    | Linee sicure | −1,0 |
 
    - Con −1 la perdita attesa conta quanto le interruzioni perse. Il Bilanciato ne conta la metà, perché la misura è ottimista sulle linee di riserva (V1, `esposizione.md`).
-   - **Pesi salvati dall'utente o imparati:** se l'esposizione salvata è nella scala vecchia (valore assoluto sotto 0,2), si moltiplica per 12,5, cioè 0,5 diviso 0,04, una volta sola al caricamento.
+   - **Pesi salvati dall'utente o imparati:** versione dei dati salvati (`version: 2`). Se `version` manca nei dati salvati, l'esposizione nella scala vecchia (valore assoluto sotto 0,2) si moltiplica per 12,5 una volta sola al caricamento e si risalva subito con `version: 2`. Con `version: 2` non si converte mai, permettendo pesi intenzionalmente bassi.
 3. **Carte tolte all'avversario** (`Measure::attrition`, PR #73). Per ora non entrano nel punteggio dell'app: serve prima il campo in `ScoreView`/`api.ts` e una verità che le veda. Il banco misura solo il turno avversario, e un Extra Deck bandito pesa sui turni dopo. Si rivede con B5 e con il banco rifatto.
 4. **Il banco va rifatto come nuova base** dopo B5a (#73, Extra Deck del kit da 15 carte) e dopo la correzione del livello 2 della corsia 4. I numeri di questa pagina valgono per `main` prima di B5a.
 
 ## Richiesta a Gemini
 In `docs/TASKS.md`, sezione «Interfaccia (Gemini)»: i pesi dell'esposizione in `scoring.ts`, più la conversione dei pesi salvati e un test Vitest.
+
+
+## Implementazione (Gemini, branch `gemini/exposure-weights`)
+- Pesi `exposure` in `PROFILES`: Bilanciato −0,5, Più negazioni −0,4, Controllo e floodgate −0,4, A prova di breaker −0,6, Risorse e follow-up −0,3, Linee sicure −1,0.
+- Migrazione `loadChoice()` con versione dei dati salvati (`version: 2`): moltiplicazione per 12,5 una volta sola se `version` manca, con salvataggio immediato di `version: 2`.
+- Test Vitest per la migrazione e per l'ordinamento di board con diversa esposizione.
+- Testo di aiuto aggiornato in `METRICS`.
