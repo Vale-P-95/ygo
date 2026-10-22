@@ -5,10 +5,8 @@ use std::path::PathBuf;
 use std::sync::atomic::AtomicBool;
 use std::time::Duration;
 
-use ygo_engine::consts::location;
-use ygo_engine::ActionKind;
 use ygo_engine::{DeckList, Engine};
-use ygo_solver::{against_moves, draw_trade_off, matchup, search, typical_moves, Goal, Kit, Prober, Rival, RivalPlay, SearchConfig, Stop};
+use ygo_solver::{against_moves, draw_trade_off, matchup, search, Goal, Kit, Prober, Rival, SearchConfig, Stop};
 
 const ALEISTER: u32 = 86120751;
 const CHALICE: u32 = 76334960;
@@ -143,25 +141,20 @@ fn a_handtrap_counts_where_it_stops_the_line() {
     let slayer = x.breakers.iter().find(|b| b.code == lab.code("Ultimate Slayer")).expect("Ultimate Slayer");
     assert!(!slayer.not_applicable, "{slayer:?}");
 
-    // Level 2: the opponent plays the deck's typical moves (here an Invoked
-    // opening: Aleister summoned, Invocation from the hand). The board's
-    // answers take moves away; a Normal Summon of another line's opening is
-    // left out (one a turn).
-    let play = |name: &str, kind: ActionKind, share: f64, order: f64| RivalPlay {
-        code: lab.code(name),
-        kind,
-        location: location::HAND,
-        share,
-        first: if order == 1.0 { share } else { 0.0 },
-        order,
-    };
-    let plays = vec![
-        play("Aleister the Invoker", ActionKind::NormalSummon, 0.9, 1.0),
-        play("Ash Blossom & Joyous Spring", ActionKind::NormalSummon, 0.2, 1.0),
-        play("Invocation", ActionKind::Activate, 0.8, 2.0),
-    ];
-    assert_eq!(typical_moves(&plays).len(), 2);
-    let moves = against_moves(engine, &lab.deck, &hand, config.seed, line, &deck, &plays, &kit).expect("the moves are played");
+    // Level 2: the opponent plays one of its deck's best lines again in its
+    // turn (here the Invoked deck itself, from Aleister and Invocation), with
+    // its hand and its Deck in the order of the line's search. Every move is
+    // made on an empty board; the board's answers take some away.
+    let opening: Vec<u32> = ["Aleister the Invoker", "Invocation", "Magical Meltdown", "Ash Blossom & Joyous Spring", "Mulcharmy Fuwalos"]
+        .iter()
+        .map(|n| lab.code(n))
+        .collect();
+    let rival_line = ygo_solver::rival_line(engine, &lab.deck, &opening, config.seed, 400).expect("the opening makes a board");
+    assert!(!rival_line.moves.is_empty(), "{:?}", rival_line.moves);
+    let moves = against_moves(engine, &lab.deck, &hand, config.seed, line, &lab.deck, std::slice::from_ref(&rival_line), &kit)
+        .expect("the line is played");
+    assert_eq!(moves.lines, 1, "{moves:?}");
+    assert_eq!(moves.moves.len(), rival_line.moves.len(), "{moves:?}");
     assert!(moves.moves.iter().all(|m| m.possible), "{moves:?}");
     assert!(!moves.stops.is_empty() && moves.value > 0.0, "{moves:?}");
     assert!(moves.left < 1.0 && moves.left >= 0.0, "{moves:?}");

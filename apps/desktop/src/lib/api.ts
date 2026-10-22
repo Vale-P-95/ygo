@@ -526,6 +526,64 @@ export interface ComboDrawTradeOff {
   standardBreakers: boolean;
 }
 
+/** A move of the rival: a card, how it is played and from where (mirrors `RivalPlayView`). */
+export interface ComboRivalPlay {
+  code: number;
+  kind: "activate" | "normalSummon" | "specialSummon";
+  place: "mano" | "campo" | "Cimitero" | "bandita" | "Extra Deck" | "Deck";
+}
+
+/** One of the rival deck's best lines, from one opening hand (mirrors `RivalLineView`). */
+export interface ComboRivalLine {
+  hand: number[];
+  /** Its moves in order; a line that only Sets cards has none. */
+  moves: ComboRivalPlay[];
+}
+
+/** A move of a line measured against the board (mirrors `MeasuredMoveView`). */
+export interface ComboMeasuredMove extends ComboRivalPlay {
+  /** The line it belongs to (index in `ComboMoves.lines`). */
+  line: number;
+  /** Its share of all the moves: every line weighs the same, and every move of a line the same. */
+  weight: number;
+  /**
+   * "made": made against the board with no answer; "stopped": the board stops it with no answer (a floodgate);
+   * "lost": lost with an earlier move the board stopped; "notMade": not made even on an empty board.
+   */
+  state: "made" | "stopped" | "lost" | "notMade";
+}
+
+/** One of your effects against the rival's lines (mirrors `MoveStopView`). */
+export interface ComboMoveStop {
+  code: number;
+  /** "mano", "campo", "Cimitero", "bandita". */
+  place: string;
+  effect: string;
+  /** The moves it stops itself (indices in `ComboMoves.moves`). */
+  moves: number[];
+  /** Share of the moves it takes away at its best moment, averaged over the lines. */
+  coverage: number;
+  value: number;
+}
+
+/** The board against what a deck does in its turn: its best lines played again after yours (mirrors `MovesView`). */
+export interface ComboMoves {
+  /** The deck's best lines from 12 random hands. */
+  lines: ComboRivalLine[];
+  /** Lines measured: those with moves (a line whose run failed is left out). */
+  measured: number;
+  moves: ComboMeasuredMove[];
+  stops: ComboMoveStop[];
+  /** Share of the moves the lines make on an empty board (the rest the probe turn could not play again). */
+  madeShare: number;
+  /** Share of those moves your board stops with no answer. */
+  floodgateShare: number;
+  /** Interruption value against these lines. */
+  value: number;
+  /** Share of the moves the board lets the lines make that they still make with all your answers used together. */
+  left: number;
+}
+
 /** A moment of the line the opponent uses a handtrap at (mirrors `HandTrapMomentView`). */
 export interface ComboHandTrapMoment {
   /** Your card being played then (the last you used). */
@@ -774,6 +832,8 @@ const tauriApi = {
   /** Where to stop a board's line against the Maxx "C" or Mulcharmy of a deck of the Bottega: a few seconds. */
   comboStops: (hand: number, key: string, vsDeckId: number) =>
     invoke<ComboDrawTradeOff[]>("combo_stops", { hand, key, vsDeckId }),
+  /** Level 2 of the probe turn against a deck, for one board: the deck's lines are read once (10-30 s), then a few seconds a board. */
+  comboMoves: (hand: number, key: string, vsDeckId: number) => invoke<ComboMoves>("combo_moves", { hand, key, vsDeckId }),
   onComboProgress: (handler: (p: ComboProgress) => void): Promise<UnlistenFn> => listen<ComboProgress>("combo-progress", (e) => handler(e.payload)),
   /** Laboratorio, "Collegamenti": the map of a deck, read by the engine (about half a minute the first time, then kept until its cards change). */
   deckLinks: (deckId: number) => invoke<DeckLinks>("deck_links", { deckId }),

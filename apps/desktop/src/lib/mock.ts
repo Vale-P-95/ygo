@@ -15,6 +15,7 @@ import type {
   ComboRequest,
   ComboScore,
   ComboDrawTradeOff,
+  ComboMoves,
   ComboStep,
   Cond,
   DataStatus,
@@ -2816,6 +2817,53 @@ export const mockApi: Api = {
       { code: 23434538, stops, best: 2, standardBreakers: false },
       { code: 73642296, stops: fuwalosStops, best: 1, standardBreakers: false },
     ];
+  },
+
+  comboMoves: async (): Promise<ComboMoves> => {
+    await delay(500);
+    // A Snake-Eye deck as the rival: two lines with moves, one that only Sets cards.
+    // The board's Infinite Impermanence stops Diabellstar in the first line; the rest of that line is lost with it.
+    const lines: ComboMoves["lines"] = [
+      {
+        hand: [72270339, 98159737, 34267821, 14558127, 10045474],
+        moves: [
+          { code: 72270339, kind: "specialSummon", place: "mano" },
+          { code: 72270339, kind: "activate", place: "campo" },
+          { code: 98159737, kind: "normalSummon", place: "mano" },
+          { code: 98159737, kind: "activate", place: "campo" },
+        ],
+      },
+      {
+        hand: [45298492, 58074572, 69105797, 97268402, 94145021],
+        moves: [
+          { code: 45298492, kind: "normalSummon", place: "mano" },
+          { code: 58074572, kind: "activate", place: "mano" },
+          { code: 11264180, kind: "specialSummon", place: "Extra Deck" },
+        ],
+      },
+      { hand: [10045474, 54693926, 15693423, 24224830, 65681983], moves: [] },
+    ];
+    return {
+      lines,
+      measured: 2,
+      moves: [
+        { line: 0, ...lines[0].moves[0], weight: 0.125, state: "made" },
+        { line: 0, ...lines[0].moves[1], weight: 0.125, state: "made" },
+        { line: 0, ...lines[0].moves[2], weight: 0.125, state: "made" },
+        { line: 0, ...lines[0].moves[3], weight: 0.125, state: "made" },
+        { line: 1, ...lines[1].moves[0], weight: 0.167, state: "made" },
+        { line: 1, ...lines[1].moves[1], weight: 0.167, state: "made" },
+        { line: 1, ...lines[1].moves[2], weight: 0.167, state: "notMade" },
+      ],
+      stops: [
+        { code: 10045474, place: "mano", effect: "nega l'effetto", moves: [1], coverage: 0.38, value: 0.3 },
+        { code: 14558127, place: "mano", effect: "nega l'effetto", moves: [5], coverage: 0.17, value: 0.15 },
+      ],
+      madeShare: 0.83,
+      floodgateShare: 0,
+      value: 0.45,
+      left: 0.55,
+    };
   },
 
   comboExplain: async (_hand: number, key: string): Promise<ComboStep[]> => {

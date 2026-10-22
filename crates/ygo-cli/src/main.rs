@@ -150,9 +150,10 @@ enum Cmd {
         /// Mulcharmy makes it draw (a few seconds a line).
         #[arg(long)]
         stops: bool,
-        /// With --vs: the deck plays its typical moves (read from its own
-        /// best lines once), and each of your effects is measured against
-        /// them (level 2 of the probe turn against a deck).
+        /// With --vs: the deck's best lines (from 12 hands, read once) are
+        /// played again in its turn after yours, and each of your effects is
+        /// measured against their moves (level 2 of the probe turn against a
+        /// deck).
         #[arg(long)]
         moves: bool,
     },
@@ -677,6 +678,8 @@ fn state_json(
         "hand_traps_in_hand": me.hand.iter().filter(|&&c| hand_trap(c)).count(),
         "grave": me.grave.len(),
         "banished": me.banished.len(),
+        "grave_names": me.grave.iter().map(|&c| db.name(c)).collect::<Vec<_>>(),
+        "banished_names": me.banished.iter().map(|&(c, _)| db.name(c)).collect::<Vec<_>>(),
     });
     if let Some(m) = measured {
         value["measure"] = serde_json::json!({
@@ -787,22 +790,25 @@ fn probe_line(
                 if rival.breakers().is_empty() { "none it can play (standard ones)".to_owned() } else { names(rival.breakers()) }
             );
             println!("   handtraps: {}", names(&rival.hand_traps));
-            // Its typical moves, read once from its own best lines.
-            let plays = if moves {
+            // Its best lines, read once.
+            let lines = if moves {
                 let started = std::time::Instant::now();
                 let threads = std::thread::available_parallelism().map_or(4, |n| n.get());
-                let plays = ygo_solver::rival_plays(&engine, &rival_deck, seed, 12, 1000, threads);
-                let typical = ygo_solver::typical_moves(&plays);
-                println!(
-                    "   typical moves ({:.1} s): {}",
-                    started.elapsed().as_secs_f64(),
-                    typical.iter().map(|p| play_label(&engine, p.code, p.kind, p.location)).collect::<Vec<_>>().join(", ")
-                );
-                plays
+                let lines = ygo_solver::rival_lines(&engine, &rival_deck, seed, 12, 1000, threads);
+                println!("   its lines ({:.1} s): {} from 12 hands", started.elapsed().as_secs_f64(), lines.len());
+                for (k, l) in lines.iter().enumerate() {
+                    println!(
+                        "     line {}: {} · {}",
+                        k + 1,
+                        names(&l.hand),
+                        l.moves.iter().map(|&(c, kind, at)| play_label(&engine, c, kind, at)).collect::<Vec<_>>().join(" > ")
+                    );
+                }
+                lines
             } else {
                 Vec::new()
             };
-            Some((rival, rival_deck, plays))
+            Some((rival, rival_deck, lines))
         }
         None => None,
     };
@@ -826,7 +832,7 @@ fn probe_line(
             Err(e) => println!("   probe turn failed: {e}"),
         }
         let mut extra = serde_json::json!({ "index": i });
-        if let (Some((rival, rival_deck, plays)), Ok(m)) = (&rival, &measured) {
+        if let (Some((rival, rival_deck, lines)), Ok(m)) = (&rival, &measured) {
             let started = std::time::Instant::now();
             match ygo_solver::matchup(&engine, &deck, &hand, seed, &line, m, rival) {
                 Ok(x) => {
@@ -849,7 +855,7 @@ fn probe_line(
             }
             if moves {
                 let started = std::time::Instant::now();
-                match ygo_solver::against_moves(&engine, &deck, &hand, seed, &line, rival_deck, plays, &kit) {
+                match ygo_solver::against_moves(&engine, &deck, &hand, seed, &line, rival_deck, lines, &kit) {
                     Ok(x) => print_moves(&engine, &x, started.elapsed()),
                     Err(e) => println!("   moves failed: {e}"),
                 }
@@ -897,9 +903,12 @@ fn play_label(engine: &Engine, code: u32, kind: ActionKind, from: u8) -> String 
 
 fn print_moves(engine: &Engine, x: &ygo_solver::MovesMatchup, took: std::time::Duration) {
     let db = engine.cards();
+    let possible = x.moves.iter().filter(|m| m.possible).map(|m| m.weight).sum::<f64>();
     println!(
-        "   against its typical moves ({:.1} s): value {:.2} · floodgates stop {:.0}% of the moves' weight · {:.0}% of the rest left with all your answers",
+        "   against its lines ({:.1} s): {} lines · {:.0}% of their moves made on an empty board · value {:.2} · floodgates stop {:.0}% · {:.0}% of the rest left with all your answers",
         took.as_secs_f64(),
+        x.lines,
+        possible * 100.0,
         x.value,
         x.floodgate_share * 100.0,
         x.left * 100.0
@@ -911,7 +920,7 @@ fn print_moves(engine: &Engine, x: &ygo_solver::MovesMatchup, took: std::time::D
             (true, true, _) => "made",
             (true, false, _) => "lost with an earlier one",
         };
-        println!("     {}. {} · weight {:.2} · {state}", i + 1, play_label(engine, m.code, m.kind, m.location), m.weight);
+        println!("     {}. line {}: {} · {state}", i + 1, m.line + 1, play_label(engine, m.code, m.kind, m.location));
     }
     for s in &x.stops {
         let stops: Vec<String> = s.stops.iter().map(|&i| (i + 1).to_string()).collect();
