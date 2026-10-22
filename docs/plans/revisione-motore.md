@@ -252,7 +252,7 @@ In ordine. Ogni voce ha un controllo misurabile; senza il controllo la voce non 
 8. **Più semi per le linee con eventi casuali** (1-2 settimane, `follow.rs`, CLI, poi contratto): quota di semi in cui la linea riesce, nel punteggio e nell'app.
    - **Controllo:** su 82 mani, quante top 3 hanno una linea sotto il 70% di riuscita; dopo, nessuna mostrata senza l'avviso.
 
-Fuori dai sei mesi: Go-Explore e archivio per descrittori; valutatore imparato riformulato (§8.3); livello 3.
+Fuori dai sei mesi: Go-Explore e archivio per descrittori; valutatore imparato riformulato (§8, punto 4); livello 3.
 
 ---
 
@@ -337,7 +337,7 @@ duelforge-cli combos --deck <mdm>/branded.ydk --hand 68468459;48130397;19271881;
 Cinque carte a caso (seme 1) della lista Branded: 28 nodi, esaurita in 1,1 s, migliore misurata 0,85 (Mercourier, un Branded King e Super Polymerization coperta). Lo spazio di ricerca va da «esaurito in un secondo» a «inesauribile in un quarto d'ora» secondo la mano, non secondo il numero di carte: i limiti a nodi fissi del banco (3000-4000) misurano cose diverse su mani diverse. Un budget in *tempo alla stabilità del migliore* (B16) è più sensato di un budget in nodi.
 
 ## 10. Rispetto alla revisione bibliografica della corsia 10
-`revisione-bibliografica.md` (circa 150 lavori, 45 letti per intero su GitHub, nessun articolo letto per intero: lo dice in §1.4) è il riferimento per le fonti; qui non la rifaccio. Dove concordiamo e dove no.
+`revisione-bibliografica.md` (circa 150 lavori, 45 letti per intero su GitHub, nessun articolo letto per intero: lo dice nel suo §1.4) è il riferimento per le fonti; qui non la rifaccio. Dove concordiamo e dove no.
 
 **Concordo, e lo uso.**
 - Il self-play RL è escluso; ogni parte imparata ordina, non decide. Le etichette vengono da un oracolo, con validazione su carte posteriori all'istantanea (le sue A1b.3 e §4.4 B12 sono il mio §4.2 e il mio punto 7 di §7).
