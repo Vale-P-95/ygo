@@ -207,6 +207,24 @@ struct KitStep {
     optional: bool,
 }
 
+impl KitStep {
+    /// A step that only picks `picks` wherever asked (the targets of the
+    /// opponent's answer to one of your links).
+    fn aiming(picks: Vec<u32>) -> KitStep {
+        KitStep {
+            act: Act::Activate(0, location::HAND),
+            picks,
+            take_max: false,
+            option: 0,
+            triggers: Vec::new(),
+            attack: false,
+            goals: Vec::new(),
+            needs: None,
+            optional: false,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy)]
 pub(crate) enum Act {
     Activate(u32, u8),
@@ -276,6 +294,9 @@ pub struct Kit {
     opponent: Opponent,
     steps: Vec<KitStep>,
     pub breakers: Vec<Breaker>,
+    /// What the opponent answers your first interruption with, when it can
+    /// ([`Measure::countered`]).
+    counters: Vec<u32>,
     /// The opponent plays a line of its deck again instead of the steps
     /// one by one (the probe turn against a deck, level 2).
     script: Option<Arc<LineScript>>,
@@ -458,6 +479,18 @@ impl Kit {
         breaker("Dark Ruler No More", "Dark Ruler No More", 1.0, false, 0, false);
         breaker("Book of Eclipse", "Book of Eclipse", 0.6, false, 0, false);
         breaker("Gameciel, the Sea Turtle Kaiju", "Kaiju (Gameciel)", 0.8, true, 0, false);
+        // The breakers the Master Duel Meta lists play in their Main Deck
+        // (D15, by axis): a targeted negation used before anything else
+        // (Infinite Impermanence comes from the hand while its controller has
+        // no cards), and a Fusion your negations cannot answer that takes
+        // your monsters as materials (Super Polymerization, with the two
+        // Fusions those lists play it for: any two monsters with the same
+        // Attribute are materials for one of them).
+        breaker("Infinite Impermanence", "Infinite Impermanence", 1.0, false, 0, false);
+        if let (Some(mudragon), Some(garura)) = (code("Mudragon of the Swamp"), code("Garura, Wings of Resonant Life")) {
+            extra.extend([mudragon, garura]);
+            breaker("Super Polymerization", "Super Polymerization", 1.0, false, 0, false);
+        }
         // An attack: Cyber Dragon (it comes from the hand while only you
         // control monsters) with Limiter Removal, 4200 ATK, at the monster
         // worth the most it may attack. Battle protections count here (Invoked
@@ -473,6 +506,18 @@ impl Kit {
             });
         }
 
+        // The opponent's answer to your first interruption it can answer
+        // (D15): Infinite Impermanence, already in its hand as a breaker, on
+        // a monster's effect while the opponent has no cards. Ghost Ogre was
+        // tried too: one card more in the hand changes the random cards your
+        // effects take from it and the monster it summons when one lets it.
+        let counters: Vec<u32> = [code("Infinite Impermanence")].into_iter().flatten().collect();
+        for &c in &counters {
+            if !hand.contains(&c) {
+                hand.push(c);
+            }
+        }
+
         // The last cards of the Deck are drawn or sent first (the draw of the
         // turn, Pot of Greed, the top card Glow-Up Bulb sends): plain ones,
         // so the cards to search stay.
@@ -486,7 +531,7 @@ impl Kit {
             let missing = DECK.saturating_sub(deck.len());
             deck.splice(0..0, std::iter::repeat_n(filler, missing));
         }
-        Kit { opponent: Opponent { hand, deck, extra }, steps, breakers, script: None }
+        Kit { opponent: Opponent { hand, deck, extra }, steps, breakers, counters, script: None }
     }
 
     /// The opponent's cards: give them to the search too
@@ -578,6 +623,7 @@ impl Kit {
             opponent: Opponent { hand: line.hand.clone(), deck: main, extra: rival.extra.clone() },
             steps,
             breakers: Vec::new(),
+            counters: Vec::new(),
             script: Some(Arc::new(LineScript { script: line.script.clone(), step_of: line.move_of.clone() })),
         }
     }
@@ -672,6 +718,10 @@ struct Context<'a> {
     worth: Option<&'a HashMap<u32, f64>>,
     /// Once the opponent is done, play on to your next Main Phase.
     turn_three: bool,
+    /// The opponent answers your first link it can with one of the kit's
+    /// counters, aimed at that link's card, else at these (your
+    /// responders, the one worth the most first).
+    counter: Option<&'a [u32]>,
 }
 
 /// A moment you could respond, and with what.
@@ -707,6 +757,8 @@ struct RunTrace {
     uses: Vec<Use>,
     state: DuelState,
     follow_up: Option<FollowUp>,
+    /// The opponent answered one of your links ([`Context::counter`]).
+    countered: bool,
 }
 
 /// Follows the events of a run to tell what each use of the responder did.
@@ -742,6 +794,8 @@ struct Observer {
     landed: Vec<u32>,
     /// The links of the chain being built that have not resolved yet.
     open: Vec<CardRef>,
+    /// The opponent's next link is its answer to yours, not its step's.
+    answering: bool,
 }
 
 impl Observer {
@@ -759,7 +813,7 @@ impl Observer {
             Event::Chaining { card, chain_link, .. } => {
                 self.links.insert(*chain_link, (card.controller, card.code));
                 self.open.push(*card);
-                if card.controller == 1 {
+                if card.controller == 1 && !std::mem::take(&mut self.answering) {
                     self.step_links.push(*chain_link);
                     self.summoning = None;
                 }
@@ -1033,6 +1087,10 @@ pub struct Measure {
     /// What you have for your next turn after the breaker that takes away
     /// the most (none if the run could not get there).
     pub follow_up: Option<FollowUp>,
+    /// Share of what all your effects stop together that they still stop
+    /// when the opponent answers the first of them it can (none if it could
+    /// answer none, or they stop nothing).
+    pub countered: Option<f64>,
 }
 
 /// Your next turn, after the opponent's: the board breaker that takes away
@@ -1242,7 +1300,11 @@ impl<'a> Prober<'a> {
 
         // All together, the strongest first: an effect the engine no longer
         // offers once the others are used (its cost is gone) counts less.
-        if parts.together && interruptions.len() > 1 {
+        // With the breakers, the same once more with the opponent answering
+        // your first link it can (report only).
+        let answer = parts.breakers && !self.kit.counters.is_empty();
+        let mut countered = None;
+        if parts.together && (interruptions.len() > 1 || answer && !interruptions.is_empty()) {
             let order: Vec<ResponderId> = interruptions.iter().map(|i| i.responder).collect();
             // Without what the responses bring: what they stop earlier would
             // leave the others nothing to stop, and they are not short of
@@ -1254,10 +1316,21 @@ impl<'a> Prober<'a> {
             }
             let context = Context { worth: Some(&worth), ..Context::default() };
             if let Ok(run) = self.run_with(prelude, &all_steps, Policy::UseAll(&order), context) {
-                for i in &mut interruptions {
-                    let used = run.uses.iter().filter(|u| u.responder == i.responder).count() as u32;
-                    if used < i.uses {
-                        i.value = i.alone * used as f64 / i.uses as f64;
+                if interruptions.len() > 1 {
+                    for i in &mut interruptions {
+                        let used = run.uses.iter().filter(|u| u.responder == i.responder).count() as u32;
+                        if used < i.uses {
+                            i.value = i.alone * used as f64 / i.uses as f64;
+                        }
+                    }
+                }
+                let stopped = |run: &RunTrace| stopped_by(run).iter().map(|p| p.weight()).sum::<f64>();
+                let all_stopped = stopped(&run);
+                let targets: Vec<u32> = interruptions.iter().filter(|i| i.location == location::MZONE).map(|i| i.responder.code).collect();
+                if answer && all_stopped > 0.0 {
+                    let context = Context { counter: Some(&targets), ..context };
+                    if let Ok(answered) = self.run_with(prelude, &all_steps, Policy::UseAll(&order), context) {
+                        countered = answered.countered.then(|| (stopped(&answered) / all_stopped).min(1.0));
                     }
                 }
                 interruptions.sort_by(|a, b| b.value.total_cmp(&a.value));
@@ -1287,6 +1360,7 @@ impl<'a> Prober<'a> {
             resilience,
             offered,
             follow_up,
+            countered,
         })
     }
 
@@ -1554,6 +1628,7 @@ impl<'a> Prober<'a> {
             uses: Vec::new(),
             state: DuelState::default(),
             follow_up: None,
+            countered: false,
         };
         let mut observer = Observer::default();
         let mut next = 0usize;
@@ -1575,6 +1650,10 @@ impl<'a> Prober<'a> {
         // answer the opponent's, never your own (Invoked Mechaba would
         // negate your own Effect Veiler).
         let mut mine_on_top = false;
+        // The card of your last link, and the targets of the opponent's
+        // answer to it while it picks them.
+        let mut your_link: Option<u32> = None;
+        let mut aiming: Option<KitStep> = None;
         // The effects you could activate at your last free moment of the
         // Main Phase: in your End Phase, those are quick effects, the
         // others are the End Phase's triggers.
@@ -1594,7 +1673,14 @@ impl<'a> Prober<'a> {
             for e in &events {
                 observer.see(engine, e, &mut trace.uses);
                 match e {
-                    Event::Chaining { card, .. } => mine_on_top = card.controller == 0,
+                    Event::Chaining { card, .. } => {
+                        mine_on_top = card.controller == 0;
+                        if mine_on_top {
+                            your_link = Some(card.code);
+                        } else {
+                            aiming = None;
+                        }
+                    }
                     Event::ChainEnd => mine_on_top = false,
                     _ => {}
                 }
@@ -1773,7 +1859,26 @@ impl<'a> Prober<'a> {
                             }
                         }
                     } else {
-                        let step = current.as_ref().map(|(i, _)| steps[*i]);
+                        // Its answer to your first link it can answer, once.
+                        if let (Some(others), false, true, Decision::SelectChain { forced: false, .. }) =
+                            (context.counter, trace.countered, mine_on_top, &decision)
+                        {
+                            let db = engine.cards();
+                            let counter = actions.iter().find(|a| {
+                                a.kind == ActionKind::Activate
+                                    && a.card.is_some_and(|c| {
+                                        self.kit.counters.iter().any(|&k| db.canonical_code(k) == db.canonical_code(c.code))
+                                    })
+                            });
+                            if let Some(a) = counter {
+                                trace.countered = true;
+                                observer.answering = true;
+                                aiming = Some(KitStep::aiming(your_link.into_iter().chain(others.iter().copied()).collect()));
+                                duel.respond(&a.response);
+                                continue;
+                            }
+                        }
+                        let step = aiming.as_ref().or(current.as_ref().map(|(i, _)| steps[*i]));
                         duel.respond(&opponent_answer(engine, &decision, &actions, step));
                     }
                 }
@@ -2011,7 +2116,12 @@ fn opponent_answer(engine: &Engine, decision: &Decision, actions: &[Action], ste
     let listed = |list: &[u32], code: u32| list.iter().any(|&c| db.canonical_code(c) == db.canonical_code(code));
     let picks: &[u32] = step.map_or(&[], |s| &s.picks);
     let triggers: &[u32] = step.map_or(&[], |s| &s.triggers);
-    if let Some(answer) = forward(decision, actions, |a| a.card.is_some_and(|c| listed(picks, c.code))) {
+    // The picks in their order (a breaker's targets: the card worth the
+    // most first), then any other card.
+    let rank = |a: &Action| {
+        a.card.and_then(|c| picks.iter().position(|&p| db.canonical_code(p) == db.canonical_code(c.code))).unwrap_or(picks.len())
+    };
+    if let Some(answer) = forward_by(decision, actions, rank) {
         return answer;
     }
     let first = |kinds: &[ActionKind]| actions.iter().find(|a| kinds.contains(&a.kind));
@@ -2042,7 +2152,7 @@ fn opponent_answer(engine: &Engine, decision: &Decision, actions: &[Action], ste
         }
         Decision::EffectYesNo { .. } | Decision::YesNo { .. } => first(&[ActionKind::Yes]),
         _ => {
-            let picked = actions.iter().find(|a| a.card.is_some_and(|c| listed(picks, c.code)));
+            let picked = actions.iter().filter(|a| rank(a) < picks.len()).min_by_key(|a| rank(a));
             let most = if step.is_some_and(|s| s.take_max) {
                 actions
                     .iter()
