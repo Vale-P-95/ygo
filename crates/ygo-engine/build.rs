@@ -33,9 +33,7 @@ fn main() {
     } else {
         lua_build.flag("-xc++").flag("-include").flag(customize.to_str().expect("utf-8 path"));
     }
-    // lauxlib.c is compiled from a patched copy (see `patch_lauxlib`), which
-    // includes mimalloc.h from libmimalloc-sys.
-    lua_build.include(std::env::var("DEP_MIMALLOC_INCLUDE_DIR").expect("mimalloc include dir from libmimalloc-sys"));
+    // lauxlib.c is compiled from a patched copy (see `patch_lauxlib`).
     let out_dir = PathBuf::from(std::env::var("OUT_DIR").expect("OUT_DIR"));
     for file in sources(&lua_src, "c") {
         let name = file.file_name().and_then(|n| n.to_str()).unwrap_or_default();
@@ -55,7 +53,7 @@ fn main() {
 
     let mut core_build = cc::Build::new();
     core_build.cpp(true).std("c++17").include(&core).include(&lua_src).include(&shim).warnings(false);
-    // shim/new.cpp includes mimalloc-new-delete.h from libmimalloc-sys.
+    // shim/arena.cpp includes mimalloc.h from libmimalloc-sys.
     core_build.include(std::env::var("DEP_MIMALLOC_INCLUDE_DIR").expect("mimalloc include dir from libmimalloc-sys"));
     if msvc {
         core_build.flag("/GR-").flag("/EHsc").define("NOMINMAX", None);
@@ -84,18 +82,18 @@ fn main() {
         .file(shim.join("reuse.cpp"))
         .file(shim.join("hand.cpp"))
         .file(shim.join("count.cpp"))
-        .file(shim.join("new.cpp"));
+        .file(shim.join("arena.cpp"));
     core_build.files(sources(&core.join("RNG"), "cpp"));
     core_build.compile("ocgcore");
 }
 
-/// Lua allocates through mimalloc instead of the C runtime's malloc: a duel
-/// lives a few milliseconds and makes and frees many small objects (with
-/// glibc, about 40% of a combo search's time went to malloc and free).
-/// Every Lua state comes from `luaL_newstate` (the core's interpreter and
-/// shim/compile.cpp) and nothing else frees Lua's blocks, so its memory never
-/// meets another allocator. mimalloc.h comes with the linked library, so the
-/// compiler checks the calls.
+/// Lua allocates through shim/arena.cpp instead of the C runtime's malloc:
+/// in the arena active when the state is made, passed as the allocator's
+/// `ud` (so a copy of the arena saves the whole duel), else through mimalloc (a duel lives a few milliseconds and
+/// makes and frees many small objects: with glibc, about 40% of a combo
+/// search's time went to malloc and free). Every Lua state comes from
+/// `luaL_newstate` (the core's interpreter and shim/compile.cpp) and nothing
+/// else frees Lua's blocks, so its memory never meets another allocator.
 /// Panics if upstream changed the code, so the patch is looked at again.
 fn patch_lauxlib(text: &str) -> String {
     const ALLOC: &str = "  if (nsize == 0) {
@@ -104,19 +102,18 @@ fn patch_lauxlib(text: &str) -> String {
   }
   else
     return realloc(ptr, nsize);";
-    const ALLOC_FIXED: &str = "  if (nsize == 0) {
-    mi_free(ptr);
-    return NULL;
-  }
-  else
-    return mi_realloc(ptr, nsize);";
+    const ALLOC_FIXED: &str = "  return df_lua_alloc(ud, ptr, osize, nsize);";
     const FUNCTION: &str = "static void *l_alloc (void *ud, void *ptr, size_t osize, size_t nsize) {";
-    const INCLUDE: &str = "#include \"mimalloc.h\"\n";
+    const NEW_STATE: &str = "lua_State *L = lua_newstate(l_alloc, NULL);";
+    const NEW_STATE_FIXED: &str = "lua_State *L = lua_newstate(l_alloc, df_lua_arena());";
+    // lauxlib.c is compiled as C++ (see `lua_build` above).
+    const INCLUDE: &str = "extern \"C\" void *df_lua_alloc(void *ud, void *ptr, size_t osize, size_t nsize);
+extern \"C\" void *df_lua_arena();\n";
     let text = text.replace("\r\n", "\n");
-    for old in [ALLOC, FUNCTION] {
+    for old in [ALLOC, FUNCTION, NEW_STATE] {
         assert_eq!(text.matches(old).count(), 1, "vendor/ygopro-core/lua/src/lauxlib.c changed: check the allocator patch in build.rs");
     }
-    text.replace(ALLOC, ALLOC_FIXED).replace(FUNCTION, &format!("{INCLUDE}{FUNCTION}"))
+    text.replace(ALLOC, ALLOC_FIXED).replace(NEW_STATE, NEW_STATE_FIXED).replace(FUNCTION, &format!("{INCLUDE}{FUNCTION}"))
 }
 
 /// Upstream bug: `reset_phase` and `reset_chain` remove effects while

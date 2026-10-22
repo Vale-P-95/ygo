@@ -492,3 +492,229 @@ Un agente separato ha riletto il rapporto contro il database delle carte e il co
 - **B5a:** cambia tutti i punteggi (Extra Deck avversario da 15 carte). Manca un piano per rifare la base del banco, perché i numeri storici non sono più confrontabili. Il peso sta in `scoring.ts`, cioè nell'area di Gemini (D17): la misura viene divisa tra due agenti senza un controllo di coerenza.
 - **Protocollo di `AGENTS.md`:** non è richiamato per ogni passo che tocca `ygo-solver` o `ygo-engine` (`mdm_decks.py`, `bench.py --nodes 4000`, `coverage`, `combo_hunt`, numeri prima e dopo nella PR).
 - **Lentezza, la lamentela principale:** il rapporto non dava una scomposizione attuale del tempo. Ora c'è (A2, PR #67): in `combo_hunt` il turno di prova è il 58% del tempo totale, le fasi dopo la ricerca il 15%, l'apprendimento il 4%; dentro la ricerca il replay è il 43%. Quindi B0/B13 (replay) e B14 (quali board misurare) sono davvero le due leve più grandi.
+
+## 8. Verifica delle fonti e aree mancanti (corsia 7, 22/10)
+Risponde al §7.2 e al §7.3. La verifica è stata fatta da agenti della sessione sorella di ricerca, aprendo le fonti dove si poteva.
+
+**Limite.** Dal container della sessione il proxy lascia passare solo GitHub (`raw.githubusercontent.com` e `git`). I siti degli articoli (arxiv, AAAI, JAIR, IJCAI, PMLR, NeurIPS, siti universitari) rispondono 403. Quindi:
+- le fonti su GitHub sono state lette davvero, come codice o README;
+- per le altre ci sono solo l'esistenza all'indirizzo citato, il titolo e l'abstract, attraverso la ricerca web;
+- «non verificato» non vuol dire link morto.
+
+### 8.1 Confidenza, in breve
+- **75 fonti distinte** (77 link): 22 lette (codice o README), 53 solo abstract, nessuna letta per intero.
+- Le affermazioni che vanno oltre l'abstract restano da controllare sul testo, quando ci sarà una rete che lo permette:
+  - DPOR in profondità;
+  - h_add in Bonet & Geffner;
+  - la definizione di MAST;
+  - le analogie con NMCS e Klondike, che sono adattamenti di questo documento.
+
+### 8.2 Correzioni
+1. **ygorl (§4, voce 8 e «Cosa non adottare»).** Il dato «41 contro 62 su 100» non è in `docs/solver.md`. La fonte dice altro:
+   - su 120 mani (10 deck × 12), l'esplorazione casuale raggiunge la board obiettivo in 41 mani e il miglior checkpoint PPO in 7;
+   - sulla politica clonata, 40 mani escluse dall'addestramento, 36 risolvibili dal solver: casuale 4, greedy 7, PPO 6, BC con fine-tuning 12.
+2. **ygo-agent.** Il dato «100 milioni di partite, 32 RTX 4090 per 5 giorni» è corretto: README, «I trained for over 100M games (equivalent to training on 32 4090 GPUs for 5 days)». Il link però sta alla voce 13, non accanto al dato.
+3. **WindBot.** Il README elenca 47 deck, non 66 esecutori. Va contata la cartella `Game/AI/Decks`, oppure il numero va tolto.
+4. **Arena di ygo-combo-solver.** «Ordini di grandezza in meno» è una frase del README senza numeri: «costs orders of magnitude less than replaying the turn from the start». Il core del solver invece è controllato: le sue cinque patch si applicano al nostro `vendor/ygopro-core` baa3881, e il solver gira su Linux con quel core (`ricerca-esperimenti.md`, §3).
+5. **Garanzie** (lette solo negli abstract):
+   - LTS ha un limite stretto sulle espansioni ordinando per d/π: il documento è corretto.
+   - PHS ha garanzie sulla «search loss» che dipendono dalla qualità della politica e dell'euristica: va detto.
+   - Type-GBFS ha solo risultati empirici, circa 200 problemi IPC in più: non gli va attribuita una garanzia.
+   - LTS+CM ha una perdita convessa, con convergenza dei parametri.
+6. **Simmetrie (§7.2).** L'articolo del 2011 è di Pochter, Zohar e Rosenschein (AAAI 2011). Domshlak firma il seguito del 2012.
+7. **MAST.** `FinnssonB11a.pdf` è «CadiaPlayer: Search-Control Techniques» (KI 2011). MAST è definito in Finnsson & Björnsson, AAAI 2010.
+8. **Link non trovati all'indirizzo citato**, con l'alternativa canonica:
+   - Strathprints 1873: JAIR 2004, arXiv 1107.0052;
+   - `grave.pdf`: Cazenave, IJCAI 2015;
+   - `~mmueller/ghi.html`: Kishimoto & Müller, AAAI 2004;
+   - `~jamieson/hyperband.html`: JMLR 18 (2018), arXiv 1603.06560;
+   - `IridiaSupp2016-003`: https://iridia.ulb.ac.be/irace/.
+   - Inoltre la pagina wiki di fishtest si chiama `Fishtest-Mathematics`.
+
+### 8.3 Tabella delle fonti
+«Letto»: codice letto, pagina o README, solo abstract (attraverso la ricerca), niente. Le righe sono le righe del documento al 22/10.
+
+| # | Fonte | Citata per (riga) | Stato | Letto | Affermazione confermata | Note |
+|---|---|---|---|---|---|---|
+| 1 | [GameStateEvaluator.java](https://github.com/Card-Forge/forge/blob/master/forge-ai/src/main/java/forge/ai/simulation/GameStateEvaluator.java) | il punteggio conta le risorse di entrambi i giocatori (r.84) | raggiungibile (raw) | codice letto | sì | conta `opponentCards`, `opponentLife` ecc. |
+| 2 | [Korf 1985](https://cse.sc.edu/~mgv/csce580f11/gradPres/korf_IDAStar_1985.pdf) | IDA* rigenera i nodi (r.115) | indicizzato | solo abstract (via ricerca) | sì | DFID/IDA*, AI 27(1) 1985 |
+| 3 | [MM](https://ojs.aaai.org/index.php/AAAI/article/view/10436) | bidirezionale, richiede predecessori (r.115) | indicizzato | solo abstract | sì | Holte et al. AAAI 2016 |
+| 4 | [DeepCubeA](https://github.com/forestagostinelli/DeepCubeA) | famiglia A* con euristica appresa (r.115) | raggiungibile (raw) | pagina/README | sì | |
+| 5 | [Hansen & Zhou](https://jair.org/index.php/jair/article/view/10489) | anytime: dopo la prima soluzione si migliora (r.115) | indicizzato | solo abstract | sì | Anytime Heuristic Search, JAIR 2007 |
+| 6 | [Harvey & Ginsberg](https://ai.dmi.unibas.ch/research/reading_group/harvey-ginsberg-ijcai1995.pdf) | ricerca a discrepanze (r.116) | indicizzato | solo abstract | sì | LDS, IJCAI 1995 |
+| 7 | [ILDS](https://ai.dmi.unibas.ch/research/reading_group/korf-aaai1996.pdf) | idem (r.116) | indicizzato | solo abstract | sì | Korf AAAI 1996 |
+| 8 | [DDS](https://mlanthology.org/ijcai/1997/walsh1997ijcai-depth) | idem; base della penalità graduata (r.116, 186) | indicizzato | solo abstract | sì | «gli errori sono vicino alla radice» |
+| 9 | [FF](https://jair.org/index.php/jair/article/view/10276) | h_FF e azioni utili (r.117) | indicizzato | solo abstract | sì | helpful actions confermate da fonti secondarie |
+| 10 | [Bonet & Geffner](https://www.cs.uky.edu/~sgware/reading/papers/bonet2001planning.pdf) | h_add (r.117) | indicizzato | solo abstract | in parte | abstract descrive l'euristica additiva senza nominarla h_add |
+| 11 | [Richter & Helmert](https://ojs.aaai.org/index.php/ICAPS/article/view/13345) | operatori preferiti, valutazione differita (r.117) | indicizzato | solo abstract | sì | ICAPS 2009 |
+| 12 | [Fast Downward lazy search](https://github.com/aibasel/downward/blob/main/src/search/search_algorithms/lazy_search.cc) | lazy search con preferred (r.117) | raggiungibile (raw) | codice letto | sì | `preferred_successors_first` |
+| 13 | [BFWS](https://ojs.aaai.org/index.php/AAAI/article/view/11027) | novità come chiave secondaria (r.118) | indicizzato | solo abstract | sì | AAAI 2017 |
+| 14 | [codice BFWS](https://github.com/nirlipo/BFWS-public) | implementazione (r.118) | raggiungibile (raw) | pagina/README | sì | dipende da LAPKT |
+| 15 | [Atari](https://ijcai.org/Abstract/15/230) | width search su simulatori chiusi (r.118) | indicizzato | solo abstract | sì | IW(1) al livello di UCT su 54 giochi |
+| 16 | [Röger & Helmert](https://ojs.aaai.org/index.php/ICAPS/article/view/13435) | più code alternate (r.119) | indicizzato | solo abstract | sì | l'alternanza è il metodo migliore |
+| 17 | [Type-GBFS](https://ojs.aaai.org/index.php/AAAI/article/view/9036) | coda per tipo (r.119) | indicizzato | solo abstract | in parte | abstract: solo risultati empirici (≈200 problemi IPC in più); **nessuna garanzia** nell'abstract |
+| 18 | [Benton et al.](https://rakaposhi.eas.asu.edu/sapaps_aij.pdf) | obiettivi parziali con utilità, anytime (r.120) | indicizzato | solo abstract | sì | SapaPS, AIJ 2009 |
+| 19 | [Hoffmann et al.](https://strathprints.strath.ac.uk/1873/) | landmark e ordinamenti (r.121) | **non verificato** | niente | non verificabile | ricerca non trova il record Strathprints 1873; il paper esiste (JAIR 2004, arXiv 1107.0052) |
+| 20 | [LAMA](https://gki.informatik.uni-freiburg.de/papers/richter-westphal-jair10.pdf) | landmark come guida (r.121) | indicizzato | solo abstract | sì | JAIR 2010 |
+| 21 | [Orseau et al.](https://arxiv.org/abs/1811.10928) | LTS, garanzia sui nodi (r.122, 253) | indicizzato | solo abstract | sì | LevinTS: limite sulle espansioni con ordine d(n)/π(n); LubyTS: limite in attesa |
+| 22 | [PHS](https://ojs.aaai.org/index.php/AAAI/article/view/17469) | politica + euristica con garanzie (r.122) | indicizzato | solo abstract | in parte | garanzie sulla «search loss», che dipendono dalla qualità di politica ed euristica |
+| 23 | [LTS+CM](https://www.ijcai.org/proceedings/2023/0624) | LTS con modelli di contesto (r.122) | indicizzato | solo abstract | sì | perdita convessa, convergenza dei parametri |
+| 24 | [Macro-FF](https://arxiv.org/abs/1109.2154) | macro-azioni imparate (r.123) | indicizzato | solo abstract | sì | JAIR 2005 |
+| 25 | [focused macros](https://arxiv.org/abs/2004.13242) | macro con effetti mirati (r.123) | indicizzato | solo abstract | sì | IJCAI 2021 |
+| 26 | [DPOR](https://www.cs.columbia.edu/~junfeng/17sp-e6121/papers/dpor.pdf) | DPOR presuppone ricerca in profondità (r.124) | indicizzato | solo abstract | in parte | esplorazione con backtracking; «depth-first» non letto nel testo |
+| 27 | [stubborn sets](https://ojs.aaai.org/index.php/ICAPS/article/view/13638) | riduzione per ordine parziale (r.124) | indicizzato | solo abstract | sì | Wehrle & Helmert ICAPS 2014 |
+| 28 | [RAVE](https://research.google/pubs/monte-carlo-tree-search-and-rapid-action-value-estimation-in-computer-go/) | credito AMAF (r.137) | indicizzato | solo abstract | sì | Gelly & Silver AIJ 2011 |
+| 29 | [GRAVE](https://www.lamsade.dauphine.fr/~cazenave/papers/grave.pdf) | AMAF generalizzato (r.137) | **non verificato** | solo abstract (altra copia) | sì | paper esiste (IJCAI 2015); il file grave.pdf non compare nella ricerca |
+| 30 | [NMCS](https://ijcai.org/Abstract/09/083) | migliorare attorno alla linea (r.160) | indicizzato | solo abstract | in parte | NMCS è ricerca annidata a rollout; l'analogia è del documento |
+| 31 | [tt.cpp](https://raw.githubusercontent.com/official-stockfish/Stockfish/master/src/tt.cpp) | tabella delle trasposizioni (r.173) | raggiungibile | codice letto | sì | Stockfish ha una politica di sostituzione; il documento spiega perché a noi non serve |
+| 32 | [history.h](https://raw.githubusercontent.com/official-stockfish/Stockfish/master/src/history.h) | history e continuation history (r.181) | raggiungibile | codice letto | sì | `ButterflyHistory`, `ContinuationHistory` |
+| 33 | [search.cpp](https://github.com/official-stockfish/Stockfish/blob/master/src/search.cpp) | uso della history; tempo con `iterative_deepening` (r.181, 213) | raggiungibile (raw) | codice letto | sì | `iterative_deepening`, `totBestMoveChanges`, `timeReduction` |
+| 34 | [relative history](https://cris.maastrichtuniversity.nl/en/publications/the-relative-history-heuristic/) | history relativa (r.181) | indicizzato | solo abstract | sì | Winands et al., CG 2004 |
+| 35 | [MAST/CadiaPlayer](https://staff.ru.is/yngvi/pdf/FinnssonB11a.pdf) | MAST (r.181) | indicizzato | solo abstract | in parte | è «CadiaPlayer: Search-Control Techniques» (KI 2011); MAST è definito in FinnssonB10a |
+| 36 | [Ethereal Tuning.pdf](https://github.com/AndyGrant/Ethereal/blob/master/Tuning.pdf) | taratura Texel a gradiente (r.192) | raggiungibile (raw) | solo abstract (pdf, prima pagina) | sì | |
+| 37 | [CPW](https://www.chessprogramming.org/Texel%27s_Tuning_Method) | metodo Texel (r.192) | indicizzato | pagina/README (estratti via ricerca) | sì | |
+| 38 | [correction history](https://raw.githubusercontent.com/official-stockfish/Stockfish/master/src/history.h) | correzione della stima (r.197) | raggiungibile | codice letto | sì | `CORRECTION_HISTORY_LIMIT` |
+| 39 | [KataGo](https://github.com/lightvector/KataGo/blob/master/docs/KataGoMethods.md) | correzione online della stima (r.197) | raggiungibile (raw) | pagina/README | sì | «Subtree Value Bias Correction» |
+| 40 | [nnue.md](https://github.com/official-stockfish/nnue-pytorch/blob/master/docs/nnue.md) | ricetta NNUE, accumulatore, quantizzazione (r.203) | raggiungibile (raw) | pagina/README | sì | |
+| 41 | [dataset](https://github.com/official-stockfish/nnue-pytorch/wiki/Training-datasets) | etichette dei dataset (r.203) | raggiungibile (raw wiki) | pagina/README | in parte | descrive dati da self-play con valutazioni; l'etichetta «misura della board migliore sotto» è un adattamento del documento |
+| 42 | [Fishtest mathematics](https://github.com/official-stockfish/fishtest/wiki/Fishtest-mathematics) | test sequenziale appaiato (r.208) | raggiungibile (la pagina wiki si chiama `Fishtest-Mathematics`) | pagina/README | sì | pentanomiale, GSPRT |
+| 43 | [SPSA](https://jhuapl.edu/SPSA/PDF-SPSA/Spall_An_Overview.PDF) | taratura congiunta delle costanti (r.208) | indicizzato | solo abstract | sì | due misure per iterazione |
+| 44 | [GHI](https://webdocs.cs.ualberta.ca/~mmueller/ghi.html) | problema della storia nelle trasposizioni (r.217) | **non verificato** | niente | non verificabile | pagina non trovata; tema confermato da Kishimoto & Müller AAAI 2004 |
+| 45 | [ygo-combo-solver](https://github.com/Armytille/ygo-combo-solver) | arena / snapshot (r.229) | raggiungibile (raw) | pagina/README | sì | vedi #66 |
+| 46 | [arena.cpp](https://raw.githubusercontent.com/Armytille/ygo-combo-solver/master/arena.cpp) | arena a indirizzo fisso, copia delle pagine scritte (r.229) | raggiungibile | codice letto | sì | `VirtualAlloc(MEM_WRITE_WATCH)`, `GetWriteWatch`, base fissa |
+| 47 | [fork macOS](https://github.com/96jonesa/ygo-combo-solver) | porting macOS (r.229) | raggiungibile (raw) | pagina/README | sì | sezione «macOS (arm64)» |
+| 48 | [Karnin et al.](https://proceedings.mlr.press/v28/karnin13.html) | dimezzamenti successivi (r.239) | indicizzato | solo abstract | sì | Sequential Halving, ICML 2013 |
+| 49 | [Jamieson & Talwalkar](https://proceedings.mlr.press/v51/jamieson16.html) | idem (r.239) | indicizzato | solo abstract | sì | AISTATS 2016 |
+| 50 | [Hyperband](https://homes.cs.washington.edu/~jamieson/hyperband.html) | idem (r.239) | **non verificato** | niente | non verificabile | pagina non trovata; meglio JMLR 18 (2018) o arXiv 1603.06560 |
+| 51 | [NST](https://dke.maastrichtuniversity.nl/m.winands/documents/article_vMay2012.pdf) | statistiche d'azione, n-gram (r.248) | indicizzato | solo abstract | sì | Tak et al., TCIAIG 2012 |
+| 52 | [progressive strategies](https://cris.maastrichtuniversity.nl/en/publications/progressive-strategies-for-monte-carlo-tree-search) | bias che decresce con le visite (r.248) | indicizzato | solo abstract | sì | progressive bias |
+| 53 | [decay](https://dke.maastrichtuniversity.nl/m.winands/documents/TCIAIG_decay.pdf) | decadimento delle statistiche (r.248) | indicizzato | solo abstract | sì | TCIAIG 2014 |
+| 54 | [He, Daumé & Eisner](https://papers.nips.cc/paper_files/paper/2014/hash/757f843a169cc678064d9530d12a1881-Abstract.html) | classificatore di mosse imparato dall'oracolo (r.251) | indicizzato | solo abstract | sì | imitation learning per branch and bound |
+| 55 | [SaIL](https://proceedings.mlr.press/v78/bhardwaj17a.html) | imitare un oracolo per la ricerca (r.251) | indicizzato | solo abstract | sì | CoRL 2017 |
+| 56 | [Chrestien et al.](https://proceedings.neurips.cc/paper_files/paper/2023/hash/50ea4dbd1cff6bd3daef939eff10c092-Abstract.html) | euristica imparata per ranking (r.251) | indicizzato | solo abstract | sì | NeurIPS 2023 |
+| 57 | [learning to rank](https://arxiv.org/abs/1608.01302) | idem (r.251) | indicizzato | solo abstract | sì | Garrett et al., IJCAI 2016 (RankSVM) |
+| 58 | [gbdt-rs](https://github.com/mesalock-linux/gbdt-rs) | inferenza GBDT in Rust, manutenzione incerta (r.256) | raggiungibile (raw) | pagina/README | in parte | libreria confermata; la manutenzione non è verificata (data dell'ultimo commit non letta) |
+| 59 | [Ranked Reward](https://arxiv.org/abs/1807.01672v2) | punteggi normalizzati in ranghi (r.256) | indicizzato | solo abstract | sì | |
+| 60 | [Settles](https://khoury.northeastern.edu/home/vip/teach/MLcourse/4_boosting/materials/settles.activelearning.pdf) | active learning (r.257) | indicizzato | solo abstract | sì | rapporto tecnico 1648, UW-Madison |
+| 61 | [Rosin](https://mlanthology.org/ijcai/2011/rosin2011ijcai-nested) | NRPA (r.260) | indicizzato | solo abstract | sì | IJCAI 2011 |
+| 62 | [GNRPA](https://arxiv.org/abs/2003.10024) | GNRPA (r.260) | indicizzato | solo abstract | sì | |
+| 63 | [Klondike](https://ojs.aaai.org/index.php/ICAPS/article/view/13363) | riuscita su più ordini del deck (r.262) | indicizzato | solo abstract | in parte | pianificazione Monte Carlo su più campionamenti; l'adattamento ai semi è del documento |
+| 64 | [ensemble per MTG](https://eprints.whiterose.ac.uk/75050/1/EnsDetMagic.pdf) | determinizzazioni in ensemble (r.262) | indicizzato | solo abstract | sì | Cowling et al. 2012 |
+| 65 | [README](https://raw.githubusercontent.com/Armytille/ygo-combo-solver/master/README.md) | uso come oracolo esterno; «ordini di grandezza» (r.229, 265) | raggiungibile | pagina/README | sì (come dichiarazione del README) | frase citata sotto; nessuna misura nel README |
+| 66 | [ygorl](https://raw.githubusercontent.com/n0tevi1/ygorl/main/docs/solver.md) | «41 obiettivi su 100 contro i 62 del solver» (r.265, 296) | raggiungibile | pagina/README | **no** | i numeri 41/100 e 62/100 non ci sono; vedi sotto |
+| 67 | [landmark appresi](https://arxiv.org/abs/2508.21564) | landmark imparati da molte linee (r.276) | indicizzato | solo abstract | sì | Hanou et al. 2025 |
+| 68 | [operators.cpp](https://raw.githubusercontent.com/Armytille/ygo-combo-solver/master/operators.cpp) | ricette lette dagli script Lua (r.277) | raggiungibile | codice letto | sì | analizza `Fusion.AddProcMix`/`AddProcMixRep`; `SetPossibleOperationInfo` non compare nel file |
+| 69 | [Retro*](https://proceedings.mlr.press/v119/chen20k.html) | ricerca guidata su ricette (AND-OR) (r.277) | indicizzato | solo abstract | sì | ICML 2020 |
+| 70 | [SMAC3](https://github.com/automl/SMAC3) | taratura offline (r.281) | raggiungibile (raw) | pagina/README | sì | |
+| 71 | [irace](https://iridia.ulb.ac.be/supp/IridiaSupp2016-003/) | racing (r.281) | **non verificato** | niente | non verificabile | la pagina supplementare non compare; meglio https://iridia.ulb.ac.be/irace/ o il paper (Oper. Res. Perspect. 2016) |
+| 72 | [SameGame CEM](https://dke.maastrichtuniversity.nl/m.winands/documents/KNOSYS_SameGame.pdf) | taratura con CEM (r.281) | indicizzato | solo abstract | sì | SP-MCTS tarato con CEM |
+| 73 | [Christiano et al.](https://arxiv.org/pdf/1706.03741) | confronti a coppie per le preferenze (r.284) | indicizzato | solo abstract | in parte | preferenze a coppie sì; la scelta delle coppie dove i modelli sono in disaccordo è nel testo, non verificata |
+| 74 | [ygo-agent](https://github.com/sbl1996/ygo-agent) | parole chiave e testo delle carte (r.287); «100 milioni di partite, 32 RTX 4090 per 5 giorni» (r.296) | raggiungibile (raw) | pagina/README | sì per il costo; non verificabile per l'uso del testo | frase citata sotto; il link è a r.287, non accanto al dato di r.296 |
+| 75 | [Justesen et al.](https://pure.itu.dk/en/publications/online-evolution-for-multi-action-adversarial-games/) | Online Evolution, da non adottare (r.294) | indicizzato | solo abstract | sì | EvoApplications 2016 |
+| 76 | [WindBot](https://github.com/ProjectIgnis/windbot) | «66 esecutori scritti a mano per deck» (r.296) | raggiungibile (raw) | pagina/README | in parte | esecutori per deck confermati, ma il README ne elenca **47**; 66 non verificato (cartella non leggibile da qui) |
+
+### 8.4 Aree mancanti del §7.2
+Stessi segni di confidenza. Nessun numero viene da un testo intero.
+
+#### 1. Hierarchical Portfolio Search (Prismata)
+
+- [Churchill & Buro, *Hierarchical Portfolio Search: Prismata's Robust AI Architecture for Games with Large Search Spaces*, AIIDE 2015](https://ojs.aaai.org/index.php/AIIDE/article/view/12787) (solo abstract). È una ricerca gerarchica su un portafoglio di algoritmi che riduce lo spazio e tiene buoni candidati. Il bot arriva al 25% migliore della classifica umana.
+- [Churchill & Buro, *Hierarchical Portfolio Search in Prismata*, Game AI Pro 3, cap. 30](https://www.gameaipro.com/GameAIPro3/GameAIPro3_Chapter30_Hierarchical_Portfolio_Search_in_Prismata.pdf) (solo abstract: letti solo gli estratti della ricerca). Le definizioni: una *Move* è una sequenza di azioni, un *Partial Player* calcola la parte di turno di una fase tattica, il portafoglio è un insieme di Partial Player.
+- [davechurchill/PrismataAI](https://github.com/davechurchill/PrismataAI) (codice letto: [`MoveIterator_PPPortfolio.cpp`](https://raw.githubusercontent.com/davechurchill/PrismataAI/master/source/ai/MoveIterator_PPPortfolio.cpp), [`IsomorphicCardSet.cpp`](https://raw.githubusercontent.com/davechurchill/PrismataAI/master/source/ai/IsomorphicCardSet.cpp), `Card::isIsomorphic` in `source/engine/Card.cpp`).
+  - Il turno intero si costruisce come un contatore a più cifre: una cifra per fase, e ogni cifra sceglie un Partial Player.
+  - Quando cambia una fase, si ricalcolano quella e le successive. Le fasi prima si rigiocano dalla cache.
+  - I doppioni si tolgono confrontando le sequenze di mosse, non gli stati: due sequenze che portano alla stessa board passano entrambe.
+  - Sopra c'è `AlphaBetaSearch`, che cerca tra questi turni completi.
+
+**Cosa si adatta a DuelForge.**
+- B7: una macro può essere un «giocatore parziale» generico (per esempio «Evocazione Normale del miglior starter», «estendi dall'Extra Deck», «Setta le carte in mano»). Le combinazioni di macro danno linee iniziali diverse da dare alla ricerca come prefissi, o come prima risposta veloce.
+- Diversità: ogni combinazione del portafoglio è uno stile di turno, quindi un modo poco costoso per ottenere board che non si somigliano (B11, una coda per stile).
+
+**Cosa non si adatta.**
+- Il turno di Yu-Gi-Oh! non si divide in fasi indipendenti, perché catene ed effetti si mescolano. HPS rinuncia alla completezza, quindi non può sostituire la ricerca best-first: può solo darle i semi.
+- Il controllo dei doppioni per sequenza è più debole della chiave di stato che DuelForge ha già (B3).
+
+#### 2. Pianificazione del turno in Hearthstone e Legends of Code and Magic
+
+- [Świechowski, Tajmajer & Janusz, *Improving Hearthstone AI by Combining MCTS and Supervised Learning Algorithms*, IEEE CIG 2018](https://arxiv.org/abs/1808.04794) (solo abstract). Usa un MCTS fatto su misura per informazione nascosta e caso, con reti semplici che valutano gli stati. La guida imparata alza molto la percentuale di vittorie e riduce il calcolo.
+- [Zhang & Buro, *Improving Hearthstone AI by Learning High-Level Rollout Policies and Bucketing Chance Node Events*, IEEE CIG 2017](https://era.library.ualberta.ca/files/cv979v349b) (solo abstract, dalla tesi MSc). Raggruppa gli esiti casuali con effetto simile per ridurre i nodi del caso, e usa politiche di alto livello per guidare i rollout.
+- [Dockhorn & Mostaghim, *Introducing the Hearthstone-AI Competition*, 2019](https://arxiv.org/abs/1906.04238) (solo abstract, più estratti di [Kowalski & Miernik](https://arxiv.org/abs/2305.11814)). Il simulatore è SabberStone, con 30 s per turno. Tra i vincitori ci sono MCTS, Rolling Horizon Evolution, BFS potata e Dynamic Lookahead, quasi sempre con una funzione di valutazione dello stato.
+- [Coac/locm](https://github.com/Coac/locm), vincitore di CEC e COG 2019 nella Strategy Card Game AI Competition (Legends of Code and Magic) (codice letto: [`main.cpp`](https://raw.githubusercontent.com/Coac/locm/master/main.cpp)).
+  - Minimax alfa-beta su azioni singole, a profondità 3, che scende di uno se ci sono almeno 35 azioni legali. La risposta del nemico è a profondità 1.
+  - Esegue la prima azione della sequenza migliore, poi rifà la ricerca: è un orizzonte che scorre, quindi greedy.
+  - Non ha tabella di trasposizione né ordinamento delle mosse. Il limite è 190 ms.
+  - La valutazione somma caratteristiche pesate, prima a mano, poi con un algoritmo genetico.
+
+**Cosa si adatta a DuelForge.**
+- In questi domini vincono un valutatore dello stato a fine turno e una ricerca corta o potata, non i rollout casuali. Questo conferma B9 e B12 e la scelta di non usare UCT con rollout casuali.
+- Lo schema di Coac (cerca poco in profondità, esegui la prima azione, ripeti) costa poco. Può dare in pochi millisecondi una linea di base da cui parte B7, o una prima risposta per l'app.
+- Il raggruppamento degli esiti casuali di Zhang & Buro serve a B17, per monete, dadi e carte mandate dal Deck.
+
+**Cosa non si adatta.**
+- I turni di Hearthstone e LOCM sono brevi e quasi senza preparazione. Le combo di Yu-Gi-Oh! hanno passi che valgono solo molto dopo, e il greedy a orizzonte corto le perde.
+- Nessuna di queste fonti tratta stati doppi o ordini scambiabili (B2, B3).
+
+#### 3. Quality-Diversity e MAP-Elites
+
+- [Mouret & Clune, *Illuminating search spaces by mapping elites*, 2015](https://arxiv.org/abs/1504.04909) (solo abstract).
+  - Non cerca una sola soluzione migliore, ma una mappa delle soluzioni migliori su dimensioni scelte dall'utente: una griglia di descrittori, con un'«élite» per cella.
+  - Gli autori dicono che, esplorando di più, trova spesso anche una soluzione migliore in assoluto. Avvertono però che i dati sono preliminari.
+- [Pugh, Soros & Stanley, *Quality Diversity: A New Frontier for Evolutionary Computation*, Frontiers in Robotics and AI 2016](https://www.frontiersin.org/articles/10.3389/frobt.2016.00040/pdf) (solo abstract). Inquadra novelty search con competizione locale e MAP-Elites come algoritmi che restituiscono un archivio di comportamenti diversi e buoni in una sola corsa. Prova anche più caratterizzazioni del comportamento nella stessa corsa.
+- [Vassiliades, Chatzilygeroudis & Mouret, *Using Centroidal Voronoi Tessellations to Scale Up MAP-Elites*](https://arxiv.org/abs/1610.05729) (solo abstract). Fissa il numero di celle qualunque sia il numero di descrittori.
+- [Fontaine et al., *Mapping Hearthstone Deck Spaces through MAP-Elites with Sliding Boundaries*, GECCO 2019](https://arxiv.org/abs/1904.10656) (solo abstract, più estratti). I confini delle celle stanno sui percentili della distribuzione osservata e si ricalcolano ogni δ individui, così le celle non si affollano.
+
+**Cosa si adatta a DuelForge.**
+- Per la diversità e B14: al posto della top N per punteggio, un archivio per descrittori. Per esempio interruzioni contro risorse per il turno dopo (mano più Cimitero utile), oppure Evocazione Normale usata o no.
+  - Si tiene la migliore board stimata con `quick_score` per ogni cella.
+  - Il turno di prova misura solo le élite, che si combina con i dimezzamenti di B14.
+- Per B11: ogni cella può essere una coda da alternare, e la novità diventa «cella vuota o élite battuta».
+- I confini sui percentili di Fontaine servono perché la distribuzione dei descrittori cambia molto da deck a deck. Con più di due descrittori servono celle CVT.
+
+**Cosa non si adatta.**
+- MAP-Elites genera i candidati per mutazione. In DuelForge una mutazione è «prefisso più deviazione» e costa un replay: senza snapshot (B13) conviene solo come archivio sopra la ricerca che c'è già, non come motore.
+- La qualità di un'élite misurata con la sola stima eredita gli errori di `quick_score`.
+
+#### 4. Best-first parallelo e riproducibilità
+
+- [Kishimoto, Fukunaga & Botea, *Evaluation of a Simple, Scalable, Parallel Best-First Search Strategy* (HDA*), Artificial Intelligence 2013](https://arxiv.org/abs/1201.3204) (solo abstract). Ogni stato appartiene al thread indicato da un hash: ogni thread ha la sua lista aperta e i suoi doppioni, senza coordinamento centrale.
+- [Jinnai & Fukunaga, *Abstract Zobrist Hashing*, AAAI 2016](https://ojs.aaai.org/index.php/AAAI/article/view/10065) e [*On Hash-Based Work Distribution Methods for Parallel Best-First Search*, JAIR 2017](https://jair.org/index.php/jair/article/view/11090) (solo abstract). Con lo Zobrist semplice quasi ogni figlio va a un thread diverso dal padre. Un hash su caratteristiche astratte riduce i trasferimenti.
+- [Burns, Lemons, Ruml & Zhou, *Best-First Heuristic Search for Multicore Machines* (PBNF), JAIR 2010](https://jair.org/index.php/jair/article/view/10680) (solo abstract). Un'astrazione dello spazio divide gli stati in blocchi, così i doppioni si controllano senza lock frequenti. Espansioni speculative tengono occupati i thread.
+- [Kuroiwa & Fukunaga, *On the Pathological Search Behavior of Distributed Greedy Best-First Search*, ICAPS 2019](https://ojs.aaai.org/index.php/ICAPS/article/view/3485) e [*Analyzing and Avoiding Pathological Behavior in Parallel Best-First Search*, ICAPS 2020](https://ojs.aaai.org/index.php/ICAPS/article/view/6659) (solo abstract).
+  - HDA* applicato a GBFS va spesso peggio del GBFS sequenziale.
+  - I metodi paralleli espandono nodi che la ricerca sequenziale non espanderebbe con nessuna regola di parità. PUHF è la proposta per evitarlo.
+
+**Cosa si adatta a DuelForge (B6).**
+- La ricerca di DuelForge somiglia a GBFS, non ad A*. Quindi il risultato di Kuroiwa e Fukunaga è quello che conta: più thread possono espandere nodi peggiori e dare board peggiori o diverse da una corsa all'altra.
+  - B6 va misurato in nodi e tempo alla board migliore per numero di thread, non in nodi al secondo.
+- In DuelForge un nodo è una linea di azioni. Mandarlo a un altro thread costa poco, perché il replay serve comunque. La divisione per hash di HDA* sostituirebbe l'insieme dei visti condiviso con un proprietario per chiave, e il costo di comunicazione che preoccupa Jinnai pesa poco.
+- Riproducibilità: questa è una proposta nostra, non presa dalle fonti. Una modalità deterministica a giri sincroni: si estraggono i K migliori, si espandono in parallelo, poi si uniscono i figli in ordine fisso di chiave. Così lo stesso budget di nodi dà la stessa uscita.
+
+**Cosa non si adatta.**
+- PBNF richiede un'astrazione con pochi blocchi vicini. Le board di Yu-Gi-Oh! non ne hanno una naturale: priorità bassa.
+- Prima di tutto questo va risolto il replay (B0, B13), che è il collo di bottiglia vero.
+
+#### 5. Simmetrie nei pianificatori
+
+Nota sulla citazione: l'articolo del 2011 è di **Pochter, Zohar e Rosenschein**, non di «Pochter, Domshlak e Hoffmann» come scrive §7.2. Domshlak è autore del seguito del 2012.
+
+- [Pochter, Zohar & Rosenschein, *Exploiting Problem Symmetries in State-Based Planners*, AAAI 2011](https://ojs.aaai.org/index.php/AAAI/article/view/8014) (solo abstract). Diversi algoritmi per sfruttare le simmetrie nella ricerca su stati e un quadro per progettarne altri. Tempi ridotti sui problemi delle competizioni che hanno simmetrie.
+- [Domshlak, Katz & Shleyfman, *Enhanced Symmetry Breaking in Cost-Optimal Planning as Forward Search*, ICAPS 2012](https://ojs.aaai.org/index.php/ICAPS/article/view/13531) (solo abstract). Classi di simmetrie strettamente più grandi, quindi potature più grandi. Il seguito, Orbit Space Search (2015, non verificata direttamente), esplora un solo stato rappresentante per ogni orbita.
+- [Wehrle, Helmert, Shleyfman & Katz, *Integrating Partial Order Reduction and Symmetry Elimination for Cost-Optimal Classical Planning*, IJCAI 2015](https://ijcai.org/Abstract/15/244) (solo abstract). Riduzione per ordine parziale (stubborn set) ed eliminazione delle simmetrie si combinano in modo corretto.
+- [Shleyfman et al., *Heuristics and Symmetries in Classical Planning*, AAAI 2015](https://ojs.aaai.org/index.php/AAAI/article/view/9649) (solo abstract). Molte euristiche sono invarianti per simmetria.
+- `IsomorphicCardSet` di PrismataAI (codice letto, vedi §1).
+  - Due carte sono isomorfe se coincidono tipo, proprietario, vita, chill, cariche, morte, ritardo, tempo di costruzione, durata e stato. L'ID non conta.
+  - Per ogni gruppo si offre solo la prossima copia non usata.
+
+**Cosa si adatta a DuelForge.**
+- La chiave di stato tratta già alcune simmetrie: `fingerprint` in `crates/ygo-engine/src/state.rs` ordina mano, Deck, Cimitero, Extra Deck e bandite, e `canonical_fingerprint` prende il minimo con lo specchio del campo.
+- Manca la simmetria delle **scelte** (B2b, B3). Quando il motore offre copie identiche, conviene offrirne una sola per classe, come `IsomorphicCardSet`. Copie identiche vuol dire: stesso codice, luogo, posizione, contatori, materiali e stato «una volta per turno».
+  - Questo toglie fratelli prima del replay, non dopo come fa la chiave.
+- Wehrle et al. dicono che B2 (sleep set) e la potatura per simmetria si possono combinare, ma va fatto con attenzione. Si fanno in sequenza, con il controllo a campione di B3.
+- Shleyfman et al. ricordano che `quick_score` e l'ordinamento devono dare lo stesso valore a stati simmetrici. Altrimenti due stati con la stessa chiave si ordinano in modo diverso a seconda di chi arriva prima.
+
+**Cosa non si adatta.**
+- La ricerca dei generatori per automorfismi di grafo è eccessiva: le simmetrie utili di Yu-Gi-Oh! sono poche e note (copie, specchio).
+- Le zone del campo non sono intercambiabili in generale: frecce Link, colonne e Zone Mostri Extra contano. Quindi niente permutazione libera delle zone oltre allo specchio, a meno di un controllo che nessuna carta sul campo dipenda dalla posizione.
+
+#### 6. Metriche di ordinamento
+Il §7.2 chiede NDCG@k e la tau di Kendall accanto alle «inversioni». Sono usate in `ricerca-esperimenti.md`, §1 e §2 (`scripts/research/b14_stages.py`, `texel_fit.py`). La tau è la tau-b, con le parità che non contano. NDCG@3 usa come guadagno la misura completa spostata a 0 nella mano.

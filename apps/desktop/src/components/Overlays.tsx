@@ -66,9 +66,10 @@ export function ChartTooltip() {
       else if (!(e.target as Element | null)?.closest?.("[data-crosshair]")) hideTip();
     };
     const focus = (e: FocusEvent) => {
-      const el = (e.target as Element | null)?.closest?.("[data-tip]") as HTMLElement | SVGElement | null;
+      const target = e.target as Element | null;
+      const el = target?.closest?.("[data-tip]") as HTMLElement | SVGElement | null;
       if (!el?.dataset.tip) return;
-      if (typeof el.matches === "function" && !el.matches(":focus-visible")) return;
+      if (target?.matches && !target.matches(":focus-visible")) return;
       const r = el.getBoundingClientRect();
       showTip(el.dataset.tip, r.right, r.top);
     };
