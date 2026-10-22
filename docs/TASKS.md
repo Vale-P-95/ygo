@@ -30,7 +30,7 @@ Corsie di lavoro in parallelo del 22/10/2026 (piano in `docs/plans/piano-prossim
   - [x] Equipaggiamenti piazzati con il mostro equipaggiato.
   - [x] Mostri dell'Extra Deck piazzati con i materiali.
   - [x] Prova dell'estensore nello stesso turno dello starter.
-  - [ ] Banco, ruoli e valori prima e dopo; PR.
+  - [x] Banco, ruoli e valori prima e dopo (`docs/plans/carte-piazzate.md`); PR aperta, in attesa di revisione.
 - [ ] Classificazione delle board più profonda, con criteri validati sui deck di Master Duel Meta (#47): **ferma fino alla fine della corsia 1**, poi D10 e D13 (D5–D7 saltati, decisione del 22/10). Agente: claude-code. Branch: `claude/yugioh-deck-builder-simulator-cax0ya`. I file si riprendono allora: `probe.rs`, `explain.rs`, `tests/probe.rs` (`value.rs` e `lib.rs` liberi intanto).
   - Piano: `docs/plans/classificazione-board.md` (passi D0–D17; giudizio dato da un pannello di agenti, non dal proprietario).
   - [x] D0a: `combos --json/--save-lines`, `probe-line`.
