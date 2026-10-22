@@ -32,7 +32,7 @@ Corsie di lavoro in parallelo del 22/10/2026 (piano in `docs/plans/piano-prossim
   - [x] il collaudo del livello 2 con le linee vere (L4) su `48efae0`: 88% delle mosse fatte su campo vuoto, 71% di mosse in comune tra semi, problemi L4-1…L4-5 in `docs/plans/collaudo-strumenti.md` (22/10);
   - [ ] il collaudo dei deck lenti (corsia 2).
   - [ ] il banco oggettivo della forza delle board (per D17 e #43): board di tutti i deck MDM contro i 15-20 avversari più diffusi, livello 1 e 2, misure generiche, divisione taratura/verifica:
-    - [ ] script e selezione delle board;
+    - [x] script e selezione delle board (205 board di 41 deck, 20 avversari da popRank);
     - [ ] il giro completo (dopo la #53);
     - [ ] il documento con metodo, pesi del meta, tempi, coppie dubbie e primi numeri.
 
