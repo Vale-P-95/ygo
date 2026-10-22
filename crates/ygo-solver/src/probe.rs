@@ -813,10 +813,17 @@ pub struct ExpectedLoss {
 struct Parts {
     together: bool,
     breakers: bool,
+    /// Windows each response is tried at, to see what it stops.
+    windows: usize,
+    /// Runs with a response used whenever offered, to count its uses.
+    use_rounds: usize,
 }
 
 impl Parts {
-    const ALL: Parts = Parts { together: true, breakers: true };
+    const ALL: Parts = Parts { together: true, breakers: true, windows: 16, use_rounds: 3 };
+    /// The cheap measure (B14): most of the time of a full one goes in
+    /// trying each response at every window and counting its uses.
+    const CHEAP: Parts = Parts { together: true, breakers: false, windows: 2, use_rounds: 0 };
 }
 
 /// The opponent's hand and GY, what the goals of a step look at (cheaper
@@ -1300,7 +1307,7 @@ impl<'a> Prober<'a> {
     /// [`Measure::breakers`] nor follow-up, and the [`Measure::resilience`]
     /// of a board none is tried on (to see what the measure costs by part).
     pub fn measure_unbroken(&mut self, line: &Line) -> Result<Measure, Error> {
-        self.measure_from(Prelude::Line(line), Parts { together: true, breakers: false })
+        self.measure_from(Prelude::Line(line), Parts { together: true, breakers: false, ..Parts::ALL })
     }
 
     /// The quick value of the board `line` reaches ([`Prober::quick_value`]):
@@ -1312,14 +1319,22 @@ impl<'a> Prober<'a> {
     /// [`Prober::measure`] of each interruption alone ([`Interruption::alone`]):
     /// the runs that only change the rest are not played.
     pub(crate) fn measure_alone(&mut self, line: &Line) -> Result<Measure, Error> {
-        self.measure_from(Prelude::Line(line), Parts { together: false, breakers: false })
+        self.measure_from(Prelude::Line(line), Parts { together: false, breakers: false, ..Parts::ALL })
+    }
+
+    /// A cheap [`Prober::measure`] of the board `line` reaches, to choose
+    /// the boards worth a full one (B14): each response tried at its first
+    /// two windows only, used once, no breakers nor answer to it (about an
+    /// eighth of the time, and it orders the boards much as the full one).
+    pub fn measure_cheap(&mut self, line: &Line) -> Result<Measure, Error> {
+        self.measure_from(Prelude::Line(line), Parts::CHEAP)
     }
 
     /// [`Prober::measure_placed`] without the board breakers: no
     /// [`Measure::breakers`], and the [`Measure::resilience`] of a board none
     /// is tried on.
     pub(crate) fn measure_placed_unbroken(&mut self, placed: &[Placement]) -> Result<Measure, Error> {
-        self.measure_from(Prelude::Placed(placed), Parts { together: true, breakers: false })
+        self.measure_from(Prelude::Placed(placed), Parts { together: true, breakers: false, ..Parts::ALL })
     }
 
     fn measure_from(&mut self, prelude: Prelude, parts: Parts) -> Result<Measure, Error> {
@@ -1405,7 +1420,7 @@ impl<'a> Prober<'a> {
             // the cap leaves out no step whole.
             let mut tried = windows.clone();
             tried.sort_by_key(|&(step, at)| (at, step));
-            for &window in tried.iter().take(16) {
+            for &window in tried.iter().take(parts.windows) {
                 let Ok(run) = self.run_with(prelude, &all_steps, Policy::UseAt(*id, window), follow) else { continue };
                 let stopped = stopped_by(&run);
                 if debug {
@@ -1432,7 +1447,7 @@ impl<'a> Prober<'a> {
             // later where it does nothing.
             let mut uses = 1;
             let mut skip = HashSet::new();
-            for _ in 0..3 {
+            for _ in 0..parts.use_rounds {
                 let Ok(run) = self.run(prelude, &all_steps, Policy::Use(*id, &skip)) else { break };
                 uses = uses.max(run.uses.iter().filter(|u| u.effect.is_some()).count() as u32);
                 let wasted: Vec<(usize, usize)> = run.uses.iter().filter(|u| u.effect.is_none()).map(|u| (u.step, u.window)).collect();
