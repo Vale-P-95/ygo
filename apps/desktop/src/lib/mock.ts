@@ -16,6 +16,7 @@ import type {
   ComboScore,
   ComboDrawTradeOff,
   ComboMoves,
+  ComboPiece,
   ComboStep,
   BanChange,
   Cond,
@@ -1942,6 +1943,7 @@ function buildMockScoreForBoard(b: ComboBoard, vsDeckId?: number | null): ComboS
       exposure: 2,
       exposureNote: "Linea compatta in 4 Evocazioni: non attiva mai Nibiru",
       exposureDetail: { ash: 1, onField: 1, summons: 4, specialSummons: 3, searches: 1 },
+      countered: null,
       error: null,
     };
   }
@@ -2032,6 +2034,7 @@ function buildMockScoreForBoard(b: ComboBoard, vsDeckId?: number | null): ComboS
       exposureNote: "Esposta a Ash Blossom, Veiler/Impermanence, Droll e Nibiru",
       exposureDetail: { ash: 2, onField: 2, summons: 8, specialSummons: 7, searches: 3 },
       matchup: getMatchup(vsDeckId),
+      countered: 0.68,
       error: null,
     };
   }
@@ -2130,6 +2133,7 @@ function buildMockScoreForBoard(b: ComboBoard, vsDeckId?: number | null): ComboS
     exposure: 4,
     exposureNote: "Esposta a Ash Blossom, Veiler/Impermanence, Droll e Nibiru (ma Flamberge/Princess permettono di recuperare)",
     exposureDetail: { ash: 2, onField: 3, summons: 10, specialSummons: 9, searches: 3 },
+    countered: 1,
     error: null,
   };
 }
@@ -2900,6 +2904,15 @@ export const mockApi: Api = {
     return [
       { code: 23434538, stops, best: 2, standardBreakers: false },
       { code: 73642296, stops: fuwalosStops, best: 1, standardBreakers: false },
+    ];
+  },
+
+  boardProtection: async (): Promise<ComboPiece[]> => {
+    await delay(400);
+    // Stardust Sifr is not destroyed once a turn; a Set Trap falls to any removal of Spells and Traps.
+    return [
+      { code: 26268488, place: "campo", holds: ["distruggere"], falls: ["bandire", "girare coperto", "negare"] },
+      { code: 10045474, place: "campo", holds: [], falls: ["distruggere", "bandire"] },
     ];
   },
 
