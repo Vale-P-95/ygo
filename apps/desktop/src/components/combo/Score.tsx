@@ -263,7 +263,9 @@ function measured(key: MetricKey, s: ComboScore): string {
     case "cost":
       return s.cost > 0 ? `usa ${plural(s.cost, "carta", "carte")} della mano oltre la prima` : "nessuna carta oltre la prima";
     case "exposure":
-      return s.exposure > 0 ? plural(s.exposure, "punto in cui una handtrap la ferma", "punti in cui una handtrap la ferma") : "nessuna handtrap comune la ferma";
+      return s.exposure > 0.005
+        ? `perdita attesa per le handtrap: ${num(s.exposure)} interruzioni`
+        : "nessuna perdita attesa per le handtrap comuni";
   }
 }
 
@@ -325,9 +327,9 @@ function summary(s: ComboScore): string[] {
   }
   if (s.exposureDetail || s.exposureNote) {
     out.push(
-      s.exposure > 0
-        ? `Mentre la giochi, le handtrap più comuni possono fermarla in ${plural(s.exposure, "punto", "punti")}.`
-        : "Mentre la giochi, nessuna delle handtrap più comuni può fermarla.",
+      s.exposure > 0.005
+        ? `Mentre la giochi, la perdita attesa per le handtrap più comuni è di ${num(s.exposure)} interruzioni.`
+        : "Mentre la giochi, nessuna delle handtrap più comuni toglie interruzioni alla linea.",
     );
   }
   return out;
@@ -578,26 +580,106 @@ function RivalHandTrapRow({
 function Exposure({ s }: { s: ComboScore }) {
   const x = s.exposureDetail;
   if (!x) return <p className="text-xs text-muted">{s.exposureNote}</p>;
+
+  const hasLosses = x.losses != null && x.losses.length > 0;
+  const lossAsh = x.losses?.find((l) => l.kind === "ash");
+  const lossField = x.losses?.find((l) => l.kind === "fieldEffect");
+  const lossNibiru = x.losses?.find((l) => l.kind === "nibiru");
+  const lossDroll = x.losses?.find((l) => l.kind === "droll");
+
+  const chokePoints = x.chokePoints ?? (x.ash + x.onField + (x.summons >= 5 ? 1 : 0) + (x.searches >= 2 ? 1 : 0));
+
   return (
-    <ul className="flex flex-col gap-1">
-      <Risk name="Ash Blossom" counts={x.ash > 0} text={x.ash > 0 ? `${plural(x.ash, "effetto", "effetti")} che prendono carte dal Deck` : "nessun effetto da negare"} />
-      <Risk
-        name="Effect Veiler, Impermanence"
-        counts={x.onField > 0}
-        text={x.onField > 0 ? `${plural(x.onField, "effetto", "effetti")} di mostri attivati sul campo` : "nessun effetto di mostro sul campo"}
-      />
-      <Risk name="Nibiru" counts={x.summons >= 5} text={x.summons >= 5 ? `arriva: ${x.summons} Evocazioni (basta la quinta)` : `non arriva: ${x.summons} Evocazioni su 5`} />
-      <Risk
-        name="Droll & Lock Bird"
-        counts={x.searches >= 2}
-        text={x.searches >= 2 ? `ferma ${plural(x.searches - 1, "aggiunta", "aggiunte")} dal Deck dopo la prima` : x.searches === 1 ? "una sola carta aggiunta dal Deck: non ferma nulla" : "nessuna carta aggiunta dal Deck"}
-      />
-      <Risk
-        name={'Maxx "C"'}
-        counts={false}
-        text={`${plural(x.specialSummons, "Evocazione Speciale", "Evocazioni Speciali")}: l'avversario pesca, ma non ti ferma (non toglie punti)`}
-      />
-    </ul>
+    <div className="flex flex-col gap-2">
+      <div className="flex items-baseline justify-between text-xs pb-1 border-b border-border/50">
+        <span className="text-muted">Perdita attesa per le handtrap:</span>
+        <span className="font-semibold tabular-nums text-text">
+          {num(s.exposure)} {plural(s.exposure === 1 ? 1 : 2, "interruzione", "interruzioni")}
+        </span>
+      </div>
+      <ul className="flex flex-col gap-1">
+        <Risk
+          name="Ash Blossom"
+          counts={hasLosses ? (lossAsh?.loss ?? 0) > 0.005 : x.ash > 0}
+          text={
+            hasLosses
+              ? lossAsh && lossAsh.loss > 0.005
+                ? `−${num(lossAsh.loss)} se arriva (${Math.round(lossAsh.chance * 100)}%)`
+                : x.ash > 0
+                  ? "non toglie interruzioni alla linea"
+                  : "nessun effetto da negare"
+              : x.ash > 0
+                ? `${plural(x.ash, "effetto", "effetti")} che prendono carte dal Deck`
+                : "nessun effetto da negare"
+          }
+        />
+        <Risk
+          name="Veiler/Impermanence"
+          counts={hasLosses ? (lossField?.loss ?? 0) > 0.005 : x.onField > 0}
+          text={
+            hasLosses
+              ? lossField && lossField.loss > 0.005
+                ? `−${num(lossField.loss)} se arriva (${Math.round(lossField.chance * 100)}%)`
+                : x.onField > 0
+                  ? "non toglie interruzioni alla linea"
+                  : "nessun effetto di mostro sul campo"
+              : x.onField > 0
+                ? `${plural(x.onField, "effetto", "effetti")} di mostri attivati sul campo`
+                : "nessun effetto di mostro sul campo"
+          }
+        />
+        <Risk
+          name="Nibiru"
+          counts={hasLosses ? (lossNibiru?.loss ?? 0) > 0.005 : x.summons >= 5}
+          text={
+            hasLosses
+              ? lossNibiru && lossNibiru.loss > 0.005
+                ? `−${num(lossNibiru.loss)} se arriva (${Math.round(lossNibiru.chance * 100)}%)`
+                : x.summons < 5
+                  ? `non arriva: ${x.summons} Evocazioni su 5`
+                  : "arriva ma non toglie interruzioni"
+              : x.summons >= 5
+                ? `arriva: ${x.summons} Evocazioni (basta la quinta)`
+                : `non arriva: ${x.summons} Evocazioni su 5`
+          }
+        />
+        <Risk
+          name="Droll & Lock Bird"
+          counts={hasLosses ? (lossDroll?.loss ?? 0) > 0.005 : x.searches >= 2}
+          text={
+            hasLosses
+              ? lossDroll && lossDroll.loss > 0.005
+                ? `−${num(lossDroll.loss)} se arriva (${Math.round(lossDroll.chance * 100)}%)`
+                : x.searches < 2
+                  ? x.searches === 1
+                    ? "una sola carta aggiunta dal Deck: non ferma nulla"
+                    : "nessuna carta aggiunta dal Deck"
+                  : "arriva ma non toglie interruzioni"
+              : x.searches >= 2
+                ? `ferma ${plural(x.searches - 1, "aggiunta", "aggiunte")} dal Deck dopo la prima`
+                : x.searches === 1
+                  ? "una sola carta aggiunta dal Deck: non ferma nulla"
+                  : "nessuna carta aggiunta dal Deck"
+          }
+        />
+        <Risk
+          name={'Maxx "C", Mulcharmy'}
+          counts={false}
+          text={
+            x.maxx != null && x.maxxChance != null
+              ? x.maxx > 0.005
+                ? `+${num(x.maxx)} interruzioni all'avversario (${Math.round(x.maxxChance * 100)}%) · ${plural(x.specialSummons, "Evocazione Speciale", "Evocazioni Speciali")}`
+                : `${plural(x.specialSummons, "Evocazione Speciale", "Evocazioni Speciali")}: nessuna pescata concessa oltre la prima`
+              : `${plural(x.specialSummons, "Evocazione Speciale", "Evocazioni Speciali")}: l'avversario pesca, ma non ti ferma (non toglie punti)`
+          }
+        />
+      </ul>
+      {chokePoints > 0 && (
+        <p className="text-[11px] text-faint pt-1 border-t border-border/40">
+          Punti critici nella linea: {chokePoints} {plural(chokePoints, "momento", "momenti")} in cui una handtrap può intervenire
+        </p>
+      )}
+    </div>
   );
 }
 

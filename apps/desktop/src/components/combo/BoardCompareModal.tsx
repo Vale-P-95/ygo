@@ -13,6 +13,7 @@ function boardId(b: ComboBoard): string {
 
 const fmt2 = (n: number) => n.toLocaleString("it-IT", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const fmt1 = (n: number) => n.toLocaleString("it-IT", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+const num = (n: number) => (Math.abs(n) > 0.005 && Math.abs(n) < 0.1 ? fmt2(n) : fmt1(n));
 const signed = (n: number) => (n > 1e-4 ? `+${fmt2(n)}` : n < -1e-4 ? `−${fmt2(-n)}` : "0,00");
 
 /** Extracts multiset of card codes from a list of codes. */
@@ -566,14 +567,58 @@ export function BoardCompareModal({
                     )}
 
                     {col.s.exposureDetail && (
-                      <div className="border-t border-border pt-2.5 text-xs text-muted">
-                        <p className="eyebrow mb-1 text-faint">Esposizione durante la linea</p>
-                        <div className="flex flex-wrap gap-x-4 gap-y-1 tabular-nums">
-                          <span>Ash: <b className="text-text">{col.s.exposureDetail.ash}</b></span>
-                          <span>Sul campo (Veiler/Imperm): <b className="text-text">{col.s.exposureDetail.onField}</b></span>
-                          <span>Evocazioni: <b className="text-text">{col.s.exposureDetail.summons}</b> ({col.s.exposureDetail.specialSummons} Spec.)</span>
-                          <span>Ricerche dal Deck: <b className="text-text">{col.s.exposureDetail.searches}</b></span>
+                      <div className="border-t border-border pt-2.5 text-xs text-muted flex flex-col gap-1.5">
+                        <div className="flex items-baseline justify-between">
+                          <p className="eyebrow text-faint">Esposizione alle handtrap</p>
+                          <span className="font-medium text-text tabular-nums text-[11px]">
+                            perdita attesa: {num(col.s.exposure)} {col.s.exposure === 1 ? "interruzione" : "interruzioni"}
+                          </span>
                         </div>
+                        {col.s.exposureDetail.losses && col.s.exposureDetail.losses.length > 0 ? (
+                          <div className="flex flex-col gap-1 tabular-nums">
+                            {col.s.exposureDetail.losses.map((l) => {
+                              const label =
+                                l.kind === "ash"
+                                  ? "Ash Blossom"
+                                  : l.kind === "fieldEffect"
+                                    ? "Veiler/Impermanence"
+                                    : l.kind === "nibiru"
+                                      ? "Nibiru"
+                                      : "Droll & Lock Bird";
+                              return (
+                                <div key={l.kind} className="flex items-baseline justify-between text-[11px]">
+                                  <span>{label}:</span>
+                                  <span className={l.loss > 0.005 ? "font-semibold text-danger" : "text-faint"}>
+                                    {l.loss > 0.005
+                                      ? `−${num(l.loss)} se arriva (${Math.round(l.chance * 100)}%)`
+                                      : "nessuna perdita"}
+                                  </span>
+                                </div>
+                              );
+                            })}
+                            {col.s.exposureDetail.maxx != null && col.s.exposureDetail.maxxChance != null && col.s.exposureDetail.maxx > 0.005 && (
+                              <div className="flex items-baseline justify-between text-[11px]">
+                                <span>Maxx "C":</span>
+                                <span className="font-semibold text-warn">
+                                  +{num(col.s.exposureDetail.maxx)} all'avversario ({Math.round(col.s.exposureDetail.maxxChance * 100)}%)
+                                </span>
+                              </div>
+                            )}
+                            {col.s.exposureDetail.chokePoints != null && (
+                              <div className="flex items-baseline justify-between text-[10px] text-faint border-t border-border/40 pt-1">
+                                <span>Punti critici:</span>
+                                <span>{col.s.exposureDetail.chokePoints}</span>
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="flex flex-wrap gap-x-4 gap-y-1 tabular-nums">
+                            <span>Ash: <b className="text-text">{col.s.exposureDetail.ash}</b></span>
+                            <span>Sul campo (Veiler/Imperm): <b className="text-text">{col.s.exposureDetail.onField}</b></span>
+                            <span>Evocazioni: <b className="text-text">{col.s.exposureDetail.summons}</b> ({col.s.exposureDetail.specialSummons} Spec.)</span>
+                            <span>Ricerche dal Deck: <b className="text-text">{col.s.exposureDetail.searches}</b></span>
+                          </div>
+                        )}
                       </div>
                     )}
                   </section>

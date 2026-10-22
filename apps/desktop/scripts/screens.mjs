@@ -97,6 +97,7 @@ async function main() {
           document.documentElement.setAttribute("data-theme", t);
           try {
             localStorage.setItem("df_theme", t);
+            localStorage.setItem("duelforge.lastDeck", "2");
           } catch {
             // ignore
           }
