@@ -678,6 +678,8 @@ fn state_json(
         "hand_traps_in_hand": me.hand.iter().filter(|&&c| hand_trap(c)).count(),
         "grave": me.grave.len(),
         "banished": me.banished.len(),
+        "grave_names": me.grave.iter().map(|&c| db.name(c)).collect::<Vec<_>>(),
+        "banished_names": me.banished.iter().map(|&(c, _)| db.name(c)).collect::<Vec<_>>(),
     });
     if let Some(m) = measured {
         value["measure"] = serde_json::json!({
