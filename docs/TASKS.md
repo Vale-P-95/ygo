@@ -7,6 +7,7 @@ Corsie di lavoro in parallelo del 22/10/2026 (piano in `docs/plans/piano-prossim
 - [x] **Scheda del punteggio** (Gemini, PR #54, unita il 22/10): testi di follow-up, risorse e costo in `scoring.ts`, «Con una risposta alla tua prima interruzione…» (`ComboScore.countered`) e il pannello «Protezione dei pezzi» (`api.boardProtection`, `PieceProtection.tsx`). Provata con il backend finto, `typecheck`, `lint` e `build`; da provare nell'app vera. Lock tolto.
 - [x] **Il Banditore v2** (Gemini, PR #55, unita il 22/10): ricerca con lista OCG (`formato:ocg`) nel `Promise.all` iniziale e in `mock.ts`, vista «Cosa è cambiato con l'ultima lista» (`api.banChanges`), raggruppamento per data/formato, apertura Visore Carta, messaggio esplicito per storico iniziale vuoto. Lock tolto.
 - [x] **Test automatici dell'interfaccia** (Gemini, PR #57, unita il 22/10): unit test con Vitest per le funzioni pure in `lib/` (`probability`, `query`, `conditions`, `deck`, `scoring`) e `Banditore.tsx`, script "test" e step nella CI. 75 test passati. Lock tolto.
+- [x] **Revisione dell'interfaccia, passo 0: fondamenta** (Gemini, PR aperta verso main): scala tipografica e spaziature come token in `src/index.css`, `lucide-react`, componenti base (`Toolbar`, `FilterChip`, `IconButton`, `SidePanel`, `HelpPopover`), script Playwright e test Vitest toolbar. Lock tolto.
 - [x] **Corsia 1.** Turno di prova contro un deck, livello 2, con le linee vere dell'avversario (piano P1, L1–L6):
   - l'avversario rigioca le linee migliori che il motore trova per il suo deck, con la sua mano vera e l'ordine del suo Deck;
   - le risposte si ritrovano per identità dove la tua board cambia le domande.
@@ -30,7 +31,7 @@ Corsie di lavoro in parallelo del 22/10/2026 (piano in `docs/plans/piano-prossim
   - [x] Tetto per richiesta, chiuso nel motore: 500 000 ingressi in Lua (`DUELFORGE_LUA_LIMIT`; contare le istruzioni costava il 21% del banco). La richiesta fermata è un errore, la linea risulta interrotta e il duello non si riusa. Banco identico e senza costo, `combo_hunt --seed 7` identico; mano lenta 117 → 1003 nodi; Lunalight livello 2 (L4-3) da 297-550 s a 4-19 s, perdendo 2 linee su 11. Numeri in `docs/plans/velocita-ricerca.md`.
 
   - [x] `combos --probe`: 3 varianti misurate solo per le prime 3 board stampate, 1 per le altre. Il #1 stampato resta il migliore misurato (0 deck su 41 prima e dopo); dracotail-0 da 69,3 a 64,2 s, kewl_tune-0 da 54,3 a 47,4 s. Numeri in `docs/plans/velocita-ricerca.md`.
-  - [ ] I giri di apprendimento si fermano quando il tempo rimasto non basta (mano lenta di Kewl Tune: ricerca a 25,6 s, totale ~72 s), con banco, `combo_hunt --seed 7` e `search_regression` prima e dopo.
+  - [x] Le fasi dopo la ricerca: nessuna scadenza più corta tiene le board migliori della mano lenta di Kewl Tune (prove in `docs/plans/velocita-ricerca.md`), quindi resta quella di prima. Cambio rimasto: un giro di apprendimento non comincia una board che non finirebbe in tempo.
 
   Agente: claude-code, sessione sorella della velocità. Branch: `claude/search-speed`. File (lock del 22/10): in `crates/ygo-cli/src/main.rs` solo la scelta delle varianti di `combos` (la stampa dell'esposizione è della corsia 4), `crates/ygo-solver/src/search.rs`, `docs/plans/velocita-ricerca.md`.
 - [ ] **Corsia 3.** Collaudo:
@@ -39,11 +40,19 @@ Corsie di lavoro in parallelo del 22/10/2026 (piano in `docs/plans/piano-prossim
   - [x] il collaudo dei deck lenti (corsia 2, 22/10): con `combo_hunt --seed 7` su `main` e424904 resta sopra 60 s solo dracotail-0 (70,7 s da solo), per i turni di prova delle varianti di `--probe` (21c8885); il tetto Lua lì non scatta. Numeri in `docs/plans/velocita-ricerca.md`.
 
   Agente: claude-code, sessione sorella del collaudo. Branch: `claude/tools-qa`. File: script nuovi in `scripts/`, `docs/plans/collaudo-strumenti.md`, `tests/fixtures/boards/`.
+- [ ] **Corsia 4, terzo task.** Esposizione come valore perso (#47, D12 = B6 V1 di `docs/plans/classificazione-board.md`): nel punteggio l'esposizione diventa `E = Σ_h p_h · loss_h` in interruzioni, al posto del numero di punti critici, che resta nel dettaglio.
+
+  Agente: claude-code, sessione della corsia 4. Branch: `claude/placed-cards` (ripartito da `main` dbd7c58). File: `crates/ygo-solver/src/probe.rs`, `explain.rs`; `apps/desktop/src-tauri/src/lib.rs`, `apps/desktop/src/lib/api.ts`, `mock.ts`; in `crates/ygo-cli/src/main.rs` la parte di `combos` e `probe-line` che stampa l'esposizione; script miei in `scripts/`; `docs/plans/esposizione.md`.
+  - [x] `ChokePoint` con la posizione nella linea.
+  - [x] `Prelude::Cut` e `Prober::quick_value`.
+  - [x] `loss_h`, il termine di Maxx "C" e Mulcharmy, `p_h` dalle liste e una tabella di default per l'app.
+  - [x] `E` nel punteggio (`score_view`), tutte le board misurate, cache; contratto `lib.rs` ↔ `api.ts`; testo per Gemini.
+  - [x] Banco, caccia, tempo per board (numeri in `docs/plans/esposizione.md`); le coppie non si riproducono con le liste del 22/10: da rifare con la cartella delle coppie del coordinatore.
 - [x] **Corsia 6.** Probabilità della mappa dei collegamenti: una `chance` che distingua le carte e sia vicina al vero (misurata su mani cercate), senza saturazione. Fatto, in attesa della PR (la apre la coordinatrice): errore medio contro 200 mani a caso da 0,344 a 0,059 su 6 deck; carte a ≥ 0,99 sui 41 deck da 29 + 20 a 6 + 2; nessun collegamento perso; ricerca delle combo invariata. Numeri e cosa resta aperto in `docs/plans/mappa-collegamenti.md`, «Probabilità misurata sulle mani cercate».
 
   Agente: claude-code, sessione sorella della mappa. Branch: `claude/links-chance`. File: `crates/ygo-solver/src/links.rs` e i suoi test, la parte `links` di `crates/ygo-cli/src/main.rs`, `Rng` di `crates/ygo-solver/src/card.rs` (solo la visibilità), script nuovi miei in `scripts/` (`links_chance.py`) e il default di `links_report.py`, `docs/plans/mappa-collegamenti.md`, `tests/fixtures/links/`; solo i commenti di `LinkCard` in `apps/desktop/src-tauri/src/lib.rs` e `apps/desktop/src/lib/api.ts` (nessun campo nuovo). Lock tolto.
   - Seguito per Gemini: `chance` ora dice «una mano porta in gioco la carta» ed è una stima per quasi tutte le carte (`measured` vero dopo la prima mano cercata): si può mostrare come «circa 45%». Durante l'aggiornamento progressivo le probabilità si muovono un po'.
-- [ ] **Corsia 4, secondo task.** Ordine della ricerca e stima rapida (#47, D14 = B11 di `docs/plans/classificazione-board.md`): il #1 stampato è il migliore misurato; inversioni tra stima e misura nella top 8 (C5.7) ≤ 60; campi distinti nella top 8 (C5.8). Si accetta solo se `best` del banco non scende più del 5%.
+- [x] **Corsia 4, secondo task**, unita il 22/10 (PR #50). Ordine della ricerca e stima rapida (#47, D14 = B11 di `docs/plans/classificazione-board.md`): il #1 stampato è il migliore misurato; inversioni tra stima e misura nella top 8 (C5.7) ≤ 60; campi distinti nella top 8 (C5.8). Si accetta solo se `best` del banco non scende più del 5%.
 
   Agente: claude-code, sessione della corsia 4. Branch: `claude/placed-cards` (ripartito da `main`). File: `crates/ygo-solver/src/search.rs`, `value.rs`, `crates/ygo-cli/src/main.rs` (solo la parte `combos`), script miei in `scripts/`, `docs/plans/ordine-ricerca.md`.
   - [x] Linea di base (C5.7, C5.8, banco).
@@ -54,7 +63,7 @@ Corsie di lavoro in parallelo del 22/10/2026 (piano in `docs/plans/piano-prossim
   - [x] 5. Spot mancanti.
   - [x] 6. Look key con Cimitero usabile: saltato (tocca `src-tauri/src/lib.rs`; nella CLI lo copre il 7).
   - [x] 7. Varianti nella top N.
-  - [ ] C5.7: inversioni da 223 a 174 su 1110, obiettivo ≤ 60 non raggiunto; #1 stampato sempre il migliore (19 deck → 0). Numeri in `docs/plans/ordine-ricerca.md`.
+  - [x] C5.7: inversioni da 223 a 174 su 1110, obiettivo ≤ 60 non raggiunto; #1 stampato sempre il migliore (19 deck → 0). Numeri in `docs/plans/ordine-ricerca.md`.
 - [x] **Corsia 4.** Carte piazzate e ruoli (PIANO §30.4), unita il 22/10 (PR #42):
   - gli equipaggiamenti piazzati con il mostro equipaggiato;
   - i mostri dell'Extra Deck piazzati con i materiali (Apollousa non più a 0 ATK);
@@ -100,8 +109,11 @@ Corsie di lavoro in parallelo del 22/10/2026 (piano in `docs/plans/piano-prossim
 ## Da fare (in ordine di priorità)
 
 ### Interfaccia (Gemini)
+- [ ] **Per Gemini: l'esposizione come valore perso** (D12, backend della corsia 4; piano B6 in `docs/plans/classificazione-board.md`, numeri in `docs/plans/esposizione.md`). `ComboScore.exposure` non è più il numero di punti critici. Ora è la perdita attesa per le handtrap, in interruzioni: per ogni tipo di handtrap, quello che toglie nel momento peggiore per la linea, per la probabilità che l'avversario ne abbia una.
+  - **Scheda del punteggio** (`Score.tsx`) e **confronto** (`BoardCompareModal.tsx`). Il valore si mostra come "perdita attesa per le handtrap: X interruzioni". Sotto va una riga per tipo da `exposureDetail.losses`: "Ash Blossom: −1,2 se arriva (34%)", "Veiler/Impermanence", "Nibiru", "Droll & Lock Bird". Poi Maxx "C" (`maxx`, `maxxChance`), e il numero di punti critici (`chokePoints`) come prima.
+  - **Tipi.** I campi nuovi sono opzionali (`ExposureLoss` in `api.ts`); il backend finto ha già i tre esempi aggiornati.
 - [ ] **Revisione dell'interfaccia, seconda parte** (dalle prove del proprietario nell'app vera, 22/10). Piano: `docs/plans/ui-revisione-2.md`. Un branch e una PR per passo, in quest'ordine:
-  - [ ] Passo 0, fondamenta: scala tipografica e spaziature, set di icone unico, componenti di base (`Toolbar`, `FilterChip`, `IconButton`, `SidePanel`, `HelpPopover`), script di screenshot.
+  - [x] Passo 0, fondamenta: scala tipografica e spaziature, set di icone unico, componenti di base (`Toolbar`, `FilterChip`, `IconButton`, `SidePanel`, `HelpPopover`), script di screenshot.
   - [ ] Passo 1, Collegamenti: cerchio a tutta larghezza, nodi con l'immagine della carta, barra dei filtri su una riga, pannello utile senza selezione, probabilità come stima (dopo la PR #61).
   - [ ] Passo 2, Fucina: ispettore della carta a sinistra (passaggio del mouse, un clic per fissarla, doppio clic come oggi).
   - [ ] Passo 3, ricerca e filtri del catalogo su una riga.

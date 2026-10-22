@@ -319,3 +319,110 @@ La somma scende in 3 deck, dove la variante migliore era di un campo oltre il te
 | elfnote_kewl_tune-0 | 54,3 s | 47,4 s | 30,7 → 24,5 s |
 
 dracotail-0 resta sopra 60 s: le sue 11 misure costano circa 3 s l'una. Per scendere ancora servirebbe misurare due varianti invece di tre, o rendere più veloce la misura stessa.
+
+## Le fasi dopo la ricerca (22/10/2026, corsia 2)
+**Domanda.** Sulla mano lenta di Kewl Tune (60 s, 1000 nodi, seme 7) la ricerca finisce presto, ma le fasi successive arrivano comunque verso la scadenza (limite + 10 s). Si possono fermare prima, senza perdere board?
+
+**Prove** (`main` cc8a122, mano lenta da sola; prima: ricerca a 10,5 s, fine a 47,6 s, prime 3 board 8,6 · 8,4 · 8,3):
+
+| Apprendimento | `confirm_best` e `zone_variants` | Fine | Prime 3 board |
+|---|---|---|---|
+| fermo 10 s dopo la ricerca | 10 s dopo la ricerca | 19,8 s | 8,3 · 8,3 · 8,1 |
+| fermo 10 s dopo la ricerca | 15, 20, 25, 30, 40 s dopo la ricerca | 24,5-31,8 s | 8,3 · 8,3 · 8,1 |
+| come prima | 20 s dopo la ricerca | 31,2 s | 8,3 · 8,3 · 8,1 |
+| come prima | 25 s dopo la ricerca | 35,3 s | 8,6 · 8,4 · 8,3 |
+| come prima | 25 s dopo la ricerca (secondo giro) | 36,9 s | 8,6 · 8,3 · 8,3 |
+| come prima | 30 s dopo la ricerca | 41,0 s | 8,6 · 8,4 · 8,3 |
+
+- Le board migliori vengono sia dall'ultimo giro di apprendimento intero, sia dalle varianti di zona giocate fino in fondo. Le varianti finiscono da sole circa 37 s dopo la ricerca.
+- Un taglio a tempo prima di allora le perde o no a seconda della velocità della macchina: a 25 s, una volta sì e una volta no.
+- Nessuna scadenza più corta di quella di prima tiene la qualità in modo affidabile. Quindi la scadenza resta quella di prima.
+
+**Cambio rimasto** (`search.rs`). Un giro di apprendimento non comincia una board che non finirebbe prima della scadenza, a giudicare dalla misura più lunga del giro: tagliata a metà, non insegna niente. Sulle prove qui sopra non scatta mai, e la mano lenta finisce come prima.
+
+Il tempo di queste mani lo accorcia l'utente, scegliendo il limite nell'app; la ricerca più efficiente è il lavoro del piano critico (`docs/plans/ricerca-piano-critico.md`, A2 e B1-B7).
+
+## Dove va il lavoro della ricerca (A2 del piano critico, 22/10/2026, corsia 2)
+**Strumento.** Con `DUELFORGE_SEARCH_STATS=1` la ricerca stampa alla fine una riga `search-stats` su stderr; senza, non registra niente (banco con e senza: uscite identiche). `scripts/search_stats.py <cartella>` somma le righe di tutte le ricerche. Per ogni discesa (un replay della linea dal principio, poi la prima risposta a ogni scelta fino alla fine del turno o a un taglio) conta:
+- come finisce, con i suoi nodi, il tempo del replay e il tempo totale;
+- la board migliore che legge, rispetto alla migliore della ricerca;
+- le risposte dopo cui niente di visibile cambia;
+- la posizione della risposta giusta, a ogni passo della linea migliore, tra quelle provate.
+
+**Giri.** Banco: 16 mani, 4000 nodi, un thread. `combo_hunt --seed 7`: 82 mani, 3000 nodi, `--top 5 --probe`, 4 giri insieme. `main` cc8a122 più la PR #64.
+
+| | Banco | `combo_hunt` |
+|---|---|---|
+| nodi | 60 211 | 222 071 |
+| tempo della ricerca | 148,0 s | 619,8 s |
+| di cui nelle discese | 87,6 s | 342,2 s |
+| replay della linea dal principio | 69,9 s (80% delle discese) | 266,8 s (78%) |
+| giri di apprendimento durante la ricerca | 28,5 s | 62,9 s |
+| fasi dopo la ricerca | 33,1 s | 223,3 s |
+| turno di prova e stampa | — | 859 s (58% del tempo totale di 1479 s) |
+
+**Come finiscono le discese** (`combo_hunt`; il banco è simile):
+
+| Fine | % nodi | % tempo delle discese |
+|---|---|---|
+| fine del turno, board letta | 73,5% | 66,6% |
+| nodo già esplorato per altre scelte | 15,6% | 18,3% |
+| nodo già esplorato con le stesse scelte in altro ordine | 9,3% | 10,2% |
+| ogni risposta riporta dove un'altra linea va già | 1,4% | 4,5% |
+| altro (negata, giro, handtrap inutile) | 0,2% | 0,4% |
+
+- **Board lette:** il 19% del tempo delle discese va in discese che non leggono nessuna board (quasi tutte finiscono su un nodo già esplorato). Il 73% va in discese con board sotto il 90% della migliore, l'8% in discese vicine alla migliore.
+- **Risposte che non cambiano niente di visibile:** 23,8% dei nodi. Sono i passi delle selezioni a più carte (`Choose`, 26 741) e la scelta di un'Evocazione Speciale prima dei suoi materiali (`SpecialSummon`, 21 521).
+- **Ordinamento delle mosse:** sulla linea migliore la risposta giusta era la prima provata nel 77% dei passi, la seconda nell'8%, la terza nel 4%, oltre la decima nello 0,3%.
+
+**I tre sprechi più grandi.**
+
+| | % nodi | % tempo della ricerca |
+|---|---|---|
+| 1. Replay delle linee dal principio del duello: ogni discesa rigioca tutte le risposte già date per arrivare al suo nodo | — | 43% (78-80% del tempo delle discese) |
+| 2. Discese che finiscono su un nodo già esplorato (altre scelte 15,6%, altro ordine 9,3%, risposte che riportano indietro 1,4%) | 26,3% | 18% (33% del tempo delle discese) |
+| 3. Nodi senza cambi visibili (passi delle selezioni a più carte, scelta dell'Evocazione prima dei materiali) | 23,8% | non misurato a parte: ogni nodo in più allunga anche i replay successivi |
+
+Fuori dalla ricerca, in `combo_hunt` pesa di più il turno di prova (58% del tempo totale) delle fasi dopo la ricerca (15%) e dei giri di apprendimento (4%). Il turno di prova lo guarda il coordinatore insieme a B5.
+
+**Cosa ne segue per la fase B.**
+- **B2 (ordini scambiabili)** toglie al più il 9,3% dei nodi e il 10% del tempo delle discese: è lo spreco misurato più chiaro.
+- **B3 (chiave dei nodi)** tocca la parte "altre scelte" (15,6%) solo se quelle scelte arrivano davvero allo stesso stato; da misurare con la chiave più fine.
+- **B1 (ordinamento)** ha poco margine: la risposta giusta è già la prima nel 77% dei passi.
+- **Il replay** è lo spreco più grande e nessun punto B lo tocca. Due strade, entrambe nel motore e nella ricerca:
+  - discese più lunghe per replay, cioè più risposte lasciate in coda per ogni replay;
+  - un'istantanea del duello a metà turno, come quella che già riusa il duello all'inizio, per ripartire da un nodo senza rigiocare.
+- **I nodi senza cambi visibili** si potrebbero contare come un solo passo: una selezione a più carte, o un'Evocazione con i suoi materiali. Nel piano è B2b, dopo B2, con il controllo che la chiave dei nodi non perda stati distinti.
+- **Ordine deciso:** B0 (il replay, studio sotto), B2, B2b, B3, B1.
+
+## B0: il replay, studio delle strade (22/10/2026, corsia 2)
+Nessun codice nella ricerca: misure e stime, per decidere.
+
+**Dove va il tempo di una discesa.** Profilo con callgrind di una mano del banco (inv-r1, 300 nodi), dentro `play`:
+
+| Parte | Quota |
+|---|---|
+| rigiocare le risposte della linea (`advance` sul prefisso) | 45% |
+| preparare il duello: azzeramento e carte aggiunte (`goldfish_against_from`) | 29% |
+| esplorare i nodi nuovi | 17% |
+| leggere lo stato, chiavi, resto del nostro codice | meno del 10% |
+
+- Del rigiocare, il 98% è il motore (`OCG_DuelProcess`, quasi tutto Lua); leggere i messaggi è circa l'1%.
+- Della preparazione, circa due terzi sono le carte aggiunte: 111 per duello, ognuna con il suo `initial_effect` in Lua. Un terzo è il duello nuovo o riusato.
+- Sul banco ogni discesa rigioca in media 56 risposte per 4 nodi nuovi. Solo il 3,8% delle risposte rigiocate viene dopo l'ultimo momento libero (una finestra di scelta senza effetti a metà, Main Phase o catena aperta).
+
+**Le strade.**
+
+| Strada | Guadagno stimato | Costo e rischio |
+|---|---|---|
+| 1. Ordinare le discese perché condividano il prefisso | nessuno da sola: un duello non torna indietro, quindi due discese possono condividere un prefisso solo partendo da una copia | — |
+| 2. Discese più lunghe per replay | quasi nessuno: arrivano già alla fine del turno; il replay sprecato è quello delle discese che finiscono su nodi già visti (33% del tempo delle discese), e lo tolgono B2 e B3 prima del replay | — |
+| 3. Replay più economico dal nostro lato (saltare letture di messaggi e stato) | 1-2% del tempo delle discese | piccolo, ma inutile |
+| 4. Copia del duello dopo le carte aggiunte, prima di `OCG_StartDuel`: tutti i replay di una ricerca partono dalla stessa situazione | fino al 29% del tempo delle discese, circa il 15% della ricerca; anche le misure dell'apprendimento e del turno di prova con lo stesso mazzo | medio: estende il riuso dei duelli (`shim/reuse.cpp`), riportando le carte e i loro effetti allo stato iniziale invece di ricrearli; controllo già pronto con `DUELFORGE_CHECK_REUSE` (ogni passo confrontato con un duello nuovo). Una o due settimane |
+| 5. Copie del duello ai momenti liberi, tenute in una cache (le più recenti o i prefissi con più risposte in coda); ogni discesa riparte dalla copia più vicina | fino al 96% delle risposte rigiocate più la preparazione: circa il 70% del tempo delle discese, il 35-40% della ricerca, se la cache trova la copia spesso e se ripristinarla costa molto meno di 5,6 ms (il replay medio di oggi) | grande: copiare e ripristinare carte, effetti, gruppi, campo, catena e tabelle Lua a metà turno; ai momenti liberi non ci sono coroutine sospese, che Lua non sa copiare. Più settimane, rischio alto; si costruisce sopra la strada 4 |
+
+**Proposta.**
+1. Prima la strada 4: guadagno certo, sopra il meccanismo già provato del riuso e con lo stesso controllo.
+2. Poi misurare quanto costa ripristinare quella copia rispetto a un replay. Se costa molto meno, la strada 5 (la vera istantanea a metà turno) vale il suo costo; altrimenti si ferma alla 4.
+3. Le strade 1-3 non valgono il lavoro.
+4. Nessuna richiede modifiche a `vendor/ygopro-core`: tutto passa dallo shim, come oggi.
