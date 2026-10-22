@@ -47,10 +47,13 @@ Regole in `AGENTS.md`. Per prendere un task, spostalo in "In corso" con agente, 
 - [ ] Frontiera di Pareto e confronto tra board; preferenze apprese (#40).
 - [ ] Simulatore: giocare passo per passo una combo scelta (#36, alla fine).
 - [ ] Limiti noti delle carte piazzate: equipaggiamenti, materiali dei mostri dell'Extra Deck (PIANO §30.4).
+- [ ] Turno di prova, livello 2: il turno dell'avversario rigioca le sue linee vere (mano vera, ordine del Deck, risposte ritrovate per identità) invece del kit che ne fa il 53-70% delle mosse. Proposta con i numeri in `docs/plans/turno-di-prova-matchup.md` (collaudo su 37 deck): **da decidere con il proprietario**.
+- [ ] Deck lenti nel motore (Elfnote Kewl Tune): dopo il limite di tempo `confirm_best` e `zone_variants` aggiungono circa 45 secondi. Tagliarli cambia le board confermate: **da decidere** (`docs/plans/velocita-ricerca.md`).
 
 ### Richieste dal backend per l'interfaccia
 
 ## Completati (recenti; lo storico è in `docs/PIANO.md`)
+- [x] Giri di apprendimento della ricerca con una scadenza (10 secondi dopo il limite di tempo): su Elfnote Kewl Tune una ricerca da 60 secondi finiva dopo 170, ora dopo 116; banco identico. `probe-line` rigioca le linee salvate con il loro seme (`docs/plans/velocita-ricerca.md`).
 - [x] Velocità della ricerca (sessione sorella): partite riusate, script caricati una volta per thread, solo le corse del turno di prova che servono, mimalloc anche per il C++, limite di nodi senza race. Ricerca −37%, CLI −41% sulle 16 mani con uscite identiche; `combo_hunt.py` −50% (PR #33, resoconto `docs/plans/velocita-ricerca.md`).
 - [x] Deck dell'avversario del kit a 35 carte e breaker con il Deck vero dell'avversario (ultime correzioni del collaudo, A4 e M1; numeri in `docs/plans/turno-di-prova-matchup.md`).
 - [x] Mappa dei collegamenti F2, interfaccia: percorso più corto evidenziato nel cerchio, con le carte intermedie cliccabili e il pulsante verso il Combo Lab (starter e obiettivo); nodi più grandi per le carte chiave, senza sovrapposizioni nei deck grandi; mano di prova anche in confronto (PR #32, piano `docs/plans/mappa-collegamenti-f2.md`). Da provare nell'app vera dal proprietario.
