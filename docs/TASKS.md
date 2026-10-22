@@ -32,7 +32,7 @@ Corsie di lavoro in parallelo del 22/10/2026 (piano in `docs/plans/piano-prossim
 - [ ] **Corsia 3.** Collaudo:
   - [x] prima, le coppie di board da far giudicare al proprietario (circa 15 deck, le coppie dove la classifica è più incerta), per la #47 e i pesi (#43): 46 coppie su 16 deck in `tests/fixtures/boards/owner-pairs.tsv` e `.json` (22/10);
   - [x] il collaudo del livello 2 con le linee vere (L4) su `48efae0`: 88% delle mosse fatte su campo vuoto, 71% di mosse in comune tra semi, problemi L4-1…L4-5 in `docs/plans/collaudo-strumenti.md` (22/10);
-  - [ ] il collaudo dei deck lenti (corsia 2).
+  - [x] il collaudo dei deck lenti (corsia 2, 22/10): con `combo_hunt --seed 7` su `main` e424904 resta sopra 60 s solo dracotail-0 (70,7 s da solo), per i turni di prova delle varianti di `--probe` (21c8885); il tetto Lua lì non scatta. Numeri in `docs/plans/velocita-ricerca.md`.
 
   Agente: claude-code, sessione sorella del collaudo. Branch: `claude/tools-qa`. File: script nuovi in `scripts/`, `docs/plans/collaudo-strumenti.md`, `tests/fixtures/boards/`.
 - [ ] **Corsia 4, secondo task.** Ordine della ricerca e stima rapida (#47, D14 = B11 di `docs/plans/classificazione-board.md`): il #1 stampato è il migliore misurato; inversioni tra stima e misura nella top 8 (C5.7) ≤ 60; campi distinti nella top 8 (C5.8). Si accetta solo se `best` del banco non scende più del 5%.
