@@ -8,7 +8,10 @@ Corsie di lavoro in parallelo del 22/10/2026 (piano in `docs/plans/piano-prossim
   - l'avversario rigioca le linee migliori che il motore trova per il suo deck, con la sua mano vera e l'ordine del suo Deck;
   - le risposte si ritrovano per identità dove la tua board cambia le domande.
 
-  Agente: claude-code (coordinatore). Branch: `claude/yugioh-deck-builder-simulator-cax0ya`. File: `crates/ygo-solver/src/probe.rs`, `matchup.rs`, `lib.rs`, `tests/matchup.rs`, `crates/ygo-cli/src/main.rs`. Per L5 anche `apps/desktop/src-tauri/src/lib.rs` e `apps/desktop/src/lib/api.ts`: si prendono solo quando servono, controllando che la corsia 2 non li tenga.
+  - [x] L1–L3: `rival_lines`/`rival_line` (mano e risposte della linea migliore), `Kit::with_line` e il `Follower` (`follow.rs`) nel ciclo del turno di prova, `against_moves` linea per linea; banco identico.
+  - [ ] L4: collaudo su 37 deck (corsia 3). L5: contratto per l'interfaccia. L6: interfaccia (Gemini).
+
+  Agente: claude-code (coordinatore). Branch: `claude/yugioh-deck-builder-simulator-cax0ya`. File: `crates/ygo-solver/src/probe.rs`, `matchup.rs`, `follow.rs` (nuovo), `lib.rs`, `tests/matchup.rs`, `crates/ygo-cli/src/main.rs`, e `shuffle` resa pubblica in `crates/ygo-engine/src/duel.rs` e `lib.rs`. Per L5 anche `apps/desktop/src-tauri/src/lib.rs` e `apps/desktop/src/lib/api.ts`: si prendono solo quando servono, controllando che la corsia 2 non li tenga.
 - [ ] **Corsia 2.** Deck lenti (piano P3):
   - un giro su 37 deck × 6 mani a 1000 nodi, con il tempo oltre il limite per fase;
   - poi la scadenza anche per `zone_variants` (si perdono solo varianti di zona) e per `confirm_best` (le board non confermate restano stimate, `exact: false`), con il banco prima e dopo.

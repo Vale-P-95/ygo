@@ -10,12 +10,12 @@
 //! the hand during your turn ([`hand_traps`]).
 
 use std::collections::HashMap;
-use std::mem::Discriminant;
 
 use ygo_engine::auto::passive_answer;
 use ygo_engine::consts::{location, position};
 use ygo_engine::{Action, ActionKind, CardRef, Decision, DeckList, Duel, Engine, Error, Event, Opponent, Placement, Step};
 
+use crate::follow::{declinable, find_again, own_answers, pick_again, Script, PASS};
 use crate::probe::{
     end_turn, find_act, forward, hand_traps, window_answer, Act, Breaker, Effect, Kit, Measure, Prelude, Prober, ResponderId,
 };
@@ -390,9 +390,8 @@ pub fn draw_trade_off(
     Ok(out)
 }
 
-/// One move of a deck's typical opening (the probe turn against a chosen
-/// deck, level 2): a card played from somewhere, and how often its best
-/// lines play it.
+/// One move of a deck's best lines (the probe turn against a chosen deck,
+/// level 2): a card played from somewhere, and how often the lines play it.
 #[derive(Debug, Clone)]
 pub struct RivalPlay {
     pub code: u32,
@@ -407,12 +406,22 @@ pub struct RivalPlay {
     pub order: f64,
 }
 
-/// The moves of `deck`'s best lines from `hands` random opening hands
-/// (searched with `nodes` nodes each), the most played first.
-pub fn rival_plays(engine: &Engine, deck: &DeckList, seed: u64, hands: usize, nodes: u64, threads: usize) -> Vec<RivalPlay> {
-    let db = engine.cards();
-    let kit = Kit::standard(engine);
-    let traps = hand_traps(engine, deck, seed, &kit);
+/// The best line of a deck from one opening hand: the hand, the moves it
+/// plays (a card, how, from where) and its answers, to play it again in the
+/// opponent's turn after yours.
+#[derive(Debug, Clone)]
+pub struct RivalLine {
+    pub hand: Vec<u32>,
+    pub moves: Vec<(u32, ActionKind, u8)>,
+    pub(crate) script: Script,
+    /// For each answer of the script, the move it plays (index in `moves`).
+    pub(crate) move_of: Vec<Option<usize>>,
+}
+
+/// The best lines of `deck` from `hands` random opening hands (searched with
+/// `nodes` nodes each), in the order of the hands; a hand with no board has
+/// no line.
+pub fn rival_lines(engine: &Engine, deck: &DeckList, seed: u64, hands: usize, nodes: u64, threads: usize) -> Vec<RivalLine> {
     // Random hands of 5, the same for the same seed.
     let mut state = seed ^ 0x9e37_79b9_7f4a_7c15;
     let mut next = move || {
@@ -433,48 +442,62 @@ pub fn rival_plays(engine: &Engine, deck: &DeckList, seed: u64, hands: usize, no
         })
         .collect();
     let at = std::sync::atomic::AtomicUsize::new(0);
-    let lines: std::sync::Mutex<Vec<Vec<(u32, ActionKind, u8)>>> = std::sync::Mutex::new(Vec::new());
+    let found: std::sync::Mutex<Vec<Option<RivalLine>>> = std::sync::Mutex::new(vec![None; samples.len()]);
     std::thread::scope(|s| {
         for _ in 0..threads.clamp(1, samples.len().max(1)) {
             s.spawn(|| loop {
                 let i = at.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                 let Some(hand) = samples.get(i) else { break };
-                let mut config = crate::search::SearchConfig::new(deck.clone(), hand.clone());
-                config.seed = seed;
-                config.threads = 1;
-                config.max_nodes = nodes;
-                config.time_limit = std::time::Duration::from_secs(60);
-                config.opponent = Some(kit.opponent().clone());
-                config.hand_traps = traps.clone();
-                let result = crate::search::search(engine, &config, &std::sync::atomic::AtomicBool::new(false), |_| {});
-                let Some(best) = result.boards.first() else { continue };
-                let Ok(mut duel) = Duel::goldfish_against(engine, deck, hand, seed, Some(kit.opponent())) else { continue };
-                let mut moves = Vec::new();
-                for answer in &best.line.answers {
-                    let Ok(Step::Decision { decision, .. }) = duel.advance() else { break };
-                    if decision.player() == Some(0) && matches!(decision, Decision::IdleCmd { .. } | Decision::SelectChain { .. }) {
-                        let actions = duel.actions(&decision);
-                        if let Some(a) = actions.iter().find(|a| &a.response == answer) {
-                            if let (ActionKind::Activate | ActionKind::NormalSummon | ActionKind::SpecialSummon, Some(card)) =
-                                (a.kind, a.card)
-                            {
-                                moves.push((db.canonical_code(card.code), a.kind, card.location));
-                            }
-                        }
-                    }
-                    duel.respond(answer);
-                }
-                if let Ok(mut all) = lines.lock() {
-                    all.push(moves);
+                let line = rival_line(engine, deck, hand, seed, nodes);
+                if let Ok(mut all) = found.lock() {
+                    all[i] = line;
                 }
             });
         }
     });
-    let lines = lines.into_inner().unwrap_or_default();
+    found.into_inner().unwrap_or_default().into_iter().flatten().collect()
+}
+
+/// The best line of `deck` from `hand`, searched with `nodes` nodes against
+/// the standard kit's opponent, as the Combo Lab searches; `None` when the
+/// hand makes no board.
+pub fn rival_line(engine: &Engine, deck: &DeckList, hand: &[u32], seed: u64, nodes: u64) -> Option<RivalLine> {
+    let kit = Kit::standard(engine);
+    let mut config = crate::search::SearchConfig::new(deck.clone(), hand.to_vec());
+    config.seed = seed;
+    config.threads = 1;
+    config.max_nodes = nodes;
+    config.time_limit = std::time::Duration::from_secs(60);
+    config.opponent = Some(kit.opponent().clone());
+    config.hand_traps = hand_traps(engine, deck, seed, &kit);
+    let result = crate::search::search(engine, &config, &std::sync::atomic::AtomicBool::new(false), |_| {});
+    let best = result.boards.first()?;
+    let script = own_answers(engine, deck, hand, seed, kit.opponent(), &best.line).ok()?;
+    let mut moves = Vec::new();
+    let move_of = script
+        .ids
+        .iter()
+        .map(|id| {
+            let id = id.filter(|id| matches!(id.kind, ActionKind::Activate | ActionKind::NormalSummon | ActionKind::SpecialSummon))?;
+            moves.push((id.code, id.kind, id.location));
+            Some(moves.len() - 1)
+        })
+        .collect();
+    Some(RivalLine { hand: hand.to_vec(), moves, script, move_of })
+}
+
+/// The moves of `deck`'s best lines from `hands` random opening hands, the
+/// most played first.
+pub fn rival_plays(engine: &Engine, deck: &DeckList, seed: u64, hands: usize, nodes: u64, threads: usize) -> Vec<RivalPlay> {
+    plays_of(&rival_lines(engine, deck, seed, hands, nodes, threads))
+}
+
+/// The moves of `lines`, each with how often the lines play it.
+pub fn plays_of(lines: &[RivalLine]) -> Vec<RivalPlay> {
     let mut found: HashMap<(u32, ActionKind, u8), (u32, u32, usize)> = HashMap::new();
-    for line in &lines {
+    for line in lines {
         let mut seen: Vec<(u32, ActionKind, u8)> = Vec::new();
-        for (i, m) in line.iter().enumerate() {
+        for (i, m) in line.moves.iter().enumerate() {
             if seen.contains(m) {
                 continue;
             }
@@ -501,21 +524,23 @@ pub fn rival_plays(engine: &Engine, deck: &DeckList, seed: u64, hands: usize, no
     plays
 }
 
-/// One of the opponent's typical moves as the probe turn plays it.
+/// One of the opponent's moves as the probe turn plays it.
 #[derive(Debug, Clone)]
 pub struct RivalMove {
     pub code: u32,
     pub kind: ActionKind,
     pub location: u8,
-    /// What stopping it is worth: how often its lines play it, more when
-    /// it comes first (stopping it stops the rest of the line).
+    /// The line it belongs to (index in the lines given).
+    pub line: usize,
+    /// Its share of all the moves: every line weighs the same, and every
+    /// move of a line the same.
     pub weight: f64,
     /// Made on an empty board, and against this board with no answer.
     pub possible: bool,
     pub here: bool,
 }
 
-/// One of your effects against the opponent's typical moves.
+/// One of your effects against the opponent's lines.
 #[derive(Debug, Clone)]
 pub struct MoveStop {
     pub responder: ResponderId,
@@ -523,51 +548,36 @@ pub struct MoveStop {
     pub effect: Effect,
     /// The moves it stops (indices in [`MovesMatchup::moves`]).
     pub stops: Vec<usize>,
+    /// Share of the moves it takes away, in each line at its best moment,
+    /// averaged over the lines (0 in a line where it takes nothing).
     pub coverage: f64,
     pub value: f64,
 }
 
-/// A board against what a deck usually does in its turn (level 2 of the
-/// probe turn against a deck).
+/// A board against what a deck does in its turn: its best lines played
+/// again after yours (level 2 of the probe turn against a deck).
 #[derive(Debug, Clone, Default)]
 pub struct MovesMatchup {
+    /// Lines measured (a line whose run failed is left out).
+    pub lines: usize,
     pub moves: Vec<RivalMove>,
     pub stops: Vec<MoveStop>,
     /// Moves your board stops with no answer (indices in `moves`), and
-    /// their share of the moves' weight.
+    /// their share of the moves the lines make on an empty board.
     pub floodgated: Vec<usize>,
     pub floodgate_share: f64,
-    /// Interruption value against these moves.
+    /// Interruption value against these lines, averaged over them.
     pub value: f64,
-    /// Share of the moves the board lets it make that it still makes with
-    /// all your answers used together.
+    /// Share of the moves the board lets the lines make that they still
+    /// make with all your answers used together, averaged over the lines.
     pub left: f64,
 }
 
-/// The moves the probe turn plays of `plays` ([`rival_plays`]): those of at
-/// least a sixth of the lines, in their usual order, at most 10. One Normal
-/// Summon a turn: the most played (the others are other lines' openings).
-pub fn typical_moves(plays: &[RivalPlay]) -> Vec<RivalPlay> {
-    let normal = plays.iter().filter(|p| p.kind == ActionKind::NormalSummon).max_by(|a, b| a.share.total_cmp(&b.share)).map(|p| p.code);
-    let mut moves: Vec<RivalPlay> = plays
-        .iter()
-        .filter(|p| p.share >= 1.0 / 6.0)
-        .filter(|p| match p.kind {
-            ActionKind::NormalSummon => Some(p.code) == normal,
-            ActionKind::Activate | ActionKind::SpecialSummon => true,
-            _ => false,
-        })
-        .cloned()
-        .collect();
-    moves.sort_by(|a, b| a.order.total_cmp(&b.order).then(b.share.total_cmp(&a.share)).then(a.code.cmp(&b.code)));
-    moves.truncate(10);
-    moves
-}
-
 /// Measures the board reached by `line` (found against the standard kit's
-/// opponent) against `rival`'s typical moves, `plays` from [`rival_plays`]:
-/// which of them each of your effects stops, and which your board stops
-/// with no answer.
+/// opponent) against `lines` of `rival` ([`rival_lines`]), each played
+/// again in the opponent's turn after yours with the line's hand and Deck:
+/// which of its moves each of your effects stops, and which your board
+/// stops with no answer.
 #[allow(clippy::too_many_arguments)]
 pub fn against_moves(
     engine: &Engine,
@@ -576,234 +586,66 @@ pub fn against_moves(
     seed: u64,
     line: &Line,
     rival: &DeckList,
-    plays: &[RivalPlay],
+    lines: &[RivalLine],
     standard: &Kit,
 ) -> Result<MovesMatchup, Error> {
-    let moves = typical_moves(plays);
-    let acts: Vec<(Act, u8)> = moves
-        .iter()
-        .map(|p| {
-            let act = match p.kind {
-                ActionKind::NormalSummon => Act::NormalSummon(p.code),
-                ActionKind::SpecialSummon => Act::SpecialSummon(p.code),
-                _ => Act::Activate(p.code, p.location),
-            };
-            (act, p.location)
-        })
-        .collect();
-    let weights: Vec<f64> = moves.iter().map(|p| p.share * (1.0 + p.first)).collect();
     let own = own_answers(engine, deck, hand, seed, standard.opponent(), line)?;
-    let kit = standard.with_moves(&acts, rival, seed);
-    let measured = Prober::new(engine, deck, hand, seed, &kit).against_moves(Prelude::Own(&own.answers), &weights)?;
-    Ok(MovesMatchup {
-        moves: moves
-            .iter()
-            .zip(&weights)
-            .enumerate()
-            .map(|(i, (p, &weight))| RivalMove {
-                code: p.code,
-                kind: p.kind,
-                location: p.location,
-                weight,
-                possible: measured.possible[i],
-                here: measured.here[i],
-            })
-            .collect(),
-        stops: measured
-            .interruptions
-            .into_iter()
-            .map(|i| MoveStop {
-                responder: i.responder,
-                location: i.location,
-                effect: i.effect,
-                stops: i.stops,
-                coverage: i.coverage,
-                value: i.value,
-            })
-            .collect(),
-        floodgated: measured.floodgated,
-        floodgate_share: measured.floodgate_share,
-        value: measured.value,
-        left: measured.left,
-    })
+    let mut measured = Vec::new();
+    for (index, rival_line) in lines.iter().enumerate().filter(|(_, l)| !l.moves.is_empty()) {
+        let kit = standard.with_line(engine, rival, rival_line, seed);
+        let weights = vec![1.0; rival_line.moves.len()];
+        match Prober::new(engine, deck, hand, seed, &kit).against_moves(Prelude::Own(&own.answers), &weights) {
+            Ok(m) => measured.push((index, rival_line, m)),
+            Err(e) if std::env::var_os("DUELFORGE_DEBUG_MATCHUP").is_some() => eprintln!("   a line of the rival not measured: {e}"),
+            Err(_) => {}
+        }
+    }
+    let n = measured.len();
+    let mut out = MovesMatchup { lines: n, left: if n == 0 { 1.0 } else { 0.0 }, ..MovesMatchup::default() };
+    for (index, rival_line, m) in measured {
+        let share = 1.0 / n as f64;
+        let base = out.moves.len();
+        for (i, &(code, kind, location)) in rival_line.moves.iter().enumerate() {
+            out.moves.push(RivalMove {
+                code,
+                kind,
+                location,
+                line: index,
+                weight: share / rival_line.moves.len() as f64,
+                possible: m.possible[i],
+                here: m.here[i],
+            });
+        }
+        out.floodgated.extend(m.floodgated.iter().map(|i| base + i));
+        out.floodgate_share += share * m.floodgate_share;
+        out.value += share * m.value;
+        out.left += share * m.left;
+        for i in m.interruptions {
+            let stops = i.stops.iter().map(|s| base + s);
+            match out.stops.iter_mut().find(|s| s.responder == i.responder) {
+                Some(s) => {
+                    s.stops.extend(stops);
+                    s.coverage += share * i.coverage;
+                    s.value += share * i.value;
+                }
+                None => out.stops.push(MoveStop {
+                    responder: i.responder,
+                    location: i.location,
+                    effect: i.effect,
+                    stops: stops.collect(),
+                    coverage: share * i.coverage,
+                    value: share * i.value,
+                }),
+            }
+        }
+    }
+    out.stops.sort_by(|a, b| b.value.total_cmp(&a.value));
+    Ok(out)
 }
 
 /// Chance that none of `copies` cards of a deck of `size` is among `drawn`.
 pub(crate) fn none_drawn(size: usize, copies: u32, drawn: usize) -> f64 {
     (0..drawn).map(|i| (size as f64 - f64::from(copies) - i as f64).max(0.0) / size.saturating_sub(i).max(1) as f64).product()
-}
-
-/// Your answers of a line, without the opponent's (with another deck the
-/// opponent is asked at other moments), each with the kind of decision it
-/// answers.
-struct Own {
-    answers: Vec<Vec<u8>>,
-    kinds: Vec<Discriminant<Decision>>,
-    /// What each answer does when it plays a card: after a handtrap the
-    /// same action can sit elsewhere in the list (another card became
-    /// playable), or come as a trigger window instead of a yes or no.
-    ids: Vec<Option<ActionId>>,
-    /// The cards each answer picks in a selection, by what they are: after
-    /// a handtrap the list can hold them in another order (a card back in
-    /// the Extra Deck moves the others).
-    picks: Vec<Option<Vec<Picked>>>,
-    /// Where each answer is in the line, and whether it answers a free
-    /// moment of your Main Phase (where the line can stop).
-    at_line: Vec<usize>,
-    idle: Vec<bool>,
-}
-
-/// A card picked in a selection: what it is, where, whose.
-#[derive(Debug, Clone, Copy, PartialEq)]
-struct Picked {
-    code: u32,
-    location: u8,
-    controller: u8,
-}
-
-impl Picked {
-    fn of(engine: &Engine, card: &CardRef) -> Picked {
-        Picked { code: engine.cards().canonical_code(card.code), location: card.location, controller: card.controller }
-    }
-}
-
-/// The cards of a selection, in the order the engine lists them.
-fn selection(decision: &Decision) -> Option<Vec<CardRef>> {
-    match decision {
-        Decision::SelectCard { cards, .. } => Some(cards.clone()),
-        Decision::SelectTribute { cards, .. } => Some(cards.iter().map(|(c, _)| *c).collect()),
-        Decision::SelectUnselectCard { selectable, .. } => Some(selectable.clone()),
-        _ => None,
-    }
-}
-
-/// The cards `answer` picks in `decision`: indices after a 0 and a count,
-/// or one card after a 1 when cards are picked one at a time.
-fn picked(engine: &Engine, decision: &Decision, answer: &[u8]) -> Option<Vec<Picked>> {
-    let word = |i: usize| answer.get(i * 4..i * 4 + 4).map(|b| i32::from_le_bytes([b[0], b[1], b[2], b[3]]));
-    let cards = selection(decision)?;
-    let at: Vec<usize> = match (decision, word(0)?) {
-        (Decision::SelectUnselectCard { .. }, 1) => vec![usize::try_from(word(1)?).ok()?],
-        (Decision::SelectCard { .. } | Decision::SelectTribute { .. }, 0) => {
-            (0..usize::try_from(word(1)?).ok()?).map(|k| word(2 + k).and_then(|v| usize::try_from(v).ok())).collect::<Option<_>>()?
-        }
-        _ => return None,
-    };
-    at.iter().map(|&i| cards.get(i).map(|c| Picked::of(engine, c))).collect()
-}
-
-/// The answer to `decision` that picks `picks` again, wherever they are listed.
-fn pick_again(engine: &Engine, decision: &Decision, picks: &[Picked]) -> Option<Vec<u8>> {
-    let cards = selection(decision)?;
-    let mut taken = vec![false; cards.len()];
-    let mut at = Vec::new();
-    for p in picks {
-        let i = (0..cards.len()).find(|&i| !taken[i] && Picked::of(engine, &cards[i]) == *p)?;
-        taken[i] = true;
-        at.push(i as u32);
-    }
-    let mut out = Vec::new();
-    if let Decision::SelectUnselectCard { .. } = decision {
-        out.extend_from_slice(&1i32.to_le_bytes());
-        out.extend_from_slice(&at.first()?.to_le_bytes());
-    } else {
-        out.extend_from_slice(&0i32.to_le_bytes());
-        out.extend_from_slice(&(at.len() as u32).to_le_bytes());
-        for i in at {
-            out.extend_from_slice(&i.to_le_bytes());
-        }
-    }
-    Some(out)
-}
-
-/// An action by what it is, not by its place in a list. `asked` when it
-/// was a yes to a question, whose description is not the effect's.
-#[derive(Debug, Clone, Copy, PartialEq)]
-struct ActionId {
-    code: u32,
-    location: u8,
-    description: u64,
-    kind: ActionKind,
-    asked: bool,
-}
-
-fn own_answers(engine: &Engine, deck: &DeckList, hand: &[u32], seed: u64, opponent: &Opponent, line: &Line) -> Result<Own, Error> {
-    let db = engine.cards();
-    let mut duel = Duel::goldfish_against(engine, deck, hand, seed, Some(opponent))?;
-    let mut own = Own { answers: Vec::new(), kinds: Vec::new(), ids: Vec::new(), picks: Vec::new(), at_line: Vec::new(), idle: Vec::new() };
-    for (i, answer) in line.answers.iter().enumerate() {
-        let Step::Decision { decision, .. } = duel.advance()? else { break };
-        if decision.player() != Some(1) {
-            let id = match &decision {
-                Decision::EffectYesNo { card, description, .. } if *answer == window_answer(&decision, Some(0)) => Some(ActionId {
-                    code: db.canonical_code(card.code),
-                    location: card.location,
-                    description: *description,
-                    kind: ActionKind::Activate,
-                    asked: true,
-                }),
-                Decision::IdleCmd { .. } | Decision::SelectChain { .. } => {
-                    duel.actions(&decision).iter().find(|a| &a.response == answer).and_then(|a| {
-                        a.card.map(|c| ActionId {
-                            code: db.canonical_code(c.code),
-                            location: c.location,
-                            description: a.description,
-                            kind: a.kind,
-                            asked: false,
-                        })
-                    })
-                }
-                _ => None,
-            };
-            own.picks.push(picked(engine, &decision, answer));
-            own.at_line.push(i);
-            own.idle.push(matches!(decision, Decision::IdleCmd { .. }));
-            own.answers.push(answer.clone());
-            own.kinds.push(std::mem::discriminant(&decision));
-            own.ids.push(id);
-        }
-        duel.respond(answer);
-    }
-    Ok(own)
-}
-
-/// The answer to `decision` that plays the action `id`, if it is offered.
-fn find_again(engine: &Engine, decision: &Decision, actions: &[Action], id: ActionId) -> Option<Vec<u8>> {
-    let db = engine.cards();
-    match decision {
-        Decision::EffectYesNo { card, .. } => {
-            (db.canonical_code(card.code) == id.code && card.location == id.location).then(|| window_answer(decision, Some(0)))
-        }
-        Decision::IdleCmd { .. } | Decision::SelectChain { .. } => {
-            let same = |a: &&ygo_engine::Action| {
-                a.kind == id.kind && a.card.is_some_and(|c| db.canonical_code(c.code) == id.code && c.location == id.location)
-            };
-            let offered: Vec<&ygo_engine::Action> = actions.iter().filter(same).collect();
-            // The same effect; another effect of the card only for a yes
-            // asked before (the card's other effect would be another play:
-            // a negation instead of a search).
-            offered.iter().find(|a| a.description == id.description).or(offered.first().filter(|_| id.asked)).map(|a| a.response.clone())
-        }
-        _ => None,
-    }
-}
-
-/// A question that can be declined: a chance to chain, a yes or no, or a
-/// Main Phase with nothing left to do but end it.
-fn declinable(decision: &Decision) -> bool {
-    match decision {
-        Decision::SelectChain { forced, .. } => !forced,
-        Decision::EffectYesNo { .. } | Decision::YesNo { .. } => true,
-        Decision::IdleCmd { summonable, special_summonable, repositionable, monster_settable, spell_settable, activatable, .. } => {
-            summonable.is_empty()
-                && special_summonable.is_empty()
-                && repositionable.is_empty()
-                && monster_settable.is_empty()
-                && spell_settable.is_empty()
-                && activatable.is_empty()
-        }
-        _ => false,
-    }
 }
 
 /// A moment the opponent could respond: the handtraps offered (and where
@@ -826,9 +668,6 @@ struct Replay {
     drawn: u32,
 }
 
-/// Passing in a chain window.
-const PASS: [u8; 4] = (-1i32).to_le_bytes();
-
 /// How a replay goes: the opponent uses a handtrap (`use_at`: the card, at
 /// a window of the replay where none is used) or passes everywhere; your
 /// line stops at an answer (`stop_at`) and ends the turn, or goes on.
@@ -839,7 +678,15 @@ struct Play {
 }
 
 /// Plays your answers with the opponent holding `hand_traps`, as `play` says.
-fn replay(engine: &Engine, deck: &DeckList, hand: &[u32], seed: u64, opponent: &Opponent, own: &Own, play: Play) -> Result<Replay, Error> {
+fn replay(
+    engine: &Engine,
+    deck: &DeckList,
+    hand: &[u32],
+    seed: u64,
+    opponent: &Opponent,
+    own: &Script,
+    play: Play,
+) -> Result<Replay, Error> {
     let db = engine.cards();
     let mut duel = Duel::goldfish_against(engine, deck, hand, seed, Some(opponent))?;
     let mut out = Replay::default();
@@ -1033,7 +880,7 @@ fn hand_trap_stops(
     hand: &[u32],
     seed: u64,
     rival: &[u32],
-    own: &Own,
+    own: &Script,
     hand_traps: &[u32],
 ) -> Result<Vec<RivalHandTrap>, Error> {
     // Its own Deck: the kit's few cards run out when it draws (Maxx "C").

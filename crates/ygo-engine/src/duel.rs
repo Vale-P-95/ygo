@@ -757,8 +757,9 @@ impl Drop for Duel {
     }
 }
 
-/// Deterministic Fisher-Yates shuffle (SplitMix64).
-pub(crate) fn shuffle<T>(items: &mut [T], seed: u64) {
+/// Deterministic Fisher-Yates shuffle (SplitMix64): the order of your Deck in
+/// a goldfish duel with `seed`, the cards of the hand taken out first.
+pub fn shuffle<T>(items: &mut [T], seed: u64) {
     let mut state = seed;
     let mut next = || {
         state = state.wrapping_add(0x9e37_79b9_7f4a_7c15);

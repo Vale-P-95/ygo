@@ -20,6 +20,7 @@
 //! activation of any card and destroying it, once, without targeting.
 
 use std::collections::{HashMap, HashSet};
+use std::sync::Arc;
 
 use ygo_engine::auto::passive_answer;
 use ygo_engine::consts::{hint, location, position, reason};
@@ -27,6 +28,8 @@ use ygo_engine::{
     Action, ActionKind, CardDb, CardRef, Decision, DeckList, Duel, DuelState, Engine, Error, Event, Opponent, Placement, Step,
 };
 
+use crate::follow::{Follower, Script};
+use crate::matchup::RivalLine;
 use crate::search::Line;
 
 /// What the opponent tries; each probe has a weight (how much the action
@@ -247,6 +250,17 @@ pub struct Kit {
     opponent: Opponent,
     steps: Vec<KitStep>,
     pub breakers: Vec<Breaker>,
+    /// The opponent plays a line of its deck again instead of the steps
+    /// one by one (the probe turn against a deck, level 2).
+    script: Option<Arc<LineScript>>,
+}
+
+/// A line of the opponent's deck to play again in its turn: its answers,
+/// and for each answer the step (one of its moves) it plays, if any.
+#[derive(Debug)]
+struct LineScript {
+    script: Script,
+    step_of: Vec<Option<usize>>,
 }
 
 impl Kit {
@@ -427,7 +441,7 @@ impl Kit {
             let missing = DECK.saturating_sub(deck.len());
             deck.splice(0..0, std::iter::repeat_n(filler, missing));
         }
-        Kit { opponent: Opponent { hand, deck, extra }, steps, breakers }
+        Kit { opponent: Opponent { hand, deck, extra }, steps, breakers, script: None }
     }
 
     /// The opponent's cards: give them to the search too
@@ -468,34 +482,33 @@ impl Kit {
         kit
     }
 
-    /// The opponent of `rival` playing `moves` instead of the kit's steps:
-    /// its typical moves (a card, how it is played and from where), in
-    /// their usual order, and no breakers. The cards played from the hand
-    /// are in its hand; the others come from the moves before them (a
-    /// monster summoned, then its effect on the field). Its Deck is its
-    /// own, at the size of the kit's, the plain card on top for the draw of
-    /// its turn, and its Extra Deck. A move it cannot make is skipped.
-    pub(crate) fn with_moves(&self, moves: &[(Act, u8)], rival: &DeckList, seed: u64) -> Kit {
-        let mut hand: Vec<u32> = Vec::new();
+    /// The opponent of `rival` playing `line` again ([`crate::rival_lines`])
+    /// instead of the kit's steps, with no breakers. It has the line's hand
+    /// and its Deck in the order of the duel the line was found in, the
+    /// plain card on top for the draw of its turn, and its Extra Deck. Each
+    /// move of the line is a step: a summon works when the monster lands,
+    /// an activation when it is not negated (judged by the measure).
+    pub(crate) fn with_line(&self, engine: &Engine, rival: &DeckList, line: &RivalLine, seed: u64) -> Kit {
+        let db = engine.cards();
         let mut main = rival.main.clone();
-        for &(act, from) in moves {
-            let (Act::Activate(code, _) | Act::SpecialSummon(code) | Act::NormalSummon(code)) = act;
-            if from == location::HAND && !hand.contains(&code) {
-                hand.push(code);
-                if let Some(i) = main.iter().position(|&c| c == code) {
-                    main.swap_remove(i);
-                }
+        // As the goldfish duel deals it: the hand out first, the first copy
+        // of each card, then the rest shuffled.
+        for &code in &line.hand {
+            if let Some(i) = main.iter().position(|&c| db.canonical_code(c) == db.canonical_code(code)) {
+                main.remove(i);
             }
         }
-        shuffle(&mut main, seed);
-        let filler = self.opponent.deck.last().copied();
-        main.truncate(self.opponent.deck.len().saturating_sub(filler.is_some() as usize));
-        main.extend(filler);
-        let steps = moves
+        ygo_engine::shuffle(&mut main, seed);
+        main.extend(self.opponent.deck.last().copied());
+        let steps = line
+            .moves
             .iter()
-            .map(|&(act, _)| {
-                // A summon works when the monster lands; an activation when
-                // it is not negated (judged by the measure).
+            .map(|&(code, kind, location)| {
+                let act = match kind {
+                    ActionKind::NormalSummon => Act::NormalSummon(code),
+                    ActionKind::SpecialSummon => Act::SpecialSummon(code),
+                    _ => Act::Activate(code, location),
+                };
                 let goals = match act {
                     Act::NormalSummon(code) => vec![(Probe::NormalSummon, Want { code: Some(code), location: location::MZONE, delta: 1 })],
                     Act::SpecialSummon(code) => {
@@ -503,13 +516,12 @@ impl Kit {
                     }
                     Act::Activate(..) => Vec::new(),
                 };
-                let (Act::Activate(code, _) | Act::SpecialSummon(code) | Act::NormalSummon(code)) = act;
                 KitStep {
                     act,
                     picks: Vec::new(),
                     take_max: false,
                     option: 0,
-                    triggers: vec![code],
+                    triggers: Vec::new(),
                     attack: false,
                     goals,
                     needs: None,
@@ -517,7 +529,12 @@ impl Kit {
                 }
             })
             .collect();
-        Kit { opponent: Opponent { hand, deck: main, extra: rival.extra.clone() }, steps, breakers: Vec::new() }
+        Kit {
+            opponent: Opponent { hand: line.hand.clone(), deck: main, extra: rival.extra.clone() },
+            steps,
+            breakers: Vec::new(),
+            script: Some(Arc::new(LineScript { script: line.script.clone(), step_of: line.move_of.clone() })),
+        }
     }
 
     /// The probes this kit can measure.
@@ -1414,6 +1431,10 @@ impl<'a> Prober<'a> {
         let mut last_use: Option<usize> = None;
         // The opponent got back to choose after its last step.
         let mut complete = false;
+        // The opponent's line played again, when the kit has one (all its
+        // steps are played: they are the line's moves).
+        let script = self.kit.script.as_deref().filter(|_| steps.len() == self.kit.steps.len());
+        let mut follower = script.map(|l| Follower::new(&l.script));
         // The last link of the chain being built is yours: your effects
         // answer the opponent's, never your own (Invoked Mechaba would
         // negate your own Effect Veiler).
@@ -1526,6 +1547,38 @@ impl<'a> Prober<'a> {
             }
             let _ = &label;
             match decision.player() {
+                Some(1) if follower.is_some() => {
+                    let (Some(follower), Some(script)) = (follower.as_mut(), script) else { break };
+                    let idle = matches!(decision, Decision::IdleCmd { .. });
+                    match follower.answer(engine, &decision, &actions, mine_on_top).filter(|f| !idle || f.at.is_some()) {
+                        Some(followed) => {
+                            // One of its moves starts: the one before it is over.
+                            if let Some(i) = followed.at.and_then(|k| script.step_of.get(k).copied().flatten()) {
+                                if let Some((j, before)) = current.take() {
+                                    self.finish(&mut trace.steps[j], steps[j], &before, &Piles::of(&duel), &observer);
+                                }
+                                trace.steps[i].available = true;
+                                current = Some((i, Piles::of(&duel)));
+                                observer.new_step();
+                                windows_in_step = 0;
+                                last_use = None;
+                            }
+                            if verbose {
+                                eprintln!("     opponent's line: {}", label(&actions, &followed.answer));
+                            }
+                            duel.respond(&followed.answer);
+                        }
+                        // Its line is over: nothing left to play, or it ends
+                        // its Main Phase (the Battle Phase is not measured).
+                        None => {
+                            if let Some((j, before)) = current.take() {
+                                self.finish(&mut trace.steps[j], steps[j], &before, &Piles::of(&duel), &observer);
+                            }
+                            complete = true;
+                            break;
+                        }
+                    }
+                }
                 Some(1) => {
                     if let Decision::IdleCmd { .. } = decision {
                         // A step that attacks is over after the Battle Phase.
