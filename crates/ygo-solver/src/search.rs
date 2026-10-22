@@ -1665,15 +1665,12 @@ const LEARN_LAST: usize = 4;
 /// second, but with quick effects that check every combination of
 /// materials at each chain window (Kewl Tune) it can take minutes. The
 /// phases after the search (the last round, playing the best boards to the
-/// end, their zone variants) all stop this long after the limit too; the
-/// last two sooner after a search that ended early (see [`FINISH_GRACE`]).
+/// end, their zone variants) all stop this long after the limit too. On
+/// the slow Elfnote Kewl Tune hand of `docs/plans/velocita-ricerca.md` the
+/// best boards come from the whole last round and from the zone variants
+/// played to their end: an earlier deadline after a search that ended
+/// early loses them.
 const LEARN_GRACE: Duration = Duration::from_secs(10);
-/// After a search that ended before its time limit, playing the best boards
-/// to the end and their zone variants stop this long after it (the last
-/// round of learning comes first and keeps [`LEARN_GRACE`]). On the slow
-/// Elfnote Kewl Tune hand of `docs/plans/velocita-ricerca.md` 25 s keeps the
-/// best boards; 20 s loses them.
-const FINISH_GRACE: Duration = Duration::from_secs(25);
 
 /// Your cards on the field of `state`, by kind of zone, as keys, with a
 /// weight: 2 for a monster from the Extra Deck, else 1.
@@ -2003,15 +2000,10 @@ pub fn resume(
         };
         phase("search");
         // Slow decks (quick Synchro Summons that check every combination of
-        // materials at each chain window) can take minutes more here. The
-        // last round of learning stops LEARN_GRACE after the time limit (or
-        // after the search, if it ended later): cut shorter, it misses what
-        // ranks the best boards. Playing the best boards to the end and their
-        // zone variants stop FINISH_GRACE after the search, never later than
-        // the last round may go on.
-        let ended = Instant::now();
-        let limit = shared.start + config.time_limit.max(shared.start.elapsed()) + LEARN_GRACE;
-        let _ = shared.deadline.set((ended + FINISH_GRACE).min(limit));
+        // materials at each chain window) can take minutes more here: the
+        // phases after the search stop LEARN_GRACE after the time limit
+        // (or after the search, if it ended later).
+        let _ = shared.deadline.set(shared.start + config.time_limit.max(shared.start.elapsed()) + LEARN_GRACE);
         // What the last boards found teach, before the best ones are picked.
         learn_round(&shared, LEARN_LAST);
         phase("learning");

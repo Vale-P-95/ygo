@@ -30,7 +30,7 @@ Corsie di lavoro in parallelo del 22/10/2026 (piano in `docs/plans/piano-prossim
   - [x] Tetto per richiesta, chiuso nel motore: 500 000 ingressi in Lua (`DUELFORGE_LUA_LIMIT`; contare le istruzioni costava il 21% del banco). La richiesta fermata è un errore, la linea risulta interrotta e il duello non si riusa. Banco identico e senza costo, `combo_hunt --seed 7` identico; mano lenta 117 → 1003 nodi; Lunalight livello 2 (L4-3) da 297-550 s a 4-19 s, perdendo 2 linee su 11. Numeri in `docs/plans/velocita-ricerca.md`.
 
   - [x] `combos --probe`: 3 varianti misurate solo per le prime 3 board stampate, 1 per le altre. Il #1 stampato resta il migliore misurato (0 deck su 41 prima e dopo); dracotail-0 da 69,3 a 64,2 s, kewl_tune-0 da 54,3 a 47,4 s. Numeri in `docs/plans/velocita-ricerca.md`.
-  - [x] Le fasi dopo la ricerca si fermano 10 s dopo la sua fine, non dopo il limite; un giro di apprendimento non comincia una board che non finirebbe in tempo. Mano lenta di Kewl Tune da 47,6 a 19,8 s (punteggio migliore 8,6 → 8,3); banco uguale, `combo_hunt --seed 7` 81 su 82 identiche. Numeri in `docs/plans/velocita-ricerca.md`.
+  - [x] Le fasi dopo la ricerca: nessuna scadenza più corta tiene le board migliori della mano lenta di Kewl Tune (prove in `docs/plans/velocita-ricerca.md`), quindi resta quella di prima. Cambio rimasto: un giro di apprendimento non comincia una board che non finirebbe in tempo.
 
   Agente: claude-code, sessione sorella della velocità. Branch: `claude/search-speed`. File (lock del 22/10): in `crates/ygo-cli/src/main.rs` solo la scelta delle varianti di `combos` (la stampa dell'esposizione è della corsia 4), `crates/ygo-solver/src/search.rs`, `docs/plans/velocita-ricerca.md`.
 - [ ] **Corsia 3.** Collaudo:
