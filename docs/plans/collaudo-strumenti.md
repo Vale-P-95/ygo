@@ -491,6 +491,8 @@ Per la #47 e i pesi (#43, D17 in `docs/plans/classificazione-board.md`): poche c
   | Invoked | 37 deck | 0,04, 0,12 | 0,1 punti, 4 | 5,9 punti, 19 | 71% |
 
 ### Problemi
+*I numeri di questa sezione sono **prima** della correzione di L4-1, che la coordinatrice ha trovato in `follow.rs`: `Picked` confrontava anche il controllore della carta. Con la correzione, su Tearlaments e Branded contro 12 deck, le mosse fatte su campo vuoto passano dall'89% al 96%. Il giro completo si rifà dopo il merge, con i numeri prima e dopo separati.*
+
 #### L4-1 (alta). La carta pescata nel turno 2 sposta le scelte della linea dell'avversario
 - **Riprodurre:**
   ```
@@ -506,6 +508,7 @@ Per la #47 e i pesi (#43, D17 in `docs/plans/classificazione-board.md`): poche c
 - **Correzione:**
   - la pescata del turno 2 dal Deck vero dell'avversario, nell'ordine della sua ricerca, oppure la linea rigiocata senza la carta in più;
   - le scelte di carte della sua linea ritrovate per identità, come `find_again` per la tua linea.
+- **Causa vera** (trovata dalla coordinatrice): le scelte per identità c'erano già, ma non trovavano mai la carta. `Picked` (`follow.rs`) confrontava anche il controllore, e la linea trovata come giocatore 0 si rigioca come giocatore 1. Così si ripiegava sempre sull'indice.
 
 #### L4-2 (alta). La board Tearlaments non si misura contro nessun deck (livello 1)
 - **Riprodurre:**
