@@ -1665,9 +1665,15 @@ const LEARN_LAST: usize = 4;
 /// second, but with quick effects that check every combination of
 /// materials at each chain window (Kewl Tune) it can take minutes. The
 /// phases after the search (the last round, playing the best boards to the
-/// end, their zone variants) all stop this long after the end of the
-/// search: a search that ends early does not wait for its time limit.
+/// end, their zone variants) all stop this long after the limit too; the
+/// last two sooner after a search that ended early (see [`FINISH_GRACE`]).
 const LEARN_GRACE: Duration = Duration::from_secs(10);
+/// After a search that ended before its time limit, playing the best boards
+/// to the end and their zone variants stop this long after it (the last
+/// round of learning comes first and keeps [`LEARN_GRACE`]). On the slow
+/// Elfnote Kewl Tune hand of `docs/plans/velocita-ricerca.md` 25 s keeps the
+/// best boards; 20 s loses them.
+const FINISH_GRACE: Duration = Duration::from_secs(25);
 
 /// Your cards on the field of `state`, by kind of zone, as keys, with a
 /// weight: 2 for a monster from the Extra Deck, else 1.
@@ -1745,8 +1751,7 @@ fn learn_round(shared: &Shared, count: usize) {
     };
     let config = shared.config;
     let mut prober = Prober::new(shared.engine, &config.deck, &config.hand, config.seed, kit);
-    let until =
-        shared.deadline.get().copied().unwrap_or_else(|| shared.start + config.time_limit.max(shared.start.elapsed()) + LEARN_GRACE);
+    let until = shared.start + config.time_limit.max(shared.start.elapsed()) + LEARN_GRACE;
     prober.until(until);
     let mut raised = false;
     // The longest measure of the round so far: a board that would not end
@@ -1998,9 +2003,15 @@ pub fn resume(
         };
         phase("search");
         // Slow decks (quick Synchro Summons that check every combination of
-        // materials at each chain window) can take minutes more here: the
-        // phases after the search stop LEARN_GRACE after it.
-        let _ = shared.deadline.set(Instant::now() + LEARN_GRACE);
+        // materials at each chain window) can take minutes more here. The
+        // last round of learning stops LEARN_GRACE after the time limit (or
+        // after the search, if it ended later): cut shorter, it misses what
+        // ranks the best boards. Playing the best boards to the end and their
+        // zone variants stop FINISH_GRACE after the search, never later than
+        // the last round may go on.
+        let ended = Instant::now();
+        let limit = shared.start + config.time_limit.max(shared.start.elapsed()) + LEARN_GRACE;
+        let _ = shared.deadline.set((ended + FINISH_GRACE).min(limit));
         // What the last boards found teach, before the best ones are picked.
         learn_round(&shared, LEARN_LAST);
         phase("learning");
