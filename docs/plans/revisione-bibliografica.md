@@ -65,6 +65,270 @@ Colonne: data; motore (WebSearch standard o esteso, con eventuale filtro `site:`
 | 2026-10-22 | GitHub | crispy-chiken/YugiohAi, sbl1996/yugioh-ai | 2 | esclusi (descritti) |
 | 2026-10-22 | PyPI | pypi.org/project/ygoenv/ | 1 | pagina con errore lato client; la corsia 8 conferma 404 sull'API JSON |
 
+#### Gruppo 2 (IA per CCG)
+| data | motore | interrogazione | risultati | fonti tenute |
+|---|---|---|---|---|
+| 2026-10-22 | WebSearch | collectible card game AI | 10 | Tassonomia CCG (2410.06299); Evolving Evaluation Functions (2105.01115); Many AI Challenges of Hearthstone (1907.06562); Learning to Beat ByteRL (2404.16689); UrzaGPT escluso |
+| 2026-10-22 | WebSearch | trading card game artificial intelligence | 9 | Taucer/Polk/Oommen (IFIP 2018); DeNA Pokémon TCG Pocket; Hosei 2014 (61,7%, snippet) |
+| 2026-10-22 | WebSearch | CCG AI agent | 9 | nessuna (collisioni di acronimi) |
+| 2026-10-22 | WebSearch | card game reinforcement learning | 9 | Godlewski & Sawicki RL in due passi (BPASTS 2024, 78,5% snippet); RLCard, Batak, Coda esclusi |
+| 2026-10-22 | WebSearch | strategic card game AI | 9 | Summarizing SCGAI (2305.11814); Mastering Hearthstone (2303.05197); tesi Majer Gwent; Provincial |
+| 2026-10-22 | WebSearch | complex card game decision making | 9 | MTG as hard as arithmetic (2003.05119) |
+| 2026-10-22 | WebSearch | autonomous agent card games | 10 | nessuna |
+| 2026-10-22 | WebSearch | general game playing card games | 9 | nessuna (CGDL→GDL-II, Quenault & Cazenave: linguaggi di descrizione) |
+| 2026-10-22 | WebSearch | query combinata B: ("collectible card game" OR "trading card game") AND ("reinforcement learning" OR "game tree search") | 9 | tesi di dottorato Godlewski (82,8% snippet); tesi NCF Pokémon TCG (bassa); Hosei 2014 |
+| 2026-10-22 | WebSearch | SabberStone Hearthstone simulator AI competition | 9 | SabberStone; Dockhorn & Mostaghim (già coperto) |
+| 2026-10-22 | WebSearch | Dockhorn Mostaghim Hearthstone AI competition introducing | 10 | solo snippet: 50 voci a CIG 2018, 30 s per turno |
+| 2026-10-22 | WebSearch | Santos Rodrigues Monte Carlo tree search Hearthstone experiments | 10 | Santos et al. CIG 2017; Choe & Kim 2019; tesi NTNU 2016 |
+| 2026-10-22 | WebSearch | Grad 2017 "Helping AI to play Hearthstone" neural network state evaluation | 10 | Grad FedCSIS 2017; Janusz et al. (1708.00730) |
+| 2026-10-22 | WebSearch | Hearthstone lethal search algorithm AI | 10 | tesi Zhang UAlberta 2017; nulla sul letale |
+| 2026-10-22 | WebSearch | Kowalski Miernik Legends of Code and Magic evolutionary approach deckbuilding | 9 | nessuna |
+| 2026-10-22 | WebSearch | Vieira Tavares Chaimowicz "Exploring deep reinforcement learning" Legends of Code and Magic drafting battling | 10 | Vieira et al. 2022, 2020, 2019 |
+| 2026-10-22 | WebSearch | Xi Legends of Code and Magic ByteRL deep reinforcement learning | 9 | Learning to Beat ByteRL |
+| 2026-10-22 | WebSearch | Ward Cowling 2009 Monte Carlo search applied to card selection in Magic: The Gathering | 10 | solo record DBLP |
+| 2026-10-22 | WebSearch | Cowling Ward Powley 2012 ensemble determinization Monte Carlo tree search Magic: The Gathering | 9 | TCIAIG 4(4) 2012 |
+| 2026-10-22 | WebSearch | Churchill Biderman Herrick Magic: The Gathering is Turing complete | 10 | 1904.09828 / FUN 2021 |
+| 2026-10-22 | WebSearch | Slay the Spire AI agent search reinforcement learning | 9 | sts-rl-agent (HF, snippet); AutoClad; Mini-spire; LLM esclusi |
+| 2026-10-22 | WebSearch | Dominion AI Provincial Fisher kingdom-adaptive buy strategy | 9 | Provincial; Dominion: A New Frontier (2405.06846) |
+| 2026-10-22 | WebSearch | Gwent AI Monte Carlo tree search agent | 9 | tesi VUT 2024; TFG UPV |
+| 2026-10-22 | WebSearch | Pokémon TCG AI agent search reinforcement learning | 10 | Kaggle 2026; pkm-cabt-ppo; DeNA CEDEC 2026 |
+| 2026-10-22 | WebSearch | Forge Magic: The Gathering AI engine simulation AiPlayDecision | 9 | nulla di specifico → lettura GitHub |
+| 2026-10-22 | WebSearch site:arxiv.org | Kowalski Miernik "Legends of Code and Magic" evolutionary | 9 | nessuna |
+| 2026-10-22 | WebSearch | "Mastering Strategy Card Game (Legends of Code and Magic)" end-to-end policy optimistic smooth fictitious play Xi | 9 | Xi et al. 2303.04096; Xiao et al. 2303.05197 (73,6% snippet) |
+| 2026-10-22 | WebSearch | "Summarizing Strategy Card Game AI Competition" Miernik Kowalski results agents | 9 | 2305.11814 (Coac +33%, ProphetCoac peggio) |
+| 2026-10-22 | WebSearch | "Evolving Evaluation Functions for Collectible Card Game AI" Miernik Kowalski results | 9 | 2105.01115; Active Genes (2001.01326) solo elenco |
+| 2026-10-22 | WebSearch | "Representative" moves complex stochastic games trading card game IFIP 2018 search speed branching | 9 | Taucer, Polk & Oommen |
+| 2026-10-22 | WebSearch | Choe Kim 2019 "Enhancing Monte Carlo Tree Search for Playing Hearthstone" state abstraction sparse sampling results | 10 | Choe & Kim 2019 (abstract) |
+| 2026-10-22 | WebSearch | Hearthstone AI competition winner "Dynamic Lookahead" OR "Pruned BFS" OR "Rolling Horizon" agent SabberStone | 9 | solo l'elenco degli algoritmi |
+| 2026-10-22 | WebSearch | "Mastering Strategy Card Game (Hearthstone) with Improved Techniques" ByteDance results Best-of-5 | 10 | 2303.05197 |
+| 2026-10-22 | WebSearch | "A Taxonomy of Collectible Card Games from a Game-Playing AI Perspective" Vieira Tavares Chaimowicz | 9 | 2410.06299 / ICEC 2024 |
+| 2026-10-22 | WebSearch | "The Many AI Challenges of Hearthstone" Hoover Togelius Yannakakis | 10 | 1907.06562 / KI 2020 (autori: Hoover, Togelius, Lee, de Mesentier Silva) |
+| 2026-10-22 | WebSearch | "Dominion: A New Frontier for AI Research" DQN Provincial results | 9 | 2405.06846 (tabella 2, snippet) |
+| 2026-10-22 | WebSearch | sts_lightspeed Slay the Spire simulator MCTS gamerpuppy | 9 | nulla → lettura GitHub |
+| 2026-10-22 | WebSearch | Zhang Shuyi Buro determinized MCTS Hearthstone chance node bucketing thesis results | 9 | (già coperto) + link UNH duelyst-cog-23 |
+| 2026-10-22 | WebSearch | Godlewski Sawicki Monte Carlo tree search Lord of the Rings card game expert knowledge agents | 10 | BPASTS 2021 / 2109.12001; 2109.12112; tesi 2022 |
+| 2026-10-22 | WebSearch | "Magic: the Gathering is as Hard as Arithmetic" Biderman Churchill | 10 | 2003.05119 |
+| 2026-10-22 | WebSearch | Hearthstone AI "lethal" detection search combo exhaustive turn planning simulator | 9 | Sakurai & Hasebe (SciTePress 2023, >97,5% snippet); peter1591 |
+| 2026-10-22 | WebSearch | Sakurai Hasebe Hearthstone rolling horizon evolutionary algorithm action pruning | 0 | rifiutata |
+| 2026-10-22 | WebSearch | Duelyst Ruml CoG 2023 collectible card game heuristic search paper | 0 | rifiutata |
+| 2026-10-22 | WebSearch | "Evolutionary Approach to Collectible Card Game Arena Deckbuilding using Active Genes" Kowalski Miernik results | 0 | rifiutata |
+| 2026-10-22 | WebSearch esteso | Ward Cowling "Magic: The Gathering" Monte Carlo card selection 2009 CIG abstract rollouts win rate | 0 | rifiutata |
+| 2026-10-22 | WebSearch | Pokémon TCG AI Battle Challenge Kaggle simulator engine rules agents 2026 | 0 | rifiutata |
+| 2026-10-22 | WebSearch | "Introducing Tales of Tribute AI Competition" Kowalski Miernik deckbuilding game agents MCTS | 0 | rifiutata |
+| 2026-10-22 | WebSearch | Magic: The Gathering AI agent MCTS deep learning 2022 2023 2024 arXiv full game play | 0 | rifiutata |
+| 2026-10-22 | WebSearch site:github.com | Hearthstone AI MCTS simulator agent C++ OR C# lethal | 0 | rifiutata |
+| 2026-10-22 | WebSearch site:ieeexplore.ieee.org | collectible card game Monte Carlo tree search Hearthstone OR "Magic: The Gathering" | 0 | rifiutata |
+| 2026-10-22 | GitHub | SabberStone README; acatai/SCGAI README e GAME-RULES; Card-Forge/forge README e `forge-ai/.../simulation` (4 file); jleclanche/fireplace; gamerpuppy/sts_lightspeed (README e 4 file); ronaldosvieira/gym-locm; peter1591/hearthstone-ai; ADockhorn/* (404) | 16 | come nelle schede |
+
+#### Gruppo 3 (RL e self-play)
+| data | motore | interrogazione | risultati | fonti tenute |
+|---|---|---|---|---|
+| 2026-10-22 | WebSearch | deep reinforcement learning for card games | 10 | Vieira 2022; Vieira 2020; tesi USM (esclusa) |
+| 2026-10-22 | WebSearch | self-play reinforcement learning | 10 | survey Zhang et al. 2024 (2408.01072), solo contesto |
+| 2026-10-22 | WebSearch | multi-agent reinforcement learning games | 10 | nessuna (survey) |
+| 2026-10-22 | WebSearch | policy optimization imperfect information games | 10 | Rudolph et al. ICLR 2026; Fu et al. ICLR 2022 (nota) |
+| 2026-10-22 | WebSearch | PPO card game agent | 10 | pkm-cabt-ppo |
+| 2026-10-22 | WebSearch | model-free reinforcement learning card games | 10 | nessuna (Big 2 via rapporto Stanford) |
+| 2026-10-22 | WebSearch | curriculum learning game AI | 10 | Narvekar et al. JMLR 2020; 1903.12328 |
+| 2026-10-22 | WebSearch | league training game agents | 10 | Huang et al. NeurIPS 2023; TStarBot-X (2011.13729) |
+| 2026-10-22 | WebSearch | DouZero Mastering DouDizhu with self-play deep reinforcement learning | 9 | DouZero |
+| 2026-10-22 | WebSearch | PerfectDou dominating DouDizhu with perfect information distillation | 10 | PerfectDou |
+| 2026-10-22 | WebSearch | Suphx Mastering Mahjong with deep reinforcement learning | 9 | Suphx |
+| 2026-10-22 | WebSearch | AlphaHoldem high-performance artificial intelligence for heads-up no-limit poker via end-to-end reinforcement learning | 10 | AlphaHoldem |
+| 2026-10-22 | WebSearch | DeltaDou expert-level Doudizhu AI through self-play | 9 | DeltaDou |
+| 2026-10-22 | WebSearch | RLCard toolkit reinforcement learning in card games | 10 | RLCard |
+| 2026-10-22 | WebSearch | OpenSpiel framework for reinforcement learning in games | 10 | OpenSpiel |
+| 2026-10-22 | WebSearch | AlphaStar league training grandmaster StarCraft II TPU days compute | 10 | AlphaStar (stampa) |
+| 2026-10-22 | WebSearch | OpenAI Five Dota 2 compute 770 petaflops/s-days 45000 years of games | 10 | OpenAI Five |
+| 2026-10-22 | WebSearch | AlphaZero 5000 TPUs 44 million games training compute MuZero | 9 | AlphaZero/MuZero (secondarie) |
+| 2026-10-22 | WebSearch | Gumbel MuZero policy improvement by planning with Gumbel | 9 | Gumbel MuZero; Multiagent Gumbel MuZero AAAI 2024 |
+| 2026-10-22 | WebSearch | Sampled MuZero learning and planning in complex action spaces | 10 | Sampled MuZero |
+| 2026-10-22 | WebSearch | Stochastic MuZero planning in stochastic environments with a learned model | 10 | Stochastic MuZero |
+| 2026-10-22 | WebSearch | Player of Games Schmid DeepMind imperfect information search | 9 | Player of Games |
+| 2026-10-22 | WebSearch | Neural Replicator Dynamics NeuRD Hennes | 10 | NeuRD (abstract) |
+| 2026-10-22 | WebSearch | ReBeL combining deep reinforcement learning and search for imperfect-information games | 10 | ReBeL |
+| 2026-10-22 | WebSearch | DeepNash Stratego model-free multiagent reinforcement learning R-NaD | 10 | DeepNash |
+| 2026-10-22 | WebSearch | Hanabi reinforcement learning Simplified Action Decoder Other-Play | 9 | SAD / Other-Play / OBL |
+| 2026-10-22 | WebSearch | Hearthstone deep reinforcement learning agent | 10 | Cardsformer; ByteRL; tesi CTU; tesi Tutea (esclusa) |
+| 2026-10-22 | WebSearch | Vieira Legends of Code and Magic deep reinforcement learning battling | 9 | Vieira 2022; Xi et al. 2023; Unsound Search 2026 |
+| 2026-10-22 | WebSearch | DouZero deep Monte-Carlo 27472 actions 4 GPUs 48 actors training 30 days ADP WP results | 10 | DouZero (hardware, snippet) |
+| 2026-10-22 | WebSearch | Suphx training details Tenhou stable rank 8.74 global reward prediction oracle guiding GPUs days | 10 | Suphx (8,74 dan secondaria) |
+| 2026-10-22 | WebSearch | MuZero Schrittwieser Nature 2020 training TPUs Atari 20 billion frames Go 1000 TPUs | 10 | MuZero (nessun numero di calcolo) |
+| 2026-10-22 | WebSearch | ByteRL Legends of Code and Magic end-to-end policy optimistic smooth fictitious play Xi Hearthstone top player | 9 | Xi 2023; Xiao 2023; Vieira 2024 |
+| 2026-10-22 | WebSearch | "Unsound Search with Policy and Value Networks in Legends of Code and Magic" | 9 | 2609.06816 (solo bibliografia); Kubíček IJCAI 2024 |
+| 2026-10-22 | WebSearch | Cardsformer Hearthstone card text prediction model deep Monte-Carlo ECAI 2023 unseen cards | 10 | Cardsformer |
+| 2026-10-22 | WebSearch | Charlesworth Big 2 PPO self-play "Application of self-play reinforcement learning to a four-player game of imperfect information" | 10 | Charlesworth 2018; Patwa 2026 (nota) |
+| 2026-10-22 | WebSearch | Vinyals AlphaStar Nature 2019 league main exploiters league exploiters 44 days 32 TPU v3 agent prioritized fictitious self-play | 0 | rifiutata |
+| 2026-10-22 | WebSearch | Multiagent Gumbel MuZero efficient planning in combinatorial action spaces AAAI 2024 | 0 | rifiutata |
+| 2026-10-22 | WebSearch | AlphaHoldem training 3 days one PC 8 GPUs self-play K-best Slumbot mbb/h results | 0 | rifiutata |
+| 2026-10-22 | WebSearch | DeepNash Stratego training compute 10^535 states TPU time R-NaD results | 0 | rifiutata |
+| 2026-10-22 | WebSearch site:arxiv.org | reinforcement learning Yu-Gi-Oh agent | 0 | rifiutata |
+| 2026-10-22 | WebSearch site:github.com | Yu-Gi-Oh reinforcement learning ygopro agent self-play | 0 | rifiutata |
+| 2026-10-22 | WebSearch | Magic: The Gathering reinforcement learning Forge self-play agent large action space | 0 | rifiutata |
+| 2026-10-22 | WebSearch | autoregressive action decomposition structured action space reinforcement learning card game sequential sub-actions | 0 | rifiutata |
+| 2026-10-22 | GitHub | ygo-agent (README, docs, `cleanba.py`, `agent.py`, `ygopro.h` in due parti, releases); kwai/DouZero; PerfectDou (README, `env.py`); rlcard; hanabi_SAD; open_spiel `algorithms.md` (rnad 404); big2_PPOalgorithm; mctx | 20 | come nelle schede |
+
+#### Gruppo 4 (ricerca e pianificazione)
+| data | motore | interrogazione | risultati | fonti tenute |
+|---|---|---|---|---|
+| 2026-10-22 | WebSearch | Monte Carlo Tree Search card games | 10 | Godlewski & Sawicki (2109.12112); Cowling/Ward/Powley MtG |
+| 2026-10-22 | WebSearch | information set Monte Carlo tree search | 10 | ISMCTS 2012; review Świechowski (2103.04931) |
+| 2026-10-22 | WebSearch | game tree search large branching factor | 9 | Ontañón JAIR 2017; Uriarte & Ontañón |
+| 2026-10-22 | WebSearch | heuristic search complex games | 10 | Lisý et al. 2009 (secondaria) |
+| 2026-10-22 | WebSearch | neural guided search game AI | 9 | AlphaGo 2016 |
+| 2026-10-22 | WebSearch | hierarchical planning card games | 9 | nessuna |
+| 2026-10-22 | WebSearch | combinatorial action space reinforcement learning | 9 | BraVE (2410.21151); Delarue et al. (esclusa) |
+| 2026-10-22 | WebSearch | planning under uncertainty game AI | 9 | nessuna |
+| 2026-10-22 | WebSearch | query combinata C: ("card game" OR "complex game") AND ("automated planning" OR "Monte Carlo Tree Search") | 10 | Cardonomicon (esclusa); Scopone ISMCTS (duplicato) |
+| 2026-10-22 | WebSearch | Browne 2012 "A Survey of Monte Carlo Tree Search Methods" IEEE TCIAIG | 10 | Browne et al. |
+| 2026-10-22 | WebSearch | Świechowski Godlewski Sawicki Mańdziuk 2022 "Monte Carlo Tree Search: a review of recent modifications and applications" | 9 | Świechowski et al. 2023 |
+| 2026-10-22 | WebSearch | double progressive widening MCTS continuous action Couëtoux | 10 | Couëtoux et al. 2011 |
+| 2026-10-22 | WebSearch | Schadd single-player Monte-Carlo tree search SameGame SP-MCTS | 10 | Schadd et al.; tesi Tak |
+| 2026-10-22 | WebSearch | nested Monte-Carlo search Cazenave Morpion Solitaire | 10 | Cazenave 2009; Cazenave & Jouandeau |
+| 2026-10-22 | WebSearch | Ontañón NaïveMCTS combinatorial multi-armed bandit microRTS | 9 | Ontañón AIIDE 2013 / JAIR 2017; MicroRTS |
+| 2026-10-22 | WebSearch | Churchill Buro Portfolio greedy search StarCraft combat | 9 | Churchill & Buro CIG 2013; Churchill, Lin & Synnaeve AIIDE 2017 |
+| 2026-10-22 | WebSearch | Rolling Horizon Evolutionary Algorithm Perez-Liebana general video game | 9 | Gaina et al. 2020 |
+| 2026-10-22 | WebSearch | "Combinatorial MCTS" OR "Combinatorial Monte Carlo tree search" | 9 | Jooken et al. (2010.11523) |
+| 2026-10-22 | WebSearch | beam stack search Zhou Hansen anytime planning | 10 | Zhou & Hansen 2005; Lemons & Ruml 2022; Rectangle Search 2024 |
+| 2026-10-22 | WebSearch | Stochastic MuZero planning with learned models stochastic environments Antonoglou | 9 | Antonoglou et al. 2022 |
+| 2026-10-22 | WebSearch | KataGo methods doc github playout cap randomization | 9 | Wu 2019; documenti KataGo |
+| 2026-10-22 | WebSearch | AlphaGo PUCT formula Rosin "Multi-armed bandits with episode context" predictor upper confidence | 10 | Rosin 2011 |
+| 2026-10-22 | WebSearch | best-first search transposition tables planning duplicate detection "Best-First Search" heuristic | 9 | Akagi/Kishimoto/Fukunaga SoCS 2010; Holte 2013 |
+| 2026-10-22 | WebSearch | A* inconsistent heuristics bidirectional pathmax Felner Zahavi | 10 | Felner et al. AIJ 2011; Zhang et al. IJCAI 2009 |
+| 2026-10-22 | WebSearch | bounded suboptimal search weighted A* Explicit Estimation Search Thayer Ruml | 9 | Thayer & Ruml 2011; Hatem & Ruml 2014 |
+| 2026-10-22 | WebSearch | anytime search ARA* Likhachev AWA* anytime window A* Aine | 10 | Likhachev et al. 2003; Aine et al. 2007 |
+| 2026-10-22 | WebSearch | search large action spaces action elimination deep reinforcement learning Zahavy | 10 | Zahavy et al. 2018 |
+| 2026-10-22 | WebSearch | "learning to search" lookahead search learned value function games policy improvement | 10 | Kubíček/Burch/Lisý IJCAI 2024 |
+| 2026-10-22 | WebSearch | hierarchical task network HTN planning card game AI Hearthstone OR Magic | 9 | Ontañón & Buro IJCAI 2015 (secondaria) |
+| 2026-10-22 | WebSearch site:arxiv.org | Monte Carlo tree search collectible card game combinatorial actions | 9 | Duelyst (UNH, CoG 2023); Korea Univ. DAG; MDPI 2022 |
+| 2026-10-22 | WebSearch site:ojs.aaai.org | Monte Carlo tree search card game Hearthstone Magic | 10 | filtro ignorato; Chaslot et al. 2008 |
+| 2026-10-22 | WebSearch site:github.com | Monte Carlo tree search card game engine combo search | 10 | peter1591/hearthstone-ai |
+| 2026-10-22 | WebSearch | MCTS expensive simulator slow forward model few samples per node "expensive" tree search budget | 9 | Grill et al. 2020 (2007.12509) |
+| 2026-10-22 | WebSearch (14 query) | hierarchical planning macro-actions (esteso); chance nodes expectimax (esteso); Duelyst action factoring; Gumbel MuZero; Hamrick 2020; Hearthstone DAG Korea; Zhang & Buro; Rectangle Search; Beam Search monotonic; Expert Iteration; Beam-NRPA/GNRPA; progressive unpruning Chaslot; MDPI pruning; Godlewski LotR thesis | 0 | rifiutate |
+| 2026-10-22 | GitHub | KataGo `KataGoMethods.md`, `GraphSearch.md`; MicroRTS README, `NaiveMCTS.java`, `NaiveMCTSNode.java`, `PortfolioAI.java`; peter1591 README; mctx README, `policies.py` | 9 | come nelle schede |
+
+#### Gruppo 5 (informazione nascosta)
+| data | motore | interrogazione | risultati | fonti tenute |
+|---|---|---|---|---|
+| 2026-10-22 | WebSearch | imperfect information games AI | 9 | Obscuro (2506.01242); Modicum (1805.08195) |
+| 2026-10-22 | WebSearch | partially observable Markov decision process game AI | 10 | Cassandra et al. 1994; tesi UNH Duelyst (solo titolo) |
+| 2026-10-22 | WebSearch | counterfactual regret minimization | 10 | Deep CFR; SD-CFR; note di Farina |
+| 2026-10-22 | WebSearch | belief state planning card games | 9 | Morenville & Piette 2025; Parker/Nau/Subrahmanian 2005; SkyNet (snippet) |
+| 2026-10-22 | WebSearch | opponent modeling imperfect information games | 10 | Ganzfried et al. 2022, 2025; Ganzfried & Sandholm 2011 |
+| 2026-10-22 | WebSearch | Bayesian inference hidden cards | 10 | Bayesian Poker (debole); tesi NTNU (debole) |
+| 2026-10-22 | WebSearch | game theory collectible card games | 9 | tassonomia CCG (solo titolo) |
+| 2026-10-22 | WebSearch | robust strategy hidden information games | 10 | Morris & Ui 2025 (esclusa) |
+| 2026-10-22 | WebSearch | query combinata D: ("imperfect information games" OR "partially observable games") AND ("deep reinforcement learning" OR "search") | 10 | ReBeL |
+| 2026-10-22 | WebSearch | Information Set Monte Carlo Tree Search Cowling Powley Whitehouse 2012 | 9 | ISMCTS; tesi Whitehouse; review Świechowski |
+| 2026-10-22 | WebSearch | Long Sturtevant Buro Furtak 2010 "Understanding the success of perfect information Monte Carlo sampling" strategy fusion non-locality | 10 | Long et al. 2010; PIMC Postponing (2408.02380); αμ |
+| 2026-10-22 | WebSearch | Ginsberg GIB bridge Monte Carlo sampling determinization partition search | 10 | Ginsberg JAIR 2001; Partition Search 1996; survey Jass |
+| 2026-10-22 | WebSearch | Perfect Information Monte Carlo Skat Buro Furtak card inference | 9 | Buro et al. 2009; Solinas et al. 2019; Rebstock et al.; tesi Furtak |
+| 2026-10-22 | WebSearch | Monte Carlo counterfactual regret minimization Lanctot 2009 outcome sampling external sampling | 10 | Lanctot et al. 2009 |
+| 2026-10-22 | WebSearch | safe and nested subgame solving imperfect information games Brown Sandholm Burch | 10 | Brown & Sandholm 2017 |
+| 2026-10-22 | WebSearch | Pluribus superhuman multiplayer poker Science 2019 results mbb/game cost CPU | 10 | solo stampa |
+| 2026-10-22 | WebSearch | Libratus Science 2018 results mbb/game 120000 hands | 9 | 147 mbb/mano (snippet); Kovařík/Schmid (2111.05884) |
+| 2026-10-22 | WebSearch | DREAM deep regret minimization with advantage baselines and model-free learning Steinberger | 10 | DREAM |
+| 2026-10-22 | WebSearch | POMCP Silver Veness 2010 Monte-Carlo planning in large POMDPs | 10 | POMCP |
+| 2026-10-22 | WebSearch | DESPOT online POMDP planning regularization Somani Ye Hsu Lee | 10 | DESPOT |
+| 2026-10-22 | WebSearch | interactive POMDP I-POMDP Gmytrasiewicz Doshi opponent modeling | 9 | I-POMDP e seguiti |
+| 2026-10-22 | WebSearch | Hanabi hidden hand inference search Bayesian action decoder SPARTA | 9 | BAD; SPARTA; LBS; RL fine-tuning |
+| 2026-10-22 | WebSearch | Hearthstone opponent deck prediction hidden cards inference | 9 | Bursztein 2014/2016; Dockhorn & Kruse 2020; Hoover et al. 2019 |
+| 2026-10-22 | WebSearch | Zinkevich Johanson Bowling Piccione 2007 regret minimization in games with incomplete information | 10 | CFR 2007 |
+| 2026-10-22 | WebSearch | CFR+ Bowling Burch Johanson Tammelin heads-up limit hold'em is solved Science 2015 | 10 | Bowling et al. 2015; Tammelin et al. 2015 |
+| 2026-10-22 | WebSearch | Deep CFR Brown Lerer Gross Sandholm ICML 2019 results exploitability Leduc heads-up limit | 10 | Deep CFR (37 contro 47 mbb/g, snippet) |
+| 2026-10-22 | WebSearch | ReBeL public belief state value network subgame heads-up no-limit results Brown Bakhtin Lerer Gong | 9 | ReBeL |
+| 2026-10-22 | WebSearch | "Information Set Search" Richards Amir Scrabble opponent modeling | 10 | Richards & Amir 2007; AAAI 2012 (titolo) |
+| 2026-10-22 | WebSearch | Kovařík Schmid Burch Bowling Lisý "Rethinking formal models of partially observable multiagent decision making" factored observation games | 9 | FOSG |
+| 2026-10-22 | WebSearch | Obscuro fog of war chess Zhang Sandholm 2025 superhuman | 10 | Obscuro; InfoChess (titolo) |
+| 2026-10-22 | WebSearch | Yu-Gi-Oh hand trap resilience simulation AI combo "hand traps" search | 9 | nulla di citabile |
+| 2026-10-22 | WebSearch | sample average approximation vs robust optimization minimax scenario planning adversarial uncertainty set | 10 | SAA robusta; approccio a scenari (1906.01476); DRO (1904.07381) |
+| 2026-10-22 | WebSearch (5 query) | sampled hands evaluation opening turn; site:arxiv.org determinization strategy fusion; site:github.com ISMCTS card game; Duelyst thesis Ruml; Pluribus (esteso) | 0 | rifiutate |
+| 2026-10-22 | GitHub | open_spiel `algorithms.md`, `is_mcts.{h,cc}`, `mccfr.py`; README di rebel, hanabi_SPARTA, despot, Deep-CFR, DREAM; obscuro (404) | 9 | come nelle schede |
+
+#### Gruppo 6 (generalizzazione)
+| data | motore | interrogazione | risultati | fonti tenute |
+|---|---|---|---|---|
+| 2026-10-22 | WebSearch | generalization across decks game AI | 9 | Bertram 2024; Xia AAMAS 2025 |
+| 2026-10-22 | WebSearch | general game playing reinforcement learning | 10 | Goldwaser & Thielscher 2020; Wang/Emmerich/Plaat 2018 |
+| 2026-10-22 | WebSearch | zero-shot generalization game agents | 9 | Ye 2020; SIMA/XLand (esclusi) |
+| 2026-10-22 | WebSearch | meta-learning game AI | 9 | Harris et al. ICLR 2023 |
+| 2026-10-22 | WebSearch | continual learning game agents | 9 | AgarCL (escluso) |
+| 2026-10-22 | WebSearch | transfer learning card games | 10 | Soemers TMLR 2023 |
+| 2026-10-22 | WebSearch | robust reinforcement learning unseen opponents | 10 | Fu et al. ICML 2022; Shen & How |
+| 2026-10-22 | WebSearch | generalization to unseen cards game AI | 9 | Bertram 2024; Cardsformer; Xia 2025 |
+| 2026-10-22 | WebSearch | GVGAI planning agents generalize learning agents overfit general video game AI | 10 | Perez-Liebana 2018; Evaluating Generalisation 2020 |
+| 2026-10-22 | WebSearch | Kirk survey zero-shot generalisation deep reinforcement learning JAIR 2023 Procgen | 9 | Kirk et al. 2023 |
+| 2026-10-22 | WebSearch | Hearthstone card text embedding unseen cards reinforcement learning PyStone language | 9 | Cardsformer; Xia 2025; hearthstone-card2vec |
+| 2026-10-22 | WebSearch | Ludii general game AI results learned heuristics transfer across games Soemers Piette Browne | 10 | Soemers 2023; Stephenson 2021; Soemers 2021 |
+| 2026-10-22 | WebSearch | PokéLLMon LLM agent Pokémon battles unseen moves | 9 | Hu/Huang/Liu 2024 |
+| 2026-10-22 | WebSearch | AlphaStar entity encoder transformer units generalization StarCraft | 9 | Vinyals 2019 (via Perceiver IO) |
+| 2026-10-22 | WebSearch | OpenAI Five Dota 2 hero pool generalization surgery new heroes | 10 | Berner et al. 2019; blog OpenAI |
+| 2026-10-22 | WebSearch | Hearthstone card2code card generation from text HearthSim Ling 2016 latent predictor networks | 9 | Ling et al. 2016; Hashimoto 2018 |
+| 2026-10-22 | WebSearch | General Game Playing GDL CadiaPlayer Game Description Language Monte Carlo tree search Björnsson Finnsson | 10 | Björnsson & Finnsson 2009/2011 |
+| 2026-10-22 | WebSearch | entity-based reinforcement learning variable number of entities generalization Entity Gym | 9 | Entity Gym |
+| 2026-10-22 | WebSearch | goal-conditioned reinforcement learning games reach arbitrary target state survey | 9 | Liu/Zhu/Zhang 2022 |
+| 2026-10-22 | WebSearch | model-based reinforcement learning generalization Procgen Dreamer MuZero unseen levels | 10 | Anand et al. 2021 |
+| 2026-10-22 | WebSearch | MAML meta reinforcement learning games few-shot adaptation new game | 9 | nessuna |
+| 2026-10-22 | WebSearch | language-conditioned policy games generalization instructions text description unseen | 9 | Nguyen & Lee 2025 |
+| 2026-10-22 | WebSearch | large language models play Hearthstone Magic the Gathering agent benchmark | 9 | MageBench (secondaria) |
+| 2026-10-22 | WebSearch | Justesen Illuminating Generalization in Deep Reinforcement Learning through Procedural Level Generation GVGAI | 9 | Justesen et al. 2018 |
+| 2026-10-22 | WebSearch (4 query) | microRTS unseen unit types; TextStarCraft II; site:github.com Cardsformer PyStone; Procgen Cobbe | 0 | rifiutate |
+| 2026-10-22 | API GitHub (11 ricerche) | Cardsformer; PyStone; Bertram MTG; GGP AlphaZero GDL; Ludii Polygames; EMMA; hearthstone unseen cards; user:WannianXia; Goldwaser; generalised card representations; GVGAI gym | 4 | WannianXia/Cardsformer, WannianXia/GeneralizableHS, DennisSoemers/Transfer-DNNs-Ludii-Polygames |
+| 2026-10-22 | GitHub | README di card2vec, card2code, PokeLLMon, Ludii, entity-gym, enn-trainer, GVGAI, procgen, train-procgen, AgarCL, LLM-play-StarCraftII (segnaposto), GeneralizableHS, Transfer-DNNs; Cardsformer 13 file sorgente | 27 | come nelle schede |
+
+#### Gruppo 7 (ibridi e rappresentazione)
+| data | motore | interrogazione | risultati | fonti tenute |
+|---|---|---|---|---|
+| 2026-10-22 | WebSearch | hybrid symbolic neural game AI | 9 | BlendRL (2410.11689) |
+| 2026-10-22 | WebSearch | neuro-symbolic planning game agents | 10 | IBM LOA / ILP |
+| 2026-10-22 | WebSearch | legal action generation game engine | 9 | nessuna (marketing) |
+| 2026-10-22 | WebSearch | graph neural networks card games | 9 | Risk GCN (2009.06355); Hex GNN (2311.13414) |
+| 2026-10-22 | WebSearch | transformer game state representation | 10 | Othello-GPT; MetaOthello; RTS transformer; Da Vinci Code |
+| 2026-10-22 | WebSearch | learned policy heuristic search | 9 | Greco et al. 2021; Yoon-Fern-Givan 2007; SaIL |
+| 2026-10-22 | WebSearch | rule-based AI versus reinforcement learning | 10 | nessuna |
+| 2026-10-22 | WebSearch | structured action space neural networks | 10 | Hausknecht & Stone 2016 |
+| 2026-10-22 | WebSearch | query combinata E: ("game AI" OR "game-playing agents") AND ("self-play" OR "generalization" OR "neuro-symbolic") | 9 | IBM ILP (AAAI 2022), EXPLORER, NESTA |
+| 2026-10-22 | WebSearch | Shen Trevizan Thiébaux "Learning domain-independent planning heuristics with hypergraph networks" | 10 | STRIPS-HGN |
+| 2026-10-22 | WebSearch | Ferber Helmert Hoffmann neural network heuristics classical planning | 10 | Ferber et al. 2020, 2022; tesi |
+| 2026-10-22 | WebSearch | "invalid action masking" Huang Ontañón policy gradient | 10 | Huang & Ontañón 2022 |
+| 2026-10-22 | WebSearch | AlphaStar autoregressive action heads entity encoder transformer pointer network | 9 | AlphaStar Unplugged; TStarBot-X; entity-based RL cyber |
+| 2026-10-22 | WebSearch | Set Transformer permutation invariant attention variable sets Lee 2019 | 9 | Lee et al. 2019 |
+| 2026-10-22 | WebSearch | Hearthstone card text embedding neural network agent | 9 | Cardsformer; agente T5 AAMAS 2025; peter1591 |
+| 2026-10-22 | WebSearch | ygo-agent Yu-Gi-Oh reinforcement learning card embeddings github | 9 | ygo-agent |
+| 2026-10-22 | WebSearch | "learning to play" card games from rules text program synthesis card effects | 10 | Cardiverse; XMage testo→codice; Rack'o (esclusa) |
+| 2026-10-22 | WebSearch | Giraffe DeepChess Maia Leela learned evaluation function chess neural network | 10 | Giraffe; DeepChess |
+| 2026-10-22 | WebSearch | LLM guided heuristic search games "large language model" tree search planning | 10 | Schultz et al. 2025 |
+| 2026-10-22 | WebSearch | neuro-symbolic reinforcement learning survey | 9 | Acharya et al. 2023 |
+| 2026-10-22 | WebSearch | "learning to rank" planning operators learned action ordering heuristic search | 10 | Garrett et al. 2016; GABAR; alberi relazionali; IJCAI 2024 #0743 |
+| 2026-10-22 | WebSearch (12 query) | legal action generation (esteso); rule-based vs RL games (esteso); structured action space (esteso); site:arxiv.org Cardsformer; LOCM attention agents; OpenAI Five factored heads; MuZero vs exact simulator; Maia/Leela; GOOSE WL features; site:github.com ygo-agent; site:arxiv.org policy guided best-first; AlphaZero hybrid generalizes | 0 | rifiutate |
+| 2026-10-22 | API GitHub (13 ricerche nei repository, 3 nel codice di ygo-agent) | Cardsformer; GABAR; focal search; Cardiverse; DeepChess; EXPLORER; T5 Hearthstone; STRIPS-HGN; LOCM; user:ronaldosvieira; FD heuristics; MTG text embedding; `embedding_file`, `cards_`, `id_embed` in ygo-agent | 6 | WannianXia/Cardsformer; danruili/Cardiverse; oripress/DeepChess; williamshen-nz/STRIPS-HGN; gym-locm; reinforced-greediness |
+| 2026-10-22 | GitHub | ygo-agent (README, `agent.py`, `utils.py`, `ygopro.h`); Cardsformer (5 file); peter1591 (2 repo); lc0 README e wiki; maia-chess; invalid-action-masking; set_transformer; Giraffe; DeepChess; gym-locm; reinforced-greediness; IBM/loa; goose; STRIPS-HGN; Cardiverse | 22 | come nelle schede |
+
+#### Gruppo 8 (aggiunte)
+| data | motore | interrogazione | risultati | fonti tenute |
+|---|---|---|---|---|
+| 2026-10-22 | WebSearch | Iterated Width Atari planning with simulators Lipovetzky Ramirez Geffner | 10 | IJCAI'15 abstract; arXiv 1801.03354 (Bandres et al.) |
+| 2026-10-22 | WebSearch | "Deep policies for width-based planning" Junyent Jonsson Gómez | 9 | arXiv 1904.07091 / ICAPS 2019 |
+| 2026-10-22 | WebSearch | "Hierarchical width-based planning" learning Junyent | 10 | arXiv 2101.06177 / ICAPS 2021; repo mjunyentb/hierarchical-IW |
+| 2026-10-22 | WebSearch | OLETS open loop expectimax tree search GVGAI planning track winner | 9 | GVGAI multi-track arXiv 1802.10363 (snippet); Lecarpentier 2018 IJCAI (snippet only) |
+| 2026-10-22 | WebSearch | width-based planning learned features Atari rollout IW novelty pixel | 9 | Dittadi et al. AAAI 2021 (arXiv 2012.09126); Ayton & Asai "Olive" (arXiv 2109.15310) |
+| 2026-10-22 | WebSearch | Burch Holte "Automatic move pruning" single-agent search | 9 | SoCS 2011, SoCS 2012, AI Communications 2014, Holte Canadian AI 2013 |
+| 2026-10-22 | WebSearch | Wehrle Helmert "partial-order reduction" forward state-space search strong stubborn sets commutativity planning | 0 | **refused: budget exhausted** |
+| 2026-10-22 | WebSearch | Hearthstone lethal search algorithm simulator | 0 | **refused: budget exhausted** |
+| 2026-10-22 | WebFetch github | davechurchill/PrismataAI: README, wiki Home, wiki Publications, wiki AI-Config-File, source/ai listing, AlphaBetaSearch.cpp, AlphaBetaSearchParameters.hpp, MoveIterator_PPPortfolio.cpp, PartialPlayer.h, Eval.cpp, Player_PortfolioGreedySearch.cpp, PartialPlayer_ActionAbility_AvoidBreachSolver.cpp, bin/asset/config/config.txt | 13 files | all kept |
+| 2026-10-22 | WebFetch github | Card-Forge/forge: README, forge-ai/simulation dir, GameSimulator.java, SpellAbilityPicker.java, GameStateEvaluator.java, SimulationController.java, SpellAbilityChoicesIterator.java, GameCopier.java, OnePlaySafetyChecker.java, CreatureEvaluator.java, SpellAbilityAi.java, AiController.java (first 100k chars), AiPlayDecision.java, AIOption.java, res/ai/Default.ai, cardsfolder/l/lightning_bolt.txt | 16 files | all kept |
+| 2026-10-22 | WebFetch github | sbl1996/ygo-agent: README, docs/ listing, docs/action.md, docs/feature_engineering.md, docs/network_design.md, docs/support.md, ygoai/ listing, ygoai/rl listing, ygoai/rl/jax listing, ygoai/rl/jax/agent.py, ygoai/embed.py, setup.py, mcts/ and mcts/mcts listing, ygoenv/ygoenv listing | 15 | all kept |
+| 2026-10-22 | WebFetch pypi | pypi.org/project/ygoenv/ (JS error page), pypi.org/pypi/ygoenv/json (404), pypi.org/simple/ygoenv/ (404), pypi.org/pypi/ygoai/json (404) | 4 | **ygoenv is not on PyPI under that name** |
+| 2026-10-22 | WebFetch github | n0tevi1/ygorl: README, docs/ listing, docs/solver.md, encoding.md, nets.md, training.md, benchmarks.md, branching.md, bc.md, evaluation.md, scaling.md | 11 | all kept |
+| 2026-10-22 | WebFetch github | acatai/Strategy-Card-Game-AI-Competition: README (rendered + raw), GAME-RULES.md, contest-2020-08-COG, contest-2021-08-COG, contest-2022-08-COG listings, 2020/2021/2022 graph.data, ByteRL/README, papers/ (404) | 10 | kept; papers folder does not exist |
+| 2026-10-22 | WebFetch github | HearthSim/SabberStone: README, SabberStoneBasicAI dir + src/Nodes, src/Score, src/Meta listings, Program.cs, Nodes/OptionNode.cs, Score/Score.cs, Score/AggroScore.cs | 8 | all kept |
+| 2026-10-22 | WebFetch github | demilich1/metastone: README, behaviour/ listing, heuristic/ listing, mcts/ listing, GreedyOptimizeTurn.java, TranspositionTable.java, heuristic/WeightedHeuristic.java; GameStateValueBehaviour.java (404, file not at that path) | 8 | kept |
+| 2026-10-22 | WebFetch github | hiddenswitch/Spellsource GameStateValueBehaviour.java and behaviour/ listing | 2 | **404 both** (dropped) |
+| 2026-10-22 | WebFetch github | peter1591/hearthstone-ai README | 1 | kept |
+| 2026-10-22 | WebFetch github | GAIGResearch/GVGAI: README, olets/ listing, olets/SingleTreeNode.java, olets/SingleMCTSPlayer.java | 4 | kept |
+| 2026-10-22 | WebFetch github | miquelramirez/ALE-Atari-Width README (rendered + raw) | 2 | kept |
+| 2026-10-22 | WebFetch github | mjunyentb/hierarchical-IW README | 1 | kept |
+
 
 ## 2. Risultati per gruppo
 ### 2.1 Yu-Gi-Oh! (gruppo 1)
