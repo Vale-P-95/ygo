@@ -695,9 +695,14 @@ Gli effetti dei mostri rimasti sul campo si sovrappongono alla resilienza: in J4
 - banco della ricerca identico a D10 in tutti i 16 casi; il turno 3 si misura solo dopo la ricerca, che non lo usa;
 - test nuovo in `tests/probe.rs`: Glow-Up Bulb distrutta dal breaker ha un effetto per ripartire, un mostro Normale no.
 
-**Restano di D13:**
-- il costo nuovo (B8: carte bandite o mandate dal Deck come costo, mostri dell'Extra Deck spesi, LP pagati, invece delle carte della mano usate oltre la prima). Cambia il significato della metrica, e va fatto con il testo dell'interfaccia;
-- le finestre prima dei passi del kit (B9, `PRE`).
+**Il costo (B8).** Prima era il numero di carte della mano usate oltre la prima, ma le carte rimaste in mano sono già nelle interruzioni, nel follow-up e nelle risorse: era un doppio conteggio. Ora è quello che la linea spende oltre alla mano:
+- 0,05 per carta del Deck mandata al Cimitero o bandita come costo (dal replay dell'esposizione, `Exposure::deck_cost`);
+- 0,1 per mostro dell'Extra Deck finito nel Cimitero o bandito;
+- 1 ogni 4000 LP pagati (`Exposure::lp_paid`).
+
+Branded #1 (Pot of Desires): 10 carte del Deck e 2 Fusioni nel Cimitero, costo 0,7. Il testo della metrica nell'interfaccia è chiesto a Gemini in TASKS. Le coppie non lo verificano: la loro misura composta non ha né risorse né costo.
+
+**Resta di D13:** le finestre prima dei passi del kit (B9, `PRE`).
 
 ## 5. Parte D: ordine di implementazione
 

@@ -1152,6 +1152,12 @@ fn score_view(
     let others = rest.iter().filter(|&&c| !has_role(c, "starter") && !has_role(c, "extender")).count();
     // The GY is in the follow-up now, by what comes back from it.
     let resources = others as f64;
+    // What the line spends besides the cards of the hand (those left are
+    // already counted above): Deck cards paid as a cost, Extra Deck monsters
+    // gone to the GY or banishment, Life Points.
+    let extra = |c: u32| db.get(c).is_some_and(|c| c.type_ & ygo_engine::consts::card_type::EXTRA != 0);
+    let extra_spent = me.grave.iter().filter(|&&c| extra(c)).count() + me.banished.iter().filter(|&&(c, _)| extra(c)).count();
+    let cost = exposure.map_or(0.0, |x| 0.05 * x.deck_cost as f64 + x.lp_paid as f64 / 4000.0) + 0.1 * extra_spent as f64;
     let mut view = ScoreView {
         hand,
         key: format!("{:016x}", board.key),
@@ -1161,7 +1167,7 @@ fn score_view(
         resilience: 0.0,
         resources,
         followup,
-        cost: board.cards_used.saturating_sub(1) as f64,
+        cost,
         details: Vec::new(),
         floodgate_list: Vec::new(),
         breakers: Vec::new(),

@@ -557,13 +557,15 @@ fn combos(dir: &Path, setup: &Setup, options: CombosOptions) -> Result<()> {
                 ygo_solver::exposure(&engine, &config.deck, &config.hand, config.seed, config.opponent.as_ref(), &board.line).ok();
             if let Some(x) = &exposure {
                 println!(
-                    "   exposure: {} choke points · Ash {} · on-field negation {} · summons {} (special {}) · searches {}",
+                    "   exposure: {} choke points · Ash {} · on-field negation {} · summons {} (special {}) · searches {} · Deck cost {} · LP paid {}",
                     x.choke_points(),
                     x.ash,
                     x.on_field,
                     x.summons,
                     x.special_summons,
-                    x.searches
+                    x.searches,
+                    x.deck_cost,
+                    x.lp_paid
                 );
             }
             measured_boards.push(board_json(&engine, &config, board, i, variants, measured.as_ref().ok(), took, exposure.as_ref()));
@@ -721,6 +723,8 @@ fn state_json(
             "summons": x.summons,
             "special_summons": x.special_summons,
             "searches": x.searches,
+            "deck_cost": x.deck_cost,
+            "lp_paid": x.lp_paid,
         });
     }
     if let (Some(o), Some(v)) = (out.as_object_mut(), value.as_object()) {
