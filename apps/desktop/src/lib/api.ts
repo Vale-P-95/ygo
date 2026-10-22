@@ -457,6 +457,14 @@ export interface ComboBreaker {
   remaining: number;
 }
 
+/** What one kind of handtrap takes away from a line (`ComboScore.exposureDetail.losses`). */
+export interface ExposureLoss {
+  /** "ash" (Ash Blossom), "fieldEffect" (Effect Veiler, Infinite Impermanence, Ghost Ogre), "nibiru", "droll". */
+  kind: "ash" | "fieldEffect" | "nibiru" | "droll";
+  loss: number;
+  chance: number;
+}
+
 /** What the probe turn measured on a board (mirrors `ScoreView`). */
 export interface ComboScore {
   hand: number;
@@ -473,10 +481,27 @@ export interface ComboScore {
   breakers: ComboBreaker[];
   resourcesNote: string;
   followupNote: string;
-  /** Moments of the line where a handtrap stops it. */
+  /**
+   * What the handtraps are expected to take away from the line, in interruptions: for each kind, the value lost at the
+   * worst moment times the chance the opponent holds one (`exposureDetail.losses`), plus Maxx "C". The choke points are
+   * counted in `exposureDetail.chokePoints`.
+   */
   exposure: number;
   exposureNote: string;
-  exposureDetail: { ash: number; onField: number; summons: number; specialSummons: number; searches: number } | null;
+  exposureDetail: {
+    ash: number;
+    onField: number;
+    summons: number;
+    specialSummons: number;
+    searches: number;
+    /** Moments of the line where a handtrap stops it (what `exposure` was before). */
+    chokePoints?: number;
+    /** Per kind of handtrap the line meets: interruptions lost at the worst moment, and the chance (0-1) it is in the opponent's hand. */
+    losses?: ExposureLoss[];
+    /** Interruptions given to the opponent by Maxx "C" or a Mulcharmy, and the chance it holds one. */
+    maxx?: number;
+    maxxChance?: number;
+  } | null;
   /** Against the deck chosen with `comboScore(vsDeckId)`. */
   matchup?: ComboMatchup | null;
   /**

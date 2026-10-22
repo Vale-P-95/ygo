@@ -28,6 +28,7 @@ use ygo_engine::{
     Action, ActionKind, CardDb, CardRef, Decision, DeckList, Duel, DuelState, Engine, Error, Event, Opponent, Placement, Step,
 };
 
+use crate::explain::{ChokeKind, ChokePoint};
 use crate::follow::{Follower, Script};
 use crate::matchup::RivalLine;
 use crate::search::Line;
@@ -746,6 +747,64 @@ pub(crate) enum Prelude<'a> {
     /// Your answers of a line (not the opponent's): the opponent passes
     /// whenever it is asked, whatever its cards (another deck's).
     Own(&'a [Vec<u8>]),
+    /// A line played up to its answer at this index (not included), given
+    /// at a free moment of yours: the turn ends there, as if a handtrap
+    /// had stopped what came next ([`Prober::expected_loss`]).
+    Cut(&'a Line, usize),
+}
+
+/// The chance that the opponent, going second, holds at least one handtrap
+/// of each kind in its 6 cards: the mean copies in the Main Decks of the 41
+/// Master Duel Meta lists of 22/10/2026, in a 40-card deck
+/// (`scripts/handtrap_rates.py`, which also names the cards of each kind).
+/// The app has no lists to count: it uses these.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct HandTrapRates {
+    /// Ash Blossom & Joyous Spring (2.46 copies).
+    pub deck_touch: f64,
+    /// Effect Veiler, Infinite Impermanence, Ghost Ogre & Snow Rabbit (2.71).
+    pub field_effect: f64,
+    /// Nibiru, the Primal Being (0.22).
+    pub fifth_summon: f64,
+    /// Droll & Lock Bird (1.12).
+    pub second_search: f64,
+    /// Maxx "C" and the Mulcharmy (3.76).
+    pub special_summons: f64,
+}
+
+impl Default for HandTrapRates {
+    fn default() -> Self {
+        HandTrapRates { deck_touch: 0.335, field_effect: 0.363, fifth_summon: 0.035, second_search: 0.167, special_summons: 0.47 }
+    }
+}
+
+impl HandTrapRates {
+    pub fn chance(&self, kind: ChokeKind) -> f64 {
+        match kind {
+            ChokeKind::DeckTouch => self.deck_touch,
+            ChokeKind::FieldEffect => self.field_effect,
+            ChokeKind::FifthSummon => self.fifth_summon,
+            ChokeKind::SecondSearch => self.second_search,
+        }
+    }
+}
+
+/// What a card given to the opponent by Maxx "C" or a Mulcharmy is worth,
+/// in interruptions: a starting value, to calibrate (B6).
+const MAXX_PER_SUMMON: f64 = 0.1;
+
+/// What the handtraps are expected to take away from a line
+/// ([`Prober::expected_loss`]), in interruptions.
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct ExpectedLoss {
+    /// Σ chance × loss over the kinds of handtrap.
+    pub expected: f64,
+    /// The value lost at the worst choke point of each kind the line has.
+    pub losses: Vec<(ChokeKind, f64)>,
+    /// What Maxx "C" or a Mulcharmy gives the opponent.
+    pub maxx: f64,
+    /// Places the line was cut at (two runs each).
+    pub cuts: usize,
 }
 
 /// What a measure plays besides each response alone: all of them together
@@ -1270,22 +1329,7 @@ impl<'a> Prober<'a> {
         };
         let all_worked = worked(&all);
 
-        // Floodgates: what works on an empty board but not here, with no
-        // answer. A step whose prerequisite failed is not stopped a second
-        // time (no Glow-Up Bulb in the GY, no effect from there).
-        let mut floodgates = Vec::new();
-        for (step, (run, base_run)) in self.kit.steps.iter().zip(all.steps.iter().zip(&base.steps)) {
-            if step.needs.is_some_and(|p| all_worked.get(&p) != Some(&true)) {
-                continue;
-            }
-            for (i, (probe, _)) in step.goals.iter().enumerate() {
-                let possible = base_run.available && base_run.worked.get(i) == Some(&true);
-                let here = run.available && run.worked.get(i) == Some(&true);
-                if possible && !here {
-                    floodgates.push(*probe);
-                }
-            }
-        }
+        let floodgates = self.floodgates(&base, &all, &all_worked);
         // Coverage is of what the opponent can still do: what a floodgate
         // already stops is counted there, not against your other effects.
         let reference = activation_weight() - floodgates.iter().filter(|p| p.is_activation()).map(|p| p.weight()).sum::<f64>();
@@ -1457,6 +1501,107 @@ impl<'a> Prober<'a> {
             follow_up,
             countered,
         })
+    }
+
+    /// Floodgates: what works on an empty board (`base`) but not with no
+    /// answer on this one (`all`, whose probes `all_worked`). A step whose
+    /// prerequisite failed is not stopped a second time (no Glow-Up Bulb in
+    /// the GY, no effect from there).
+    fn floodgates(&self, base: &RunTrace, all: &RunTrace, all_worked: &HashMap<Probe, bool>) -> Vec<Probe> {
+        let mut floodgates = Vec::new();
+        for (step, (run, base_run)) in self.kit.steps.iter().zip(all.steps.iter().zip(&base.steps)) {
+            if step.needs.is_some_and(|p| all_worked.get(&p) != Some(&true)) {
+                continue;
+            }
+            for (i, (probe, _)) in step.goals.iter().enumerate() {
+                let possible = base_run.available && base_run.worked.get(i) == Some(&true);
+                let here = run.available && run.worked.get(i) == Some(&true);
+                if possible && !here {
+                    floodgates.push(*probe);
+                }
+            }
+        }
+        floodgates
+    }
+
+    /// A quick value of the board `prelude` reaches, in interruptions (B6):
+    /// your responses used together whenever offered, each use that stops
+    /// something counted by its effect, and the floodgates' weight. Two
+    /// runs: with no answer, then with all of them.
+    fn quick_value(&mut self, prelude: Prelude) -> Result<f64, Error> {
+        let all_steps: Vec<&KitStep> = self.kit.steps.iter().collect();
+        if self.baseline.is_none() {
+            self.baseline = Some(self.run(Prelude::EndAtOnce, &all_steps, Policy::Pass)?);
+        }
+        let base = self.baseline.clone().expect("baseline");
+        let all = self.run(prelude, &all_steps, Policy::Pass)?;
+        let mut all_worked = HashMap::new();
+        for (step, run) in self.kit.steps.iter().zip(&all.steps) {
+            for ((probe, _), ok) in step.goals.iter().zip(&run.worked) {
+                all_worked.insert(*probe, run.available && *ok);
+            }
+        }
+        let floodgates: f64 = self.floodgates(&base, &all, &all_worked).iter().map(|p| p.weight()).sum();
+        let mut order: Vec<ResponderId> = Vec::new();
+        for w in &all.windows {
+            for &(id, _) in &w.options {
+                if !order.contains(&id) {
+                    order.push(id);
+                }
+            }
+        }
+        if order.is_empty() {
+            return Ok(floodgates);
+        }
+        let known: HashSet<ResponderId> = order.iter().copied().collect();
+        let context = Context { known: Some(&known), ..Context::default() };
+        let run = self.run_with(prelude, &all_steps, Policy::UseAll(&order), context)?;
+        Ok(run.uses.iter().filter_map(|u| u.effect).map(Effect::value).sum::<f64>() + floodgates)
+    }
+
+    /// What the handtraps take away from `line` (B6, V1): for each kind of
+    /// choke point, the line is cut at each of its `points` and the turn
+    /// ends there; the opponent picks the one that leaves you least
+    /// ([`Prober::quick_value`]). Maxx "C" and the Mulcharmy give the
+    /// opponent a card for each Special Summon after the first. Each loss is
+    /// weighed by the chance the opponent holds that kind of handtrap. V1 is
+    /// hopeful: the effect stopped does not spend its card.
+    pub fn expected_loss(
+        &mut self,
+        line: &Line,
+        points: &[ChokePoint],
+        special_summons: u32,
+        rates: &HandTrapRates,
+    ) -> Result<ExpectedLoss, Error> {
+        let full = self.quick_value(Prelude::Line(line))?;
+        let mut cuts: HashMap<usize, Option<f64>> = HashMap::new();
+        let mut out = ExpectedLoss::default();
+        for kind in [ChokeKind::DeckTouch, ChokeKind::FieldEffect, ChokeKind::FifthSummon, ChokeKind::SecondSearch] {
+            let mut worst: Option<f64> = None;
+            for p in points.iter().filter(|p| p.kind == kind) {
+                let value = match cuts.get(&p.answer) {
+                    Some(&v) => v,
+                    None => {
+                        // A cut that cannot be played tells nothing.
+                        let v = self.quick_value(Prelude::Cut(line, p.answer)).ok();
+                        cuts.insert(p.answer, v);
+                        v
+                    }
+                };
+                if let Some(v) = value {
+                    worst = Some(worst.map_or(v, |w: f64| w.min(v)));
+                }
+            }
+            if let Some(worst) = worst {
+                let loss = (full - worst).max(0.0);
+                out.losses.push((kind, loss));
+                out.expected += rates.chance(kind) * loss;
+            }
+        }
+        out.maxx = MAXX_PER_SUMMON * special_summons.saturating_sub(1) as f64;
+        out.expected += rates.special_summons * out.maxx;
+        out.cuts = cuts.len();
+        Ok(out)
     }
 
     /// The board against the moves of a kit made with [`Kit::with_moves`],
@@ -1759,6 +1904,7 @@ impl<'a> Prober<'a> {
         const NO_ANSWERS: &[Vec<u8>] = &[];
         let mut answers = match prelude {
             Prelude::Line(line) => line.answers.iter(),
+            Prelude::Cut(line, at) => line.answers[..at.min(line.answers.len())].iter(),
             Prelude::Own(answers) => answers.iter(),
             Prelude::EndAtOnce | Prelude::Placed(_) => NO_ANSWERS.iter(),
         };
@@ -1853,7 +1999,7 @@ impl<'a> Prober<'a> {
                 idle_effects = activatable.iter().map(|a| (a.card.code, a.description)).collect();
             }
             // The answers of your turn's line need no list of actions.
-            if let (true, Prelude::Line(_)) = (turn <= 1, prelude) {
+            if turn <= 1 && matches!(prelude, Prelude::Line(_) | Prelude::Cut(..)) {
                 if let Some(a) = answers.next() {
                     duel.respond(a);
                     continue;
@@ -1868,6 +2014,11 @@ impl<'a> Prober<'a> {
                 match prelude {
                     Prelude::Line(_) if decision.player() == Some(1) => duel.respond(&passive_answer(&decision, &actions)),
                     Prelude::Line(_) => duel.respond(&end_phase_answer(&decision, &actions, &idle_effects)),
+                    Prelude::Cut(..) if decision.player() == Some(1) => duel.respond(&passive_answer(&decision, &actions)),
+                    Prelude::Cut(..) if matches!(decision, Decision::IdleCmd { .. } | Decision::BattleCmd { .. }) => {
+                        duel.respond(&end_turn(&decision, &actions))
+                    }
+                    Prelude::Cut(..) => duel.respond(&end_phase_answer(&decision, &actions, &idle_effects)),
                     Prelude::EndAtOnce | Prelude::Placed(_) | Prelude::Own(_) if decision.player() == Some(1) => {
                         duel.respond(&passive_answer(&decision, &actions))
                     }
