@@ -48,22 +48,22 @@ Corsie di lavoro in parallelo del 22/10/2026 (piano in `docs/plans/piano-prossim
   - [x] `loss_h`, il termine di Maxx "C" e Mulcharmy, `p_h` dalle liste e una tabella di default per l'app.
   - [x] `E` nel punteggio (`score_view`), tutte le board misurate, cache; contratto `lib.rs` ↔ `api.ts`; testo per Gemini.
   - [x] Banco, caccia, tempo per board (numeri in `docs/plans/esposizione.md`); le coppie non si riproducono con le liste del 22/10: da rifare con la cartella delle coppie del coordinatore.
-- [ ] **Corsia 7.** Esperimenti di ricerca, senza codice del motore o della ricerca (`docs/plans/ricerca-piano-critico.md`). Resoconto in `docs/plans/ricerca-esperimenti.md`.
+- [x] **Corsia 7.** Esperimenti di ricerca, senza codice del motore o della ricerca (`docs/plans/ricerca-piano-critico.md`). Resoconto in `docs/plans/ricerca-esperimenti.md`; la PR la apre la coordinatrice.
 
-  Agente: claude-code, sessione sorella di ricerca. Branch: `claude/research-lab`. File: script nuovi in `scripts/research/`, `docs/plans/ricerca-esperimenti.md`, aggiunte a `docs/plans/ricerca-letteratura.md`, fixture piccole in `tests/fixtures/research/`.
-  - [x] 1. Gradini di misura per B14 (41 mani × 60 board).
-    - Il 70% della misura è il ciclo delle risposte, quindi la misura «senza breaker» costa il 74% e non serve come gradino.
-    - L'app di oggi perde il #1 vero in 8 mani su 41.
-    - Una misura economica (2 finestre per risposta, niente usi né breaker, 13% del costo) con 40 → 15 board tiene o migliora il #1 in 41 mani su 41, al 70% del tempo; con 20 → 10 al 46%.
+  Agente: claude-code, sessione sorella di ricerca. Branch: `claude/research-lab`. File: script nuovi in `scripts/research/`, `docs/plans/ricerca-esperimenti.md`, aggiunte a `docs/plans/ricerca-letteratura.md`, `tests/fixtures/research/`. Lock tolto.
+  - [x] 1. Gradini di misura per B14 (82 mani × 60 board).
+    - Il 69% della misura è il ciclo delle risposte, quindi la misura «senza breaker» costa il 73%.
+    - L'app di oggi perde il #1 vero in 10 mani su 82.
+    - Un gradino con 2 finestre per risposta perde fino al 33,7% (correzione della prima versione, su 41 mani). Con 8 finestre e un giro degli usi, la scala «30 → 15» tiene il #1 in 82 mani su 82; il tempo è circa il 71% solo se il gradino è un prefisso della misura completa (corsia 8).
+    - La variante sicura senza codice nuovo («30 → senza breaker → 15») costa l'88%.
     - Il livello 2 resta a richiesta.
-    - Richiesta di codice: un `Parts` con le finestre per risposta (coordinatore).
-  - [x] 2. Taratura della stima (Texel). Le caratteristiche della board aiutano poco. Due run economiche del turno di prova portano le coppie giuste dal 73,6% all'80,4%. Elenco dei dati che servirebbero dal motore.
+  - [x] 2. Taratura della stima (Texel). Le caratteristiche della board non aiutano fuori campione. Due run economiche del turno di prova portano le coppie giuste dal 72,2% al 79,6%: stima a due livelli per B9. Elenco dei dati che servirebbero dal motore.
   - [x] 3. Controllo con ygo-combo-solver, e diagnosi.
     - Il solver (compilato su Linux con il nostro core) raggiunge Oceanus + S:P in 4 mani su 4; la nostra ricerca in 0 su 4.
-    - Causa: nel modo obiettivo si scelgono per prime le carte dell'obiettivo anche quando la scelta le bandisce o le usa come materiale. Con una patch locale si arriva a 3 su 4. Proposta per `search.rs`.
+    - Causa: nel modo obiettivo si scelgono per prime le carte dell'obiettivo anche quando la scelta le bandisce o le usa come materiale. Con una patch locale si arriva a 3 su 4. Correzione alla corsia 2 (B4a).
     - Fixture: `tests/fixtures/research/invoked-goals.tsv`.
   - [x] 4. Bibliografia: `ricerca-letteratura.md` §8, con la confidenza di ogni fonte, le correzioni e le aree mancanti.
-  - [ ] Seconda mano di ogni deck per B14 e Texel (corsa approvata dalla coordinatrice), in corso.
+  - Seguiti, ad altre corsie: il livello 2 dà «0 lines» su Railway e rifiuta una risposta su Elfnote Kewl Tune (corsia 4). Quando il gradino di B14 è in `main`, la misura va rifatta senza la patch.
 - [x] **Corsia 6.** Probabilità della mappa dei collegamenti: una `chance` che distingua le carte e sia vicina al vero (misurata su mani cercate), senza saturazione. Fatto, in attesa della PR (la apre la coordinatrice): errore medio contro 200 mani a caso da 0,344 a 0,059 su 6 deck; carte a ≥ 0,99 sui 41 deck da 29 + 20 a 6 + 2; nessun collegamento perso; ricerca delle combo invariata. Numeri e cosa resta aperto in `docs/plans/mappa-collegamenti.md`, «Probabilità misurata sulle mani cercate».
 
   Agente: claude-code, sessione sorella della mappa. Branch: `claude/links-chance`. File: `crates/ygo-solver/src/links.rs` e i suoi test, la parte `links` di `crates/ygo-cli/src/main.rs`, `Rng` di `crates/ygo-solver/src/card.rs` (solo la visibilità), script nuovi miei in `scripts/` (`links_chance.py`) e il default di `links_report.py`, `docs/plans/mappa-collegamenti.md`, `tests/fixtures/links/`; solo i commenti di `LinkCard` in `apps/desktop/src-tauri/src/lib.rs` e `apps/desktop/src/lib/api.ts` (nessun campo nuovo). Lock tolto.

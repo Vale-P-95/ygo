@@ -8,94 +8,87 @@
 
 **Domanda.** Oggi l'app misura a piena fedeltà le prime 30 board della stima rapida, e il turno di prova è il 58% del tempo di `combo_hunt`. Con quali gradini, e quante board a ogni gradino, si dimezza il tempo tenendo lo stesso #1 e almeno 2 board su 3 della top 3?
 
+**Correzione del 22/10 sera.** Una prima versione di questa sezione, su 41 mani, proponeva un gradino con 2 finestre per risposta, che teneva il #1 in 41 mani su 41. Sulle 82 mani non regge: in 5 mani il #1 di oggi si perde, fino al 33,7% del valore. I numeri qui sotto sono quelli delle 82 mani.
+
 ### Dati e comandi
-- **Board.** `combo_hunt.py --hands 1 --seed 7 --nodes 3000 --top 60` sui 41 deck MDM: una mano per deck, la mano `-0` della caccia. Ci sono 2190 board con la misura completa: mediana 60 a mano, minimo 12.
+- **Board.** `combo_hunt.py --seed 7 --nodes 3000 --top 60` sui 41 deck MDM, con le due mani della caccia (`-0` e `-1`): 82 mani e 4490 board con la misura completa (mediana 60 a mano, minimo 8).
   ```
-  python3 scripts/combo_hunt.py <mdm> --hands 1 --top 60 --seed 7 --json <w>/all60      # 4 shard con --shard K/4
-  python3 scripts/research/b14_stages.py <w>/all60 --timing <w>/all60_t --cheap w1u0=<w>/all60_w1u0 --cheap w2u0=<w>/all60_w2u0 --cheap w4u1=<w>/all60_w4u1 [--ref-app]
+  python3 scripts/combo_hunt.py <mdm> --hands 2 --top 60 --seed 7 --json <w>/all82      # 4 shard con --shard K/4
+  python3 scripts/research/b14_stages.py <w>/all82 --timing <w>/all82_t --cheap w2u0=<w>/all82_w2u0 --cheap w6u0=<w>/all82_w6u0 \
+      --cheap w8u1=<w>/all82_w8u1 --cheap w16u0=<w>/all82_w16u0 [--ref-app]
   python3 scripts/research/b14_level2.py <w>/all60_t <w>/l2
   ```
-- **Riferimento.** Il #1 «vero» è il migliore della misura completa su tutte le 60 board. Con `--ref-app` il riferimento è invece l'app di oggi, cioè la misura completa sulle prime 30 della stima.
+- **Riferimento.** Il #1 «vero» è il migliore della misura completa su tutte le board elencate (fino a 60). Con `--ref-app` il riferimento è invece l'app di oggi, cioè la misura completa sulle prime 30 della stima.
 - **Gradini dalla CLI.**
   - La stima rapida è `quick_score` del JSON.
-  - La misura senza breaker è esatta: campo, mano e floodgate (`field + 0,9·hand + 0,8·floodgates`) si calcolano prima delle run dei breaker, e `probe-line` rigioca le stesse linee con valori identici a `combos` (0 differenze su 41 mani).
+  - La misura senza breaker è esatta: campo, mano e floodgate (`field + 0,9·hand + 0,8·floodgates`) si calcolano prima delle run dei breaker, e `probe-line` rigioca le stesse linee con valori identici a `combos` (0 differenze).
   - Il livello 2 è `probe-line --vs X --moves`.
-- **I tempi non li dà la CLI.** Il JSON ha solo i secondi della misura intera. Per dividerli ho usato una patch locale **mai committata**, in un worktree nello scratchpad: in `probe.rs` stampa su stderr i tempi delle parti di `measure_from` e il valore di `quick_value` (B6, due run).
+- **I tempi.** Quando ho fatto le corse il JSON aveva solo i secondi della misura intera. Per dividerli ho usato una patch locale **mai committata**, in un worktree nello scratchpad: in `probe.rs` stampa su stderr i tempi delle parti di `measure_from` e il valore di `quick_value` (B6, due run).
   - La stessa patch legge due variabili d'ambiente: quante finestre provare per ogni risposta (oggi 16) e quanti giri del ciclo degli usi (oggi 3).
-  - Così ho misurato tre gradini economici, tutti senza breaker:
-    - `w1u0`: ogni risposta provata alla prima finestra, senza ciclo degli usi;
-    - `w2u0`: alle prime due finestre, senza ciclo degli usi;
-    - `w4u1`: alle prime quattro, con un giro degli usi.
+  - Così ho misurato cinque gradini, tutti senza breaker e senza `countered`. `wNuK` vuol dire: ogni risposta provata alle prime N finestre in cui è offerta, con K giri del ciclo degli usi.
   - Le corse dei tempi sono `probe-line` sulle linee salvate, 4 mani alla volta sui 4 core.
+  - Dopo la PR #71 la CLI dà `seconds_by_part`, `--quick-value` e `--no-breakers`; il numero di finestre resta da esporre.
 
 ### Dove va il tempo della misura completa
-Su 2190 board, 1492 s in tutto (mediana 0,53 s a board, p90 1,42 s):
+Su 4490 board, 2648 s in tutto (mediana 0,47 s a board, media 0,59 s, p90 1,19 s):
 
 | parte di `measure_from` | quota del tempo |
 |---|---:|
-| run con l'avversario che passa | 1,8% |
-| **ciclo delle risposte** (ogni risposta provata fino a 16 finestre, poi fino a 3 giri degli usi; mediana 3 risposte) | **70,3%** |
+| run con l'avversario che passa | 1,9% |
+| **ciclo delle risposte** (ogni risposta provata fino a 16 finestre, poi fino a 3 giri degli usi; mediana 3 risposte) | **69,2%** |
 | run con tutte le risposte insieme | 1,6% |
-| run con la risposta dell'avversario alla prima interruzione (`countered`) | 2,8% |
-| breaker e turno dopo (`follow_up`) | 23,5% |
+| run con la risposta dell'avversario alla prima interruzione (`countered`) | 3,0% |
+| breaker e turno dopo (`follow_up`) | 24,2% |
 
-**La misura «senza breaker» costa il 74% di quella completa.** Come gradino quindi risparmia poco: il costo sta nel ciclo delle risposte.
+**La misura «senza breaker» costa il 73% di quella completa.** Come gradino quindi risparmia poco: il costo sta nel ciclo delle risposte, e dentro il ciclo nelle finestre, non negli usi (16 finestre senza usi costano già il 64%).
 
 | gradino | tempo a board (mediana) | quota del tempo della completa |
 |---|---:|---:|
-| B6, `quick_value` (due run) | 0,021 s | 3,5% |
-| w1u0 | 0,046 s | 8% |
-| w2u0 | 0,072 s | 13% |
-| w4u1 | 0,139 s | 26% |
-| senza breaker | 0,359 s | 74% |
-| completa | 0,532 s | 100% |
+| B6, `quick_value` (due run) | 0,019 s | 3,7% |
+| w2u0 | 0,063 s | 13% |
+| w6u0 | 0,149 s | 32% |
+| w8u1 | 0,194 s | 42% |
+| w16u0 | 0,279 s | 64% |
+| senza breaker (w16u3) | 0,321 s | 73% |
+| completa | 0,465 s | 100% |
 
-### Quanto ogni gradino ordina come il successivo
-Mediane sulle mani. NDCG@3 usa come guadagno la misura del gradino dopo.
+### Quanto ogni gradino ordina come la misura completa
+Mediane sulle mani. NDCG@3 usa come guadagno la misura completa.
 
-| coppia di gradini | Spearman | Kendall tau-b | NDCG@3 (media) | mani con NDCG@3 < 0,9 |
-|---|---:|---:|---:|---:|
-| stima → B6 | 0,37 | 0,30 | 0,66 | 23/39 |
-| B6 → w1u0 | 0,65 | 0,54 | 0,72 | 20/37 |
-| w1u0 → w2u0 | 0,93 | 0,90 | 0,93 | 9/37 |
-| w2u0 → w4u1 | 0,98 | 0,94 | 0,94 | 8/37 |
-| w4u1 → senza breaker | 0,94 | 0,86 | 0,92 | 9/39 |
-| senza breaker → completa | 0,96 | 0,90 | 0,98 | 2/40 |
-| **stima → completa** | **0,61** | **0,48** | **0,81** | **21/40** |
-| B6 → completa | 0,60 | 0,45 | 0,78 | 21/40 |
-| w2u0 → completa | 0,74 | 0,66 | 0,85 | 17/40 |
-| w4u1 → completa | 0,84 | 0,72 | 0,89 | 13/40 |
+| gradino | Spearman | Kendall tau-b | NDCG@3 (media) | mani con NDCG@3 < 0,9 | #1 vero oltre la 15ª | #1 vero oltre la 30ª |
+|---|---:|---:|---:|---:|---:|---:|
+| stima | 0,57 | 0,42 | 0,82 | 41/81 | 20 | **10** |
+| B6 | 0,64 | 0,58 | 0,81 | 40/81 | 18 | 6 |
+| w2u0 | 0,76 | 0,66 | 0,86 | 34/81 | 12 | 4 |
+| w6u0 | 0,90 | 0,79 | 0,94 | 19/81 | 7 | 3 |
+| w8u1 | 0,92 | 0,83 | 0,95 | 15/81 | 4 | 2 |
+| w16u0 | 0,95 | 0,89 | 0,98 | 6/81 | 3 | 1 |
+| senza breaker | 0,96 | 0,89 | 0,98 | 5/81 | 2 | 1 |
 
-Dove sta il #1 vero nell'ordine di ogni gradino:
-- **stima:** mediana 5ª posizione, 90° percentile 35ª. È oltre la 15ª in 12 mani su 41 e **oltre la 30ª in 8**.
-- **B6:** mediana 6ª, oltre la 30ª in 4 mani.
-- **w2u0:** mediana 2ª, oltre la 30ª in 3 mani.
-- **senza breaker:** mediana 1ª, mai oltre la 25ª.
+Il #1 vero nell'ordine della stima: mediana 4ª posizione, 90° percentile 33ª, massimo 57ª. **L'app di oggi lo perde in 10 mani su 82**: trova il #1 vero in 72, e il suo #1 perde in media l'1,7% del valore, al massimo il 50%.
 
-**Conseguenza: l'app di oggi perde il #1 vero in 8 mani su 41.** Il valore perso dal suo #1 è in media il 2,8%, al massimo il 50%. Prima ancora che lento, il taglio a 30 della stima è il punto debole.
+**Perché le finestre contano.** Nelle 5 mani dove il gradino a 2 finestre sbaglia (Branded, Radiant Typhoon Zoodiac, Snake-Eye, Orcust, Dracotail), le risposte della board giusta fermano qualcosa solo a una finestra oltre la seconda. Il gradino dà campo 0,00, la completa 0,68-1,29.
 
 ### Tagli contro l'app di oggi (`--ref-app`)
-«#1 uguale o migliore» conta anche le mani dove il taglio trova una board migliore di quella dell'app. Il valore perso è quello del #1 rispetto al #1 dell'app: negativo vuol dire guadagnato. Il tempo è la somma dei gradini rispetto a 30 misure complete.
+«#1 uguale o migliore» conta anche le mani dove il taglio trova una board migliore di quella dell'app. Il valore perso è quello del #1 rispetto al #1 dell'app: negativo vuol dire guadagnato. La colonna «tempo» conta la misura completa per intero dopo il gradino; «tempo con riuso» stima il costo se il gradino è un prefisso della misura completa, cioè se la completa riprende da dove il gradino si è fermato.
 
-| gradini (board tenute) | #1 identico | #1 uguale o migliore | top 3 ≥ 2 su 3 | valore perso (media / max) | tempo |
-|---|---:|---:|---:|---:|---:|
-| oggi: stima → prime 30 → completa | 41/41 | 41/41 | 41/41 | 0 / 0 | 100% |
-| stima → 20 → completa | 38/41 | 38/41 | 39/41 | 0,3% / 7,2% | 71% |
-| stima → 10 → completa | 34/41 | 34/41 | 33/41 | 2,8% / 68,8% | 36% |
-| stima → 20 → B6 → 15 → completa | 36/41 | 37/41 | 36/41 | 0,4% / 8,1% | 55% |
-| stima → 20 → w1u0 → 10 → completa | 37/41 | 37/41 | 33/41 | 0,8% / 26,2% | 43% |
-| **stima → 20 → w2u0 → 10 → completa** | **38/41** | **38/41** | **34/41** | **0,7% / 26,2%** | **46%** |
-| stima → 20 → w2u0 → 15 → completa | 38/41 | 38/41 | 38/41 | 0,7% / 26,2% | 63% |
-| stima → 30 → w2u0 → 15 → completa | 39/41 | 40/41 | 37/41 | 0,6% / 26,2% | 67% |
-| **stima → 40 → w2u0 → 15 → completa** | 37/41 | **41/41** | 36/41 | **−0,6% / 0,0%** | **70%** |
-| stima → 30 → senza breaker → 15 → completa | 41/41 | 41/41 | 40/41 | 0 / 0 | 88% |
+| gradini (board tenute) | #1 identico | #1 uguale o migliore | top 3 ≥ 2 su 3 | valore perso (media / max) | tempo | tempo con riuso (stima) |
+|---|---:|---:|---:|---:|---:|---:|
+| oggi: stima → 30 → completa | 82/82 | 82/82 | 82/82 | 0 / 0 | 100% | 100% |
+| stima → 20 → completa | 73/82 | 73/82 | 77/82 | 1,4% / 32,3% | 71% | 71% |
+| stima → 20 → w2u0 → 10 → completa | 71/82 | 71/82 | 67/82 | 2,1% / 32,3% | 46% | ~40% |
+| stima → 40 → w2u0 → 15 → completa | 72/82 | 77/82 | 71/82 | 0,6% / 33,7% | 70% | ~60% |
+| stima → 30 → w6u0 → 15 → completa | 80/82 | 81/82 | 79/82 | 0,3% / 24,6% | 86% | ~66% |
+| **stima → 30 → w8u1 → 15 → completa** | **81/82** | **82/82** | 78/82 | **0 / 0** | 97% | **~71%** |
+| stima → 30 → w8u1 → 10 → completa | 77/82 | 78/82 | 74/82 | 0,4% / 15,9% | 79% | ~62% |
+| stima → 30 → senza breaker → 15 → breaker | 82/82 | 82/82 | 81/82 | 0 / 0 | 88% | 88% |
+| stima → 30 → senza breaker → 10 → breaker | 79/82 | 79/82 | 77/82 | 0,2% / 15,9% | 84% | 84% |
 
-Contro il riferimento «tutte le 60 misurate»:
-- l'app di oggi trova il #1 in 33 mani su 41;
-- «stima → 40 → w2u0 → 15» in 35 (36 di pari valore), al 70% del tempo;
-- «B6 su tutte → 20» in 35, al 73%.
+Contro il riferimento «tutte misurate» nessuna scala che parte dalle prime 30 della stima può fare meglio dell'app (72 su 82). Partire da 40 aiuta poco: «stima → 40 → w2u0 → 15» trova il #1 vero in 69 mani, 71 di pari valore.
 
 ### Livello 2 (gradino 4)
+Solo sulla prima metà del campione, la mano `-0` di ogni deck.
+
 `probe-line --vs <mdm>/snake_eye.ydk --moves` (contro Branded per la mano Snake-Eye) sulle prime 8 board di ogni mano per la misura completa: 328 board, circa 40 minuti di CPU. Il livello 2 ordina per `left` (quota delle mosse dell'avversario che restano con tutte le tue risposte, più bassa è meglio), a parità per `value`.
 
 - **Due mani escluse, da segnalare.**
@@ -107,30 +100,25 @@ Contro il riferimento «tutte le 60 misurate»:
 - **Conclusione.** Il gradino 4 del piano («livello 2 su 3-4») vede la board che il livello 2 preferisce solo in 28 mani su 38. Per vederla in 35 su 38 servono 6 board, e il costo raddoppia. Propongo di tenere il livello 2 a richiesta, come oggi nell'app, e di non metterlo nella cascata automatica. Va rifatto contro più deck: qui c'è il solo Snake-Eye.
 
 ### Conclusione e proposta per B14
-1. **Il gradino «misura senza breaker» del piano va sostituito.** Costa il 74% della misura completa, perché il 70% del tempo è il ciclo delle risposte, non i breaker.
-2. **Il gradino che serve è una misura economica:**
-   - ogni risposta provata solo alle prime 2 finestre in cui è offerta, al posto di 16;
-   - niente ciclo degli usi, niente breaker, niente `countered`.
-
-   Costa 0,07 s a board, il 13% della completa, e ordina come la completa molto meglio della stima: Spearman 0,74 contro 0,61, #1 vero oltre la 30ª in 3 mani contro 8.
-   - In `probe.rs` è un `Parts` con due campi in più (finestre per risposta, giri degli usi), accanto a `measure_alone` e `measure_placed_unbroken`. È lavoro della corsia del coordinatore (B14 in `lib.rs`) o della 2: lo propongo, non lo tocco.
-3. **Tagli proposti:**
-   - **prudente:** stima su 40 → misura economica su 40, se ne tengono 15 → completa su 15. Il #1 è uguale o migliore in 41 mani su 41, nessuna mano perde valore, il tempo è il 70%. In 3 mani si trova una board migliore di quella dell'app di oggi (Doomz +18,7%), in una un'altra board di pari valore.
-   - **veloce:** stima su 20 → misura economica su 20, se ne tengono 10 → completa su 10. Il tempo è il 46%, con #1 identico in 38 mani su 41 e top 3 almeno 2 su 3 in 34. Il #1 perde il 26% in una mano, meno del 3% nelle altre due.
-   - Il controllo del piano (tempo −50% con il #1 identico e almeno 2 su 3 della top 3) non si raggiunge del tutto con questi gradini. Il «veloce» ci arriva vicino: 46% del tempo, 38 mani su 41.
-4. **B6 (`quick_value`, già nel codice ma privato) costa pochissimo (3,5%) ma ordina come la stima** (Spearman 0,60 con la completa). Da solo serve poco; combinato con la stima migliora l'ordine (§2).
-5. **Livello 2 fuori dalla cascata automatica.** Ordina in modo diverso dalla misura completa (Spearman 0,52) e costa 7 s a board: si tiene a richiesta (sopra).
-6. **Da rifare quando il gradino esiste nel codice:** gli stessi comandi senza la patch, con il tempo vero della valutazione nell'app (comprese le varianti di zona, che qui non ci sono). La PR #71 (corsia 4) ha già portato in `combos --json` i tempi per parte (`seconds_by_part`), `--quick-value` (B6) e `--no-breakers`. Manca solo il gradino economico, con meno finestre per risposta.
+1. **Il gradino «misura senza breaker» del piano va sostituito.** Costa il 73% della misura completa, perché il 69% del tempo è il ciclo delle risposte, non i breaker.
+2. **Un gradino economico funziona solo se prova abbastanza finestre.** Con 2 finestre si perde la board giusta quando la sua risposta ferma qualcosa più avanti nel turno avversario: fino al 33,7% del valore. Con 8 finestre e un giro degli usi (42% del costo, Spearman 0,92 con la completa) la scala «stima → 30 → gradino → 15 → completa» tiene il #1 uguale o migliore in 82 mani su 82, senza perdite.
+3. **Il risparmio c'è solo se il gradino è un prefisso della misura completa.** La completa deve riprendere dalle finestre 9-16 e dagli altri giri degli usi, senza rifare le run del gradino. Con il riuso la stima è circa il 71% del tempo di oggi; senza riuso il 97%, cioè nessun risparmio.
+   - In `probe.rs`: un `Parts` con finestre per risposta e giri degli usi, e la misura completa che parte dai risultati per risposta già calcolati.
+   - Lo fa la corsia 8; i numeri le sono stati mandati.
+4. **Variante sicura senza codice nuovo nella misura:** «stima → 30 → misura senza breaker → 15 → breaker», 82 su 82, 88% del tempo. La misura senza breaker è già un prefisso della completa.
+5. **Il dimezzamento con lo stesso #1 non si raggiunge con questi gradini.** Il limite è il primo taglio della stima: per non perdere il #1 di oggi bisogna partire dalle prime 30. Serve un primo ordinamento migliore. È B9: stima più B6 più misura economica, §2.
+6. **Il livello 2 resta fuori dalla cascata automatica.** Ordina in modo diverso dalla misura completa (Spearman 0,52) e costa 7 s a board: si tiene a richiesta (sopra).
+7. **Da rifare quando il gradino esiste nel codice:** gli stessi comandi senza la patch, con il tempo vero della valutazione nell'app (comprese le varianti di zona, che qui non ci sono).
 
 ## 2. Taratura della stima in stile Texel (preparazione di B9)
 
 **Domanda.** Di quanto si può avvicinare l'ordine della stima rapida a quello della misura, con caratteristiche calcolabili dalla board?
 
 ### Metodo
-`scripts/research/texel_fit.py`, sulle stesse 2190 board del §1:
-- **Coppie.** Per ogni coppia di board della stessa mano con misure distanti più di 0,1, la probabilità che la migliore stia sopra è σ(s_a − s_b), con s = a·`quick_score` + Σ w_k·x_k. Sono 40 570 coppie in 41 mani.
+`scripts/research/texel_fit.py`, sulle stesse 4490 board del §1 (82 mani, 41 deck):
+- **Coppie.** Per ogni coppia di board della stessa mano con misure distanti più di 0,1, la probabilità che la migliore stia sopra è σ(s_a − s_b), con s = a·`quick_score` + Σ w_k·x_k. Sono 84 566 coppie.
 - **Fit.** Newton sulla log-verosimiglianza media, più λ·|θ − θ₀|². θ₀ è la stima di oggi: a tarato da solo, w = 0. Le caratteristiche sono standardizzate sul gruppo di addestramento.
-- **Verifica.** 70% dei deck per il fit e 30% lasciato fuori, su 20 divisioni a caso (seme 1). Le metriche sono sommate sulle divisioni:
+- **Verifica.** 70% dei deck per il fit e 30% lasciato fuori, con le due mani di un deck sempre dalla stessa parte. 20 divisioni a caso (seme 1), metriche sommate sulle divisioni:
   - **inversioni nella top 8**, come C5.7: coppie tra le 8 board che la stima mette prime, ordinate al contrario dalla misura per più di 0,1;
   - coppie giuste, Kendall e posizione del #1.
 - **Caratteristiche della board** (27), da JSON e `data/cards.db`:
@@ -142,34 +130,44 @@ Contro il riferimento «tutte le 60 misurate»:
   - carte in mano, handtrap, altre carte rapide in mano;
   - Cimitero, bandite;
   - Evocazioni, Evocazioni Speciali, ricerche, costo del Deck, LP pagati, carte usate, scelte della linea.
+- **Sonde economiche** (`--probe`): il valore B6 e la misura w1u0 (una finestra per risposta, senza usi né breaker), misurati con la patch del §1. Insieme costano 0,06 s a board in mediana.
 - **Comandi.**
   ```
-  python3 scripts/research/texel_fit.py <w>/all60 --splits 20 --lam 0.0001 0.001 0.01 0.1 1
-  python3 scripts/research/texel_fit.py <w>/all60 --probe <w>/all60_w1u0 --splits 20 --lam 0.01 0.1 1 [--only-probe]
+  python3 scripts/research/texel_fit.py <w>/all82 --splits 20 --lam 0.01 0.1 1
+  python3 scripts/research/texel_fit.py <w>/all82 --probe <w>/all82_w1u0 --splits 20 --lam 0.01 0.1 1 [--only-probe]
   ```
 
 ### Risultati (deck lasciati fuori)
 
 | stima | inversioni top 8 | coppie giuste | Kendall | #1 nelle prime 10 | #1 nelle prime 15 |
 |---|---:|---:|---:|---:|---:|
-| oggi (`quick_score`) | 849/6720 (12,6%) | 73,6% | 0,54 | 164/240 | 170/240 |
-| + 27 caratteristiche della board, λ 0,1 | 795/6720 (11,8%) | 75,6% | 0,51 | 163/240 | 166/240 |
-| + 27 caratteristiche, λ 0,01 | 986/6720 (14,7%) | 74,5% | 0,48 | 163/240 | 171/240 |
-| + B6 e w1u0 (due run e una misura economica), λ 0,01 | 856/6720 (12,7%) | **80,4%** | **0,62** | 169/240 | **189/240** |
-| + B6 e w1u0, λ 0,1 | **753/6720 (11,2%)** | 78,9% | 0,60 | 164/240 | 184/240 |
-| + caratteristiche + B6 e w1u0, λ 0,1 | 789/6720 (11,7%) | 79,7% | 0,58 | 165/240 | 174/240 |
+| oggi (`quick_score`) | 1971/13440 (14,7%) | 72,2% | 0,48 | 347/480 | 368/480 |
+| + 27 caratteristiche della board, λ 0,01 | 2218/13440 (16,5%) | 74,7% | 0,48 | 350/480 | 368/480 |
+| + 27 caratteristiche, λ 0,1 | 2095/13440 (15,6%) | 75,0% | 0,49 | 350/480 | 363/480 |
+| + 27 caratteristiche, λ 1 | 1977/13440 (14,7%) | 74,5% | 0,47 | 337/480 | 364/480 |
+| + B6 e w1u0, λ 0,01 | **1627/13440 (12,1%)** | **79,6%** | **0,61** | **360/480** | **399/480** |
+| + B6 e w1u0, λ 0,1 | 1776/13440 (13,2%) | 77,7% | 0,56 | 356/480 | 383/480 |
+| + caratteristiche + B6 e w1u0, λ 0,1 | 1701/13440 (12,7%) | 79,1% | 0,56 | 354/480 | 376/480 |
+
+Sulla sola prima metà (41 mani) i numeri erano simili: le caratteristiche al massimo da 12,6% a 11,8% di inversioni, le sonde coppie giuste dal 73,6% all'80,4%.
 
 Pesi (λ 0,01, per unità; deviazione tra le divisioni) delle caratteristiche più forti:
-- Xyz +0,63 ± 0,15 e mostri dell'Extra Deck +0,13: la stima di oggi sottovaluta gli Xyz, come dice anche `ricerca-letteratura.md` §7.1;
-- equipaggiamenti −0,90 ± 0,33;
-- mostri coperti −0,45, Trappole coperte −0,44, ma carte coperte con «negate» +0,34;
-- carte in mano −0,16 e carte usate −0,14: la stima conta già la mano, forse troppo.
+- Xyz +0,52 ± 0,09: la stima di oggi sottovaluta gli Xyz, come dice anche `ricerca-letteratura.md` §7.1;
+- equipaggiamenti −0,91 ± 0,31;
+- mostri coperti −0,39, Trappole coperte −0,30;
+- carte in mano −0,17, mostri nelle Zone Principali −0,16, mostri nella Zona Extra −0,15;
+- carte sul campo con «Quick Effect» +0,16.
 
-Con λ piccolo i pesi cambiano molto tra una divisione e l'altra, e fuori campione l'ordine peggiora: è sovradattamento su 41 deck.
+Le caratteristiche alzano un po' le coppie giuste, ma fuori campione peggiorano la top 8 e non spostano il #1: è sovradattamento su 41 deck.
 
 ### Conclusione
-- **Le caratteristiche lineari della board non bastano.** Fuori campione le inversioni scendono al massimo da 12,6% a 11,8%, e il #1 non migliora. L'obiettivo di C5.7 (60 su 1110, il 5,4%) è lontano. Quello che la stima sbaglia non è il numero di carte per zona ma cosa fanno nel turno avversario.
-- **Due run del turno di prova lo vedono meglio.** Aggiungere B6 e la misura economica w1u0 (0,07 s a board) porta le coppie giuste dall'73,6% all'80,4% e il #1 nelle prime 15 da 170 a 189 su 240. Per B9 conviene quindi una stima a due livelli: `quick_score` nella ricerca, e una sonda economica (B6 o w1u0) sulle board finali, con pesi tarati così. Combacia con il §1.
+- **Le caratteristiche lineari della board non bastano.** Fuori campione la top 8 peggiora (14,7% → 15,6-16,5% di inversioni) e il #1 non migliora. L'obiettivo di C5.7 (60 su 1110, il 5,4%) è lontano. Quello che la stima sbaglia non è il numero di carte per zona, ma cosa fanno nel turno avversario.
+- **Due run economiche del turno di prova lo vedono meglio.** Aggiungere B6 e w1u0 (0,06 s a board) porta:
+  - le coppie giuste dal 72,2% al 79,6%;
+  - le inversioni della top 8 dal 14,7% al 12,1%;
+  - il #1 nelle prime 15 da 368 a 399 su 480.
+
+  Per B9 conviene quindi una stima a due livelli: `quick_score` nella ricerca, e una sonda economica sulle board finali, con pesi tarati così. È anche il primo taglio migliore che manca al §1.
 - **Caratteristiche che servirebbero dal motore** e che oggi la board esportata non ha. Le chiedo alla coordinatrice:
   1. le carte tolte all'avversario nel tuo turno: il suo campo, la mano, l'Extra Deck e il Cimitero a fine turno (lo stato del giocatore 1 non è nel JSON);
   2. i materiali Xyz di ogni mostro, cioè il numero di usi rimasti (la stima e `value.rs` usano un 2 fisso);
