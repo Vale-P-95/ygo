@@ -4,6 +4,7 @@ Regole in `AGENTS.md`. Per prendere un task, spostalo in "In corso" con agente, 
 
 ## In corso
 Corsie di lavoro in parallelo del 22/10/2026 (piano in `docs/plans/piano-prossimi-passi.md`): ogni corsia tocca solo i suoi file.
+- [ ] **Scheda del punteggio (follow-up, risorse, costo, risposta alla prima interruzione e protezione dei pezzi).** Aggiornamento testi `scoring.ts`, visualizzazione `ComboScore.countered` nella scheda del punteggio, pulsante e pannello «Protezione dei pezzi» (`api.boardProtection`). Agente: gemini. Branch: `gemini/score-details`. File: `apps/desktop/src/lib/scoring.ts`, `apps/desktop/src/components/combo/Score.tsx`, `apps/desktop/src/components/combo/PieceProtection.tsx`, `apps/desktop/src/components/combo/BoardDetail.tsx`, `docs/plans/score-details.md`.
 - [ ] **Corsia 1.** Turno di prova contro un deck, livello 2, con le linee vere dell'avversario (piano P1, L1–L6):
   - l'avversario rigioca le linee migliori che il motore trova per il suo deck, con la sua mano vera e l'ordine del suo Deck;
   - le risposte si ritrovano per identità dove la tua board cambia le domande.
