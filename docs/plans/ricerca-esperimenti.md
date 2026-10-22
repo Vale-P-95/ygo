@@ -285,3 +285,96 @@ Fatto in `ricerca-letteratura.md`, §8: verifica di ogni fonte con il segno di c
   - MAP-Elites: un archivio per descrittori al posto della top N, insieme a B14.
   - Best-first parallelo: B6 si misura in tempo alla board migliore, non in nodi al secondo, perché GBFS parallelo è patologico.
   - Simmetrie delle scelte (copie identiche offerte una volta): B2b e B3.
+
+## 5. B9: il primo ordinamento della scala di misura
+
+**Domanda della coordinatrice.** Quale ordinamento economico delle board mette il #1 di oggi tra le prime K col K più piccolo? Si possono usare la stima, il valore B6 (`quick_value`) e una misura economica, da sole, combinate in modo lineare o in sequenza. Con quel K, quanto costa la scala? Obiettivo: lo stesso #1 in 82 mani su 82, con al massimo il 55% del tempo di oggi.
+
+### Metodo
+`scripts/research/b9_order.py`, sulle stesse 82 mani e 4490 board del §1, con i tempi della stessa patch locale.
+- **Riferimento.** L'app di oggi: misura completa sulle prime 30 della stima. Una scala «tiene il #1» se la migliore misura completa tra le K board che misura vale almeno quanto il #1 dell'app (o entro una tolleranza, `--tolerance`).
+- **Ordinamenti.**
+  - Da soli: la stima, B6, e le misure economiche `w2u0`, `w6u0` e `w8u1` del §1.
+  - Combinati in modo lineare: stima + B6, stima + una misura economica, stima + B6 + una misura economica.
+- **Fit delle combinazioni.**
+  - Regressione logistica a coppie, sulle coppie della stessa mano con misure distanti più di 0,1.
+  - Ogni caratteristica è standardizzata dentro la mano, così la scala di ogni deck non conta.
+  - Divisione in 5 gruppi per deck: ogni mano è ordinata da un modello che non ha visto il suo deck.
+- **Costo** rispetto a 30 misure complete (1520 s su 82 mani, 0,59 s a board in media):
+  - ogni sonda dell'ordinamento si paga su tutte le board che si ordinano;
+  - la misura completa si paga sulle prime K;
+  - con il riuso, la misura economica è un prefisso della completa, che ne paga solo il resto.
+- **Comandi.**
+  ```
+  python3 scripts/research/b9_order.py <w>/all82 <w>/all82_t w2u0=<w>/all82_w2u0 w6u0=<w>/all82_w6u0 w8u1=<w>/all82_w8u1 [--tolerance 0.02]
+  ```
+
+### K che serve per tenere il #1 (board ordinate: le prime 30 della stima)
+
+| ordinamento | K per 82/82 | K per 80/82 | K per 78/82 | tempo con K per 82/82 | con riuso |
+|---|---:|---:|---:|---:|---:|
+| stima (oggi) | 30 | 30 | 27 | 100% | 100% |
+| B6 | 30 | 27 | 23 | 103% | 103% |
+| w2u0 | 30 | 25 | 23 | 113% | 100% |
+| w6u0 | 25 | 18 | 13 | 117% | 89% |
+| w8u1 | 20 | 11 | 10 | 112% | 82% |
+| stima + B6 | 30 | 27 | 23 | 103% | 103% |
+| stima + w2u0 | 30 | 25 | 23 | 113% | 100% |
+| **stima + w6u0** | **20** | 18 | 11 | 102% | **79%** |
+| stima + w8u1 | 20 | 13 | 10 | 113% | 83% |
+| stima + B6 + w6u0 | 25 | 13 | 11 | 120% | 93% |
+
+Partire da 40 o 60 board non aiuta: il K cresce più di quanto l'ordinamento migliora.
+
+Pesi medi (caratteristiche standardizzate dentro la mano):
+- stima + w6u0: +0,62 e +2,09;
+- stima + B6 + w6u0: +0,60, +0,43 e +1,96.
+
+Il peso di B6 è sempre piccolo accanto a una misura economica.
+
+**K mediano 1, coda lunga.** Per la combinazione stima + w6u0, in metà delle mani il #1 di oggi è già il primo dell'ordinamento. Il K per 82 su 82 lo decidono 3-4 mani:
+- **Sky Striker (K 20).** Il #1 vince solo per le carte guadagnate nel turno dopo (`follow_up.gained` 6 contro 0-1, +0,24). Si misura nella run del breaker peggiore, che nessuna sonda economica fa. Le altre board hanno lo stesso valore economico (0,48).
+- **Primite (K 19).** Il #1 vale 3,76 contro 3,70 delle board che la misura economica preferisce. È quasi una parità (1,6%).
+- **Branded (K 18).** Le risposte fermano qualcosa solo a finestre lontane: il campo vale 0,27 nella misura economica e 0,68 nella completa (§1).
+
+Con una tolleranza del 2% il K per 82/82 resta 20 (79%); con il 5% scende a 13 con w8u1 (69%).
+
+### Con il tempo fissato
+Mani su 82 dove il #1 di oggi resta, al miglior K e numero di board ordinate per il budget, con il riuso:
+
+| ordinamento | ≤ 45% | ≤ 55% | ≤ 65% |
+|---|---:|---:|---:|
+| stima | 66 (20→12) | 68 (20→14) | 70 (20→18) |
+| B6 | 68 (20→11) | 72 (30→13) | 74 (30→17) |
+| w6u0 | 71 (30→4) | 75 (30→8) | 78 (30→13) |
+| stima + B6 | 73 (40→11) | 74 (30→14) | 75 (40→16) |
+| **stima + w6u0** | 71 (30→5) | **76 (30→9)** | **79 (30→13)** |
+| stima + w8u1 | 65 (20→7) | 72 (20→10) | 79 (30→10) |
+| stima + B6 + w6u0 | 67 (20→8) | 73 (30→6) | 78 (30→11) |
+
+Con «stima + w6u0, 30 → 9» (circa 55%) il #1 cambia in 6 mani su 82 e la perdita media è lo 0,76%:
+- Branded −32,7%;
+- Paleozoic −15,9%;
+- Orcust −5,3%;
+- Sky Striker −4,0%;
+- D/D/D −2,9%;
+- Primite −1,7%.
+
+Con «30 → 13» (circa 65%) le mani che perdono sono 3, con perdita media 0,33%: Branded −21,8%, Sky Striker −4,0%, Primite −1,7%.
+
+### Conclusione
+- **L'obiettivo (82/82 al 55%) non si raggiunge** con stima, B6 e misure economiche, né da sole né combinate.
+  - La scala più economica che tiene il #1 in tutte le mani è «stima + w6u0 sulle prime 30 della stima, poi misura completa sulle prime 20», al 79% del tempo con il riuso.
+  - Al 55% si tiene il #1 in 76 mani su 82.
+- **Il limite non è la combinazione lineare.** Sono due cose che le sonde economiche non vedono:
+  1. il turno dopo il breaker (`follow_up`);
+  2. le risposte che fermano solo a finestre lontane.
+
+  Una terza causa, minore, sono le quasi-parità.
+- **Proposte.**
+  1. **Per 82 mani su 82 resta migliore la scala del §1:** gradino a 8 finestre più un giro degli usi, prefisso della completa, «30 → 15», circa il 71%. La migliore di B9, «stima + w6u0, 30 → 20», costa il 79%.
+     - B9 serve solo se si accetta di perdere poco. Con «stima + w6u0 (pesi 0,62 e 2,09 sui valori standardizzati nella mano), 30 → 13» il tempo è circa il 65%: il #1 resta in 79 mani su 82, con una perdita media dello 0,33%.
+     - La scelta tra le due strade è del proprietario: tempo contro #1 garantito.
+  2. **Il dato che manca alla sonda economica è il turno dopo.** Se la misura economica registrasse anche le carte guadagnate nella Fase Finale e nel turno dopo della run in cui l'avversario passa (senza breaker), Sky Striker non sarebbe più un caso. Va chiesto a chi scrive la misura: è un contatore, non una run in più.
+  3. **Le quasi-parità** (Primite, 1,6%) andrebbero trattate come parità nel confronto tra scale: con il 2% di tolleranza il K non cambia, ma il criterio diventa più onesto.
+- **Da rifare senza la patch** quando `probe.rs` esporrà le finestre per risposta (corsia 8).
