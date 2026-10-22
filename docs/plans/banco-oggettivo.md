@@ -55,4 +55,39 @@ La forza di una board si misura con quanto ferma il turno vero degli avversari d
 
 ## Risultati
 - I risultati parziali sono in `tests/fixtures/boards/objective-bench.json`: solo nomi, codici e numeri. Lo stato del giro è in `objective-bench.status`. Si aggiornano ogni 45 minuti durante il giro.
-- *(Numeri finali: da completare a fine giro.)*
+- Il giro è finito il 22/10 alle 16:51 UTC.
+  - 817 invocazioni su 817, nessuna oltre il limite. Tempo totale 11,1 ore di invocazioni (3 alla volta), mediana 41 s. Il container è stato reclamato due volte quando la sessione era ferma; il giro è ripartito da dove era.
+  - 3895 righe board-avversario. Mosse dell'avversario fatte su campo vuoto: 94,7% in media.
+  - Una sola coppia dubbia (sotto l'80%): Railway contro Artmage, 79%.
+
+### Righe senza misura (159)
+- **Elfnote Kewl Tune, mano 0** (5 board × 19 avversari):
+  - il livello 2 e il livello 1 falliscono con "the engine rejected the response: SelectChain { chains: [] } answered [1, 0, 0, 0]";
+  - la stessa linea, senza `--vs`, si rigioca e si misura;
+  - è lo stesso errore della linea J21 delle coppie del proprietario (O1b): nel turno di prova contro un deck la linea risponde "attiva" a una catena che lì è vuota.
+- **Tearlaments, mano 0** (55 righe, soprattutto le board #0 e #1):
+  - "0 lines · -0% of their moves made on an empty board · … · 100% of the rest left";
+  - l'avversario non rigioca nessuna delle sue linee contro queste board, anche se le ha lette (12 da 12 mani);
+  - il "-0%" e il "100% left" con 0 linee non sono una misura: la riga resta fuori.
+- **Earth Machine, mano 1, board #0:** 9 righe falliscono, con "IdleCmd … answered [0, 0, 0, 0]" o "[5, 0, 0, 0]", e 7 hanno il livello 2 ma un'altra parte fallita. Anche Railway ha 33 righe con una parte fallita, ma il livello 2 c'è.
+
+### La verità per board
+- 200 board con la verità (le 5 di Elfnote Kewl Tune mano 0 non ce l'hanno). Mediana 0,63, da 0,00 a 0,83.
+- Le board più forti per deck: Elfnote 0,83, White Forest Azamina 0,80, Snake-Eye 0,79, Megalith 0,79, Code Talker 0,78.
+- Le più deboli: Ancient Gear 0,00, Kaiju 0,02, Invoked 0,30, Paleozoic 0,33.
+- Avversari più facili da fermare (media di 1 − `left` sulle board): Resonators 0,69, Elfnote 0,63, DoomZ 0,61. I più difficili: Power Patron 0,35, Maliss 0,42, Artmage 0,45.
+
+### Come le misure generiche seguono la verità
+Correlazione di rango (Spearman) con la verità, per gruppo. `score` è il punteggio composto di oggi (campo, mano, floodgate, resilienza con pesi 1,0 · 0,9 · 0,8 · 0,6). `l1` è la resilienza contro i breaker veri del deck avversario (livello 1).
+
+| Gruppo | Board | ρ score | ρ campo | ρ resilienza | ρ countered | ρ floodgate | ρ l1 | Coppie dello stesso deck nell'ordine giusto (score) |
+|---|---|---|---|---|---|---|---|---|
+| taratura | 140 | 0,84 | 0,74 | 0,73 | 0,34 | 0,04 | 0,73 | 103 su 137 (75%) |
+| verifica | 60 | 0,64 | 0,50 | 0,62 | 0,24 | −0,28 | 0,60 | 44 su 50 (88%) |
+
+- Su tutte le 200 board: ρ score 0,80, ρ l1 0,71, ρ mano 0,35, ρ della probabilità che una handtrap fermi la linea 0,32.
+- Il punteggio composto segue la verità meglio di ogni misura da sola. Tra le misure singole, contano soprattutto campo e resilienza.
+- Il floodgate, così come è misurato, non aiuta: ρ quasi zero, negativo sul gruppo di verifica.
+- Nelle coppie di board dello stesso deck (differenza di verità ≥ 0,02), il punteggio mette prima quella giusta 3 volte su 4 sulla taratura e quasi 9 su 10 sulla verifica.
+- Il livello 1 (resilienza contro i breaker del meta) non aggiunge ordine rispetto al punteggio: ρ 0,73 contro 0,84 sulla taratura.
+- I dati per tarare i pesi sono in `tests/fixtures/boards/objective-bench.json`.

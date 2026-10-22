@@ -33,8 +33,9 @@ Corsie di lavoro in parallelo del 22/10/2026 (piano in `docs/plans/piano-prossim
   - [ ] il collaudo dei deck lenti (corsia 2).
   - [ ] il banco oggettivo della forza delle board (per D17 e #43): board di tutti i deck MDM contro i 15-20 avversari più diffusi, livello 1 e 2, misure generiche, divisione taratura/verifica:
     - [x] script e selezione delle board (205 board di 41 deck, 20 avversari da popRank);
-    - [ ] il giro completo (dopo la #53);
-    - [ ] il documento con metodo, pesi del meta, tempi, coppie dubbie e primi numeri.
+    - [x] il giro completo (dopo la #53): 817 invocazioni, nessun timeout, 200 board con la verità;
+    - [x] il documento con metodo, pesi del meta, tempi, coppie dubbie e primi numeri;
+    - [ ] le 90 board delle coppie del proprietario nel banco (77 trovate, in corso) e la tabella per coppia.
 
   Agente: claude-code, sessione sorella del collaudo. Branch: `claude/tools-qa`. File: script nuovi in `scripts/` (`objective_bench.py`), `docs/plans/collaudo-strumenti.md`, `docs/plans/banco-oggettivo.md`, `tests/fixtures/boards/`.
 - [ ] **Corsia 4, secondo task.** Ordine della ricerca e stima rapida (#47, D14 = B11 di `docs/plans/classificazione-board.md`): il #1 stampato è il migliore misurato; inversioni tra stima e misura nella top 8 (C5.7) ≤ 60; campi distinti nella top 8 (C5.8). Si accetta solo se `best` del banco non scende più del 5%.
