@@ -17,8 +17,8 @@ pub use card::{resume_card, sample_hands, search_card, CardSearch, HandResult};
 pub use coverage::{Counts, Coverage, Kind as MechanicKind, Mechanic};
 pub use explain::{explain, exposure, ExplainedStep, Exposure, Happening, HappeningKind};
 pub use links::{
-    compare_links, deck_links, deck_links_again, CardChange, CardLink, DeckLinks, LinkCard, LinkKind, LinksBudget, LinksDiff, LinksWork,
-    Zone as LinkZone,
+    compare_links, deck_links, deck_links_again, hands_reach, random_hands, CardChange, CardLink, DeckLinks, HandReach, LinkCard, LinkKind,
+    LinksBudget, LinksDiff, LinksWork, Zone as LinkZone,
 };
 pub use matchup::{
     against_moves, draw_trade_off, matchup, plays_of, rival_line, rival_lines, rival_plays, DrawTradeOff, HandTrapMoment, Matchup,

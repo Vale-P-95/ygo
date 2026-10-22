@@ -12,9 +12,9 @@ use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
 use ygo_engine::consts::{card_type, location, reason};
-use ygo_engine::{CardRef, Decision, DeckList, Duel, Engine, Event, Opponent, Step};
+use ygo_engine::{CardDb, CardRef, Decision, DeckList, Duel, Engine, Event, Opponent, Step};
 
-use crate::card::sample_hands;
+use crate::card::{sample_hands, Rng};
 use crate::matchup::none_drawn;
 use crate::probe::{hand_traps, Kit};
 use crate::search::{search, Line, SearchConfig};
@@ -116,16 +116,18 @@ pub struct LinkCard {
     /// the Extra Deck: getting back a card already used brings no new one).
     pub reach: u32,
     pub reach_all: u32,
-    /// Chance that an opening hand of 5 holds it or a card that brings it
-    /// into play in any number of steps. For an Extra Deck monster no card
-    /// names (summoned with any materials), the share of the hands searched
-    /// whose best line summons it.
+    /// Chance that an opening hand of 5 brings it into play: holds it, or
+    /// its best line adds it to the hand or puts it on the field. Holding
+    /// it is exact; the rest is measured on the hands searched, each
+    /// weighted back to its chance in a real duel (an Extra Deck monster
+    /// is all measured). In the draft, before any hand is searched: a hand
+    /// holding it or a card that brings it in one step.
     pub chance: f64,
-    /// `chance` is that share, measured and not exact.
+    /// `chance` is measured on the hands searched, not the draft's.
     pub measured: bool,
-    /// Cards an opening hand reaches on average (the sum of the chances)
-    /// that are lost when this card's effects are negated: how much the
-    /// deck leans on it.
+    /// Cards an opening hand reaches on average that are lost when this
+    /// card's effects are negated (its links followed in any number of
+    /// steps, the earlier chance): how much the deck leans on it.
     pub key: f64,
 }
 
@@ -217,7 +219,7 @@ pub struct LinksBudget {
 impl Default for LinksBudget {
     fn default() -> Self {
         LinksBudget {
-            hands_per_card: 2,
+            hands_per_card: 3,
             nodes_per_hand: 1000,
             lines_per_hand: 20,
             threads: 4,
@@ -226,6 +228,10 @@ impl Default for LinksBudget {
         }
     }
 }
+
+/// Hands of each card drawn with one seed for all the cards (see
+/// [`deck_links_again`]).
+const SHARED_HANDS: usize = 2;
 
 /// A link seen in a line: from, to, kind, where `to` came from.
 type Key = (u32, u32, LinkKind, Zone);
@@ -239,13 +245,14 @@ struct Found {
     lines: HashSet<usize>,
 }
 
-/// The links of one line: those offered and those used; the Extra Deck
-/// monsters it summons.
+/// The links of one line: those offered and those used; the cards of
+/// yours it brings into play (held in the hand, added to it, or on the
+/// field at some point).
 #[derive(Default, Clone)]
 struct Seen {
     possible: HashSet<Key>,
     used: HashSet<Key>,
-    summoned: HashSet<u32>,
+    touched: HashSet<u32>,
 }
 
 /// The hands searched for a map and the lines played from each: kept to
@@ -254,6 +261,36 @@ struct Seen {
 #[derive(Debug, Clone, Default)]
 pub struct LinksWork {
     hands: Vec<(Vec<u32>, Vec<Seen>)>,
+}
+
+impl LinksWork {
+    /// Each hand searched with the cards each of its lines brings into
+    /// play, the best line first.
+    pub fn reached(&self) -> Vec<HandReach> {
+        self.hands.iter().map(|(hand, lines)| HandReach::new(hand, lines)).collect()
+    }
+}
+
+/// A hand and the cards each of its lines (the best first) brings into
+/// play: in the hand, added to it, on the field.
+#[derive(Debug, Clone)]
+pub struct HandReach {
+    pub hand: Vec<u32>,
+    pub lines: Vec<Vec<u32>>,
+}
+
+impl HandReach {
+    fn new(hand: &[u32], lines: &[Seen]) -> Self {
+        let lines = lines
+            .iter()
+            .map(|l| {
+                let mut codes: Vec<u32> = l.touched.iter().copied().collect();
+                codes.sort_unstable();
+                codes
+            })
+            .collect();
+        HandReach { hand: hand.to_vec(), lines }
+    }
 }
 
 impl std::fmt::Debug for Seen {
@@ -314,7 +351,21 @@ pub fn deck_links_again(
     let mut per_card: Vec<Vec<Vec<u32>>> = Vec::new();
     for card in cards.iter().filter(|c| !c.extra) {
         let Some(&copy) = deck.main.iter().find(|&&c| db.canonical_code(c) == card.code) else { continue };
-        per_card.push(sample_hands(&deck.main, copy, budget.hands_per_card, seed).into_iter().map(|(hand, _)| hand).collect());
+        // The first hands with one seed for all the cards: the other four
+        // cards are drawn at the same places of the deck, so most of these
+        // hands are the same hand but one card. They are kept, as the links
+        // read from them; the next hands, drawn with a seed of each card's
+        // own, make the chance measured on all of them close to that of
+        // hands drawn at random.
+        let shared = budget.hands_per_card.min(SHARED_HANDS);
+        let mut sampled: Vec<Vec<u32>> = sample_hands(&deck.main, copy, shared, seed).into_iter().map(|(hand, _)| hand).collect();
+        let own = seed.wrapping_add(u64::from(card.code).wrapping_mul(7919));
+        for (hand, _) in sample_hands(&deck.main, copy, budget.hands_per_card + shared, own) {
+            if sampled.len() < budget.hands_per_card && !sampled.contains(&hand) {
+                sampled.push(hand);
+            }
+        }
+        per_card.push(sampled);
     }
     // The hands kept from before: their cards still in the deck, their
     // lines using none taken out.
@@ -352,15 +403,14 @@ pub fn deck_links_again(
             }
         }
     }
-    let first: Vec<Vec<Seen>> = kept.iter().map(|(_, lines)| lines.clone()).collect();
-    progress(0, hands.len(), &assemble(deck, &cards, &first, &text));
+    progress(0, hands.len(), &assemble(db, deck, &cards, &kept, &text));
     let deadline = Instant::now() + budget.time;
 
     let next = AtomicUsize::new(0);
     // The lines played of each hand, the best first: those kept, then each
     // hand searched.
+    let kept_count = kept.len();
     let seen: Mutex<Vec<(Vec<u32>, Vec<Seen>)>> = Mutex::new(kept);
-    let kept_count = first.len();
     std::thread::scope(|s| {
         for _ in 0..budget.threads.clamp(1, hands.len().max(1)) {
             s.spawn(|| loop {
@@ -370,37 +420,114 @@ pub fn deck_links_again(
                 if cancel.load(Ordering::Relaxed) || left.is_zero() {
                     break;
                 }
-                let mut config = SearchConfig::new(deck.clone(), hand.clone());
-                config.seed = seed;
-                config.threads = 1;
-                config.max_nodes = budget.nodes_per_hand;
-                config.time_limit = budget.time_per_hand.min(left);
-                config.opponent = Some(kit.opponent().clone());
-                config.hand_traps = traps.clone();
-                let result = search(engine, &config, cancel, |_| {});
-                let lines: Vec<Seen> = result
-                    .boards
-                    .iter()
-                    .take(budget.lines_per_hand)
-                    .filter_map(|b| play(engine, deck, hand, seed, config.opponent.as_ref(), &b.line, &named))
-                    .collect();
+                let lines = search_hand(engine, deck, hand, seed, &budget, left, &kit, &traps, &named, cancel);
                 if let Ok(mut all) = seen.lock() {
                     all.push((hand.clone(), lines));
-                    let lines: Vec<Vec<Seen>> = all.iter().map(|(_, l)| l.clone()).collect();
-                    progress(all.len() - kept_count, hands.len(), &assemble(deck, &cards, &lines, &text));
+                    progress(all.len() - kept_count, hands.len(), &assemble(db, deck, &cards, &all, &text));
                 }
             });
         }
     });
     let work = LinksWork { hands: seen.into_inner().unwrap_or_default() };
-    let by_hand: Vec<Vec<Seen>> = work.hands.iter().map(|(_, l)| l.clone()).collect();
-    (assemble(deck, &cards, &by_hand, &text), work)
+    (assemble(db, deck, &cards, &work.hands, &text), work)
 }
 
-/// The map from the lines played of each hand and the links the text names.
-fn assemble(deck: &DeckList, cards: &[LinkCard], by_hand: &[Vec<Seen>], text: &HashSet<Key>) -> DeckLinks {
+/// Searches `hand` for at most `left` and plays its best lines again.
+#[allow(clippy::too_many_arguments)]
+fn search_hand(
+    engine: &Engine,
+    deck: &DeckList,
+    hand: &[u32],
+    seed: u64,
+    budget: &LinksBudget,
+    left: Duration,
+    kit: &Kit,
+    traps: &[u32],
+    named: &Names,
+    cancel: &AtomicBool,
+) -> Vec<Seen> {
+    let mut config = SearchConfig::new(deck.clone(), hand.to_vec());
+    config.seed = seed;
+    config.threads = 1;
+    config.max_nodes = budget.nodes_per_hand;
+    config.time_limit = budget.time_per_hand.min(left);
+    config.opponent = Some(kit.opponent().clone());
+    config.hand_traps = traps.to_vec();
+    let result = search(engine, &config, cancel, |_| {});
+    result
+        .boards
+        .iter()
+        .take(budget.lines_per_hand)
+        .filter_map(|b| play(engine, deck, hand, seed, config.opponent.as_ref(), &b.line, named))
+        .collect()
+}
+
+/// `count` opening hands of 5 drawn at random from `main`: each hand as
+/// likely as in a real duel.
+pub fn random_hands(main: &[u32], count: usize, seed: u64) -> Vec<Vec<u32>> {
+    let mut rng = Rng(seed ^ 0x0ba5_e11e);
+    (0..count)
+        .map(|_| {
+            let mut pool = main.to_vec();
+            let mut hand: Vec<u32> = (0..5.min(pool.len())).map(|_| pool.swap_remove(rng.below(pool.len()))).collect();
+            hand.sort_unstable();
+            hand
+        })
+        .collect()
+}
+
+/// Searches each hand as the map does (same budget per hand, no limit on
+/// the whole) and reads what its lines bring into play: the measure the
+/// chances of the map are checked against, from hands drawn at random.
+pub fn hands_reach(
+    engine: &Engine,
+    deck: &DeckList,
+    hands: &[Vec<u32>],
+    seed: u64,
+    budget: LinksBudget,
+    cancel: &AtomicBool,
+    progress: impl Fn(usize, usize) + Sync,
+) -> Vec<HandReach> {
+    let db = engine.cards();
+    let mut cards: Vec<LinkCard> = Vec::new();
+    for (codes, extra) in [(&deck.main, false), (&deck.extra, true)] {
+        for &c in codes {
+            let code = db.canonical_code(c);
+            if !cards.iter().any(|k| k.code == code) {
+                cards.push(LinkCard { code, copies: 1, extra, reach: 0, reach_all: 0, chance: 0.0, measured: false, key: 0.0 });
+            }
+        }
+    }
+    let named = Names::new(engine, &cards);
+    let kit = Kit::standard(engine);
+    let traps = hand_traps(engine, deck, seed, &kit);
+    let next = AtomicUsize::new(0);
+    let out: Mutex<Vec<Option<HandReach>>> = Mutex::new(vec![None; hands.len()]);
+    let done = AtomicUsize::new(0);
+    std::thread::scope(|s| {
+        for _ in 0..budget.threads.clamp(1, hands.len().max(1)) {
+            s.spawn(|| loop {
+                let i = next.fetch_add(1, Ordering::Relaxed);
+                let Some(hand) = hands.get(i) else { break };
+                if cancel.load(Ordering::Relaxed) {
+                    break;
+                }
+                let lines = search_hand(engine, deck, hand, seed, &budget, budget.time_per_hand, &kit, &traps, &named, cancel);
+                if let Ok(mut all) = out.lock() {
+                    all[i] = Some(HandReach::new(hand, &lines));
+                }
+                progress(done.fetch_add(1, Ordering::Relaxed) + 1, hands.len());
+            });
+        }
+    });
+    out.into_inner().unwrap_or_default().into_iter().flatten().collect()
+}
+
+/// The map from the hands searched, the lines played of each, and the
+/// links the text names.
+fn assemble(db: &CardDb, deck: &DeckList, cards: &[LinkCard], by_hand: &[(Vec<u32>, Vec<Seen>)], text: &HashSet<Key>) -> DeckLinks {
     let mut cards = cards.to_vec();
-    let seen: Vec<&Seen> = by_hand.iter().flatten().collect();
+    let seen: Vec<&Seen> = by_hand.iter().flat_map(|(_, lines)| lines).collect();
 
     // Links between cards of the deck, one per card and kind, from the
     // first zone seen; used ones counted once per line.
@@ -475,6 +602,11 @@ fn assemble(deck: &DeckList, cards: &[LinkCard], by_hand: &[Vec<Seen>], text: &H
     let reached = |closures: &HashMap<u32, HashSet<u32>>| -> f64 { codes.iter().map(|&c| chance(c, closures)).sum() };
     let total = reached(&closures);
     let keys: HashMap<u32, f64> = codes.iter().map(|&c| (c, (total - reached(&closures_without(Some(c)))).max(0.0))).collect();
+    // The draft's chance, before any hand is searched: a hand holding the
+    // card or one card that brings it in one step. Following the links in
+    // more steps reaches almost the whole deck, which one turn cannot play.
+    let one_step: HashMap<u32, HashSet<u32>> = codes.iter().map(|&c| (c, brings(c))).collect();
+    let measure = Measure::new(db, &copies, by_hand);
     for card in &mut cards {
         let direct = next_of(card.code);
         let mut all = closures[&card.code].clone();
@@ -485,17 +617,60 @@ fn assemble(deck: &DeckList, cards: &[LinkCard], by_hand: &[Vec<Seen>], text: &H
         all.remove(&card.code);
         card.reach = direct.len() as u32;
         card.reach_all = all.len() as u32;
-        card.chance = chance(card.code, &closures);
+        let held = if card.extra { 0.0 } else { 1.0 - none_drawn(main_size, card.copies, 5) };
+        let draft = chance(card.code, &one_step);
+        match measure.share(card.code) {
+            Some(share) => {
+                card.chance = held + (1.0 - held) * share;
+                card.measured = true;
+            }
+            None => card.chance = draft,
+        }
         card.key = keys[&card.code];
     }
-    // An Extra Deck monster no card leads to: how often the best line of a
-    // hand summons it.
-    let best: Vec<&Seen> = by_hand.iter().filter_map(|lines| lines.first()).collect();
-    for card in cards.iter_mut().filter(|c| c.extra && c.chance == 0.0 && !best.is_empty()) {
-        card.chance = best.iter().filter(|s| s.summoned.contains(&card.code)).count() as f64 / best.len() as f64;
-        card.measured = true;
-    }
     DeckLinks { cards, links, hands: by_hand.len() as u32, lines: seen.len() as u32 }
+}
+
+/// What the best lines of the hands searched bring into play, each hand
+/// weighted back to its chance in a real duel. The map draws hands holding
+/// a given card (that card and 4 at random): such a hand comes up as often
+/// as it holds copies of the card, over the card's copies in the deck. So
+/// over all the cards, a hand counts 1 / (sum over its cards of
+/// 1 / copies), and the weighted shares are those of hands drawn at random.
+struct Measure {
+    /// Weight, cards held, cards the best line brings into play.
+    hands: Vec<(f64, HashSet<u32>, HashSet<u32>)>,
+}
+
+impl Measure {
+    fn new(db: &CardDb, copies: &HashMap<u32, u32>, by_hand: &[(Vec<u32>, Vec<Seen>)]) -> Self {
+        let hands = by_hand
+            .iter()
+            .map(|(hand, lines)| {
+                let held: Vec<u32> = hand.iter().map(|&c| db.canonical_code(c)).collect();
+                let weight = 1.0 / held.iter().map(|c| 1.0 / f64::from(copies.get(c).copied().unwrap_or(1).max(1))).sum::<f64>();
+                let mut brought: HashSet<u32> = lines.first().map(|l| l.touched.clone()).unwrap_or_default();
+                brought.extend(&held);
+                (weight, held.into_iter().collect(), brought)
+            })
+            .collect();
+        Measure { hands }
+    }
+
+    /// The share of the hands without `code` whose best line brings it into
+    /// play (holding it is counted exactly apart). `None` with no such hand.
+    /// Pulling it toward the draft's share while few hands are searched
+    /// helps the Main Deck a little and hurts the Extra Deck, where the
+    /// draft is poor (checked against hands drawn at random,
+    /// `scripts/links_chance.py`): left out.
+    fn share(&self, code: u32) -> Option<f64> {
+        let (total, got) = self
+            .hands
+            .iter()
+            .filter(|(_, held, _)| !held.contains(&code))
+            .fold((0.0, 0.0), |(t, g), (w, _, brought)| (t + w, g + if brought.contains(&code) { *w } else { 0.0 }));
+        (total > 0.0).then(|| got / total)
+    }
 }
 
 /// The materials each Extra Deck monster of the deck names in its text: a
@@ -740,6 +915,9 @@ impl Reader {
                 Event::Move { code, from, to, reason: why } if to.controller == 0 => {
                     let code = db.canonical_code(*code);
                     self.moved_from.insert(code, from.location);
+                    if to.location & (location::HAND | location::MZONE | location::SZONE) != 0 {
+                        self.out.touched.insert(code);
+                    }
                     let kind = match (from.location, to.location) {
                         (location::DECK, location::HAND) => Some(LinkKind::Search),
                         (location::DECK, location::GRAVE) => Some(LinkKind::ToGrave),
@@ -760,8 +938,8 @@ impl Reader {
                 Event::SpecialSummoning { card } if card.controller == 0 => {
                     let code = db.canonical_code(card.code);
                     let from = self.moved_from.get(&code).and_then(|&l| Zone::of(l));
+                    self.out.touched.insert(code);
                     if from == Some(Zone::Extra) {
-                        self.out.summoned.insert(code);
                         for &m in self.offered_materials.iter().filter(|&&m| named.named(m, code)) {
                             self.out.possible.insert((m, code, LinkKind::Material, Zone::Extra));
                         }
@@ -826,6 +1004,7 @@ fn play(
 ) -> Option<Seen> {
     let mut duel = Duel::goldfish_against(engine, deck, hand, seed, opponent).ok()?;
     let mut reader = Reader::default();
+    reader.out.touched.extend(hand.iter().map(|&c| engine.cards().canonical_code(c)));
     for answer in &line.answers {
         let Ok(Step::Decision { decision, events }) = duel.advance() else { return None };
         reader.see(engine, &events, named);
@@ -857,6 +1036,43 @@ fn play(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn hands_drawn_for_each_card_weigh_back_to_random_hands() {
+        // 3 copies of 1, 2 of 2, one of 3, and 34 other cards.
+        let mut main = vec![1, 1, 1, 2, 2, 3];
+        main.extend(10..44);
+        let copies: HashMap<u32, u32> = main.iter().fold(HashMap::new(), |mut m, &c| {
+            *m.entry(c).or_default() += 1;
+            m
+        });
+        // Hands drawn as the map draws them, many for each card; a line
+        // brings card 3 in whenever the hand holds card 1.
+        let mut by_hand = Vec::new();
+        let mut kinds: Vec<u32> = copies.keys().copied().collect();
+        kinds.sort_unstable();
+        for &card in &kinds {
+            for (hand, _) in sample_hands(&main, card, 300, u64::from(card)) {
+                let mut line = Seen::default();
+                line.touched.extend(&hand);
+                if hand.contains(&1) {
+                    line.touched.insert(3);
+                }
+                by_hand.push((hand, vec![line]));
+            }
+        }
+        // Not a real card database: the codes are their own canonical codes.
+        let db = CardDb::default();
+        let measure = Measure::new(&db, &copies, &by_hand);
+        // Among random hands without card 3, those holding card 1.
+        let truth = 1.0 - none_drawn(39, 3, 5);
+        let share = measure.share(3).expect("hands without card 3");
+        assert!((share - truth).abs() < 0.03, "{share} against {truth}");
+        // Unweighted, the hands drawn for the 37 cards overweigh the rare ones.
+        let plain = by_hand.iter().filter(|(h, _)| !h.contains(&3)).collect::<Vec<_>>();
+        let plain = plain.iter().filter(|(h, _)| h.contains(&1)).count() as f64 / plain.len() as f64;
+        assert!((plain - truth).abs() > (share - truth).abs(), "{plain} {share} {truth}");
+    }
 
     #[test]
     fn a_clause_reads_the_zones_right_after_from_your() {
