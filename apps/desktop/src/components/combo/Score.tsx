@@ -35,6 +35,22 @@ export function formatMaxxImpact(impact: number, chance: number): string {
   return `+${fmt2(impact)} ${isOne ? "interruzione" : "interruzioni"} all'avversario (${Math.round(chance * 100)}%)`;
 }
 
+/** Legacy exposure format: score has exposureDetail object but without 'losses' property. */
+export function isLegacyExposure(s: ComboScore): boolean {
+  return s.exposureDetail != null && s.exposureDetail.losses === undefined;
+}
+
+export function formatExposureText(s: ComboScore): string {
+  if (isLegacyExposure(s)) {
+    return s.exposure > 0
+      ? `${plural(Math.round(s.exposure), "punto", "punti")} in cui una handtrap la ferma`
+      : "nessun punto critico per le handtrap comuni";
+  }
+  return s.exposure > 0.005
+    ? `perdita attesa per le handtrap: ${formatExposureValue(s.exposure)}`
+    : "nessuna perdita attesa per le handtrap comuni";
+}
+
 const cap = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
 
 /** Where an effect is used from, as the probe turn names the place. */
@@ -285,14 +301,7 @@ function measured(key: MetricKey, s: ComboScore): string {
     case "cost":
       return s.cost > 0 ? `usa ${plural(s.cost, "carta", "carte")} della mano oltre la prima` : "nessuna carta oltre la prima";
     case "exposure":
-      if (!s.exposureDetail?.losses) {
-        return s.exposure > 0
-          ? `${plural(Math.round(s.exposure), "punto", "punti")} in cui una handtrap la ferma`
-          : "nessun punto critico per le handtrap comuni";
-      }
-      return s.exposure > 0.005
-        ? `perdita attesa per le handtrap: ${formatExposureValue(s.exposure)}`
-        : "nessuna perdita attesa per le handtrap comuni";
+      return formatExposureText(s);
   }
 }
 
@@ -353,7 +362,7 @@ function summary(s: ComboScore): string[] {
     out.push(`Contro i board breaker più giocati regge ${held} volte su ${tried.length}.`);
   }
   if (s.exposureDetail || s.exposureNote) {
-    if (!s.exposureDetail?.losses) {
+    if (isLegacyExposure(s)) {
       out.push(
         s.exposure > 0
           ? `Mentre la giochi, ha ${plural(Math.round(s.exposure), "punto critico", "punti critici")} in cui una handtrap può fermarla.`
@@ -616,7 +625,7 @@ function Exposure({ s }: { s: ComboScore }) {
   const x = s.exposureDetail;
   if (!x) return <p className="text-small text-muted">{s.exposureNote}</p>;
 
-  const hasLosses = x.losses != null && x.losses.length > 0;
+  const legacy = isLegacyExposure(s);
   const lossAsh = x.losses?.find((l) => l.kind === "ash");
   const lossField = x.losses?.find((l) => l.kind === "fieldEffect");
   const lossNibiru = x.losses?.find((l) => l.kind === "nibiru");
@@ -628,88 +637,90 @@ function Exposure({ s }: { s: ComboScore }) {
     <div className="flex flex-col gap-2">
       <div className="flex items-baseline justify-between text-small pb-1 border-b border-border/50">
         <span className="text-muted">
-          {hasLosses ? "Perdita attesa per le handtrap:" : "Punti critici per le handtrap:"}
+          {legacy ? "Punti critici per le handtrap:" : "Perdita attesa per le handtrap:"}
         </span>
         <span className="font-semibold tabular-nums text-text">
-          {hasLosses
-            ? formatExposureValue(s.exposure)
-            : `${plural(Math.round(s.exposure), "punto", "punti")} in cui una handtrap la ferma`}
+          {legacy
+            ? `${plural(Math.round(s.exposure), "punto", "punti")} in cui una handtrap la ferma`
+            : formatExposureValue(s.exposure)}
         </span>
       </div>
       <ul className="flex flex-col gap-1">
         <Risk
           name={HANDTRAP_NAMES.ash}
-          counts={hasLosses ? (lossAsh?.loss ?? 0) > 0.005 : x.ash > 0}
+          counts={legacy ? x.ash > 0 : (lossAsh?.loss ?? 0) > 0.005}
           text={
-            hasLosses
-              ? lossAsh && lossAsh.loss > 0.005
+            legacy
+              ? x.ash > 0
+                ? `${plural(x.ash, "effetto", "effetti")} che prendono carte dal Deck`
+                : "nessun effetto da negare"
+              : lossAsh && lossAsh.loss > 0.005
                 ? formatHandtrapLoss(lossAsh.loss, lossAsh.chance)
                 : x.ash > 0
                   ? "non toglie interruzioni alla linea"
                   : "nessun effetto da negare"
-              : x.ash > 0
-                ? `${plural(x.ash, "effetto", "effetti")} che prendono carte dal Deck`
-                : "nessun effetto da negare"
           }
         />
         <Risk
           name={HANDTRAP_NAMES.fieldEffect}
-          counts={hasLosses ? (lossField?.loss ?? 0) > 0.005 : x.onField > 0}
+          counts={legacy ? x.onField > 0 : (lossField?.loss ?? 0) > 0.005}
           text={
-            hasLosses
-              ? lossField && lossField.loss > 0.005
+            legacy
+              ? x.onField > 0
+                ? `${plural(x.onField, "effetto", "effetti")} di mostri attivati sul campo`
+                : "nessun effetto di mostro sul campo"
+              : lossField && lossField.loss > 0.005
                 ? formatHandtrapLoss(lossField.loss, lossField.chance)
                 : x.onField > 0
                   ? "non toglie interruzioni alla linea"
                   : "nessun effetto di mostro sul campo"
-              : x.onField > 0
-                ? `${plural(x.onField, "effetto", "effetti")} di mostri attivati sul campo`
-                : "nessun effetto di mostro sul campo"
           }
         />
         <Risk
           name={HANDTRAP_NAMES.nibiru}
-          counts={hasLosses ? (lossNibiru?.loss ?? 0) > 0.005 : x.summons >= 5}
+          counts={legacy ? x.summons >= 5 : (lossNibiru?.loss ?? 0) > 0.005}
           text={
-            hasLosses
-              ? lossNibiru && lossNibiru.loss > 0.005
+            legacy
+              ? x.summons >= 5
+                ? `arriva: ${x.summons} Evocazioni (basta la quinta)`
+                : `non arriva: ${x.summons} Evocazioni su 5`
+              : lossNibiru && lossNibiru.loss > 0.005
                 ? formatHandtrapLoss(lossNibiru.loss, lossNibiru.chance)
                 : x.summons < 5
                   ? `non arriva: ${x.summons} Evocazioni su 5`
                   : "arriva ma non toglie interruzioni"
-              : x.summons >= 5
-                ? `arriva: ${x.summons} Evocazioni (basta la quinta)`
-                : `non arriva: ${x.summons} Evocazioni su 5`
           }
         />
         <Risk
           name={HANDTRAP_NAMES.droll}
-          counts={hasLosses ? (lossDroll?.loss ?? 0) > 0.005 : x.searches >= 2}
+          counts={legacy ? x.searches >= 2 : (lossDroll?.loss ?? 0) > 0.005}
           text={
-            hasLosses
-              ? lossDroll && lossDroll.loss > 0.005
+            legacy
+              ? x.searches >= 2
+                ? `ferma ${plural(x.searches - 1, "aggiunta", "aggiunte")} dal Deck dopo la prima`
+                : x.searches === 1
+                  ? "una sola carta aggiunta dal Deck: non ferma nulla"
+                  : "nessuna carta aggiunta dal Deck"
+              : lossDroll && lossDroll.loss > 0.005
                 ? formatHandtrapLoss(lossDroll.loss, lossDroll.chance)
                 : x.searches < 2
                   ? x.searches === 1
                     ? "una sola carta aggiunta dal Deck: non ferma nulla"
                     : "nessuna carta aggiunta dal Deck"
                   : "arriva ma non toglie interruzioni"
-              : x.searches >= 2
-                ? `ferma ${plural(x.searches - 1, "aggiunta", "aggiunte")} dal Deck dopo la prima`
-                : x.searches === 1
-                  ? "una sola carta aggiunta dal Deck: non ferma nulla"
-                  : "nessuna carta aggiunta dal Deck"
           }
         />
         <Risk
           name={'Maxx "C", Mulcharmy'}
           counts={false}
           text={
-            x.maxx != null && x.maxxChance != null
-              ? x.maxx > 0.005
-                ? `${formatMaxxImpact(x.maxx, x.maxxChance)} · ${plural(x.specialSummons, "Evocazione Speciale", "Evocazioni Speciali")}`
-                : `${plural(x.specialSummons, "Evocazione Speciale", "Evocazioni Speciali")}: nessuna pescata concessa oltre la prima`
-              : `${plural(x.specialSummons, "Evocazione Speciale", "Evocazioni Speciali")}: l'avversario pesca, ma non ti ferma (non toglie punti)`
+            legacy
+              ? `${plural(x.specialSummons, "Evocazione Speciale", "Evocazioni Speciali")}: l'avversario pesca, ma non ti ferma (non toglie punti)`
+              : x.maxx != null && x.maxxChance != null
+                ? x.maxx > 0.005
+                  ? `${formatMaxxImpact(x.maxx, x.maxxChance)} · ${plural(x.specialSummons, "Evocazione Speciale", "Evocazioni Speciali")}`
+                  : `${plural(x.specialSummons, "Evocazione Speciale", "Evocazioni Speciali")}: nessuna pescata concessa oltre la prima`
+                : `${plural(x.specialSummons, "Evocazione Speciale", "Evocazioni Speciali")}: l'avversario pesca, ma non ti ferma (non toglie punti)`
           }
         />
       </ul>

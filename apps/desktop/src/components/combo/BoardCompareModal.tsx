@@ -5,7 +5,7 @@ import { METRICS, NEGATIVE, parts, PROFILES, score, useWeights, metricValues, ge
 import { sound } from "../../lib/sound";
 import { toast } from "../../lib/toast";
 import { CardImage, Field, type HoverCard, type Pile as PileKind } from "./Field";
-import { ScoreBar, formatExposureValue, formatHandtrapLoss, formatMaxxImpact, HANDTRAP_NAMES, plural } from "./Score";
+import { ScoreBar, formatExposureValue, formatHandtrapLoss, formatMaxxImpact, HANDTRAP_NAMES, isLegacyExposure, plural } from "./Score";
 
 function boardId(b: ComboBoard): string {
   return `${b.hand}:${b.key}`;
@@ -570,31 +570,38 @@ export function BoardCompareModal({
                         <div className="flex items-baseline justify-between">
                           <p className="eyebrow text-faint">Esposizione alle handtrap</p>
                           <span className="font-medium text-text tabular-nums text-small">
-                            {col.s.exposureDetail.losses && col.s.exposureDetail.losses.length > 0
-                              ? `perdita attesa: ${formatExposureValue(col.s.exposure)}`
-                              : `punti critici: ${plural(Math.round(col.s.exposure), "punto", "punti")}`}
+                            {isLegacyExposure(col.s)
+                              ? `punti critici: ${plural(Math.round(col.s.exposure), "punto", "punti")}`
+                              : `perdita attesa: ${formatExposureValue(col.s.exposure)}`}
                           </span>
                         </div>
-                        {col.s.exposureDetail.losses && col.s.exposureDetail.losses.length > 0 ? (
+                        {col.s.exposureDetail.losses !== undefined ? (
                           <div className="flex flex-col gap-1 tabular-nums">
-                            {col.s.exposureDetail.losses.map((l) => {
-                              const label = HANDTRAP_NAMES[l.kind] ?? l.kind;
-                              return (
-                                <div key={l.kind} className="flex items-baseline justify-between text-small">
-                                  <span>{label}:</span>
-                                  <span className={l.loss > 0.005 ? "font-semibold text-danger" : "text-muted"}>
-                                    {l.loss > 0.005
-                                      ? formatHandtrapLoss(l.loss, l.chance)
-                                      : "nessuna perdita"}
-                                  </span>
-                                </div>
-                              );
-                            })}
+                            {col.s.exposureDetail.losses.length > 0 ? (
+                              col.s.exposureDetail.losses.map((l) => {
+                                const label = HANDTRAP_NAMES[l.kind] ?? l.kind;
+                                return (
+                                  <div key={l.kind} className="flex items-baseline justify-between text-small">
+                                    <span>{label}:</span>
+                                    <span className={l.loss > 0.005 ? "font-semibold text-danger" : "text-muted"}>
+                                      {l.loss > 0.005
+                                        ? formatHandtrapLoss(l.loss, l.chance)
+                                        : "nessuna perdita"}
+                                    </span>
+                                  </div>
+                                );
+                              })
+                            ) : (
+                              <div className="text-small text-muted">
+                                nessuna perdita per le handtrap comuni
+                              </div>
+                            )}
                             {col.s.exposureDetail.maxx != null && col.s.exposureDetail.maxxChance != null && col.s.exposureDetail.maxx > 0.005 && (
                               <div className="flex items-baseline justify-between text-small">
                                 <span>Maxx "C":</span>
-                                <span className="font-semibold text-warn">
-                                  {formatMaxxImpact(col.s.exposureDetail.maxx, col.s.exposureDetail.maxxChance)}
+                                <span className="font-semibold text-muted">
+                                  <span className="text-warn mr-0.5" aria-hidden>+</span>
+                                  {formatMaxxImpact(col.s.exposureDetail.maxx, col.s.exposureDetail.maxxChance).replace(/^\+/, "")}
                                 </span>
                               </div>
                             )}
@@ -614,8 +621,7 @@ export function BoardCompareModal({
                           </div>
                         )}
                       </div>
-                    )}
-                  </section>
+                    )}                  </section>
                 ))}
               </div>
             )}
