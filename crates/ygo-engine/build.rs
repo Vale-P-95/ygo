@@ -71,10 +71,16 @@ fn main() {
     let duel = core.join("duel.cpp");
     let patched_duel = out_dir.join("duel.cpp");
     std::fs::write(&patched_duel, patch_duel(&std::fs::read_to_string(&duel).expect("duel.cpp"))).expect("patched duel.cpp");
+    // And interpreter.cpp (see `patch_interpreter`).
+    let interpreter = core.join("interpreter.cpp");
+    let patched_interpreter = out_dir.join("interpreter.cpp");
+    let text = std::fs::read_to_string(&interpreter).expect("interpreter.cpp");
+    std::fs::write(&patched_interpreter, patch_interpreter(&text)).expect("patched interpreter.cpp");
     core_build
-        .files(sources(&core, "cpp").into_iter().filter(|p| *p != field && *p != duel))
+        .files(sources(&core, "cpp").into_iter().filter(|p| *p != field && *p != duel && *p != interpreter))
         .file(&patched)
         .file(&patched_duel)
+        .file(&patched_interpreter)
         .file(shim.join("reuse.cpp"))
         .file(shim.join("hand.cpp"))
         .file(shim.join("count.cpp"))
@@ -228,4 +234,27 @@ void duel::clear() {
         assert_eq!(text.matches(old).count(), 1, "vendor/ygopro-core/duel.cpp changed: check the duel::clear patch in build.rs");
     }
     text.replace(CLEAR, CLEAR_FIXED).replace(EFFECTS, EFFECTS_FIXED).replace(INCLUDE, &format!("{INCLUDE}#include \"reuse.h\"\n"))
+}
+
+/// Each time the core enters Lua (`interpreter::call_lua`) it asks the shim
+/// first (shim/count.cpp): a request that entered too many times fails
+/// there, as if the script had raised an error, which the core already
+/// handles. Panics if upstream changed the code, so the patch is looked at
+/// again.
+fn patch_interpreter(text: &str) -> String {
+    const CALL_LUA: &str = "inline int interpreter::call_lua(lua_State* L, int nargs, int nresults) {\n";
+    const CALL_LUA_FIXED: &str = "inline int interpreter::call_lua(lua_State* L, int nargs, int nresults) {
+	if(!df_lua_enter()) {
+		// What lua_pcall leaves on an error: the error object instead of the function and its arguments.
+		lua_pop(L, nargs + 1);
+		lua_pushstring(L, \"too many Lua calls in one request (DUELFORGE_LUA_LIMIT)\");
+		return LUA_ERRRUN;
+	}
+";
+    const INCLUDE: &str = "#include \"interpreter.h\"\n";
+    let text = text.replace("\r\n", "\n");
+    for old in [CALL_LUA, INCLUDE] {
+        assert_eq!(text.matches(old).count(), 1, "vendor/ygopro-core/interpreter.cpp changed: check the call_lua patch in build.rs");
+    }
+    text.replace(CALL_LUA, CALL_LUA_FIXED).replace(INCLUDE, &format!("{INCLUDE}extern \"C\" int df_lua_enter();\n"))
 }

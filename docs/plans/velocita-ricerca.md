@@ -226,3 +226,72 @@ Il risparmio massimo suppone che il tempo di una richiesta cresca con le istruzi
   - il duello non si riusa, perché lo stato Lua resta a metà;
   - meglio ancora ricordare il prefisso di linea che ha superato il tetto e non rigiocarlo, perché la stessa richiesta torna a ogni replay.
 - La mano lenta usa una copia locale della lista, quindi va ricontrollata con una lista vera che contenga Ghost Mourner.
+
+## Il tetto per richiesta: 500 000 ingressi in Lua (22/10/2026, corsia 2)
+**Cosa si conta.** Il primo tentativo contava le istruzioni con un hook di Lua: il banco costava il 21% in più (192,9 s contro 159,9 s), perché con un hook di conteggio la macchina virtuale controlla prima di ogni istruzione. Un hook sulle chiamate costava ancora l'11% (177,5 s). Il tetto conta quindi gli ingressi del motore in Lua (`interpreter::call_lua`):
+- `build.rs` compila una copia di `interpreter.cpp` in cui `call_lua` chiede prima allo shim (`shim/count.cpp`), un incremento per ingresso; `vendor/` non cambia;
+- oltre il tetto l'ingresso fallisce come un errore di script, che il motore già gestisce; `Duel::advance` restituisce un errore, la ricerca conta la linea come interrotta e il duello non si riusa;
+- il registro del motore tiene al massimo 100 righe per duello, perché ogni ingresso dopo il tetto registra un errore;
+- `DUELFORGE_LUA_LIMIT` cambia il tetto (0 lo toglie); gli hook di Lua restano solo per `DUELFORGE_LUA_COUNT`, che ora salva anche chiamate e ingressi.
+
+Le richieste lente sono fatte proprio di ingressi: 4,5-5,4 milioni sulla mano lenta di Kewl Tune, 3,2 milioni contro Lunalight. Un ciclo tutto dentro Lua, senza ingressi dal motore, non si ferma; nei casi misurati non c'è.
+
+**Soglia.** Giro a 20 s (41 deck × 2 mani, 25,6 milioni di richieste): la richiesta con più ingressi ne fa 110 003 (elfnote_kewl_tune, mano 1), la seconda 36 137. Il tetto di 500 000 è 4,5 volte la prima e 14 volte la seconda. Con 1 milione la mano lenta pagava ancora 12 richieste da 0,8 s (tra 500 000 e 1 milione di ingressi) a ogni replay.
+
+**Prima e dopo** (prima: `main` 27c9ba0; dopo: il tetto):
+- **Costo:** banco a macchina libera, alternando i due binari: 170,3 s contro 170,8 s, poi 165,2 s contro 165,1 s.
+- **Banco** (16 mani, 4000 nodi): 15 mani su 16 identiche. L'ultima, inv-aleister, differisce solo nell'ultima cifra di un decimale (`countered` 0,801418439716312 contro 0,8014184397163119), e lo fa anche tra due giri dello stesso binario di `main`.
+- **`combo_hunt.py --seed 7`** (41 deck, 2 mani, 3000 nodi): 82 righe su 82 identiche, nessun problema.
+- **Mano lenta di Kewl Tune** (60 s, 1000 nodi, seme 7, da sola):
+
+| | Nodi | Fine della ricerca | Miglior punteggio | Linee interrotte |
+|---|---|---|---|---|
+| Prima | 117 (in 60 s) | 60,5 s | 11,0 | 0 |
+| Tetto 1 milione | 254 (in 60 s) | 60,4 s | 11,4 | 1 |
+| Tetto 500 000 | 1003 | 25,6 s | 12,4 | 12 |
+
+Il tempo totale resta circa 72 s: finita la ricerca, i giri di apprendimento arrivano comunque alla scadenza (limite più 10 s). Accorciarli tocca `search.rs` (corsia 4).
+
+- **Turno di prova contro Lunalight, livello 2** (caso L4-3 della corsia 3; board: la prima di `combo_hunt --hands 1 --top 8 --seed 7`), tempo di `against its lines`:
+
+| Board | Prima | Dopo (1 milione) | Valore prima → dopo |
+|---|---|---|---|
+| Branded | 359,0 s | 6,1 s (4,0 s a 500 000) | 1,99 → 2,02 |
+| Dracotail | 524,2 s | 19,4 s | 2,34 → 2,34 |
+| Labrynth | 550,2 s | 9,7 s | 1,86 → 1,88 |
+| K9 | 297,2 s | 6,9 s | 2,03 → 2,06 |
+
+Il costo: su tutte e quattro le board le linee 9 e 10 di Lunalight (su 11) non si misurano più, perché il loro rigioco supera il tetto. Le altre mosse sono identiche. Invoked e Tearlaments erano già veloci (sotto 1,7 milioni di istruzioni per richiesta) e non cambiano.
+
+**Limiti.**
+- Le linee che superano il tetto si perdono: nella ricerca sono linee interrotte, nel livello 2 linee dell'avversario non misurate. Ricordare il prefisso della linea per non rigiocarlo tocca `search.rs` e `matchup.rs`.
+- La mano lenta usa ancora la copia locale della lista con Ghost Mourner.
+
+## Collaudo dei deck lenti con il tetto (22/10/2026, corsia 2)
+**Metodo.** Le mani e le opzioni di `combo_hunt.py --seed 7` (41 deck di Master Duel Meta, 2 mani, 3000 nodi, limite 600 s, un thread, `--top 5 --probe`), con il tempo totale di ogni mano e le fasi della ricerca (`DUELFORGE_DEBUG_PHASES`). Il resto, dopo la fine di `zone_variants`, è quasi tutto il turno di prova. Tre giri, 4 mani alla volta sui 4 core:
+- **prima:** `main` 27c9ba0, senza il tetto;
+- **dopo, tetto spento:** `main` e424904 con `DUELFORGE_LUA_LIMIT=0`;
+- **dopo:** `main` e424904.
+
+Fra 27c9ba0 ed e424904 sono entrati anche altri cambi della ricerca e di `combos`, quindi il tetto si giudica dal confronto fra gli ultimi due giri.
+
+**Il tetto in questi giri non scatta.** Con e senza il tetto le uscite delle 82 mani sono identiche, tolti i tempi, e i tempi sono gli stessi (1505 s contro 1550 s in tutto, con 4 giri insieme). I casi lenti che il tetto toglie sono quelli già misurati: la mano lenta di Kewl Tune con la lista locale, e il livello 2 contro Lunalight.
+
+**Mani sopra 60 s:** 2 prima (elfnote-0 95,9 s, elfnote_kewl_tune-1 103,5 s), 1 dopo (dracotail-0, 67,5-69,5 s). Rimisurate da sole, senza altri processi:
+
+| Mano | Prima | Dopo | Ricerca prima → dopo | Dopo la ricerca | Turno di prova e resto prima → dopo |
+|---|---|---|---|---|---|
+| dracotail-0 | 44,3 s | 70,7 s | 16,5 → 16,8 s | 9,7 → 8,9 s | 18,1 → 45,0 s |
+| elfnote-0 | 96,3 s | 60,1 s | 43,6 → 17,8 s | 20,8 → 10,5 s | 31,9 → 31,8 s |
+| elfnote_kewl_tune-0 | 33,9 s | 50,8 s | 12,5 → 13,8 s | 7,5 → 8,5 s | 13,9 → 28,5 s |
+
+**Cause.**
+- **dracotail-0 (e in parte elfnote_kewl_tune-0): il turno di prova di `combos --probe`, non Lua né la ricerca.**
+  - Dal commit 21c8885 («List each field once in combos») `--probe` misura le prime tre varianti di ogni campo e mostra la migliore.
+  - Le 5 board di dracotail-0 sono quindi 15 turni di prova invece di 5, da circa 3 s l'uno: il resto passa da 18 a 45 s.
+  - Lua è normale: la richiesta più grande fa 108 mila istruzioni e 2676 ingressi.
+  - Riguarda `combos` e `combo_hunt.py`; l'app va guardata a parte.
+- **elfnote-0: la ricerca** (43,6 s prima). Con e424904 scende a 17,8 s, per i cambi della ricerca entrati in `main`; ora sta sul filo dei 60 s per il turno di prova (31,8 s).
+- **elfnote_kewl_tune-1** (103,5 s prima): con e424904 fa 33 s.
+
+**Da decidere.** Per tenere ogni mano sotto 60 s con `--probe`, si possono misurare meno varianti per campo (una, o tre solo per le prime board) oppure misurarle tutte in un solo turno di prova. È una scelta di `crates/ygo-cli` e della corsia che ha fatto 21c8885, non del motore.

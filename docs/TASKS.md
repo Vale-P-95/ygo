@@ -6,6 +6,7 @@ Regole in `AGENTS.md`. Per prendere un task, spostalo in "In corso" con agente, 
 Corsie di lavoro in parallelo del 22/10/2026 (piano in `docs/plans/piano-prossimi-passi.md`): ogni corsia tocca solo i suoi file.
 - [x] **Scheda del punteggio** (Gemini, PR #54, unita il 22/10): testi di follow-up, risorse e costo in `scoring.ts`, «Con una risposta alla tua prima interruzione…» (`ComboScore.countered`) e il pannello «Protezione dei pezzi» (`api.boardProtection`, `PieceProtection.tsx`). Provata con il backend finto, `typecheck`, `lint` e `build`; da provare nell'app vera. Lock tolto.
 - [x] **Il Banditore v2** (Gemini, PR #55, unita il 22/10): ricerca con lista OCG (`formato:ocg`) nel `Promise.all` iniziale e in `mock.ts`, vista «Cosa è cambiato con l'ultima lista» (`api.banChanges`), raggruppamento per data/formato, apertura Visore Carta, messaggio esplicito per storico iniziale vuoto. Lock tolto.
+- [x] **Test automatici dell'interfaccia** (Gemini, PR #57, unita il 22/10): 75 test Vitest sulle funzioni pure di `lib/` (`probability`, `query`, `conditions`, `deck`, `scoring`) e di `Banditore.tsx`; `pnpm test` nel job Frontend della CI. Nessun errore trovato nella logica. Lock tolto.
 - [x] **Corsia 1.** Turno di prova contro un deck, livello 2, con le linee vere dell'avversario (piano P1, L1–L6):
   - l'avversario rigioca le linee migliori che il motore trova per il suo deck, con la sua mano vera e l'ordine del suo Deck;
   - le risposte si ritrovano per identità dove la tua board cambia le domande.
@@ -25,13 +26,14 @@ Corsie di lavoro in parallelo del 22/10/2026 (piano in `docs/plans/piano-prossim
 
   Dopo: il backend del Banditore v2, cioè gli stati delle carte prima dell'ultima lista, salvati a ogni aggiornamento (`ygo-data`, poi `lib.rs` e `api.ts`, presi solo se la corsia 1 non li tiene). Fatto, in una PR separata dalla P3: tabella `ban_changes` in `cards.db`, riportata da un aggiornamento delle carte all'altro; comando `ban_changes`, `api.banChanges(format?)` e stub in `mock.ts`.
 
-  - [ ] Misura delle istruzioni Lua per richiesta del motore (P3, «in misura»): conteggio solo con `DUELFORGE_LUA_COUNT`, giro su 41 deck × 2 mani a 20 s, soglia per deck che toglierebbe i secondi oltre il limite di elfnote e kewl_tune e quante richieste normali la supererebbero. Senza la variabile banco e `combo_hunt --seed 7` identici. Il tetto vero, se serve, in una PR a parte.
+  - [x] Misura delle istruzioni Lua per richiesta del motore (P3, «in misura»): PR #49, numeri in `docs/plans/velocita-ricerca.md`. Nessuna richiesta normale arriva a 3 milioni di istruzioni; la mano lenta di Kewl Tune ripaga a ogni replay due richieste da 19 e 104 milioni.
+  - [x] Tetto per richiesta, chiuso nel motore: 500 000 ingressi in Lua (`DUELFORGE_LUA_LIMIT`; contare le istruzioni costava il 21% del banco). La richiesta fermata è un errore, la linea risulta interrotta e il duello non si riusa. Banco identico e senza costo, `combo_hunt --seed 7` identico; mano lenta 117 → 1003 nodi; Lunalight livello 2 (L4-3) da 297-550 s a 4-19 s, perdendo 2 linee su 11. Numeri in `docs/plans/velocita-ricerca.md`.
 
-  Agente: claude-code, sessione sorella della velocità. Branch: `claude/search-speed`. File (lock del 22/10 per la misura Lua): uno shim nuovo in `crates/ygo-engine/shim/`, `crates/ygo-engine/build.rs`, una funzione nuova in `crates/ygo-engine/src/duel.rs`, `scripts/`, `docs/plans/velocita-ricerca.md`. Banditore v2 unito (PR #45): `lib.rs`, `api.ts` e `mock.ts` liberi.
+  Agente: claude-code, sessione sorella della velocità. Branch: `claude/search-speed`. File (lock del 22/10 per il tetto): `crates/ygo-engine/` (shim, `duel.rs`, `ffi.rs`, `build.rs`), `scripts/`, `docs/plans/velocita-ricerca.md`. `search.rs` è della corsia 4 e non si tocca.
 - [ ] **Corsia 3.** Collaudo:
   - [x] prima, le coppie di board da far giudicare al proprietario (circa 15 deck, le coppie dove la classifica è più incerta), per la #47 e i pesi (#43): 46 coppie su 16 deck in `tests/fixtures/boards/owner-pairs.tsv` e `.json` (22/10);
   - [x] il collaudo del livello 2 con le linee vere (L4) su `48efae0`: 88% delle mosse fatte su campo vuoto, 71% di mosse in comune tra semi, problemi L4-1…L4-5 in `docs/plans/collaudo-strumenti.md` (22/10);
-  - [ ] il collaudo dei deck lenti (corsia 2).
+  - [x] il collaudo dei deck lenti (corsia 2, 22/10): con `combo_hunt --seed 7` su `main` e424904 resta sopra 60 s solo dracotail-0 (70,7 s da solo), per i turni di prova delle varianti di `--probe` (21c8885); il tetto Lua lì non scatta. Numeri in `docs/plans/velocita-ricerca.md`.
 
   Agente: claude-code, sessione sorella del collaudo. Branch: `claude/tools-qa`. File: script nuovi in `scripts/`, `docs/plans/collaudo-strumenti.md`, `tests/fixtures/boards/`.
 - [ ] **Corsia 4, secondo task.** Ordine della ricerca e stima rapida (#47, D14 = B11 di `docs/plans/classificazione-board.md`): il #1 stampato è il migliore misurato; inversioni tra stima e misura nella top 8 (C5.7) ≤ 60; campi distinti nella top 8 (C5.8). Si accetta solo se `best` del banco non scende più del 5%.
