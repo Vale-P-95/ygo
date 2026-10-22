@@ -8,7 +8,7 @@ Corsie di lavoro in parallelo del 22/10/2026 (piano in `docs/plans/piano-prossim
 - [x] **Il Banditore v2** (Gemini, PR #55, unita il 22/10): ricerca con lista OCG (`formato:ocg`) nel `Promise.all` iniziale e in `mock.ts`, vista «Cosa è cambiato con l'ultima lista» (`api.banChanges`), raggruppamento per data/formato, apertura Visore Carta, messaggio esplicito per storico iniziale vuoto. Lock tolto.
 - [x] **Test automatici dell'interfaccia** (Gemini, PR #57, unita il 22/10): unit test con Vitest per le funzioni pure in `lib/` (`probability`, `query`, `conditions`, `deck`, `scoring`) e `Banditore.tsx`, script "test" e step nella CI. 75 test passati. Lock tolto.
 - [x] **Revisione dell'interfaccia, passo 0: fondamenta** (Gemini, PR #63, unita il 22/10): scala tipografica e spaziature come token in `src/index.css`, `lucide-react`, componenti base (`Toolbar`, `FilterChip`, `IconButton`, `SidePanel`, `HelpPopover`), script Playwright e test Vitest toolbar. Lock tolto.
-- [ ] **Revisione dell'interfaccia, passo 1: Collegamenti.** Cerchio a tutta larghezza con ResizeObserver, nodi con immagine carta ritagliata, barra filtri a riga singola con Toolbar e FilterChip, pannello dettagli con legenda/carte chiave senza selezione e probabilità misurata stimata (PR #61), test posizioni cerchio. Agente: gemini. Branch: `gemini/ui-links`. File: `apps/desktop/src/components/lab/links/*`, `docs/plans/ui-revisione-2.md`, `docs/TASKS.md`.
+- [x] **Revisione dell'interfaccia, passo 1: Collegamenti** (Gemini, PR verso main): cerchio a tutta larghezza con ResizeObserver e layout.ts, nodi con immagine ritagliata 40-64 px e bordo tipo carta, barra filtri su una riga con Toolbar e FilterChip, pannello utile senza selezione con legenda e carte chiave, probabilità misurata stimata «≈ X%». Lock tolto.
 - [x] **Corsia 1.** Turno di prova contro un deck, livello 2, con le linee vere dell'avversario (piano P1, L1–L6):
   - l'avversario rigioca le linee migliori che il motore trova per il suo deck, con la sua mano vera e l'ordine del suo Deck;
   - le risposte si ritrovano per identità dove la tua board cambia le domande.
@@ -104,7 +104,7 @@ Corsie di lavoro in parallelo del 22/10/2026 (piano in `docs/plans/piano-prossim
 ### Interfaccia (Gemini)
 - [ ] **Revisione dell'interfaccia, seconda parte** (dalle prove del proprietario nell'app vera, 22/10). Piano: `docs/plans/ui-revisione-2.md`. Un branch e una PR per passo, in quest'ordine:
   - [x] Passo 0, fondamenta: scala tipografica e spaziature, set di icone unico, componenti di base (`Toolbar`, `FilterChip`, `IconButton`, `SidePanel`, `HelpPopover`), script di screenshot.
-  - [ ] Passo 1, Collegamenti: cerchio a tutta larghezza, nodi con l'immagine della carta, barra dei filtri su una riga, pannello utile senza selezione, probabilità come stima (dopo la PR #61).
+  - [x] Passo 1, Collegamenti: cerchio a tutta larghezza, nodi con l'immagine della carta, barra dei filtri su una riga, pannello utile senza selezione, probabilità come stima (dopo la PR #61).
   - [ ] Passo 2, Fucina: ispettore della carta a sinistra (passaggio del mouse, un clic per fissarla, doppio clic come oggi).
   - [ ] Passo 3, ricerca e filtri del catalogo su una riga.
   - [ ] Passo 4, passata su tutte le sezioni: scritte piccole, testi fissi, barre affollate.

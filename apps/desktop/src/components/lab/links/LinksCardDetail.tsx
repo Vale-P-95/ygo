@@ -1,5 +1,6 @@
 import { useMemo } from "react";
-import type { Card, CardLink, LinkCard } from "../../../lib/api";
+import { ArrowRight, Info, KeyRound, Sparkles, Zap } from "lucide-react";
+import { cardImage, type Card, type CardLink, type LinkCard } from "../../../lib/api";
 import { sound } from "../../../lib/sound";
 import { CardImage } from "../../combo/Field";
 import { isLinkTextOnly, LINK_KINDS, LINK_ZONES } from "./types";
@@ -35,31 +36,147 @@ export function LinksCardDetail({
   const outgoing = useMemo(() => (card ? links.filter((l) => l.from === card.code) : []), [card, links]);
   const incoming = useMemo(() => (card ? links.filter((l) => l.to === card.code) : []), [card, links]);
 
+  // Top bottleneck key cards when no card is selected
+  const keyCards = useMemo(() => {
+    return allCards
+      .filter((c) => c.key >= 0.15)
+      .sort((a, b) => b.key - a.key);
+  }, [allCards]);
+
+  // Rich tactical overview panel when no card is selected
   if (!card) {
     return (
-      <div className="flex flex-col items-center justify-center p-6 text-center text-xs text-faint rounded-lg border border-dashed border-border/80 h-full min-h-[300px]">
-        <span className="text-2xl mb-2" aria-hidden>🔍</span>
-        <p className="font-medium text-text">Nessuna carta selezionata</p>
-        <p className="text-[11px] text-muted mt-1 max-w-[200px]">
-          Tocca o passa sopra una carta nel grafico per visualizzare le sue connessioni, la raggiungibilità e il valore come carta chiave.
-        </p>
+      <div className="flex flex-col gap-3.5 rounded-xl border border-border/80 bg-surface-2/80 p-4 text-xs anim-fade shadow-xs">
+        {/* Header and concise guide */}
+        <div className="flex items-start gap-2.5 border-b border-border/70 pb-3">
+          <div className="rounded-lg bg-sec/15 p-2 text-sec shrink-0">
+            <Info className="h-4 w-4" aria-hidden />
+          </div>
+          <div className="flex flex-col min-w-0">
+            <h4 className="font-semibold text-text text-sm leading-tight">Mappa dei Collegamenti</h4>
+            <p className="text-[11px] text-muted mt-1 leading-normal">
+              Passa con il mouse o clicca su una carta nella mappa circolare per visualizzare le connessioni in entrata e uscita,
+              la raggiungibilità e il cammino ottimale.
+            </p>
+          </div>
+        </div>
+
+        {/* Color legend */}
+        <div className="flex flex-col gap-2 rounded-lg border border-border/60 bg-surface-3/50 p-2.5">
+          <p className="eyebrow text-[10px] text-muted flex items-center gap-1.5">
+            <Sparkles className="h-3 w-3 text-sec" aria-hidden />
+            <span>Legenda dei collegamenti</span>
+          </p>
+          <div className="grid grid-cols-2 gap-1.5 text-[11px]">
+            {(Object.keys(LINK_KINDS) as (keyof typeof LINK_KINDS)[]).map((kind) => {
+              const meta = LINK_KINDS[kind];
+              return (
+                <div key={kind} className="flex items-center gap-1.5 min-w-0">
+                  <span
+                    className="h-2 w-2 rounded-full shrink-0"
+                    style={{ background: meta.color }}
+                    aria-hidden
+                  />
+                  <span className="truncate text-muted hover:text-text transition-colors">
+                    {meta.label}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+          <div className="mt-1 pt-1.5 border-t border-border/40 flex items-center justify-between text-[10px] text-faint">
+            <span className="flex items-center gap-1">
+              <span className="h-2 w-2 rounded-full bg-[var(--df-gold)]" /> Carta chiave (★)
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="h-2 w-2 rounded-full bg-[var(--df-ok)]" /> Nuova
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="h-2 w-2 rounded-full bg-[var(--df-danger)]" /> Rimossa
+            </span>
+          </div>
+        </div>
+
+        {/* Key cards ranking */}
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center justify-between">
+            <p className="eyebrow text-[10px] text-muted flex items-center gap-1">
+              <KeyRound className="h-3 w-3 text-[var(--df-gold)]" aria-hidden />
+              <span>Carte chiave del mazzo ({keyCards.length})</span>
+            </p>
+            <span className="text-[10px] text-faint">impatto sulle combo</span>
+          </div>
+
+          {keyCards.length === 0 ? (
+            <p className="text-[11px] text-faint italic py-2">
+              Nessun collo di bottiglia critico identificato dal simulatore.
+            </p>
+          ) : (
+            <div className="flex flex-col gap-1.5 max-h-[260px] overflow-y-auto pr-1">
+              {keyCards.map((c) => {
+                const cData = getCard(c.code);
+                const name = cData?.name ?? String(c.code);
+                return (
+                  <button
+                    key={c.code}
+                    type="button"
+                    onClick={() => {
+                      sound.play("page");
+                      onSelectCard(c.code);
+                    }}
+                    className="flex items-center justify-between gap-2 rounded-lg border border-border/60 bg-surface-3/60 hover:bg-surface-3 hover:border-gold/50 p-2 text-left transition cursor-pointer group"
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <img
+                        src={cardImage(c.code, "cropped")}
+                        alt=""
+                        loading="lazy"
+                        className="h-8 w-8 rounded-full object-cover shrink-0 border border-gold/40 group-hover:scale-105 transition-transform"
+                      />
+                      <div className="flex flex-col min-w-0">
+                        <span className="font-medium text-text text-xs truncate group-hover:text-sec transition-colors">
+                          {name}
+                        </span>
+                        <span className="text-[10px] text-muted">
+                          {c.extra ? "Extra Deck" : "Main"} · ×{c.copies} · Raggiunge {c.reach}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex flex-col items-end shrink-0">
+                      <span className="chip !py-0 !px-1.5 text-[10px] font-bold text-[var(--df-gold)] border-[var(--df-gold)]/40 bg-[var(--df-gold)]/10">
+                        −{c.key.toFixed(2)}
+                      </span>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
       </div>
     );
   }
 
-  const chanceText = card.measured
-    ? `~${Math.round(card.chance * 100)}% (stima)`
+  // Measured chance representation with explicit tooltip
+  const chanceValue = Math.round(card.chance * 100);
+  const chanceDisplay = card.measured
+    ? `≈ ${chanceValue}%`
     : card.extra && card.chance === 0
       ? "—"
-      : `${Math.round(card.chance * 100)}%`;
+      : `${chanceValue}%`;
+
+  const chanceTooltip = card.measured
+    ? "Misurata sulle mani cercate dal motore (±5%)"
+    : "Probabilità combinatoria esatta calcolata dalla mano iniziale";
 
   return (
-    <div className="flex flex-col gap-3 rounded-lg border border-border bg-surface-2 p-3.5 text-xs anim-fade shadow-sm">
+    <div className="flex flex-col gap-3 rounded-xl border border-border/80 bg-surface-2/80 p-3.5 text-xs anim-fade shadow-xs">
+      {/* Card Header with image and badges */}
       <div className="flex items-start justify-between gap-2 border-b border-border/70 pb-3">
         <div className="flex gap-2.5 min-w-0">
-          <CardImage code={card.code} card={cardData} className="h-[60px] w-[42px] shrink-0 rounded-[3px] shadow-sm" />
+          <CardImage code={card.code} card={cardData} className="h-[64px] w-[45px] shrink-0 rounded-[4px] shadow-sm" />
           <div className="flex flex-col min-w-0 justify-center">
-            <h4 className="font-semibold text-text text-sm truncate leading-tight" title={cardName}>
+            <h4 className="font-semibold text-text text-sm truncate leading-tight" data-tip={cardName}>
               {cardName}
             </h4>
             <div className="flex items-center gap-1.5 mt-1 text-[11px] text-muted">
@@ -76,8 +193,8 @@ export function LinksCardDetail({
             sound.play("close");
             onClose();
           }}
-          className="text-muted hover:text-text p-1 text-sm leading-none"
-          title="Deseleziona carta"
+          className="text-muted hover:text-text p-1 text-sm leading-none rounded-md hover:bg-surface-3 transition"
+          aria-label="Deseleziona carta"
         >
           ✕
         </button>
@@ -85,24 +202,29 @@ export function LinksCardDetail({
 
       {/* Metric stats grid */}
       <div className="grid grid-cols-2 gap-2 text-center">
-        <div className="rounded-md border border-border/60 bg-surface-3/60 p-2">
-          <p className="text-[10px] text-muted uppercase tracking-wider font-medium">Raggiungibilità</p>
+        <div className="rounded-lg border border-border/60 bg-surface-3/60 p-2">
+          <p className="eyebrow text-[9px] text-muted">Raggiungibilità</p>
           <p className="text-base font-semibold tabular-nums text-text mt-0.5">
             {card.reach} <span className="text-xs text-muted font-normal">/ {card.reachAll}</span>
           </p>
           <p className="text-[9px] text-faint leading-tight mt-0.5">1 passo / tutti i passi</p>
         </div>
 
-        <div className="rounded-md border border-border/60 bg-surface-3/60 p-2">
-          <p className="text-[10px] text-muted uppercase tracking-wider font-medium">In mano iniziale</p>
-          <p className="text-base font-semibold tabular-nums text-sec mt-0.5">{chanceText}</p>
-          <p className="text-[9px] text-faint leading-tight mt-0.5">pescata o raggiunta</p>
+        <div
+          className="rounded-lg border border-border/60 bg-surface-3/60 p-2 cursor-help"
+          data-tip={chanceTooltip}
+        >
+          <p className="eyebrow text-[9px] text-muted">In mano iniziale</p>
+          <p className="text-base font-semibold tabular-nums text-sec mt-0.5">{chanceDisplay}</p>
+          <p className="text-[9px] text-faint leading-tight mt-0.5">
+            {card.measured ? "stima cercata (±5%)" : "pescata o raggiunta"}
+          </p>
         </div>
       </div>
 
       {/* Key card metric */}
       {card.key > 0.005 ? (
-        <div className="rounded-md border border-[var(--df-gold)]/40 bg-[var(--df-gold)]/10 p-2.5">
+        <div className="rounded-lg border border-[var(--df-gold)]/40 bg-[var(--df-gold)]/10 p-2.5">
           <div className="flex items-center justify-between gap-2">
             <span className="text-[11px] font-semibold text-[var(--df-gold)] flex items-center gap-1">
               <span>★</span> Carta chiave del deck
@@ -117,7 +239,7 @@ export function LinksCardDetail({
         </div>
       ) : (
         outgoing.length === 0 && incoming.length === 0 && (
-          <div className="rounded-md border border-border/60 bg-surface-3/50 p-2 text-[11px] text-muted">
+          <div className="rounded-lg border border-border/60 bg-surface-3/50 p-2 text-[11px] text-muted">
             <span>Carta isolata: nessuna carta del mazzo la raggiunge né la cerca.</span>
           </div>
         )
@@ -140,12 +262,12 @@ export function LinksCardDetail({
               return (
                 <li
                   key={`${l.from}-${l.to}-${l.kind}-${i}`}
-                  className="flex items-center justify-between gap-1.5 rounded-md border border-border/50 bg-surface-3/50 px-2 py-1 text-xs hover:border-sec/50 cursor-pointer transition-colors"
+                  className="flex items-center justify-between gap-1.5 rounded-lg border border-border/50 bg-surface-3/50 px-2.5 py-1 text-xs hover:border-sec/50 cursor-pointer transition-colors"
                   onClick={() => {
                     sound.play("page");
                     onSelectCard(l.to);
                   }}
-                  title={`Clicca per vedere i collegamenti di ${toCard?.name ?? l.to}`}
+                  data-tip={`Clicca per vedere i collegamenti di ${toCard?.name ?? l.to}`}
                 >
                   <div className="flex items-center gap-1.5 min-w-0">
                     <span className="h-1.5 w-1.5 rounded-full shrink-0" style={{ background: meta.color }} />
@@ -159,13 +281,13 @@ export function LinksCardDetail({
                     {isLinkTextOnly(l) && (
                       <span
                         className="chip !py-0 !px-1.5 text-[9px] text-muted border-dashed border-border"
-                        title="Nominato nel testo della carta, ma le linee combo cercate non lo usano"
+                        data-tip="Nominato nel testo della carta, ma le linee combo cercate non lo usano"
                       >
                         dal testo
                       </span>
                     )}
                     {l.used > 0 && (
-                      <span className="text-sec font-medium tabular-nums" title={`Usato nel ${Math.round(l.used * 100)}% delle linee migliori`}>
+                      <span className="text-sec font-medium tabular-nums" data-tip={`Usato nel ${Math.round(l.used * 100)}% delle linee migliori`}>
                         {Math.round(l.used * 100)}%
                       </span>
                     )}
@@ -192,12 +314,12 @@ export function LinksCardDetail({
               return (
                 <li
                   key={`${l.from}-${l.to}-${l.kind}-${i}`}
-                  className="flex items-center justify-between gap-1.5 rounded-md border border-border/50 bg-surface-3/50 px-2 py-1 text-xs hover:border-sec/50 cursor-pointer transition-colors"
+                  className="flex items-center justify-between gap-1.5 rounded-lg border border-border/50 bg-surface-3/50 px-2.5 py-1 text-xs hover:border-sec/50 cursor-pointer transition-colors"
                   onClick={() => {
                     sound.play("page");
                     onSelectCard(l.from);
                   }}
-                  title={`Clicca per vedere i collegamenti di ${fromCard?.name ?? l.from}`}
+                  data-tip={`Clicca per vedere i collegamenti di ${fromCard?.name ?? l.from}`}
                 >
                   <div className="flex items-center gap-1.5 min-w-0">
                     <span className="h-1.5 w-1.5 rounded-full shrink-0" style={{ background: meta.color }} />
@@ -210,7 +332,7 @@ export function LinksCardDetail({
                     {isLinkTextOnly(l) && (
                       <span
                         className="chip !py-0 !px-1.5 text-[9px] text-muted border-dashed border-border"
-                        title="Nominato nel testo della carta, ma le linee combo cercate non lo usano"
+                        data-tip="Nominato nel testo della carta, ma le linee combo cercate non lo usano"
                       >
                         dal testo
                       </span>
@@ -230,7 +352,7 @@ export function LinksCardDetail({
 
       {/* Shortest path between cards */}
       {allCards.length > 1 && (
-        <div className="flex flex-col gap-1.5 rounded-md border border-border/70 bg-surface-3/40 p-2">
+        <div className="flex flex-col gap-1.5 rounded-lg border border-border/70 bg-surface-3/40 p-2.5">
           <p className="text-[10px] font-semibold text-muted uppercase tracking-wider">
             Percorso verso un'altra carta
           </p>
@@ -242,7 +364,7 @@ export function LinksCardDetail({
               onTargetCodeChange?.(val);
               if (val) sound.play("toggle");
             }}
-            className="field !py-1 !px-2 !text-xs w-full"
+            className="field !py-1 !px-2 !text-xs w-full rounded-lg"
           >
             <option value="">Seleziona carta d'arrivo…</option>
             {allCards
@@ -268,7 +390,7 @@ export function LinksCardDetail({
                   <div className="flex flex-wrap items-center gap-1">
                     {shortestPath.map((step, idx) => (
                       <span key={idx} className="inline-flex items-center gap-1">
-                        {idx > 0 && <span className="text-muted">→</span>}
+                        {idx > 0 && <ArrowRight className="h-3 w-3 text-muted shrink-0" aria-hidden />}
                         <button
                           type="button"
                           onClick={() => {
@@ -277,13 +399,13 @@ export function LinksCardDetail({
                           }}
                           className="chip !py-0 !px-1 text-[10px] font-medium hover:border-sec/60 transition-colors cursor-pointer"
                           style={{ color: LINK_KINDS[step.kind].color }}
-                          title={`Ispeziona ${getCard(step.from)?.name ?? step.from} (${LINK_KINDS[step.kind].verb})`}
+                          data-tip={`Ispeziona ${getCard(step.from)?.name ?? step.from} (${LINK_KINDS[step.kind].verb})`}
                         >
                           {getCard(step.from)?.name ?? step.from} ({LINK_KINDS[step.kind].verb})
                         </button>
                       </span>
                     ))}
-                    <span className="text-muted">→</span>
+                    <ArrowRight className="h-3 w-3 text-muted shrink-0" aria-hidden />
                     <button
                       type="button"
                       onClick={() => {
@@ -291,7 +413,7 @@ export function LinksCardDetail({
                         onSelectCard(targetCode);
                       }}
                       className="chip !py-0 !px-1.5 text-[10px] font-bold text-sec hover:border-sec/80 transition-colors cursor-pointer"
-                      title={`Ispeziona ${getCard(targetCode)?.name ?? targetCode}`}
+                      data-tip={`Ispeziona ${getCard(targetCode)?.name ?? targetCode}`}
                     >
                       {getCard(targetCode)?.name ?? targetCode}
                     </button>
@@ -302,9 +424,10 @@ export function LinksCardDetail({
                       onClick={() => {
                         onGoCombo(targetCode, card.code);
                       }}
-                      className="btn btn-molten !py-1 !px-2 text-[11px] mt-1 flex items-center justify-center gap-1"
+                      className="btn btn-molten !py-1 !px-2 text-[11px] mt-1 flex items-center justify-center gap-1.5"
                     >
-                      ⚡ Esplora combo con obiettivo {getCard(targetCode)?.name ?? targetCode}
+                      <Zap className="h-3.5 w-3.5" aria-hidden />
+                      <span>Esplora combo con obiettivo {getCard(targetCode)?.name ?? targetCode}</span>
                     </button>
                   )}
                 </div>
@@ -323,7 +446,8 @@ export function LinksCardDetail({
           }}
           className="btn btn-ghost !py-1.5 text-xs text-sec hover:bg-sec/10 flex items-center justify-center gap-1.5 border border-sec/40"
         >
-          <span>⚡ Cerca combo che arrivano a questa carta</span>
+          <Zap className="h-3.5 w-3.5" aria-hidden />
+          <span>Cerca combo che arrivano a questa carta</span>
         </button>
       )}
     </div>

@@ -1,6 +1,8 @@
-import { useId, useMemo } from "react";
-import type { Card, CardLink, LinkCard, LinksComparison } from "../../../lib/api";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { cardImage, type Card, type CardLink, type LinkCard, type LinksComparison } from "../../../lib/api";
+import { prefersReducedMotion } from "../../../lib/settings";
 import { sound } from "../../../lib/sound";
+import { calculateCircleGeometry, getCardBorderColor, getLabelCoordinates } from "./layout";
 import { isLinkTextOnly, LINK_KINDS, linkKey, type LinksFilterState } from "./types";
 
 interface Props {
@@ -34,7 +36,29 @@ export function LinksCircle({
   onSelectCard,
   onHoverCard,
 }: Props) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [dimensions, setDimensions] = useState<{ width: number; height: number }>({ width: 740, height: 620 });
   const markerIdPrefix = useId().replace(/:/g, "_");
+  const reduceMotion = prefersReducedMotion();
+
+  // ResizeObserver for dynamic circle scaling across any screen or split layout
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const update = () => {
+      const { clientWidth, clientHeight } = el;
+      if (clientWidth > 0 && clientHeight > 0) {
+        setDimensions((prev) => {
+          if (Math.abs(prev.width - clientWidth) < 2 && Math.abs(prev.height - clientHeight) < 2) return prev;
+          return { width: clientWidth, height: clientHeight };
+        });
+      }
+    };
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   const gainedKeys = useMemo(
     () => (comparison ? new Set(comparison.gained.map(linkKey)) : null),
@@ -113,32 +137,20 @@ export function LinksCircle({
     return (c?.name?.toLowerCase().includes(query) ?? false) || String(code).includes(query);
   };
 
-  // Geometry
-  const R = 230;
-  const N = orderedCards.length;
-
-  // Adaptive node sizing to guarantee nodes never overlap, even in 60-card decks
-  const spacing = (2 * Math.PI * R) / Math.max(1, N);
-  const maxAllowedRadius = Math.max(9, Math.min(18, Math.floor(spacing * 0.42)));
-  const baseRadius = Math.max(7, Math.min(11, maxAllowedRadius - 3));
-  const getNodeRadius = (keyVal: number) => {
-    const bonus = Math.min(maxAllowedRadius - baseRadius, Math.round(keyVal * 4.5));
-    return baseRadius + Math.max(0, bonus);
-  };
-
-  const positions = useMemo(() => {
-    const map = new Map<number, { x: number; y: number; angle: number; isRight: boolean }>();
-    orderedCards.forEach((c, i) => {
-      const angle = (2 * Math.PI * i) / Math.max(1, N) - Math.PI / 2;
-      const x = Math.round(R * Math.cos(angle) * 10) / 10;
-      const y = Math.round(R * Math.sin(angle) * 10) / 10;
-      const isRight = Math.cos(angle) >= 0;
-      map.set(c.code, { x, y, angle, isRight });
+  // Dynamic geometric layout calculation
+  const geometry = useMemo(() => {
+    return calculateCircleGeometry({
+      containerWidth: dimensions.width,
+      containerHeight: dimensions.height,
+      cardCount: orderedCards.length,
+      cards: orderedCards,
     });
-    return map;
-  }, [orderedCards, N, R]);
+  }, [dimensions.width, dimensions.height, orderedCards]);
 
-  // Sets of connected nodes to current active card
+  const positions = geometry.positions;
+  const R = geometry.radius;
+
+  // Sets of connected nodes to current active/hovered card
   const connectedCodes = useMemo(() => {
     if (targetCode == null) return null;
     const set = new Set<number>([targetCode]);
@@ -150,10 +162,13 @@ export function LinksCircle({
   }, [targetCode, filteredLinks]);
 
   return (
-    <div className="relative flex items-center justify-center w-full h-full min-h-[500px] overflow-hidden select-none">
+    <div
+      ref={containerRef}
+      className="relative flex items-center justify-center w-full h-full min-h-[520px] overflow-hidden select-none"
+    >
       <svg
-        viewBox="-370 -370 740 740"
-        className="w-full h-full max-w-[680px] max-h-[680px]"
+        viewBox={geometry.viewBox}
+        className="w-full h-full"
         style={{ overflow: "visible" }}
       >
         <defs>
@@ -162,7 +177,7 @@ export function LinksCircle({
               key={kind}
               id={`${markerIdPrefix}-arrow-${kind}`}
               viewBox="0 0 10 10"
-              refX="33"
+              refX="14"
               refY="5"
               markerUnits="userSpaceOnUse"
               markerWidth="7"
@@ -172,11 +187,11 @@ export function LinksCircle({
               <path d="M 0 1 L 9 5 L 0 9 z" fill={LINK_KINDS[kind].color} />
             </marker>
           ))}
-          {/* Comparison markers with CSS tokens (var(--df-ok) and var(--df-danger)) */}
+          {/* Comparison markers with CSS tokens */}
           <marker
             id={`${markerIdPrefix}-arrow-gained`}
             viewBox="0 0 10 10"
-            refX="33"
+            refX="14"
             refY="5"
             markerUnits="userSpaceOnUse"
             markerWidth="8"
@@ -188,7 +203,7 @@ export function LinksCircle({
           <marker
             id={`${markerIdPrefix}-arrow-lost`}
             viewBox="0 0 10 10"
-            refX="33"
+            refX="14"
             refY="5"
             markerUnits="userSpaceOnUse"
             markerWidth="7"
@@ -201,7 +216,7 @@ export function LinksCircle({
           <marker
             id={`${markerIdPrefix}-arrow-path`}
             viewBox="0 0 10 10"
-            refX="33"
+            refX="14"
             refY="5"
             markerUnits="userSpaceOnUse"
             markerWidth="9"
@@ -210,11 +225,39 @@ export function LinksCircle({
           >
             <path d="M 0 1 L 9 5 L 0 9 z" fill="var(--sec)" />
           </marker>
+
+          {/* Card node artwork clip paths */}
+          {orderedCards.map((c) => {
+            const pos = positions.get(c.code);
+            if (!pos) return null;
+            return (
+              <clipPath key={c.code} id={`${markerIdPrefix}-clip-${c.code}`}>
+                <circle cx={pos.x} cy={pos.y} r={pos.radius} />
+              </clipPath>
+            );
+          })}
         </defs>
 
         {/* Center decorative guidelines */}
-        <circle cx="0" cy="0" r={R} fill="none" stroke="currentColor" strokeWidth="1" className="text-border/40" strokeDasharray="3 4" />
-        <circle cx="0" cy="0" r={R * 0.4} fill="none" stroke="currentColor" strokeWidth="0.8" className="text-border/20" />
+        <circle
+          cx="0"
+          cy="0"
+          r={R}
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1"
+          className="text-border/30"
+          strokeDasharray="3 4"
+        />
+        <circle
+          cx="0"
+          cy="0"
+          r={R * 0.45}
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="0.8"
+          className="text-border/20"
+        />
 
         {/* Drawn link arrows */}
         <g className="links-layer">
@@ -257,7 +300,7 @@ export function LinksCircle({
               strokeWidth = 3.5;
               opacity = 1;
             } else if (sampleHandCodes) {
-              // Sample hand overlay active (supports both normal and comparison mode)
+              // Sample hand overlay active
               if (isGained) {
                 strokeColor = "var(--df-ok)";
                 markerId = `${markerIdPrefix}-arrow-gained`;
@@ -308,6 +351,12 @@ export function LinksCircle({
               opacity = 0.03;
             }
 
+            // Directional animated pulse on active/focused links
+            const shouldAnimate = !reduceMotion && (isRelated || isPath) && opacity > 0.5;
+            if (shouldAnimate) {
+              strokeDash = "7 4";
+            }
+
             const pathD = `M ${pFrom.x} ${pFrom.y} Q ${cx} ${cy} ${pTo.x} ${pTo.y}`;
 
             return (
@@ -321,7 +370,17 @@ export function LinksCircle({
                 strokeDasharray={strokeDash}
                 markerEnd={opacity > 0.07 ? `url(#${markerId})` : undefined}
                 className="transition-all duration-200"
-              />
+              >
+                {shouldAnimate && (
+                  <animate
+                    attributeName="stroke-dashoffset"
+                    from="22"
+                    to="0"
+                    dur="1.2s"
+                    repeatCount="indefinite"
+                  />
+                )}
+              </path>
             );
           })}
         </g>
@@ -347,7 +406,8 @@ export function LinksCircle({
             const isRemoved = removedCodes?.has(c.code) ?? false;
             const isChanged = changedCodes?.has(c.code) ?? false;
 
-            const nodeR = getNodeRadius(c.key);
+            const nodeR = pos.radius;
+            const borderColor = getCardBorderColor(card);
 
             const matches = matchesSearch(c.code);
             let nodeOpacity = 1;
@@ -356,28 +416,49 @@ export function LinksCircle({
             } else if (sampleHandCodes) {
               nodeOpacity = inSampleHand || isReachedFromHand ? 1 : isRemoved ? 0.15 : 0.18;
             } else if (isRemoved) {
-              // Ghost node for removed card
               nodeOpacity = isFocused ? 0.9 : 0.4;
             } else if (targetCode != null && !isConnected && !isPathNode) {
               nodeOpacity = 0.3;
             }
 
-            // Truncated label for circle perimeter
-            const displayName = name.length > 18 ? name.slice(0, 16) + "…" : name;
+            // Truncated label for circle perimeter (12-13px)
+            const displayName = name.length > 20 ? name.slice(0, 18) + "…" : name;
+            const labelCoord = getLabelCoordinates(pos, 8);
 
-            // Offset label radially outward with safety margin for node radius
-            const labelDist = R + Math.max(18, nodeR + 8);
-            const lx = labelDist * Math.cos(pos.angle);
-            const ly = labelDist * Math.sin(pos.angle);
+            // Copies badge geometry on the node border
+            const badgeR = Math.max(7, Math.min(10, Math.round(nodeR * 0.38)));
+            const badgeOffset = nodeR * 0.72;
+            const badgeX = pos.x + (pos.isRight ? badgeOffset : -badgeOffset);
+            const badgeY = pos.y + badgeOffset;
+
+            // Custom chart tooltip payload (no native title attribute)
+            const tooltipContent = [
+              `${name}${c.extra ? " (Extra Deck)" : ""}`,
+              `Tipo: ${card?.kind === "monster" ? card.humanType || "Mostro" : card?.kind === "spell" ? "Magia" : card?.kind === "trap" ? "Trappola" : "Carta"}`,
+              `Copie nel mazzo: ×${c.copies}`,
+              `Raggiungibilità: ${c.reach} su ${c.reachAll}`,
+              c.key >= 0.2 ? `★ Carta chiave del deck (−${c.key.toFixed(2)})` : null,
+              inSampleHand ? "Nella mano di prova attuale" : null,
+              isAdded ? "Nuova carta aggiunta nel confronto" : null,
+              isRemoved ? "Carta rimossa nel confronto" : null,
+            ]
+              .filter(Boolean)
+              .join("\n");
 
             return (
               <g
                 key={c.code}
                 tabIndex={matches ? 0 : -1}
                 role="button"
-                aria-label={`Carta ${displayName}`}
+                aria-label={`Carta ${name}`}
+                data-tip={tooltipContent}
                 className={`transition-opacity duration-200 outline-none ${matches ? "cursor-pointer" : "pointer-events-none"}`}
                 opacity={nodeOpacity}
+                transform={isHovered ? `translate(${pos.x}, ${pos.y}) scale(1.18) translate(${-pos.x}, ${-pos.y})` : undefined}
+                style={{
+                  transition: "transform 0.18s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s ease",
+                  transformOrigin: `${pos.x}px ${pos.y}px`,
+                }}
                 onClick={() => {
                   if (!matches) return;
                   sound.play("page");
@@ -432,7 +513,7 @@ export function LinksCircle({
                   />
                 )}
 
-                {/* Node outer pulse/ring if selected or comparison status */}
+                {/* Focus / Selection outer ring */}
                 {isFocused && !inSampleHand && !isPathNode && (
                   <circle
                     cx={pos.x}
@@ -466,7 +547,7 @@ export function LinksCircle({
                   />
                 )}
 
-                {/* Key card emphasis ring for bottleneck hubs */}
+                {/* Key card hub ring */}
                 {c.key >= 0.2 && !isRemoved && !inSampleHand && !isFocused && !isPathNode && (
                   <circle
                     cx={pos.x}
@@ -479,20 +560,32 @@ export function LinksCircle({
                   />
                 )}
 
-                {/* Node circle */}
+                {/* Node base fill */}
                 <circle
                   cx={pos.x}
                   cy={pos.y}
                   r={nodeR}
-                  fill={
-                    isRemoved
-                      ? "var(--df-surface)"
-                      : isAdded
-                        ? "color-mix(in srgb, var(--df-ok) 20%, var(--df-surface-2))"
-                        : c.extra
-                          ? "color-mix(in srgb, var(--role-extender) 25%, var(--df-surface-2))"
-                          : "var(--df-surface-2)"
-                  }
+                  fill="var(--df-surface-2)"
+                />
+
+                {/* Cropped card artwork inside circular frame */}
+                <image
+                  href={cardImage(c.code, "cropped")}
+                  x={pos.x - nodeR}
+                  y={pos.y - nodeR}
+                  width={nodeR * 2}
+                  height={nodeR * 2}
+                  preserveAspectRatio="xMidYMid slice"
+                  clipPath={`url(#${markerIdPrefix}-clip-${c.code})`}
+                  opacity={isRemoved ? 0.45 : 1}
+                />
+
+                {/* Card-type colored circular frame border */}
+                <circle
+                  cx={pos.x}
+                  cy={pos.y}
+                  r={nodeR}
+                  fill="none"
                   stroke={
                     isAdded
                       ? "var(--df-ok)"
@@ -500,42 +593,50 @@ export function LinksCircle({
                         ? "var(--df-danger)"
                         : isPathNode
                           ? "var(--sec)"
-                          : c.key >= 0.2
-                            ? "var(--df-gold)"
-                            : c.extra
-                              ? "var(--role-extender)"
-                              : "var(--df-border-strong)"
+                          : isFocused
+                            ? "var(--sec)"
+                            : c.key >= 0.2
+                              ? "var(--df-gold)"
+                              : borderColor
                   }
-                  strokeWidth={isFocused || inSampleHand || isPathNode ? 2.5 : c.key >= 0.2 ? 2 : 1.2}
+                  strokeWidth={isFocused || inSampleHand || isPathNode ? 3 : c.key >= 0.2 ? 2.5 : 2}
                   strokeDasharray={isRemoved ? "3 2" : undefined}
                 />
 
-                {/* Copies indicator badge or +/- for added/removed */}
-                <text
-                  x={pos.x}
-                  y={pos.y + Math.round(nodeR * 0.35)}
-                  textAnchor="middle"
-                  className="font-bold select-none"
-                  fontSize={Math.max(8, Math.round(nodeR * 0.75))}
-                  fill={
-                    isAdded
-                      ? "var(--df-ok)"
-                      : isRemoved
-                        ? "var(--df-danger)"
-                        : isFocused || inSampleHand || isPathNode
-                          ? "var(--df-text)"
-                          : "var(--df-muted)"
-                  }
-                >
-                  {isAdded ? "+" : isRemoved ? "−" : c.copies}
-                </text>
+                {/* Copies indicator badge */}
+                <g className="copies-badge">
+                  <circle
+                    cx={badgeX}
+                    cy={badgeY}
+                    r={badgeR}
+                    fill="var(--df-surface)"
+                    stroke={isAdded ? "var(--df-ok)" : isRemoved ? "var(--df-danger)" : "var(--df-border-strong)"}
+                    strokeWidth="1"
+                  />
+                  <text
+                    x={badgeX}
+                    y={badgeY + Math.round(badgeR * 0.35)}
+                    textAnchor="middle"
+                    className="font-bold select-none tabular-nums"
+                    fontSize={Math.max(8, Math.round(badgeR * 1.1))}
+                    fill={
+                      isAdded
+                        ? "var(--df-ok)"
+                        : isRemoved
+                          ? "var(--df-danger)"
+                          : "var(--df-text)"
+                    }
+                  >
+                    {isAdded ? "+" : isRemoved ? "−" : c.copies}
+                  </text>
+                </g>
 
-                {/* Card label on the perimeter */}
+                {/* Adjacent card label (12-13px) */}
                 <text
-                  x={lx}
-                  y={ly + 3.5}
-                  textAnchor={pos.isRight ? "start" : "end"}
-                  className={`text-[10px] select-none transition-colors ${
+                  x={labelCoord.lx}
+                  y={labelCoord.ly + 4}
+                  textAnchor={labelCoord.textAnchor}
+                  className={`text-[12px] select-none transition-colors ${
                     isAdded
                       ? "font-semibold fill-[var(--df-ok)]"
                       : isRemoved
