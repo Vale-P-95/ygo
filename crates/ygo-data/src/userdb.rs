@@ -57,6 +57,13 @@ CREATE TABLE IF NOT EXISTS saved_searches (
     query TEXT NOT NULL,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
+CREATE TABLE IF NOT EXISTS board_choices (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    deck_id INTEGER,
+    chosen TEXT NOT NULL,  -- JSON object: metric -> value of the board preferred
+    other TEXT NOT NULL,   -- the same for the other board
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
 "#;
 
 /// A saved lab condition ("Mano solida", "Gioca attraverso Ash", ...).
@@ -67,6 +74,17 @@ pub struct Recipe {
     pub deck_id: Option<i64>,
     pub name: String,
     pub cond: serde_json::Value,
+}
+
+/// Two boards compared in the Combo Lab: the metrics of the one the player
+/// preferred and of the other (the score weights are learned from them).
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct BoardChoice {
+    pub id: i64,
+    pub deck_id: Option<i64>,
+    pub chosen: BTreeMap<String, f64>,
+    pub other: BTreeMap<String, f64>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -326,6 +344,40 @@ impl UserStore {
         self.conn.execute("DELETE FROM saved_searches WHERE name = ?", [name])?;
         Ok(())
     }
+
+    /// Records that the player preferred the board with `chosen` metrics.
+    pub fn add_board_choice(
+        &self,
+        deck_id: Option<i64>,
+        chosen: &BTreeMap<String, f64>,
+        other: &BTreeMap<String, f64>,
+    ) -> Result<(), Error> {
+        let json = |m: &BTreeMap<String, f64>| serde_json::to_string(m).unwrap_or_else(|_| "{}".into());
+        self.conn.execute(
+            "INSERT INTO board_choices (deck_id, chosen, other) VALUES (?1, ?2, ?3)",
+            params![deck_id, json(chosen), json(other)],
+        )?;
+        Ok(())
+    }
+
+    /// Every choice recorded, the oldest first.
+    pub fn board_choices(&self) -> Result<Vec<BoardChoice>, Error> {
+        let mut stmt = self.conn.prepare("SELECT id, deck_id, chosen, other FROM board_choices ORDER BY id")?;
+        let rows = stmt.query_map([], |r| {
+            Ok(BoardChoice {
+                id: r.get(0)?,
+                deck_id: r.get(1)?,
+                chosen: serde_json::from_str(&r.get::<_, String>(2)?).unwrap_or_default(),
+                other: serde_json::from_str(&r.get::<_, String>(3)?).unwrap_or_default(),
+            })
+        })?;
+        Ok(rows.collect::<Result<_, _>>()?)
+    }
+
+    pub fn clear_board_choices(&self) -> Result<(), Error> {
+        self.conn.execute("DELETE FROM board_choices", [])?;
+        Ok(())
+    }
 }
 
 #[cfg(test)]
@@ -397,6 +449,20 @@ mod tests {
         assert_ne!(copy.id, Some(id));
         assert_eq!((copy.name.as_str(), copy.main.as_slice(), &copy.deck_box), ("Invoked (copia)", &[1, 2][..], &look));
         assert!(store.set_box(999, &look).is_err());
+    }
+
+    #[test]
+    fn board_choices_are_kept() {
+        let store = UserStore::open_in_memory().unwrap();
+        let chosen = BTreeMap::from([("interruptions".to_owned(), 2.0), ("resources".to_owned(), 3.0)]);
+        let other = BTreeMap::from([("interruptions".to_owned(), 3.0)]);
+        store.add_board_choice(Some(1), &chosen, &other).unwrap();
+        store.add_board_choice(None, &other, &chosen).unwrap();
+        let choices = store.board_choices().unwrap();
+        assert_eq!(choices.len(), 2);
+        assert_eq!((choices[0].deck_id, &choices[0].chosen, &choices[0].other), (Some(1), &chosen, &other));
+        store.clear_board_choices().unwrap();
+        assert!(store.board_choices().unwrap().is_empty());
     }
 
     #[test]

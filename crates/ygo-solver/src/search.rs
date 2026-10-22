@@ -483,12 +483,22 @@ impl Shared<'_> {
         self.before + self.start.elapsed()
     }
 
-    fn check_limits(&self) {
+    /// Cancelled, or out of time.
+    fn check_time(&self) {
         if self.cancel.load(Ordering::Relaxed) {
             self.set_stop(Stop::Cancelled);
         } else if self.start.elapsed() >= self.config.time_limit {
             self.set_stop(Stop::TimeLimit);
-        } else if self.nodes.load(Ordering::Relaxed) >= self.config.max_nodes {
+        }
+    }
+
+    /// [`Shared::check_time`], and the budget of nodes. Only the workers
+    /// check the nodes, between two edges: a check from another thread
+    /// would stop a dive wherever it happens to be, and one thread with a
+    /// budget of nodes would not search the same from run to run.
+    fn check_limits(&self) {
+        self.check_time();
+        if self.nodes.load(Ordering::Relaxed) >= self.config.max_nodes {
             self.set_stop(Stop::NodeLimit);
         }
     }
@@ -553,7 +563,7 @@ impl Shared<'_> {
             }
             q = self.wake.wait_timeout(q, Duration::from_millis(50)).ok()?.0;
             drop(q);
-            self.check_limits();
+            self.check_time();
             q = self.queue.lock().ok()?;
         }
     }
@@ -647,15 +657,16 @@ fn rank(a: &Board, b: &Board) -> CmpOrdering {
         .then(a.key.cmp(&b.key))
 }
 
-/// Key of a node: the state and the choice being asked (two steps of the
-/// same selection share the state but not the choice). Inside something
+/// Key of a node: the state (its canonical fingerprint) and the choice
+/// being asked (two steps of the same selection share the state but not
+/// the choice). Inside something
 /// being done (an activation, a summon, an effect resolving), the answers
 /// since your last free moment count too: the state does not say yet what
 /// is being done, and choosing Aleister the Invoker as material for
 /// Salamangreat Almiraj or for Artemis is the same choice of the same state.
-fn node_key(state: &DuelState, chain: &[ChainLink], decision: &Decision, pending: &Pending) -> u64 {
+fn node_key(state: u64, chain: &[ChainLink], decision: &Decision, pending: &Pending) -> u64 {
     let mut h = DefaultHasher::new();
-    canonical_fingerprint(state).hash(&mut h);
+    state.hash(&mut h);
     // The chain not resolved yet: the same field with A chained to B, B to
     // A, or A still to resolve is not the same moment.
     if !chain.is_empty() {
@@ -1369,15 +1380,16 @@ fn play(shared: &Shared, edge: &Edge, dive: &mut Dive) -> Result<(), Error> {
         }
         shared.nodes.fetch_add(1, Ordering::Relaxed);
         let free = is_free(&decision);
+        let canonical = canonical_fingerprint(&state);
         // The same state met again since the last free moment, by the
         // same choice with nothing happened in between or by its state.
         if !since_free.meet(&decision, happened)
-            || (!free && !since_free.seen.insert(node_key(&state, duel.chain(), &decision, &Pending::default())))
+            || (!free && !since_free.seen.insert(node_key(canonical, duel.chain(), &decision, &Pending::default())))
         {
             shared.duplicates.fetch_add(1, Ordering::Relaxed);
             return Ok(());
         }
-        if !shared.first_visit(node_key(&state, duel.chain(), &decision, &pending)) {
+        if !shared.first_visit(node_key(canonical, duel.chain(), &decision, &pending)) {
             shared.duplicates.fetch_add(1, Ordering::Relaxed);
             return Ok(());
         }
@@ -1576,7 +1588,7 @@ fn run_workers(shared: &Shared, threads: usize, mut progress: impl FnMut(&Progre
         }
         while !shared.stopped() {
             std::thread::sleep(Duration::from_millis(250));
-            shared.check_limits();
+            shared.check_time();
             progress(&shared.progress());
         }
     });
@@ -1590,6 +1602,11 @@ const LEARN_BOARDS: usize = 2;
 const LEARN_AMONG: usize = 200;
 /// Boards measured in the round at the end of the search.
 const LEARN_LAST: usize = 4;
+/// Time a round of learning may take past the search's time limit (or past
+/// its start, when it starts later): measuring a board takes well under a
+/// second, but with quick effects that check every combination of
+/// materials at each chain window (Kewl Tune) it can take minutes.
+const LEARN_GRACE: Duration = Duration::from_secs(10);
 
 /// Your cards on the field of `state`, by kind of zone, as keys, with a
 /// weight: 2 for a monster from the Extra Deck, else 1.
@@ -1664,12 +1681,18 @@ fn learn_round(shared: &Shared, count: usize) {
     };
     let config = shared.config;
     let mut prober = Prober::new(shared.engine, &config.deck, &config.hand, config.seed, kit);
+    prober.until(shared.start + config.time_limit.max(shared.start.elapsed()) + LEARN_GRACE);
     let mut raised = false;
     for board in &picked {
         if shared.cancel.load(Ordering::Relaxed) {
             break;
         }
-        let Ok(measure) = prober.measure(&board.line) else { continue };
+        let measured = prober.measure_alone(&board.line);
+        // Cut short: what it learnt is not the whole board's.
+        if prober.out_of_time() {
+            break;
+        }
+        let Ok(measure) = measured else { continue };
         let me = &board.state.players[0];
         for i in measure.interruptions.iter().filter(|i| i.alone > 0.0) {
             let code = i.responder.code;

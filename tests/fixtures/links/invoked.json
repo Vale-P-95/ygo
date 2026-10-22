@@ -1,0 +1,1372 @@
+{
+ "deck": "tests/fixtures/decks/invoked-siracusa-md.ydk",
+ "hands": 30,
+ "lines": 600,
+ "cards": [
+  {
+   "chance": 0.8506401137980085,
+   "code": 86120751,
+   "copies": 3,
+   "extra": false,
+   "key": 0.18858737279790105,
+   "measured": false,
+   "reach": 8,
+   "reachAll": 12
+  },
+  {
+   "chance": 0.7417797352007878,
+   "code": 57294268,
+   "copies": 3,
+   "extra": false,
+   "key": 0.056187766714078435,
+   "measured": false,
+   "reach": 5,
+   "reachAll": 12
+  },
+  {
+   "chance": 0.5771236823868402,
+   "code": 84288367,
+   "copies": 3,
+   "extra": false,
+   "key": 0.8663329321224076,
+   "measured": false,
+   "reach": 11,
+   "reachAll": 14
+  },
+  {
+   "chance": 0.9980440967283073,
+   "code": 10673071,
+   "copies": 1,
+   "extra": false,
+   "key": 0.23153517890359865,
+   "measured": false,
+   "reach": 2,
+   "reachAll": 11
+  },
+  {
+   "chance": 0.125,
+   "code": 875572,
+   "copies": 1,
+   "extra": false,
+   "key": 0.26303935514461685,
+   "measured": false,
+   "reach": 11,
+   "reachAll": 14
+  },
+  {
+   "chance": 0.23717948717948734,
+   "code": 45223540,
+   "copies": 2,
+   "extra": false,
+   "key": 0.0,
+   "measured": false,
+   "reach": 0,
+   "reachAll": 0
+  },
+  {
+   "chance": 0.33755060728744934,
+   "code": 42141493,
+   "copies": 3,
+   "extra": false,
+   "key": 0.0,
+   "measured": false,
+   "reach": 0,
+   "reachAll": 0
+  },
+  {
+   "chance": 0.23717948717948734,
+   "code": 84192580,
+   "copies": 2,
+   "extra": false,
+   "key": 0.0,
+   "measured": false,
+   "reach": 0,
+   "reachAll": 0
+  },
+  {
+   "chance": 0.33755060728744934,
+   "code": 14558127,
+   "copies": 3,
+   "extra": false,
+   "key": 0.0,
+   "measured": false,
+   "reach": 0,
+   "reachAll": 0
+  },
+  {
+   "chance": 0.23717948717948734,
+   "code": 94145021,
+   "copies": 2,
+   "extra": false,
+   "key": 0.0,
+   "measured": false,
+   "reach": 0,
+   "reachAll": 0
+  },
+  {
+   "chance": 0.9980440967283073,
+   "code": 74063034,
+   "copies": 2,
+   "extra": false,
+   "key": 0.028686581318154936,
+   "measured": false,
+   "reach": 10,
+   "reachAll": 12
+  },
+  {
+   "chance": 0.9980440967283073,
+   "code": 37432075,
+   "copies": 3,
+   "extra": false,
+   "key": 0.05150545282123531,
+   "measured": false,
+   "reach": 12,
+   "reachAll": 13
+  },
+  {
+   "chance": 0.33755060728744934,
+   "code": 63926180,
+   "copies": 3,
+   "extra": false,
+   "key": 0.569277273224639,
+   "measured": false,
+   "reach": 3,
+   "reachAll": 15
+  },
+  {
+   "chance": 0.33755060728744934,
+   "code": 47679935,
+   "copies": 3,
+   "extra": false,
+   "key": 0.16504814531129952,
+   "measured": false,
+   "reach": 1,
+   "reachAll": 13
+  },
+  {
+   "chance": 0.23717948717948734,
+   "code": 48130397,
+   "copies": 2,
+   "extra": false,
+   "key": 0.031294452347079726,
+   "measured": false,
+   "reach": 1,
+   "reachAll": 12
+  },
+  {
+   "chance": 0.33755060728744934,
+   "code": 76334960,
+   "copies": 3,
+   "extra": false,
+   "key": 0.056187766714078435,
+   "measured": false,
+   "reach": 19,
+   "reachAll": 23
+  },
+  {
+   "chance": 0.125,
+   "code": 25311006,
+   "copies": 1,
+   "extra": false,
+   "key": 0.0,
+   "measured": false,
+   "reach": 0,
+   "reachAll": 0
+  },
+  {
+   "chance": 0.9980440967283073,
+   "code": 33166263,
+   "copies": 2,
+   "extra": true,
+   "key": 0.0,
+   "measured": false,
+   "reach": 1,
+   "reachAll": 1
+  },
+  {
+   "chance": 0.9980440967283073,
+   "code": 43989315,
+   "copies": 1,
+   "extra": true,
+   "key": 0.0,
+   "measured": false,
+   "reach": 16,
+   "reachAll": 20
+  },
+  {
+   "chance": 0.9980440967283073,
+   "code": 70383419,
+   "copies": 1,
+   "extra": true,
+   "key": 1.0527045263887338,
+   "measured": false,
+   "reach": 2,
+   "reachAll": 11
+  },
+  {
+   "chance": 0.9980440967283073,
+   "code": 6772168,
+   "copies": 1,
+   "extra": true,
+   "key": 0.0,
+   "measured": false,
+   "reach": 1,
+   "reachAll": 1
+  },
+  {
+   "chance": 0.9980440967283073,
+   "code": 11270236,
+   "copies": 1,
+   "extra": true,
+   "key": 0.0,
+   "measured": false,
+   "reach": 0,
+   "reachAll": 0
+  },
+  {
+   "chance": 0.9980440967283073,
+   "code": 97300502,
+   "copies": 1,
+   "extra": true,
+   "key": 0.0,
+   "measured": false,
+   "reach": 1,
+   "reachAll": 1
+  },
+  {
+   "chance": 0.9980440967283073,
+   "code": 13529466,
+   "copies": 1,
+   "extra": true,
+   "key": 0.0,
+   "measured": false,
+   "reach": 1,
+   "reachAll": 1
+  },
+  {
+   "chance": 0.9980440967283073,
+   "code": 75286621,
+   "copies": 1,
+   "extra": true,
+   "key": 0.0,
+   "measured": false,
+   "reach": 1,
+   "reachAll": 1
+  },
+  {
+   "chance": 0.9980440967283073,
+   "code": 49513164,
+   "copies": 1,
+   "extra": true,
+   "key": 0.0,
+   "measured": false,
+   "reach": 1,
+   "reachAll": 1
+  },
+  {
+   "chance": 0.0,
+   "code": 96334243,
+   "copies": 1,
+   "extra": true,
+   "key": 0.0,
+   "measured": true,
+   "reach": 0,
+   "reachAll": 0
+  },
+  {
+   "chance": 0.36666666666666664,
+   "code": 29301450,
+   "copies": 1,
+   "extra": true,
+   "key": 0.0,
+   "measured": true,
+   "reach": 0,
+   "reachAll": 0
+  },
+  {
+   "chance": 0.125,
+   "code": 34755994,
+   "copies": 1,
+   "extra": true,
+   "key": 0.0,
+   "measured": false,
+   "reach": 1,
+   "reachAll": 14
+  },
+  {
+   "chance": 0.125,
+   "code": 20714553,
+   "copies": 1,
+   "extra": true,
+   "key": 0.0,
+   "measured": false,
+   "reach": 0,
+   "reachAll": 0
+  },
+  {
+   "chance": 0.0,
+   "code": 97973962,
+   "copies": 1,
+   "extra": true,
+   "key": 0.0,
+   "measured": true,
+   "reach": 8,
+   "reachAll": 12
+  }
+ ],
+ "links": [
+  {
+   "from": 875572,
+   "kind": "summon",
+   "possible": true,
+   "text": true,
+   "to": 6772168,
+   "used": 0.035,
+   "zone": "extra"
+  },
+  {
+   "from": 875572,
+   "kind": "summon",
+   "possible": false,
+   "text": true,
+   "to": 11270236,
+   "used": 0.0,
+   "zone": "extra"
+  },
+  {
+   "from": 875572,
+   "kind": "summon",
+   "possible": true,
+   "text": true,
+   "to": 13529466,
+   "used": 0.008333333333333333,
+   "zone": "extra"
+  },
+  {
+   "from": 875572,
+   "kind": "summon",
+   "possible": false,
+   "text": true,
+   "to": 20714553,
+   "used": 0.0,
+   "zone": "extra"
+  },
+  {
+   "from": 875572,
+   "kind": "summon",
+   "possible": false,
+   "text": true,
+   "to": 33166263,
+   "used": 0.0,
+   "zone": "extra"
+  },
+  {
+   "from": 875572,
+   "kind": "summon",
+   "possible": false,
+   "text": true,
+   "to": 34755994,
+   "used": 0.0,
+   "zone": "extra"
+  },
+  {
+   "from": 875572,
+   "kind": "summon",
+   "possible": true,
+   "text": true,
+   "to": 43989315,
+   "used": 0.235,
+   "zone": "extra"
+  },
+  {
+   "from": 875572,
+   "kind": "summon",
+   "possible": true,
+   "text": true,
+   "to": 49513164,
+   "used": 0.385,
+   "zone": "extra"
+  },
+  {
+   "from": 875572,
+   "kind": "summon",
+   "possible": false,
+   "text": true,
+   "to": 70383419,
+   "used": 0.0,
+   "zone": "extra"
+  },
+  {
+   "from": 875572,
+   "kind": "summon",
+   "possible": false,
+   "text": true,
+   "to": 75286621,
+   "used": 0.0,
+   "zone": "extra"
+  },
+  {
+   "from": 875572,
+   "kind": "summon",
+   "possible": false,
+   "text": true,
+   "to": 97300502,
+   "used": 0.0,
+   "zone": "extra"
+  },
+  {
+   "from": 6772168,
+   "kind": "material",
+   "possible": true,
+   "text": true,
+   "to": 11270236,
+   "used": 0.0033333333333333335,
+   "zone": "extra"
+  },
+  {
+   "from": 10673071,
+   "kind": "set",
+   "possible": true,
+   "text": false,
+   "to": 37432075,
+   "used": 0.135,
+   "zone": "deck"
+  },
+  {
+   "from": 10673071,
+   "kind": "set",
+   "possible": true,
+   "text": true,
+   "to": 74063034,
+   "used": 0.06333333333333334,
+   "zone": "deck"
+  },
+  {
+   "from": 13529466,
+   "kind": "material",
+   "possible": true,
+   "text": true,
+   "to": 11270236,
+   "used": 0.0,
+   "zone": "extra"
+  },
+  {
+   "from": 33166263,
+   "kind": "material",
+   "possible": false,
+   "text": true,
+   "to": 11270236,
+   "used": 0.0,
+   "zone": "extra"
+  },
+  {
+   "from": 34755994,
+   "kind": "search",
+   "possible": false,
+   "text": true,
+   "to": 875572,
+   "used": 0.0,
+   "zone": "deck"
+  },
+  {
+   "from": 37432075,
+   "kind": "summon",
+   "possible": true,
+   "text": false,
+   "to": 6772168,
+   "used": 0.02,
+   "zone": "extra"
+  },
+  {
+   "from": 37432075,
+   "kind": "summon",
+   "possible": true,
+   "text": false,
+   "to": 11270236,
+   "used": 0.025,
+   "zone": "extra"
+  },
+  {
+   "from": 37432075,
+   "kind": "summon",
+   "possible": true,
+   "text": false,
+   "to": 13529466,
+   "used": 0.03666666666666667,
+   "zone": "extra"
+  },
+  {
+   "from": 37432075,
+   "kind": "summon",
+   "possible": true,
+   "text": false,
+   "to": 33166263,
+   "used": 0.0,
+   "zone": "extra"
+  },
+  {
+   "from": 37432075,
+   "kind": "summon",
+   "possible": true,
+   "text": false,
+   "to": 43989315,
+   "used": 0.13333333333333333,
+   "zone": "extra"
+  },
+  {
+   "from": 37432075,
+   "kind": "summon",
+   "possible": true,
+   "text": false,
+   "to": 49513164,
+   "used": 0.03166666666666667,
+   "zone": "extra"
+  },
+  {
+   "from": 37432075,
+   "kind": "summon",
+   "possible": true,
+   "text": false,
+   "to": 70383419,
+   "used": 0.06666666666666667,
+   "zone": "extra"
+  },
+  {
+   "from": 37432075,
+   "kind": "summon",
+   "possible": true,
+   "text": false,
+   "to": 75286621,
+   "used": 0.08166666666666667,
+   "zone": "extra"
+  },
+  {
+   "from": 37432075,
+   "kind": "summon",
+   "possible": true,
+   "text": false,
+   "to": 97300502,
+   "used": 0.051666666666666666,
+   "zone": "extra"
+  },
+  {
+   "from": 37432075,
+   "kind": "recover",
+   "possible": true,
+   "text": false,
+   "to": 57294268,
+   "used": 0.09666666666666666,
+   "zone": "grave"
+  },
+  {
+   "from": 37432075,
+   "kind": "recover",
+   "possible": true,
+   "text": false,
+   "to": 74063034,
+   "used": 0.08166666666666667,
+   "zone": "grave"
+  },
+  {
+   "from": 37432075,
+   "kind": "recover",
+   "possible": true,
+   "text": false,
+   "to": 86120751,
+   "used": 0.09,
+   "zone": "grave"
+  },
+  {
+   "from": 43989315,
+   "kind": "summon",
+   "possible": true,
+   "text": false,
+   "to": 875572,
+   "used": 0.15666666666666668,
+   "zone": "grave"
+  },
+  {
+   "from": 43989315,
+   "kind": "summon",
+   "possible": false,
+   "text": true,
+   "to": 6772168,
+   "used": 0.0,
+   "zone": "extra"
+  },
+  {
+   "from": 43989315,
+   "kind": "summon",
+   "possible": true,
+   "text": false,
+   "to": 10673071,
+   "used": 0.0,
+   "zone": "grave"
+  },
+  {
+   "from": 43989315,
+   "kind": "summon",
+   "possible": true,
+   "text": true,
+   "to": 11270236,
+   "used": 0.005,
+   "zone": "extra"
+  },
+  {
+   "from": 43989315,
+   "kind": "summon",
+   "possible": true,
+   "text": true,
+   "to": 13529466,
+   "used": 0.0,
+   "zone": "extra"
+  },
+  {
+   "from": 43989315,
+   "kind": "summon",
+   "possible": true,
+   "text": false,
+   "to": 14558127,
+   "used": 0.07333333333333333,
+   "zone": "grave"
+  },
+  {
+   "from": 43989315,
+   "kind": "summon",
+   "possible": true,
+   "text": true,
+   "to": 33166263,
+   "used": 0.0,
+   "zone": "extra"
+  },
+  {
+   "from": 43989315,
+   "kind": "summon",
+   "possible": true,
+   "text": false,
+   "to": 42141493,
+   "used": 0.01,
+   "zone": "grave"
+  },
+  {
+   "from": 43989315,
+   "kind": "summon",
+   "possible": true,
+   "text": false,
+   "to": 45223540,
+   "used": 0.013333333333333334,
+   "zone": "grave"
+  },
+  {
+   "from": 43989315,
+   "kind": "summon",
+   "possible": true,
+   "text": true,
+   "to": 49513164,
+   "used": 0.02,
+   "zone": "extra"
+  },
+  {
+   "from": 43989315,
+   "kind": "summon",
+   "possible": true,
+   "text": false,
+   "to": 57294268,
+   "used": 0.08833333333333333,
+   "zone": "grave"
+  },
+  {
+   "from": 43989315,
+   "kind": "summon",
+   "possible": true,
+   "text": true,
+   "to": 70383419,
+   "used": 0.115,
+   "zone": "extra"
+  },
+  {
+   "from": 43989315,
+   "kind": "summon",
+   "possible": true,
+   "text": true,
+   "to": 75286621,
+   "used": 0.06833333333333333,
+   "zone": "extra"
+  },
+  {
+   "from": 43989315,
+   "kind": "summon",
+   "possible": true,
+   "text": false,
+   "to": 86120751,
+   "used": 0.13333333333333333,
+   "zone": "grave"
+  },
+  {
+   "from": 43989315,
+   "kind": "summon",
+   "possible": true,
+   "text": false,
+   "to": 94145021,
+   "used": 0.10166666666666667,
+   "zone": "grave"
+  },
+  {
+   "from": 43989315,
+   "kind": "summon",
+   "possible": true,
+   "text": true,
+   "to": 97300502,
+   "used": 0.06666666666666667,
+   "zone": "extra"
+  },
+  {
+   "from": 43989315,
+   "kind": "material",
+   "possible": true,
+   "text": true,
+   "to": 11270236,
+   "used": 0.005,
+   "zone": "extra"
+  },
+  {
+   "from": 47679935,
+   "kind": "search",
+   "possible": true,
+   "text": true,
+   "to": 86120751,
+   "used": 0.06666666666666667,
+   "zone": "deck"
+  },
+  {
+   "from": 48130397,
+   "kind": "summon",
+   "possible": true,
+   "text": false,
+   "to": 70383419,
+   "used": 0.005,
+   "zone": "extra"
+  },
+  {
+   "from": 49513164,
+   "kind": "material",
+   "possible": true,
+   "text": true,
+   "to": 11270236,
+   "used": 0.085,
+   "zone": "extra"
+  },
+  {
+   "from": 57294268,
+   "kind": "search",
+   "possible": true,
+   "text": false,
+   "to": 37432075,
+   "used": 0.42,
+   "zone": "deck"
+  },
+  {
+   "from": 57294268,
+   "kind": "search",
+   "possible": true,
+   "text": true,
+   "to": 74063034,
+   "used": 0.22,
+   "zone": "deck"
+  },
+  {
+   "from": 57294268,
+   "kind": "material",
+   "possible": true,
+   "text": true,
+   "to": 6772168,
+   "used": 0.125,
+   "zone": "extra"
+  },
+  {
+   "from": 57294268,
+   "kind": "material",
+   "possible": true,
+   "text": true,
+   "to": 43989315,
+   "used": 0.24166666666666667,
+   "zone": "extra"
+  },
+  {
+   "from": 57294268,
+   "kind": "material",
+   "possible": true,
+   "text": true,
+   "to": 70383419,
+   "used": 0.20333333333333334,
+   "zone": "extra"
+  },
+  {
+   "from": 63926180,
+   "kind": "summon",
+   "possible": true,
+   "text": true,
+   "to": 84288367,
+   "used": 0.06666666666666667,
+   "zone": "deck"
+  },
+  {
+   "from": 63926180,
+   "kind": "toGrave",
+   "possible": false,
+   "text": true,
+   "to": 57294268,
+   "used": 0.0,
+   "zone": "deck"
+  },
+  {
+   "from": 63926180,
+   "kind": "toGrave",
+   "possible": false,
+   "text": true,
+   "to": 86120751,
+   "used": 0.0,
+   "zone": "deck"
+  },
+  {
+   "from": 70383419,
+   "kind": "search",
+   "possible": true,
+   "text": true,
+   "to": 10673071,
+   "used": 0.2733333333333333,
+   "zone": "deck"
+  },
+  {
+   "from": 70383419,
+   "kind": "material",
+   "possible": true,
+   "text": true,
+   "to": 11270236,
+   "used": 0.0016666666666666668,
+   "zone": "extra"
+  },
+  {
+   "from": 74063034,
+   "kind": "summon",
+   "possible": true,
+   "text": false,
+   "to": 6772168,
+   "used": 0.105,
+   "zone": "extra"
+  },
+  {
+   "from": 74063034,
+   "kind": "summon",
+   "possible": true,
+   "text": false,
+   "to": 11270236,
+   "used": 0.0033333333333333335,
+   "zone": "extra"
+  },
+  {
+   "from": 74063034,
+   "kind": "summon",
+   "possible": true,
+   "text": false,
+   "to": 13529466,
+   "used": 0.09666666666666666,
+   "zone": "extra"
+  },
+  {
+   "from": 74063034,
+   "kind": "summon",
+   "possible": true,
+   "text": false,
+   "to": 33166263,
+   "used": 0.008333333333333333,
+   "zone": "extra"
+  },
+  {
+   "from": 74063034,
+   "kind": "summon",
+   "possible": true,
+   "text": false,
+   "to": 43989315,
+   "used": 0.125,
+   "zone": "extra"
+  },
+  {
+   "from": 74063034,
+   "kind": "summon",
+   "possible": true,
+   "text": false,
+   "to": 49513164,
+   "used": 0.0033333333333333335,
+   "zone": "extra"
+  },
+  {
+   "from": 74063034,
+   "kind": "summon",
+   "possible": true,
+   "text": false,
+   "to": 70383419,
+   "used": 0.07333333333333333,
+   "zone": "extra"
+  },
+  {
+   "from": 74063034,
+   "kind": "summon",
+   "possible": true,
+   "text": false,
+   "to": 75286621,
+   "used": 0.04833333333333333,
+   "zone": "extra"
+  },
+  {
+   "from": 74063034,
+   "kind": "summon",
+   "possible": true,
+   "text": false,
+   "to": 97300502,
+   "used": 0.03833333333333333,
+   "zone": "extra"
+  },
+  {
+   "from": 74063034,
+   "kind": "recover",
+   "possible": true,
+   "text": false,
+   "to": 86120751,
+   "used": 0.10166666666666667,
+   "zone": "banished"
+  },
+  {
+   "from": 75286621,
+   "kind": "material",
+   "possible": true,
+   "text": true,
+   "to": 11270236,
+   "used": 0.0016666666666666668,
+   "zone": "extra"
+  },
+  {
+   "from": 76334960,
+   "kind": "summon",
+   "possible": true,
+   "text": true,
+   "to": 6772168,
+   "used": 0.0033333333333333335,
+   "zone": "extra"
+  },
+  {
+   "from": 76334960,
+   "kind": "summon",
+   "possible": false,
+   "text": true,
+   "to": 11270236,
+   "used": 0.0,
+   "zone": "extra"
+  },
+  {
+   "from": 76334960,
+   "kind": "summon",
+   "possible": true,
+   "text": true,
+   "to": 13529466,
+   "used": 0.021666666666666667,
+   "zone": "extra"
+  },
+  {
+   "from": 76334960,
+   "kind": "summon",
+   "possible": false,
+   "text": true,
+   "to": 33166263,
+   "used": 0.0,
+   "zone": "extra"
+  },
+  {
+   "from": 76334960,
+   "kind": "summon",
+   "possible": true,
+   "text": true,
+   "to": 43989315,
+   "used": 0.11166666666666666,
+   "zone": "extra"
+  },
+  {
+   "from": 76334960,
+   "kind": "summon",
+   "possible": true,
+   "text": true,
+   "to": 49513164,
+   "used": 0.09,
+   "zone": "extra"
+  },
+  {
+   "from": 76334960,
+   "kind": "summon",
+   "possible": true,
+   "text": true,
+   "to": 70383419,
+   "used": 0.05,
+   "zone": "extra"
+  },
+  {
+   "from": 76334960,
+   "kind": "summon",
+   "possible": true,
+   "text": true,
+   "to": 75286621,
+   "used": 0.085,
+   "zone": "extra"
+  },
+  {
+   "from": 76334960,
+   "kind": "summon",
+   "possible": true,
+   "text": true,
+   "to": 97300502,
+   "used": 0.045,
+   "zone": "extra"
+  },
+  {
+   "from": 76334960,
+   "kind": "toGrave",
+   "possible": true,
+   "text": false,
+   "to": 875572,
+   "used": 0.0,
+   "zone": "deck"
+  },
+  {
+   "from": 76334960,
+   "kind": "toGrave",
+   "possible": true,
+   "text": false,
+   "to": 10673071,
+   "used": 0.0,
+   "zone": "deck"
+  },
+  {
+   "from": 76334960,
+   "kind": "toGrave",
+   "possible": true,
+   "text": false,
+   "to": 14558127,
+   "used": 0.0,
+   "zone": "deck"
+  },
+  {
+   "from": 76334960,
+   "kind": "toGrave",
+   "possible": true,
+   "text": false,
+   "to": 42141493,
+   "used": 0.0,
+   "zone": "deck"
+  },
+  {
+   "from": 76334960,
+   "kind": "toGrave",
+   "possible": true,
+   "text": false,
+   "to": 45223540,
+   "used": 0.0,
+   "zone": "deck"
+  },
+  {
+   "from": 76334960,
+   "kind": "toGrave",
+   "possible": true,
+   "text": false,
+   "to": 57294268,
+   "used": 0.0,
+   "zone": "deck"
+  },
+  {
+   "from": 76334960,
+   "kind": "toGrave",
+   "possible": true,
+   "text": false,
+   "to": 84192580,
+   "used": 0.0,
+   "zone": "deck"
+  },
+  {
+   "from": 76334960,
+   "kind": "toGrave",
+   "possible": true,
+   "text": false,
+   "to": 84288367,
+   "used": 0.0,
+   "zone": "deck"
+  },
+  {
+   "from": 76334960,
+   "kind": "toGrave",
+   "possible": true,
+   "text": false,
+   "to": 86120751,
+   "used": 0.0,
+   "zone": "deck"
+  },
+  {
+   "from": 76334960,
+   "kind": "toGrave",
+   "possible": true,
+   "text": false,
+   "to": 94145021,
+   "used": 0.0,
+   "zone": "deck"
+  },
+  {
+   "from": 84288367,
+   "kind": "search",
+   "possible": true,
+   "text": true,
+   "to": 57294268,
+   "used": 0.24833333333333332,
+   "zone": "deck"
+  },
+  {
+   "from": 84288367,
+   "kind": "search",
+   "possible": true,
+   "text": true,
+   "to": 86120751,
+   "used": 0.5933333333333334,
+   "zone": "deck"
+  },
+  {
+   "from": 84288367,
+   "kind": "summon",
+   "possible": true,
+   "text": true,
+   "to": 6772168,
+   "used": 0.0,
+   "zone": "extra"
+  },
+  {
+   "from": 84288367,
+   "kind": "summon",
+   "possible": true,
+   "text": true,
+   "to": 11270236,
+   "used": 0.055,
+   "zone": "extra"
+  },
+  {
+   "from": 84288367,
+   "kind": "summon",
+   "possible": true,
+   "text": true,
+   "to": 13529466,
+   "used": 0.008333333333333333,
+   "zone": "extra"
+  },
+  {
+   "from": 84288367,
+   "kind": "summon",
+   "possible": false,
+   "text": true,
+   "to": 33166263,
+   "used": 0.0,
+   "zone": "extra"
+  },
+  {
+   "from": 84288367,
+   "kind": "summon",
+   "possible": true,
+   "text": true,
+   "to": 43989315,
+   "used": 0.0033333333333333335,
+   "zone": "extra"
+  },
+  {
+   "from": 84288367,
+   "kind": "summon",
+   "possible": true,
+   "text": true,
+   "to": 49513164,
+   "used": 0.011666666666666667,
+   "zone": "extra"
+  },
+  {
+   "from": 84288367,
+   "kind": "summon",
+   "possible": true,
+   "text": true,
+   "to": 70383419,
+   "used": 0.0,
+   "zone": "extra"
+  },
+  {
+   "from": 84288367,
+   "kind": "summon",
+   "possible": true,
+   "text": true,
+   "to": 75286621,
+   "used": 0.0,
+   "zone": "extra"
+  },
+  {
+   "from": 84288367,
+   "kind": "summon",
+   "possible": true,
+   "text": true,
+   "to": 97300502,
+   "used": 0.0033333333333333335,
+   "zone": "extra"
+  },
+  {
+   "from": 86120751,
+   "kind": "search",
+   "possible": true,
+   "text": true,
+   "to": 74063034,
+   "used": 0.3,
+   "zone": "deck"
+  },
+  {
+   "from": 86120751,
+   "kind": "material",
+   "possible": true,
+   "text": true,
+   "to": 6772168,
+   "used": 0.041666666666666664,
+   "zone": "extra"
+  },
+  {
+   "from": 86120751,
+   "kind": "material",
+   "possible": true,
+   "text": true,
+   "to": 13529466,
+   "used": 0.17,
+   "zone": "extra"
+  },
+  {
+   "from": 86120751,
+   "kind": "material",
+   "possible": true,
+   "text": true,
+   "to": 43989315,
+   "used": 0.21166666666666667,
+   "zone": "extra"
+  },
+  {
+   "from": 86120751,
+   "kind": "material",
+   "possible": true,
+   "text": true,
+   "to": 49513164,
+   "used": 0.26166666666666666,
+   "zone": "extra"
+  },
+  {
+   "from": 86120751,
+   "kind": "material",
+   "possible": true,
+   "text": true,
+   "to": 70383419,
+   "used": 0.10166666666666667,
+   "zone": "extra"
+  },
+  {
+   "from": 86120751,
+   "kind": "material",
+   "possible": true,
+   "text": true,
+   "to": 75286621,
+   "used": 0.255,
+   "zone": "extra"
+  },
+  {
+   "from": 86120751,
+   "kind": "material",
+   "possible": true,
+   "text": true,
+   "to": 97300502,
+   "used": 0.19166666666666668,
+   "zone": "extra"
+  },
+  {
+   "from": 97300502,
+   "kind": "material",
+   "possible": true,
+   "text": true,
+   "to": 11270236,
+   "used": 0.0,
+   "zone": "extra"
+  },
+  {
+   "from": 97973962,
+   "kind": "search",
+   "possible": true,
+   "text": true,
+   "to": 74063034,
+   "used": 0.0033333333333333335,
+   "zone": "deck"
+  },
+  {
+   "from": 97973962,
+   "kind": "material",
+   "possible": true,
+   "text": true,
+   "to": 6772168,
+   "used": 0.0033333333333333335,
+   "zone": "extra"
+  },
+  {
+   "from": 97973962,
+   "kind": "material",
+   "possible": true,
+   "text": true,
+   "to": 13529466,
+   "used": 0.0,
+   "zone": "extra"
+  },
+  {
+   "from": 97973962,
+   "kind": "material",
+   "possible": false,
+   "text": true,
+   "to": 43989315,
+   "used": 0.0,
+   "zone": "extra"
+  },
+  {
+   "from": 97973962,
+   "kind": "material",
+   "possible": true,
+   "text": true,
+   "to": 49513164,
+   "used": 0.0,
+   "zone": "extra"
+  },
+  {
+   "from": 97973962,
+   "kind": "material",
+   "possible": true,
+   "text": true,
+   "to": 70383419,
+   "used": 0.005,
+   "zone": "extra"
+  },
+  {
+   "from": 97973962,
+   "kind": "material",
+   "possible": true,
+   "text": true,
+   "to": 75286621,
+   "used": 0.02,
+   "zone": "extra"
+  },
+  {
+   "from": 97973962,
+   "kind": "material",
+   "possible": true,
+   "text": true,
+   "to": 97300502,
+   "used": 0.013333333333333334,
+   "zone": "extra"
+  }
+ ]
+}

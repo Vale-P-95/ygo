@@ -5,8 +5,10 @@ use std::path::PathBuf;
 use std::sync::atomic::AtomicBool;
 use std::time::Duration;
 
+use ygo_engine::consts::location;
+use ygo_engine::ActionKind;
 use ygo_engine::{DeckList, Engine};
-use ygo_solver::{matchup, search, Goal, Kit, Prober, Rival, SearchConfig, Stop};
+use ygo_solver::{against_moves, draw_trade_off, matchup, search, typical_moves, Goal, Kit, Prober, Rival, RivalPlay, SearchConfig, Stop};
 
 const ALEISTER: u32 = 86120751;
 const CHALICE: u32 = 76334960;
@@ -50,15 +52,35 @@ impl Lab {
 fn a_deck_brings_the_breakers_and_handtraps_it_can_play() {
     let Some(lab) = lab() else { return };
     let kit = Kit::standard(&lab.engine);
-    let deck = lab.rival_deck(&[("Dark Hole", 1), ("Gameciel, the Sea Turtle Kaiju", 1), ("Evenly Matched", 1), ("Maxx \"C\"", 3)]);
+    let deck = lab.rival_deck(&[
+        ("Dark Hole", 1),
+        ("Gameciel, the Sea Turtle Kaiju", 1),
+        ("Dogoran, the Mad Flame Kaiju", 1),
+        ("Evenly Matched", 1),
+        ("Clockwork Night", 1),
+        ("Maxx \"C\"", 3),
+    ]);
     let rival = Rival::new(&lab.engine, &deck, 1, &kit);
     let breakers = rival.breakers();
-    // Dark Hole from the hand, the Kaiju by its own summon; Evenly Matched
-    // reads like a breaker, but it is played at the end of the Battle Phase.
+    // Dark Hole from the hand, the Kaiju by their own summon (Dogoran by
+    // the text, its monster on your field in place of yours); Evenly Matched
+    // reads like a breaker, but it is played at the end of the Battle Phase;
+    // Clockwork Night only lowers ATK.
     assert!(breakers.contains(&lab.code("Dark Hole")), "{breakers:?}");
     assert!(breakers.contains(&lab.code("Gameciel, the Sea Turtle Kaiju")), "{breakers:?}");
+    assert!(breakers.contains(&lab.code("Dogoran, the Mad Flame Kaiju")), "{breakers:?}");
     assert!(!breakers.contains(&lab.code("Evenly Matched")), "{breakers:?}");
+    assert!(!breakers.contains(&lab.code("Clockwork Night")), "{breakers:?}");
     assert!(rival.hand_traps.contains(&ASH) && rival.hand_traps.contains(&lab.code("Maxx \"C\"")), "{:?}", rival.hand_traps);
+
+    // The opponent's Deck is as big as during your first turn: plain cards
+    // in the standard kit, its own cards against it (Aleister among them),
+    // with its Extra Deck too.
+    assert_eq!(kit.opponent().deck.len(), 35);
+    let theirs = rival.kit().opponent();
+    assert_eq!(theirs.deck.len(), 35);
+    assert!(theirs.deck.iter().filter(|&&c| lab.deck.main.contains(&c)).count() > 15, "{:?}", theirs.deck);
+    assert!(theirs.extra.contains(&lab.code("Invoked Mechaba")), "{:?}", theirs.extra);
 }
 
 #[test]
@@ -81,7 +103,7 @@ fn a_handtrap_counts_where_it_stops_the_line() {
     let line = &result.boards[0].line;
     let measure = Prober::new(engine, &lab.deck, &hand, config.seed, &kit).measure(line).expect("the probe turn is played");
 
-    let deck = lab.rival_deck(&[("Maxx \"C\"", 3), ("Dark Hole", 1)]);
+    let deck = lab.rival_deck(&[("Maxx \"C\"", 3), ("Dark Hole", 1), ("Ultimate Slayer", 1)]);
     let rival = Rival::new(engine, &deck, config.seed, &kit);
     let x = matchup(engine, &lab.deck, &hand, config.seed, line, &measure, &rival).expect("the matchup is played");
     let of = |code: u32| x.hand_traps.iter().find(|h| h.code == code);
@@ -91,9 +113,69 @@ fn a_handtrap_counts_where_it_stops_the_line() {
     assert!(ash.stops > 0 && ash.chance > 0.0, "{ash:?}");
     let maxx = of(lab.code("Maxx \"C\"")).expect("Maxx \"C\" is offered");
     assert!(maxx.windows > 0 && maxx.stops == 0, "{maxx:?}");
+    // It draws a card for each summon left in the line: the most at the
+    // first moment, fewer later on. Ash draws nothing.
+    let first = maxx.moments.first().expect("moments").drawn;
+    assert!(maxx.drawn > 0 && first == maxx.drawn, "{maxx:?}");
+    assert!(maxx.moments.last().is_some_and(|m| m.drawn <= first), "{maxx:?}");
+    assert_eq!(maxx.moments.len() as u32, maxx.windows.min(24));
+    assert_eq!(ash.drawn, 0, "{ash:?}");
+
+    // Where to stop the line against Maxx "C": the whole line comes last
+    // and draws as much as the first moment; the best stop keeps at least
+    // as much as the whole line, and no stop more than its board.
+    let offs = draw_trade_off(engine, &lab.deck, &hand, config.seed, line, &rival).expect("the stops are measured");
+    assert!(offs.iter().all(|o| o.code != ASH), "{offs:?}");
+    let off = offs.iter().find(|o| o.code == lab.code("Maxx \"C\"")).expect("Maxx \"C\" draws");
+    let whole = off.stops.last().expect("the whole line");
+    assert_eq!(whole.drawn, maxx.drawn, "{off:?}");
+    assert!(off.stops[off.best].expected >= whole.expected - 1e-9, "{off:?}");
+    assert!(off.stops.iter().all(|p| p.expected <= p.field_value + p.floodgate_value + 1e-9), "{off:?}");
+    assert!(off.stops.windows(2).all(|w| w[0].answers < w[1].answers && w[0].choices <= w[1].choices), "{off:?}");
     assert!(x.hand_trap_chance > 0.0 && x.hand_trap_chance < 1.0);
     // One Dark Hole: the field holds unless the opponent has it.
     let hole = x.breakers.iter().find(|b| b.code == lab.code("Dark Hole")).expect("Dark Hole");
     assert!(hole.chance > 0.0 && hole.chance < 0.5, "{hole:?}");
     assert!(x.resilience >= hole.remaining && x.resilience <= measure.field_value + 1e-9, "{x:?}");
+    // Ultimate Slayer pays with a monster of its Extra Deck of the type of
+    // the one it shuffles away (Invoked Mechaba is a Fusion): it has its
+    // real Extra Deck, so it can be played.
+    let slayer = x.breakers.iter().find(|b| b.code == lab.code("Ultimate Slayer")).expect("Ultimate Slayer");
+    assert!(!slayer.not_applicable, "{slayer:?}");
+
+    // Level 2: the opponent plays the deck's typical moves (here an Invoked
+    // opening: Aleister summoned, Invocation from the hand). The board's
+    // answers take moves away; a Normal Summon of another line's opening is
+    // left out (one a turn).
+    let play = |name: &str, kind: ActionKind, share: f64, order: f64| RivalPlay {
+        code: lab.code(name),
+        kind,
+        location: location::HAND,
+        share,
+        first: if order == 1.0 { share } else { 0.0 },
+        order,
+    };
+    let plays = vec![
+        play("Aleister the Invoker", ActionKind::NormalSummon, 0.9, 1.0),
+        play("Ash Blossom & Joyous Spring", ActionKind::NormalSummon, 0.2, 1.0),
+        play("Invocation", ActionKind::Activate, 0.8, 2.0),
+    ];
+    assert_eq!(typical_moves(&plays).len(), 2);
+    let moves = against_moves(engine, &lab.deck, &hand, config.seed, line, &deck, &plays, &kit).expect("the moves are played");
+    assert!(moves.moves.iter().all(|m| m.possible), "{moves:?}");
+    assert!(!moves.stops.is_empty() && moves.value > 0.0, "{moves:?}");
+    assert!(moves.left < 1.0 && moves.left >= 0.0, "{moves:?}");
+    assert!(moves.stops.iter().all(|s| s.coverage > 0.0 && s.coverage <= 1.0 && !s.stops.is_empty()), "{moves:?}");
+}
+
+#[test]
+fn a_deck_opens_with_its_starters() {
+    let Some(lab) = lab() else { return };
+    // The Invoked deck's best lines play Aleister, Invocation or the cards
+    // that bring them; none opens with a handtrap.
+    let plays = ygo_solver::rival_plays(&lab.engine, &lab.deck, 1, 4, 400, 2);
+    assert!(!plays.is_empty());
+    let names: Vec<String> = plays.iter().map(|p| lab.engine.cards().name(p.code)).collect();
+    assert!(names.iter().any(|n| n.contains("Aleister") || n.contains("Invocation") || n.contains("Aiwass")), "{names:?}");
+    assert!(plays.iter().all(|p| p.share > 0.0 && p.share <= 1.0 && p.order >= 1.0), "{plays:?}");
 }

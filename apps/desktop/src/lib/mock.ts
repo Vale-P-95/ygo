@@ -6,18 +6,25 @@ import type {
   Checkpoint,
   Chip,
   ComboBoard,
+  CardLink,
   ComboGoal,
+  ComboMatchup,
   ComboHand,
   ComboOutcome,
   ComboProgress,
   ComboRequest,
   ComboScore,
+  ComboDrawTradeOff,
   ComboStep,
   Cond,
   DataStatus,
   Deck,
   DeckBox,
   DeckLinks,
+  LinksComparison,
+  LinksProgress,
+  LinkCardChange,
+  LearnedWeights,
   DeckSummary,
   Facets,
   HandStats,
@@ -41,6 +48,7 @@ import type {
   ZoneCard,
 } from "./api";
 import { pAtLeastOne, pBoth } from "./probability";
+import invokedLinksFixture from "./fixtures/invoked-links.json";
 
 type Api = typeof ApiType;
 
@@ -798,7 +806,7 @@ if (typeof localStorage !== "undefined") {
   }
 }
 
-let statusState: DataStatus = {
+const statusState: DataStatus = {
   dataDir: "C:\\dev\\ygo-gemini\\data (mock)",
   cards: { version: "147.37", count: CARDS.size },
   engine: {
@@ -818,6 +826,8 @@ const rolesProgressListeners = new Set<(p: { done: number; total: number }) => v
 const simProgressListeners = new Set<(c: Checkpoint) => void>();
 const comboProgressListeners = new Set<(p: ComboProgress) => void>();
 const comboScoreListeners = new Set<(s: ComboScore) => void>();
+const linksProgressListeners = new Set<(p: LinksProgress) => void>();
+let lastVsDeckId: number | null = null;
 let simCancelled = false;
 let comboCancelled = false;
 
@@ -1693,7 +1703,87 @@ function buildMockBoardsForHand(handIdx: number, deckId: number, goal: ComboGoal
   ];
 }
 
-function buildMockScoreForBoard(b: ComboBoard): ComboScore {
+function buildMockScoreForBoard(b: ComboBoard, vsDeckId?: number | null): ComboScore {
+  const getMatchup = (deckId: number | null | undefined): ComboMatchup | undefined => {
+    if (deckId == null) return undefined;
+    const rival = decksState.find((d) => d.id === deckId);
+    const deckName = rival?.name ?? "Deck Bottega";
+    return {
+      deckId,
+      deckName,
+      resilience: Number((Math.min(b.quickScore * 0.45, 1.85)).toFixed(2)),
+      standardBreakers: deckId === 99999,
+      breakerChance: 0.28,
+      breakers: [
+        {
+          code: 24299458, // Forbidden Droplet
+          chance: 0.28,
+          remaining: 0.54,
+          stoppedBy: null,
+          notApplicable: false,
+        },
+        {
+          code: 12580477, // Raigeki
+          chance: 0.15,
+          remaining: 1.2,
+          stoppedBy: 84815190,
+          notApplicable: false,
+        },
+      ],
+      handTrapChance: 0.65,
+      handTraps: [
+        {
+          code: 14558127, // Ash Blossom & Joyous Spring
+          chance: 0.42,
+          windows: 2,
+          stops: 2,
+          at: [98159737, 72270339],
+        },
+        {
+          code: 62015408, // Bystial Saronir
+          chance: 0.35,
+          windows: 17,
+          stops: 9,
+          at: [98159737],
+        },
+        {
+          code: 94145021, // Droll & Lock Bird
+          chance: 0.28,
+          windows: 2,
+          stops: 1,
+          at: [72270339],
+        },
+        {
+          code: 23434538, // Maxx "C"
+          chance: 0.45,
+          windows: 21,
+          stops: 0,
+          at: [],
+          drawn: 9,
+          moments: [
+            { playing: 86120751, stops: false, drawn: 9 }, // Aleister
+            { playing: 70383419, stops: false, drawn: 8 }, // Artemis
+            { playing: 97300502, stops: false, drawn: 5 }, // Secure Gardna
+            { playing: 74063034, stops: false, drawn: 2 }, // Invocation
+          ],
+        },
+        {
+          code: 73642296, // Mulcharmy Fuwalos
+          chance: 0.38,
+          windows: 14,
+          stops: 0,
+          at: [],
+          drawn: 7,
+          moments: [
+            { playing: 70383419, stops: false, drawn: 7 }, // Artemis
+            { playing: 97300502, stops: false, drawn: 4 }, // Secure Gardna
+            { playing: 74063034, stops: false, drawn: 2 }, // Invocation
+          ],
+        },
+      ],
+      error: null,
+    };
+  };
   if (b.key === "se-safe-4summon-sp-flamberge") {
     return {
       hand: b.hand,
@@ -1866,6 +1956,7 @@ function buildMockScoreForBoard(b: ComboBoard): ComboScore {
       exposure: 4,
       exposureNote: "Esposta a Ash Blossom, Veiler/Impermanence, Droll e Nibiru",
       exposureDetail: { ash: 2, onField: 2, summons: 8, specialSummons: 7, searches: 3 },
+      matchup: getMatchup(vsDeckId),
       error: null,
     };
   }
@@ -1970,6 +2061,8 @@ function buildMockScoreForBoard(b: ComboBoard): ComboScore {
 
 let lastScoredBoards: ComboBoard[] = [];
 
+let mockBoardChoices = 0;
+
 export const mockApi: Api = {
   dataStatus: async () => structuredClone(statusState),
 
@@ -2064,21 +2157,124 @@ export const mockApi: Api = {
     return found ? structuredClone(found) : null;
   },
 
-  // A minimal map (the deck's cards, no links): Gemini replaces it with a full example.
+  // Full links map example based on the Invoked deck fixture
   deckLinks: async (deckId: number): Promise<DeckLinks> => {
     const deck = decksState.find((d) => d.id === deckId);
-    const cards: DeckLinks["cards"] = [];
-    for (const [codes, extra] of [[deck?.main ?? [], false], [deck?.extra ?? [], true]] as const) {
-      for (const code of codes) {
-        const card = cards.find((c) => c.code === code);
-        if (card) card.copies += 1;
-        else cards.push({ code, copies: 1, extra, reach: 0, reachAll: 0, chance: 0 });
+    const mainSet = new Set(deck?.main ?? []);
+    const extraSet = new Set(deck?.extra ?? []);
+    const allSet = new Set([...mainSet, ...extraSet]);
+
+    // If deck contains Invoked engine (Aleister 86120751 or 86120752), use real engine-generated fixture
+    const isInvoked = mainSet.has(86120751) || mainSet.has(86120752);
+
+    let finalMap: DeckLinks;
+    if (isInvoked) {
+      const baseLinks = (invokedLinksFixture.links as CardLink[]).map((l) => ({
+        ...l,
+        from: l.from === 86120751 && !mainSet.has(86120751) && mainSet.has(86120752) ? 86120752 : l.from,
+        to: l.to === 86120751 && !mainSet.has(86120751) && mainSet.has(86120752) ? 86120752 : l.to,
+        text: true,
+      }));
+
+      // Text-only links (possible: false, text: true, used: 0) from docs/plans/mappa-collegamenti.md
+      const textOnlyLinks: CardLink[] = [
+        {
+          from: 6772168, // Artemis
+          to: 86120752, // Aleister
+          kind: "search",
+          zone: "deck",
+          possible: false,
+          used: 0,
+          text: true,
+        },
+        {
+          from: 57294268, // Meltdown
+          to: 84288367, // Aleister the Reminiscent
+          kind: "search",
+          zone: "deck",
+          possible: false,
+          used: 0,
+          text: true,
+        },
+      ];
+
+      finalMap = {
+        deckId,
+        hands: invokedLinksFixture.hands,
+        lines: invokedLinksFixture.lines,
+        cards: (invokedLinksFixture.cards as DeckLinks["cards"]).map((c) => ({
+          ...c,
+          code: c.code === 86120751 && !mainSet.has(86120751) && mainSet.has(86120752) ? 86120752 : c.code,
+        })),
+        links: [...baseLinks, ...textOnlyLinks],
+      };
+    } else {
+      const rawCards: DeckLinks["cards"] = [];
+      for (const [codes, extra] of [[deck?.main ?? [], false], [deck?.extra ?? [], true]] as const) {
+        for (const code of codes) {
+          const card = rawCards.find((c) => c.code === code);
+          if (card) card.copies += 1;
+          else rawCards.push({ code, copies: 1, extra, reach: 0, reachAll: 0, chance: 0, key: 0 });
+        }
       }
+
+      const validLinks = (invokedLinksFixture.links as CardLink[]).filter(
+        (l) => allSet.has(l.from) && allSet.has(l.to)
+      ).map((l) => ({ ...l, text: true }));
+
+      const outgoingByCard = new Map<number, CardLink[]>();
+      for (const l of validLinks) {
+        const list = outgoingByCard.get(l.from) ?? [];
+        list.push(l);
+        outgoingByCard.set(l.from, list);
+      }
+
+      for (const c of rawCards) {
+        const outgoing = outgoingByCard.get(c.code) ?? [];
+        c.reach = new Set(outgoing.map((l) => l.to)).size;
+        c.reachAll = c.reach;
+        c.chance = c.extra ? (c.reach > 0 ? 0.65 : 0) : c.copies === 3 ? 0.34 : c.copies === 2 ? 0.24 : 0.12;
+        c.key = 0;
+      }
+
+      finalMap = {
+        deckId,
+        cards: rawCards,
+        links: validLinks,
+        hands: 30,
+        lines: 600,
+      };
     }
-    return { deckId, cards, links: [], hands: 0, lines: 0 };
+
+    // Step 0: emit text draft immediately with done: 0
+    const draftMap: DeckLinks = {
+      ...finalMap,
+      hands: 0,
+      lines: 0,
+      links: finalMap.links.map((l) => ({ ...l, used: 0 })),
+    };
+    linksProgressListeners.forEach((fn) => fn({ deckId, done: 0, total: 30, map: draftMap }));
+
+    // Progressive updates
+    for (let step = 1; step <= 3; step++) {
+      await delay(40);
+      const intermediateMap: DeckLinks = {
+        ...finalMap,
+        hands: step * 10,
+        lines: step * 200,
+      };
+      linksProgressListeners.forEach((fn) => fn({ deckId, done: step * 10, total: 30, map: intermediateMap }));
+    }
+
+    return finalMap;
   },
 
-  onLinksProgress: async (): Promise<UnlistenFn> => () => {},
+  onLinksProgress: async (handler: (p: LinksProgress) => void): Promise<UnlistenFn> => {
+    linksProgressListeners.add(handler);
+    return () => {
+      linksProgressListeners.delete(handler);
+    };
+  },
 
   saveDeck: async (deck: Deck) => {
     const today = new Date().toISOString().slice(0, 10);
@@ -2384,6 +2580,26 @@ export const mockApi: Api = {
     return structuredClone(rec);
   },
 
+  // Choices kept in memory; the learned weights are the prior (the real fit is in the backend).
+  recordBoardChoice: async (): Promise<number> => ++mockBoardChoices,
+  learnedWeights: async (prior: Record<string, number>): Promise<LearnedWeights> => {
+    const agreement = mockBoardChoices > 0 ? Math.min(1.0, 0.7 + mockBoardChoices * 0.05) : 0;
+    const priorAgreement = mockBoardChoices > 0 ? 0.6 : 0;
+    const weights = { ...prior };
+    if (mockBoardChoices > 0 && typeof weights.interruptions === "number") {
+      weights.interruptions = Number((weights.interruptions * 1.1).toFixed(2));
+    }
+    return {
+      weights,
+      choices: mockBoardChoices,
+      agreement,
+      priorAgreement,
+    };
+  },
+  clearBoardChoices: async () => {
+    mockBoardChoices = 0;
+  },
+
   deleteRecipe: async (id: number) => {
     recipesState = recipesState.filter((r) => r.id !== id);
   },
@@ -2512,16 +2728,17 @@ export const mockApi: Api = {
     };
   },
 
-  comboScore: async (): Promise<number> => {
+  comboScore: async (vsDeckId?: number | null): Promise<number> => {
+    lastVsDeckId = vsDeckId ?? null;
     for (const b of lastScoredBoards) {
       await delay(45);
-      const s = buildMockScoreForBoard(b);
+      const s = buildMockScoreForBoard(b, lastVsDeckId);
       comboScoreListeners.forEach((fn) => fn(s));
     }
     return lastScoredBoards.length;
   },
 
-  comboScores: async (): Promise<ComboScore[]> => lastScoredBoards.map(buildMockScoreForBoard),
+  comboScores: async (): Promise<ComboScore[]> => lastScoredBoards.map((b) => buildMockScoreForBoard(b, lastVsDeckId)),
 
   onComboScore: async (handler: (s: ComboScore) => void): Promise<UnlistenFn> => {
     comboScoreListeners.add(handler);
@@ -2532,6 +2749,73 @@ export const mockApi: Api = {
 
   comboCancel: async () => {
     comboCancelled = true;
+  },
+
+  deckLinksCompare: async (deckIdA: number, deckIdB: number): Promise<LinksComparison> => {
+    const before = await mockApi.deckLinks(deckIdA);
+    const after = await mockApi.deckLinks(deckIdB);
+    const id = (l: CardLink) => `${l.from}-${l.to}-${l.kind}`;
+    const oldIds = new Set(before.links.map(id));
+    const newIds = new Set(after.links.map(id));
+    const oldCodes = new Set(before.cards.map((c) => c.code));
+    const newCodes = new Set(after.cards.map((c) => c.code));
+    const reached = (m: DeckLinks) => m.cards.reduce((sum, c) => sum + c.chance, 0);
+
+    const changed: LinkCardChange[] = [];
+    for (const cardAfter of after.cards) {
+      const cardBefore = before.cards.find((c) => c.code === cardAfter.code);
+      if (cardBefore) {
+        const chanceDiff = Math.abs(cardAfter.chance - cardBefore.chance);
+        const keyDiff = Math.abs(cardAfter.key - cardBefore.key);
+        const reachDiff = cardAfter.reachAll !== cardBefore.reachAll;
+        if (chanceDiff >= 0.02 || keyDiff >= 0.02 || reachDiff) {
+          changed.push({
+            code: cardAfter.code,
+            chanceBefore: cardBefore.chance,
+            chanceAfter: cardAfter.chance,
+            keyBefore: cardBefore.key,
+            keyAfter: cardAfter.key,
+            reachAllBefore: cardBefore.reachAll,
+            reachAllAfter: cardAfter.reachAll,
+          });
+        }
+      }
+    }
+    changed.sort(
+      (a, b) => Math.abs(b.chanceAfter - b.chanceBefore) - Math.abs(a.chanceAfter - a.chanceBefore)
+    );
+
+    return {
+      before,
+      after,
+      gained: after.links.filter((l) => !oldIds.has(id(l))),
+      lost: before.links.filter((l) => !newIds.has(id(l))),
+      changed,
+      added: [...newCodes].filter((c) => !oldCodes.has(c)),
+      removed: [...oldCodes].filter((c) => !newCodes.has(c)),
+      reachedBefore: reached(before),
+      reachedAfter: reached(after),
+    };
+  },
+
+  comboStops: async (): Promise<ComboDrawTradeOff[]> => {
+    await delay(300);
+    // Maxx "C" against a line of 5 stops: the last piece is worth the cards it gives.
+    const stops = [
+      { steps: 4, playing: 86120751, fieldValue: 0, floodgateValue: 0, drawn: 1, expected: 0 },
+      { steps: 9, playing: 70383419, fieldValue: 0, floodgateValue: 0.9, drawn: 5, expected: 0.59 },
+      { steps: 13, playing: 97300502, fieldValue: 0.28, floodgateValue: 0.9, drawn: 8, expected: 0.8 },
+      { steps: 15, playing: 74063034, fieldValue: 0.28, floodgateValue: 0.9, drawn: 9, expected: 0.78 },
+    ];
+    const fuwalosStops = [
+      { steps: 9, playing: 70383419, fieldValue: 0, floodgateValue: 0.9, drawn: 3, expected: 0.65 },
+      { steps: 13, playing: 97300502, fieldValue: 0.28, floodgateValue: 0.9, drawn: 6, expected: 0.82 },
+      { steps: 15, playing: 74063034, fieldValue: 0.28, floodgateValue: 0.9, drawn: 7, expected: 0.79 },
+    ];
+    return [
+      { code: 23434538, stops, best: 2, standardBreakers: false },
+      { code: 73642296, stops: fuwalosStops, best: 1, standardBreakers: false },
+    ];
   },
 
   comboExplain: async (_hand: number, key: string): Promise<ComboStep[]> => {
