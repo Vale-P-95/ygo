@@ -29,7 +29,7 @@ use ygo_engine::{
 };
 
 use crate::explain::{ChokeKind, ChokePoint};
-use crate::follow::{Follower, Script};
+use crate::follow::{line_picks, pick_again, Follower, Script};
 use crate::matchup::RivalLine;
 use crate::search::Line;
 
@@ -601,6 +601,13 @@ impl Kit {
         .into_iter()
         .filter_map(|(r, at, name)| Some((r, at, code(name)?)))
         .collect();
+        // An Extra Deck like a real one (15 cards): a
+        // card taken from it is a small loss, not the end of its Extra
+        // Deck summons (Link Spider alone was a floodgate when banished).
+        // Monsters with no effect, so they change nothing while there.
+        for (name, copies) in GENERIC_EXTRA {
+            extra.extend(code(name).into_iter().flat_map(|c| std::iter::repeat_n(c, copies)));
+        }
         Kit { opponent: Opponent { hand, deck, extra }, steps, breakers, counters, removals, script: None }
     }
 
@@ -807,6 +814,32 @@ pub struct ExpectedLoss {
     pub cuts: usize,
 }
 
+/// What the opponent's cards your turn took away are worth, in
+/// interruptions, by where they were (B5a; the weights are a start, to
+/// calibrate with D17): a card of its 15-card Extra Deck about a fifteenth
+/// of losing its Extra Deck summons (0.6), a card of its hand about one of
+/// its six cards, a card of its Deck little, a card of its field like a
+/// destroyed monster.
+pub fn attrition(taken: &[(u32, u8)]) -> f64 {
+    taken.iter().map(|&(_, from)| taken_weight(from)).sum::<f64>() + 0.0
+}
+
+/// What a card of the opponent taken from `from` is worth ([`attrition`]).
+pub(crate) fn taken_weight(from: u8) -> f64 {
+    match from {
+        location::EXTRA => 0.04,
+        location::HAND => 0.15,
+        location::DECK => 0.01,
+        _ => 0.3,
+    }
+}
+
+/// The rest of the kit opponent's Extra Deck besides Link Spider: a Fusion
+/// and a Link Monster with no effect, seven copies each. Copies of two
+/// cards, not fourteen cards: what to take from it is then a choice of how
+/// many of each, not one board for every set of cards taken.
+const GENERIC_EXTRA: [(&str, usize); 2] = [("Flame Swordsman", 7), ("Gaia Saber, the Lightning Shadow", 7)];
+
 /// What a measure plays besides each response alone: all of them together
 /// (what they share), and the board breakers. Each costs runs (a duel each).
 #[derive(Clone, Copy)]
@@ -906,6 +939,9 @@ struct RunTrace {
     follow_up: Option<FollowUp>,
     /// The opponent answered one of your links ([`Context::counter`]).
     countered: bool,
+    /// The opponent's cards your turn took away (sent to the GY, banished
+    /// or taken by you) and where they were: its code and location.
+    taken: Vec<(u32, u8)>,
 }
 
 /// Follows the events of a run to tell what each use of the responder did.
@@ -1039,7 +1075,12 @@ impl Observer {
                 let effect = match to.location & !location::OVERLAY {
                     // Attached to an Xyz Monster: out of play, as banished.
                     _ if to.location & location::OVERLAY != 0 => Effect::Banish,
-                    _ if to.controller == 0 && to.location & (location::MZONE | location::SZONE) != 0 => Effect::Position,
+                    // Taken: the opponent loses it and you get it, at least
+                    // as good as destroying it.
+                    _ if to.controller == 0 && to.location & (location::MZONE | location::SZONE) != 0 => Effect::Destroy,
+                    // A monster put in its owner's Spell & Trap Zone (as a
+                    // Continuous Spell) is out of play like a banished one.
+                    location::SZONE if from.location == location::MZONE => Effect::Banish,
                     location::REMOVED => Effect::Banish,
                     location::DECK | location::EXTRA => Effect::ToDeck,
                     location::HAND => Effect::Bounce,
@@ -1238,6 +1279,26 @@ pub struct Measure {
     /// when the opponent answers the first of them it can (none if it could
     /// answer none, or they stop nothing).
     pub countered: Option<f64>,
+    /// The opponent's cards your turn took away (sent to the GY, banished
+    /// or taken), with where they were: its Extra Deck, Deck, hand or field.
+    pub taken: Vec<(u32, u8)>,
+    /// What they are worth, in interruptions ([`attrition`]).
+    pub attrition: f64,
+    /// How long each part of the measure took.
+    pub seconds: MeasureSeconds,
+}
+
+/// The time of each part of a measure, in seconds.
+#[derive(Debug, Clone, Copy, Default, PartialEq)]
+pub struct MeasureSeconds {
+    /// The empty board, the board with no answer, and each response alone.
+    pub responses: f64,
+    /// All the responses together, and the opponent's answer to the first.
+    pub together: f64,
+    /// The board breakers.
+    pub breakers: f64,
+    /// Your next turn after the worst breaker.
+    pub follow_up: f64,
 }
 
 /// Your next turn, after the opponent's: the board breaker that takes away
@@ -1281,6 +1342,19 @@ impl<'a> Prober<'a> {
         self.measure_from(Prelude::Placed(placed), Parts::ALL)
     }
 
+    /// [`Prober::measure`] without the board breakers: no
+    /// [`Measure::breakers`] nor follow-up, and the [`Measure::resilience`]
+    /// of a board none is tried on (to see what the measure costs by part).
+    pub fn measure_unbroken(&mut self, line: &Line) -> Result<Measure, Error> {
+        self.measure_from(Prelude::Line(line), Parts { together: true, breakers: false })
+    }
+
+    /// The quick value of the board `line` reaches ([`Prober::quick_value`]):
+    /// two runs, in interruptions.
+    pub fn quick_measure(&mut self, line: &Line) -> Result<f64, Error> {
+        self.quick_value(Prelude::Line(line))
+    }
+
     /// [`Prober::measure`] of each interruption alone ([`Interruption::alone`]):
     /// the runs that only change the rest are not played.
     pub(crate) fn measure_alone(&mut self, line: &Line) -> Result<Measure, Error> {
@@ -1295,6 +1369,7 @@ impl<'a> Prober<'a> {
     }
 
     fn measure_from(&mut self, prelude: Prelude, parts: Parts) -> Result<Measure, Error> {
+        let started = std::time::Instant::now();
         let all_steps: Vec<&KitStep> = self.kit.steps.iter().collect();
         if self.baseline.is_none() {
             self.baseline = Some(self.run(Prelude::EndAtOnce, &all_steps, Policy::Pass)?);
@@ -1436,6 +1511,8 @@ impl<'a> Prober<'a> {
         // your first link it can (report only).
         let answer = parts.breakers && !self.kit.counters.is_empty();
         let mut countered = None;
+        let mut seconds = MeasureSeconds { responses: started.elapsed().as_secs_f64(), ..MeasureSeconds::default() };
+        let together_started = std::time::Instant::now();
         if parts.together && (interruptions.len() > 1 || answer && !interruptions.is_empty()) {
             let order: Vec<ResponderId> = interruptions.iter().map(|i| i.responder).collect();
             // Without what the responses bring: what they stop earlier would
@@ -1480,10 +1557,15 @@ impl<'a> Prober<'a> {
         // Resilience is how the field holds: handtraps are out of the
         // breakers' reach and already counted on their own.
         let total = field_total(&interruptions);
+        seconds.together = together_started.elapsed().as_secs_f64();
+        let breakers_started = std::time::Instant::now();
         let breakers = if parts.breakers { self.breakers(prelude, &interruptions, &self.kit.breakers) } else { Vec::new() };
+        seconds.breakers = breakers_started.elapsed().as_secs_f64();
+        let follow_up_started = std::time::Instant::now();
         let weights: f64 = breakers.iter().map(|b| b.weight).sum();
         let resilience = if weights > 0.0 { breakers.iter().map(|b| b.weight * b.remaining).sum::<f64>() / weights } else { total };
         let follow_up = if parts.breakers { self.follow_up(prelude, &interruptions, &breakers) } else { None };
+        seconds.follow_up = follow_up_started.elapsed().as_secs_f64();
 
         let hand_value = interruptions.iter().filter(|i| i.location == location::HAND).map(|i| i.value).sum::<f64>() + 0.0;
         let mut offered: Vec<(u32, u8)> = all.windows.iter().flat_map(|w| w.options.iter().map(|(id, loc)| (id.code, *loc))).collect();
@@ -1500,6 +1582,9 @@ impl<'a> Prober<'a> {
             offered,
             follow_up,
             countered,
+            attrition: attrition(&all.taken),
+            taken: all.taken,
+            seconds,
         })
     }
 
@@ -1901,6 +1986,16 @@ impl<'a> Prober<'a> {
             Prelude::Placed(placed) => Duel::goldfish_vs_placed(engine, self.deck, self.hand, self.seed, opponent, placed)?,
             _ => Duel::goldfish_vs(engine, self.deck, self.hand, self.seed, opponent)?,
         };
+        // Your line was found against the kit's opponent: against another one
+        // (other cards in its Extra Deck), the opponent's cards it picks are
+        // picked again by what they are.
+        let repick = match (prelude, context.opponent) {
+            (Prelude::Line(line), Some(other)) if *other != self.kit.opponent => {
+                line_picks(engine, self.deck, self.hand, self.seed, &self.kit.opponent, line).ok()
+            }
+            _ => None,
+        };
+        let mut answered = 0usize;
         const NO_ANSWERS: &[Vec<u8>] = &[];
         let mut answers = match prelude {
             Prelude::Line(line) => line.answers.iter(),
@@ -1915,6 +2010,7 @@ impl<'a> Prober<'a> {
             state: DuelState::default(),
             follow_up: None,
             countered: false,
+            taken: Vec::new(),
         };
         let mut observer = Observer::default();
         let mut next = 0usize;
@@ -1932,6 +2028,9 @@ impl<'a> Prober<'a> {
         // steps are played: they are the line's moves).
         let script = self.kit.script.as_deref().filter(|_| steps.len() == self.kit.steps.len());
         let mut follower = script.map(|l| Follower::new(&l.script));
+        // The opponent's line went on to its End Phase (its moves there
+        // are its line's too): the run is over when your next turn begins.
+        let mut ending = false;
         // The last link of the chain being built is yours: your effects
         // answer the opponent's, never your own (Invoked Mechaba would
         // negate your own Effect Veiler).
@@ -1956,7 +2055,19 @@ impl<'a> Prober<'a> {
                 Step::Decision { decision, events } => (decision, events),
                 Step::End { .. } => break,
             };
+            let your_turn = duel.turn_info().0 <= 1;
             for e in &events {
+                if let (true, Event::Move { code, from, to, .. }) = (your_turn, e) {
+                    // On your turn the opponent only passes: what leaves its
+                    // Extra Deck, Deck, hand or field for its GY, banishment
+                    // or your side is your doing.
+                    let kept =
+                        matches!(from.location, location::EXTRA | location::DECK | location::HAND | location::MZONE | location::SZONE);
+                    let away = matches!(to.location, location::GRAVE | location::REMOVED) || to.controller == 0;
+                    if from.controller == 1 && kept && away && (from.location, from.controller) != (to.location, to.controller) {
+                        trace.taken.push((*code, from.location));
+                    }
+                }
                 observer.see(engine, e, &mut trace.uses);
                 match e {
                     Event::Chaining { card, .. } => {
@@ -1995,13 +2106,25 @@ impl<'a> Prober<'a> {
                 }
             }
             let (turn, _, _) = duel.turn_info();
+            if ending && turn > 2 {
+                if let Some((j, before)) = current.take() {
+                    self.finish(&mut trace.steps[j], steps[j], &before, &Piles::of(&duel), &observer);
+                }
+                complete = true;
+                break;
+            }
             if let Decision::IdleCmd { player: 0, activatable, .. } = &decision {
                 idle_effects = activatable.iter().map(|a| (a.card.code, a.description)).collect();
             }
             // The answers of your turn's line need no list of actions.
             if turn <= 1 && matches!(prelude, Prelude::Line(_) | Prelude::Cut(..)) {
                 if let Some(a) = answers.next() {
-                    duel.respond(a);
+                    let picks = repick.as_ref().and_then(|r| r.get(answered)?.as_deref());
+                    answered += 1;
+                    match picks.and_then(|p| pick_again(engine, &decision, p)) {
+                        Some(again) => duel.respond(&again),
+                        None => duel.respond(a),
+                    }
                     continue;
                 }
             }
@@ -2080,6 +2203,17 @@ impl<'a> Prober<'a> {
                                 eprintln!("     opponent's line: {}", label(&actions, &followed.answer));
                             }
                             duel.respond(&followed.answer);
+                        }
+                        // Its Main Phase is over (the Battle Phase is not
+                        // measured): its End Phase is played too, the line's
+                        // moves there (Titaniklad from the GY) are its moves.
+                        None if idle && !context.turn_three => {
+                            ending = true;
+                            follower.end_main_phase();
+                            if verbose {
+                                eprintln!("     opponent's line: to the End Phase");
+                            }
+                            duel.respond(&end_turn(&decision, &actions));
                         }
                         // Its line is over: nothing left to play, or it ends
                         // its Main Phase (the Battle Phase is not measured).

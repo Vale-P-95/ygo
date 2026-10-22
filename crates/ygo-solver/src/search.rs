@@ -44,7 +44,7 @@ use ygo_engine::{
 };
 
 use crate::coverage::{self, Audit, Coverage, Links, Mechanic};
-use crate::probe::{Kit, Prober};
+use crate::probe::{taken_weight, Kit, Prober};
 use crate::value::{CardValues, InHand, Spot};
 
 #[derive(Debug, Clone)]
@@ -210,6 +210,54 @@ impl Goal {
     fn involves(&self, engine: &Engine, action: &Action) -> bool {
         let db = engine.cards();
         action.card.is_some_and(|c| self.on_field.iter().any(|g| db.canonical_code(g.code) == db.canonical_code(c.code)))
+    }
+
+    /// What the answer does for the goal: picking a goal card brings it
+    /// closer, unless the choice sends the card away (a cost that banishes
+    /// it, a material).
+    fn pick(&self, engine: &Engine, decision: &Decision, state: &DuelState, action: &Action) -> GoalPick {
+        if !self.involves(engine, action) {
+            return GoalPick::Other;
+        }
+        let Some(card) = action.card.filter(|c| c.controller == 0 && sends_away(decision)) else {
+            return GoalPick::Toward;
+        };
+        // Copies of it still in your hand, Deck, Extra Deck or on the field.
+        let db = engine.cards();
+        let code = db.canonical_code(card.code);
+        let same = |c: u32| db.canonical_code(c) == code;
+        let me = &state.players[0];
+        let copies = me.hand.iter().filter(|&&c| same(c)).count()
+            + me.deck.iter().filter(|&&c| same(c)).count()
+            + me.extra.iter().filter(|&&(c, _)| same(c)).count()
+            + me.monsters.iter().chain(&me.spells).flatten().filter(|c| same(c.code)).count();
+        let wanted = self.on_field.iter().filter(|g| db.canonical_code(g.code) == code).count();
+        let in_play = card.location & (location::HAND | location::DECK | location::EXTRA | location::MZONE | location::SZONE) != 0;
+        GoalPick::Away { last: in_play && copies <= wanted }
+    }
+}
+
+/// What an answer does for the goal ([`Goal::pick`]).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum GoalPick {
+    Toward,
+    /// `last`: no other copy is left to reach the goal with.
+    Away {
+        last: bool,
+    },
+    Other,
+}
+
+/// The engine's hint says the cards chosen leave: Tributed, discarded,
+/// destroyed, banished, sent to the GY or the Deck, used as Fusion, Synchro,
+/// Xyz or Link Material.
+fn sends_away(decision: &Decision) -> bool {
+    match decision {
+        Decision::SelectCard { hint, .. }
+        | Decision::SelectUnselectCard { hint, .. }
+        | Decision::SelectTribute { hint, .. }
+        | Decision::SelectSum { hint, .. } => matches!(hint, 500..=504 | 507 | 511..=513 | 533),
+        _ => false,
     }
 }
 
@@ -646,7 +694,10 @@ impl Shared<'_> {
         Board {
             key: board_key(&state),
             cards_used: cards_used(&self.config.hand, &state),
-            quick_score: self.values.read().map_or(0.0, |v| quick_score(self.engine, &state, &self.config.hand_traps, &v)),
+            quick_score: self
+                .values
+                .read()
+                .map_or(0.0, |v| quick_score(self.engine, &state, &self.config.hand_traps, &v, self.config.opponent.as_ref())),
             goal_hits: self.config.goal.hits(self.engine, &state),
             exact,
             line,
@@ -892,7 +943,7 @@ fn card_hash(state: &DuelState, kind: (usize, bool), c: &ygo_engine::FieldCard) 
 /// replaces it at the end with the real score): monsters on the field,
 /// more for Extra Deck monsters, set cards, cards kept in hand, more for
 /// `hand_traps`, and what the cards on the field stop alone (`values`).
-pub fn quick_score(engine: &Engine, state: &DuelState, hand_traps: &[u32], values: &CardValues) -> f64 {
+pub fn quick_score(engine: &Engine, state: &DuelState, hand_traps: &[u32], values: &CardValues, opponent: Option<&Opponent>) -> f64 {
     let me = &state.players[0];
     let mut score = 0.0;
     for (z, c) in me.monsters.iter().enumerate() {
@@ -949,7 +1000,19 @@ pub fn quick_score(engine: &Engine, state: &DuelState, hand_traps: &[u32], value
             InHand::Unknown => 0.3,
         })
         .sum::<f64>();
-    score + VALUE_WEIGHT * values.of_field(engine, state)
+    score + VALUE_WEIGHT * (values.of_field(engine, state) + opponent.map_or(0.0, |o| taken_from(o, state)))
+}
+
+/// What your turn took from the opponent (B5a): its cards when the turn
+/// began (`opponent`) against those it still has, pile by pile, at the
+/// weights of the probe turn's [`crate::probe::attrition`]. Its Extra Deck
+/// banished by Hyperinvoked Aeon is worth something to the search too.
+fn taken_from(opponent: &Opponent, state: &DuelState) -> f64 {
+    let them = &state.players[1];
+    let gone = |before: usize, now: usize| before.saturating_sub(now) as f64;
+    gone(opponent.extra.len(), them.extra.len()) * taken_weight(location::EXTRA)
+        + gone(opponent.hand.len(), them.hand.len()) * taken_weight(location::HAND)
+        + gone(opponent.deck.len(), them.deck.len()) * taken_weight(location::DECK)
 }
 
 /// What a face-up monster whose value was measured adds to the estimate
@@ -977,17 +1040,21 @@ const VALUE_WEIGHT: f64 = 5.0;
 /// handtraps after the Sets (an effect that only lets you do something
 /// more, like Labrynth Cooclock's, needs the cards Set first).
 ///
-/// Answers that pick or play a card of the goal come before everything.
-fn dive_order(actions: &mut [Action], responding: bool, wanted: impl Fn(&Action) -> bool, held: impl Fn(&Action) -> Option<i32>) {
-    let rank = |a: &Action| match a.kind {
-        _ if wanted(a) => -1,
-        ActionKind::Activate if responding => 2,
-        ActionKind::Pass if responding => 1,
-        ActionKind::Activate => held(a).unwrap_or(0),
-        ActionKind::EndTurn => 4,
-        ActionKind::Pass | ActionKind::No | ActionKind::Cancel | ActionKind::Finish => 3,
-        ActionKind::SetMonster | ActionKind::SetSpellTrap => 2,
-        _ => 0,
+/// Answers that pick or play a card of the goal come before everything, and
+/// those that send one away after everything.
+fn dive_order(actions: &mut [Action], responding: bool, goal: impl Fn(&Action) -> GoalPick, held: impl Fn(&Action) -> Option<i32>) {
+    let rank = |a: &Action| match (goal(a), a.kind) {
+        (GoalPick::Toward, _) => -1,
+        (GoalPick::Away { .. }, _) => 5,
+        (_, kind) => match kind {
+            ActionKind::Activate if responding => 2,
+            ActionKind::Pass if responding => 1,
+            ActionKind::Activate => held(a).unwrap_or(0),
+            ActionKind::EndTurn => 4,
+            ActionKind::Pass | ActionKind::No | ActionKind::Cancel | ActionKind::Finish => 3,
+            ActionKind::SetMonster | ActionKind::SetSpellTrap => 2,
+            _ => 0,
+        },
     };
     actions.sort_by_key(rank);
 }
@@ -1190,7 +1257,13 @@ fn work(shared: &Shared, edge: Edge) -> Result<(), Error> {
         .map(|left| {
             // The last board reading at this depth or deeper.
             let value = suffix.iter().rev().find(|(d, _)| *d >= left.depth).map_or(fallback, |&(_, v)| v);
-            let bonus = if left.wanted { 10.0 } else { 0.0 };
+            // Lines that bring a card of the goal first, those that lose its
+            // last copy last (still tried: a goal can then be found out of reach).
+            let bonus = match left.goal {
+                GoalPick::Toward => 10.0,
+                GoalPick::Away { last: true } => -10.0,
+                _ => 0.0,
+            };
             let last = if left.last_zone { END_PHASE_LAST } else { 0.0 };
             NewEdge {
                 prefix: left.prefix,
@@ -1225,7 +1298,7 @@ struct LeftAnswer {
     prefix: Arc<Line>,
     answer: Answer,
     depth: usize,
-    wanted: bool,
+    goal: GoalPick,
     kind: ActionKind,
     /// Another zone for the monster of the line's last choice (see `play`).
     last_zone: bool,
@@ -1547,7 +1620,7 @@ fn play(shared: &Shared, edge: &Edge, dive: &mut Dive) -> Result<(), Error> {
         };
         if line.choices.len() >= config.max_choices {
             // Too long: end the turn, or close what is pending as fast as possible.
-            dive_order(&mut actions, false, |_| false, |_| None);
+            dive_order(&mut actions, false, |_| GoalPick::Other, |_| None);
             let wrap_up = |a: &Action| {
                 matches!(a.kind, ActionKind::EndTurn | ActionKind::Pass | ActionKind::No | ActionKind::Cancel | ActionKind::Finish)
             };
@@ -1576,7 +1649,7 @@ fn play(shared: &Shared, edge: &Edge, dive: &mut Dive) -> Result<(), Error> {
                 return Ok(());
             }
         }
-        let wanted = |a: &Action| config.goal.involves(shared.engine, a);
+        let goal = |a: &Action| if config.goal.is_set() { config.goal.pick(shared.engine, &decision, &state, a) } else { GoalPick::Other };
         // Quick effects in your own End Phase rarely help a combo (Hyperinvoked
         // Aeon's Attribute change, a negation of your own effect): not
         // activating them comes first there too, like when responding.
@@ -1594,7 +1667,7 @@ fn play(shared: &Shared, edge: &Edge, dive: &mut Dive) -> Result<(), Error> {
             let quick = db.get(c.code).is_some_and(|d| d.type_ & (card_type::QUICKPLAY | card_type::TRAP) != 0);
             (quick && c.location & (location::HAND | location::SZONE) != 0).then_some(1)
         };
-        dive_order(&mut actions, responding, wanted, held);
+        dive_order(&mut actions, responding, goal, held);
         // A goal card wanted in a kind of zone goes there; while one wants
         // an Extra Monster Zone, other monsters leave it free when they can
         // (holding back the other Extra Deck summons instead would also hold
@@ -1642,12 +1715,13 @@ fn play(shared: &Shared, edge: &Edge, dive: &mut Dive) -> Result<(), Error> {
                 }
             }
         }
-        // Lines that pick a card of the goal are tried before the others.
+        // Lines that pick a card of the goal are tried before the others
+        // (see `Goal::pick`).
         dive.left.extend(actions[1..].iter().map(|a| LeftAnswer {
             prefix: prefix.clone(),
             answer: (a.response.clone(), italian::choice(a)),
             depth,
-            wanted: wanted(a),
+            goal: goal(a),
             kind: a.kind,
             last_zone: false,
         }));
@@ -1659,7 +1733,7 @@ fn play(shared: &Shared, edge: &Edge, dive: &mut Dive) -> Result<(), Error> {
             prefix,
             answer: (first.response.clone(), italian::choice(first)),
             depth,
-            wanted: wanted(first),
+            goal: goal(first),
             kind: first.kind,
             last_zone: false,
         });
@@ -1851,7 +1925,7 @@ fn learn_round(shared: &Shared, count: usize) {
     if raised {
         let (Ok(values), Ok(mut boards)) = (shared.values.read(), shared.boards.lock()) else { return };
         for b in boards.values_mut() {
-            b.quick_score = quick_score(shared.engine, &b.state, &config.hand_traps, &values);
+            b.quick_score = quick_score(shared.engine, &b.state, &config.hand_traps, &values, config.opponent.as_ref());
         }
     }
 }

@@ -44,6 +44,44 @@
   - Per ogni mano: meglio, peggio o pari, con una soglia dell'1% sul valore della board migliore.
   - Si accetta se le mani peggiori non superano quelle migliori (test del segno) e nessuna perde più del 5%.
 
+#### A1: strumenti fatti e primo pilota (corsia 6, 22/10, branch `claude/oracle`)
+- **`scripts/oracle.py`.**
+  - `hands`: l'insieme fisso di mani. Sono le mani del banco (seme 1), le 82 di `combo_hunt --seed 7` e gli obiettivi. Per ora l'obiettivo è uno solo: Invoked Oceanus nella Zona Mostri Extra + S:P Little Knight, sulla lista Invoked della fixture. Con `--auto-goals N` si aggiungono le ricerche per obiettivo sui mostri dell'Extra Deck delle board dell'oracolo.
+  - `build`: la ricerca lunga, su un thread (stesse board su ogni macchina), con più semi. Le corse già scritte restano: una notte interrotta riparte da dove era.
+  - `fixtures`: scrive `tests/fixtures/oracle/<id>.json`. Dentro ci sono mano, seme, impronta del deck, le 5 board migliori (codici e zone), la misura, le risposte della linea migliore e il valore trovato con gli altri semi. Nessun testo di carta.
+  - `measure`: la ricerca normale a budget crescenti, contro l'oracolo.
+- **`scripts/paired_test.py`**, il test appaiato: vecchio contro nuovo, stesse mani, stesso seme, stesso budget. Prima e dopo possono essere due eseguibili (lo script li lancia sulle mani del banco e di `combo_hunt --seed 7`), due cartelle di `combo_hunt --json`, oppure due `results.json` di `bench.py`. Ogni mano risulta meglio, peggio o pari, con una soglia dell'1%. Si accetta se le mani peggiori non superano le migliori (test del segno) e nessuna perde più del 5%.
+- **Il valore** di una board è quello del banco: le parti del turno di prova pesate come il profilo «Bilanciato», più il follow-up.
+- **Mani del banco che non si giocano più.** Con le liste di Master Duel Meta di oggi, 4 mani Invoked del banco chiedono carte che la lista non ha, o due copie dove ne ha una: inv-remi, inv-aleister (2 Droll & Lock Bird), inv-r3, inv-r4 (Mulcharmy Purulia, The Book of the Law, Invocation - "Grail"). La ricerca non parte: 0 nodi. Vale anche per `bench.py`, che lì misura board vuote. `oracle.py` le salta con un avviso. Mancano anche 4 deck del banco (ignister, labrynth, mitsurugi, yummy_mimighoul).
+- **Pilota** (non è l'oracolo vero). Le 8 mani del banco giocabili, a 40 000 nodi (10 volte), solo con il seme della mano. Le fixture in `tests/fixtures/oracle` sono queste, finché il proprietario non lancia il giro lungo. Poi la ricerca normale a 1000-16 000 nodi:
+
+  | mano | oracolo | 1000 | 2000 | 4000 | 8000 | 16 000 |
+  |---|---|---|---|---|---|---|
+  | branded | 1,38 | 89% | 89% | 91% | 91% | 89% |
+  | dracotail | 2,18 | 67% | 67% | 70% | 79% | 79% |
+  | inv-r1 | 3,10 | 59% | 62% | 66% | 66% | 96% |
+  | inv-r2 | 2,53 | 72% | 76% | 76% | 82% | 100% |
+  | inv-r5 | 2,45 | 63% | 68% | 61% | 61% | 61% |
+  | inv-r6 | 2,69 | 55% | 55% | 55% | 55% | 55% |
+  | maliss | 1,13 | 100% | 100% | 88% | 88% | 88% |
+  | tearlaments | 2,73 | 56% | 56% | 56% | 69% | 69% |
+
+  - Al budget del banco (4000 nodi) la ricerca normale arriva al 55-91% dell'oracolo in 7 mani su 8. A 16 000 nodi arriva al 95% in 3 su 8.
+  - Una board con il 99% del valore dell'oracolo è fra le prime 3 in 1 mano su 8. La board stessa dell'oracolo in nessuna: spesso c'è una board diversa con lo stesso valore (mostri Link in più che la misura non conta). Per questo `measure` riporta tutte e due le posizioni.
+  - **Il valore misurato non cresce sempre con il budget:** maliss da 100% a 88%, inv-r5 da 68% a 61%. Le board da misurare sono le 10 migliori per la stima rapida. Con più nodi la stima ne mette davanti altre, e la board che si misurava meglio esce dalla lista. È lo stesso problema delle inversioni tra stima e misura (C5.7).
+- **Obiettivo Invoked** (Oceanus nella Zona Mostri Extra + S:P). Con la mano Aleister, "Grail", Magical Meltdown, Ash e Fuwalos, nemmeno 40 000 nodi trovano una board con tutte e due. A 4000 nodi escono board con S:P e Caliga o Mechaba, oppure con Oceanus senza S:P.
+- **Aeon a 3 materiali: il motore la sa giocare.**
+  - In una posizione costruita (Invoked Sorath, Magistus Chorozo e Invoked Oceanus nel Cimitero), l'effetto di Sorath dal Cimitero offre Hyperinvoked Aeon. Scelti Sorath e Oceanus, il motore offre sia «finisci» sia Chorozo come terzo materiale.
+  - La linea migliore trovata su inv-r5 Evoca Aeon con 2 materiali (Sorath e Chorozo), ma lì un terzo valido non c'è: nel Cimitero Invoked Elysium è LIGHT come Sorath, e Aeon vuole attributi diversi. Elysium ha tutti gli attributi solo scoperta sul campo.
+  - Quindi niente azione non offerta né risposta automatica sbagliata. Manca una linea che prepari tre Fusioni di attributo diverso, e la misura non dà alla ricerca un motivo per farlo: sono le cecità della misura descritte sopra (Aeon vale quasi zero, il kit ha un solo mostro nell'Extra Deck).
+- **Il giro vero, per il proprietario:**
+  ```
+  python3 scripts/oracle.py build <out> --decks <mdm> --mult 50 --seeds 1,2,3 --jobs 4
+  python3 scripts/oracle.py fixtures <out> tests/fixtures/oracle --decks <mdm>
+  python3 scripts/oracle.py measure tests/fixtures/oracle <out>/measure --decks <mdm> --budgets 1000,2000,4000,8000,16000
+  ```
+  Stima del tempo: 91 mani per 3 semi a 200 000 nodi. Dal pilota, una mano a 40 000 nodi prende da 5 s a 6,5 minuti; a 200 000 nodi va da qualche minuto a mezz'ora. Con 4 lavori in parallelo è una notte, forse due.
+
 ### A2. Dove va il lavoro della ricerca: fatto (corsia 2, PR #67)
 `DUELFORGE_SEARCH_STATS=1` e `scripts/search_stats.py`; numeri in `velocita-ricerca.md`.
 
@@ -97,6 +135,7 @@ Ogni correzione è generale: niente nomi di carte. Segue il protocollo del motor
   - La distanza serve solo a ordinare, mai a tagliare, così il verdetto «impossibile» resta corretto.
   - Tra le linee che raggiungono l'obiettivo vince quella con la board più forte.
   - **Controllo:** nodi alla prima soluzione −30% su un insieme fisso di obiettivi raggiungibili; i verdetti «impossibile» restano uguali.
+  - **B4a, fatto (22/10, corsia 2):** dalla diagnosi in `ricerca-esperimenti.md` §3, una carta dell'obiettivo scelta in una selezione che la manda via (suggerimenti del motore 500-504, 507, 511-513, 533) va per ultima nella discesa, e il ramo perde priorità in coda se era l'ultima copia. Le 4 mani Invoked, 1 thread, 60 s: «Oceanus + S:P» da 0/4 a 4/4 (1,3-5,9 s), «Oceanus@extra + S:P» da 0/4 a 4/4 (7,0-28,8 s). Test `a_goal_card_is_not_sent_away_first` in `search_regression`.
 - **B8. Obiettivi più ricchi.**
   - Ogni carta dell'obiettivo dice il posto: Mostro Principale o Extra, Magia/Trappola coperta o scoperta, Terreno, Cimitero, bandita, mano.
   - Ci sono anche atomi sull'avversario, come le carte tolte dal suo Extra Deck, e il segno duro o morbido.
@@ -158,6 +197,31 @@ File: `crates/ygo-solver/src/roles.rs` e i suoi test.
 
   La correzione deve valere per ogni deck.
 - **Controllo:** `duelforge-cli roles` prima e dopo su almeno 10 deck di Master Duel Meta, con l'elenco delle carte che cambiano ruolo, ognuna verificata sul testo.
+
+### Ruoli: fatto (corsia 6, 22/10, branch `claude/roles-fix`)
+- **Board breaker dal testo.** Una frase che usa i mostri dell'avversario come materiale, come Tributo o per una Fusione («from/on either field», «monster(s) your opponent controls») rende la carta board breaker. Le frasi si dividono anche ai due punti: «se è mandata al Cimitero come materiale: distruggi 1 mostro che controlla l'avversario» toglie un mostro con un effetto, non lo usa (Dracotail Mululu e Kewl Tune Mix restano fuori). Lo stacco di un materiale Xyz non conta.
+- **Starter ed estensore insieme.** Ogni carta si prova come estensore sulla linea dello starter migliore; lo starter migliore sulla linea del secondo.
+- **Invocation - "Chalice"** («Grail» in Master Duel). Il budget non c'entra: con 3000 nodi il risultato è lo stesso. Le altre due cause c'entrano:
+  - la Fusione bandisce un tuo mostro e uno dal Deck. All'ultimo momento libero della linea di Magical Meltdown resta solo la board: "Chalice" bandisce S:P Little Knight per Evocare Oceanus, e la stima sale solo di 0,83;
+  - nella lista Invoked della fixture, all'ultimo momento non si usa affatto. Un passo prima (quando Aleister ha già fatto il suo lavoro) vale +5,3.
+- **La correzione è in due parti.**
+  - La carta si prova negli ultimi 2 momenti liberi della linea, non solo nell'ultimo.
+  - Basta un guadagno di 0,75 se la carta porta sul campo una carta del deck che la board senza di lei non ha, diversa da sé stessa.
+  - La soglia di 1,5 resta per il resto: una carta solo coperta (+1,0) o usata per sé stessa (Crossout Designator +0,6) non porta niente.
+- **Controllo:** `duelforge-cli roles` prima e dopo sui 41 deck di Master Duel Meta. Ruoli cambiati per 94 carte; ognuna è stata letta sul testo.
+
+  | Cambio | Carte |
+  |---|---|
+  | + board breaker | 12: Super Polymerization (7 deck), Fallen of Albaz (2), Eternal Favorite, Megalith Anastasis e Megalith Notrah Plura («Tribute 1 monster your opponent controls»; era mattone) |
+  | starter → starter ed estensore | 41 |
+  | + estensore | 36, più 5 mattoni che diventano estensori (DoomZ XII Zero - Drastea, Super Express Bullet Train, Junoldo, Noh-P.U.N.K. Deer Note, Diabellstar Vengeance) |
+
+  - Estensori in tutto: da 67 a 149; board breaker da 140 a 152. Nessun ruolo perso.
+  - Su Invoked diventano estensori Invocation, "Sword", "Chalice", Aleister the Reminiscent; Aleister, Aiwass e Magical Meltdown diventano starter ed estensori; Super Polymerization diventa board breaker.
+  - **Dubbi**, dal testo: Fydraulis Harmonia (handtrap), Rainbow Bridge of Salvation e Sinful Spoils of Betrayal - Silvera estendono poco o niente. Restano perché superano la soglia nella stima.
+  - **Già prima:** le Trappole coperte risultano starter o estensori (Solemn Judgment, Solemn Accusation, Forbidden Crown), perché la stima rapida conta ogni interruzione coperta. Ora le Solemn di odion e primite sono «starter ed estensore»: è la stessa regola, non un difetto nuovo.
+- **Tempo:** da 330 a 609 s sui 41 deck, cioè da 8,0 a 14,8 s a deck. La linea in più e il secondo momento costano; il secondo momento si prova solo se il primo non basta.
+- Test: `crates/ygo-solver/tests/roles.rs` (Invoked: "Chalice" estensore e board breaker, Super Polymerization board breaker) e un test unitario sulle frasi.
 
 ## Chi fa cosa
 I file caldi (`search.rs`, `probe.rs`, `value.rs`, `lib.rs`, `api.ts`) li tocca un agente alla volta. I moduli nuovi (`relax.rs`, la history, l'arena in `ygo-engine`) si scrivono in parallelo; si serializza solo l'aggancio.

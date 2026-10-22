@@ -40,6 +40,8 @@ export function Sidebar({
             <li key={s.id} data-section={s.id}>
               <button
                 type="button"
+                data-nav-section={s.id}
+                data-section={s.id}
                 onPointerEnter={() => !current && sound.play("hover")}
                 onClick={() => {
                   if (current) return;

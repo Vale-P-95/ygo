@@ -86,4 +86,31 @@ describe("resolveToolbarCollapse (quando la barra si raccoglie in «Filtri»)", 
     expect(resFixed.visibleItems.length).toBe(1);
     expect(resFixed.collapsedItems.length).toBe(0);
   });
+
+  it("supporta larghezze eterogenee reali (item.width) e riempimento greedy in base a priorità", () => {
+    const variedItems: ToolbarItem[] = [
+      { id: "short", label: "Tutte", priority: 10, width: 80, active: false },
+      { id: "long", label: "Posiziona dal Deck", priority: 8, width: 200, active: true },
+      { id: "medium", label: "Evoca", priority: 9, width: 110, active: false },
+    ];
+
+    // Total width = 80 + 200 + 110 = 390px
+    // With 400px available, all fit
+    const allFit = resolveToolbarCollapse(variedItems, { availableWidth: 400 });
+    expect(allFit.isCollapsed).toBe(false);
+    expect(allFit.visibleItems.length).toBe(3);
+
+    // With 260px available and 90px filters button: space for items = 170px
+    // Priority order: short (10, 80px), medium (9, 110px), long (8, 200px)
+    // short (80px) fits (rem: 90px), medium (110px) doesn't fit in 90px, long (200px) doesn't fit
+    // visible: short (80px), collapsed: medium and long
+    const partialFit = resolveToolbarCollapse(variedItems, {
+      availableWidth: 260,
+      filtersButtonWidth: 90,
+    });
+    expect(partialFit.isCollapsed).toBe(true);
+    expect(partialFit.visibleItems.map((i) => i.id)).toEqual(["short"]);
+    expect(partialFit.collapsedItems.map((i) => i.id)).toEqual(["long", "medium"]);
+    expect(partialFit.activeCollapsedCount).toBe(1); // long is active
+  });
 });
