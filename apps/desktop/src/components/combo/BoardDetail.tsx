@@ -5,6 +5,7 @@ import { sound } from "../../lib/sound";
 import { toast } from "../../lib/toast";
 import { CardImage, Field, type HoverCard, type Pile as PileKind } from "./Field";
 import { ScoreBreakdown } from "./Score";
+import { RivalMoves } from "./RivalMoves";
 import { ComboSteps, formatComboGuide, type ActiveStepInfo } from "./Steps";
 import { StopTradeOff } from "./StopTradeOff";
 
@@ -216,6 +217,15 @@ export function BoardDetail({ board, score, scoring, weights, hand, steps, steps
         {score ? (
           <>
             <ScoreBreakdown s={score} weights={weights} getCard={getCard} onHover={onHover} onHoverEnd={onHoverEnd} />
+            {score.matchup && !score.matchup.error && (
+              <RivalMoves
+                board={board}
+                matchup={score.matchup}
+                getCard={getCard}
+                onHover={onHover}
+                onHoverEnd={onHoverEnd}
+              />
+            )}
             {score.matchup && !score.matchup.error && score.matchup.handTraps.some((h) => (h.drawn ?? 0) > 0) && (
               <StopTradeOff
                 board={board}

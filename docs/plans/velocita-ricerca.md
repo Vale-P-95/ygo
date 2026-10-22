@@ -164,3 +164,29 @@ Leggendo le mosse tipiche di Elfnote Kewl Tune con 24 mani (seme 7) sono serviti
   - Banco (16 mani, 4000 nodi): uscite identiche in tutto tranne i tempi. Sulle mani normali una board si misura in meno di un secondo e la scadenza non scatta.
   - `combo_hunt.py --seed 7` (37 deck, 74 mani): 73 identiche. In `radiant_typhoon_zoodiac-1` le board passano da 584 a 585, ma la build di prima rifatta tre volte dà sempre 585, e la nuova 24 volte su 24 (stesse linee). La differenza non si ripete e non viene dalla scadenza.
 - **Resta:** `confirm_best` e `zone_variants` non guardano il limite di tempo. Tagliarli cambia le board confermate, quindi è da decidere. L'alternativa è un limite di istruzioni Lua per ogni richiesta del motore: si potrebbe mettere nello shim, ma cambierebbe le linee trovate su questi deck.
+
+## Deck lenti: la scadenza anche dopo la ricerca (22/10/2026, corsia 2)
+**Misura.** `DUELFORGE_DEBUG_PHASES=1` stampa quando finiscono la ricerca, l'ultimo giro di apprendimento, `confirm_best` e `zone_variants`. `combo_hunt.py --seconds` sceglie il limite di tempo. Deck di Master Duel Meta del 22/10 (41 deck), seme 7, un thread, 4 giri insieme sui 4 core: i tempi sono gonfiati.
+- **1000 nodi, limite 60 s, 6 mani per deck (246 ricerche):** nessuna arriva al limite, perché tutte finiscono i nodi prima. Dopo la ricerca, le fasi successive superano i 10 s solo in 4 ricerche (kaiju, elfnote, dracotail; al massimo 24 s).
+- **Limite di tempo 20 s, senza limite di nodi, 2 mani per deck (82 ricerche):** è quello che fa l'app. Le fasi dopo la ricerca superano il limite di più di 10 s su 2 deck:
+
+| Deck | Oltre il limite, prima | Ricerca | Apprendimento | `confirm_best` | `zone_variants` | Oltre il limite, dopo |
+|---|---|---|---|---|---|---|
+| elfnote_kewl_tune | 30,3 s | 20,1 s | 10,0 s | 5,3 s | 14,9 s | 10,1 s |
+| elfnote | 17,6 s | 20,1 s | 10,0 s | 1,5 s | 6,0 s | 13,5 s (la ricerca stessa si è fermata a 23,5 s) |
+
+Gli altri 39 deck sforano al massimo di 7,4 s (tearlaments, quasi tutto apprendimento). La mano lenta indicata dalla coordinatrice non si gioca con la lista Kewl Tune di oggi (manca Ghost Mourner): nella copia locale un Effect Veiler è sostituito da Ghost Mourner.
+
+**Correzione.** `confirm_best` e `zone_variants` hanno la stessa scadenza dei giri di apprendimento: 10 s dopo il limite di tempo, o dopo la fine della ricerca se è finita più tardi. Una board che non si gioca fino alla fine resta stimata (`exact: false`). L'app la mostra già così: «≈» nella classifica e «Prima della End Phase» nel dettaglio, quindi non serve niente nell'interfaccia. Le varianti di zona di una board si possono perdere.
+
+**Risultati.**
+- **Mano lenta** (Kewl Tune Mix, Ash Blossom, Ghost Mourner, Kewl Tune Cue, Kewl Tune Reco; seme 7, 1000 nodi, limite 60 s, da sola sulla macchina):
+  - prima: 163,8 s in tutto (ricerca 60,2 s, apprendimento fino a 70,4 s, `confirm_best` fino a 98,5 s, `zone_variants` fino a 162,4 s);
+  - dopo: 72,0 s in tutto, con lo stesso punteggio delle prime tre board (12,2), che però restano stimate.
+- **Banco** (16 mani, 4000 nodi, limite 900 s): uscite identiche alla versione di prima (ricerca 146,1 s prima, 141,8 s dopo).
+- **`combo_hunt.py --seed 7`** (41 deck, 2 mani, 3000 nodi): 82 righe identiche su 82, nessun problema.
+- fmt, clippy e test passano, compreso `search_regression`.
+
+**Limiti.**
+- La ricerca stessa può fermarsi qualche secondo dopo il limite: una richiesta del motore su questi deck dura fino a qualche secondo, e il limite si controlla tra una richiesta e l'altra.
+- Il limite di istruzioni Lua per ogni richiesta del motore (piano P3, «in misura») non è stato provato.
