@@ -156,7 +156,7 @@ def main():
     p.add_argument("--decks", required=True, help="folder with .ydk files")
     p.add_argument("--cli", default=os.path.join(ROOT, "target", "release", "duelforge-cli"))
     p.add_argument("--nodes", type=int, default=1000)
-    p.add_argument("--hands", type=int, default=2)
+    p.add_argument("--hands", type=int, default=3)
     p.add_argument("--threads", type=int, default=4)
     p.add_argument("--only", default="", help="only the decks whose name contains this")
     p.add_argument("--skip-run", action="store_true", help="only read the maps already written")
