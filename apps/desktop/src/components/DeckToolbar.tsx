@@ -242,14 +242,14 @@ export function DeckToolbar(p: Props) {
           {p.onToggleInspector && (
             <button
               type="button"
-              className={`btn btn-ghost !py-1 !px-2.5 text-xs flex items-center gap-1.5 ${
-                p.inspectorOpen ? "text-sec font-semibold" : "text-muted"
+              className={`btn btn-ghost !py-1 !px-2.5 text-xs flex items-center gap-1.5 font-medium ${
+                p.inspectorOpen ? "text-sec font-bold" : "text-text"
               }`}
               onClick={p.onToggleInspector}
               title="Ispettore carta (pannello laterale)"
               aria-label="Attiva o disattiva ispettore carta"
             >
-              <Eye size={14} className={p.inspectorOpen ? "text-sec" : "text-muted"} />
+              <Eye size={14} className={p.inspectorOpen ? "text-sec" : "text-text"} />
               <span>Ispettore</span>
             </button>
           )}

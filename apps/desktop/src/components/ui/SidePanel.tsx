@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import { IconButton } from "./IconButton";
 
@@ -95,6 +96,11 @@ export function SidePanel({
     if (!open || !isOverlay) return;
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
+        if (e.defaultPrevented) return;
+        // Do not close if a modal dialog (e.g. CardViewer, CardModal, ImportDialog) is open above
+        if (document.querySelector('[role="dialog"], [aria-modal="true"]')) {
+          return;
+        }
         setOpen(false);
       }
     };
@@ -125,8 +131,8 @@ export function SidePanel({
   if (isOverlay) {
     if (!open) return null;
 
-    return (
-      <div className="fixed inset-0 z-50 flex overflow-hidden">
+    const overlayContent = (
+      <div className="fixed inset-0 z-[60] flex overflow-hidden">
         {/* Backdrop */}
         <div
           className="fixed inset-0 bg-black/60 backdrop-blur-xs transition-opacity"
@@ -134,13 +140,13 @@ export function SidePanel({
           onClick={() => setOpen(false)}
         />
 
-        {/* Floating drawer */}
+        {/* Floating drawer - shifted past compact sidebar (68px) when docked on the left */}
         <aside
           role="region"
           aria-label={title ?? "Pannello laterale"}
           style={{ width: widthStyle }}
           className={`relative z-50 flex h-full max-w-[85vw] flex-col border-border-strong bg-surface shadow-2xl transition-transform duration-200 ease-out ${
-            position === "left" ? "mr-auto border-r" : "ml-auto border-l"
+            position === "left" ? "mr-auto ml-[68px] border-r" : "ml-auto border-l"
           } ${className}`}
         >
           {/* Header */}
@@ -167,6 +173,8 @@ export function SidePanel({
         </aside>
       </div>
     );
+
+    return typeof document !== "undefined" ? createPortal(overlayContent, document.body) : overlayContent;
   }
 
   // Docked container

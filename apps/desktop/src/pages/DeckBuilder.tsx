@@ -494,11 +494,30 @@ function DeckEditor({ onGoCombo }: { onGoCombo?: () => void }) {
     }
   }, [activeCardId, requestCards]);
 
-  const handleCardSelect = useCallback((id: number) => {
-    sound.play("select");
-    setPinnedCardId(id);
-    setInspectorOpen(true);
+  const handleToggleInspector = useCallback((nextState?: boolean) => {
+    setInspectorOpen((prev) => {
+      const next = typeof nextState === "boolean" ? nextState : !prev;
+      try {
+        localStorage.setItem("df_panel_forge_inspector", String(next));
+      } catch {
+        // Ignore storage error
+      }
+      return next;
+    });
   }, []);
+
+  const handleCardSelect = useCallback(
+    (id: number) => {
+      sound.play("select");
+      setPinnedCardId(id);
+      // Sotto i 1440 px non aprire automaticamente il pannello modale al clic,
+      // per consentire al doppio clic di aprire il visore a tutto schermo senza cadere sul backdrop.
+      if (typeof window !== "undefined" && window.innerWidth >= 1440) {
+        handleToggleInspector(true);
+      }
+    },
+    [handleToggleInspector],
+  );
 
   const handleUnpinCard = useCallback(() => {
     sound.play("close");
@@ -573,7 +592,7 @@ function DeckEditor({ onGoCombo }: { onGoCombo?: () => void }) {
         inspectorOpen={inspectorOpen}
         onToggleInspector={() => {
           sound.play("toggle");
-          setInspectorOpen((v) => !v);
+          handleToggleInspector();
         }}
       />
 
@@ -586,7 +605,7 @@ function DeckEditor({ onGoCombo }: { onGoCombo?: () => void }) {
           width={300}
           overlayBelow={1440}
           isOpen={inspectorOpen}
-          onToggle={setInspectorOpen}
+          onToggle={handleToggleInspector}
         >
           <CardInspector
             card={inspectorCard}

@@ -77,6 +77,35 @@ const MOCK_EXTRA_MONSTER: Card = {
   ocgDate: "2016-11-12",
 };
 
+const MOCK_OCG_EXCLUSIVE: Card = {
+  id: 3000,
+  name: "OCG Exclusive Card",
+  kind: "monster",
+  frame: "effect",
+  race: "Warrior",
+  attribute: "EARTH",
+  typeLine: ["Warrior", "Effect"],
+  humanType: "Effetto Mostro",
+  level: 3,
+  atk: 1200,
+  def: 1000,
+  desc: "Carta rilasciata soltanto in OCG.",
+  pendDesc: null,
+  scale: null,
+  linkRating: null,
+  linkMarkers: [],
+  archetype: null,
+  mdRarity: null,
+  formats: ["OCG"],
+  banMd: null,
+  banTcg: null,
+  banOcg: null,
+  imageIds: [3000],
+  views: 0,
+  tcgDate: null,
+  ocgDate: "2024-01-01",
+};
+
 describe("CardInspector", () => {
   it("mostra il messaggio di stato vuoto quando non c'è nessuna carta", () => {
     const html = renderToStaticMarkup(
@@ -140,7 +169,7 @@ describe("CardInspector", () => {
     expect(html).toContain("Starter");
   });
 
-  it("mostra la banlist nei tre formati (MD, TCG, OCG)", () => {
+  it("mostra la banlist nei tre formati (MD, TCG, OCG) in righe leggibili", () => {
     const html = renderToStaticMarkup(
       <CardInspector card={MOCK_MONSTER} deck={MOCK_DECK} pinned={false} />,
     );
@@ -149,7 +178,26 @@ describe("CardInspector", () => {
     expect(html).toContain("TCG");
     expect(html).toContain("OCG");
     expect(html).toContain("Limitata (1)"); // OCG is Limited
-    expect(html).toContain("Senza limiti (3)"); // MD and TCG are legal
+    expect(html).toContain("3 copie"); // MD and TCG are legal
+  });
+
+  it("gestisce coerentemente le carte non presenti in un formato (Punto 9)", () => {
+    const html = renderToStaticMarkup(
+      <CardInspector card={MOCK_OCG_EXCLUSIVE} deck={MOCK_DECK} pinned={false} />,
+    );
+
+    expect(html).toContain("Non in MD");
+    expect(html).toContain("Non in TCG");
+    expect(html).toContain("3 copie"); // in OCG is legal
+    expect(html).toContain("—"); // non in format icon dash
+  });
+
+  it("renderizza l'immagine con l'id carta come chiave per azzeramento al cambio carta (Punto 8)", () => {
+    const html = renderToStaticMarkup(
+      <CardInspector card={MOCK_MONSTER} deck={MOCK_DECK} pinned={false} />,
+    );
+
+    expect(html).toContain('cardimg://localhost/full/1000');
   });
 
   it("adatta l'azione rapida a Extra per mostri dell'Extra Deck", () => {

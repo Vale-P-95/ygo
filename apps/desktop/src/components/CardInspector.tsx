@@ -1,4 +1,4 @@
-import { memo, useMemo, useState } from "react";
+import { memo, useEffect, useMemo, useState } from "react";
 import {
   AlertCircle,
   Ban,
@@ -40,10 +40,10 @@ const BAN_TEXT: Record<string, string> = {
 };
 
 function banIcon(status: string | null | undefined, inFormat = true) {
-  if (!inFormat) return <span className="text-faint text-[11px]">—</span>;
-  if (!status) return <CheckCircle2 size={13} className="text-ok shrink-0" />;
-  if (status === "Banned" || status === "Forbidden") return <Ban size={13} className="text-danger shrink-0" />;
-  return <AlertCircle size={13} className="text-warn shrink-0" />;
+  if (!inFormat) return <span className="text-muted text-xs font-semibold">—</span>;
+  if (!status) return <CheckCircle2 size={14} className="text-ok shrink-0" />;
+  if (status === "Banned" || status === "Forbidden") return <Ban size={14} className="text-danger shrink-0" />;
+  return <AlertCircle size={14} className="text-warn shrink-0" />;
 }
 
 export const CardInspector = memo(function CardInspector({
@@ -59,7 +59,12 @@ export const CardInspector = memo(function CardInspector({
   onSearchArchetype,
   className = "",
 }: CardInspectorProps) {
-  const [imageLoaded, setImageLoaded] = useState(false);
+  const [imageStatus, setImageStatus] = useState<"loading" | "loaded" | "error">("loading");
+
+  // Reset image status on card change
+  useEffect(() => {
+    setImageStatus("loading");
+  }, [card?.id]);
 
   // Deck copy counts
   const { copiesInMain, copiesInExtra, copiesInSide, totalCopies, limit, isExtra } = useMemo(() => {
@@ -92,17 +97,17 @@ export const CardInspector = memo(function CardInspector({
   if (!card) {
     return (
       <div className={`flex h-full flex-col items-center justify-center p-6 text-center text-muted ${className}`}>
-        <div className="mb-3 rounded-full border border-border bg-surface-2 p-3.5 text-sec/70">
+        <div className="mb-3 rounded-full border border-border bg-surface-2 p-3.5 text-sec/80">
           <Eye size={24} />
         </div>
         <h4 className="display text-sm font-semibold tracking-wide text-text">Nessuna carta selezionata</h4>
         <p className="mt-1.5 text-xs leading-relaxed text-muted">
           Passa il mouse su una carta o fai clic per esaminarla e fissarla qui.
         </p>
-        <div className="mt-4 flex flex-col gap-1 rounded-lg border border-border/60 bg-surface-2/40 p-2.5 text-left text-[11px] text-faint">
-          <span>• <strong>Clic singolo:</strong> fissa la carta</span>
-          <span>• <strong>Doppio clic:</strong> visore a schermo intero</span>
-          <span>• <strong>Esc:</strong> sblocca la carta fissata</span>
+        <div className="mt-4 flex flex-col gap-1.5 rounded-lg border border-border/80 bg-surface-2/60 p-3 text-left text-xs text-muted">
+          <span>• <strong className="text-text">Clic singolo:</strong> fissa la carta</span>
+          <span>• <strong className="text-text">Doppio clic:</strong> visore a schermo intero</span>
+          <span>• <strong className="text-text">Esc:</strong> sblocca la carta fissata</span>
         </div>
       </div>
     );
@@ -119,14 +124,14 @@ export const CardInspector = memo(function CardInspector({
       {/* Pin state header bar */}
       <div className="flex items-center justify-between rounded-lg border border-border/80 bg-surface-2/70 px-2.5 py-1.5 text-xs select-none">
         {pinned ? (
-          <div className="flex items-center gap-1.5 text-sec font-semibold">
-            <Pin size={13} className="text-sec" />
-            <span className="text-[12px]">Carta fissata</span>
+          <div className="flex items-center gap-1.5 text-text font-bold">
+            <Pin size={14} className="text-sec shrink-0" />
+            <span className="text-xs">Carta fissata</span>
           </div>
         ) : (
           <div className="flex items-center gap-1.5 text-muted">
-            <Eye size={13} className="text-muted/80" />
-            <span className="text-[12px]">Anteprima passaggio</span>
+            <Eye size={14} className="text-muted/80 shrink-0" />
+            <span className="text-xs font-medium">Anteprima passaggio</span>
           </div>
         )}
         {pinned && onUnpin && (
@@ -147,17 +152,29 @@ export const CardInspector = memo(function CardInspector({
           className="h-1.5 w-full shrink-0"
           style={{ background: frameColor(card.frame) }}
         />
-        <div className="relative aspect-[421/614] w-full overflow-hidden bg-surface-3">
-          <img
-            src={cardImage(card.id, "full")}
-            alt={card.name}
-            loading="eager"
-            decoding="async"
-            onLoad={() => setImageLoaded(true)}
-            className={`h-full w-full object-cover transition-opacity duration-200 ${
-              imageLoaded ? "opacity-100" : "opacity-0"
-            }`}
-          />
+        <div className="relative aspect-[421/614] w-full overflow-hidden bg-surface-3 flex items-center justify-center">
+          {imageStatus === "error" ? (
+            <div className="flex flex-col items-center justify-center p-4 text-center text-muted">
+              <div className="mb-2 rounded-full border border-border bg-surface-2 p-2.5 text-muted">
+                <Eye size={22} />
+              </div>
+              <p className="text-xs font-semibold text-text">{card.name}</p>
+              <p className="text-xs text-muted mt-1">Immagine non disponibile</p>
+            </div>
+          ) : (
+            <img
+              key={card.id}
+              src={cardImage(card.id, "full")}
+              alt={card.name}
+              loading="eager"
+              decoding="async"
+              onLoad={() => setImageStatus("loaded")}
+              onError={() => setImageStatus("error")}
+              className={`h-full w-full object-cover transition-opacity duration-200 ${
+                imageStatus === "loaded" ? "opacity-100" : "opacity-0"
+              }`}
+            />
+          )}
           {rarity && (
             <span
               className="rarity-gem absolute top-2 right-2 shadow-md !text-[9px] !leading-[13px] px-1 py-0.5"
@@ -234,7 +251,7 @@ export const CardInspector = memo(function CardInspector({
         <h3 className="display text-base font-bold leading-snug tracking-tight text-text">
           {card.name}
         </h3>
-        <p className="text-xs text-muted">
+        <p className="text-xs text-muted font-medium">
           {isMonster ? `[ ${card.typeLine.join(" / ")} ]` : card.humanType}
         </p>
       </div>
@@ -243,31 +260,31 @@ export const CardInspector = memo(function CardInspector({
       <div className="flex flex-wrap items-center gap-1.5 text-xs">
         {card.attribute && (
           <span
-            className="chip !px-2 !py-0.5 !text-[11px] font-semibold"
+            className="chip !px-2 !py-0.5 text-xs font-semibold text-text"
             style={{
               borderColor: ATTRIBUTE_COLORS[card.attribute],
-              color: ATTRIBUTE_COLORS[card.attribute],
             }}
           >
-            ● {card.attribute}
+            <span style={{ color: ATTRIBUTE_COLORS[card.attribute] }} aria-hidden="true">●</span>{" "}
+            <span>{card.attribute}</span>
           </span>
         )}
 
         {card.level != null && (
-          <span className="chip !px-2 !py-0.5 !text-[11px]">
-            <span style={{ color: isXyz ? "#c9c9c9" : "#f2a33a" }}>★</span>{" "}
-            {isXyz ? "Rango" : "Livello"} {card.level}
+          <span className="chip !px-2 !py-0.5 text-xs font-medium text-text">
+            <span className="text-sec" aria-hidden="true">★</span>{" "}
+            <span>{isXyz ? "Rango" : "Livello"} {card.level}</span>
           </span>
         )}
 
         {card.linkRating != null && (
-          <span className="chip !px-2 !py-0.5 !text-[11px]">
+          <span className="chip !px-2 !py-0.5 text-xs font-medium text-text">
             LINK-{card.linkRating}
           </span>
         )}
 
         {card.scale != null && (
-          <span className="chip !px-2 !py-0.5 !text-[11px]">
+          <span className="chip !px-2 !py-0.5 text-xs font-medium text-text">
             Scala {card.scale}
           </span>
         )}
@@ -275,7 +292,7 @@ export const CardInspector = memo(function CardInspector({
         {card.archetype && (
           <button
             type="button"
-            className="chip chip-active !px-2 !py-0.5 !text-[11px] hover:brightness-125 transition-all"
+            className="chip chip-active !px-2 !py-0.5 text-xs font-medium hover:brightness-125 transition-all text-text"
             onClick={() => onSearchArchetype?.(`arch:"${card.archetype}"`)}
             title={`Cerca carte dell'archetipo ${card.archetype}`}
           >
@@ -288,32 +305,32 @@ export const CardInspector = memo(function CardInspector({
       {isMonster && (
         <div className="grid grid-cols-3 gap-1.5 rounded-lg border border-border/70 bg-surface-2/60 p-2 text-center text-xs">
           <div>
-            <p className="text-[10px] uppercase tracking-wider text-faint font-semibold">ATK</p>
-            <p className="font-bold text-text tabular-nums">{card.atk ?? "?"}</p>
+            <p className="text-xs uppercase tracking-wider text-muted font-semibold">ATK</p>
+            <p className="font-bold text-text tabular-nums text-xs">{card.atk ?? "?"}</p>
           </div>
           <div>
-            <p className="text-[10px] uppercase tracking-wider text-faint font-semibold">
+            <p className="text-xs uppercase tracking-wider text-muted font-semibold">
               {card.linkRating != null ? "LINK" : "DEF"}
             </p>
-            <p className="font-bold text-text tabular-nums">
+            <p className="font-bold text-text tabular-nums text-xs">
               {card.linkRating != null ? card.linkRating : (card.def ?? "?")}
             </p>
           </div>
           <div className="truncate">
-            <p className="text-[10px] uppercase tracking-wider text-faint font-semibold">Tipo</p>
-            <p className="font-medium text-text truncate" title={card.race}>{card.race}</p>
+            <p className="text-xs uppercase tracking-wider text-muted font-semibold">Tipo</p>
+            <p className="font-semibold text-text truncate text-xs" title={card.race}>{card.race}</p>
           </div>
         </div>
       )}
 
       {/* Deck Copies & Roles Status */}
-      <div className="rounded-lg border border-border/70 bg-surface-2/50 p-2.5 flex flex-col gap-2">
+      <div className="rounded-lg border border-border/70 bg-surface-2/50 p-2.5 flex flex-col gap-2 text-xs">
         <div className="flex items-center justify-between text-xs">
           <span className="text-muted font-medium">Copie nel deck</span>
           <span className="font-bold tabular-nums">
-            <span className={totalCopies > limit ? "text-danger" : "text-sec"}>{totalCopies}</span>
-            <span className="text-faint"> / {limit}</span>
-            <span className="ml-1 text-[11px] text-muted">
+            <span className={totalCopies > limit ? "text-danger" : "text-sec font-bold"}>{totalCopies}</span>
+            <span className="text-muted font-normal"> / {limit}</span>
+            <span className="ml-1 text-xs text-muted font-normal">
               ({isExtra ? `Extra: ${copiesInExtra}` : `Main: ${copiesInMain}`}, Side: {copiesInSide})
             </span>
           </span>
@@ -327,89 +344,101 @@ export const CardInspector = memo(function CardInspector({
               activeRoles.map((role) => (
                 <span
                   key={role.key}
-                  className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[11px] font-semibold text-text shadow-xs"
-                  style={{
-                    backgroundColor: `color-mix(in oklab, ${role.color} 25%, var(--df-surface-2))`,
-                    borderColor: role.color,
-                    borderWidth: 1,
-                  }}
+                  className="inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 text-xs font-semibold text-text border border-border bg-surface-3 shadow-xs"
                   title={role.hint}
                 >
-                  <span className="font-bold text-[10px]" style={{ color: role.color }}>
-                    {role.letter}
-                  </span>
-                  <span>{role.label}</span>
+                  <span
+                    className="inline-block h-2 w-2 rounded-full shrink-0"
+                    style={{ backgroundColor: role.color }}
+                    aria-hidden="true"
+                  />
+                  <span className="font-bold text-text">{role.letter}</span>
+                  <span className="text-muted">{role.label}</span>
                 </span>
               ))
             ) : (
-              <span className="text-[11px] text-faint">Nessun ruolo</span>
+              <span className="text-xs text-muted">Nessun ruolo</span>
             )}
           </div>
         </div>
       </div>
 
-      {/* Banlist across all 3 formats */}
+      {/* Banlist across all 3 formats in readable rows */}
       <div className="rounded-lg border border-border/70 bg-surface-2/50 p-2.5 text-xs">
-        <p className="text-[11px] font-semibold uppercase tracking-wider text-faint mb-2">
+        <p className="text-xs font-semibold uppercase tracking-wider text-muted mb-2">
           Stato Banlist nei tre formati
         </p>
-        <div className="grid grid-cols-3 gap-2 text-center">
+        <div className="flex flex-col gap-1.5">
           {/* Master Duel */}
-          <div className="flex flex-col items-center gap-1 rounded border border-border/50 bg-surface-3/40 p-1.5">
-            <span className="text-[10px] font-semibold text-muted">Master Duel</span>
-            {banIcon(card.banMd, card.formats.includes("Master Duel"))}
-            <span className="text-[11px] truncate max-w-full font-medium" title={card.banMd ? BAN_TEXT[card.banMd] : "Legale (3)"}>
-              {card.banMd
-                ? (BAN_TEXT[card.banMd] ?? card.banMd)
-                : card.formats.includes("Master Duel")
-                  ? "Senza limiti (3)"
-                  : "Non in MD"}
-            </span>
+          <div className="flex items-center justify-between rounded border border-border/50 bg-surface-3/40 px-2.5 py-1.5">
+            <span className="font-semibold text-text">Master Duel</span>
+            <div className="flex items-center gap-1.5">
+              {banIcon(card.banMd, card.formats.includes("Master Duel"))}
+              <span className="font-medium text-text">
+                {!card.formats.includes("Master Duel")
+                  ? "Non in MD"
+                  : card.banMd
+                    ? (BAN_TEXT[card.banMd] ?? card.banMd)
+                    : "3 copie"}
+              </span>
+            </div>
           </div>
 
           {/* TCG */}
-          <div className="flex flex-col items-center gap-1 rounded border border-border/50 bg-surface-3/40 p-1.5">
-            <span className="text-[10px] font-semibold text-muted">TCG</span>
-            {banIcon(card.banTcg, card.formats.includes("TCG"))}
-            <span className="text-[11px] truncate max-w-full font-medium" title={card.banTcg ? BAN_TEXT[card.banTcg] : "Legale (3)"}>
-              {card.banTcg ? (BAN_TEXT[card.banTcg] ?? card.banTcg) : "Senza limiti (3)"}
-            </span>
+          <div className="flex items-center justify-between rounded border border-border/50 bg-surface-3/40 px-2.5 py-1.5">
+            <span className="font-semibold text-text">TCG</span>
+            <div className="flex items-center gap-1.5">
+              {banIcon(card.banTcg, card.formats.includes("TCG"))}
+              <span className="font-medium text-text">
+                {!card.formats.includes("TCG")
+                  ? "Non in TCG"
+                  : card.banTcg
+                    ? (BAN_TEXT[card.banTcg] ?? card.banTcg)
+                    : "3 copie"}
+              </span>
+            </div>
           </div>
 
           {/* OCG */}
-          <div className="flex flex-col items-center gap-1 rounded border border-border/50 bg-surface-3/40 p-1.5">
-            <span className="text-[10px] font-semibold text-muted">OCG</span>
-            {banIcon(card.banOcg, card.formats.includes("OCG"))}
-            <span className="text-[11px] truncate max-w-full font-medium" title={card.banOcg ? BAN_TEXT[card.banOcg] : "Legale (3)"}>
-              {card.banOcg ? (BAN_TEXT[card.banOcg] ?? card.banOcg) : "Senza limiti (3)"}
-            </span>
+          <div className="flex items-center justify-between rounded border border-border/50 bg-surface-3/40 px-2.5 py-1.5">
+            <span className="font-semibold text-text">OCG</span>
+            <div className="flex items-center gap-1.5">
+              {banIcon(card.banOcg, card.formats.includes("OCG"))}
+              <span className="font-medium text-text">
+                {!card.formats.includes("OCG")
+                  ? "Non in OCG"
+                  : card.banOcg
+                    ? (BAN_TEXT[card.banOcg] ?? card.banOcg)
+                    : "3 copie"}
+              </span>
+            </div>
           </div>
         </div>
       </div>
 
       {/* Pendulum description if applicable */}
       {card.pendDesc && (
-        <div className="rounded-lg border border-border/80 bg-surface-2/60 p-2.5">
-          <p className="eyebrow text-[10px] text-sec mb-1 font-semibold uppercase">Effetto Pendulum</p>
-          <p className="whitespace-pre-line text-[12px] leading-relaxed text-text/90">
+        <div className="rounded-lg border border-border/80 bg-surface-2/60 p-2.5 text-xs">
+          <p className="eyebrow text-xs text-sec mb-1 font-semibold uppercase">Effetto Pendulum</p>
+          <p className="whitespace-pre-line text-xs leading-relaxed text-text">
             {card.pendDesc}
           </p>
         </div>
       )}
 
       {/* Main card description */}
-      <div className="rounded-lg border border-border/80 bg-surface-2/60 p-2.5">
-        <p className="eyebrow text-[10px] text-sec mb-1 font-semibold uppercase">
+      <div className="rounded-lg border border-border/80 bg-surface-2/60 p-2.5 text-xs">
+        <p className="eyebrow text-xs text-sec mb-1 font-semibold uppercase">
           {card.pendDesc ? "Effetto Mostro" : "Testo della carta"}
         </p>
-        <p className="whitespace-pre-line text-[12px] leading-relaxed text-text/90">
+        <p className="whitespace-pre-line text-xs leading-relaxed text-text">
           {card.desc}
         </p>
       </div>
 
       {/* Passcode footer */}
-      <div className="flex items-center justify-between text-[11px] text-faint px-1 pb-1">
-        <span>Passcode: <span className="font-mono">{card.id}</span></span>
+      <div className="flex items-center justify-between text-xs text-muted px-1 pb-1">
+        <span>Passcode: <span className="font-mono text-text">{card.id}</span></span>
         {card.tcgDate && <span>TCG: {card.tcgDate}</span>}
       </div>
     </div>
