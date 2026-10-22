@@ -481,3 +481,60 @@ Nessun codice nella ricerca: misure e stime, per decidere.
 - **Dalla revisione della PR 1:** `df_lua_compile` lavora fuori dall'arena; un blocco di Lua che resta nella sua classe di grandezza si ridimensiona sul posto; `save` non azzera più la memoria e riusa quella della copia tolta. Restano: `top` non scende mai (le copie sono di circa 2,3 MB), e un `mmap` da 4 GiB per duello (qui uno per thread, quindi poco importa).
 - **Banco** (37 deck, 4000 nodi, un thread per deck): ricerca 150,2 e 152,4 s senza copie, 102,6 s con 64 MB e 101,7 s con 256 MB (−32%); tempo totale 417-420 s contro 360 s (−14%: il turno di prova non usa ancora le copie). Board, punteggi e linee identici su tutti i deck, tranne la solita differenza di arrotondamento di inv-aleister (che c'è anche tra due corse senza copie). Il giro con `DUELFORGE_COPY_CHECK=1` (ogni ripristino controllato): 0 righe interrotte.
 - **Una mano Invoked** (4000 nodi): discese da 4,0 a 2,0 s, replay da 3,1 a 1,1 s, risposte rigiocate da 53 634 a 12 272.
+
+## B14: la valutazione delle board a gradini (22/10/2026, corsia 8)
+**Domanda.** Oggi l'app misura per intero le prime 30 board della stima della ricerca. Come si spende meno tempo senza perdere la board migliore? I gradini vengono dagli esperimenti della corsia 7 (`ricerca-esperimenti.md` §1, sul branch `claude/research-lab`).
+
+**La scala tenuta.** È la scala sicura scelta dalla coordinatrice:
+1. la stima ordina le board;
+2. le prime 30 hanno la misura completa senza i breaker: ogni risposta provata a 16 finestre, 3 giri degli usi;
+3. le migliori 15, per campo + 0,9 · mano + 0,8 · floodgate, hanno anche i breaker, il follow-up e la risposta alla prima interruzione;
+4. la classifica finale è sulla misura completa.
+
+**Il riuso.** Il gradino 3 riprende dal 2 e non rigioca le run già fatte: la run in cui l'avversario passa, e per ogni risposta le finestre provate e i giri degli usi.
+- Senza riuso, la misura completa dopo il gradino costerebbe per intero, e la scala costerebbe più di oggi.
+- La misura ripresa è identica a quella fatta da capo: confrontate board per board su Snake-Eye e Branded, con un prefisso a 16 finestre e 3 giri e uno a 8 finestre e 1 giro.
+
+**Codice.**
+- **`probe.rs`:**
+  - `Prober::measure_cheap(line, probe::Cheap { windows, use_rounds })` restituisce la misura e un `Partial`, cioè quello che ha giocato;
+  - `Prober::measure_resumed(line, partial)` finisce la misura completa;
+  - `Parts` ha due campi in più, le finestre e i giri degli usi; la misura completa resta a 16 e 3.
+- **App** (`combo_score`, mano precisa): la scala qui sopra, con l'esposizione e il confronto con il deck scelto solo per le 15.
+  - Le altre hanno un punteggio senza breaker, segnato da `ScoreView.cheap` (`cheap?: boolean` in `api.ts`).
+  - **Per ora l'app non lo manda alla pagina** (`SEND_CHEAP_SCORES = false`). La pagina ordina ogni punteggio con i suoi pesi, e uno senza breaker né esposizione starebbe sopra quello completo dello stesso campo. Così quelle board restano «non misurate», ordinate dalla stima, come oggi le board oltre la 30ª. Si accende quando la scheda di Gemini mette le board `cheap` dopo le altre.
+  - Queste misure non dipendono dal deck avversario, quindi restano valide quando lo si cambia.
+  - In «carta + resto» non cambia niente.
+- **CLI:**
+  - `combos --staged`, con `--staged-cheap`, `--staged-full`, `--staged-windows` e `--staged-rounds` per provare altri gradini;
+  - `combo_hunt.py` passa `--staged` e `--combos-args`;
+  - `oracle.boards_of`, quindi anche `paired_test.py`, non conta le board ferme al gradino economico.
+
+**Protocollo.** `main` c559078 contro il branch, 41 deck MDM del 22/10, `combo_hunt.py --hands 2 --seed 7 --top 30` (82 mani), 4 processi su 4 core, build release.
+- **Prima:** misura completa delle prime 30.
+- **Dopo:** `--staged`.
+- **Il tempo «prima»** è quello del binario del branch senza `--staged`: la misura completa è identica a quella di `main`, 2360 board su 2360. Il binario di `main` non scrive il tempo dei turni di prova.
+
+| | prima | dopo |
+|---|---:|---:|
+| tempo dei turni di prova, 82 mani | 1960 s | **1616 s (82%)** |
+| mediana per mano del rapporto | | 82% |
+| #1 identico | | **82/82** |
+| mani con un #1 peggiore oltre l'1% | | **0** |
+| top 3 con almeno 2 board su 3 in comune | | 80/82 |
+| `paired_test.py` sulle 82 mani | | 0 meglio, 0 peggio, 82 pari: accettato |
+| banco (`bench.py`, 4000 nodi, 12 mani su 16) | best 11,56 · first 11,55 | identico; `paired_test.py` accettato |
+
+- Le mani del banco sono 12 su 16, perché le liste MDM del 22/10 non hanno Ignister, Labrynth, Mitsurugi e Yummy Mimighoul.
+- Sono verdi anche `search_regression`, i test, fmt, clippy (anche `src-tauri`) e `pnpm typecheck`.
+- Il tempo scende del 18%, non del 25% chiesto all'inizio: la scala sicura tiene il #1 in tutte le mani, e il gradino senza breaker costa il 73% della misura completa.
+- Le 2 mani con la top 3 cambiata (Power Patron-1, Vampire-0) hanno lo stesso #1: cambiano il 2° e il 3° posto, perché le board misurate per intero sono 15 e non 30.
+- **Nell'app vera non è stata provata.** È compilata e passa clippy. I tempi sono della CLI, a un thread per mano; nell'app le due fasi sono parallele allo stesso modo.
+
+**Prima prova, non tenuta: 2 finestre.** La prima versione usava la misura economica della corsia 7 sulla prima mano di ogni deck: 2 finestre, nessun giro degli usi, 40 → 15, senza riuso.
+- Sulle 41 mani: 71% del tempo, #1 uguale o migliore in 41/41.
+- Sulle 82 mani, misurate dalla corsia 7, si perde il #1 in 5 mani, fino al 33,7% (Branded-1): lì le risposte fermano qualcosa solo dopo la seconda finestra.
+
+**Dopo (PR seguente).** Un gradino a 8 finestre e 1 giro degli usi, che la misura completa riprende dalle finestre 9-16: la corsia 7 lo stima al 71% del tempo, con il #1 uguale o migliore in 82/82.
+- Con `--staged-windows 8 --staged-rounds 1` è già provabile.
+- Da aggiungere al gradino, secondo la corsia 7: le carte guadagnate nella Fase Finale e nel turno dopo, contate nella run in cui l'avversario passa. È un contatore, non una run in più, e serve per le mani il cui #1 vince nel turno dopo (Sky Striker).
