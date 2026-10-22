@@ -191,4 +191,32 @@ describe("layout.ts - pure circle layout geometry and edge calculations", () => 
       expect(geo.radius + labelLength).toBeLessThanOrEqual(halfW);
     }
   });
+
+  it("garantisce raggio >= 160px e nodi >= 20px a 1280x800, con etichette non sovrapposte", () => {
+    const cardCount = 40;
+    const cards = Array.from({ length: cardCount }, (_, i) => ({
+      code: 4000 + i,
+      key: i % 4 === 0 ? 0.35 : 0.05,
+    }));
+
+    const geo1280 = calculateCircleGeometry({
+      containerWidth: 840,
+      containerHeight: 560,
+      cardCount,
+      cards,
+    });
+
+    expect(geo1280.radius).toBeGreaterThanOrEqual(160);
+    for (const pos of geo1280.positions.values()) {
+      expect(pos.diameter).toBeGreaterThanOrEqual(20);
+    }
+
+    // Verify distance between adjacent radial rays at label midpoint (radius + 40px)
+    // 2 * d * sin(deltaTheta / 2) with 40 cards deltaTheta = 9deg -> separation is ~30px
+    const deltaTheta = (2 * Math.PI) / cardCount;
+    const midLabelDistance = geo1280.radius + 40;
+    const labelSeparation = 2 * midLabelDistance * Math.sin(deltaTheta / 2);
+    // 12px font height requires at least ~14px separation to never overlap
+    expect(labelSeparation).toBeGreaterThan(18);
+  });
 });

@@ -177,7 +177,6 @@ export function LinksFilters({ filters, onChange, layout, onLayoutChange, links 
     const isAll = d.kind === "all";
     const icon = isAll ? undefined : KIND_ICONS[d.kind as CardLinkKind];
     const isSelected = isAll ? filters.kind === "all" : filters.kind === d.kind;
-    const hasActiveKind = filters.kind !== "all";
 
     return (
       <FilterChip
@@ -185,7 +184,7 @@ export function LinksFilters({ filters, onChange, layout, onLayoutChange, links 
         label={item.label}
         count={d.count}
         active={isSelected}
-        disabled={isAll && hasActiveKind ? false : undefined}
+        disableWhenZero={!isAll}
         color={d.color}
         size="sm"
         className={inPopover ? "w-full justify-between" : undefined}

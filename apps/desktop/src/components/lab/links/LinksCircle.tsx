@@ -42,34 +42,27 @@ export function LinksCircle({
   onHoverCard,
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [availableHeight, setAvailableHeight] = useState<number>(560);
   const [dimensions, setDimensions] = useState<{ width: number; height: number }>({ width: 740, height: 560 });
   const markerIdPrefix = useId().replace(/:/g, "_");
   const reduceMotion = prefersReducedMotion();
 
-  // Dynamic circle height calculation based on available viewport space
+  // Stable dimensions tracking via ResizeObserver
   useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
     const update = () => {
-      if (!containerRef.current) return;
-      const rect = containerRef.current.getBoundingClientRect();
-      const freeHeight = window.innerHeight - rect.top - 24;
-      // Flexible bounds fitting within 1280x800 viewport without extending off-screen
-      const targetH = Math.max(360, Math.min(720, Math.floor(freeHeight)));
-      setAvailableHeight(targetH);
-
-      const clientW = containerRef.current.clientWidth;
-      if (clientW > 0) {
-        setDimensions({ width: clientW, height: targetH });
+      const { clientWidth, clientHeight } = el;
+      if (clientWidth > 0 && clientHeight > 0) {
+        setDimensions((prev) => {
+          if (Math.abs(prev.width - clientWidth) < 2 && Math.abs(prev.height - clientHeight) < 2) return prev;
+          return { width: clientWidth, height: clientHeight };
+        });
       }
     };
     update();
-    window.addEventListener("resize", update);
-    const ro = new ResizeObserver(() => update());
-    if (containerRef.current) ro.observe(containerRef.current);
-    return () => {
-      window.removeEventListener("resize", update);
-      ro.disconnect();
-    };
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
   }, []);
 
   const gainedKeys = useMemo(
@@ -176,8 +169,7 @@ export function LinksCircle({
   return (
     <div
       ref={containerRef}
-      style={{ height: `${availableHeight}px` }}
-      className="relative w-full overflow-hidden select-none"
+      className="relative w-full h-[clamp(520px,calc(100vh-280px),720px)] min-h-[520px] overflow-hidden select-none"
     >
       <svg
         viewBox={geometry.viewBox}
@@ -318,9 +310,16 @@ export function LinksCircle({
 
             // Compute edge path ending precisely at target node's border, leaving clearance for selection and hand rings
             const isSelectedTarget = l.to === activeCardCode;
+            const isHoveredTarget = l.to === hoveredCardCode;
             const isHandTarget = sampleHandCodes?.has(l.to) ?? false;
             const isPathTarget = pathNodeCodes?.has(l.to) ?? false;
-            const targetRing = isSelectedTarget || isHandTarget ? 8 : isPathTarget ? 7 : 0;
+            const targetRing = isSelectedTarget || isHandTarget
+              ? 8
+              : isHoveredTarget
+              ? Math.max(8, Math.round(pTo.radius * 0.18 + 5))
+              : isPathTarget
+              ? 7
+              : 0;
             const effectiveRTo = pTo.radius + targetRing;
             const edge = getEdgePath(pFrom, pTo, pFrom.radius, effectiveRTo);
 
@@ -499,16 +498,17 @@ export function LinksCircle({
               .filter(Boolean)
               .join("\n");
 
-            const visibleSuffix = [
+            const accessibleIndicators = [
               isAdded ? "(+)" : null,
               isRemoved ? "(− tolta)" : null,
+              c.copies > 1 ? `(×${c.copies})` : null,
               inSampleHand ? "(mano)" : null,
               c.key >= KEY_CARD_THRESHOLD ? "★" : null,
             ]
               .filter(Boolean)
               .join(" ");
 
-            const accessibleName = `${displayName} (${name})${visibleSuffix ? ` ${visibleSuffix}` : ""}`;
+            const accessibleName = `${name}${accessibleIndicators ? ` ${accessibleIndicators}` : ""}`;
 
             return (
               <g
@@ -681,7 +681,7 @@ export function LinksCircle({
                   />
 
                   {/* Copies indicator badge */}
-                  <g className="copies-badge">
+                  <g className="copies-badge" aria-hidden="true">
                     <circle
                       cx={badgeX}
                       cy={badgeY}
@@ -711,6 +711,7 @@ export function LinksCircle({
 
                 {/* Radial outward label text */}
                 <text
+                  aria-hidden="true"
                   transform={labelLayout.transform}
                   textAnchor={labelLayout.textAnchor}
                   className={`text-[12px] select-none transition-colors pointer-events-none ${

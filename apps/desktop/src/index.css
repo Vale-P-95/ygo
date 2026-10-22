@@ -77,6 +77,8 @@
   --frame-trap: #cc3b88;
   --frame-token: #908c88;
   --frame-skill: #3a8bd8;
+  --stats-starter-num: #4ee0d5;
+  --stats-key-num: #ffd27a;
 }
 [data-theme="light"] {
   --role-starter: #0a8d82;
@@ -101,6 +103,8 @@
   --frame-trap: #9e1d62;
   --frame-token: #605c56;
   --frame-skill: #2566ab;
+  --stats-starter-num: #086b63;
+  --stats-key-num: #7a4e00;
 }
 
 :root {

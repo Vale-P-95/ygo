@@ -65,7 +65,7 @@ export function LinksStats({ cards, links, getCard, selectedCode, onSelectCard }
                   data-tip={`${name}: porta a ${c.reachAll} carte in totale (in mano iniziale: ${formatChance(c).text})`}
                 >
                   <span className="truncate max-w-[120px]">{name}</span>
-                  <span className="text-small font-bold text-teal-700 dark:text-teal-300 tabular-nums">+{c.reachAll}</span>
+                  <span className="text-small font-bold tabular-nums" style={{ color: "var(--stats-starter-num)" }}>+{c.reachAll}</span>
                 </button>
               );
             })
@@ -100,7 +100,7 @@ export function LinksStats({ cards, links, getCard, selectedCode, onSelectCard }
                   data-tip={`${name}: se negata si perdono in media ${c.key.toFixed(2)} carte`}
                 >
                   <span className="truncate max-w-[120px]">{name}</span>
-                  <span className="text-small font-bold text-amber-900 dark:text-amber-300 tabular-nums">−{c.key.toFixed(1)}</span>
+                  <span className="text-small font-bold tabular-nums" style={{ color: "var(--stats-key-num)" }}>−{c.key.toFixed(1)}</span>
                 </button>
               );
             })
@@ -128,7 +128,7 @@ export function LinksStats({ cards, links, getCard, selectedCode, onSelectCard }
                   sound.play("page");
                   onSelectCard(c.code);
                 }}
-                className={`chip !py-0.5 !px-1.5 text-[11px] text-muted ${active ? "chip-active" : ""}`}
+                className={`chip !py-0.5 !px-1.5 text-small text-text font-medium ${active ? "chip-active" : ""}`}
                 title={`${name}: nessun collegamento né in entrata né in uscita`}
               >
                 <span className="truncate max-w-[110px]">{name}</span>
@@ -136,7 +136,7 @@ export function LinksStats({ cards, links, getCard, selectedCode, onSelectCard }
             );
           })}
           {isolated.length > 4 && (
-            <span className="text-[10px] text-faint self-center">+{isolated.length - 4} altre</span>
+            <span className="text-small text-muted font-medium self-center">+{isolated.length - 4} altre</span>
           )}
         </div>
       </div>

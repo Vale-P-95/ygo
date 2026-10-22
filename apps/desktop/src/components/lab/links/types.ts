@@ -15,7 +15,7 @@ export interface FormattedChance {
 
 /** Formats card reach chance consistently as exact or measured estimate (≈ X%). */
 export function formatChance(card: Pick<LinkCard, "chance" | "extra" | "measured">): FormattedChance {
-  if (card.extra && card.chance === 0) {
+  if (card.extra && card.chance === 0 && card.measured) {
     return {
       text: "—",
       isEstimated: false,

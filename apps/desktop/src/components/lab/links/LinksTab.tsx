@@ -440,7 +440,7 @@ export function LinksTab({
           {/* Visualization + Card Detail Panel */}
           <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] xl:grid-cols-[1fr_360px] gap-4 items-start">
             {/* Visual graph / columns */}
-            <div className="lab-card flex flex-col items-center justify-center p-3 overflow-hidden min-h-[520px]">
+            <div className="lab-card flex flex-col items-stretch justify-start p-3 overflow-hidden min-h-[520px]">
               {layout === "circle" ? (
                 <LinksCircle
                   cards={activeData.cards}

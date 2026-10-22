@@ -139,23 +139,21 @@ export function calculateCircleGeometry({
   containerHeight,
   cardCount,
   cards = [],
-  minRadius = 100,
-  maxRadius = 300,
+  minRadius = 140,
+  maxRadius = 320,
 }: CircleGeometryOptions): CircleGeometryResult {
   const width = Math.max(320, containerWidth || 740);
   const height = Math.max(320, containerHeight || 620);
 
-  // Radial label length is at most 18 chars (~115px) + max node radius (up to 32px) + 8px gap = ~155px
-  // Reserving sufficient radial margin ensures labels at top/bottom (12 and 6 o'clock) are never clipped
-  const labelReserve = 145;
-  const marginX = Math.max(labelReserve, Math.round(width * 0.18));
-  const marginY = Math.max(labelReserve, Math.round(height * 0.22));
+  // Label radial reserve (135px) ensures labels at ore 12 and 6 are strictly inside the viewBox
+  const labelReserve = 135;
+  const marginX = Math.min(130, Math.max(95, Math.round(width * 0.15)));
+  const marginY = Math.min(115, Math.max(80, Math.round(height * 0.16)));
 
   const maxRx = width / 2 - marginX;
   const maxRy = height / 2 - marginY;
   const computedRadius = Math.round(Math.min(maxRx, maxRy));
-  const effectiveMinRadius = Math.min(minRadius, Math.max(60, computedRadius));
-  const radius = Math.max(effectiveMinRadius, Math.min(maxRadius, computedRadius));
+  const radius = Math.max(minRadius, Math.min(maxRadius, computedRadius));
 
   const N = Math.max(1, cardCount);
   const deltaTheta = N > 1 ? (2 * Math.PI) / N : 0;

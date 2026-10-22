@@ -179,7 +179,8 @@ export interface ToolbarProps<T = unknown> {
 }
 
 interface PopoverCoords {
-  top: number;
+  top?: number;
+  bottom?: number;
   left: number;
   maxHeight: number;
   openUpwards: boolean;
@@ -193,8 +194,8 @@ const calcPopoverCoords = (rect: DOMRect): PopoverCoords => {
 
   if (spaceBelow < 220 && spaceAbove > spaceBelow) {
     const maxHeight = Math.max(160, Math.min(360, spaceAbove));
-    const top = Math.max(8, rect.top - maxHeight - 8);
-    return { top, left, maxHeight, openUpwards: true };
+    const bottom = window.innerHeight - rect.top + 8;
+    return { bottom, left, maxHeight, openUpwards: true };
   } else {
     const maxHeight = Math.max(160, Math.min(360, spaceBelow));
     const top = rect.bottom + 8;
@@ -258,11 +259,18 @@ export function Toolbar<T = unknown>({
     // Focus the first interactive element inside the popover dialog on open
     const timer = setTimeout(() => {
       if (popoverRef.current) {
-        const focusable = popoverRef.current.querySelectorAll<HTMLElement>(
-          'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])',
+        const firstChip = popoverRef.current.querySelector<HTMLElement>(
+          '.overflow-y-auto button:not([disabled]), .overflow-y-auto [tabindex]:not([tabindex="-1"])',
         );
-        if (focusable.length > 0) {
-          focusable[0].focus();
+        if (firstChip) {
+          firstChip.focus();
+        } else {
+          const focusable = popoverRef.current.querySelectorAll<HTMLElement>(
+            'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+          );
+          if (focusable.length > 0) {
+            focusable[0].focus();
+          }
         }
       }
     }, 0);
@@ -282,6 +290,26 @@ export function Toolbar<T = unknown>({
     const handleKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         closePopover();
+        return;
+      }
+
+      if (e.key === "Tab" && popoverRef.current) {
+        const focusable = Array.from(
+          popoverRef.current.querySelectorAll<HTMLElement>(
+            'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+          ),
+        );
+        if (focusable.length === 0) return;
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+
+        if (e.shiftKey && document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        } else if (!e.shiftKey && document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
       }
     };
 
@@ -362,7 +390,8 @@ export function Toolbar<T = unknown>({
                     aria-label="Filtri aggiuntivi"
                     style={{
                       position: "fixed",
-                      top: `${popoverCoords.top}px`,
+                      top: popoverCoords.top != null ? `${popoverCoords.top}px` : undefined,
+                      bottom: popoverCoords.bottom != null ? `${popoverCoords.bottom}px` : undefined,
                       left: `${popoverCoords.left}px`,
                       maxHeight: `${popoverCoords.maxHeight}px`,
                     }}

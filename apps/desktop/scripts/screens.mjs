@@ -50,7 +50,16 @@ async function main() {
   }
 
   console.log(`Connecting to ${BASE_URL}...`);
-  const browser = await chromium.launch({ headless: true });
+  let browser;
+  try {
+    browser = await chromium.launch({ headless: true });
+  } catch {
+    try {
+      browser = await chromium.launch({ headless: true, channel: "msedge" });
+    } catch {
+      browser = await chromium.launch({ headless: true, channel: "chrome" });
+    }
+  }
 
   let totalScreenshots = 0;
   let totalAxeViolations = 0;
@@ -65,6 +74,16 @@ async function main() {
 
       // Load initial page with mock mode
       await page.goto(BASE_URL, { waitUntil: "networkidle" });
+
+      // Dismiss welcome modal or toast if present
+      const dismissModal = page.locator('button:has-text("Inizia"), button:has-text("Chiudi"), [aria-label="Chiudi"]');
+      if ((await dismissModal.count()) > 0) {
+        try {
+          await dismissModal.first().click({ timeout: 1000 });
+        } catch {
+          // ignore if already gone
+        }
+      }
 
       for (const theme of THEMES) {
         console.log(`  Tema: ${theme}`);
@@ -118,7 +137,6 @@ async function main() {
             try {
               const results = await new AxeBuilder({ page })
                 .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
-                .disableRules(["color-contrast"]) // Optional fine-tuning if custom canvas/webgl is present
                 .analyze();
 
               if (results.violations.length > 0) {
