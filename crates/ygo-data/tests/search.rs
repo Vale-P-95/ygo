@@ -28,7 +28,7 @@ const SAMPLE: &str = r#"{"data": [
   {"id": 1007, "name": "Mystery Tinkerer", "type": "Effect Monster", "humanReadableCardType": "Effect Monster",
    "frameType": "effect", "desc": "Its ATK is unknown.", "race": "Spellcaster", "attribute": "DARK", "typeline": ["Spellcaster", "Effect"],
    "level": 3, "atk": 0, "def": 0, "card_images": [{"id": 1007}],
-   "misc_info": [{"formats": ["OCG"], "views": 10, "question_atk": 1}]},
+   "banlist_info": {"ban_ocg": "Semi-Limited"}, "misc_info": [{"formats": ["OCG"], "views": 10, "question_atk": 1}]},
   {"id": 1008, "name": "Workshop Skill", "type": "Skill Card", "humanReadableCardType": "Skill Card",
    "frameType": "skill", "desc": "Speed Duel only.", "race": "Kaiba", "card_images": [{"id": 1008}],
    "misc_info": [{"formats": ["Speed Duel"], "views": 5}]}
@@ -134,6 +134,10 @@ fn master_duel_list_is_applied_and_survives_card_updates() {
     assert_eq!(search(&store, "format:md ban:limited"), [1005]);
     assert_eq!(search(&store, "ban:limited"), [1004]);
     assert_eq!(parse_query("format:md ban:limited").chips[1].label, "Banlist Master Duel: Limited");
+    // ... and the OCG list when it is about the OCG.
+    assert_eq!(search(&store, "format:ocg ban:semi"), [1007]);
+    assert!(search(&store, "ban:semi").is_empty());
+    assert_eq!(parse_query("format:ocg ban:semi").chips[1].label, "Banlist OCG: Semi-Limited");
 
     let cards = import::parse_cardinfo(SAMPLE.as_bytes()).unwrap();
     store.replace_all(&cards, "test-2").unwrap();
