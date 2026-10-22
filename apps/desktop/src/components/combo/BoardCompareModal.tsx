@@ -5,7 +5,7 @@ import { METRICS, NEGATIVE, parts, PROFILES, score, useWeights, metricValues, ge
 import { sound } from "../../lib/sound";
 import { toast } from "../../lib/toast";
 import { CardImage, Field, type HoverCard, type Pile as PileKind } from "./Field";
-import { ScoreBar } from "./Score";
+import { ScoreBar, formatExposureValue, formatHandtrapLoss, formatMaxxImpact, HANDTRAP_NAMES, isLegacyExposure, plural } from "./Score";
 
 function boardId(b: ComboBoard): string {
   return `${b.hand}:${b.key}`;
@@ -566,17 +566,62 @@ export function BoardCompareModal({
                     )}
 
                     {col.s.exposureDetail && (
-                      <div className="border-t border-border pt-2.5 text-xs text-muted">
-                        <p className="eyebrow mb-1 text-faint">Esposizione durante la linea</p>
-                        <div className="flex flex-wrap gap-x-4 gap-y-1 tabular-nums">
-                          <span>Ash: <b className="text-text">{col.s.exposureDetail.ash}</b></span>
-                          <span>Sul campo (Veiler/Imperm): <b className="text-text">{col.s.exposureDetail.onField}</b></span>
-                          <span>Evocazioni: <b className="text-text">{col.s.exposureDetail.summons}</b> ({col.s.exposureDetail.specialSummons} Spec.)</span>
-                          <span>Ricerche dal Deck: <b className="text-text">{col.s.exposureDetail.searches}</b></span>
+                      <div className="border-t border-border pt-2.5 text-small text-muted flex flex-col gap-1.5">
+                        <div className="flex items-baseline justify-between">
+                          <p className="eyebrow text-faint">Esposizione alle handtrap</p>
+                          <span className="font-medium text-text tabular-nums text-small">
+                            {isLegacyExposure(col.s)
+                              ? `punti critici: ${plural(Math.round(col.s.exposure), "punto", "punti")}`
+                              : `perdita attesa: ${formatExposureValue(col.s.exposure)}`}
+                          </span>
                         </div>
+                        {col.s.exposureDetail.losses !== undefined ? (
+                          <div className="flex flex-col gap-1 tabular-nums">
+                            {col.s.exposureDetail.losses.length > 0 ? (
+                              col.s.exposureDetail.losses.map((l) => {
+                                const label = HANDTRAP_NAMES[l.kind] ?? l.kind;
+                                return (
+                                  <div key={l.kind} className="flex items-baseline justify-between text-small">
+                                    <span>{label}:</span>
+                                    <span className={l.loss > 0.005 ? "font-semibold text-danger" : "text-muted"}>
+                                      {l.loss > 0.005
+                                        ? formatHandtrapLoss(l.loss, l.chance)
+                                        : "nessuna perdita"}
+                                    </span>
+                                  </div>
+                                );
+                              })
+                            ) : (
+                              <div className="text-small text-muted">
+                                nessuna perdita per le handtrap comuni
+                              </div>
+                            )}
+                            {col.s.exposureDetail.maxx != null && col.s.exposureDetail.maxxChance != null && col.s.exposureDetail.maxx > 0.005 && (
+                              <div className="flex items-baseline justify-between text-small">
+                                <span>Maxx "C":</span>
+                                <span className="font-semibold text-muted">
+                                  <span className="text-warn mr-0.5" aria-hidden>+</span>
+                                  {formatMaxxImpact(col.s.exposureDetail.maxx, col.s.exposureDetail.maxxChance).replace(/^\+/, "")}
+                                </span>
+                              </div>
+                            )}
+                            {col.s.exposureDetail.chokePoints != null && (
+                              <div className="flex items-baseline justify-between text-small text-muted border-t border-border/40 pt-1">
+                                <span>Punti critici:</span>
+                                <span>{plural(col.s.exposureDetail.chokePoints, "momento", "momenti")}</span>
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="flex flex-wrap gap-x-4 gap-y-1 tabular-nums text-small text-muted">
+                            <span>Ash: <b className="text-text">{col.s.exposureDetail.ash}</b></span>
+                            <span>Sul campo (Veiler/Imperm): <b className="text-text">{col.s.exposureDetail.onField}</b></span>
+                            <span>Evocazioni: <b className="text-text">{col.s.exposureDetail.summons}</b> ({col.s.exposureDetail.specialSummons} Spec.)</span>
+                            <span>Ricerche dal Deck: <b className="text-text">{col.s.exposureDetail.searches}</b></span>
+                          </div>
+                        )}
                       </div>
-                    )}
-                  </section>
+                    )}                  </section>
                 ))}
               </div>
             )}
