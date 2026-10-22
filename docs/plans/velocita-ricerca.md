@@ -319,3 +319,21 @@ La somma scende in 3 deck, dove la variante migliore era di un campo oltre il te
 | elfnote_kewl_tune-0 | 54,3 s | 47,4 s | 30,7 → 24,5 s |
 
 dracotail-0 resta sopra 60 s: le sue 11 misure costano circa 3 s l'una. Per scendere ancora servirebbe misurare due varianti invece di tre, o rendere più veloce la misura stessa.
+
+## Le fasi dopo la ricerca: 10 s dalla sua fine (22/10/2026, corsia 2)
+**Cambio** (`search.rs`).
+- L'ultimo giro di apprendimento, `confirm_best` e `zone_variants` si fermano 10 s (`LEARN_GRACE`) dopo la fine della ricerca, non più 10 s dopo il limite di tempo. Una ricerca fermata dal limite di tempo ha la stessa scadenza di prima; una che finisce prima (nodi, coda vuota) non aspetta più il limite.
+- Un giro di apprendimento non comincia una board che non finirebbe prima della scadenza, a giudicare dalla misura più lunga del giro: tagliata a metà, non insegna niente.
+
+**Prima e dopo** (prima: `main` cc8a122):
+- **Mano lenta di Kewl Tune** (60 s, 1000 nodi, seme 7, da sola):
+
+| | Fine della ricerca | Apprendimento | `confirm_best` | `zone_variants` | Punteggi delle prime 3 board |
+|---|---|---|---|---|---|
+| Prima | 10,5 s | 21,3 s | 25,5 s | 47,6 s | 8,6 · 8,4 · 8,3 |
+| Dopo | 9,3 s | 15,6 s | 19,8 s | 19,8 s | 8,3 · 8,3 · 8,1 |
+
+  Il costo: le board migliori di prima si trovavano tra 21 e 34 s, giocando la End Phase e le varianti di zona. Ora quelle fasi si fermano a 19,8 s.
+- **Banco** (`bench.py`, 16 mani, 4000 nodi): somme uguali (25,85 la prima e la migliore). Uscite identiche su 15 mani; inv-aleister cambia solo l'ultima cifra di `countered`, come fra due giri dello stesso binario.
+- **`combo_hunt.py --seed 7`** (41 deck, 2 mani): 81 righe su 82 identiche, nessun problema. elfnote-0 ha 743 board invece di 745 (due varianti di zona tagliate), con la stessa misura migliore. Tempo totale delle ricerche 634,8 → 624,0 s.
+- `search_regression` e gli altri test passano.
