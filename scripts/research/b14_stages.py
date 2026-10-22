@@ -142,7 +142,8 @@ def load(folder, timing=None):
             index=[b["index"] for b in boards],
         )
         if times:
-            h["b6"] = [b["_t"]["quick_value"] for b in boards]
+            # A quick value that failed (a run stopped) ranks last.
+            h["b6"] = [b["_t"]["quick_value"] if not math.isnan(b["_t"]["quick_value"]) else -1e9 for b in boards]
             # What each stage costs on a board; the full measure after the
             # unbroken one only pays the breakers' runs (same prefix).
             h["cost"] = dict(quick=[0.0] * len(boards), b6=[b["_t"]["quick_s"] for b in boards],
@@ -169,6 +170,9 @@ def add_cheap(hands, name, folder):
         h["cost"][name] = o["cost"]["unbroken"]
 
 
+REF_FIRST = 0
+
+
 def cascade(h, cuts):
     """cuts: {stage: K}, in the order of STAGES; each stage ranks the boards
     the one before kept and keeps K of them, the full measure ranks the
@@ -190,7 +194,10 @@ def cascade(h, cuts):
         vals = [h[stage][i] for i in kept]
         kept = [kept[i] for i in top(vals, cuts[stage])]
     full = h["full"]
-    final = top(full, len(full))
+    # The reference: every board measured, or (--ref-app) the app of today,
+    # the full measure on the first boards of the search's estimate.
+    pool = top(h["quick"], REF_FIRST) if REF_FIRST else range(len(full))
+    final = sorted(pool, key=lambda i: (-full[i], i))
     mine = sorted(kept, key=lambda i: (-full[i], i))
     best = full[final[0]]
     lost = (best - full[mine[0]]) / best * 100 if best > 0 else 0.0
@@ -213,8 +220,14 @@ def main():
     p.add_argument("--timing", help="folder of a timed probe-line run of the same lines (see load)")
     p.add_argument("--cheap", action="append", default=[], metavar="NAME=DIR",
                    help="a cheaper unbroken stage from another timed run (repeatable), ranked between b6 and unbroken")
+    p.add_argument("--ref-app", action="store_true",
+                   help="compare with the app of today (the full measure on the first --app boards of the estimate), "
+                        "not with every board measured; a #1 'of the same value' then means as good or better")
     p.add_argument("--app", type=int, default=30, help="boards the app measures in full today (the time compared with)")
     args = p.parse_args()
+    global REF_FIRST
+    if args.ref_app:
+        REF_FIRST = args.app
     hands = load(args.folder, args.timing)
     timed = args.timing is not None
     for spec in args.cheap:

@@ -142,7 +142,8 @@ def probe_features(folder, name):
     for b, t in zip(items, times):
         m = b.get("measure")
         if m:
-            out[b["index"]] = (float(t["quick_value"]), m["field"] + 0.9 * m["hand"] + 0.8 * m["floodgates"])
+            quick = float(t["quick_value"])
+            out[b["index"]] = (0.0 if math.isnan(quick) else quick, m["field"] + 0.9 * m["hand"] + 0.8 * m["floodgates"])
     return out
 
 
