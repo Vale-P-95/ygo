@@ -88,8 +88,8 @@ fn main() {
 }
 
 /// Lua allocates through shim/arena.cpp instead of the C runtime's malloc:
-/// in the duel's arena while it has one (so a copy of the arena saves the
-/// whole duel), else through mimalloc (a duel lives a few milliseconds and
+/// in the arena active when the state is made, passed as the allocator's
+/// `ud` (so a copy of the arena saves the whole duel), else through mimalloc (a duel lives a few milliseconds and
 /// makes and frees many small objects: with glibc, about 40% of a combo
 /// search's time went to malloc and free). Every Lua state comes from
 /// `luaL_newstate` (the core's interpreter and shim/compile.cpp) and nothing
@@ -102,15 +102,18 @@ fn patch_lauxlib(text: &str) -> String {
   }
   else
     return realloc(ptr, nsize);";
-    const ALLOC_FIXED: &str = "  return df_lua_alloc(ptr, osize, nsize);";
+    const ALLOC_FIXED: &str = "  return df_lua_alloc(ud, ptr, osize, nsize);";
     const FUNCTION: &str = "static void *l_alloc (void *ud, void *ptr, size_t osize, size_t nsize) {";
+    const NEW_STATE: &str = "lua_State *L = lua_newstate(l_alloc, NULL);";
+    const NEW_STATE_FIXED: &str = "lua_State *L = lua_newstate(l_alloc, df_lua_arena());";
     // lauxlib.c is compiled as C++ (see `lua_build` above).
-    const INCLUDE: &str = "extern \"C\" void *df_lua_alloc(void *ptr, size_t osize, size_t nsize);\n";
+    const INCLUDE: &str = "extern \"C\" void *df_lua_alloc(void *ud, void *ptr, size_t osize, size_t nsize);
+extern \"C\" void *df_lua_arena();\n";
     let text = text.replace("\r\n", "\n");
-    for old in [ALLOC, FUNCTION] {
+    for old in [ALLOC, FUNCTION, NEW_STATE] {
         assert_eq!(text.matches(old).count(), 1, "vendor/ygopro-core/lua/src/lauxlib.c changed: check the allocator patch in build.rs");
     }
-    text.replace(ALLOC, ALLOC_FIXED).replace(FUNCTION, &format!("{INCLUDE}{FUNCTION}"))
+    text.replace(ALLOC, ALLOC_FIXED).replace(NEW_STATE, NEW_STATE_FIXED).replace(FUNCTION, &format!("{INCLUDE}{FUNCTION}"))
 }
 
 /// Upstream bug: `reset_phase` and `reset_chain` remove effects while

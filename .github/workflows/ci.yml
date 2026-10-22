@@ -52,7 +52,7 @@ jobs:
           engine=false
           frontend=false
           if echo "$files" | grep -qE '^(crates/|apps/desktop/src-tauri/|Cargo\.(toml|lock)$|rustfmt\.toml$|vendor/|tests/|\.gitmodules$|\.github/workflows/)'; then rust=true; fi
-          if echo "$files" | grep -qE '^(crates/ygo-engine/|vendor/|Cargo\.lock$|\.gitmodules$|\.github/workflows/)'; then engine=true; fi
+          if echo "$files" | grep -qE '^(crates/ygo-engine/|vendor/|tests/fixtures/|Cargo\.(toml|lock)$|\.gitmodules$|\.github/workflows/)'; then engine=true; fi
           if echo "$files" | grep -E '^apps/desktop/' | grep -qvE '^apps/desktop/src-tauri/'; then frontend=true; fi
           if echo "$files" | grep -qE '^\.github/workflows/'; then frontend=true; fi
           echo "rust=$rust" >> "$GITHUB_OUTPUT"
@@ -108,6 +108,8 @@ jobs:
     needs: changes
     if: needs.changes.outputs.engine == 'true'
     runs-on: windows-latest
+    # A hang in the engine must not hold a runner for hours.
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
         with:

@@ -5,6 +5,7 @@ use std::ffi::{CStr, CString};
 use std::mem::ManuallyDrop;
 use std::os::raw::{c_char, c_int, c_void};
 use std::path::Path;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, OnceLock};
 
 use crate::carddb::CardDb;
@@ -169,7 +170,13 @@ pub struct Duel {
     /// The memory arena the engine allocates this duel in (shim/arena.cpp),
     /// or null: with one the duel can be saved and put back ([`Duel::save`]).
     arena: *mut c_void,
+    /// Which duel has the arena: arenas and their addresses are reused once
+    /// a duel is dropped, numbers are not.
+    arena_id: u64,
 }
+
+/// The next number of a duel made in an arena.
+static ARENA_IDS: AtomicU64 = AtomicU64::new(1);
 
 /// The arena of a duel active on this thread while the engine works for it;
 /// the one active before comes back when this is dropped.
@@ -185,6 +192,7 @@ impl Drop for Entered {
 /// this side of the engine tracks.
 pub struct SavedDuel {
     arena: *mut c_void,
+    arena_id: u64,
     memory: Vec<u8>,
     select_hint: u64,
     pending: Option<Decision>,
@@ -475,13 +483,8 @@ impl Duel {
             if arena.is_null() {
                 return Err(Error::Engine("no memory arena left for a new duel".to_owned()));
             }
-            let before = Entered(unsafe { df_arena_enter(arena) });
-            let duel = Self::fresh(engine, config, arena);
-            drop(before);
-            if duel.is_err() {
-                unsafe { df_arena_free(arena) };
-            }
-            return duel;
+            let _before = Entered(unsafe { df_arena_enter(arena) });
+            return Self::fresh(engine, config, arena);
         }
         if let Some(mut duel) = Self::reused(engine, config) {
             if check_reuse() {
@@ -494,7 +497,8 @@ impl Duel {
         Ok(duel)
     }
 
-    /// A duel with the base scripts loaded just now, in `arena` (or null).
+    /// A duel with the base scripts loaded just now, in `arena` (or null),
+    /// which it takes: on an error the arena is freed already.
     fn fresh(engine: &Engine, config: &DuelConfig, arena: *mut c_void) -> Result<Self, Error> {
         let ctx = Box::new(Context {
             cards: engine.cards.clone(),
@@ -506,11 +510,16 @@ impl Duel {
         let mut raw: OCG_Duel = std::ptr::null_mut();
         let status = unsafe { OCG_CreateDuel(&mut raw, &options) };
         if status != OCG_DUEL_CREATION_SUCCESS || raw.is_null() {
+            unsafe { df_arena_free(arena) };
             return Err(Error::Engine(format!("duel creation failed (status {status})")));
         }
         lua_count::install(raw);
         let mut duel = Self::with(raw, ManuallyDrop::new(ctx));
+        // From here the duel frees it, when dropped.
         duel.arena = arena;
+        if !arena.is_null() {
+            duel.arena_id = ARENA_IDS.fetch_add(1, Ordering::Relaxed);
+        }
         for base in ["constant.lua", "utility.lua"] {
             if !duel.load_script(base) {
                 return Err(Error::Engine(format!("cannot load {base}: {}", duel.log().join("; "))));
@@ -557,6 +566,7 @@ impl Duel {
             chain: Vec::new(),
             last_turn: None,
             arena: std::ptr::null_mut(),
+            arena_id: 0,
         }
     }
 
@@ -567,7 +577,9 @@ impl Duel {
     }
 
     /// The whole duel as it is now, to put back with [`Self::restore`]; only
-    /// for a duel made in an arena ([`arena_duels`]).
+    /// for a duel made in an arena ([`arena_duels`]). Once the engine has
+    /// outgrown the arena the duel can no longer be saved, for good. The
+    /// engine's log ([`Self::log`]) is not saved.
     pub fn save(&self) -> Result<SavedDuel, Error> {
         if self.arena.is_null() {
             return Err(Error::Engine("this duel has no memory arena: it cannot be saved".to_owned()));
@@ -579,6 +591,7 @@ impl Duel {
         unsafe { df_arena_save(self.arena, memory.as_mut_ptr().cast()) };
         Ok(SavedDuel {
             arena: self.arena,
+            arena_id: self.arena_id,
             memory,
             select_hint: self.select_hint,
             pending: self.pending.clone(),
@@ -596,10 +609,12 @@ impl Duel {
 
     /// Puts the duel back as it was at [`Self::save`] (of this same duel).
     pub fn restore(&mut self, saved: &SavedDuel) -> Result<(), Error> {
-        if saved.arena != self.arena || self.arena.is_null() {
+        if saved.arena != self.arena || saved.arena_id != self.arena_id || self.arena.is_null() {
             return Err(Error::Engine("a duel can only be put back from its own save".to_owned()));
         }
-        unsafe { df_arena_restore(self.arena, saved.memory.as_ptr().cast(), saved.memory.len()) };
+        if unsafe { df_arena_restore(self.arena, saved.memory.as_ptr().cast(), saved.memory.len()) } == 0 {
+            return Err(Error::Engine("the duel's memory arena cannot hold the save".to_owned()));
+        }
         self.select_hint = saved.select_hint;
         self.pending = saved.pending.clone();
         self.last_response = saved.last_response.clone();
@@ -1268,9 +1283,43 @@ mod tests {
         duel.reusable = false;
     }
 
+    /// The arena self-test takes every slot for a moment: the tests that
+    /// make arenas take turns.
+    static ARENA_TESTS: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
     #[test]
     fn arena_saves_and_restores_memory() {
+        let _turn = ARENA_TESTS.lock().unwrap_or_else(|e| e.into_inner());
         assert_eq!(unsafe { df_arena_selftest() }, 1);
+    }
+
+    #[test]
+    fn a_duel_that_outgrew_its_arena_plays_on_but_cannot_be_saved() {
+        let root = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let data = std::env::var_os("DUELFORGE_DATA").map(std::path::PathBuf::from).unwrap_or_else(|| root.join("data"));
+        if !data.join("scripts/constant.lua").is_file() {
+            eprintln!("skipped: no game data in {}", data.display());
+            return;
+        }
+        let engine = Engine::load(&data).unwrap();
+        let ydk = std::fs::read_to_string(root.join("tests/fixtures/decks/invoked-siracusa-md.ydk")).unwrap();
+        let deck = DeckList::from_ydk(&ydk).unwrap();
+        let hand: Vec<u32> = deck.main.iter().copied().take(5).collect();
+        let _turn = ARENA_TESTS.lock().unwrap_or_else(|e| e.into_inner());
+        arena_duels(true);
+        let mut duel = Duel::goldfish_vs(&engine, &deck, &hand, 1, &Opponent::default()).unwrap();
+        arena_duels(false);
+        let saved = duel.save().unwrap();
+        // Full: what Lua makes now goes outside the arena.
+        unsafe { df_arena_limit(duel.arena, df_arena_used(duel.arena)) };
+        assert!(duel.run_lua_source("big.lua", "local t = {} for i = 1, 100000 do t[i] = {i} end"));
+        let err = duel.save().err().expect("a full arena is not saved");
+        assert!(err.to_string().contains("outgrew"), "{err}");
+        // The duel goes on, and is dropped with its blocks outside the arena.
+        assert!(matches!(duel.advance(), Ok(Step::Decision { .. })));
+        // A save made before still goes back in.
+        duel.restore(&saved).unwrap();
+        assert!(matches!(duel.advance(), Ok(Step::Decision { .. })));
     }
 
     #[test]

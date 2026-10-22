@@ -111,7 +111,8 @@ extern "C" {
     pub fn df_arena_used(arena: *mut c_void) -> usize;
     pub fn df_arena_overflowed(arena: *mut c_void) -> c_int;
     pub fn df_arena_save(arena: *mut c_void, out: *mut c_void);
-    pub fn df_arena_restore(arena: *mut c_void, data: *const c_void, size: usize);
+    pub fn df_arena_restore(arena: *mut c_void, data: *const c_void, size: usize) -> c_int;
+    pub fn df_arena_limit(arena: *mut c_void, bytes: usize);
     pub fn df_arena_selftest() -> c_int;
 
     // shim/hand.cpp
