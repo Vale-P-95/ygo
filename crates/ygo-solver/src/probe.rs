@@ -48,10 +48,14 @@ pub enum Probe {
     /// The effect of a monster already on the field (not a trigger of its summon).
     FieldIgnition,
     DeckSummon,
+    /// A Spell from the hand that does not touch the Deck.
+    SpellNoDeck,
+    /// A monster effect from the hand that does not touch the Deck.
+    HandNoDeck,
 }
 
 impl Probe {
-    pub const ALL: [Probe; 11] = [
+    pub const ALL: [Probe; 13] = [
         Probe::Spell,
         Probe::Search,
         Probe::HandEffect,
@@ -63,6 +67,8 @@ impl Probe {
         Probe::ExtraSummon,
         Probe::FieldIgnition,
         Probe::DeckSummon,
+        Probe::SpellNoDeck,
+        Probe::HandNoDeck,
     ];
 
     pub fn label(self) -> &'static str {
@@ -78,18 +84,34 @@ impl Probe {
             Probe::ExtraSummon => "Evocare dall'Extra Deck",
             Probe::FieldIgnition => "attivare l'effetto di un mostro già sul campo",
             Probe::DeckSummon => "Evocare Specialmente dal Deck",
+            Probe::SpellNoDeck => "attivare una Magia senza toccare il Deck",
+            Probe::HandNoDeck => "attivare un effetto di mostro dalla mano senza toccare il Deck",
         }
     }
 
+    /// The activations weigh as often as their kind is played in real lines
+    /// (`duelforge-cli kit-mix`, 1979 activations in the lines of the best 5
+    /// boards of 45 decks, 22/10/2026): Spells and Traps 31% (half touch the
+    /// Deck), effects from the GY 18%, monster effects from the hand 11% and
+    /// on the field 11%, summon triggers 29% (two thirds touch the Deck). The
+    /// kinds the kit has no card for (effects from the GY that touch the
+    /// Deck, summon triggers that do not) are left out. Together they still
+    /// weigh 2.7, as before: summons stopped keep their weight against them.
     pub fn weight(self) -> f64 {
         match self {
-            Probe::Spell => 0.4,
-            Probe::Search => 0.5,
-            Probe::HandEffect | Probe::SendToGrave | Probe::SpecialFromHand | Probe::FieldEffect | Probe::GraveEffect => 0.3,
+            Probe::Spell => 0.13,
+            Probe::Search => 0.25,
+            Probe::HandEffect => 0.12,
+            Probe::SendToGrave => 0.1,
+            Probe::FieldEffect => 0.63,
+            Probe::GraveEffect => 0.41,
+            Probe::FieldIgnition => 0.18,
+            Probe::DeckSummon => 0.16,
+            Probe::SpellNoDeck => 0.5,
+            Probe::HandNoDeck => 0.22,
+            Probe::SpecialFromHand => 0.3,
             Probe::NormalSummon => 0.2,
             Probe::ExtraSummon => 0.6,
-            Probe::FieldIgnition => 0.3,
-            Probe::DeckSummon => 0.3,
         }
     }
 
@@ -201,6 +223,10 @@ struct Want {
     delta: i32,
 }
 
+/// The `location` of a goal met when the step's own activation resolves
+/// without being negated: for an effect that moves no card.
+const RESOLVED: u8 = 0;
+
 /// A board breaker of the kit.
 #[derive(Debug, Clone)]
 pub struct Breaker {
@@ -280,6 +306,8 @@ impl Kit {
         let spider = code("Link Spider");
         let dice = code("Speedroid Red-Eyed Dice");
         let filler = code("Alexandrite Dragon");
+        let bystial = code("Bystial Magnamhut");
+        let dian = code("Dian Keto the Cure Master");
 
         let step = |act: Act, picks: Vec<u32>, goals: Vec<(Probe, Want)>, needs: Option<Probe>| KitStep {
             act,
@@ -300,6 +328,11 @@ impl Kit {
         if let Some(pot) = pot {
             hand.push(pot);
             steps.push(step(Act::Activate(pot, location::HAND), vec![], vec![(Probe::Spell, want(None, location::HAND, 1))], None));
+        }
+        // A Spell that touches no Deck and needs nothing on the field.
+        if let Some(dian) = dian {
+            hand.push(dian);
+            steps.push(step(Act::Activate(dian, location::HAND), vec![], vec![(Probe::SpellNoDeck, want(None, RESOLVED, 0))], None));
         }
         if let (Some(reinforce), Some(celtic)) = (reinforce, celtic) {
             hand.push(reinforce);
@@ -346,6 +379,18 @@ impl Kit {
             );
             s.triggers = vec![terrortop];
             steps.push(s);
+        }
+        // A monster effect from the hand that touches no Deck: it banishes the
+        // Thunder Dragon discarded before and comes to the field (after
+        // Terrortop, which comes only while its controller has no monsters).
+        if let (Some(thunder), Some(bystial)) = (thunder, bystial) {
+            hand.push(bystial);
+            steps.push(step(
+                Act::Activate(bystial, location::HAND),
+                vec![thunder],
+                vec![(Probe::HandNoDeck, want(Some(bystial), location::MZONE, 1))],
+                Some(Probe::HandEffect),
+            ));
         }
         if let Some(bulb) = bulb {
             steps.push(step(
@@ -1119,7 +1164,11 @@ impl<'a> Prober<'a> {
             let mut covers: Vec<Probe> = Vec::new();
             let mut effect: Option<Effect> = None;
             let mut targeted = false;
-            for &window in windows.iter().take(12) {
+            // The first window of every step before the later ones of a step:
+            // the cap leaves out no step whole.
+            let mut tried = windows.clone();
+            tried.sort_by_key(|&(step, at)| (at, step));
+            for &window in tried.iter().take(16) {
                 let Ok(run) = self.run_with(prelude, &all_steps, Policy::UseAt(*id, window), follow) else { continue };
                 let stopped = stopped_by(&run);
                 if debug {
@@ -1754,6 +1803,7 @@ impl<'a> Prober<'a> {
             .iter()
             .map(|(_, want)| match want.location {
                 location::MZONE => landed(want) >= want.delta,
+                RESOLVED => !observer.step_negated,
                 _ => count(after, want) - count(before, want) >= want.delta,
             })
             .collect();

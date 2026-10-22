@@ -614,6 +614,59 @@ Note:
 - **Pesi del kit calibrati sui dati (B2.2): provati, rinviati.** `duelforge-cli kit-mix` conta le giocate delle linee delle prime 5 board di 45 deck (225 linee, 4038 giocate): Evocazioni dall'Extra 17%, ricerche 16%, Magie 15%, trigger d'Evocazione 14%, effetti dal Cimitero 9%, Evocazioni Speciali dalla mano 6,5%, effetti dalla mano 5,4%, Evocazioni Normali 5,3%, effetti di mostri sul campo 5,3%, Evocazioni dal Deck 4,5%, Deck al Cimitero 2,2%. Con i pesi a metà tra quelli di oggi e queste frequenze: coppie da confermare +1, ricerca +1,8% (bench_cross), valori delle handtrap quasi uguali (Ash 0,73, Veiler e Impermanence 0,23: il dominio di Ash viene dalle azioni del kit, che toccano quasi tutte il Deck). Ma la mano "Reminiscent da solo" del test di regressione perde la board con Hyperinvoked Aeon (0,55 contro 0,45 con la misura nuova). Si riprende insieme alle azioni nuove del kit (B2.1), come prevede il piano.
 - **Cosa resta.** Le coppie sbagliate sono quasi tutte pari: le due board differiscono in carte che contro il kit valgono 0 (trappole che il kit non attiva mai, come Big Welcome o Volcanic Emission), in risorse per il turno dopo o in protezioni. D5 (copie) e D6 (run congiunta) toccano poco: nelle board delle coppie la run congiunta riduce 12 interruzioni su 253, quasi tutte per un conflitto vero di costi, e le copie sul campo sono quasi sempre limitate a una per turno. Il guadagno vero sta nel kit (B2, D10), nelle risorse e nel follow-up (D13) e nelle protezioni (D15).
 
+### C9. D10: il kit pesato sulle linee vere (22/10/2026)
+
+**Il dato.** `duelforge-cli kit-mix` ora divide anche le attivazioni per provenienza e dice se, risolvendo, toccano il Main Deck (aggiungono, pescano, Evocano o mandano dal Deck: quello che Ash Blossom può fermare). Sulle linee delle prime 5 board di 45 deck, 1979 attivazioni:
+
+| Attivazione | Toccano il Deck | Non lo toccano | Quota |
+|---|---:|---:|---:|
+| Magia o Trappola | 304 | 312 | 31% |
+| dal Cimitero o bandita | 103 | 258 | 18% |
+| mostro dalla mano | 77 | 142 | 11% |
+| mostro già sul campo | 103 | 111 | 11% |
+| trigger di un mostro appena Evocato | 395 | 174 | 29% |
+| **totale** | **50%** | **50%** | |
+
+Nel kit, invece, il 78% del peso delle attivazioni toccava il Deck: per questo Ash valeva 0,71 in ogni deck.
+
+**Le modifiche** (`probe.rs`):
+- Due azioni nuove che non toccano il Deck:
+  - una Magia che non ha bisogno di niente sul campo (Dian Keto the Cure Master);
+  - un effetto di mostro dalla mano (Bystial Magnamhut, che bandisce il Thunder Dragon scartato prima e si Evoca).
+- Per un effetto che non sposta carte, l'obiettivo è "l'attivazione si risolve senza essere negata".
+- I pesi delle attivazioni seguono le quote della tabella, divise tra Deck sì e Deck no. Restano fuori i due tipi per cui il kit non ha una carta: effetti dal Cimitero che toccano il Deck, trigger d'Evocazione che non lo toccano. Il totale resta 2,7, così le Evocazioni fermate pesano come prima. Ora il peso che tocca il Deck è il 52%.
+- Ogni risposta si prova al massimo in 16 finestre, prima la prima finestra di ogni passo. Prima erano le prime 12 in ordine, e con due passi in più restava fuori l'ultimo passo intero (l'Evocazione dal Deck di Taketomborg).
+- Non fatte: la seconda Evocazione dall'Extra Deck (Xyz o Synchro) e il trigger d'Evocazione senza Deck. Nei dati non c'è un Synchro di VENTO di Livello 4 adatto dopo Taketomborg, e il resto del kit si sarebbe complicato.
+
+**Tabella delle handtrap** (`card-values`, valore in mano, uguale in ogni deck che la contiene):
+
+| Carta | Prima | Dopo | Obiettivo (§C4) |
+|---|---:|---:|---|
+| Ash Blossom | 0,71 | **0,53** | ≤ 0,60 ✓ |
+| Infinite Impermanence | 0,23 | 0,24 | ≥ 0,30 ✗ |
+| Effect Veiler | 0,23 | 0,24 | ≥ 0,30 ✗ |
+| Droll & Lock Bird | 0,29 | 0,26 | |
+| Ghost Belle | 0,10 | 0,21 | |
+| Ghost Ogre | 0,16 | 0,09 | |
+| D.D. Crow | 0,07 | 0,09 | > 0 ✓ |
+| Nibiru | 0,08 | 0,09 | |
+
+Impermanence e Veiler restano sotto 0,30. Fermano gli effetti dei mostri sul campo (trigger e attivazioni), che nel kit pesano il 36%: mancano i trigger che non toccano il Deck (8,8% delle attivazioni). Ghost Ogre scende perché distrugge il mostro senza fermarne l'effetto, e i passi che perde (Taketomborg, l'effetto di Link Spider) ora pesano meno, come nei dati.
+
+**Numeri** (prima → dopo):
+- **Coppie sicure giuste:** 18 su 29 → **20 su 29**; al contrario 3 → 1.
+  - J16 (Dracotail) e J46 (Synchrons) diventano giuste.
+  - J28 (Labrynth) passa da al contrario a pari.
+- **Coppie da confermare giuste:** 10 su 48 → 13 su 46.
+  - Diventano giuste J49 e J50 (Vanquish Soul) e J73 e J74 (Yummy).
+  - Peggiora J59 (Branded): Albion the Sanctifire Dragon blocca anche le azioni nuove (0,33 → 0,44), mentre Called by the Grave resta a 0,24.
+  - Le due board di J20 e J21 (Kewl Tune) non si misurano più: sono linee salvate contro il kit di prima, e con due carte in più nella mano dell'avversario la partita rigiocata prende un'altra strada. Nell'app non succede, perché ricerca e turno di prova usano lo stesso kit.
+- **Ricerca** (`bench_cross.py`, board di tutte e due le versioni misurate con la misura nuova): somma delle migliori 24,02 → **24,80** (+3,2%), delle prime 19,96 → 20,55.
+  - Meglio: Invoked r1 e r2, Tearlaments.
+  - Peggio: Branded 1,37 → 1,19, Mitsurugi 2,29 → 2,23.
+- **Test di regressione «Reminiscent da sola»:** la board migliore ora è Hyperinvoked Aeon + Invoked Caliga + S:P Little Knight (Caliga 0,72 → 1,15, Mechaba 1,00). Caliga lascia a ogni giocatore un solo effetto di mostro per turno: contro linee in cui due attivazioni su tre sono di mostri, ferma più della negazione singola di Mechaba. Il test ora chiede Caliga con Aeon. L'attesa di prima veniva dalla misura di D2, non da un giudizio: va confermata con i giudizi del proprietario.
+- I numeri di PIANO §26 e quelli di C7–C8 non sono più confrontabili con quelli nuovi: tutte le coperture sono cambiate.
+
 ## 5. Parte D: ordine di implementazione
 
 Tutto si fa su un branch `claude/board-score`, con lock in `docs/TASKS.md` su `probe.rs`, `value.rs`, `search.rs`, `lib.rs` e `api.ts` passo per passo. Ogni passo deve:
