@@ -248,3 +248,35 @@ Prima versione, solo aggiuntiva: la misura generica (interruzioni, floodgate, br
   - i pesi;
   - se giocare più sequenze, una per apertura, per non perdere le mosse delle altre linee.
 
+
+### Livello 2: collaudo su 37 deck e prova con le linee vere (22/10/2026, notte)
+Prova: 6 board contro i 37 deck di Master Duel Meta, con `probe-line --vs X --moves` (222 prove). Le board sono la prima della caccia `combo_hunt.py --seed 7` di Invoked, Branded, Tearlaments, Labrynth, K9 e Dracotail.
+- **Errori: nessuno**, dopo una correzione di `probe-line`.
+  - Prima rigiocava le linee salvate con il seme di `--seed` (1), non con quello salvato con le linee (7). Con un altro seme cambia l'ordine del Deck, e una linea che manda carte dal Deck al Cimitero si rompe: le board Branded e Tearlaments fallivano contro tutti i deck.
+  - Ora usa il seme salvato nel file.
+- **Tempi:** le mosse tipiche 31 secondi di mediana e 109 al massimo (Yummy, Elfnote); la misura contro le mosse 0,9 secondi di mediana e 4 al massimo. Erano 4 prove insieme su 4 core: da sola la lettura delle mosse prende 4-13 secondi.
+- **Le mosse tipiche cambiano molto con il seme.** Con 12 mani, lo stesso deck con il seme 1 e con il seme 7 ha in comune in media il 46% delle mosse: dal 18% di Ignister al 67% di Azamina, D/D/D, Exosister e Maliss. Per avere mosse stabili servono più mani (più tempo) o le linee vere (sotto).
+- **Il 38% delle mosse tipiche non si fa nemmeno contro un campo vuoto** (816 su 2166). Il kit non le trova offerte; nessuna è offerta e poi fallisce. Seguendo una linea di Tearlaments, le cause sono quattro:
+  1. **Effetti in catena.** Una mossa che nella linea vera si attiva in catena (un effetto nel Cimitero, un mostro evocato durante la catena) non può cominciare: il kit comincia un passo solo nella sua Main Phase.
+  2. **Effetti della stessa carta.** Due effetti della stessa carta nello stesso posto sono la stessa mossa. Il kit ha usato l'effetto di Kitkallos all'Evocazione al posto di quello sul campo, e le mosse dopo si sono perse.
+  3. **Carte scelte.** Le carte cercate o mandate al Cimitero sono le prime offerte, non quelle scelte dalla linea.
+  4. **Mano e Deck.** Il kit ha in mano solo le carte giocate dalla mano: un costo come "scarta 1 carta" non si paga. Anche l'ordine del Deck non è quello della linea.
+- **Floodgate:** sono veri. Ad esempio Radiant Typhoon Swen ed Eldam si Evocano dalla mano solo se l'avversario non controlla Magie o Trappole. Ogni board con una Magia sul campo le ferma (34-41% del peso contro Goblin Biker e Radiant Typhoon).
+- **Prova (non committata, patch nello scratchpad della sessione).** Al posto della sequenza tipica, le 12 linee migliori del deck avversario, ognuna con le sue prime 10 mosse. Board Branded contro 10 deck (Tearlaments, Labrynth, Branded, Yummy, K9, Dracotail, Blue-Eyes, Maliss, Ignister, Memento). Mosse fatte contro un campo vuoto:
+
+  | Kit | Mosse fatte |
+  |---|---|
+  | sequenza tipica (oggi) | 53% |
+  | linee vere | 62% |
+  | + effetti in catena (cause 1) | 63% |
+  | + effetto giusto della carta (2) | 63% |
+  | + carte scelte dalla linea (3) | 70% |
+
+  - Gli effetti in catena aiutano K9 (39 → 53%) e Tearlaments (43 → 48%), ma peggiorano Labrynth (100 → 90%): a volte prendono in anticipo l'effetto di una mossa che viene dopo.
+  - Le carte scelte aiutano molto Dracotail (64 → 92%) e Blue-Eyes (53 → 63%).
+  - Tempo: da 0,1-0,5 a 0,8-4 secondi per board.
+- **Proposta per il proprietario.** Migliorare il kit porta al 70% delle mosse. Per andare oltre serve la causa 4, cioè che il turno dell'avversario rigiochi le sue linee vere come si rigioca la tua linea contro le handtrap:
+  - la sua mano vera e l'ordine del Deck della sua ricerca;
+  - le risposte ritrovate per identità (`find_again`) dove la tua board cambia le domande.
+
+  Insieme alle linee vere, rende stabili anche le mosse (punto sopra). Lavoro stimato: circa un giorno. Da decidere insieme agli altri punti aperti del livello 2.
