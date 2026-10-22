@@ -868,6 +868,48 @@ pub struct Cheap {
     pub use_rounds: usize,
 }
 
+/// What a cheap measure played on a board ([`Prober::measure_cheap`]), for
+/// the full one to go on from it ([`Prober::measure_resumed`]) instead of
+/// playing those runs again: the run with no answer, and for each response
+/// the windows tried and the rounds counting its uses.
+#[derive(Debug, Clone)]
+pub struct Partial {
+    all: RunTrace,
+    responses: Vec<Response>,
+}
+
+/// One response as far as a measure tried it.
+#[derive(Debug, Clone)]
+struct Response {
+    id: ResponderId,
+    /// Windows tried (the first ones in the order of the measure).
+    windows: usize,
+    covers: Vec<Probe>,
+    effect: Option<Effect>,
+    targeted: bool,
+    /// Rounds counting its uses played, and if they are over.
+    rounds: usize,
+    settled: bool,
+    uses: u32,
+    skip: HashSet<WindowAt>,
+}
+
+impl Response {
+    fn new(id: ResponderId) -> Response {
+        Response {
+            id,
+            windows: 0,
+            covers: Vec::new(),
+            effect: None,
+            targeted: false,
+            rounds: 0,
+            settled: false,
+            uses: 1,
+            skip: HashSet::new(),
+        }
+    }
+}
+
 /// The opponent's hand and GY, what the goals of a step look at (cheaper
 /// to read than the whole duel).
 struct Piles {
@@ -1380,10 +1422,19 @@ impl<'a> Prober<'a> {
     /// A cheap [`Prober::measure`] of the board `line` reaches, to choose
     /// the boards worth a full one (B14): each response tried at fewer
     /// windows and its uses counted in fewer runs, as `cheap` says; no
-    /// breakers nor answer to it.
-    pub fn measure_cheap(&mut self, line: &Line, cheap: Cheap) -> Result<Measure, Error> {
+    /// breakers nor answer to it. With what it played, for
+    /// [`Prober::measure_resumed`].
+    pub fn measure_cheap(&mut self, line: &Line, cheap: Cheap) -> Result<(Measure, Partial), Error> {
         let parts = Parts { together: true, breakers: false, windows: cheap.windows, use_rounds: cheap.use_rounds };
-        self.measure_from(Prelude::Line(line), parts)
+        let (measure, partial) = self.measure_partial(Prelude::Line(line), parts, None, true)?;
+        Ok((measure, partial.expect("kept")))
+    }
+
+    /// [`Prober::measure`] of the board `line` reaches, going on from what
+    /// its cheap measure played (`partial`, from a prober of the same hand):
+    /// the same measure, without those runs.
+    pub fn measure_resumed(&mut self, line: &Line, partial: Partial) -> Result<Measure, Error> {
+        self.measure_partial(Prelude::Line(line), Parts::ALL, Some(partial), false).map(|(m, _)| m)
     }
 
     /// [`Prober::measure_placed`] without the board breakers: no
@@ -1394,13 +1445,30 @@ impl<'a> Prober<'a> {
     }
 
     fn measure_from(&mut self, prelude: Prelude, parts: Parts) -> Result<Measure, Error> {
+        self.measure_partial(prelude, parts, None, false).map(|(m, _)| m)
+    }
+
+    /// [`Prober::measure_from`] going on from what `resume` already played
+    /// (the same board, with fewer windows or use rounds), and with `keep`
+    /// what it played, for a fuller measure to go on from.
+    fn measure_partial(
+        &mut self,
+        prelude: Prelude,
+        parts: Parts,
+        resume: Option<Partial>,
+        keep: bool,
+    ) -> Result<(Measure, Option<Partial>), Error> {
         let started = std::time::Instant::now();
         let all_steps: Vec<&KitStep> = self.kit.steps.iter().collect();
         if self.baseline.is_none() {
             self.baseline = Some(self.run(Prelude::EndAtOnce, &all_steps, Policy::Pass)?);
         }
         let base = self.baseline.clone().expect("baseline");
-        let all = self.run(prelude, &all_steps, Policy::Pass)?;
+        let (all, done) = match resume {
+            Some(p) => (p.all, p.responses),
+            None => (self.run(prelude, &all_steps, Policy::Pass)?, Vec::new()),
+        };
+        let mut played = Vec::new();
         if std::env::var_os("DUELFORGE_DEBUG_PROBE").is_some() {
             let db = self.engine.cards();
             for (label, t) in [("empty board", &base), ("this board", &all)] {
@@ -1469,14 +1537,14 @@ impl<'a> Prober<'a> {
             // What it stops, tried at each window where it is offered (being
             // offered is not being able to stop that action: Effect Veiler is
             // offered while a monster is summoned, but cannot stop the summon).
-            let mut covers: Vec<Probe> = Vec::new();
-            let mut effect: Option<Effect> = None;
-            let mut targeted = false;
+            // A measure resumed starts from what the one before found.
+            let before = done.iter().find(|r| r.id == *id).cloned().unwrap_or(Response::new(*id));
+            let Response { mut covers, mut effect, mut targeted, .. } = before.clone();
             // The first window of every step before the later ones of a step:
             // the cap leaves out no step whole.
             let mut tried = windows.clone();
             tried.sort_by_key(|&(step, at)| (at, step));
-            for &window in tried.iter().take(parts.windows) {
+            for &window in tried.iter().take(parts.windows).skip(before.windows) {
                 let Ok(run) = self.run_with(prelude, &all_steps, Policy::UseAt(*id, window), follow) else { continue };
                 let stopped = stopped_by(&run);
                 if debug {
@@ -1494,23 +1562,34 @@ impl<'a> Prober<'a> {
                     };
                 }
             }
-            if covers.is_empty() {
+            let mut response = Response { windows: before.windows.max(parts.windows), covers, effect, targeted, ..before };
+            if response.covers.is_empty() {
+                if keep {
+                    played.push(response);
+                }
                 continue;
             }
-            covers.sort();
-            covers.dedup();
+            response.covers.sort();
+            response.covers.dedup();
             // How many times in a row: used whenever offered, keeping it for
             // later where it does nothing.
-            let mut uses = 1;
-            let mut skip = HashSet::new();
-            for _ in 0..parts.use_rounds {
-                let Ok(run) = self.run(prelude, &all_steps, Policy::Use(*id, &skip)) else { break };
-                uses = uses.max(run.uses.iter().filter(|u| u.effect.is_some()).count() as u32);
+            while !response.settled && response.rounds < parts.use_rounds {
+                response.rounds += 1;
+                let Ok(run) = self.run(prelude, &all_steps, Policy::Use(*id, &response.skip)) else {
+                    response.settled = true;
+                    break;
+                };
+                response.uses = response.uses.max(run.uses.iter().filter(|u| u.effect.is_some()).count() as u32);
                 let wasted: Vec<(usize, usize)> = run.uses.iter().filter(|u| u.effect.is_none()).map(|u| (u.step, u.window)).collect();
-                if wasted.is_empty() || wasted.iter().all(|w| skip.contains(w)) {
+                if wasted.is_empty() || wasted.iter().all(|w| response.skip.contains(w)) {
+                    response.settled = true;
                     break;
                 }
-                skip.extend(wasted);
+                response.skip.extend(wasted);
+            }
+            let (covers, effect, targeted, uses) = (response.covers.clone(), response.effect, response.targeted, response.uses);
+            if keep {
+                played.push(response);
             }
             let effect = effect.unwrap_or(Effect::Lock);
             let coverage = if reference > 0.0 { (covers.iter().map(|p| p.weight()).sum::<f64>() / reference).min(1.0) } else { 0.0 };
@@ -1596,7 +1675,7 @@ impl<'a> Prober<'a> {
         let mut offered: Vec<(u32, u8)> = all.windows.iter().flat_map(|w| w.options.iter().map(|(id, loc)| (id.code, *loc))).collect();
         offered.sort_unstable();
         offered.dedup();
-        Ok(Measure {
+        let measure = Measure {
             field_value: total,
             hand_value,
             floodgate_value: floodgates.iter().map(|p| p.weight()).sum::<f64>() + 0.0,
@@ -1608,9 +1687,10 @@ impl<'a> Prober<'a> {
             follow_up,
             countered,
             attrition: attrition(&all.taken),
-            taken: all.taken,
+            taken: all.taken.clone(),
             seconds,
-        })
+        };
+        Ok((measure, keep.then_some(Partial { all, responses: played })))
     }
 
     /// Floodgates: what works on an empty board (`base`) but not with no

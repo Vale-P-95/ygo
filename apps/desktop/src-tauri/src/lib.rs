@@ -1894,13 +1894,14 @@ fn links_view(deck_id: i64, map: &ygo_solver::DeckLinks) -> DeckLinksView {
 
 /// Boards of a precise hand put to the cheap measure after a search, the
 /// first in the search's order, and of those the best by it put to the full
-/// one (B14, `docs/plans/velocita-ricerca.md`): the estimate alone loses the
-/// best board past its 30th in some hands, the cheap measure much less often.
-/// "Card + rest" puts all the boards kept to the full measure.
-const CHEAP_BOARDS: usize = 40;
+/// one, which goes on from the cheap one (B14, `docs/plans/velocita-ricerca.md`):
+/// the same best board as measuring the 30 in full, in less time. With fewer
+/// windows the cheap measure misses responses that stop something only
+/// later. "Card + rest" puts all the boards kept to the full measure.
+const CHEAP_BOARDS: usize = 30;
 const SCORED_BOARDS: usize = 15;
 /// What the cheap measure tries.
-const CHEAP_MEASURE: ygo_solver::probe::Cheap = ygo_solver::probe::Cheap { windows: 2, use_rounds: 0 };
+const CHEAP_MEASURE: ygo_solver::probe::Cheap = ygo_solver::probe::Cheap { windows: 8, use_rounds: 1 };
 
 /// The value a cheap measure ranks the boards by: field, hand and floodgates
 /// as the page weighs them, with no breaker played.
@@ -2001,12 +2002,19 @@ fn combo_score(app: tauri::AppHandle, state: State<'_, AppState>, vs_deck_id: Op
 
     // The cheap measure of the candidates without one, then the best by it.
     let mut cheap_scores: Vec<((usize, u64), (f64, ScoreView))> = Vec::new();
+    // What each cheap measure played, for the full one to go on from it.
+    let partials: Mutex<HashMap<(usize, u64), ygo_solver::probe::Partial>> = Mutex::new(HashMap::new());
     let todo: Vec<(usize, ygo_solver::Board)> = match &cheap {
         Some(known) => {
             let missing: Vec<(usize, ygo_solver::Board)> =
                 candidates.iter().filter(|(h, b)| !known.contains_key(&(*h, b.key))).cloned().collect();
             cheap_scores = on_all_cores(&missing, &state.combo_cancel, new_prober, |prober, hand, board| {
-                let measured = prober.measure_cheap(&board.line, CHEAP_MEASURE).map_err(|e| e.to_string());
+                let measured = prober.measure_cheap(&board.line, CHEAP_MEASURE).map_err(|e| e.to_string()).map(|(m, partial)| {
+                    if let Ok(mut p) = partials.lock() {
+                        p.insert((hand, board.key), partial);
+                    }
+                    m
+                });
                 let value = measured.as_ref().map_or(f64::NEG_INFINITY, cheap_value);
                 let mut view = score_view(&engine, hand, board, measured, None, None, &config.hand_traps, &roles);
                 view.cheap = true;
@@ -2059,7 +2067,12 @@ fn combo_score(app: tauri::AppHandle, state: State<'_, AppState>, vs_deck_id: Op
                 prober.expected_loss(&board.line, points, x.special_summons, &rates).ok()
             }),
         };
-        let measured = prober.measure(&board.line).map_err(|e| e.to_string());
+        let partial = partials.lock().ok().and_then(|mut p| p.remove(&(hand, board.key)));
+        let measured = match partial {
+            Some(partial) => prober.measure_resumed(&board.line, partial),
+            None => prober.measure(&board.line),
+        }
+        .map_err(|e| e.to_string());
         let matchup = rival.as_ref().map(|(id, name, rival)| {
             let m = measured.as_ref().map_err(String::clone).and_then(|m| {
                 ygo_solver::matchup(&engine, &config.deck, &hands[hand], config.seed, &board.line, m, rival).map_err(|e| e.to_string())

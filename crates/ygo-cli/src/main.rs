@@ -134,7 +134,8 @@ enum Cmd {
         #[arg(long)]
         quick_value: bool,
         /// Measure in steps, as the Combo Lab does: a cheap measure of the
-        /// first 40 boards listed, then the full one of the best 15 of them
+        /// first boards listed, then the full one of the best of them by it,
+        /// going on from the cheap one
         /// (implies --probe).
         #[arg(long)]
         staged: bool,
@@ -632,18 +633,26 @@ fn combos(dir: &Path, setup: &Setup, options: CombosOptions) -> Result<()> {
     let mut boards: Vec<Listed> = if let Some(staged) = staged {
         // The cheap measure of the first fields in the search's order, then
         // the full one of the best of them by it; the others keep the cheap
-        // one, and the fields past the first are not measured.
+        // one, and the fields past the first are not measured. The full
+        // measure goes on from the cheap one.
+        let mut partials = Vec::new();
         let mut boards: Vec<Listed> = groups
             .iter()
             .enumerate()
             .map(|(i, (_, group))| {
                 let mut item = measure(&mut prober, (false, false, false), group[0], group.len() - 1);
+                let mut partial = None;
                 if i < staged.cheap {
                     let started = std::time::Instant::now();
-                    item.measured = Some(prober.measure_cheap(&item.board.line, staged.measure));
+                    let cheap = prober.measure_cheap(&item.board.line, staged.measure);
                     item.took = started.elapsed();
+                    item.measured = Some(cheap.map(|(m, p)| {
+                        partial = Some(p);
+                        m
+                    }));
                     item.cheap = true;
                 }
+                partials.push(partial);
                 item
             })
             .collect();
@@ -651,7 +660,20 @@ fn combos(dir: &Path, setup: &Setup, options: CombosOptions) -> Result<()> {
         let mut order: Vec<usize> = (0..boards.len()).filter(|&i| cheap_value(&boards[i]).is_some()).collect();
         order.sort_by(|&a, &b| cheap_value(&boards[b]).unwrap_or(0.0).total_cmp(&cheap_value(&boards[a]).unwrap_or(0.0)).then(a.cmp(&b)));
         for &i in order.iter().take(staged.full) {
-            boards[i] = measure(&mut prober, how, groups[i].1[0], groups[i].1.len() - 1);
+            match partials[i].take() {
+                Some(partial) if !no_breakers => {
+                    let item = &mut boards[i];
+                    let started = std::time::Instant::now();
+                    item.measured = Some(prober.measure_resumed(&item.board.line, partial));
+                    item.took += started.elapsed();
+                    item.cheap = false;
+                    if quick_value {
+                        let started = std::time::Instant::now();
+                        item.quick = prober.quick_measure(&item.board.line).ok().map(|v| (v, started.elapsed()));
+                    }
+                }
+                _ => boards[i] = measure(&mut prober, how, groups[i].1[0], groups[i].1.len() - 1),
+            }
         }
         boards
     } else {
@@ -1383,10 +1405,10 @@ const FIELDS_WITH_VARIANTS: usize = 3;
 /// `combos --staged` by default: fields given the cheap measure, and of
 /// those the best by it given the full one, as in the Combo Lab
 /// (`docs/plans/velocita-ricerca.md`, B14); what the cheap measure tries.
-const STAGED_CHEAP: usize = 40;
+const STAGED_CHEAP: usize = 30;
 const STAGED_FULL: usize = 15;
-const STAGED_WINDOWS: usize = 2;
-const STAGED_ROUNDS: usize = 0;
+const STAGED_WINDOWS: usize = 8;
+const STAGED_ROUNDS: usize = 1;
 
 /// The value of a cheap measure ([`ygo_solver::Prober::measure_cheap`]):
 /// [`composite`] without the parts it does not play.
