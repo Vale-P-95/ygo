@@ -1,6 +1,7 @@
 //! The search. A node is a real choice the engine asks for; it is reached by
-//! replaying its line from the start of the duel, because the engine cannot
-//! copy a duel in progress. To make the most of each replay, a worker dives:
+//! replaying its line, from the longest copy of the duel the worker kept
+//! along it ([`Copies`]) or from the start of the duel. To make the most of
+//! each replay, a worker dives:
 //! after reaching a node it keeps playing the first answer of every choice
 //! down to the end of the turn, and leaves the other answers in a shared
 //! queue for later. A table of the states already seen (by their canonical
@@ -40,7 +41,7 @@ use ygo_engine::auto::AutoPolicy;
 use ygo_engine::consts::{card_type, location};
 use ygo_engine::{
     canonical_fingerprint, fingerprint, italian, Action, ActionKind, CardDb, CardRef, ChainLink, Decision, DeckList, Duel, DuelState,
-    Engine, Error, Event, Opponent, Placement, Prelude, Step,
+    Engine, Error, Event, Opponent, Placement, Prelude, SavedDuel, Step,
 };
 
 use crate::coverage::{self, Audit, Coverage, Links, Mechanic};
@@ -94,6 +95,10 @@ pub struct SearchConfig {
     /// Record what the search does with each action of your cards
     /// ([`SearchResult::coverage`]); it costs a little time.
     pub coverage: bool,
+    /// Megabytes of copies of the duel each worker keeps, to start a line
+    /// from the longest copy of it instead of replaying it from the start
+    /// of the duel (0: replay every line).
+    pub copies_mb: usize,
 }
 
 impl SearchConfig {
@@ -119,6 +124,8 @@ impl SearchConfig {
             placed: Vec::new(),
             prelude: Prelude::default(),
             coverage: false,
+            // DUELFORGE_COPIES_MB to measure with another cap.
+            copies_mb: std::env::var("DUELFORGE_COPIES_MB").ok().and_then(|n| n.parse().ok()).unwrap_or(64),
         }
     }
 }
@@ -755,7 +762,7 @@ fn is_free(decision: &Decision) -> bool {
 /// The answers given since your last free moment, hashed. The cards picked
 /// in the selection being made are a set: picking A then B is picking B
 /// then A (the same materials, chosen in another order).
-#[derive(Clone, Copy, Default)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 struct Pending {
     /// The answers before the selection being made.
     before: u64,
@@ -838,7 +845,7 @@ fn after_answer(last_set: &mut Option<(u8, u32)>, decision: &Decision, answer: &
 }
 
 /// The situations met since your last free moment ([`loop_key`]).
-#[derive(Default)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 struct SinceFree {
     seen: HashSet<u64>,
     events: usize,
@@ -1133,6 +1140,191 @@ fn new_duel(shared: &Shared) -> Result<Duel, Error> {
     )
 }
 
+/// What `play` keeps track of along the line it replays.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+struct Track {
+    pending: Pending,
+    /// The situations met since your last free moment: meeting one again
+    /// means going round in circles. The line replayed counts too: the
+    /// answer of an edge can lead back to a choice made in it.
+    since_free: SinceFree,
+    /// Your chain links, to tell which of your effects negates another.
+    links: Links,
+    last_set: Option<(u8, u32)>,
+    /// Answers since the last free moment (for the stats).
+    after_free: u64,
+}
+
+impl Track {
+    /// Gives the next answer of a line being replayed.
+    fn replay(&mut self, duel: &mut Duel, db: &CardDb, answer: &[u8]) -> Result<(), Error> {
+        self.after_free += 1;
+        if let Step::Decision { decision, events } = duel.advance()? {
+            if is_free(&decision) {
+                self.after_free = 1;
+            }
+            self.since_free.meet(&decision, events.len());
+            self.pending.answered(&decision, answer);
+            if events.iter().any(|e| matches!(e, Event::Chaining { .. })) {
+                self.last_set = None;
+            }
+            after_answer(&mut self.last_set, &decision, answer);
+            for e in &events {
+                let _ = self.links.follow(db, e);
+            }
+        }
+        duel.respond(answer);
+        Ok(())
+    }
+}
+
+/// A worker's duel in a memory arena, and copies of it along the lines it
+/// replayed (plan B13 in docs/plans/velocita-ricerca.md): a line starts
+/// from the longest copy of its beginning instead of from the start of the
+/// duel. A copy puts back the whole duel, so what follows is the same.
+/// Copies are made where a line replayed ends, as the other answers of its
+/// last choice start there too, and the lines after them (copies on the way
+/// as well were measured slower: they cost more than the replay they save).
+struct Copies {
+    duel: Duel,
+    store: Store,
+    /// With `DUELFORGE_COPY_CHECK=n`, every n-th line started from a copy is
+    /// also replayed from the start, and the two are compared.
+    check: Option<u64>,
+    started: u64,
+}
+
+struct Store {
+    /// The duel as made: lines with no copy start here.
+    start: SavedDuel,
+    /// By the hash of the answers before them ([`prefix_hashes`]).
+    copies: HashMap<u64, Copy>,
+    bytes: usize,
+    cap: usize,
+    clock: u64,
+    /// The arena filled up: no more copies (see [`Duel::save`]).
+    full: bool,
+}
+
+struct Copy {
+    answers: Vec<Vec<u8>>,
+    saved: SavedDuel,
+    track: Track,
+    used: u64,
+}
+
+/// The hash of each beginning of `answers`, the empty one first.
+fn prefix_hashes(answers: &[Vec<u8>]) -> Vec<u64> {
+    let mut hashes = Vec::with_capacity(answers.len() + 1);
+    let mut last = 0u64;
+    hashes.push(last);
+    for a in answers {
+        let mut h = DefaultHasher::new();
+        (last, a).hash(&mut h);
+        last = h.finish();
+        hashes.push(last);
+    }
+    hashes
+}
+
+impl Copies {
+    fn new(shared: &Shared) -> Result<Self, Error> {
+        ygo_engine::arena_duels(true);
+        let duel = new_duel(shared);
+        ygo_engine::arena_duels(false);
+        let duel = duel?;
+        let start = duel.save()?;
+        let check = std::env::var("DUELFORGE_COPY_CHECK").ok().and_then(|n| n.parse().ok()).filter(|&n| n > 0);
+        let store = Store { start, copies: HashMap::new(), bytes: 0, cap: shared.config.copies_mb << 20, clock: 0, full: false };
+        Ok(Copies { duel, store, check, started: 0 })
+    }
+
+    /// Puts the duel where `answers` lead, from the longest copy of their
+    /// beginning, and copies it there.
+    fn reach(&mut self, shared: &Shared, answers: &[Vec<u8>], dive: &mut Dive) -> Result<Track, Error> {
+        let db = shared.engine.cards();
+        let hashes = prefix_hashes(answers);
+        self.store.clock += 1;
+        let clock = self.store.clock;
+        let found = (1..hashes.len()).rev().find(|&k| self.store.copies.get(&hashes[k]).is_some_and(|c| c.answers[..] == answers[..k]));
+        let (from, mut track) = match found.and_then(|k| Some((k, self.store.copies.get_mut(&hashes[k])?))) {
+            Some((k, copy)) => {
+                copy.used = clock;
+                self.duel.restore(&copy.saved)?;
+                (k, copy.track.clone())
+            }
+            None => {
+                self.duel.restore(&self.store.start)?;
+                (0, Track::default())
+            }
+        };
+        if from > 0 {
+            self.started += 1;
+            if self.check.is_some_and(|n| self.started.is_multiple_of(n)) {
+                check_copy(shared, &self.duel, &answers[..from], &track)?;
+            }
+        }
+        for answer in &answers[from..] {
+            dive.replayed += 1;
+            track.replay(&mut self.duel, db, answer)?;
+        }
+        if from < answers.len() {
+            self.store.keep(&self.duel, answers, hashes[answers.len()], &track);
+        }
+        Ok(track)
+    }
+}
+
+impl Store {
+    fn keep(&mut self, duel: &Duel, answers: &[Vec<u8>], hash: u64, track: &Track) {
+        if self.full || self.cap == 0 || self.copies.contains_key(&hash) {
+            return;
+        }
+        // The copies used least recently go first, and the memory of the
+        // last one makes the new copy.
+        let mut spare = None;
+        while self.bytes + self.start.size() > self.cap {
+            let Some(c) = self.evict() else { break };
+            spare = Some(c.saved);
+        }
+        let saved = match spare.map_or_else(|| duel.save(), |old| duel.save_over(old)) {
+            Ok(saved) => saved,
+            Err(e) => {
+                // The copies made so far still go back in; no new ones.
+                eprintln!("search: {e}; the lines are replayed from the copies made so far");
+                self.full = true;
+                return;
+            }
+        };
+        self.bytes += saved.size();
+        self.copies.insert(hash, Copy { answers: answers.to_vec(), saved, track: track.clone(), used: self.clock });
+        while self.bytes > self.cap && self.evict().is_some() {}
+    }
+
+    /// Takes out the copy used least recently.
+    fn evict(&mut self) -> Option<Copy> {
+        let oldest = *self.copies.iter().min_by_key(|(_, c)| c.used)?.0;
+        let c = self.copies.remove(&oldest)?;
+        self.bytes -= c.saved.size();
+        Some(c)
+    }
+}
+
+/// A line started from a copy must be where the same line replayed from the
+/// start of the duel is.
+fn check_copy(shared: &Shared, duel: &Duel, answers: &[Vec<u8>], track: &Track) -> Result<(), Error> {
+    let mut replayed = new_duel(shared)?;
+    let mut expected = Track::default();
+    for answer in answers {
+        expected.replay(&mut replayed, shared.engine.cards(), answer)?;
+    }
+    if replayed.state() != duel.state() || expected != *track {
+        eprintln!("search: a copy of the duel after {} answers is not where the replay is", answers.len());
+        return Err(Error::Engine(format!("a copy of the duel after {} answers is not where the replay is", answers.len())));
+    }
+    Ok(())
+}
+
 /// Drops the answers that lead back where the search has been or goes
 /// anyway, which would cost a replay of the whole line each:
 /// - taking a card out of a selection (picking the others directly gets
@@ -1230,11 +1422,11 @@ const DISCREPANCY: f64 = 0.6;
 /// before an answer do not depend on it), less [`DISCREPANCY`] for each
 /// answer of their line that is not the dive's; the other zones of a line's
 /// last choice go last.
-fn work(shared: &Shared, edge: Edge) -> Result<(), Error> {
+fn work(shared: &Shared, edge: Edge, copies: Option<&mut Copies>) -> Result<(), Error> {
     let started = Instant::now();
     let mut dive =
         Dive { left: Vec::new(), boards: Vec::new(), end: stats::End::Error, nodes: 0, replay: Duration::ZERO, replayed: 0, after_free: 0 };
-    let result = play(shared, &edge, &mut dive);
+    let result = play(shared, &edge, &mut dive, copies);
     if let Some(stats) = &shared.stats {
         stats.dive(&dive, started.elapsed());
     }
@@ -1304,7 +1496,7 @@ struct LeftAnswer {
     last_zone: bool,
 }
 
-fn play(shared: &Shared, edge: &Edge, dive: &mut Dive) -> Result<(), Error> {
+fn play(shared: &Shared, edge: &Edge, dive: &mut Dive, copies: Option<&mut Copies>) -> Result<(), Error> {
     let config = shared.config;
     // The board was already played to the end of the turn from another line
     // reaching it, with a line as good (else it would be provisional again):
@@ -1316,41 +1508,31 @@ fn play(shared: &Shared, edge: &Edge, dive: &mut Dive) -> Result<(), Error> {
         }
     }
     let replay_started = Instant::now();
-    let mut duel = new_duel(shared)?;
     let mut line = (*edge.prefix).clone();
-    let mut pending = Pending::default();
-    // The situations met since your last free moment: meeting one again
-    // means going round in circles. The line replayed counts too: the
-    // answer of this edge can lead back to a choice made in it.
-    let mut since_free = SinceFree::default();
-    // Your chain links, to tell which of your effects negates another.
-    let mut links = Links::default();
     let db = shared.engine.cards();
-    let mut last_set: Option<(u8, u32)> = None;
+    let mut own: Duel;
+    let (duel, track) = match copies {
+        Some(copies) => {
+            let track = copies.reach(shared, &line.answers, dive)?;
+            (&mut copies.duel, track)
+        }
+        None => {
+            own = new_duel(shared)?;
+            let mut track = Track::default();
+            for answer in &line.answers {
+                dive.replayed += 1;
+                track.replay(&mut own, db, answer)?;
+            }
+            (&mut own, track)
+        }
+    };
+    let Track { mut pending, mut since_free, mut links, mut last_set, after_free } = track;
+    dive.after_free = after_free;
     let hand_trap = |code: u32| config.hand_traps.iter().any(|&h| db.canonical_code(h) == code);
     // A handtrap activated at your idle moment, until the next one, and
     // whether its link resolved with nothing happening.
     let mut trial: Option<(u32, HashSet<Offer>)> = None;
     let mut quiet = false;
-    for answer in &line.answers {
-        dive.replayed += 1;
-        dive.after_free += 1;
-        if let Step::Decision { decision, events } = duel.advance()? {
-            if is_free(&decision) {
-                dive.after_free = 1;
-            }
-            since_free.meet(&decision, events.len());
-            pending.answered(&decision, answer);
-            if events.iter().any(|e| matches!(e, Event::Chaining { .. })) {
-                last_set = None;
-            }
-            after_answer(&mut last_set, &decision, answer);
-            for e in &events {
-                let _ = links.follow(db, e);
-            }
-        }
-        duel.respond(answer);
-    }
     if !line.answers.is_empty() || edge.answer.is_some() {
         shared.replays.fetch_add(1, Ordering::Relaxed);
     }
@@ -1759,8 +1941,12 @@ fn run_workers(shared: &Shared, threads: usize, mut progress: impl FnMut(&Progre
     std::thread::scope(|s| {
         for _ in 0..threads.max(1) {
             s.spawn(move || {
+                // Without an arena (none left) the lines are replayed.
+                let mut copies = (shared.config.copies_mb > 0)
+                    .then(|| Copies::new(shared).inspect_err(|e| eprintln!("search: {e}; the lines are replayed from the start")).ok())
+                    .flatten();
                 while let Some(edge) = shared.pop() {
-                    if let Err(e) = work(shared, edge) {
+                    if let Err(e) = work(shared, edge, copies.as_mut()) {
                         if std::env::var_os("DUELFORGE_DEBUG_SEARCH").is_some() {
                             eprintln!("interrupted: {e}");
                         }
@@ -1968,7 +2154,7 @@ fn confirm_best(shared: &Shared) {
                     break;
                 }
                 // The End Phase may offer choices: their alternatives join the queue.
-                if work(shared, edge.clone()).is_err() {
+                if work(shared, edge.clone(), None).is_err() {
                     shared.interrupted.fetch_add(1, Ordering::Relaxed);
                 }
             });

@@ -581,14 +581,30 @@ impl Duel {
     /// outgrown the arena the duel can no longer be saved, for good. The
     /// engine's log ([`Self::log`]) is not saved.
     pub fn save(&self) -> Result<SavedDuel, Error> {
+        self.save_in(Vec::new())
+    }
+
+    /// [`Self::save`] in the memory of an old save, which goes: no new
+    /// memory when it is as big.
+    pub fn save_over(&self, old: SavedDuel) -> Result<SavedDuel, Error> {
+        self.save_in(old.memory)
+    }
+
+    fn save_in(&self, mut memory: Vec<u8>) -> Result<SavedDuel, Error> {
         if self.arena.is_null() {
             return Err(Error::Engine("this duel has no memory arena: it cannot be saved".to_owned()));
         }
         if unsafe { df_arena_overflowed(self.arena) } != 0 {
             return Err(Error::Engine("the duel outgrew its memory arena: it cannot be saved".to_owned()));
         }
-        let mut memory = vec![0u8; unsafe { df_arena_used(self.arena) }];
-        unsafe { df_arena_save(self.arena, memory.as_mut_ptr().cast()) };
+        let used = unsafe { df_arena_used(self.arena) };
+        memory.clear();
+        memory.reserve(used);
+        // Written whole by the copy.
+        unsafe {
+            df_arena_save(self.arena, memory.as_mut_ptr().cast());
+            memory.set_len(used);
+        }
         Ok(SavedDuel {
             arena: self.arena,
             arena_id: self.arena_id,
@@ -1284,7 +1300,8 @@ mod tests {
     }
 
     /// The arena self-test takes every slot for a moment: the tests that
-    /// make arenas take turns.
+    /// make arenas take turns. A new unit test with duels in arenas must
+    /// take it too (nothing enforces it).
     static ARENA_TESTS: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
     #[test]
