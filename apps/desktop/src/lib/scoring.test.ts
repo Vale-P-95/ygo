@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ComboScore } from "./api";
-import { METRICS, NEGATIVE, parts, PROFILES, score, migrateLegacyWeights, type Weights } from "./scoring";
+import { METRICS, NEGATIVE, parts, PROFILES, score, migrateLegacyWeights, loadChoice, WEIGHTS_STORAGE_VERSION, type Weights } from "./scoring";
 
 function makeScore(partial: Partial<ComboScore> = {}): ComboScore {
   return {
@@ -204,6 +204,82 @@ describe("scoring", () => {
     it("leaves zero exposure unchanged", () => {
       const zero = migrateLegacyWeights({ ...baseWeights, exposure: 0 });
       expect(zero.exposure).toBe(0);
+    });
+  });
+
+  describe("loadChoice with versioning", () => {
+    function createMockStorage(initialData?: string) {
+      let store: string | null = initialData ?? null;
+      return {
+        getItem: (key: string) => (key === "duelforge.combo.weights" ? store : null),
+        setItem: (key: string, val: string) => {
+          if (key === "duelforge.combo.weights") store = val;
+        },
+      };
+    }
+
+    it("converts legacy data without version (-0.04 -> -0.5) and writes back version 2", () => {
+      const storage = createMockStorage(
+        JSON.stringify({
+          profile: "custom",
+          weights: { ...PROFILES[0].weights, exposure: -0.04 },
+        })
+      );
+
+      const choice = loadChoice(storage);
+      expect(choice.version).toBe(WEIGHTS_STORAGE_VERSION);
+      expect(choice.weights.exposure).toBeCloseTo(-0.5, 2);
+
+      // Verify it was written back to storage with version: 2
+      const stored = JSON.parse(storage.getItem("duelforge.combo.weights")!);
+      expect(stored.version).toBe(2);
+      expect(stored.weights.exposure).toBeCloseTo(-0.5, 2);
+    });
+
+    it("leaves data with version 2 and exposure -0.1 unchanged", () => {
+      const storage = createMockStorage(
+        JSON.stringify({
+          version: 2,
+          profile: "custom",
+          weights: { ...PROFILES[0].weights, exposure: -0.1 },
+        })
+      );
+
+      const choice = loadChoice(storage);
+      expect(choice.version).toBe(2);
+      expect(choice.weights.exposure).toBe(-0.1);
+    });
+
+    it("loading legacy data twice in a row gives -0.5, not -6.25", () => {
+      const storage = createMockStorage(
+        JSON.stringify({
+          profile: "custom",
+          weights: { ...PROFILES[0].weights, exposure: -0.04 },
+        })
+      );
+
+      const firstLoad = loadChoice(storage);
+      expect(firstLoad.weights.exposure).toBeCloseTo(-0.5, 2);
+
+      const secondLoad = loadChoice(storage);
+      expect(secondLoad.weights.exposure).toBeCloseTo(-0.5, 2);
+      expect(secondLoad.weights.exposure).not.toBeCloseTo(-6.25, 2);
+    });
+
+    it("leaves learned weights with version 2 unchanged", () => {
+      const storage = createMockStorage(
+        JSON.stringify({
+          version: 2,
+          profile: "learned",
+          priorProfile: "balanced",
+          weights: { ...PROFILES[0].weights, exposure: -0.08 },
+        })
+      );
+
+      const choice = loadChoice(storage);
+      expect(choice.version).toBe(2);
+      expect(choice.profile).toBe("learned");
+      expect(choice.weights.exposure).toBe(-0.08);
     });
   });
 });

@@ -192,12 +192,14 @@ export function dominates(a: ComboScore, b: ComboScore, includeMatchup: boolean 
 
 
 export interface Choice {
+  version?: number;
   profile: string;
   priorProfile: string;
   weights: Weights;
   priorWeights: Weights;
 }
 
+export const WEIGHTS_STORAGE_VERSION = 2;
 const KEY = "duelforge.combo.weights";
 
 /** Converts legacy exposure weights (|exposure| < 0.2) to the new scale (x12.5). */
@@ -208,43 +210,76 @@ export function migrateLegacyWeights(weights: Weights): Weights {
   return weights;
 }
 
-function loadChoice(): Choice {
+export function loadChoice(storage: Pick<Storage, "getItem" | "setItem"> | null = typeof localStorage !== "undefined" ? localStorage : null): Choice {
   try {
-    const raw = localStorage.getItem(KEY);
+    const raw = storage?.getItem(KEY);
     if (raw) {
       const saved = JSON.parse(raw) as Partial<Choice>;
+      const isLegacy = (saved.version ?? 1) < 2;
       const baseProfile = PROFILES.find((p) => p.id === saved.priorProfile) ?? PROFILES[0];
-      const priorWeights = saved.priorWeights
-        ? migrateLegacyWeights({ ...baseProfile.weights, ...saved.priorWeights })
+
+      let priorWeights = saved.priorWeights
+        ? { ...baseProfile.weights, ...saved.priorWeights }
         : baseProfile.weights;
+      if (isLegacy) {
+        priorWeights = migrateLegacyWeights(priorWeights);
+      }
+
+      let profileResult: Choice;
+
       if (saved.profile === "learned") {
-        return {
+        let weights = { ...baseProfile.weights, ...saved.weights };
+        if (isLegacy) {
+          weights = migrateLegacyWeights(weights);
+        }
+        profileResult = {
+          version: WEIGHTS_STORAGE_VERSION,
           profile: "learned",
           priorProfile: saved.priorProfile ?? baseProfile.id,
-          weights: migrateLegacyWeights({ ...baseProfile.weights, ...saved.weights }),
+          weights,
           priorWeights,
         };
+      } else {
+        const profile = PROFILES.find((p) => p.id === saved.profile);
+        if (profile) {
+          profileResult = {
+            version: WEIGHTS_STORAGE_VERSION,
+            profile: profile.id,
+            priorProfile: profile.id,
+            weights: profile.weights,
+            priorWeights: profile.weights,
+          };
+        } else {
+          let weights = { ...PROFILES[0].weights, ...saved.weights };
+          if (isLegacy) {
+            weights = migrateLegacyWeights(weights);
+          }
+          profileResult = {
+            version: WEIGHTS_STORAGE_VERSION,
+            profile: saved.profile ?? "custom",
+            priorProfile: saved.priorProfile ?? "custom",
+            weights,
+            priorWeights,
+          };
+        }
       }
-      const profile = PROFILES.find((p) => p.id === saved.profile);
-      if (profile) {
-        return {
-          profile: profile.id,
-          priorProfile: profile.id,
-          weights: profile.weights,
-          priorWeights: profile.weights,
-        };
+
+      // If legacy data was migrated, persist immediately with version: 2
+      if (isLegacy && storage) {
+        try {
+          storage.setItem(KEY, JSON.stringify(profileResult));
+        } catch {
+          // ignore
+        }
       }
-      return {
-        profile: saved.profile ?? "custom",
-        priorProfile: saved.priorProfile ?? "custom",
-        weights: migrateLegacyWeights({ ...PROFILES[0].weights, ...saved.weights }),
-        priorWeights,
-      };
+
+      return profileResult;
     }
   } catch {
     // A missing or broken choice falls back to the default.
   }
   return {
+    version: WEIGHTS_STORAGE_VERSION,
     profile: PROFILES[0].id,
     priorProfile: PROFILES[0].id,
     weights: PROFILES[0].weights,
@@ -256,9 +291,9 @@ let choice = loadChoice();
 const listeners = new Set<() => void>();
 
 function set(next: Choice) {
-  choice = next;
+  choice = { ...next, version: WEIGHTS_STORAGE_VERSION };
   try {
-    localStorage.setItem(KEY, JSON.stringify(next));
+    localStorage.setItem(KEY, JSON.stringify(choice));
   } catch {
     // Only a convenience.
   }
