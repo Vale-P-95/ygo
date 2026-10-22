@@ -13,7 +13,7 @@ not in --decks is skipped.
     python3 scripts/oracle.py hands --decks /tmp/mdm
     # the long runs (hours: the owner's, at night)
     python3 scripts/oracle.py build /tmp/oracle --decks /tmp/mdm --mult 50 --seeds 1,2,3 --jobs 4
-    # the fixtures: codes and zones, the measure, the line's answers (no card text)
+    # the fixtures: codes and zones, the measure, the best line's answers (no card text)
     python3 scripts/oracle.py fixtures /tmp/oracle tests/fixtures/oracle
     # the normal search against them
     python3 scripts/oracle.py measure tests/fixtures/oracle /tmp/oracle-measure --decks /tmp/mdm
@@ -70,11 +70,31 @@ def bench_hands(decks):
         path = os.path.join(decks, deck + ".ydk")
         if not os.path.exists(path):
             continue
+        main = [w for w in open(path).read().split("#extra")[0].split() if w.isdigit()]
         if hand == "random5":
-            main = [w for w in open(path).read().split("#extra")[0].split() if w.isdigit()]
             hand = ";".join(random.Random(f"{deck}-0").sample(main, 5))
+        missing = missing_cards(hand.split(";"), main)
+        if missing:
+            sys.stderr.write(f"bench hand {name} skipped: {', '.join(missing)} not in {deck}.ydk (or fewer copies)\n")
+            continue
         out.append((name, path, hand))
     return out
+
+
+def missing_cards(hand, main):
+    """The cards of `hand` (names or passcodes) the Main Deck `main` (passcodes) has fewer copies of, any artwork."""
+    db = sqlite3.connect(os.path.join(ROOT, "data", "cdb", "cards.cdb"))
+    left = list(main)
+    missing = []
+    for card in hand:
+        names = db.execute("select name from texts where id = ?", (int(card),)).fetchall() if card.isdigit() else [(card,)]
+        codes = {str(r[0]) for (name,) in names for r in db.execute("select id from texts where name = ?", (name,))}
+        copy = next((c for c in left if c in codes), None)
+        if copy is None:
+            missing.append(card)
+        else:
+            left.remove(copy)
+    return missing
 
 
 def hunt_hands(decks):
@@ -96,6 +116,13 @@ def hands(decks, goals=()):
     out += [g for g in GOALS if os.path.exists(g[1])]
     out += list(goals)
     return out
+
+
+def deck_hash(path):
+    """An id of the deck list (Main and Extra Deck, in order): the Master Duel Meta lists change and are not committed."""
+    import hashlib
+    cards = [w for w in open(path).read().split() if w.isdigit() or w.startswith(("#", "!"))]
+    return hashlib.sha256(" ".join(cards).encode()).hexdigest()[:16]
 
 
 def value(measure):
@@ -244,6 +271,7 @@ def cmd_fixtures(a):
             "id": hid,
             "deck": os.path.relpath(case[1], ROOT) if case[1].startswith(ROOT) else os.path.basename(case[1]),
             "hand": doc["hand"],
+            "deck_hash": deck_hash(case[1]),
             "seed": case[3],
             "goal": case[4],
             "nodes": meta["nodes"],
@@ -255,11 +283,13 @@ def cmd_fixtures(a):
                            **({"equipped_to": codes.get(t)} if t else {})} for n, z, s, t in map(place, i["field"])],
                 "hand": i["hand"],
                 "measure": {k: i["measure"][k] for k in ("field", "hand", "floodgates", "resilience", "follow_up")},
-                "line": {"answers": lines[i["index"]]["answers"]},
             } for v, i in boards],
             # The best value found with the other deck orders: how far this seed is from them.
             "other_seeds": others,
         }
+        if boards:
+            # The line of the best board, to play it again (the answers only: no card text).
+            fixture["line"] = {"answers": lines[boards[0][1]["index"]]["answers"]}
         json.dump(fixture, open(os.path.join(a.dest, f"{hid}.json"), "w"), indent=1)
         written += 1
     print(f"{written} fixtures in {a.dest}")
@@ -275,6 +305,8 @@ def cmd_measure(a):
         deck = os.path.join(ROOT, fx["deck"]) if os.path.exists(os.path.join(ROOT, fx["deck"])) else os.path.join(a.decks, fx["deck"])
         if not os.path.exists(deck):
             deck = os.path.join(a.decks, os.path.basename(fx["deck"]))
+        if fx.get("deck_hash") and deck_hash(deck) != fx["deck_hash"]:
+            sys.stderr.write(f"{fx['id']}: {deck} is not the list the oracle searched; its numbers do not compare\n")
         case = (fx["id"], deck, ";".join(map(str, fx["hand"])), fx["seed"], fx["goal"])
         oracle_value, oracle_key = fx["boards"][0]["value"], fx["boards"][0]["look_key"]
         steps = []
@@ -285,9 +317,13 @@ def cmd_measure(a):
                 steps.append({"nodes": nodes, "failed": True})
                 continue
             found = boards_of(out, fx["goal"])
-            keys = [i["look_key"] for _, i in sorted(boards_of(out), key=lambda b: b[1].get("printed", 99))]
+            listed = sorted(boards_of(out, fx["goal"]), key=lambda b: b[1].get("printed", 99))
+            keys = [i["look_key"] for _, i in listed]
+            # The oracle's board itself, and the first board as good (boards
+            # can differ in what the measure does not value).
+            as_good = next((k + 1 for k, (v, _) in enumerate(listed) if v >= 0.99 * oracle_value), None)
             steps.append({"nodes": nodes, "seconds": secs, "best": found[0][0] if found else 0.0,
-                          "oracle_rank": keys.index(oracle_key) + 1 if oracle_key in keys else None})
+                          "oracle_rank": keys.index(oracle_key) + 1 if oracle_key in keys else None, "as_good_rank": as_good})
         reach = {}
         for frac in (0.9, 0.95, 1.0):
             hit = next((s for s in steps if not s.get("failed") and s["best"] >= frac * oracle_value * (1 - 1e-9)), None)
@@ -297,18 +333,21 @@ def cmd_measure(a):
     with cf.ThreadPoolExecutor(a.jobs) as ex:
         results = list(ex.map(one, fixtures))
     json.dump(results, open(os.path.join(a.out, "measure.json"), "w"), indent=1)
-    print(f"{'hand':34} {'oracle':>7} " + " ".join(f"{b:>8}" for b in budgets) + "   90%    95%   100%  rank")
+    print(f"{'hand':34} {'oracle':>7} " + " ".join(f"{b:>8}" for b in budgets) + "   90%    95%   100%  same  as good")
     for r in results:
         cells = " ".join(f"{s['best'] / r['oracle']:>8.0%}" if not s.get("failed") and r["oracle"] > 0 else f"{'-':>8}" for s in r["steps"])
         reach = " ".join(f"{r['reach'][k]['nodes']:>6}" if r["reach"][k] else f"{'-':>6}" for k in ("0.9", "0.95", "1.0"))
-        rank = r["steps"][-1].get("oracle_rank") if r["steps"] else None
-        print(f"{r['id']:34} {r['oracle']:>7.2f} {cells} {reach}  {rank if rank else '-'}")
+        last = r["steps"][-1] if r["steps"] else {}
+        rank = lambda k: f"{last[k]:>4}" if last.get(k) else f"{'-':>4}"
+        print(f"{r['id']:34} {r['oracle']:>7.2f} {cells} {reach}  {rank('oracle_rank')}  {rank('as_good_rank')}")
     n = len(results)
     if n:
         last = budgets[-1]
         at95 = sum(1 for r in results if r["reach"]["0.95"] and r["reach"]["0.95"]["nodes"] <= last)
         top3 = sum(1 for r in results if r["steps"] and (r["steps"][-1].get("oracle_rank") or 99) <= 3)
-        print(f"\n{at95}/{n} hands reach 95% of the oracle within {last} nodes; the oracle's board in the top 3 in {top3}/{n}")
+        good3 = sum(1 for r in results if r["steps"] and (r["steps"][-1].get("as_good_rank") or 99) <= 3)
+        print(f"\n{at95}/{n} hands reach 95% of the oracle within {last} nodes; in the top 3 at {last} nodes: "
+              f"the oracle's board in {top3}/{n}, a board as good (99%) in {good3}/{n}")
 
 
 def main():
