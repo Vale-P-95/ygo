@@ -1,6 +1,6 @@
 # Revisione del motore delle combo: cosa deve essere, dove sbaglia, che strada prendere
 
-*Scritto il 22/10/2026 dalla corsia 9 (sessione sorella di Claude, branch `claude/engine-review`), su richiesta del proprietario tramite il coordinatore. È una revisione indipendente, da principi primi, della ricerca delle combo (`crates/ygo-solver`: `search.rs`, `probe.rs`, `value.rs`, `matchup.rs`, `follow.rs`) e del suo aggancio al motore (`crates/ygo-engine`). Ho letto i piani (`ricerca-piano-critico.md`, `ricerca-letteratura.md`, `ricerca-esperimenti.md` della corsia 7, `velocita-ricerca.md`, `classificazione-board.md`, `banco-oggettivo.md`, `taratura-pesi.md`, `valutatore-imparato.md`, `esposizione.md`) e il codice. Non ho modificato né `crates/` né `apps/`. Le fonti esterne e quanto le ho lette sono in fondo (§9).*
+*Scritto il 22/10/2026 dalla corsia 9 (sessione sorella di Claude, branch `claude/engine-review`), su richiesta del proprietario tramite il coordinatore. È una revisione indipendente, da principi primi, della ricerca delle combo (`crates/ygo-solver`: `search.rs`, `probe.rs`, `value.rs`, `matchup.rs`, `follow.rs`) e del suo aggancio al motore (`crates/ygo-engine`). Ho letto i piani (`ricerca-piano-critico.md`, `ricerca-letteratura.md`, `ricerca-esperimenti.md` della corsia 7, `velocita-ricerca.md`, `classificazione-board.md`, `banco-oggettivo.md`, `taratura-pesi.md`, `valutatore-imparato.md`, `esposizione.md`) e il codice. Non ho modificato né `crates/` né `apps/`. Le prove fatte qui sono in §9; le fonti esterne e quanto le ho lette in §10.*
 
 *Lo stile è quello del progetto: frasi corte, e il perché di ogni affermazione. Dove dico «questo è sbagliato» porto la riga di codice o il numero che lo mostra. Dove non ho potuto verificare, lo dico.*
 
@@ -26,13 +26,13 @@ Fissato il seme, EDOPro è un simulatore **deterministico**. Nel tuo primo turno
 - un **problema di pianificazione a un solo agente** su un grafo implicito, generato dal motore;
 - **deterministico per seme**: l'ordine del Deck, le monete e gli scarti casuali sono fissati; la ricerca esplora *una determinizzazione*;
 - con **ricompensa solo terminale**: il valore sta nella board di fine turno, letta dal turno di prova;
-- con due funzioni di valore: una **stima rapida** g (microsecondi, `quick_score`) e una **misura** f (circa 0,5 s in mediana, `Prober::measure`), e un rapporto di costo tra misura e nodo di circa **100 a 1** (5 ms un replay, 0,5 s una misura).
+- con due funzioni di valore: una **stima rapida** g (microsecondi, `quick_score`) e una **misura** f (circa 0,5 s in mediana, `Prober::measure`), e un rapporto di costo tra misura e nodo di **100-300 a 1** (3-5 ms un nodo con il suo replay, 0,5-1 s una misura; §9.3).
 
 Questa è la stessa famiglia dei giochi a un giocatore con ricompensa finale (SameGame, Morpion Solitaire, costruzione di cruciverba: il terreno di NMCS e NRPA) e della pianificazione con simulatore chiuso (Iterated Width, Best-First Width Search). Non è la famiglia degli scacchi: non c'è un avversario nel tuo turno, quindi niente alfa-beta, niente finestre, niente null move. Il rapporto di letteratura lo dice già (§3 di `ricerca-letteratura.md`) e ha ragione.
 
 Due cose della formulazione sono particolari e decidono l'architettura:
 
-1. **La misura costa cento volte un nodo.** Negli scacchi la valutazione costa meno di una mossa. Qui è il contrario. Per ogni board misurata la ricerca può permettersi un centinaio di nodi. Quindi la ricerca *deve* lavorare su una stima, e la qualità della stima decide tutto. È il punto centrale di questa revisione (§2).
+1. **La misura costa cento volte un nodo.** Negli scacchi la valutazione costa meno di una mossa. Qui è il contrario. Per ogni board misurata la ricerca può permettersi da cento a trecento nodi. Quindi la ricerca *deve* lavorare su una stima, e la qualità della stima decide tutto. È il punto centrale di questa revisione (§2).
 2. **L'incertezza non è nell'avversario ma in te.** L'informazione nascosta (ordine del Deck) è tua. Una linea trovata con un seme può dipendere da una pescata fortunata. La «sicurezza» per il proprietario include «non mostrarmi una linea che riesce una volta su cinque». Oggi ogni ricerca usa un solo seme (§4.4).
 
 ### 1.2 Cosa ottimizza davvero la ricerca di oggi
@@ -129,7 +129,7 @@ Dal codice, tutto ciò che riduce lo spazio al di là della tabella delle traspo
 
 Nessuna è sbagliata a priori. Tutte insieme sono la differenza tra «esaustivo» e «esaustivo nel senso nostro». Proposta:
 - una struttura `Pruning` con un flag per voce, tutte vere di default, tutte false con `--exact`;
-- un **audit periodico**: su 20 mani piccole (2-3 carte, dove la ricerca esaurisce) si confrontano `--exact` e default: board distinte perse e valore perso per ogni voce. Soglia: nessuna voce perde più dello 0,5% del valore massimo su quelle mani; chi supera la soglia diventa ordine invece che potatura.
+- un **audit periodico a budget fisso** (l'esaurimento non arriva nemmeno con due carte, §9.4): su 20 mani di 1-2 carte, stesso seme e stesso budget, si confrontano default e «senza la regola R», una regola alla volta: valore della migliore misurata e board distinte. Soglia: nessuna regola perde più dello 0,5% del valore su quelle mani; chi supera la soglia diventa ordine invece che potatura.
 - il verdetto «impossibile» dell'obiettivo si dichiara solo in `--exact`, oppure si scrive «non trovato con le potature standard».
 
 ### 3.3 L'oracolo come è definito è circolare
@@ -230,7 +230,7 @@ Costo: 2 MB per istantanea; una cache di 100-200 per thread sta in memoria su un
 In ordine. Ogni voce ha un controllo misurabile; senza il controllo la voce non si chiude. I numeri si riportano su deck di taratura **e** freschi (§4.2).
 
 1. **Verità e banco di generalità** (2-3 settimane, script e fixture, nessun file caldo).
-   - Insiemi di deck congelati per impronta; oracolo che misura T1 su tutto e T2 sulle prime 200; secondo oracolo (ygo-combo-solver con obiettivi presi dalle nostre board, o ripartenze casuali); audit delle potature su 20 mani piccole con `--exact`.
+   - Insiemi di deck congelati per impronta; oracolo che misura T1 su tutto e T2 sulle prime 200; secondo oracolo (ygo-combo-solver con obiettivi presi dalle nostre board, o ripartenze casuali); audit delle potature a budget fisso su 20 mani piccole, una regola alla volta.
    - **Controllo:** curva valore/budget per mano su entrambi gli insiemi; valore mai in calo con il budget; elenco delle potature con il valore perso da ciascuna; divario taratura/freschi sotto 5 punti.
 2. **Arena nella ricerca e nella misura** (4-6 settimane, `ygo-engine`, `search.rs`, `probe.rs`: file caldi, un agente).
    - Prima la misura (meno rischio, guadagno più grande sul tempo totale), poi la ricerca.
@@ -270,7 +270,61 @@ Fuori dai sei mesi: Go-Explore e archivio per descrittori; valutatore imparato r
 
 ---
 
-## 9. Fonti, e quanto le ho lette
+## 9. Prove fatte in questa sessione
+Container Linux a 4 core, `main` 93d2edd, build release, dati scaricati il 22/10 (`fetch-data`, `update-cards`: database 147.53, 14 636 carte), liste MDM del 22/10. Deck Invoked: la fixture `tests/fixtures/decks/invoked-siracusa-md.ydk` (committata, quindi riproducibile). Un thread ovunque. Le uscite intere sono nello scratchpad della sessione; qui i numeri che contano.
+
+### 9.1 Valori delle carte: il prior additivo è debole
+```
+duelforge-cli card-values --deck tests/fixtures/decks/invoked-siracusa-md.ydk     # 2,9 s, 104 coppie (carta, posto)
+```
+| Carta | Valore da sola |
+|---|---|
+| Invoked Caliga | 1,15 |
+| Invoked Mechaba | 1,00 |
+| Ash Blossom (mano) | 0,53 |
+| Invoked Oceanus (Zona Extra / Principale) | 0,26 / 0,00 |
+| **S:P Little Knight** | **0,09** |
+| **Hyperinvoked Aeon** | **0,04** |
+| Endymion, Artemis, Crowley, Virakam | 0,00 |
+
+S:P Little Knight, una delle interruzioni più giocate del formato, vale 0,09: contro le sonde del kit (Magie dalla mano, ricerche, Foolish Burial) bandire un mostro ferma poco (copertura 13%). Nel turno di prova di una board intera (§9.3) resta 0,09, e nella run congiunta scende a 0,00. Non è un difetto di misura: è la *definizione* del kit che decide. È l'esempio più netto del §5.2.
+
+**Carte del deck senza valore misurato**: 3 su 39 carte distinte hanno un posto misurabile e nessun valore (Kashtira Fenrir e Santa Claws in Zona Principale, Gamma Summon coperta); le altre «mancanti» sono Magie Normali che non restano sul campo, handtrap fuori dall'elenco passato e artwork alternativi. Nessun mostro dell'Extra Deck: l'anomalia del 2,0 (§1.2) qui non scatta.
+
+### 9.2 Ricerca per obiettivo (B4a) su inv-r1
+```
+duelforge-cli combos --deck <fixture> --hand 'Aleister the Reminiscent;Aleister the Invoker;Invocation - "Sword";Ash Blossom & Joyous Spring;Crowley, the Gifted Magistus' \
+    --goal "Invoked Oceanus@extra;S:P Little Knight" --first --seconds 90 --threads 1
+```
+`GoalReached after 7.8 s: 2762 nodes (352/s)`, board Oceanus [EMZ] + S:P + "Sword" coperta, 5 carte usate, 42 scelte. Conferma B4a (prima: non trovata in 60 s). Il solver esterno impiega 2 s sulla stessa mano con il solo obiettivo di base: il divario che resta è quello che B4 (distanza dall'obiettivo) e NRPA sopra l'arena devono chiudere.
+
+### 9.3 Una mano del banco a 4000 nodi, con le statistiche della ricerca e la misura
+```
+DUELFORGE_SEARCH_STATS=1 duelforge-cli combos --deck <fixture> --hand '<inv-r6>' --nodes 4000 --threads 1 --top 10 --probe --quick-value
+```
+| Misura | Valore |
+|---|---|
+| nodi al secondo | 324 (4003 nodi in 12,3 s) |
+| risposte rigiocate per nodo nuovo | 13,3 (53 117 su 4003) |
+| nodi in discese che finiscono su una board sotto il 90% della migliore | 3654 su 4003 (**91%**); vicino alla migliore 97 (2,4%); nessuna board 252 |
+| discese finite su un nodo già visto | 231 su 819 (28%) |
+| nodi senza cambi visibili | 803 (20%: `Choose` 444, `SpecialSummon` 295, `Yes` 64) |
+| risposta giusta prima provata, sulla linea migliore | 17 passi su 23 (74%); rango massimo 4 |
+| turno di prova per board | 0,9-1,1 s; sonda economica (`quick value`) 0,0 s |
+| **costo di una misura in nodi** | **circa 300** |
+
+Tre cose da leggere qui.
+- **Il 91% dei nodi va in discese che non si avvicinano alla migliore.** È la firma di una stima che non distingue: la ricerca è efficiente nel *fare* nodi, non nello *scegliere* dove farli.
+- **Una misura costa 300 nodi**, non 100: il rapporto del §1.1 è anche più sfavorevole di quanto scritto nei piani. Di qui la necessità di T1 (0,02-0,06 s, cioè 6-20 nodi).
+- **Le prime due board misurano uguale (2,04) e differiscono solo per l'esposizione** (0,14 contro 0,97: la #2 lascia Aleister the Reminiscent sul campo invece che in mano). Il valore «di turno 2» non le separa; un termine di turno 3 o di esposizione sì. È il §5.3.
+
+### 9.4 Esaustività su mani piccole: non c'è
+```
+duelforge-cli combos --deck <fixture> --hand "Aleister the Invoker;Invocation" --nodes 300000 --seconds 900 --threads 1
+```
+Dopo 70 s: 25 252 nodi, 15 859 risposte ancora in coda, e la coda **cresce** di circa 200 risposte al secondo. Una mano di due carte, in un deck di 40, non si esaurisce in minuti. (Il risultato finale della corsa è sotto, se è arrivato prima della chiusura della sessione.) Conseguenza per il §3.2: l'audit delle potature non può appoggiarsi all'esaurimento, nemmeno su mani piccole; va fatto **a budget fisso**, confrontando il valore della migliore e le board distinte con e senza ogni regola, su mani di 1-2 carte e con `max_choices` basso. E il verdetto «impossibile» a budget finito resta «non trovato».
+
+## 10. Fonti, e quanto le ho lette
 Segno: **intero** = codice o README letto per intero; **abstract** = solo abstract o pagina di riepilogo; **memoria** = conoscenza pregressa, non riverificata in questa sessione. Molti siti di articoli sono bloccati dal proxy del container, come già per la corsia 7.
 
 - Codice di DuelForge: `search.rs`, `value.rs`, `probe.rs` (prime 2100 righe), `matchup.rs` e `follow.rs` (intestazioni), `auto.rs`, `duel.rs` (`advance`): **intero** per le parti citate.
@@ -286,7 +340,7 @@ Segno: **intero** = codice o README letto per intero; **abstract** = solo abstra
 - Stockfish: history heuristic, correction history, SPRT di fishtest; Texel tuning: **memoria**.
 - `ricerca-letteratura.md` e `ricerca-esperimenti.md` del repository: **intero**. Le loro conclusioni che ho ribaltato o ristretto sono dette nel testo (§1.3: valore statico imparato; §3.3: oracolo; §5.4: livello 2 e kit).
 
-## 10. Cose che non ho potuto verificare in questa sessione
+## 11. Cose che non ho potuto verificare in questa sessione
 - Non ho rifatto i numeri della corsia 7 né della corsia 2: li uso come sono, con la loro data e versione.
 - Il costo di un'istantanea per finestra nel turno di prova è una stima dal prototipo dell'arena (0,2 ms per 2 MB), non una misura nella misura.
 - L'accordo tra il kit derivato dalle aperture del meta e il banco oggettivo è una previsione, non un dato: va misurato prima di sostituire le sonde.
