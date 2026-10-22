@@ -28,6 +28,18 @@ Corsie di lavoro in parallelo del 22/10/2026 (piano in `docs/plans/piano-prossim
   - poi il collaudo del livello 2 con le linee vere (L4) e quello dei deck lenti.
 
   Agente: claude-code, sessione sorella del collaudo. Branch: `claude/tools-qa`. File: script nuovi in `scripts/`, `docs/plans/collaudo-strumenti.md`, `tests/fixtures/boards/`.
+- [ ] **Corsia 4, secondo task.** Ordine della ricerca e stima rapida (#47, D14 = B11 di `docs/plans/classificazione-board.md`): il #1 stampato è il migliore misurato; inversioni tra stima e misura nella top 8 (C5.7) ≤ 60; campi distinti nella top 8 (C5.8). Si accetta solo se `best` del banco non scende più del 5%.
+
+  Agente: claude-code, sessione della corsia 4. Branch: `claude/placed-cards` (ripartito da `main`). File: `crates/ygo-solver/src/search.rs`, `value.rs`, `crates/ygo-cli/src/main.rs` (solo la parte `combos`), script miei in `scripts/`, `docs/plans/ordine-ricerca.md`.
+  - [x] Linea di base (C5.7, C5.8, banco).
+  - [x] 1. Riordino misurato nella CLI dopo `confirm_best`; verifica della top N nell'app.
+  - [x] 2. Bonus fissi di `quick_score` solo per le carte non misurate.
+  - [x] 3. Mano vuota in `value.rs`.
+  - [x] 4. Seconda copia.
+  - [x] 5. Spot mancanti.
+  - [x] 6. Look key con Cimitero usabile: saltato (tocca `src-tauri/src/lib.rs`; nella CLI lo copre il 7).
+  - [x] 7. Varianti nella top N.
+  - [ ] C5.7: inversioni da 223 a 174 su 1110, obiettivo ≤ 60 non raggiunto; #1 stampato sempre il migliore (19 deck → 0). Numeri in `docs/plans/ordine-ricerca.md`.
 - [x] **Corsia 4.** Carte piazzate e ruoli (PIANO §30.4), unita il 22/10 (PR #42):
   - gli equipaggiamenti piazzati con il mostro equipaggiato;
   - i mostri dell'Extra Deck piazzati con i materiali (Apollousa non più a 0 ATK);

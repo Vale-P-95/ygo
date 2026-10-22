@@ -264,13 +264,15 @@ fn reminiscent_alone_keeps_the_handtraps() {
     // monster effect a turn: with the kit weighed on real lines, where two
     // activations in three are monster effects, it stops more than Invoked
     // Mechaba's one negation, and comes first with Hyperinvoked Aeon.
+    // (The estimate counts a measured monster as a 0.3 body plus its value,
+    // not +1 or +2: the same board as before is 9.9, not 15.0.)
     check(Expect {
         hand: &["Aleister the Reminiscent", "Droll & Lock Bird", "Droll & Lock Bird", "Mulcharmy Fuwalos", "Mulcharmy Purulia"],
         use_hand_traps: true,
         pieces: &["Invoked Caliga", "Hyperinvoked Aeon"],
         monsters: 3,
         kept: 2,
-        min_score: 12.0,
+        min_score: 9.5,
         activated: &["Aleister the Reminiscent", "Invocation - \"Sword\"", "Invocation", "Invoked Sorath", "Hyperinvoked Aeon"],
         summoned: &["Invoked Sorath", "Invoked Caliga", "Hyperinvoked Aeon"],
     });
@@ -279,6 +281,9 @@ fn reminiscent_alone_keeps_the_handtraps() {
 #[test]
 #[cfg_attr(debug_assertions, ignore = "slow in debug: run with --release")]
 fn two_aleisters_and_sword_reach_mechaba() {
+    // Mechaba and Caliga with Invocation - "Sword" face-up: measured 2.32,
+    // more than the boards with a third monster found before (2.09 at best),
+    // which the estimate's fixed +1 or +2 a monster put first.
     check(Expect {
         hand: &[
             "Aleister the Reminiscent",
@@ -289,7 +294,7 @@ fn two_aleisters_and_sword_reach_mechaba() {
         ],
         use_hand_traps: false,
         pieces: &["Invoked Mechaba"],
-        monsters: 3,
+        monsters: 2,
         kept: 1,
         min_score: 15.0,
         activated: &["Aleister the Reminiscent", "Aleister the Invoker", "Invocation - \"Sword\"", "Invocation", "Invoked Sorath"],
@@ -306,7 +311,8 @@ fn reminiscent_aiwass_grail_reach_mechaba() {
         pieces: &["Invoked Mechaba", "Invoked Caliga"],
         monsters: 2,
         kept: 1,
-        min_score: 15.0,
+        // The same board as before, 14.6 with a measured monster as a 0.3 body.
+        min_score: 14.0,
         activated: &["Aleister the Reminiscent", "Aiwass, Divine Spirit of the Law", GRAIL, "Invocation - \"Sword\"", "Invoked Sorath"],
         summoned: &["Invoked Mechaba", "Invoked Caliga"],
     });

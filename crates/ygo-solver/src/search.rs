@@ -854,6 +854,23 @@ pub fn look_key(state: &DuelState) -> u64 {
     h.finish()
 }
 
+/// The cards on your field, whatever their zones (the Extra Monster Zone
+/// included) and whatever the hand: boards with the same key are variants
+/// of one field, to list once.
+pub fn field_key(state: &DuelState) -> u64 {
+    let p = &state.players[0];
+    let mut cards: Vec<u64> = p.monsters.iter().flatten().map(|c| card_hash(state, (0, false), c)).collect();
+    for (zone, c) in p.spells.iter().enumerate() {
+        if let Some(c) = c {
+            cards.push(card_hash(state, (zone.saturating_sub(4), false), c));
+        }
+    }
+    cards.sort_unstable();
+    let mut h = DefaultHasher::new();
+    cards.hash(&mut h);
+    h.finish()
+}
+
 /// A card on the field and the kind of zone it is in. An equipped card
 /// names the card it is equipped to, not that card's zone.
 fn card_hash(state: &DuelState, kind: (usize, bool), c: &ygo_engine::FieldCard) -> u64 {
@@ -876,17 +893,32 @@ fn card_hash(state: &DuelState, kind: (usize, bool), c: &ygo_engine::FieldCard) 
 pub fn quick_score(engine: &Engine, state: &DuelState, hand_traps: &[u32], values: &CardValues) -> f64 {
     let me = &state.players[0];
     let mut score = 0.0;
-    for c in me.monsters.iter().flatten() {
+    for (z, c) in me.monsters.iter().enumerate() {
+        let Some(c) = c else { continue };
         let extra = engine.cards().get(c.code).is_some_and(|d| d.type_ & card_type::EXTRA != 0);
-        // A face-down monster applies no effect (a set Extra Deck monster almost never flips).
+        let measured = Spot::of_monster(z, c).is_some_and(|spot| values.measured(engine, c.code, spot));
+        // A face-down monster applies no effect (a set Extra Deck monster
+        // almost never flips). A monster measured counts for what it stops
+        // (`of_field`), and a little as a body; the others by their kind.
         score += match (extra, c.is_face_up()) {
+            _ if measured => MEASURED_BODY,
             (true, true) => 2.0,
             (true, false) => 0.3,
             (false, _) => 1.0,
         };
     }
+    let mut set: Vec<u32> = Vec::new();
     for c in me.spells.iter().flatten() {
         let type_ = engine.cards().get(c.code).map_or(0, |d| d.type_);
+        // A second copy Set counts what it was measured to add (`of_field`).
+        if !c.is_face_up() {
+            let code = engine.cards().canonical_code(c.code);
+            let again = set.contains(&code);
+            set.push(code);
+            if again && values.measured(engine, code, Spot::SetSecond) {
+                continue;
+            }
+        }
         // A set Trap or Quick-Play Spell can be used on the opponent's turn;
         // setting any other Spell only takes it out of the hand.
         score += if c.is_face_up() {
@@ -917,6 +949,10 @@ pub fn quick_score(engine: &Engine, state: &DuelState, hand_traps: &[u32], value
         .sum::<f64>();
     score + VALUE_WEIGHT * values.of_field(engine, state)
 }
+
+/// What a face-up monster whose value was measured adds to the estimate
+/// besides that value: a body to use as material or to block an attack.
+const MEASURED_BODY: f64 = 0.3;
 
 /// Weight in the estimate of what the cards on the field stop, alone
 /// (1 = an interruption that negates anything once): an Invoked Mechaba
@@ -1644,9 +1680,9 @@ fn field_spots(state: &DuelState) -> Vec<(u64, u32)> {
     let monsters = me.monsters.iter().enumerate().filter_map(|(z, c)| {
         let c = c.as_ref().filter(|c| c.is_face_up())?;
         let weight = if c.type_ & card_type::EXTRA != 0 { 2 } else { 1 };
-        Some((key(c.code, if z >= 5 { Spot::Extra } else { Spot::Main }), weight))
+        Some((key(c.code, Spot::of_monster(z, c)?), weight))
     });
-    let spells = me.spells.iter().flatten().map(|c| (key(c.code, if c.is_face_up() { Spot::FaceUp } else { Spot::Set }), 1));
+    let spells = me.spells.iter().flatten().map(|c| (key(c.code, Spot::of_spell(c)), 1));
     monsters.chain(spells).collect()
 }
 
@@ -1724,18 +1760,21 @@ fn learn_round(shared: &Shared, count: usize) {
         for i in measure.interruptions.iter().filter(|i| i.alone > 0.0) {
             let code = i.responder.code;
             let spot = match i.location {
-                location::MZONE => match me.monsters.iter().position(|c| c.as_ref().is_some_and(|c| c.code == code)) {
-                    Some(z) if z >= 5 => Spot::Extra,
-                    Some(_) => Spot::Main,
-                    None => continue,
-                },
+                location::MZONE => {
+                    let found = me.monsters.iter().enumerate().find_map(|(z, c)| c.as_ref().filter(|c| c.code == code).map(|c| (z, c)));
+                    match found.and_then(|(z, c)| Spot::of_monster(z, c)) {
+                        Some(spot) => spot,
+                        None => continue,
+                    }
+                }
                 location::SZONE => match me.spells.iter().flatten().find(|c| c.code == code) {
-                    Some(c) if c.is_face_up() => Spot::FaceUp,
-                    Some(_) => Spot::Set,
+                    Some(c) => Spot::of_spell(c),
                     None => continue,
                 },
                 _ => continue,
             };
+            // Seen with an empty hand: what the card does then.
+            let spot = spot.without_hand().filter(|_| me.hand.is_empty()).unwrap_or(spot);
             if let Ok(mut values) = shared.values.write() {
                 raised |= values.raise(shared.engine, code, spot, i.alone);
             }
