@@ -1,0 +1,13 @@
+# Goals reachable by the engine (ricerca-esperimenti.md, section 3): hands of tests/fixtures/hands/bench.tsv
+# that fit the deck, with the goal given to `combos --goal`. "reachable": a line exists on our engine
+# (found by ygo-combo-solver on the same core and scripts, or by our search with the diagnosis patch);
+# "unknown": none found yet, which does not prove there is none.
+# id	deck	hand	goal	reachable
+inv-r1	tests/fixtures/decks/invoked-siracusa-md.ydk	Aleister the Reminiscent;Aleister the Invoker;Invocation - "Sword";Ash Blossom & Joyous Spring;Crowley, the Gifted Magistus	Invoked Oceanus;S:P Little Knight	reached
+inv-r4	tests/fixtures/decks/invoked-siracusa-md.ydk	Aleister the Reminiscent;Mulcharmy Purulia;Aiwass, Divine Spirit of the Law;Ash Blossom & Joyous Spring;76334960	Invoked Oceanus;S:P Little Knight	reached
+inv-r5	tests/fixtures/decks/invoked-siracusa-md.ydk	Aleister the Reminiscent;Crowley, the Gifted Magistus;Invocation;Super Polymerization;Droll & Lock Bird	Invoked Oceanus;S:P Little Knight	reached
+inv-r6	tests/fixtures/decks/invoked-siracusa-md.ydk	Aleister the Reminiscent;Invocation - "Sword";Ash Blossom & Joyous Spring;Magical Meltdown;Crowley, the Gifted Magistus	Invoked Oceanus;S:P Little Knight	reached
+inv-r1-emz	tests/fixtures/decks/invoked-siracusa-md.ydk	Aleister the Reminiscent;Aleister the Invoker;Invocation - "Sword";Ash Blossom & Joyous Spring;Crowley, the Gifted Magistus	Invoked Oceanus@extra;S:P Little Knight	unknown
+inv-r4-emz	tests/fixtures/decks/invoked-siracusa-md.ydk	Aleister the Reminiscent;Mulcharmy Purulia;Aiwass, Divine Spirit of the Law;Ash Blossom & Joyous Spring;76334960	Invoked Oceanus@extra;S:P Little Knight	unknown
+inv-r5-emz	tests/fixtures/decks/invoked-siracusa-md.ydk	Aleister the Reminiscent;Crowley, the Gifted Magistus;Invocation;Super Polymerization;Droll & Lock Bird	Invoked Oceanus@extra;S:P Little Knight	reached
+inv-r6-emz	tests/fixtures/decks/invoked-siracusa-md.ydk	Aleister the Reminiscent;Invocation - "Sword";Ash Blossom & Joyous Spring;Magical Meltdown;Crowley, the Gifted Magistus	Invoked Oceanus@extra;S:P Little Knight	unknown
