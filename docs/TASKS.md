@@ -6,7 +6,7 @@ Regole in `AGENTS.md`. Per prendere un task, spostalo in "In corso" con agente, 
 Corsie di lavoro in parallelo del 22/10/2026 (piano in `docs/plans/piano-prossimi-passi.md`): ogni corsia tocca solo i suoi file.
 - [x] **Scheda del punteggio** (Gemini, PR #54, unita il 22/10): testi di follow-up, risorse e costo in `scoring.ts`, «Con una risposta alla tua prima interruzione…» (`ComboScore.countered`) e il pannello «Protezione dei pezzi» (`api.boardProtection`, `PieceProtection.tsx`). Provata con il backend finto, `typecheck`, `lint` e `build`; da provare nell'app vera. Lock tolto.
 - [x] **Il Banditore v2** (Gemini, PR #55, unita il 22/10): ricerca con lista OCG (`formato:ocg`) nel `Promise.all` iniziale e in `mock.ts`, vista «Cosa è cambiato con l'ultima lista» (`api.banChanges`), raggruppamento per data/formato, apertura Visore Carta, messaggio esplicito per storico iniziale vuoto. Lock tolto.
-- [x] **Test automatici dell'interfaccia** (Gemini, PR #57, unita il 22/10): 75 test Vitest sulle funzioni pure di `lib/` (`probability`, `query`, `conditions`, `deck`, `scoring`) e di `Banditore.tsx`; `pnpm test` nel job Frontend della CI. Nessun errore trovato nella logica. Lock tolto.
+- [x] **Test automatici dell'interfaccia** (Gemini, PR #57, unita il 22/10): unit test con Vitest per le funzioni pure in `lib/` (`probability`, `query`, `conditions`, `deck`, `scoring`) e `Banditore.tsx`, script "test" e step nella CI. 75 test passati. Lock tolto.
 - [x] **Corsia 1.** Turno di prova contro un deck, livello 2, con le linee vere dell'avversario (piano P1, L1–L6):
   - l'avversario rigioca le linee migliori che il motore trova per il suo deck, con la sua mano vera e l'ordine del suo Deck;
   - le risposte si ritrovano per identità dove la tua board cambia le domande.
@@ -138,6 +138,7 @@ Corsie di lavoro in parallelo del 22/10/2026 (piano in `docs/plans/piano-prossim
 ### Richieste dal backend per l'interfaccia
 
 ## Completati (recenti; lo storico è in `docs/PIANO.md`)
+- [x] Test automatici dell'interfaccia con Vitest nella CI: 75 unit test per funzioni pure (`probability`, `query`, `conditions`, `deck`, `scoring`, `Banditore.tsx`), script `"test": "vitest run"` e step CI nel job Frontend (TypeScript) (PR #57, piano `docs/plans/test-interfaccia.md`).
 - [x] Pagina «Il Banditore» (Novità) v1: confronto tra formati (Master Duel, TCG, OCG) con ricerca e filtri, apertura Visore Carta, data banlistMd, e impatto sui deck salvati nella Bottega per formato scelto con apertura nella Fucina (PR #37, piano `docs/plans/banditore-v1.md`).
 - [x] Giri di apprendimento della ricerca con una scadenza (10 secondi dopo il limite di tempo): su Elfnote Kewl Tune una ricerca da 60 secondi finiva dopo 170, ora dopo 116; banco identico. `probe-line` rigioca le linee salvate con il loro seme (`docs/plans/velocita-ricerca.md`).
 - [x] Velocità della ricerca (sessione sorella): partite riusate, script caricati una volta per thread, solo le corse del turno di prova che servono, mimalloc anche per il C++, limite di nodi senza race. Ricerca −37%, CLI −41% sulle 16 mani con uscite identiche; `combo_hunt.py` −50% (PR #33, resoconto `docs/plans/velocita-ricerca.md`).
