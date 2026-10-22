@@ -188,6 +188,7 @@ Corsie di lavoro in parallelo del 22/10/2026 (piano in `docs/plans/piano-prossim
     - [ ] B13, PR 1 (corsia 2, `claude/search-speed`): arena di memoria per duello e `Duel::save`/`restore` col lato Rust. File: `crates/ygo-engine/shim/arena.cpp` (al posto di `new.cpp`), `build.rs`, `src/duel.rs`, `src/ffi.rs`, `src/lib.rs`, `tests/arena.rs`, `.github/workflows/ci.yml` (job Windows del motore).
     - [ ] B13, PR 2: la ricerca usa le copie (cache per thread con tetto in MB) al posto del riuso dei duelli; modalità di controllo ripristino contro replay ogni N discese. Poi turno di prova (con la corsia 4) e giri di apprendimento.
   - [ ] B1a, B2, B2b, B3, B1b-c, poi B8 (motore e contratto), B10, B11, B16, B4. Corsia 2, una PR l'una.
+  - [x] B4a (corsia 2): nel modo obiettivo una carta dell'obiettivo scelta dove il motore la manda via (costo, materiale, scarto) va per ultima, e perde priorità se era l'ultima copia. Obiettivo Invoked «Oceanus + S:P» da 0/4 a 4/4 mani in 60 s, con Oceanus nella Zona Mostri Extra anche. File: `crates/ygo-solver/src/search.rs`, `tests/search_regression.rs`.
   - [ ] B5a (attrito avversario, caso Aeon), B14 (quali board misurare), B5b-d, B9. Coordinatore, dopo D17.
   - [ ] B8, interfaccia degli obiettivi ricchi. Gemini, dopo il contratto.
 - [ ] Linee del video Invoked: come si classificano, correzioni generali (#45).

@@ -25,7 +25,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use ygo_engine::{DeckList, DuelState, Engine};
-use ygo_solver::{card_values, explain, search, HappeningKind, Kit, MechanicKind, SearchConfig, SearchResult, Stop};
+use ygo_solver::{card_values, explain, search, Goal, HappeningKind, Kit, MechanicKind, SearchConfig, SearchResult, Stop};
 
 /// Nodes per search: about a minute in release. The thresholds below hold
 /// already with half of them, so a search that reaches the same boards a
@@ -100,8 +100,18 @@ impl Lab {
 
     /// The search as the Combo Lab sets it up, on one thread with a node budget.
     fn search(&self, hand: &[u32], use_hand_traps: bool) -> (SearchConfig, SearchResult) {
+        self.search_with(hand, use_hand_traps, Goal::default())
+    }
+
+    /// The same with a goal, the handtraps kept.
+    fn search_for(&self, hand: &[u32], goal: Goal) -> (SearchConfig, SearchResult) {
+        self.search_with(hand, false, goal)
+    }
+
+    fn search_with(&self, hand: &[u32], use_hand_traps: bool, goal: Goal) -> (SearchConfig, SearchResult) {
         let engine = &self.engine;
         let mut config = SearchConfig::new(self.deck.clone(), hand.to_vec());
+        config.goal = goal;
         config.threads = 1;
         config.max_nodes = NODES;
         // Far more than needed: a search cut by the clock would depend on the machine.
@@ -316,4 +326,46 @@ fn reminiscent_aiwass_grail_reach_mechaba() {
         activated: &["Aleister the Reminiscent", "Aiwass, Divine Spirit of the Law", GRAIL, "Invocation - \"Sword\"", "Invoked Sorath"],
         summoned: &["Invoked Mechaba", "Invoked Caliga"],
     });
+}
+
+#[test]
+#[cfg_attr(debug_assertions, ignore = "slow in debug: run with --release")]
+fn a_goal_card_is_not_sent_away_first() {
+    // Invoked Oceanus and S:P Little Knight on the field (the hands of the
+    // goals checked in docs/plans/ricerca-esperimenti.md, section 3). Aleister the Reminiscent's
+    // cost banishes an Invoked from the Extra Deck, Invocation banishes its
+    // Fusion Materials: the goal cards were picked first there too, as if
+    // picking them brought them closer, and no line kept them (0 of 4 hands
+    // in 60 s).
+    let Some(lab) = lab() else { return };
+    let hands: [&[&str]; 4] = [
+        &[
+            "Aleister the Reminiscent",
+            "Aleister the Invoker",
+            "Invocation - \"Sword\"",
+            "Ash Blossom & Joyous Spring",
+            "Crowley, the Gifted Magistus",
+        ],
+        &["Aleister the Reminiscent", "Mulcharmy Purulia", "Aiwass, Divine Spirit of the Law", "Ash Blossom & Joyous Spring", GRAIL],
+        &["Aleister the Reminiscent", "Crowley, the Gifted Magistus", "Invocation", "Super Polymerization", "Droll & Lock Bird"],
+        &[
+            "Aleister the Reminiscent",
+            "Invocation - \"Sword\"",
+            "Ash Blossom & Joyous Spring",
+            "Magical Meltdown",
+            "Crowley, the Gifted Magistus",
+        ],
+    ];
+    let goal = Goal::cards(&[lab.card("Invoked Oceanus"), lab.card("S:P Little Knight")], true, true);
+    for hand in hands {
+        let hand: Vec<u32> = hand.iter().map(|n| lab.card(n)).collect();
+        let (_, result) = lab.search_for(&hand, goal.clone());
+        assert_eq!(
+            result.stop,
+            Stop::GoalReached,
+            "{:?}\n{}",
+            hand.iter().map(|&c| lab.name(c)).collect::<Vec<_>>(),
+            lab.describe(&result)
+        );
+    }
 }
