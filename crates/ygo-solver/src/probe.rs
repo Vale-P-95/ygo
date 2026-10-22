@@ -821,16 +821,17 @@ pub struct ExpectedLoss {
 /// its six cards, a card of its Deck little, a card of its field like a
 /// destroyed monster.
 pub fn attrition(taken: &[(u32, u8)]) -> f64 {
-    taken
-        .iter()
-        .map(|&(_, from)| match from {
-            location::EXTRA => 0.04,
-            location::HAND => 0.15,
-            location::DECK => 0.01,
-            _ => 0.3,
-        })
-        .sum::<f64>()
-        + 0.0
+    taken.iter().map(|&(_, from)| taken_weight(from)).sum::<f64>() + 0.0
+}
+
+/// What a card of the opponent taken from `from` is worth ([`attrition`]).
+pub(crate) fn taken_weight(from: u8) -> f64 {
+    match from {
+        location::EXTRA => 0.04,
+        location::HAND => 0.15,
+        location::DECK => 0.01,
+        _ => 0.3,
+    }
 }
 
 /// The rest of the kit opponent's Extra Deck besides Link Spider: a Fusion
