@@ -219,7 +219,7 @@ pub(crate) fn chosen(db: &CardDb, decision: &Decision, offered: &[Action], answe
 }
 
 /// The chain links of your line so far, to tell who negates whom.
-#[derive(Default)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub(crate) struct Links {
     /// Your links by number (the opponent never answers on your turn).
     mine: HashMap<u32, Mechanic>,
