@@ -462,3 +462,42 @@ Nessun codice nella ricerca: misure e stime, per decidere.
   - il riuso dei duelli di oggi, che l'arena rende inutile: ogni ricerca riparte da una copia del duello appena preparato;
   - Windows: `VirtualAlloc`, e `GetWriteWatch` per le pagine sporche;
   - nessuna allocazione fuori arena durante un duello: da contare e controllare, come fa ygo-combo-solver.
+
+## B14: la valutazione delle board a gradini (22/10/2026, corsia 8)
+**Domanda.** Oggi l'app misura per intero le prime 30 board della stima della ricerca. Come si spende meno tempo senza perdere la board migliore? La proposta viene dagli esperimenti della corsia 7 (`ricerca-esperimenti.md` §1, sul branch `claude/research-lab`).
+
+**Cosa cambia.**
+- **Misura economica** (`Prober::measure_cheap` in `probe.rs`). Ogni risposta si prova solo alle prime 2 finestre in cui è offerta, invece che a 16, e si usa una volta sola: niente ciclo degli usi, niente breaker, né la risposta dell'avversario alla prima interruzione. `Parts` ha due campi in più, finestre e giri degli usi. La misura completa resta a 16 e 3, identica.
+- **Valore per il taglio:** campo + 0,9 · mano + 0,8 · floodgate, come nel composito ma senza resilienza né follow-up, che la misura economica non gioca.
+- **App** (`combo_score`, mano precisa):
+  1. le prime 40 board della ricerca, una per aspetto, hanno la misura economica;
+  2. le migliori 15 per il valore economico hanno la misura completa, con l'esposizione e il confronto con il deck scelto;
+  3. le altre restano visibili con il loro punteggio economico, segnato da `ScoreView.cheap` (`cheap?: boolean` in `api.ts`): niente breaker, follow-up, esposizione né confronto, e si mettono dopo quelle misurate per intero.
+
+  Le misure economiche non dipendono dal deck avversario, quindi restano valide quando lo si cambia. In «carta + resto» non cambia niente: tutte le board tenute hanno la misura completa.
+- **CLI:** `combos --staged` (e `combo_hunt.py --staged`) fa la stessa scala sui campi elencati: misura economica sui primi 40, misura completa sui migliori 15. Il JSON dice per ogni board in quale gradino si è fermata (`stage`) e dà il tempo di tutti i turni di prova (`probe_seconds`).
+
+**Protocollo.** `combo_hunt.py --hands 1 --seed 7` sui 41 deck MDM del 22/10, 4 processi in parallelo su 4 core, build release:
+- **A, oggi:** `--top 30`, misura completa delle prime 30;
+- **C, a gradini:** `--top 40 --staged`;
+- **B, riferimento:** `--top 40`, misura completa di tutte le 40, sul binario di `main`.
+
+Il valore è il composito della CLI (campo, mano, floodgate, resilienza, follow-up); il tempo è quello di tutti i turni di prova, esposizione compresa.
+
+| | A (oggi) | C (a gradini) |
+|---|---:|---:|
+| tempo dei turni di prova, 41 mani | 914 s | **653 s (71%)** |
+| mediana per mano del rapporto C/A | | 73% |
+| #1 identico ad A | | 37/41 |
+| #1 uguale o migliore di A | | **41/41** |
+| mani con un #1 peggiore di A oltre l'1% | | **0** |
+| valore del #1 rispetto ad A (media / peggiore) | | +0,6% / 0,0% |
+| top 3 con almeno 2 board su 3 in comune con A | | 35/41 |
+| #1 uguale al migliore di B (tutte le 40 misurate) | 35/41 | **38/41** |
+
+- In 3 mani la scala trova una board migliore di quella di oggi: Doomz +18,7%, White Forest Azamina +5,1%, Phantom Knights +1,3%. Sono board oltre la 30ª della stima (la 34ª, la 32ª, la 35ª), che oggi non si misurano. In Vampire il #1 è un'altra board di pari valore.
+- Le 3 mani dove il #1 di C non è il migliore di B (Branded, Paleozoic, R-B) hanno lo stesso #1 di oggi.
+- Le mani con la top 3 cambiata hanno il #1 uguale o migliore: cambiano il 2° e il 3° posto, perché le board misurate per intero sono 15 e non 30.
+- **La misura completa non cambia.** Delle board con lo stesso indice e la stessa firma in A (binario nuovo) e in B (binario di `main`), 1173 su 1174 hanno lo stesso valore. L'unica diversa (Phantom Knights, indice 15, follow-up 1 o 0) cambia anche con il solo binario di `main` tra `--top 30` e `--top 40`, quindi la differenza c'era già prima.
+- **Criterio di accettazione** (nessun #1 peggiore oltre l'1%, tempo almeno −25%): raggiunto, −29%. Il controllo del piano (−50%) richiederebbe la scala veloce, 20 → 10, che secondo la corsia 7 perde fino al 26% in una mano.
+- **I numeri sono della CLI, a un thread per mano.** Nell'app le board si misurano su tutti i core, ma il rapporto tra i tempi resta lo stesso, perché le due fasi sono parallele allo stesso modo. Nell'app vera il tempo non è stato misurato.
