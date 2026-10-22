@@ -667,6 +667,38 @@ Impermanence e Veiler restano sotto 0,30. Fermano gli effetti dei mostri sul cam
 - **Test di regressione «Reminiscent da sola»:** la board migliore ora è Hyperinvoked Aeon + Invoked Caliga + S:P Little Knight (Caliga 0,72 → 1,15, Mechaba 1,00). Caliga lascia a ogni giocatore un solo effetto di mostro per turno: contro linee in cui due attivazioni su tre sono di mostri, ferma più della negazione singola di Mechaba. Il test ora chiede Caliga con Aeon. L'attesa di prima veniva dalla misura di D2, non da un giudizio: va confermata con i giudizi del proprietario.
 - I numeri di PIANO §26 e quelli di C7–C8 non sono più confrontabili con quelli nuovi: tutte le coperture sono cambiate.
 
+### C10. D13, prima parte: il tuo turno dopo (22/10/2026)
+
+**La misura** (`probe.rs`, `Measure::follow_up`):
+- dopo la run del board breaker che toglie di più, la partita va avanti: l'avversario chiude il turno, tu peschi, e alla prima scelta libera della tua Main Phase si conta;
+- nella sua End Phase e nella tua Standby usi i trigger, non gli effetti rapidi, come nella tua End Phase;
+- `rebuild`: gli effetti attivabili dal Cimitero e dalle bandite, e le Evocazioni da lì (ogni carta ed effetto una volta). Quello che resta sul campo è già nella resilienza;
+- `gained`: le carte prese o Evocate dalla fine della sua Main Phase in poi, senza la pescata;
+- `probe-line --json` li scrive in `measure.follow_up`, il testo di `probe-line` e di `combos` li stampa.
+
+**Prove sulle coppie** (misure salvate, coefficienti nella misura composta delle coppie con il peso 0,4 del follow-up del profilo Bilanciato):
+
+| Variante | Sicure giuste / pari / al contrario | Da confermare |
+|---|---|---|
+| senza follow-up (D10) | 20 / 8 / 1 | 13 / 21 / 12 |
+| effetti anche dal campo, 0,3 l'uno, carte 0,5 | 21 / 4 / 4 | 18 / 10 / 18 |
+| effetti anche dal campo, 0,15 l'uno, carte 0,25 | 23 / 3 / 3 | 18 / 11 / 17 |
+| solo carte guadagnate, 0,5 | 19 / 6 / 4 | 14 / 19 / 13 |
+| **solo Cimitero e bandite, 0,3 l'uno** | **22 / 5 / 2** | 14 / 19 / 13 |
+
+Gli effetti dei mostri rimasti sul campo si sovrappongono alla resilienza: in J46 (Synchrons) la board B ne ha 9, quasi tutti di Synchro ancora in piedi. Le carte guadagnate peggiorano le coppie in ogni prova. Scelta:
+- nel punteggio (`score_view`), follow-up = starter + 0,5·estensori + **0,3 per effetto da Cimitero e bandite**;
+- le carte guadagnate si mostrano nella nota del follow-up ma non si pesano;
+- le risorse non contano più il Cimitero (B8): il Cimitero entra nel follow-up per quello che può ridare.
+
+**Controlli:**
+- banco della ricerca identico a D10 in tutti i 16 casi; il turno 3 si misura solo dopo la ricerca, che non lo usa;
+- test nuovo in `tests/probe.rs`: Glow-Up Bulb distrutta dal breaker ha un effetto per ripartire, un mostro Normale no.
+
+**Restano di D13:**
+- il costo nuovo (B8: carte bandite o mandate dal Deck come costo, mostri dell'Extra Deck spesi, LP pagati, invece delle carte della mano usate oltre la prima). Cambia il significato della metrica, e va fatto con il testo dell'interfaccia;
+- le finestre prima dei passi del kit (B9, `PRE`).
+
 ## 5. Parte D: ordine di implementazione
 
 Tutto si fa su un branch `claude/board-score`, con lock in `docs/TASKS.md` su `probe.rs`, `value.rs`, `search.rs`, `lib.rs` e `api.ts` passo per passo. Ogni passo deve:
