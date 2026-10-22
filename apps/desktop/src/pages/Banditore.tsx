@@ -66,11 +66,10 @@ type TabMode = "confronto" | "variazioni" | "impatto";
 
 export function getChangeType(before: string | null, after: string | null): { label: string; kind: "restriction" | "loosening" | "neutral" } {
   const order = (s: string | null) => {
-    if (!s) return 3;
-    const l = s.toLowerCase();
-    if (l.includes("forbid") || l.includes("proibit")) return 0;
-    if (l.includes("semi")) return 2;
-    if (l.includes("limit")) return 1;
+    const status = normalizeBanStatus(s);
+    if (status === "Forbidden") return 0;
+    if (status === "Limited") return 1;
+    if (status === "Semi-Limited") return 2;
     return 3;
   };
   const b = order(before);
@@ -271,6 +270,8 @@ export function Banditore({ artReady = true, onOpenDeckInForge }: Props) {
     const reqId = ++changesReqIdRef.current;
     setChangesLoading(true);
     setChangesError(null);
+    setChanges([]);
+    setChangesCardMap(new Map());
 
     const apiFormat = format === "all" ? undefined : format;
     api
@@ -835,10 +836,11 @@ export function Banditore({ artReady = true, onOpenDeckInForge }: Props) {
                         const afterLabel = change.after ? statusLabel(normalizeBanStatus(change.after)) : "Illimitata (3)";
 
                         return (
-                          <div
+                          <button
+                            type="button"
                             key={`${change.id}-${idx}`}
                             onClick={() => card && setViewerCard(card)}
-                            className="flex items-center gap-3 rounded-xl border border-border/80 bg-surface-2/40 hover:bg-surface-2 hover:border-sec/40 p-3 transition-all cursor-pointer group"
+                            className="flex items-center gap-3 rounded-xl border border-border/80 bg-surface-2/40 hover:bg-surface-2 hover:border-sec/40 p-3 transition-all cursor-pointer group text-left w-full"
                             title="Clicca per aprire nel Visore Carta"
                           >
                             <img
@@ -870,7 +872,7 @@ export function Banditore({ artReady = true, onOpenDeckInForge }: Props) {
                                 </span>
                               </div>
                             </div>
-                          </div>
+                          </button>
                         );
                       })}
                     </div>

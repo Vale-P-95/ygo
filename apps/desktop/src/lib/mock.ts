@@ -1178,10 +1178,6 @@ function searchCatalog(rawQuery: string): SearchResult {
       } else {
         // Without format, ban: follows the TCG list, matching ygo-data query parser
         if (!c.banTcg || !normalizedBans.includes(c.banTcg)) return false;
-
-
-
-
       }
     }
     if (filterKind && c.kind !== filterKind && c.frame !== filterKind) return false;
