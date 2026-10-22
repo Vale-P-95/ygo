@@ -5,8 +5,8 @@ import type { ComboScore } from "./api";
  * The score of a board: the metrics the probe turn measures, each times a
  * weight the player can change. Interruptions, floodgates and resilience
  * are in "interruptions" (1 = negating any activation once, without a
- * target); resources and follow-up in cards; cost in cards of the hand
- * beyond the first. A card in hand counts once: a measured handtrap in
+ * target); resources and follow-up in cards; cost in deck cards, extra deck monsters and LP spent beyond the hand.
+ * A card in hand counts once: a measured handtrap in
  * its metric, a starter or extender in the follow-up, any other card in
  * the resources, which weigh far less than an interruption. The exposure
  * counts the moments of the line where a handtrap stops it (Ash Blossom,
@@ -70,27 +70,30 @@ export const METRICS: Metric[] = [
   {
     key: "followup",
     label: "Follow-up",
-    hint: "Starter ed estensori rimasti in mano (dai ruoli del Laboratorio)",
+    hint: "Starter ed estensori rimasti in mano (dai ruoli del Laboratorio), ed effetti da Cimitero e bandite nel tuo turno dopo, dopo il board breaker peggiore (0,3 l'uno)",
     color: "var(--metric-followup)",
     explain: [
       "Starter ed estensori rimasti in mano: le carte per ripartire al turno dopo, se l'avversario smonta la board.",
       "I ruoli vengono dal Laboratorio (pannello Ruoli, «Riconosci»): uno starter vale 1, un estensore mezzo.",
+      "Conta anche gli effetti da Cimitero e bandite nel tuo turno dopo, dopo il board breaker peggiore (0,3 l'uno).",
     ],
   },
   {
     key: "resources",
     label: "Risorse",
-    hint: "Le altre carte rimaste in mano (non handtrap misurate, starter o estensori), e un po' il Cimitero",
+    hint: "Le altre carte rimaste in mano (non handtrap misurate, starter o estensori)",
     color: "var(--metric-resources)",
-    explain: ["Le altre carte rimaste in mano, e un po' le carte nel Cimitero. Pesano poco: una carta qualsiasi conta molto meno di un'interruzione."],
+    explain: ["Le altre carte rimaste in mano. Pesano poco: una carta qualsiasi conta molto meno di un'interruzione."],
   },
   {
     key: "cost",
     label: "Costo",
-    hint: "Carte della mano usate oltre la prima (peso negativo)",
+    hint: "Quello che la linea spende oltre alla mano: carte del Deck pagate come costo (0,05 l'una), mostri dell'Extra Deck finiti nel Cimitero o banditi (0,1 l'uno), LP pagati (1 ogni 4000) (peso negativo)",
     color: "var(--df-faint)",
     explain: [
-      "Quante carte della mano la linea usa oltre la prima. Toglie punti: a parità di board, è meglio la linea che usa meno carte e te ne lascia di più.",
+      "Quello che la linea spende oltre alla mano: carte del Deck pagate come costo (0,05 l'una), mostri dell'Extra Deck finiti nel Cimitero o banditi (0,1 l'uno), LP pagati (1 ogni 4000).",
+      "Le carte della mano rimaste contano già nelle altre voci.",
+      "Toglie punti: a parità di board, è meglio la linea che spende meno risorse e te ne lascia di più.",
     ],
   },
   {
