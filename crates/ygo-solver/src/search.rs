@@ -1902,10 +1902,26 @@ pub fn resume(
     run_workers(&shared, config.threads, &mut progress);
     let mut stop = shared.stop.lock().ok().and_then(|s| *s).unwrap_or(Stop::Exhausted);
     if stop != Stop::Cancelled {
+        // DUELFORGE_DEBUG_PHASES: when each phase after the search ends,
+        // against the time limit (the slow decks go past it there).
+        let phases = std::env::var_os("DUELFORGE_DEBUG_PHASES").is_some();
+        let phase = |name: &str| {
+            if phases {
+                eprintln!(
+                    "phase {name} done at {:.1} s (limit {:.1} s)",
+                    shared.start.elapsed().as_secs_f64(),
+                    config.time_limit.as_secs_f64()
+                );
+            }
+        };
+        phase("search");
         // What the last boards found teach, before the best ones are picked.
         learn_round(&shared, LEARN_LAST);
+        phase("learning");
         confirm_best(&shared);
+        phase("confirm_best");
         zone_variants(&shared);
+        phase("zone_variants");
     }
     let final_progress = shared.progress();
     progress(&final_progress);
