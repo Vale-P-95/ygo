@@ -2,8 +2,10 @@ import { useEffect, useState } from "react";
 import { cardImage, formatDate, isDesktop, type Deck, type DeckFormat, type DeckSummary, type Legality } from "../lib/api";
 import { FORMAT_LABELS } from "../lib/deck";
 import { sound } from "../lib/sound";
+import { Eye } from "lucide-react";
 import { EmblemIcon } from "./Emblems";
 import { Popover, useOutsideClose } from "./Popover";
+import { HelpPopover } from "./ui/HelpPopover";
 
 interface Props {
   deck: Deck;
@@ -25,6 +27,8 @@ interface Props {
   onUndo: () => void;
   onRedo: () => void;
   onFlash: (cards: number[]) => void;
+  inspectorOpen?: boolean;
+  onToggleInspector?: () => void;
 }
 
 export function DeckToolbar(p: Props) {
@@ -234,7 +238,45 @@ export function DeckToolbar(p: Props) {
             ))}
           </div>
         )}
-        <span className="ml-auto truncate text-[11px] text-faint"><span className="hidden xl:inline">Trascina le carte · </span>clic destro su una carta del deck per toglierla · Ctrl+Z annulla</span>
+        <div className="ml-auto flex items-center gap-2 shrink-0">
+          {p.onToggleInspector && (
+            <button
+              type="button"
+              className={`btn btn-ghost !py-1 !px-2.5 text-xs flex items-center gap-1.5 ${
+                p.inspectorOpen ? "text-sec font-semibold" : "text-muted"
+              }`}
+              onClick={p.onToggleInspector}
+              title="Ispettore carta (pannello laterale)"
+              aria-label="Attiva o disattiva ispettore carta"
+            >
+              <Eye size={14} className={p.inspectorOpen ? "text-sec" : "text-muted"} />
+              <span>Ispettore</span>
+            </button>
+          )}
+
+          <HelpPopover title="Comandi della Fucina" tooltip="Guida della Fucina" align="right">
+            <div className="flex flex-col gap-2.5 text-xs text-text/90">
+              <div>
+                <p className="font-semibold text-text">Gestione carte e deck</p>
+                <ul className="mt-1 list-disc pl-4 space-y-1 text-muted">
+                  <li><strong>Trascina:</strong> sposta le carte tra banco, Extra, Side e Catalogo.</li>
+                  <li><strong>Clic singolo:</strong> esamina e fissa la carta nell'Ispettore a sinistra.</li>
+                  <li><strong>Doppio clic:</strong> apri il visore a schermo intero con lente.</li>
+                  <li><strong>Clic destro nel deck:</strong> rimuovi la carta dal deck.</li>
+                  <li><strong>Trascina nel catalogo:</strong> rimuovi la carta dal deck.</li>
+                </ul>
+              </div>
+              <div className="border-t border-border/60 pt-2">
+                <p className="font-semibold text-text">Scorciatoie da tastiera</p>
+                <ul className="mt-1 list-disc pl-4 space-y-1 text-muted">
+                  <li><kbd className="rounded bg-surface-3 px-1 py-0.5 font-mono text-[11px]">Esc</kbd>: sblocca la carta fissata nell'Ispettore.</li>
+                  <li><kbd className="rounded bg-surface-3 px-1 py-0.5 font-mono text-[11px]">Ctrl+Z</kbd> / <kbd className="rounded bg-surface-3 px-1 py-0.5 font-mono text-[11px]">Ctrl+Y</kbd>: annulla / ripeti modifica.</li>
+                  <li><kbd className="rounded bg-surface-3 px-1 py-0.5 font-mono text-[11px]">Ctrl+F</kbd>: ricerca nel catalogo.</li>
+                </ul>
+              </div>
+            </div>
+          </HelpPopover>
+        </div>
       </div>
     </div>
   );

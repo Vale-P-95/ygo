@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { Eye } from "lucide-react";
+import { CardInspector } from "../components/CardInspector";
 import { CardPreview } from "../components/CardPreview";
 import { CardViewer } from "../components/CardViewer";
 import { Catalog } from "../components/Catalog";
@@ -9,6 +11,7 @@ import { DeckToolbar } from "../components/DeckToolbar";
 import { DeckZone } from "../components/DeckZone";
 import { SectionHeader } from "../components/SectionHeader";
 import { TestHand } from "../components/TestHand";
+import { SidePanel } from "../components/ui/SidePanel";
 import { api, cardImage, type Card, type DataStatus, type Deck, type DeckSummary, type Imported, type Legality } from "../lib/api";
 import { useCardCache } from "../lib/cards";
 import {
@@ -16,6 +19,7 @@ import {
   counts,
   craftCost,
   emptyDeck,
+  isExtraDeckCard,
   lastDeck,
   rememberDeck,
   removeAt,
@@ -27,6 +31,7 @@ import {
   type Zone,
 } from "../lib/deck";
 import { setDropHandler, type DragSource, type DropZone } from "../lib/drag";
+import { toggleFavorite, useFavorites } from "../lib/favorites";
 import { BUILTIN_ROLES } from "../lib/roles";
 import { useSettings } from "../lib/settings";
 import { sound } from "../lib/sound";
@@ -86,6 +91,18 @@ function DeckEditor({ onGoCombo }: { onGoCombo?: () => void }) {
   const [activeRole, setActiveRole] = useState<string | null>(null);
   const [guessing, setGuessing] = useState<{ done: number; total: number } | null>(null);
   const [previousRoles, setPreviousRoles] = useState<Record<string, number[]> | null>(null);
+  const favorites = useFavorites();
+  const [inspectorOpen, setInspectorOpen] = useState<boolean>(() => {
+    try {
+      const saved = localStorage.getItem("df_panel_forge_inspector");
+      if (saved !== null) return saved === "true";
+    } catch {
+      // Ignore storage error
+    }
+    return typeof window !== "undefined" ? window.innerWidth >= 1440 : true;
+  });
+  const [pinnedCardId, setPinnedCardId] = useState<number | null>(null);
+  const [hoveredCardId, setHoveredCardId] = useState<number | null>(null);
   const getCard = cards.get;
   const viewerCard = viewer ? getCard(viewer.id) : undefined;
   const viewerIndex = viewer ? viewer.list.indexOf(viewer.id) : -1;
@@ -100,6 +117,8 @@ function DeckEditor({ onGoCombo }: { onGoCombo?: () => void }) {
       idRef.current = stored.id;
       rememberDeck(stored.id);
       reset(stored);
+      setPinnedCardId(null);
+      setHoveredCardId(null);
       setActiveRole(null);
       setPreviousRoles(null);
       setSaveState("saved");
@@ -424,6 +443,8 @@ function DeckEditor({ onGoCombo }: { onGoCombo?: () => void }) {
     idRef.current = null;
     rememberDeck(null);
     reset(emptyDeck());
+    setPinnedCardId(null);
+    setHoveredCardId(null);
     setActiveRole(null);
     setPreviousRoles(null);
     setSaveState("idle");
@@ -464,7 +485,62 @@ function DeckEditor({ onGoCombo }: { onGoCombo?: () => void }) {
   const hoverCard = hover ? getCard(hover.id) : undefined;
   const themeArt = sectionById("deck-builder").themeCard!;
 
-  const zoneProps = { format: deck.format, getCard, invalid, fresh, highlighted, onRemove: remove, onHover: startHover, onHoverEnd: endHover };
+  const activeCardId = pinnedCardId ?? hoveredCardId;
+  const inspectorCard = activeCardId != null ? getCard(activeCardId) : undefined;
+
+  useEffect(() => {
+    if (activeCardId != null) {
+      requestCards([activeCardId]);
+    }
+  }, [activeCardId, requestCards]);
+
+  const handleCardSelect = useCallback((id: number) => {
+    sound.play("select");
+    setPinnedCardId(id);
+    setInspectorOpen(true);
+  }, []);
+
+  const handleUnpinCard = useCallback(() => {
+    sound.play("close");
+    setPinnedCardId(null);
+  }, []);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && pinnedCardId != null && !viewer && !dialog) {
+        setPinnedCardId(null);
+        sound.play("close");
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [pinnedCardId, viewer, dialog]);
+
+  const handleCardHover = useCallback(
+    (id: number, el: HTMLElement) => {
+      setHoveredCardId(id);
+      startHover(id, el);
+    },
+    [startHover],
+  );
+
+  const handleCardHoverEnd = useCallback(() => {
+    setHoveredCardId(null);
+    endHover();
+  }, [endHover]);
+
+  const zoneProps = {
+    format: deck.format,
+    getCard,
+    invalid,
+    fresh,
+    highlighted,
+    selectedId: pinnedCardId,
+    onSelect: handleCardSelect,
+    onRemove: remove,
+    onHover: handleCardHover,
+    onHoverEnd: handleCardHoverEnd,
+  };
 
   return (
     <div className="flex h-full flex-col">
@@ -494,10 +570,44 @@ function DeckEditor({ onGoCombo }: { onGoCombo?: () => void }) {
           redo();
         }}
         onFlash={flashCards}
+        inspectorOpen={inspectorOpen}
+        onToggleInspector={() => {
+          sound.play("toggle");
+          setInspectorOpen((v) => !v);
+        }}
       />
 
-      <div
-        data-deck-layout
+      <div className="flex min-h-0 flex-1 overflow-hidden">
+        <SidePanel
+          id="forge_inspector"
+          title="Ispettore"
+          icon={<Eye size={16} />}
+          position="left"
+          width={300}
+          overlayBelow={1440}
+          isOpen={inspectorOpen}
+          onToggle={setInspectorOpen}
+        >
+          <CardInspector
+            card={inspectorCard}
+            deck={deck}
+            pinned={pinnedCardId != null}
+            onUnpin={handleUnpinCard}
+            isFavorite={activeCardId != null ? favorites.has(activeCardId) : false}
+            onToggleFavorite={toggleFavorite}
+            onAddMainExtra={(c) => tryAdd(deckRef.current, c, isExtraDeckCard(c) ? "extra" : "main")}
+            onAddSide={(c) => tryAdd(deckRef.current, c, "side")}
+            onOpenViewer={(id) => {
+              const c = getCard(id);
+              const list = c && isExtraDeckCard(c) ? deck.extra : deck.main;
+              setViewer({ id, list: list.includes(id) ? list : [id] });
+            }}
+            onSearchArchetype={(q) => setQuery(q)}
+          />
+        </SidePanel>
+
+        <div
+          data-deck-layout
         className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_min(var(--catalog-w),55vw)]"
         style={{ "--catalog-w": `${settings.catalogWidth}px` } as CSSProperties}
       >
@@ -592,14 +702,17 @@ function DeckEditor({ onGoCombo }: { onGoCombo?: () => void }) {
           version={cards.version}
           onAdd={(id, _el, toSide) => tryAdd(deckRef.current, getCard(id), toSide ? "side" : null)}
           onOpen={(id, list) => setViewer({ id, list })}
-          onHover={startHover}
-          onHoverEnd={endHover}
+          onHover={handleCardHover}
+          onHoverEnd={handleCardHoverEnd}
           query={query}
           onQuery={setQuery}
+          selectedId={pinnedCardId}
+          onSelect={handleCardSelect}
         />
+        </div>
       </div>
 
-      {hover && hoverCard && !viewer && <CardPreview card={hoverCard} anchor={hover.rect} />}
+      {hover && hoverCard && !viewer && !inspectorOpen && <CardPreview card={hoverCard} anchor={hover.rect} />}
       {viewer && viewerCard && (
         <CardViewer
           card={viewerCard}

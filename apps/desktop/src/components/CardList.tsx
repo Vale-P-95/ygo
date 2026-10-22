@@ -23,6 +23,8 @@ interface Props {
   badgesFor?: (id: number) => TileBadge[];
   favorites?: Set<number>;
   onFavorite?: (id: number) => void;
+  selectedId?: number | null;
+  onSelect?: (id: number) => void;
 }
 
 function subtitle(card: Card): string {
@@ -34,7 +36,7 @@ function subtitle(card: Card): string {
 }
 
 /** Virtualized list of cards: thumbnail, name, type and stats on one row. */
-export function CardList({ ids, getCard, requestCards, version, onAdd, onOpen, onHover, onHoverEnd, dragFrom, badgesFor, favorites, onFavorite }: Props) {
+export function CardList({ ids, getCard, requestCards, version, onAdd, onOpen, onHover, onHoverEnd, dragFrom, badgesFor, favorites, onFavorite, selectedId, onSelect }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const virtualizer = useVirtualizer({
     count: ids.length,
@@ -67,8 +69,12 @@ export function CardList({ ids, getCard, requestCards, version, onAdd, onOpen, o
               role="button"
               tabIndex={0}
               aria-label={card?.name ?? "Carta"}
-              className="group absolute left-0 flex w-full cursor-grab items-center gap-2.5 overflow-hidden rounded-lg border border-transparent bg-surface-2/60 py-1 pr-2 pl-1 hover:border-border-strong hover:bg-surface-3"
+              aria-pressed={selectedId === id}
+              className={`group absolute left-0 flex w-full cursor-grab items-center gap-2.5 overflow-hidden rounded-lg border py-1 pr-2 pl-1 hover:border-border-strong hover:bg-surface-3 transition-colors ${
+                selectedId === id ? "border-sec ring-1 ring-sec bg-surface-3" : "border-transparent bg-surface-2/60"
+              }`}
               style={{ height: ROW, transform: `translateY(${item.start}px)` }}
+              onClick={() => onSelect?.(id)}
               onPointerEnter={(e) => onHover(id, e.currentTarget)}
               onPointerLeave={onHoverEnd}
               onPointerDown={(e) => pointerDownDraggable(e, { id, from: dragFrom })}
