@@ -10,7 +10,10 @@
 //! monster in the Extra Monster Zone and in a Main Monster Zone: Invoked
 //! Oceanus banishes what goes to the GY only from the first) and kept for
 //! the next searches with the same Deck. An Xyz Monster is put there with
-//! two materials to detach. Handtraps are measured in the hand alone, with
+//! two materials to detach, another Extra Deck monster as Summoned with
+//! materials that do nothing ([`generic_materials`]: Apollousa's ATK
+//! counts them), an Equip Spell on a monster that does nothing (when it
+//! can be equipped to it). Handtraps are measured in the hand alone, with
 //! your field empty and with a monster on it: some only work while you
 //! control no cards (Infinite Impermanence, the Mulcharmy). One that cannot
 //! even be used with your field is a dead card going first: discarding it
@@ -22,7 +25,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Mutex, OnceLock};
 
 use ygo_engine::consts::{card_type, location, position};
-use ygo_engine::{DeckList, DuelState, Engine, Placement};
+use ygo_engine::{generic_materials, DeckList, DuelState, Engine, Placement};
 
 use crate::probe::{Kit, Prober};
 
@@ -154,7 +157,7 @@ fn spots(engine: &Engine, deck: &DeckList) -> Vec<(u32, Spot)> {
             }
         } else if t & card_type::TRAP != 0 || t & card_type::QUICKPLAY != 0 {
             add(Spot::Set);
-        } else if t & (card_type::CONTINUOUS | card_type::FIELD) != 0 {
+        } else if t & (card_type::CONTINUOUS | card_type::FIELD | card_type::EQUIP) != 0 {
             add(Spot::FaceUp);
         }
     }
@@ -165,23 +168,28 @@ fn spots(engine: &Engine, deck: &DeckList) -> Vec<(u32, Spot)> {
 /// nothing, for Xyz Materials and for a field that is not empty).
 fn placement(engine: &Engine, code: u32, spot: Spot, filler: u32) -> Vec<Placement> {
     let t = engine.cards().get(code).map_or(0, |c| c.type_);
-    let at = |location, sequence, position| Placement { code, location, sequence, position, overlay: Vec::new() };
+    let at = |location, sequence, position| Placement::new(code, location, sequence, position);
     match spot {
         Spot::Main | Spot::Extra => {
             let mut p = at(location::MZONE, if spot == Spot::Main { 2 } else { 5 }, position::FACEUP_ATTACK);
             if t & card_type::XYZ != 0 {
                 p.overlay = vec![filler; 2];
+            } else {
+                p.materials = generic_materials(engine, code);
             }
             vec![p]
         }
         Spot::Set => vec![at(location::SZONE, 2, position::FACEDOWN_DEFENSE)],
         Spot::FaceUp if t & card_type::FIELD != 0 => vec![at(location::SZONE, 5, position::FACEUP_ATTACK)],
+        Spot::FaceUp if t & card_type::EQUIP != 0 => {
+            vec![Placement::new(filler, location::MZONE, 2, position::FACEUP_ATTACK), at(location::SZONE, 2, position::FACEUP_ATTACK)]
+        }
         Spot::FaceUp => vec![at(location::SZONE, 2, position::FACEUP_ATTACK)],
         Spot::Hand => Vec::new(),
         // A field and a GY as after a combo (Dimension Shifter needs an empty GY).
         Spot::HandWithField => vec![
-            Placement { code: filler, location: location::MZONE, sequence: 2, position: position::FACEUP_ATTACK, overlay: Vec::new() },
-            Placement { code: filler, location: location::GRAVE, sequence: 0, position: position::FACEUP_ATTACK, overlay: Vec::new() },
+            Placement::new(filler, location::MZONE, 2, position::FACEUP_ATTACK),
+            Placement::new(filler, location::GRAVE, 0, position::FACEUP_ATTACK),
         ],
     }
 }
