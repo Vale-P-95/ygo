@@ -70,7 +70,7 @@ impl Lab {
                         (location::SZONE, spells - 1, position::FACEUP_ATTACK)
                     }
                 };
-                Placement { code: self.code(name), location, sequence, position, overlay: Vec::new() }
+                Placement::new(self.code(name), location, sequence, position)
             })
             .collect();
         let kit = Kit::standard(&self.engine);
