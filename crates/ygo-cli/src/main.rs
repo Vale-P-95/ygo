@@ -127,11 +127,6 @@ enum Cmd {
         /// Write the lines of the boards listed to this JSON file (for probe-line).
         #[arg(long)]
         save_lines: Option<PathBuf>,
-        /// List a board for each look (field, hand and kind of zone), not
-        /// one for each field: every variant can be found by its cards
-        /// (scripts/board_pairs.py).
-        #[arg(long)]
-        every_look: bool,
     },
     /// Measure lines saved by `combos --save-lines` with the probe turn,
     /// without searching (the same boards before and after a change). The
@@ -321,7 +316,6 @@ fn main() -> Result<()> {
             probe,
             json,
             save_lines,
-            every_look,
         } => combos(
             &cli.data,
             &setup,
@@ -342,7 +336,6 @@ fn main() -> Result<()> {
                 probe: probe || json.is_some(),
                 json,
                 save_lines,
-                every_look,
             },
         ),
         Cmd::ProbeLine { setup, lines, index, json, vs, stops, moves, protection } => {
@@ -381,7 +374,6 @@ struct CombosOptions {
     probe: bool,
     json: Option<PathBuf>,
     save_lines: Option<PathBuf>,
-    every_look: bool,
 }
 
 fn combos(dir: &Path, setup: &Setup, options: CombosOptions) -> Result<()> {
@@ -402,7 +394,6 @@ fn combos(dir: &Path, setup: &Setup, options: CombosOptions) -> Result<()> {
         probe,
         json,
         save_lines,
-        every_look,
     } = options;
     let (engine, deck, hand) = start(dir, setup)?;
     let mut config = ygo_solver::SearchConfig::new(deck, hand);
@@ -517,7 +508,7 @@ fn combos(dir: &Path, setup: &Setup, options: CombosOptions) -> Result<()> {
     // each are measured and the best measured one is shown.
     let mut groups: Vec<(u64, Vec<&ygo_solver::Board>)> = Vec::new();
     for board in &result.boards {
-        let key = if every_look { ygo_solver::look_key(&board.state) } else { ygo_solver::search::field_key(&board.state) };
+        let key = ygo_solver::search::field_key(&board.state);
         let open = groups.len() < top;
         match groups.iter_mut().find(|(k, _)| *k == key) {
             Some((_, g)) => g.push(board),
@@ -540,7 +531,7 @@ fn combos(dir: &Path, setup: &Setup, options: CombosOptions) -> Result<()> {
     for (_, group) in &groups {
         let variants = group.len() - 1;
         let mut best: Option<Listed> = None;
-        for &board in group.iter().take(if probe && !every_look { MEASURED_VARIANTS } else { 1 }) {
+        for &board in group.iter().take(if probe { MEASURED_VARIANTS } else { 1 }) {
             let mut item = Listed { board, variants, measured: None, took: std::time::Duration::ZERO, exposure: None, loss: None };
             if probe {
                 let started = std::time::Instant::now();
