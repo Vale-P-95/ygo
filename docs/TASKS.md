@@ -48,6 +48,13 @@ Corsie di lavoro in parallelo del 22/10/2026 (piano in `docs/plans/piano-prossim
   - [x] `loss_h`, il termine di Maxx "C" e Mulcharmy, `p_h` dalle liste e una tabella di default per l'app.
   - [x] `E` nel punteggio (`score_view`), tutte le board misurate, cache; contratto `lib.rs` ↔ `api.ts`; testo per Gemini.
   - [x] Banco, caccia, tempo per board (numeri in `docs/plans/esposizione.md`); le coppie non si riproducono con le liste del 22/10: da rifare con la cartella delle coppie del coordinatore.
+- [ ] **Corsia 7.** Esperimenti di ricerca, senza codice del motore o della ricerca (`docs/plans/ricerca-piano-critico.md`): gradini di misura per B14, taratura della stima in stile Texel (preparazione di B9), controllo esterno con ygo-combo-solver sul caso Invoked, bibliografia (§7 di `ricerca-letteratura.md`).
+
+  Agente: claude-code, sessione sorella di ricerca. Branch: `claude/research-lab`. File: script nuovi in `scripts/research/`, `docs/plans/ricerca-esperimenti.md`, aggiunte a `docs/plans/ricerca-letteratura.md`, fixture piccole in `tests/fixtures/research/`, `.gitignore` (solo cartelle di lavoro della ricerca).
+  - [ ] 1. Gradini di misura per B14.
+  - [ ] 2. Taratura della stima (Texel).
+  - [ ] 3. Controllo con ygo-combo-solver.
+  - [ ] 4. Bibliografia.
 - [x] **Corsia 6.** Probabilità della mappa dei collegamenti: una `chance` che distingua le carte e sia vicina al vero (misurata su mani cercate), senza saturazione. Fatto, in attesa della PR (la apre la coordinatrice): errore medio contro 200 mani a caso da 0,344 a 0,059 su 6 deck; carte a ≥ 0,99 sui 41 deck da 29 + 20 a 6 + 2; nessun collegamento perso; ricerca delle combo invariata. Numeri e cosa resta aperto in `docs/plans/mappa-collegamenti.md`, «Probabilità misurata sulle mani cercate».
 
   Agente: claude-code, sessione sorella della mappa. Branch: `claude/links-chance`. File: `crates/ygo-solver/src/links.rs` e i suoi test, la parte `links` di `crates/ygo-cli/src/main.rs`, `Rng` di `crates/ygo-solver/src/card.rs` (solo la visibilità), script nuovi miei in `scripts/` (`links_chance.py`) e il default di `links_report.py`, `docs/plans/mappa-collegamenti.md`, `tests/fixtures/links/`; solo i commenti di `LinkCard` in `apps/desktop/src-tauri/src/lib.rs` e `apps/desktop/src/lib/api.ts` (nessun campo nuovo). Lock tolto.
