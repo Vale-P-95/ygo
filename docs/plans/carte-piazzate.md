@@ -28,7 +28,9 @@ Avere i materiali non basta: Apollousa fissa il suo ATK quando viene Evocata. Co
 
 Gli effetti a innesco (opzionali o obbligatori) no: li ha già usati la linea che ha fatto la board.
 
-Quando i materiali veri non si sanno, `generic_materials` dà materiali generici validi: tanti quanto il Link Rating per un Mostro Link, due per gli altri, Mostri Normali con nomi diversi. `card-values` li usa: Apollousa piazzata ha 3200 ATK invece di 0.
+Quando i materiali veri non si sanno, `generic_materials` dà materiali generici validi: tanti quanto il Link Rating per un Mostro Link, due per gli altri, Mostri Normali con nomi diversi. `card-values` li usa, banditi: Apollousa piazzata ha 3200 ATK invece di 0.
+
+Perché banditi: nel Cimitero sarebbero bersagli per le giocate dell'avversario. Col kit della #41, Bystial Magnamhut bandisce un mostro LUCE da uno dei due Cimiteri, e i materiali generici di Invoked Oceanus erano mostri LUCE. Con loro nel Cimitero il blocco di Oceanus scendeva da 0,26 a 0,08 e falliva `tests/invoked.rs`. Banditi, il Cimitero resta vuoto come per ogni altra carta misurata.
 
 Limite rimasto: gli effetti «se usato come materiale» delle carte materiale non si giocano (vogliono la carta Evocata come `GetReasonCard`, che dal Lua non si imposta).
 
@@ -90,3 +92,20 @@ Prima queste carte perdevano contro la board ricreata con un'Evocazione Normale 
 Controllo del meccanismo, su yubel: senza estensore, la continuazione dello starter (Samsara D Lotus) ritrova la stessa stima della sua linea (12,39). Con Super Polymerization in mano sale a 12,99, con Eternal Favorite a 13,39.
 
 Tempi di `roles`: da 7–21 s a 6–46 s per deck. Il massimo è tearlaments: la ricerca riparte da una linea lunga, e ogni nodo la rigioca.
+
+## Dopo il merge di `main` con la #41 (D10, kit nuovo)
+Confronto con `main` a 4453996.
+- **`card-values` su 87 deck.** Oltre alle Magie Equipaggiamento nuove (che valgono 0) cambia solo **Bystial Dis Pater**, da 0,19 a 0,24.
+  - Psychic Blaster Mk-II resta a 0 come su `main`: i materiali banditi non pagano il suo costo dal Cimitero.
+  - I numeri della prima versione qui sopra (Psychic Blaster 0,32, psychics-0 nella caccia) valgono per i materiali nel Cimitero e non più.
+- **`roles` su 12 deck.**
+
+  | | `main` | questo branch |
+  |---|---|---|
+  | starter | 83 | 83 |
+  | estensori | 43 | 26 |
+  | mattoni | 17 | 22 |
+
+  Per deck: branded 6 → 3, code_talker 5 → 3, maliss 2 → 0, mitsurugi_yummy 0 → 1, phantom_knights 3 → 2, ryu_ge 1 → 2, sky_striker 2 → 4, snake_eye 11 → 3, tearlaments 7 → 5, white_forest_azamina 1 → 3, yubel 5 → 0; invoked resta a 0.
+- **Banco.** Non rifatto. Le mani del banco hanno gli stessi valori delle carte su `main` e qui, quindi le ricerche sono le stesse.
+- **Test.** `cargo test --release` dei cinque crate, con `search_regression`: tutti verdi. Clippy pulito.
