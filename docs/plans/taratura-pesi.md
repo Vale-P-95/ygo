@@ -54,3 +54,10 @@
 
 ## Richiesta a Gemini
 In `docs/TASKS.md`, sezione «Interfaccia (Gemini)»: i pesi dell'esposizione in `scoring.ts`, più la conversione dei pesi salvati e un test Vitest.
+
+
+## Implementazione (Gemini, branch `gemini/exposure-weights`)
+- Pesi `exposure` in `PROFILES`: Bilanciato −0,5, Più negazioni −0,4, Controllo e floodgate −0,4, A prova di breaker −0,6, Risorse e follow-up −0,3, Linee sicure −1,0.
+- Migrazione `loadChoice()` / `migrateLegacyWeights`: moltiplicazione per 12,5 se |exposure| < 0,2 e > 0.
+- Test Vitest per la migrazione e per l'ordinamento di board con diversa esposizione.
+- Testo di aiuto aggiornato in `METRICS`.
