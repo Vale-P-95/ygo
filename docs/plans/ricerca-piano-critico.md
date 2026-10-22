@@ -86,10 +86,15 @@
   - Dal pilota, una mano a 40 000 nodi prende da 5 s a 6,5 minuti; a 200 000 nodi va da qualche minuto a mezz'ora.
 
 ### A1b. Oltre i limiti dell'oracolo (corsia 6, dopo il giro vero; il livello 2 con la corsia 3)
-L'oracolo ha tre limiti:
+L'oracolo è uno strumento di sviluppo, non una parte dell'app.
+- Serve a controllare che il motore trovi da solo le linee più forti di **qualunque** deck, anche uno appena montato con carte appena uscite.
+- Non usa nomi di carte: è la stessa ricerca con più budget, quindi vale per ogni deck.
+- I deck del banco sono solo un campione vario di meccaniche. Quando le liste del meta cambiano, non si rifà niente.
+
+Ha due limiti, più un rischio:
 - è la board migliore *trovata* con molto budget, non per forza la migliore che esiste;
 - le sue board valgono quanto la misura, quindi ne eredita le cecità;
-- le liste di Master Duel Meta cambiano.
+- il rischio è adattare il motore ai deck del banco invece di renderlo generale.
 
 Quattro passi, in quest'ordine.
 
@@ -103,10 +108,11 @@ Quattro passi, in quest'ordine.
    - Una mano il cui valore non cresce più da 50× a 200× ha il tetto stabile.
    - Le altre si segnano «provvisorie» nella fixture, e `measure` le riporta a parte.
    - **Controllo:** la quota di mani stabili. Se è sotto l'80%, il giro vero passa a 100×.
-3. **Corsa incrementale.** `oracle.py build --changed-only` confronta l'impronta delle liste (`deck_hash`) e rifà solo le mani dei deck cambiati.
-   - Un'attività programmata nel cloud, per esempio settimanale, scarica le liste, rifà i deck cambiati e apre una PR con le fixture nuove.
-   - Le liste non si committano.
-   - **Controllo:** una lista modificata a mano rifà solo le sue mani.
+3. **Generalità: deck mai visti.** Ogni modifica si giudica anche su deck che non hanno guidato il lavoro, come in D17 (70% per tarare, 30% per verificare).
+   - Quando escono archetipi nuovi, i loro deck entrano come casi di prova nuovi. Le fixture dei deck vecchi restano come sono.
+   - Se una lista cambia, le sue mani si saltano (`deck_hash`) e non si ricalcola niente.
+   - Su un deck nuovo bastano poche mani con un oracolo breve, per vedere se la ricerca normale ci arriva vicino quanto sui deck noti.
+   - **Controllo:** sui deck tenuti da parte, la quota del valore dell'oracolo raggiunta dalla ricerca normale non è più bassa di oltre 5 punti rispetto ai deck usati per lavorare. Se lo è, la modifica è adattata al banco e non generale.
 4. **Più avanti, dopo l'arena nel turno di prova (B13).**
    - **Ricerca esaustiva sulle mani piccole:** senza potature e con le trasposizioni, fino a un tetto di nodi. Dove finisce, il migliore è certo e misura quanto ci arriva l'oracolo.
    - **Secondo cercatore indipendente:** ygo-combo-solver, con la stessa versione del core e degli script. Una board migliore della nostra abbassa il tetto e dà la linea da rigiocare, come per B4a.
