@@ -10,8 +10,8 @@ Corsie di lavoro in parallelo del 22/10/2026 (piano in `docs/plans/piano-prossim
 
   Agente: claude-code (coordinatore). Branch: `claude/yugioh-deck-builder-simulator-cax0ya`. File: `crates/ygo-solver/src/probe.rs`, `matchup.rs`, `lib.rs`, `tests/matchup.rs`, `crates/ygo-cli/src/main.rs`. Per L5 anche `apps/desktop/src-tauri/src/lib.rs` e `apps/desktop/src/lib/api.ts`: si prendono solo quando servono, controllando che la corsia 2 non li tenga.
 - [ ] **Corsia 2.** Deck lenti (piano P3):
-  - un giro su 37 deck × 6 mani a 1000 nodi, con il tempo oltre il limite per fase;
-  - poi la scadenza anche per `zone_variants` (si perdono solo varianti di zona) e per `confirm_best` (le board non confermate restano stimate, `exact: false`), con il banco prima e dopo.
+  - [x] un giro su 37 deck × 6 mani a 1000 nodi, con il tempo oltre il limite per fase (fatto su 41 deck; più un giro a 20 s senza limite di nodi; numeri in `docs/plans/velocita-ricerca.md`);
+  - [x] poi la scadenza anche per `zone_variants` (si perdono solo varianti di zona) e per `confirm_best` (le board non confermate restano stimate, `exact: false`), con il banco prima e dopo.
 
   Dopo: il backend del Banditore v2, cioè gli stati delle carte prima dell'ultima lista, salvati a ogni aggiornamento (`ygo-data`, poi `lib.rs` e `api.ts`, presi solo se la corsia 1 non li tiene).
 
