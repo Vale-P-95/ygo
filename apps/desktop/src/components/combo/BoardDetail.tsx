@@ -216,7 +216,7 @@ export function BoardDetail({ board, score, scoring, weights, hand, steps, steps
         <h3 className="text-sm font-semibold">Il punteggio</h3>
         {score ? (
           <>
-            <ScoreBreakdown s={score} weights={weights} getCard={getCard} onHover={onHover} onHoverEnd={onHoverEnd} />
+            <ScoreBreakdown s={score} weights={weights} getCard={getCard} onHover={onHover} onHoverEnd={onHoverEnd} board={board} />
             {score.matchup && !score.matchup.error && (
               <RivalMoves
                 board={board}
