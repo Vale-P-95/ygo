@@ -689,6 +689,7 @@ fn state_json(
             "hand": m.hand_value,
             "floodgates": m.floodgate_value,
             "resilience": m.resilience,
+            "follow_up": m.follow_up.map(|f| serde_json::json!({ "rebuild": f.rebuild, "gained": f.gained })),
             "floodgate_list": m.floodgates.iter().map(|p| p.label()).collect::<Vec<_>>(),
             "offered": m.offered.iter().map(|&(c, l)| serde_json::json!([c, l])).collect::<Vec<_>>(),
             "interruptions": m.interruptions.iter().map(|i| serde_json::json!({
@@ -1053,6 +1054,9 @@ fn print_measure(engine: &Engine, m: &ygo_solver::Measure, took: std::time::Dura
         m.floodgate_value,
         m.resilience
     );
+    if let Some(f) = m.follow_up {
+        println!("   your next turn, after the worst breaker: {} effects to rebuild with · {} cards gained", f.rebuild, f.gained);
+    }
     for i in &m.interruptions {
         let covers: Vec<&str> = i.covers.iter().map(|p| p.label()).collect();
         let shared = if i.value < i.alone { format!(" (alone {:.2})", i.alone) } else { String::new() };

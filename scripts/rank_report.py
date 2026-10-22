@@ -24,7 +24,7 @@ import statistics
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from bench import WEIGHTS  # noqa: E402  (one place for the weights of the composite)
+from bench import WEIGHTS, follow_up_value  # noqa: E402  (one place for the weights of the composite)
 
 ZONE = re.compile(r" \[EMZ\]")
 
@@ -33,7 +33,7 @@ def composite(board):
     m = board.get("measure")
     if not m:
         return None
-    return sum(w * m[k] for w, k in zip(WEIGHTS, ("field", "hand", "floodgates", "resilience")))
+    return sum(w * m[k] for w, k in zip(WEIGHTS, ("field", "hand", "floodgates", "resilience"))) + follow_up_value(m)
 
 
 def field_key(board):

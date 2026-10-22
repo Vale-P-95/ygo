@@ -670,6 +670,8 @@ struct Context<'a> {
     /// What each of your responders is worth alone (by code): of two that
     /// can pay a cost, the one worth less pays.
     worth: Option<&'a HashMap<u32, f64>>,
+    /// Once the opponent is done, play on to your next Main Phase.
+    turn_three: bool,
 }
 
 /// A moment you could respond, and with what.
@@ -704,6 +706,7 @@ struct RunTrace {
     windows: Vec<Window>,
     uses: Vec<Use>,
     state: DuelState,
+    follow_up: Option<FollowUp>,
 }
 
 /// Follows the events of a run to tell what each use of the responder did.
@@ -1027,6 +1030,21 @@ pub struct Measure {
     /// opponent's turn, and where (a handtrap missing here cannot be used
     /// with this board: the Mulcharmy only while you control no cards).
     pub offered: Vec<(u32, u8)>,
+    /// What you have for your next turn after the breaker that takes away
+    /// the most (none if the run could not get there).
+    pub follow_up: Option<FollowUp>,
+}
+
+/// Your next turn, after the opponent's: the board breaker that takes away
+/// the most played, then its End Phase and your Draw and Standby Phases.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct FollowUp {
+    /// Effects you can activate at the start of your Main Phase from the GY
+    /// or banishment, and summons from there (each card and effect once).
+    pub rebuild: usize,
+    /// Cards added to your hand and monsters summoned since the end of the
+    /// opponent's Main Phase, your draw aside.
+    pub gained: usize,
 }
 
 impl<'a> Prober<'a> {
@@ -1142,7 +1160,7 @@ impl<'a> Prober<'a> {
         }
         let debug = std::env::var_os("DUELFORGE_DEBUG_PROBE").is_some();
         let known: HashSet<ResponderId> = offered.iter().map(|(id, _, _)| *id).collect();
-        let follow = Context { known: Some(&known), worth: None };
+        let follow = Context { known: Some(&known), ..Context::default() };
         // What a step needs: a probe lost only because the one it needs was
         // stopped is not stopped again (negating Foolish Burial is not also
         // stopping Glow-Up Bulb's effect from the GY).
@@ -1234,7 +1252,7 @@ impl<'a> Prober<'a> {
                 let w = worth.entry(i.responder.code).or_default();
                 *w = w.max(i.alone);
             }
-            let context = Context { known: None, worth: Some(&worth) };
+            let context = Context { worth: Some(&worth), ..Context::default() };
             if let Ok(run) = self.run_with(prelude, &all_steps, Policy::UseAll(&order), context) {
                 for i in &mut interruptions {
                     let used = run.uses.iter().filter(|u| u.responder == i.responder).count() as u32;
@@ -1253,6 +1271,7 @@ impl<'a> Prober<'a> {
         let breakers = if parts.breakers { self.breakers(prelude, &interruptions, &self.kit.breakers) } else { Vec::new() };
         let weights: f64 = breakers.iter().map(|b| b.weight).sum();
         let resilience = if weights > 0.0 { breakers.iter().map(|b| b.weight * b.remaining).sum::<f64>() / weights } else { total };
+        let follow_up = if parts.breakers { self.follow_up(prelude, &interruptions, &breakers) } else { None };
 
         let hand_value = interruptions.iter().filter(|i| i.location == location::HAND).map(|i| i.value).sum::<f64>() + 0.0;
         let mut offered: Vec<(u32, u8)> = all.windows.iter().flat_map(|w| w.options.iter().map(|(id, loc)| (id.code, *loc))).collect();
@@ -1267,6 +1286,7 @@ impl<'a> Prober<'a> {
             breakers,
             resilience,
             offered,
+            follow_up,
         })
     }
 
@@ -1322,7 +1342,7 @@ impl<'a> Prober<'a> {
             *at += 1;
         }
         let known: HashSet<ResponderId> = offered.iter().map(|(id, _, _)| *id).collect();
-        let follow = Context { known: Some(&known), worth: None };
+        let follow = Context { known: Some(&known), ..Context::default() };
         let none = HashSet::new();
         let mut interruptions = Vec::new();
         for (id, loc, windows) in &offered {
@@ -1448,6 +1468,68 @@ impl<'a> Prober<'a> {
             + 0.0
     }
 
+    /// Your next turn after the board breaker that took away the most
+    /// (`results` are the breakers' runs, in the kit's order), or after an
+    /// opponent who only ends its turn if none could be played.
+    fn follow_up(&self, prelude: Prelude, interruptions: &[Interruption], results: &[BreakerResult]) -> Option<FollowUp> {
+        let worst = self
+            .kit
+            .breakers
+            .iter()
+            .zip(results)
+            .filter(|(_, r)| !r.not_applicable)
+            .min_by(|(_, a), (_, b)| a.remaining.total_cmp(&b.remaining))
+            .map(|(b, _)| b);
+        let targets: Vec<u32> = interruptions.iter().filter(|i| i.location == location::MZONE).map(|i| i.responder.code).collect();
+        let mut owned = worst.map(|b| b.steps.clone()).unwrap_or_default();
+        for s in &mut owned {
+            s.picks = targets.clone();
+        }
+        let steps: Vec<&KitStep> = owned.iter().collect();
+        let context = Context { turn_three: true, ..Context::default() };
+        self.run_with(prelude, &steps, Policy::Pass, context).ok()?.follow_up
+    }
+
+    /// From the opponent's End Phase to your next Main Phase: you use your
+    /// triggers, not your quick effects (as in your own End Phase), and the
+    /// opponent only passes. `idle_effects` are those you could activate at
+    /// the end of your first turn.
+    fn turn_three(&self, duel: &mut Duel, idle_effects: &HashSet<(u32, u64)>) -> Result<Option<FollowUp>, Error> {
+        const DRAW: u32 = 0x200_0000;
+        let mut gained = 0;
+        for _ in 0..2000 {
+            if self.out_of_time() {
+                return Err(Error::Engine("the probe turn ran out of time".to_owned()));
+            }
+            let (decision, events) = match duel.advance()? {
+                Step::Decision { decision, events } => (decision, events),
+                Step::End { .. } => return Ok(None),
+            };
+            for e in &events {
+                if let Event::Move { from, to, reason, .. } = e {
+                    let added = to.location == location::HAND && from.location != location::HAND && reason & DRAW == 0;
+                    let summoned = to.location == location::MZONE && from.location != location::MZONE;
+                    gained += usize::from(to.controller == 0 && (added || summoned));
+                }
+            }
+            let actions = duel.actions(&decision);
+            match decision {
+                Decision::IdleCmd { player: 0, activatable, special_summonable, .. } => {
+                    // What is still on the field is the resilience's: here,
+                    // what comes back from the GY and banishment.
+                    let away = |c: &CardRef| matches!(c.location, location::GRAVE | location::REMOVED);
+                    let mut effects: HashSet<(u32, u64)> =
+                        activatable.iter().filter(|a| away(&a.card)).map(|a| (a.card.code, a.description)).collect();
+                    effects.extend(special_summonable.iter().filter(|c| away(c)).map(|c| (c.code, 0)));
+                    return Ok(Some(FollowUp { rebuild: effects.len(), gained }));
+                }
+                _ if decision.player() == Some(1) => duel.respond(&end_turn(&decision, &actions)),
+                _ => duel.respond(&end_phase_answer(&decision, &actions, idle_effects)),
+            }
+        }
+        Ok(None)
+    }
+
     /// Plays your turn, then the opponent's steps, answering as `policy` says.
     fn run(&self, prelude: Prelude, steps: &[&KitStep], policy: Policy) -> Result<RunTrace, Error> {
         self.run_with(prelude, steps, policy, Context::default())
@@ -1466,8 +1548,13 @@ impl<'a> Prober<'a> {
             Prelude::Own(answers) => answers.iter(),
             Prelude::EndAtOnce | Prelude::Placed(_) => NO_ANSWERS.iter(),
         };
-        let mut trace =
-            RunTrace { steps: vec![StepRun::default(); steps.len()], windows: Vec::new(), uses: Vec::new(), state: DuelState::default() };
+        let mut trace = RunTrace {
+            steps: vec![StepRun::default(); steps.len()],
+            windows: Vec::new(),
+            uses: Vec::new(),
+            state: DuelState::default(),
+            follow_up: None,
+        };
         let mut observer = Observer::default();
         let mut next = 0usize;
         let mut current: Option<(usize, Piles)> = None;
@@ -1623,6 +1710,10 @@ impl<'a> Prober<'a> {
                             if let Some((j, before)) = current.take() {
                                 self.finish(&mut trace.steps[j], steps[j], &before, &Piles::of(&duel), &observer);
                             }
+                            if context.turn_three {
+                                duel.respond(&end_turn(&decision, &actions));
+                                trace.follow_up = self.turn_three(&mut duel, &idle_effects)?;
+                            }
                             complete = true;
                             break;
                         }
@@ -1673,6 +1764,10 @@ impl<'a> Prober<'a> {
                                 duel.respond(&answer);
                             }
                             None => {
+                                if context.turn_three {
+                                    duel.respond(&end_turn(&decision, &actions));
+                                    trace.follow_up = self.turn_three(&mut duel, &idle_effects)?;
+                                }
                                 complete = true;
                                 break;
                             }
