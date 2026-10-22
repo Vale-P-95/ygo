@@ -15,22 +15,24 @@
 
 ## Due difetti diversi
 1. **La misura non vede il valore di Aeon a 3 materiali.** Il turno di prova conta quello che la board ferma nel turno avversario. Le carte bandite dall'Extra Deck avversario, e in generale i bonus che dipendono dal numero di materiali, non entrano nel punteggio. Quindi anche una ricerca perfetta non ha motivo di preferire la linea a 3 materiali. È lo stesso tipo di cecità dei giudizi del proprietario (`tests/fixtures/boards/owner-verdicts.tsv`): carte che cambiano la partita e valgono 0 nella misura.
-2. **La ricerca spende nodi e tempo dove non serve.** Non sappiamo ancora quanto né dove: va misurato prima di correggere. Le correzioni passate (#46, §29.4; velocità, `docs/plans/velocita-ricerca.md`) hanno tolto mosse inutili e reso il motore più veloce, ma nessuno ha misurato quanti nodi di una ricerca portano davvero alla board migliore.
+2. **La ricerca spende nodi e tempo dove non serve.** Non sappiamo ancora quanto né dove: va misurato prima di correggere. Le correzioni passate (#46, §29.4; velocità, `docs/plans/velocita-ricerca.md`) hanno tolto mosse inutili e reso il motore più veloce, ma nessuno ha misurato quanti nodi di una ricerca portano davvero alla board migliore, né quanto la board trovata è lontana dalla migliore possibile.
 
 ## Fase A: misurare (prima di toccare la ricerca)
-### A1. Linee di riferimento
-Un banco di linee note e forti, con la loro board finale. È il metro: una ricerca è buona se le ritrova, presto, e le mette in cima.
-- **Fonti:**
-  - le linee che il proprietario conosce dalle guide (gli chiediamo mano iniziale, passi principali e board finale; i video non sono leggibili dal container);
-  - le guide scritte di Master Duel Meta;
-  - le linee del video Invoked (§29.2).
-- **Formato:** `tests/fixtures/lines/<deck>-<nome>.json` con mano, Deck, board finale attesa (carte e zone, senza testi) e passi chiave. Si confrontano le carte, non l'ordine esatto dei passi.
-- **Misure per ogni linea:**
-  - la board attesa è trovata?
-  - dopo quanti nodi e secondi?
-  - in che posizione della classifica?
-  - nella ricerca per obiettivo, la linea trovata è forte come quella attesa?
-- **Uno strumento che rigioca la linea attesa passo per passo** (`probe-line` o un comando nuovo). Serve a sapere se il motore la sa giocare: se no, il problema è nel motore o nelle risposte automatiche, non nella ricerca.
+### A1. Riferimenti automatici: l'oracolo
+Il motore deve trovare da solo le linee forti: il proprietario non scrive combo, e i riferimenti non possono dipendere da lui. Il metro si costruisce in automatico.
+- **L'oracolo.** Per un insieme fisso di mani si lancia la stessa ricerca con un budget enorme, per esempio 50-100 volte i nodi, più semi e più thread, anche per ore, di notte. Si tengono le board migliori trovate e la loro misura.
+  - Le mani: le 16 del banco, le 82 di `combo_hunt --seed 7`, e le ricerche per obiettivo con obiettivi presi dalle board forti di quei deck (ad esempio una board Invoked con Oceanus nella Zona Mostri Extra e S:P).
+- **La forza vera delle board dell'oracolo** viene dal banco oggettivo (livello 2 contro il meta), non solo dalla stima rapida.
+- **Formato:** `tests/fixtures/oracle/<deck>-<mano>.json`, con mano, board migliori (carte e zone, senza testi), misura e linea.
+- **Misure per ogni mano**, con la ricerca normale:
+  - dopo quanti nodi e secondi arriva al 90%, al 95% e al 100% del valore dell'oracolo;
+  - se trova la board dell'oracolo e in che posizione la mette;
+  - nella ricerca per obiettivo, quanto è forte la linea trovata rispetto alla migliore che raggiunge lo stesso obiettivo.
+- **Quando l'oracolo stesso non arriva a una board** (ad esempio Aeon a 3 materiali), si capisce perché rigiocando i passi con lo strumento che rigioca una linea:
+  - un'azione che il motore non offre;
+  - una risposta automatica sbagliata;
+  - una potatura che taglia il ramo.
+  Sono difetti del motore o della ricerca, da correggere in modo generale.
 
 ### A2. Dove va il lavoro della ricerca
 Strumentazione dietro una variabile d'ambiente: senza la variabile la ricerca non cambia. Per ogni ricerca del banco e delle linee A1 conta:
@@ -46,7 +48,7 @@ Risultato atteso: una tabella che dice quali sono i tre sprechi più grandi, in 
 ## Fase B: correggere (in ordine di quanto spreco toglie)
 Ogni correzione è generale: niente nomi di carte. Segue il protocollo del motore (`AGENTS.md`):
 - banco, `combo_hunt --seed 7` e `search_regression`;
-- in più il banco A1, che diventa un controllo fisso.
+- in più l'oracolo A1, che diventa un controllo fisso.
 
 - **B1. Ordinamento delle mosse.** Una stima rapida che ordini meglio le azioni, dalla misura A2: prima quelle che aggiungono carte o Evocano dal Deck, poi il resto; il Set e la fine del turno dopo. Pesi imparati sulle linee migliori del banco.
 - **B2. Ordini scambiabili.** Riduzione per ordine parziale: due azioni che non si influenzano si esplorano in un solo ordine.
@@ -61,7 +63,7 @@ Ogni correzione è generale: niente nomi di carte. Segue il protocollo del motor
 - **B7. Partire da linee già trovate.** Per lo stesso deck, le linee della mappa dei collegamenti e delle ricerche precedenti possono seminare la ricerca (prefissi promettenti), invece di ripartire da zero.
 
 ## Obiettivi misurabili
-- **Linee A1:** ritrovate almeno 9 su 10, entro 30 secondi; nella top 3 almeno 8 su 10.
+- **Oracolo A1:** la ricerca normale arriva al 95% del valore dell'oracolo entro 30 secondi in 9 mani su 10, e la board dell'oracolo è nella top 3 in 8 su 10.
 - **Tempo** per arrivare alla board migliore sulle mani del banco: mediana dimezzata.
 - **Forza:**
   - la verità del banco oggettivo delle board migliori non scende;
@@ -81,7 +83,7 @@ File: `crates/ygo-solver/src/roles.rs` e i suoi test.
 
 ## Chi fa cosa
 - **Ruoli:** sessione sorella (corsia 6, che ha finito la mappa). File: `roles.rs` e test.
-- **A1 (linee di riferimento):** corsia 6 dopo i ruoli. File nuovi: script e fixture, nessun file caldo. Le linee note le chiediamo al proprietario.
+- **A1 (oracolo):** corsia 6 dopo i ruoli. File nuovi: script e fixture, nessun file caldo. Tutto automatico: nessuna linea scritta a mano.
 - **A2 e poi B1, B2, B3, B6, B7:** corsia 2 (velocità), una correzione per PR. Lavora in `search.rs`, quindi una sola corsia alla volta su quel file.
 - **B4:** dopo B1-B3, perché tocca la stessa parte di `search.rs`.
 - **B5:** coordinatore, dopo D17 (stasera) e D12 (corsia 4), perché tocca `probe.rs`.

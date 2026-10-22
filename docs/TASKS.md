@@ -145,7 +145,7 @@ Corsie di lavoro in parallelo del 22/10/2026 (piano in `docs/plans/piano-prossim
 ### Motore e ricerca (Claude)
 - [ ] **Ricerca delle combo: piano critico** (dalle prove del proprietario, 22/10): board più forti in meno tempo. Piano: `docs/plans/ricerca-piano-critico.md`.
   - [ ] Ruoli: board breaker che usano carte avversarie come materiale (Super Polymerization), starter ed estensore insieme, Invocation «Grail» estensore. Corsia 6.
-  - [ ] A1: linee di riferimento dalle guide, con il loro banco. Corsia 6, con le linee del proprietario.
+  - [ ] A1: oracolo automatico (la stessa ricerca con un budget enorme, le board misurate con il banco oggettivo) e quanto la ricerca normale ci si avvicina. Corsia 6.
   - [ ] A2: dove va il lavoro della ricerca (nodi doppi, azioni inutili, ordini scambiabili, ordinamento delle mosse). Corsia 2.
   - [ ] B1-B3, B6, B7: correzioni della ricerca, una PR l'una. Corsia 2.
   - [ ] B4: ricerca per obiettivo guidata dalla mappa dei collegamenti.
