@@ -13,14 +13,15 @@ differ by at least --margin while the measure puts the other one first.
 Each is classified, by what tells the two boards apart, as:
 - "turno dopo": without the next turn (follow_up) the measure would order
   them right;
-- "Cimitero": at level 2 the better board stops more from the GY or
-  banishment than the measure gives it;
 - "trappole in mano": the measure counts a Trap in the worse board's hand as
   an interruption, which cannot be activated from there;
 - "Extra Deck": the better board stops a larger share of the opponents'
-  summons from the Extra Deck (the kit has one Extra Deck monster);
-- "mano": the measure prefers the worse board for its hand interruptions,
-  which level 2 values less;
+  summons from the Extra Deck than of their other moves, by at least 0.1 more
+  than the worse board (the kit has one Extra Deck monster);
+- a place ("Cimitero", "mano", "mostri", "Magie e Trappole"): what the
+  answers from there are worth at level 2 (B minus A, meta-weighted)
+  differs from what the measure gives them by at least 0.1, in favour of the
+  better board;
 - "altro".
 Several causes can hold; the first in this order is the main one.
 """
@@ -41,7 +42,10 @@ LEVEL2 = re.compile(r"against its lines \(([\d.]+) s\): (\d+) lines · (-?\d+)% 
                     r"floodgates stop (\d+)% · (\d+)% of the rest left")
 MOVE = re.compile(r"^\s+(\d+)\. line (\d+): (.*) · (\w[\w ]*)$")
 ANSWER = re.compile(r"^\s{5}(.+?) \(([^)]+)\): (.+?) moves ([\d, ]+) · coverage (\d+)% · value ([\d.]+)$")
-PLACE = {"hand": "mano", "field": "campo", "GY": "Cimitero", "banished": "bandite", "S/T zone": "campo"}
+PLACE = {"hand": "mano", "field": "mostri", "GY": "Cimitero", "banished": "Cimitero", "S/T zone": "Magie e Trappole"}
+# The measure's locations, in the same places.
+MEASURE_PLACE = {"Hand": "mano", "Monster Zone": "mostri", "GY": "Cimitero", "Banished": "Cimitero", "Spell/Trap Zone": "Magie e Trappole"}
+PLACES = ("Cimitero", "mano", "mostri", "Magie e Trappole")
 
 
 def follow_value(m):
@@ -133,19 +137,22 @@ def main():
         return sum(w * sum(x["value"] for x in b["opp"][o]["answers"] if x["place"] == place) for o, w in ws.items()) / total
 
     def extra_share(b):
-        """Share of the opponents' summons from the Extra Deck your answers stop, meta-weighted."""
+        """Share of the opponents' summons from the Extra Deck your answers
+        stop, minus the share of their other moves, meta-weighted: what
+        sets the Extra Deck apart from the rest."""
         num = den = 0.0
         for o, blk in b["opp"].items():
             ed = {k for k, (desc, _) in blk["moves"].items() if "(Extra Deck)" in desc and desc.startswith("Special Summon")}
-            if not ed:
+            rest = set(blk["moves"]) - ed
+            if not ed or not rest:
                 continue
             stopped = set().union(*[set(x["moves"]) for x in blk["answers"]]) if blk["answers"] else set()
-            num += weight[o] * len(ed & stopped) / len(ed)
+            num += weight[o] * (len(ed & stopped) / len(ed) - len(rest & stopped) / len(rest))
             den += weight[o]
         return num / den if den else 0.0
 
-    def measure_place(m, places):
-        return sum(i["value"] for i in m["interruptions"] if i["location"] in places)
+    def measure_place(m, place):
+        return sum(i["value"] for i in m["interruptions"] if MEASURE_PLACE.get(i["location"]) == place)
 
     def trap_in_hand(b):
         return sum(i["value"] for i in b["measure"]["interruptions"] if i["location"] == "Hand" and kind.get(i["card"]) == "trap")
@@ -169,22 +176,22 @@ def main():
                     fa, fb = follow_value(A["measure"]), follow_value(B["measure"])
                     if fa > fb and A["score"] - fa <= B["score"] - fb:
                         causes.append("turno dopo")
-                    gy_l2 = (l2_place(B, "Cimitero") + l2_place(B, "bandite")) - (l2_place(A, "Cimitero") + l2_place(A, "bandite"))
-                    gy_m = measure_place(B["measure"], ("GY", "Banished")) - measure_place(A["measure"], ("GY", "Banished"))
-                    if gy_l2 >= 0.1 and gy_m < gy_l2 / 2:
-                        causes.append("Cimitero")
                     if trap_in_hand(A) >= 0.1:
                         causes.append("trappole in mano")
                     if extra_share(B) - extra_share(A) >= 0.1:
                         causes.append("Extra Deck")
-                    hand_m = A["measure"]["hand"] - B["measure"]["hand"]
-                    hand_l2 = l2_place(A, "mano") - l2_place(B, "mano")
-                    if hand_m > 0.1 and hand_l2 < hand_m / 2:
-                        causes.append("mano")
+                    gaps = {}
+                    for place in PLACES:
+                        d_l2 = l2_place(B, place) - l2_place(A, place)
+                        d_m = measure_place(B["measure"], place) - measure_place(A["measure"], place)
+                        gaps[place] = d_l2 - d_m
+                    for place, g in sorted(gaps.items(), key=lambda kv: -kv[1]):
+                        if g >= 0.1:
+                            causes.append(place)
                     pairs.append(dict(hand=hand_file, deck=A["deck"], worse=A["id"], better=B["id"], truth_gap=B["truth"] - A["truth"],
                                       score_gap=A["score"] - B["score"], causes=causes or ["altro"],
                                       worse_board=A["signature"], better_board=B["signature"],
-                                      extra=(extra_share(A), extra_share(B)), gy=(gy_l2, gy_m), follow=(fa, fb)))
+                                      extra=(extra_share(A), extra_share(B)), place_gaps=gaps, follow=(fa, fb)))
 
     pairs.sort(key=lambda r: -r["truth_gap"])
     n_pairs = sum(len([i for i in ids if i in have]) * (len([i for i in ids if i in have]) - 1) // 2 for ids in by_file.values())
@@ -196,7 +203,7 @@ def main():
     any_cause = Counter(c for p in pairs for c in p["causes"])
     print("| causa | principale | presente |")
     print("|---|---:|---:|")
-    for c in ("turno dopo", "Cimitero", "trappole in mano", "Extra Deck", "mano", "altro"):
+    for c in ("turno dopo", "trappole in mano", "Extra Deck") + PLACES + ("altro",):
         print(f"| {c} | {main_cause[c]} | {any_cause[c]} |")
     print("\nPer deck (disaccordi / coppie):\n")
     per_deck = Counter(p["deck"] for p in pairs)
