@@ -990,10 +990,10 @@ pub fn shuffle<T>(items: &mut [T], seed: u64) {
 
 /// Lua work per engine request (from an answer to the next decision). A
 /// request stops once the core has entered Lua `DUELFORGE_LUA_LIMIT` times
-/// (1 million by default, 0 for no limit): a few positions make a card
-/// script enter Lua 3-5 million times in seconds, and the search pays them
-/// again at every replay, while no request of 82 searches on 41 decks of
-/// Master Duel Meta entered 120 000 times (`docs/plans/velocita-ricerca.md`).
+/// (500 000 by default, 0 for no limit): a few positions make a card script
+/// enter Lua 0.5-5 million times in seconds, and the search pays them again
+/// at every replay, while no request of 82 searches on 41 decks of Master
+/// Duel Meta entered 120 000 times (`docs/plans/velocita-ricerca.md`).
 ///
 /// With `DUELFORGE_LUA_COUNT=<file>` each request also adds four
 /// little-endian `u32` to the file at exit: thousands of instructions,
@@ -1006,7 +1006,7 @@ mod lua_count {
 
     use crate::ffi::{df_lua_hook_install, df_lua_request_end, df_lua_request_start, OCG_Duel};
 
-    const DEFAULT_LIMIT: u64 = 1_000_000;
+    const DEFAULT_LIMIT: u64 = 500_000;
 
     static RECORDS: Mutex<Vec<u32>> = Mutex::new(Vec::new());
 
