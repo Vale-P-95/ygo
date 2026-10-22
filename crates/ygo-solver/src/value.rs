@@ -25,7 +25,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Mutex, OnceLock};
 
 use ygo_engine::consts::{card_type, location, position};
-use ygo_engine::{generic_materials, DeckList, DuelState, Engine, Placement};
+use ygo_engine::{generic_materials, DeckList, DuelState, Engine, FieldCard, Placement};
 
 use crate::probe::{Kit, Prober};
 
@@ -51,11 +51,41 @@ pub enum Spot {
     ExtraNoHand,
     /// [`Spot::FaceUp`] with your hand empty.
     FaceUpNoHand,
+    /// A face-down monster in a Main Monster Zone (a Flip monster).
+    FaceDown,
+    /// A Pendulum Scale.
+    Pendulum,
+    /// A second copy face-down in the Spell & Trap Zone, next to the first:
+    /// what it adds (often nothing, for a card used once per turn).
+    SetSecond,
 }
 
 impl Spot {
+    /// Where your monster `c` in Monster Zone `zone` counts (`None`: a
+    /// face-down Extra Deck monster, which almost never flips).
+    pub(crate) fn of_monster(zone: usize, c: &FieldCard) -> Option<Spot> {
+        if c.is_face_up() {
+            Some(if zone >= 5 { Spot::Extra } else { Spot::Main })
+        } else if c.type_ & card_type::EXTRA == 0 {
+            Some(Spot::FaceDown)
+        } else {
+            None
+        }
+    }
+
+    /// Where your card `c` in the Spell & Trap Zone counts.
+    pub(crate) fn of_spell(c: &FieldCard) -> Spot {
+        if c.type_ & card_type::MONSTER != 0 {
+            Spot::Pendulum
+        } else if c.is_face_up() {
+            Spot::FaceUp
+        } else {
+            Spot::Set
+        }
+    }
+
     /// The same spot with your hand empty, for the spots measured both ways.
-    fn without_hand(self) -> Option<Spot> {
+    pub(crate) fn without_hand(self) -> Option<Spot> {
         match self {
             Spot::Main => Some(Spot::MainNoHand),
             Spot::Extra => Some(Spot::ExtraNoHand),
@@ -107,7 +137,8 @@ impl CardValues {
     }
 
     /// The sum of the values of your cards on the field in `state` (with
-    /// your hand empty, their values measured so when they were).
+    /// your hand empty, their values measured so when they were; a second
+    /// copy Set, what it adds next to the first).
     pub fn of_field(&self, engine: &Engine, state: &DuelState) -> f64 {
         if self.values.is_empty() {
             return 0.0;
@@ -117,12 +148,27 @@ impl CardValues {
             Some(empty) if me.hand.is_empty() && self.measured(engine, code, empty) => self.get(engine, code, empty),
             _ => self.get(engine, code, spot),
         };
-        let monsters = me.monsters.iter().enumerate().filter_map(|(z, c)| {
-            let c = c.as_ref().filter(|c| c.is_face_up())?;
-            Some(value(c.code, if z >= 5 { Spot::Extra } else { Spot::Main }))
-        });
-        let spells = me.spells.iter().flatten().map(|c| value(c.code, if c.is_face_up() { Spot::FaceUp } else { Spot::Set }));
-        monsters.chain(spells).sum()
+        let mut total = 0.0;
+        for (z, c) in me.monsters.iter().enumerate() {
+            if let Some(spot) = c.as_ref().and_then(|c| Spot::of_monster(z, c)) {
+                total += value(c.as_ref().map_or(0, |c| c.code), spot);
+            }
+        }
+        let mut set: Vec<u32> = Vec::new();
+        for c in me.spells.iter().flatten() {
+            let spot = Spot::of_spell(c);
+            if spot == Spot::Set {
+                let code = engine.cards().canonical_code(c.code);
+                let again = set.contains(&code);
+                set.push(code);
+                if again && self.measured(engine, code, Spot::SetSecond) {
+                    total += self.get(engine, code, Spot::SetSecond);
+                    continue;
+                }
+            }
+            total += value(c.code, spot);
+        }
+        total
     }
 
     /// What `code` is worth in your hand with the field of `state`.
@@ -196,9 +242,21 @@ fn spots(engine: &Engine, deck: &DeckList) -> Vec<(u32, Spot)> {
             add(Spot::Main);
             if t & card_type::EXTRA != 0 {
                 add(Spot::Extra);
+            } else {
+                add(Spot::FaceDown);
+            }
+            if t & card_type::PENDULUM != 0 {
+                add(Spot::Pendulum);
             }
         } else if t & card_type::TRAP != 0 || t & card_type::QUICKPLAY != 0 {
             add(Spot::Set);
+            if deck.main.iter().filter(|&&c| db.canonical_code(c) == code).count() >= 2 {
+                add(Spot::SetSecond);
+            }
+            // A Continuous Trap stays face-up once activated.
+            if t & card_type::TRAP != 0 && t & card_type::CONTINUOUS != 0 {
+                add(Spot::FaceUp);
+            }
         } else if t & (card_type::CONTINUOUS | card_type::FIELD | card_type::EQUIP) != 0 {
             add(Spot::FaceUp);
         }
@@ -232,7 +290,11 @@ fn placement(engine: &Engine, code: u32, spot: Spot, filler: u32) -> Vec<Placeme
             out.push(p);
             out
         }
+        Spot::FaceDown => vec![at(location::MZONE, 2, position::FACEDOWN_DEFENSE)],
+        // A Pendulum Monster in Spell & Trap Zone 0 is placed as a Scale.
+        Spot::Pendulum => vec![at(location::SZONE, 0, position::FACEUP_ATTACK)],
         Spot::Set => vec![at(location::SZONE, 2, position::FACEDOWN_DEFENSE)],
+        Spot::SetSecond => vec![at(location::SZONE, 1, position::FACEDOWN_DEFENSE), at(location::SZONE, 2, position::FACEDOWN_DEFENSE)],
         Spot::FaceUp if t & card_type::FIELD != 0 => vec![at(location::SZONE, 5, position::FACEUP_ATTACK)],
         Spot::FaceUp if t & card_type::EQUIP != 0 => {
             vec![Placement::new(filler, location::MZONE, 2, position::FACEUP_ATTACK), at(location::SZONE, 2, position::FACEUP_ATTACK)]
@@ -309,7 +371,16 @@ pub fn card_values(engine: &Engine, deck: &DeckList, seed: u64, kit: &Kit, hand_
             });
         }
     });
-    let found: HashMap<(u32, Spot), (f64, bool)> = found.into_inner().unwrap_or_default();
+    let mut found: HashMap<(u32, Spot), (f64, bool)> = found.into_inner().unwrap_or_default();
+    // Two copies were measured together: the second is worth what they add
+    // to the first alone.
+    let pairs: Vec<(u32, f64)> = found.iter().filter(|(k, _)| k.1 == Spot::SetSecond).map(|(k, v)| (k.0, v.0)).collect();
+    for (code, both) in pairs {
+        match found.get(&(code, Spot::Set)) {
+            Some(&(one, _)) => found.insert((code, Spot::SetSecond), ((both - one).max(0.0), true)),
+            None => found.remove(&(code, Spot::SetSecond)),
+        };
+    }
     let values = CardValues {
         values: found.iter().map(|(&k, &(v, _))| (k, v)).collect(),
         usable: found.iter().filter(|(k, &(_, u))| u && matches!(k.1, Spot::Hand | Spot::HandWithField)).map(|(&k, _)| k).collect(),
