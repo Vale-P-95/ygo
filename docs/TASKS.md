@@ -10,7 +10,8 @@ Corsie di lavoro in parallelo del 22/10/2026 (piano in `docs/plans/piano-prossim
 
   - [x] L1–L3: `rival_lines`/`rival_line` (mano e risposte della linea migliore), `Kit::with_line` e il `Follower` (`follow.rs`) nel ciclo del turno di prova, `against_moves` linea per linea; banco identico.
   - [x] L5: contratto per l'interfaccia: `api.comboMoves(hand, key, vsDeckId)` → `ComboMoves` (`lib.rs` `combo_moves`, `api.ts`, `mock.ts`). Le linee del deck avversario si leggono una volta per deck (10-30 s) e restano in memoria; poi pochi secondi per board.
-  - [ ] L4: collaudo su 37 deck (corsia 3). L6: interfaccia (Gemini, richiesta sotto in «Interfaccia»).
+  - [ ] L4: collaudo su 37 deck (corsia 3). L6: interfaccia (Gemini): unita con la PR #40.
+    - [x] Correzione da L4: le carte scelte dalla linea dell'avversario si ritrovano per identità anche quando lui gioca come giocatore 1. Prima si ripiegava sull'indice, che cadeva sulla carta pescata nel turno 2. Mosse fatte su campo vuoto dall'89% al 96% (Tearlaments e Branded contro 12 deck).
 
   L1–L3 e L5 sono in `main` (PR #38); restano L4 (corsia 3) e L6 (Gemini). Lock dei file tolto.
 - [ ] **Corsia 2.** Deck lenti (piano P3):
