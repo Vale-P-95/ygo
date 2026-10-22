@@ -45,7 +45,7 @@ Corsie di lavoro in parallelo del 22/10/2026 (piano in `docs/plans/piano-prossim
   Agente: claude-code, sessione della corsia 4. Branch: `claude/placed-cards` (ripartito da `main` 6018809). File: in `crates/ygo-solver/src/probe.rs` solo il ramo `Some(1) if follower.is_some()` di `run_with` e come chiama `turn_three` (d'accordo con la coordinatrice, che fa B5 nel resto); `crates/ygo-solver/src/follow.rs` (`Follower::answer`); `crates/ygo-solver/tests/matchup.rs`.
   - [ ] La correzione, con un test.
   - [ ] `moves_report.py`, banco, `combo_hunt` e `search_regression` prima e dopo.
-- [ ] **Corsia 4, terzo task.** Esposizione come valore perso (#47, D12 = B6 V1 di `docs/plans/classificazione-board.md`): nel punteggio l'esposizione diventa `E = Σ_h p_h · loss_h` in interruzioni, al posto del numero di punti critici, che resta nel dettaglio.
+- [x] **Corsia 4, terzo task**, unita il 22/10 (PR #65). Esposizione come valore perso (#47, D12 = B6 V1 di `docs/plans/classificazione-board.md`): nel punteggio l'esposizione diventa `E = Σ_h p_h · loss_h` in interruzioni, al posto del numero di punti critici, che resta nel dettaglio.
 
   Agente: claude-code, sessione della corsia 4. Branch: `claude/placed-cards` (ripartito da `main` dbd7c58). File: `crates/ygo-solver/src/probe.rs`, `explain.rs`; `apps/desktop/src-tauri/src/lib.rs`, `apps/desktop/src/lib/api.ts`, `mock.ts`; in `crates/ygo-cli/src/main.rs` la parte di `combos` e `probe-line` che stampa l'esposizione; script miei in `scripts/`; `docs/plans/esposizione.md`.
   - [x] `ChokePoint` con la posizione nella linea.
