@@ -201,7 +201,7 @@ fn rarity_alias(v: &str) -> Option<&'static str> {
 
 fn ban_alias(v: &str) -> Option<&'static str> {
     Some(match v {
-        "forbidden" | "banned" | "proibita" | "proibite" => "Banned",
+        "forbidden" | "banned" | "proibita" | "proibite" => "Forbidden",
         "limited" | "limitata" | "limitate" => "Limited",
         "semi" | "semi-limited" | "semi-limitata" | "semilimitata" => "Semi-Limited",
         _ => return None,

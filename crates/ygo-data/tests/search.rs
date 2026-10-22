@@ -24,6 +24,7 @@ const SAMPLE: &str = r#"{"data": [
   {"id": 1006, "name": "Gear Link Engineer", "type": "Link Monster", "humanReadableCardType": "Link Effect Monster",
    "frameType": "link", "desc": "2 Machine monsters", "race": "Machine", "attribute": "EARTH", "typeline": ["Machine", "Link", "Effect"],
    "atk": 2300, "linkval": 2, "linkmarkers": ["Bottom-Left", "Bottom-Right"], "card_images": [{"id": 1006}],
+   "banlist_info": {"ban_tcg": "Forbidden", "ban_ocg": "Forbidden"},
    "misc_info": [{"formats": ["TCG", "OCG", "Master Duel"], "md_rarity": "Ultra Rare", "views": 700}]},
   {"id": 1007, "name": "Mystery Tinkerer", "type": "Effect Monster", "humanReadableCardType": "Effect Monster",
    "frameType": "effect", "desc": "Its ATK is unknown.", "race": "Spellcaster", "attribute": "DARK", "typeline": ["Spellcaster", "Effect"],
@@ -138,6 +139,9 @@ fn master_duel_list_is_applied_and_survives_card_updates() {
     assert_eq!(search(&store, "format:ocg ban:semi"), [1007]);
     assert!(search(&store, "ban:semi").is_empty());
     assert_eq!(parse_query("format:ocg ban:semi").chips[1].label, "Banlist OCG: Semi-Limited");
+    // The card data says "Forbidden" in the TCG and OCG lists too.
+    assert_eq!(search(&store, "ban:forbidden"), [1006]);
+    assert_eq!(search(&store, "formato:ocg ban:proibita"), [1006]);
 
     let cards = import::parse_cardinfo(SAMPLE.as_bytes()).unwrap();
     store.replace_all(&cards, "test-2").unwrap();
