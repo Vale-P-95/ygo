@@ -12,7 +12,29 @@ const fmt = (n: number) => n.toLocaleString("it-IT", { minimumFractionDigits: 1,
 const num = (n: number) => (Math.abs(n) > 0.005 && Math.abs(n) < 0.1 ? fmt2(n) : fmt(n));
 const fmt2 = (n: number) => n.toLocaleString("it-IT", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const signed = (n: number) => (n > 0.005 ? `+${fmt2(n)}` : n < -0.005 ? `−${fmt2(-n)}` : "0");
-const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+export const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+
+export const HANDTRAP_NAMES: Record<string, string> = {
+  ash: "Ash Blossom",
+  fieldEffect: "Veiler/Impermanence",
+  nibiru: "Nibiru",
+  droll: "Droll & Lock Bird",
+};
+
+export function formatExposureValue(loss: number): string {
+  const isOne = Math.abs(loss - 1) < 0.005;
+  return `${fmt2(loss)} ${isOne ? "interruzione" : "interruzioni"}`;
+}
+
+export function formatHandtrapLoss(loss: number, chance: number): string {
+  return `−${fmt2(loss)} se arriva (${Math.round(chance * 100)}%)`;
+}
+
+export function formatMaxxImpact(impact: number, chance: number): string {
+  const isOne = Math.abs(impact - 1) < 0.005;
+  return `+${fmt2(impact)} ${isOne ? "interruzione" : "interruzioni"} all'avversario (${Math.round(chance * 100)}%)`;
+}
+
 const cap = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
 
 /** Where an effect is used from, as the probe turn names the place. */
@@ -263,8 +285,13 @@ function measured(key: MetricKey, s: ComboScore): string {
     case "cost":
       return s.cost > 0 ? `usa ${plural(s.cost, "carta", "carte")} della mano oltre la prima` : "nessuna carta oltre la prima";
     case "exposure":
+      if (!s.exposureDetail?.losses) {
+        return s.exposure > 0
+          ? `${plural(Math.round(s.exposure), "punto", "punti")} in cui una handtrap la ferma`
+          : "nessun punto critico per le handtrap comuni";
+      }
       return s.exposure > 0.005
-        ? `perdita attesa per le handtrap: ${num(s.exposure)} interruzioni`
+        ? `perdita attesa per le handtrap: ${formatExposureValue(s.exposure)}`
         : "nessuna perdita attesa per le handtrap comuni";
   }
 }
@@ -326,11 +353,19 @@ function summary(s: ComboScore): string[] {
     out.push(`Contro i board breaker più giocati regge ${held} volte su ${tried.length}.`);
   }
   if (s.exposureDetail || s.exposureNote) {
-    out.push(
-      s.exposure > 0.005
-        ? `Mentre la giochi, la perdita attesa per le handtrap più comuni è di ${num(s.exposure)} interruzioni.`
-        : "Mentre la giochi, nessuna delle handtrap più comuni toglie interruzioni alla linea.",
-    );
+    if (!s.exposureDetail?.losses) {
+      out.push(
+        s.exposure > 0
+          ? `Mentre la giochi, ha ${plural(Math.round(s.exposure), "punto critico", "punti critici")} in cui una handtrap può fermarla.`
+          : "Mentre la giochi, non ha punti critici per le handtrap comuni.",
+      );
+    } else {
+      out.push(
+        s.exposure > 0.005
+          ? `Mentre la giochi, la perdita attesa per le handtrap più comuni è di ${formatExposureValue(s.exposure)}.`
+          : "Mentre la giochi, nessuna delle handtrap più comuni toglie interruzioni alla linea.",
+      );
+    }
   }
   return out;
 }
@@ -413,12 +448,12 @@ function BreakerRow({ b, s, name }: { b: ComboBreaker; s: ComboScore; name: (cod
 /** One handtrap and where it stops the line. */
 function Risk({ name, text, counts }: { name: string; text: string; counts: boolean }) {
   return (
-    <li className="flex items-baseline gap-2 text-xs">
+    <li className="flex items-baseline gap-2 text-small">
       <span className={counts ? "text-danger" : "text-faint"} aria-hidden>
         {counts ? "●" : "○"}
       </span>
       <span className="w-32 xl:w-36 shrink-0 font-medium">{name}</span>
-      <span className={`min-w-0 text-[11px] ${counts ? "text-muted" : "text-faint"}`}>{text}</span>
+      <span className="min-w-0 text-small text-muted">{text}</span>
     </li>
   );
 }
@@ -579,7 +614,7 @@ function RivalHandTrapRow({
 
 function Exposure({ s }: { s: ComboScore }) {
   const x = s.exposureDetail;
-  if (!x) return <p className="text-xs text-muted">{s.exposureNote}</p>;
+  if (!x) return <p className="text-small text-muted">{s.exposureNote}</p>;
 
   const hasLosses = x.losses != null && x.losses.length > 0;
   const lossAsh = x.losses?.find((l) => l.kind === "ash");
@@ -591,20 +626,24 @@ function Exposure({ s }: { s: ComboScore }) {
 
   return (
     <div className="flex flex-col gap-2">
-      <div className="flex items-baseline justify-between text-xs pb-1 border-b border-border/50">
-        <span className="text-muted">Perdita attesa per le handtrap:</span>
+      <div className="flex items-baseline justify-between text-small pb-1 border-b border-border/50">
+        <span className="text-muted">
+          {hasLosses ? "Perdita attesa per le handtrap:" : "Punti critici per le handtrap:"}
+        </span>
         <span className="font-semibold tabular-nums text-text">
-          {num(s.exposure)} {plural(s.exposure === 1 ? 1 : 2, "interruzione", "interruzioni")}
+          {hasLosses
+            ? formatExposureValue(s.exposure)
+            : `${plural(Math.round(s.exposure), "punto", "punti")} in cui una handtrap la ferma`}
         </span>
       </div>
       <ul className="flex flex-col gap-1">
         <Risk
-          name="Ash Blossom"
+          name={HANDTRAP_NAMES.ash}
           counts={hasLosses ? (lossAsh?.loss ?? 0) > 0.005 : x.ash > 0}
           text={
             hasLosses
               ? lossAsh && lossAsh.loss > 0.005
-                ? `−${num(lossAsh.loss)} se arriva (${Math.round(lossAsh.chance * 100)}%)`
+                ? formatHandtrapLoss(lossAsh.loss, lossAsh.chance)
                 : x.ash > 0
                   ? "non toglie interruzioni alla linea"
                   : "nessun effetto da negare"
@@ -614,12 +653,12 @@ function Exposure({ s }: { s: ComboScore }) {
           }
         />
         <Risk
-          name="Veiler/Impermanence"
+          name={HANDTRAP_NAMES.fieldEffect}
           counts={hasLosses ? (lossField?.loss ?? 0) > 0.005 : x.onField > 0}
           text={
             hasLosses
               ? lossField && lossField.loss > 0.005
-                ? `−${num(lossField.loss)} se arriva (${Math.round(lossField.chance * 100)}%)`
+                ? formatHandtrapLoss(lossField.loss, lossField.chance)
                 : x.onField > 0
                   ? "non toglie interruzioni alla linea"
                   : "nessun effetto di mostro sul campo"
@@ -629,12 +668,12 @@ function Exposure({ s }: { s: ComboScore }) {
           }
         />
         <Risk
-          name="Nibiru"
+          name={HANDTRAP_NAMES.nibiru}
           counts={hasLosses ? (lossNibiru?.loss ?? 0) > 0.005 : x.summons >= 5}
           text={
             hasLosses
               ? lossNibiru && lossNibiru.loss > 0.005
-                ? `−${num(lossNibiru.loss)} se arriva (${Math.round(lossNibiru.chance * 100)}%)`
+                ? formatHandtrapLoss(lossNibiru.loss, lossNibiru.chance)
                 : x.summons < 5
                   ? `non arriva: ${x.summons} Evocazioni su 5`
                   : "arriva ma non toglie interruzioni"
@@ -644,12 +683,12 @@ function Exposure({ s }: { s: ComboScore }) {
           }
         />
         <Risk
-          name="Droll & Lock Bird"
+          name={HANDTRAP_NAMES.droll}
           counts={hasLosses ? (lossDroll?.loss ?? 0) > 0.005 : x.searches >= 2}
           text={
             hasLosses
               ? lossDroll && lossDroll.loss > 0.005
-                ? `−${num(lossDroll.loss)} se arriva (${Math.round(lossDroll.chance * 100)}%)`
+                ? formatHandtrapLoss(lossDroll.loss, lossDroll.chance)
                 : x.searches < 2
                   ? x.searches === 1
                     ? "una sola carta aggiunta dal Deck: non ferma nulla"
@@ -668,15 +707,15 @@ function Exposure({ s }: { s: ComboScore }) {
           text={
             x.maxx != null && x.maxxChance != null
               ? x.maxx > 0.005
-                ? `+${num(x.maxx)} interruzioni all'avversario (${Math.round(x.maxxChance * 100)}%) · ${plural(x.specialSummons, "Evocazione Speciale", "Evocazioni Speciali")}`
+                ? `${formatMaxxImpact(x.maxx, x.maxxChance)} · ${plural(x.specialSummons, "Evocazione Speciale", "Evocazioni Speciali")}`
                 : `${plural(x.specialSummons, "Evocazione Speciale", "Evocazioni Speciali")}: nessuna pescata concessa oltre la prima`
               : `${plural(x.specialSummons, "Evocazione Speciale", "Evocazioni Speciali")}: l'avversario pesca, ma non ti ferma (non toglie punti)`
           }
         />
       </ul>
       {chokePoints > 0 && (
-        <p className="text-[11px] text-faint pt-1 border-t border-border/40">
-          Punti critici nella linea: {chokePoints} {plural(chokePoints, "momento", "momenti")} in cui una handtrap può intervenire
+        <p className="text-small text-muted pt-1 border-t border-border/40">
+          Punti critici nella linea: {plural(chokePoints, "momento", "momenti")} in cui una handtrap può intervenire
         </p>
       )}
     </div>

@@ -134,6 +134,68 @@ async function main() {
             }
           }
 
+          if (section.id === "combo") {
+            await page.waitForTimeout(300);
+            const searchBtn = page.getByRole("button", { name: /Cerca le combo/i }).first();
+            if (await searchBtn.count()) {
+              await searchBtn.click();
+              await page.waitForTimeout(1000);
+            }
+
+            const firstBoard = page.locator('div[role="button"]:has(span.score-bar)').first();
+            if (await firstBoard.count()) {
+              await firstBoard.click();
+              await page.waitForTimeout(400);
+
+              const detailFile = `${theme}_${vp.name}_combo_detail.png`;
+              await page.screenshot({ path: path.join(OUT_DIR, detailFile), fullPage: false });
+              totalScreenshots++;
+              console.log(`    ✓ ${detailFile}`);
+
+              const compareBtns = page.locator('button:has-text("Confronta")');
+              if ((await compareBtns.count()) > 0) {
+                await compareBtns.first().click();
+                await page.waitForTimeout(200);
+
+                const vsBtn = page.locator('button:has-text("vs #")').first();
+                if (await vsBtn.count()) {
+                  await vsBtn.click();
+                  await page.waitForTimeout(400);
+
+                  const compareFile = `${theme}_${vp.name}_combo_compare.png`;
+                  await page.screenshot({ path: path.join(OUT_DIR, compareFile), fullPage: false });
+                  totalScreenshots++;
+                  console.log(`    ✓ ${compareFile}`);
+
+                  if (RUN_AXE) {
+                    try {
+                      const compareAxe = await new AxeBuilder({ page })
+                        .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
+                        .analyze();
+                      if (compareAxe.violations.length > 0) {
+                        console.warn(`    ⚠ Axe: ${compareAxe.violations.length} violazioni nel confronto (${theme}):`);
+                        for (const v of compareAxe.violations) {
+                          console.warn(`       - [${v.impact || "info"}] ${v.id}: ${v.description} (${v.nodes.length} occorrenze)`);
+                        }
+                        totalAxeViolations += compareAxe.violations.length;
+                      } else {
+                        console.log(`    ✓ Axe compare OK: 0 violazioni`);
+                      }
+                    } catch (err) {
+                      console.warn(`    ⚠ Axe error on compare:`, err.message);
+                    }
+                  }
+
+                  const closeBtn = page.locator('button:has-text("Chiudi"), [aria-label="Chiudi"]').first();
+                  if (await closeBtn.count()) {
+                    await closeBtn.click();
+                    await page.waitForTimeout(200);
+                  }
+                }
+              }
+            }
+          }
+
           await page.waitForTimeout(400);
 
           const fileName = `${theme}_${vp.name}_${section.id}.png`;

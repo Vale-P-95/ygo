@@ -5,7 +5,7 @@ import { METRICS, NEGATIVE, parts, PROFILES, score, useWeights, metricValues, ge
 import { sound } from "../../lib/sound";
 import { toast } from "../../lib/toast";
 import { CardImage, Field, type HoverCard, type Pile as PileKind } from "./Field";
-import { ScoreBar } from "./Score";
+import { ScoreBar, formatExposureValue, formatHandtrapLoss, formatMaxxImpact, HANDTRAP_NAMES, plural } from "./Score";
 
 function boardId(b: ComboBoard): string {
   return `${b.hand}:${b.key}`;
@@ -13,7 +13,6 @@ function boardId(b: ComboBoard): string {
 
 const fmt2 = (n: number) => n.toLocaleString("it-IT", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const fmt1 = (n: number) => n.toLocaleString("it-IT", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
-const num = (n: number) => (Math.abs(n) > 0.005 && Math.abs(n) < 0.1 ? fmt2(n) : fmt1(n));
 const signed = (n: number) => (n > 1e-4 ? `+${fmt2(n)}` : n < -1e-4 ? `−${fmt2(-n)}` : "0,00");
 
 /** Extracts multiset of card codes from a list of codes. */
@@ -567,52 +566,47 @@ export function BoardCompareModal({
                     )}
 
                     {col.s.exposureDetail && (
-                      <div className="border-t border-border pt-2.5 text-xs text-muted flex flex-col gap-1.5">
+                      <div className="border-t border-border pt-2.5 text-small text-muted flex flex-col gap-1.5">
                         <div className="flex items-baseline justify-between">
                           <p className="eyebrow text-faint">Esposizione alle handtrap</p>
-                          <span className="font-medium text-text tabular-nums text-[11px]">
-                            perdita attesa: {num(col.s.exposure)} {col.s.exposure === 1 ? "interruzione" : "interruzioni"}
+                          <span className="font-medium text-text tabular-nums text-small">
+                            {col.s.exposureDetail.losses && col.s.exposureDetail.losses.length > 0
+                              ? `perdita attesa: ${formatExposureValue(col.s.exposure)}`
+                              : `punti critici: ${plural(Math.round(col.s.exposure), "punto", "punti")}`}
                           </span>
                         </div>
                         {col.s.exposureDetail.losses && col.s.exposureDetail.losses.length > 0 ? (
                           <div className="flex flex-col gap-1 tabular-nums">
                             {col.s.exposureDetail.losses.map((l) => {
-                              const label =
-                                l.kind === "ash"
-                                  ? "Ash Blossom"
-                                  : l.kind === "fieldEffect"
-                                    ? "Veiler/Impermanence"
-                                    : l.kind === "nibiru"
-                                      ? "Nibiru"
-                                      : "Droll & Lock Bird";
+                              const label = HANDTRAP_NAMES[l.kind] ?? l.kind;
                               return (
-                                <div key={l.kind} className="flex items-baseline justify-between text-[11px]">
+                                <div key={l.kind} className="flex items-baseline justify-between text-small">
                                   <span>{label}:</span>
-                                  <span className={l.loss > 0.005 ? "font-semibold text-danger" : "text-faint"}>
+                                  <span className={l.loss > 0.005 ? "font-semibold text-danger" : "text-muted"}>
                                     {l.loss > 0.005
-                                      ? `−${num(l.loss)} se arriva (${Math.round(l.chance * 100)}%)`
+                                      ? formatHandtrapLoss(l.loss, l.chance)
                                       : "nessuna perdita"}
                                   </span>
                                 </div>
                               );
                             })}
                             {col.s.exposureDetail.maxx != null && col.s.exposureDetail.maxxChance != null && col.s.exposureDetail.maxx > 0.005 && (
-                              <div className="flex items-baseline justify-between text-[11px]">
+                              <div className="flex items-baseline justify-between text-small">
                                 <span>Maxx "C":</span>
                                 <span className="font-semibold text-warn">
-                                  +{num(col.s.exposureDetail.maxx)} all'avversario ({Math.round(col.s.exposureDetail.maxxChance * 100)}%)
+                                  {formatMaxxImpact(col.s.exposureDetail.maxx, col.s.exposureDetail.maxxChance)}
                                 </span>
                               </div>
                             )}
                             {col.s.exposureDetail.chokePoints != null && (
-                              <div className="flex items-baseline justify-between text-[10px] text-faint border-t border-border/40 pt-1">
+                              <div className="flex items-baseline justify-between text-small text-muted border-t border-border/40 pt-1">
                                 <span>Punti critici:</span>
-                                <span>{col.s.exposureDetail.chokePoints}</span>
+                                <span>{plural(col.s.exposureDetail.chokePoints, "momento", "momenti")}</span>
                               </div>
                             )}
                           </div>
                         ) : (
-                          <div className="flex flex-wrap gap-x-4 gap-y-1 tabular-nums">
+                          <div className="flex flex-wrap gap-x-4 gap-y-1 tabular-nums text-small text-muted">
                             <span>Ash: <b className="text-text">{col.s.exposureDetail.ash}</b></span>
                             <span>Sul campo (Veiler/Imperm): <b className="text-text">{col.s.exposureDetail.onField}</b></span>
                             <span>Evocazioni: <b className="text-text">{col.s.exposureDetail.summons}</b> ({col.s.exposureDetail.specialSummons} Spec.)</span>
