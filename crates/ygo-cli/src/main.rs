@@ -505,7 +505,8 @@ fn combos(dir: &Path, setup: &Setup, options: CombosOptions) -> Result<()> {
     // Boards with the same field (other zones, another hand, other cards
     // in the GY) are variants of one: each field is listed once, so the
     // top boards are different fields. With --probe the first variants of
-    // each are measured and the best measured one is shown.
+    // the fields printed first are measured and the best measured one is
+    // shown.
     let mut groups: Vec<(u64, Vec<&ygo_solver::Board>)> = Vec::new();
     for board in &result.boards {
         let key = ygo_solver::search::field_key(&board.state);
@@ -526,28 +527,36 @@ fn combos(dir: &Path, setup: &Setup, options: CombosOptions) -> Result<()> {
         took: std::time::Duration,
         exposure: Option<ygo_solver::Exposure>,
     }
-    let mut boards: Vec<Listed> = Vec::new();
-    for (_, group) in &groups {
-        let variants = group.len() - 1;
-        let mut best: Option<Listed> = None;
-        for &board in group.iter().take(if probe { MEASURED_VARIANTS } else { 1 }) {
-            let mut item = Listed { board, variants, measured: None, took: std::time::Duration::ZERO, exposure: None };
-            if probe {
-                let started = std::time::Instant::now();
-                item.measured = Some(prober.measure(&board.line));
-                item.took = started.elapsed();
-            }
-            let value = |item: &Listed| item.measured.as_ref().and_then(|m| m.as_ref().ok()).map(composite);
-            if best.as_ref().is_none_or(|b| value(&item).unwrap_or(f64::NEG_INFINITY) > value(b).unwrap_or(f64::NEG_INFINITY)) {
-                best = Some(item);
+    let value = |item: &Listed| item.measured.as_ref().and_then(|m| m.as_ref().ok()).map(composite).unwrap_or(f64::NEG_INFINITY);
+    fn measure<'a>(prober: &mut ygo_solver::Prober, probe: bool, board: &'a ygo_solver::Board, variants: usize) -> Listed<'a> {
+        let mut item = Listed { board, variants, measured: None, took: std::time::Duration::ZERO, exposure: None };
+        if probe {
+            let started = std::time::Instant::now();
+            item.measured = Some(prober.measure(&board.line));
+            item.took = started.elapsed();
+        }
+        item
+    }
+    let mut boards: Vec<Listed> = groups.iter().map(|(_, group)| measure(&mut prober, probe, group[0], group.len() - 1)).collect();
+    if probe {
+        // The other variants only for the fields printed first: they decide
+        // the top of the list, and each variant is a probe turn more. A field
+        // only gains from them, so these fields stay first.
+        let mut first: Vec<usize> = (0..boards.len()).collect();
+        first.sort_by(|&a, &b| value(&boards[b]).total_cmp(&value(&boards[a])).then(a.cmp(&b)));
+        for &i in first.iter().take(FIELDS_WITH_VARIANTS) {
+            let group = &groups[i].1;
+            for &board in group.iter().skip(1).take(MEASURED_VARIANTS - 1) {
+                let item = measure(&mut prober, probe, board, group.len() - 1);
+                if value(&item) > value(&boards[i]) {
+                    boards[i] = item;
+                }
             }
         }
-        let Some(mut item) = best else { continue };
-        if probe {
+        for item in &mut boards {
             item.exposure =
                 ygo_solver::exposure(&engine, &config.deck, &config.hand, config.seed, config.opponent.as_ref(), &item.board.line).ok();
         }
-        boards.push(item);
     }
     let measured_value = |item: &Listed| item.measured.as_ref().and_then(|m| m.as_ref().ok()).map(composite);
     let mut printed: Vec<usize> = (0..boards.len()).collect();
@@ -1129,8 +1138,10 @@ fn matchup_json(x: &ygo_solver::Matchup) -> serde_json::Value {
 }
 
 /// Variants of a field measured in `combos --probe`, the first ones the
-/// search found: the best measured is shown.
+/// search found: the best measured is shown. Only for the first
+/// `FIELDS_WITH_VARIANTS` fields printed; the others are measured once.
 const MEASURED_VARIANTS: usize = 3;
+const FIELDS_WITH_VARIANTS: usize = 3;
 
 /// The measured value of a board with the "Bilanciato" profile of the app:
 /// the same weights as `WEIGHTS`, `FOLLOW_UP` and `REBUILD` in
