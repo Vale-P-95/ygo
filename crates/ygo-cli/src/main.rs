@@ -497,18 +497,17 @@ fn combos(dir: &Path, setup: &Setup, options: CombosOptions) -> Result<()> {
     );
     let db = engine.cards();
     let mut prober = ygo_solver::Prober::new(&engine, &config.deck, &config.hand, config.seed, &kit);
-    // Boards with the same field and hand (other cards in the GY, other
-    // zones) are variants of one: listed once, as the Combo Lab does.
-    let mut looks: Vec<(u64, usize)> = Vec::new();
-    let mut listed: Vec<&ygo_solver::Board> = Vec::new();
+    // Boards with the same field (other zones, another hand, other cards
+    // in the GY) are variants of one: each field is listed once, so the
+    // top boards are different fields. With --probe the first variants of
+    // each are measured and the best measured one is shown.
+    let mut groups: Vec<(u64, Vec<&ygo_solver::Board>)> = Vec::new();
     for board in &result.boards {
-        let look = ygo_solver::look_key(&board.state);
-        match looks.iter_mut().find(|(l, _)| *l == look) {
-            Some((_, n)) => *n += 1,
-            None if listed.len() < top => {
-                looks.push((look, 0));
-                listed.push(board);
-            }
+        let key = ygo_solver::search::field_key(&board.state);
+        let open = groups.len() < top;
+        match groups.iter_mut().find(|(k, _)| *k == key) {
+            Some((_, g)) => g.push(board),
+            None if open => groups.push((key, vec![board])),
             None => {}
         }
     }
@@ -523,14 +522,25 @@ fn combos(dir: &Path, setup: &Setup, options: CombosOptions) -> Result<()> {
         exposure: Option<ygo_solver::Exposure>,
     }
     let mut boards: Vec<Listed> = Vec::new();
-    for (i, board) in listed.into_iter().enumerate() {
-        let mut item = Listed { board, variants: looks[i].1, measured: None, took: std::time::Duration::ZERO, exposure: None };
+    for (_, group) in &groups {
+        let variants = group.len() - 1;
+        let mut best: Option<Listed> = None;
+        for &board in group.iter().take(if probe { MEASURED_VARIANTS } else { 1 }) {
+            let mut item = Listed { board, variants, measured: None, took: std::time::Duration::ZERO, exposure: None };
+            if probe {
+                let started = std::time::Instant::now();
+                item.measured = Some(prober.measure(&board.line));
+                item.took = started.elapsed();
+            }
+            let value = |item: &Listed| item.measured.as_ref().and_then(|m| m.as_ref().ok()).map(composite);
+            if best.as_ref().is_none_or(|b| value(&item).unwrap_or(f64::NEG_INFINITY) > value(b).unwrap_or(f64::NEG_INFINITY)) {
+                best = Some(item);
+            }
+        }
+        let Some(mut item) = best else { continue };
         if probe {
-            let started = std::time::Instant::now();
-            item.measured = Some(prober.measure(&board.line));
-            item.took = started.elapsed();
             item.exposure =
-                ygo_solver::exposure(&engine, &config.deck, &config.hand, config.seed, config.opponent.as_ref(), &board.line).ok();
+                ygo_solver::exposure(&engine, &config.deck, &config.hand, config.seed, config.opponent.as_ref(), &item.board.line).ok();
         }
         boards.push(item);
     }
@@ -1084,6 +1094,10 @@ fn matchup_json(x: &ygo_solver::Matchup) -> serde_json::Value {
         })).collect::<Vec<_>>(),
     })
 }
+
+/// Variants of a field measured in `combos --probe`, the first ones the
+/// search found: the best measured is shown.
+const MEASURED_VARIANTS: usize = 3;
 
 /// The measured value of a board with the "Bilanciato" profile of the app:
 /// the same weights as `WEIGHTS`, `FOLLOW_UP` and `REBUILD` in

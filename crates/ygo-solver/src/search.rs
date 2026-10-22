@@ -854,6 +854,23 @@ pub fn look_key(state: &DuelState) -> u64 {
     h.finish()
 }
 
+/// The cards on your field, whatever their zones (the Extra Monster Zone
+/// included) and whatever the hand: boards with the same key are variants
+/// of one field, to list once.
+pub fn field_key(state: &DuelState) -> u64 {
+    let p = &state.players[0];
+    let mut cards: Vec<u64> = p.monsters.iter().flatten().map(|c| card_hash(state, (0, false), c)).collect();
+    for (zone, c) in p.spells.iter().enumerate() {
+        if let Some(c) = c {
+            cards.push(card_hash(state, (zone.saturating_sub(4), false), c));
+        }
+    }
+    cards.sort_unstable();
+    let mut h = DefaultHasher::new();
+    cards.hash(&mut h);
+    h.finish()
+}
+
 /// A card on the field and the kind of zone it is in. An equipped card
 /// names the card it is equipped to, not that card's zone.
 fn card_hash(state: &DuelState, kind: (usize, bool), c: &ygo_engine::FieldCard) -> u64 {
