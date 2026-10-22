@@ -108,6 +108,7 @@ extern "C" {
     pub fn df_deck_to_hand(duel: OCG_Duel, player: u8, code: u32) -> c_int;
 
     // shim/count.cpp
-    pub fn df_lua_count_install(duel: OCG_Duel);
-    pub fn df_lua_count_take() -> u64;
+    pub fn df_lua_hook_install(duel: OCG_Duel);
+    pub fn df_lua_request_start(max: u64);
+    pub fn df_lua_request_end(entries: *mut u64, calls: *mut u64, instructions: *mut u64) -> c_int;
 }

@@ -38,11 +38,7 @@ Corsia 4, terzo task. Il piano è B6 di `docs/plans/classificazione-board.md`. B
    - `E` si calcola per **tutte** le board misurate, non solo per le prime 8. Le board si ordinano tutte insieme: senza l'esposizione, una board dopo l'ottava salirebbe. Costa circa 0,1 s a board.
    - C'è una cache per `(mano, board)`, che resta valida anche quando si cambia il deck avversario.
 7. **CLI**: `combos --probe` e `probe-line` stampano `expected loss to handtraps` e lo scrivono nel JSON (`expected_loss`).
-8. **Per Gemini** (in TASKS):
-   - i pesi di `scoring.ts`: oggi −0,04 per punto critico, da portare a −0,5 nel Bilanciato e −1,0 in "Linee sicure";
-   - la scheda con le perdite per tipo.
-
-   Finché i pesi non cambiano, l'esposizione pesa meno di prima.
+8. **Pesi e scheda.** Il peso dell'esposizione in `scoring.ts` (oggi −0,04 per punto critico) lo mette la coordinatrice nella taratura D17, con gli altri. Per il piano B6 è −0,5 nel Bilanciato e −1,0 in "Linee sicure". Finché non cambia, l'esposizione pesa meno di prima. A Gemini, in TASKS, resta la scheda con le perdite per tipo.
 
 ## Numeri
 `main` (dbd7c58) contro questo branch. Liste MDM del 22/10.

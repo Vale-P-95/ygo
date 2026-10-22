@@ -172,7 +172,7 @@ enum Cmd {
         #[arg(long, default_value_t = 1000)]
         nodes: u64,
         /// Hands searched for each card of the Main Deck.
-        #[arg(long, default_value_t = 2)]
+        #[arg(long, default_value_t = 3)]
         hands: usize,
         #[arg(long)]
         threads: Option<usize>,
@@ -187,6 +187,18 @@ enum Cmd {
         /// instead of the whole map.
         #[arg(long, requires = "after")]
         diff: bool,
+        /// Instead of the map: search this many opening hands drawn at
+        /// random and write to --json what their lines bring into play
+        /// (the measure the chances are checked against).
+        #[arg(long, requires = "json")]
+        truth: Option<usize>,
+        /// Seed of the hands drawn with --truth.
+        #[arg(long, default_value_t = 1)]
+        seed: u64,
+        /// Also write each hand searched for the map and what its lines
+        /// bring into play to this JSON file.
+        #[arg(long)]
+        hands_json: Option<PathBuf>,
     },
     /// A deck's typical opening: the moves of its best lines from random
     /// hands, the most played first (the probe turn against a deck, level 2).
@@ -343,8 +355,12 @@ fn main() -> Result<()> {
         }
         Cmd::HandTraps { deck } => hand_traps(&cli.data, &deck),
         Cmd::RivalPlays { deck, hands, nodes, seed } => rival_plays(&cli.data, &deck, hands, nodes, seed),
-        Cmd::Links { deck, nodes, hands, threads, json, after, diff } => {
-            links(&cli.data, &deck, nodes, hands, threads, json.as_deref(), after.as_deref(), diff)
+        Cmd::Links { deck, nodes, hands, threads, json, after, diff, truth, seed, hands_json } => {
+            let out = LinksOut { json: json.as_deref(), hands_json: hands_json.as_deref() };
+            match truth {
+                Some(count) => links_truth(&cli.data, &deck, nodes, count, seed, threads, &json.unwrap_or_default()),
+                None => links(&cli.data, &deck, nodes, hands, threads, out, after.as_deref(), diff),
+            }
         }
         Cmd::CardValues { deck } => card_values(&cli.data, &deck),
         Cmd::KitMix { lines, top, seed } => kit_mix(&cli.data, &lines, top, seed),
@@ -505,7 +521,8 @@ fn combos(dir: &Path, setup: &Setup, options: CombosOptions) -> Result<()> {
     // Boards with the same field (other zones, another hand, other cards
     // in the GY) are variants of one: each field is listed once, so the
     // top boards are different fields. With --probe the first variants of
-    // each are measured and the best measured one is shown.
+    // the fields printed first are measured and the best measured one is
+    // shown.
     let mut groups: Vec<(u64, Vec<&ygo_solver::Board>)> = Vec::new();
     for board in &result.boards {
         let key = ygo_solver::search::field_key(&board.state);
@@ -527,24 +544,33 @@ fn combos(dir: &Path, setup: &Setup, options: CombosOptions) -> Result<()> {
         exposure: Option<ygo_solver::Exposure>,
         loss: Option<(ygo_solver::probe::ExpectedLoss, std::time::Duration)>,
     }
-    let mut boards: Vec<Listed> = Vec::new();
-    for (_, group) in &groups {
-        let variants = group.len() - 1;
-        let mut best: Option<Listed> = None;
-        for &board in group.iter().take(if probe { MEASURED_VARIANTS } else { 1 }) {
-            let mut item = Listed { board, variants, measured: None, took: std::time::Duration::ZERO, exposure: None, loss: None };
-            if probe {
-                let started = std::time::Instant::now();
-                item.measured = Some(prober.measure(&board.line));
-                item.took = started.elapsed();
-            }
-            let value = |item: &Listed| item.measured.as_ref().and_then(|m| m.as_ref().ok()).map(composite);
-            if best.as_ref().is_none_or(|b| value(&item).unwrap_or(f64::NEG_INFINITY) > value(b).unwrap_or(f64::NEG_INFINITY)) {
-                best = Some(item);
+    let value = |item: &Listed| item.measured.as_ref().and_then(|m| m.as_ref().ok()).map(composite).unwrap_or(f64::NEG_INFINITY);
+    fn measure<'a>(prober: &mut ygo_solver::Prober, probe: bool, board: &'a ygo_solver::Board, variants: usize) -> Listed<'a> {
+        let mut item = Listed { board, variants, measured: None, took: std::time::Duration::ZERO, exposure: None, loss: None };
+        if probe {
+            let started = std::time::Instant::now();
+            item.measured = Some(prober.measure(&board.line));
+            item.took = started.elapsed();
+        }
+        item
+    }
+    let mut boards: Vec<Listed> = groups.iter().map(|(_, group)| measure(&mut prober, probe, group[0], group.len() - 1)).collect();
+    if probe {
+        // The other variants only for the fields printed first: they decide
+        // the top of the list, and each variant is a probe turn more. A field
+        // only gains from them, so these fields stay first.
+        let mut first: Vec<usize> = (0..boards.len()).collect();
+        first.sort_by(|&a, &b| value(&boards[b]).total_cmp(&value(&boards[a])).then(a.cmp(&b)));
+        for &i in first.iter().take(FIELDS_WITH_VARIANTS) {
+            let group = &groups[i].1;
+            for &board in group.iter().skip(1).take(MEASURED_VARIANTS - 1) {
+                let item = measure(&mut prober, probe, board, group.len() - 1);
+                if value(&item) > value(&boards[i]) {
+                    boards[i] = item;
+                }
             }
         }
-        let Some(mut item) = best else { continue };
-        if probe {
+        for item in &mut boards {
             let points = ygo_solver::explain::exposure_points(
                 &engine,
                 &config.deck,
@@ -557,7 +583,6 @@ fn combos(dir: &Path, setup: &Setup, options: CombosOptions) -> Result<()> {
             item.exposure = points.as_ref().map(|(x, _)| *x);
             item.loss = points.and_then(|(x, points)| expected_loss(&mut prober, &item.board.line, &x, &points));
         }
-        boards.push(item);
     }
     let measured_value = |item: &Listed| item.measured.as_ref().and_then(|m| m.as_ref().ok()).map(composite);
     let mut printed: Vec<usize> = (0..boards.len()).collect();
@@ -1199,8 +1224,10 @@ fn loss_json(l: &ygo_solver::probe::ExpectedLoss, took: std::time::Duration) -> 
 }
 
 /// Variants of a field measured in `combos --probe`, the first ones the
-/// search found: the best measured is shown.
+/// search found: the best measured is shown. Only for the first
+/// `FIELDS_WITH_VARIANTS` fields printed; the others are measured once.
 const MEASURED_VARIANTS: usize = 3;
+const FIELDS_WITH_VARIANTS: usize = 3;
 
 /// The measured value of a board with the "Bilanciato" profile of the app:
 /// the same weights as `WEIGHTS`, `FOLLOW_UP` and `REBUILD` in
@@ -1374,6 +1401,43 @@ fn search(dir: &Path, text: &str, limit: usize) -> Result<()> {
     Ok(())
 }
 
+/// Where `links` writes the map, and the hands searched for it.
+struct LinksOut<'a> {
+    json: Option<&'a Path>,
+    hands_json: Option<&'a Path>,
+}
+
+/// The hands and what each of their lines brings into play, as JSON.
+fn hands_reach_json(db: &ygo_engine::CardDb, reached: &[ygo_solver::HandReach]) -> serde_json::Value {
+    let hand = |h: &ygo_solver::HandReach| h.hand.iter().map(|&c| db.canonical_code(c)).collect::<Vec<_>>();
+    serde_json::json!(reached.iter().map(|h| serde_json::json!({ "hand": hand(h), "lines": h.lines })).collect::<Vec<_>>())
+}
+
+/// Searches `count` random opening hands and writes what their lines
+/// bring into play.
+fn links_truth(dir: &Path, deck: &Path, nodes: u64, count: usize, seed: u64, threads: Option<usize>, json: &Path) -> Result<()> {
+    let engine = load_engine(dir)?;
+    let text = std::fs::read_to_string(deck).with_context(|| format!("cannot read {}", deck.display()))?;
+    let deck = DeckList::from_ydk(&text)?;
+    let threads = threads.unwrap_or_else(|| std::thread::available_parallelism().map_or(4, |n| n.get()));
+    let budget = ygo_solver::LinksBudget { nodes_per_hand: nodes, threads, ..ygo_solver::LinksBudget::default() };
+    let cancel = std::sync::atomic::AtomicBool::new(false);
+    let started = std::time::Instant::now();
+    let hands = ygo_solver::random_hands(&deck.main, count, seed);
+    let reached = ygo_solver::hands_reach(&engine, &deck, &hands, 1, budget, &cancel, |done, total| eprint!("\r{done}/{total} hands"));
+    eprintln!();
+    let db = engine.cards();
+    let doc = serde_json::json!({
+        "main": deck.main.iter().map(|&c| db.canonical_code(c)).collect::<Vec<_>>(),
+        "extra": deck.extra.iter().map(|&c| db.canonical_code(c)).collect::<Vec<_>>(),
+        "seconds": started.elapsed().as_secs_f64(),
+        "hands": hands_reach_json(db, &reached),
+    });
+    std::fs::write(json, serde_json::to_string(&doc)?)?;
+    println!("{} hands in {:.1} s", reached.len(), started.elapsed().as_secs_f64());
+    Ok(())
+}
+
 #[allow(clippy::too_many_arguments)]
 fn links(
     dir: &Path,
@@ -1381,7 +1445,7 @@ fn links(
     nodes: u64,
     hands: usize,
     threads: Option<usize>,
-    json: Option<&Path>,
+    out: LinksOut,
     after: Option<&Path>,
     diff: bool,
 ) -> Result<()> {
@@ -1415,8 +1479,11 @@ fn links(
         }
         eprint!("\r{done}/{total} hands");
     };
-    let (map, _) = ygo_solver::deck_links_again(&engine, &deck, 1, budget, &cancel, progress, earlier.as_ref().map(|(_, work)| work));
+    let (map, work) = ygo_solver::deck_links_again(&engine, &deck, 1, budget, &cancel, progress, earlier.as_ref().map(|(_, work)| work));
     eprintln!();
+    if let Some(path) = out.hands_json {
+        std::fs::write(path, serde_json::to_string(&hands_reach_json(engine.cards(), &work.reached()))?)?;
+    }
     let db = engine.cards();
     if let (true, Some((old, _))) = (diff, &earlier) {
         print_links_diff(db, &ygo_solver::compare_links(old, &map), started.elapsed().as_secs_f64());
@@ -1456,7 +1523,7 @@ fn links(
             println!("    {:<9} {:<8} {}{how}{used}", l.kind.key(), l.zone.key(), db.name(l.to));
         }
     }
-    if let Some(path) = json {
+    if let Some(path) = out.json {
         let doc = serde_json::json!({
             "hands": map.hands,
             "lines": map.lines,

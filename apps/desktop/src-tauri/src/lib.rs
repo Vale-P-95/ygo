@@ -1703,10 +1703,10 @@ struct LinkCardView {
     /// in any number of steps ([`ygo_solver::LinkCard`]).
     reach: u32,
     reach_all: u32,
-    /// Chance that an opening hand of 5 holds it or a card that brings it into play.
+    /// Chance that an opening hand of 5 brings it into play: holds it, or its
+    /// best line adds it to the hand or puts it on the field ([`ygo_solver::LinkCard`]).
     chance: f64,
-    /// `chance` is measured (an Extra Deck monster no card names: share of the
-    /// hands searched whose best line summons it), not exact.
+    /// `chance` is measured on the hands searched, not the draft's.
     measured: bool,
     /// Cards an opening hand reaches on average that are lost when its effects are negated.
     key: f64,
