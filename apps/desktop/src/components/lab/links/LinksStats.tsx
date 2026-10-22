@@ -65,7 +65,7 @@ export function LinksStats({ cards, links, getCard, selectedCode, onSelectCard }
                   data-tip={`${name}: porta a ${c.reachAll} carte in totale (in mano iniziale: ${formatChance(c).text})`}
                 >
                   <span className="truncate max-w-[120px]">{name}</span>
-                  <span className="text-[10px] font-semibold text-sec tabular-nums">+{c.reachAll}</span>
+                  <span className="text-small font-bold text-teal-700 dark:text-teal-300 tabular-nums">+{c.reachAll}</span>
                 </button>
               );
             })
@@ -100,7 +100,7 @@ export function LinksStats({ cards, links, getCard, selectedCode, onSelectCard }
                   data-tip={`${name}: se negata si perdono in media ${c.key.toFixed(2)} carte`}
                 >
                   <span className="truncate max-w-[120px]">{name}</span>
-                  <span className="text-[10px] font-bold text-[var(--df-gold)] tabular-nums">−{c.key.toFixed(1)}</span>
+                  <span className="text-small font-bold text-amber-900 dark:text-amber-300 tabular-nums">−{c.key.toFixed(1)}</span>
                 </button>
               );
             })

@@ -19,7 +19,7 @@ export function formatChance(card: Pick<LinkCard, "chance" | "extra" | "measured
     return {
       text: "—",
       isEstimated: false,
-      tooltip: "Non raggiungibile dalla mano iniziale",
+      tooltip: "Non raggiunta nelle mani cercate",
     };
   }
   const pct = Math.round(card.chance * 100);
@@ -33,7 +33,7 @@ export function formatChance(card: Pick<LinkCard, "chance" | "extra" | "measured
   return {
     text: `${pct}%`,
     isEstimated: false,
-    tooltip: "Probabilità combinatoria esatta calcolata dalla mano iniziale",
+    tooltip: "Prima stima dai testi: la mano contiene la carta, o una carta che la porta in 1 passo",
   };
 }
 

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   ArrowDownToLine,
   CircleDot,
@@ -43,7 +43,11 @@ const KIND_ICONS: Record<CardLinkKind, ReactNode> = {
 
 export function LinksFilters({ filters, onChange, layout, onLayoutChange, links }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const leftRef = useRef<HTMLDivElement>(null);
+  const rightRef = useRef<HTMLDivElement>(null);
+  const measureRef = useRef<HTMLDivElement>(null);
   const [availableWidth, setAvailableWidth] = useState<number | undefined>(undefined);
+  const [measuredWidths, setMeasuredWidths] = useState<Record<string, number>>({});
   const [isBelow1440, setIsBelow1440] = useState(() => {
     return typeof window !== "undefined" && window.innerWidth < 1440;
   });
@@ -57,18 +61,22 @@ export function LinksFilters({ filters, onChange, layout, onLayoutChange, links 
     return () => mq.removeEventListener("change", handler);
   }, []);
 
-  // Measure actual container width to dynamically manage chips between 1440px and 1920px
+  // Measure actual container and controls width to dynamically manage chips
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
     const update = () => {
-      // Left controls take roughly 480px, right controls ~80px
-      const free = Math.max(0, el.clientWidth - 560);
+      const totalW = el.clientWidth;
+      const leftW = leftRef.current ? leftRef.current.getBoundingClientRect().width : 450;
+      const rightW = rightRef.current ? rightRef.current.getBoundingClientRect().width : 80;
+      // Subtract left, right, and toolbar margins/gaps (~48px)
+      const free = Math.max(0, totalW - leftW - rightW - 48);
       setAvailableWidth(free);
     };
     update();
     const ro = new ResizeObserver(update);
     ro.observe(el);
+    if (leftRef.current) ro.observe(leftRef.current);
     return () => ro.disconnect();
   }, []);
 
@@ -101,29 +109,29 @@ export function LinksFilters({ filters, onChange, layout, onLayoutChange, links 
     onChange({ ...filters, onlyUsed: !filters.onlyUsed });
   };
 
-  // Prepare items for Toolbar collapsing
+  // Prepare candidate items for Toolbar collapsing
   const toolbarItems: ToolbarItem<{ kind: CardLinkKind | "all"; color?: string; count: number }>[] = useMemo(() => {
     const list: ToolbarItem<{ kind: CardLinkKind | "all"; color?: string; count: number }>[] = [
       {
         id: "all",
         label: "Tutte",
-        // «Tutte» is the neutral reset state, so active is false to avoid false badge counts in Filtri
         active: false,
         alwaysVisible: false,
         priority: 100,
+        width: measuredWidths["all"] || 89,
         data: { kind: "all", count: links.length },
       },
     ];
 
     (Object.keys(LINK_KINDS) as CardLinkKind[]).forEach((k) => {
       const count = countsByKind[k] || 0;
-      // Keep item visible if count > 0 OR if it is currently selected (even if count is 0)
       if (count > 0 || filters.kind === k) {
         list.push({
           id: k,
           label: LINK_KINDS[k].label,
           active: filters.kind === k,
           priority: count,
+          width: measuredWidths[k] || 140,
           data: {
             kind: k,
             color: LINK_KINDS[k].color,
@@ -134,20 +142,90 @@ export function LinksFilters({ filters, onChange, layout, onLayoutChange, links 
     });
 
     return list;
-  }, [countsByKind, filters.kind, links.length]);
+  }, [countsByKind, filters.kind, links.length, measuredWidths]);
+
+  // Hidden offscreen measurement of exact chip widths in real DOM
+  useLayoutEffect(() => {
+    if (!measureRef.current) return;
+    const widths: Record<string, number> = {};
+    const children = measureRef.current.children;
+    for (let i = 0; i < children.length; i++) {
+      const child = children[i] as HTMLElement;
+      const id = child.dataset.itemId;
+      if (id) {
+        widths[id] = Math.ceil(child.getBoundingClientRect().width + 6);
+      }
+    }
+    setMeasuredWidths((prev) => {
+      let changed = false;
+      for (const [k, v] of Object.entries(widths)) {
+        if (prev[k] !== v) {
+          changed = true;
+          break;
+        }
+      }
+      return changed ? widths : prev;
+    });
+  }, [countsByKind, links.length]);
+
+  const renderChip = (
+    item: ToolbarItem<{ kind: CardLinkKind | "all"; color?: string; count: number }>,
+    inPopover: boolean,
+  ) => {
+    const d = item.data;
+    if (!d) return null;
+    const isAll = d.kind === "all";
+    const icon = isAll ? undefined : KIND_ICONS[d.kind as CardLinkKind];
+    const isSelected = isAll ? filters.kind === "all" : filters.kind === d.kind;
+    const hasActiveKind = filters.kind !== "all";
+
+    return (
+      <FilterChip
+        icon={icon}
+        label={item.label}
+        count={d.count}
+        active={isSelected}
+        disabled={isAll && hasActiveKind ? false : undefined}
+        color={d.color}
+        size="sm"
+        className={inPopover ? "w-full justify-between" : undefined}
+        tooltip={isAll ? `Tutti i tipi di collegamento (${d.count})` : `${item.label} (${d.count})`}
+        onClick={() => {
+          if (isAll) {
+            setKind("all");
+          } else {
+            setKind(filters.kind === d.kind ? "all" : d.kind);
+          }
+        }}
+      />
+    );
+  };
 
   return (
     <div ref={containerRef} className="w-full">
+      {/* Hidden offscreen container measuring real rendered chip widths */}
+      <div
+        ref={measureRef}
+        aria-hidden="true"
+        className="fixed top-0 left-0 invisible pointer-events-none -z-50 flex items-center gap-1.5"
+      >
+        {toolbarItems.map((item) => (
+          <div key={item.id} data-item-id={item.id} className="shrink-0">
+            {renderChip(item, false)}
+          </div>
+        ))}
+      </div>
+
       <Toolbar
         items={toolbarItems}
         config={{
           isCompact: isBelow1440,
           availableWidth,
-          itemMinWidth: 125,
+          filtersButtonWidth: 96,
         }}
         filtersLabel="Filtri"
         left={
-          <div className="flex items-center gap-2 shrink-0">
+          <div ref={leftRef} className="flex items-center gap-2 shrink-0">
             {/* Card search */}
             <div className="relative flex items-center min-w-[130px] max-w-[180px]">
               <Search className="absolute left-2.5 h-3.5 w-3.5 text-muted pointer-events-none" aria-hidden />
@@ -161,14 +239,14 @@ export function LinksFilters({ filters, onChange, layout, onLayoutChange, links 
               />
             </div>
 
-            {/* Start Zone dropdown (filters out 0-count zones unless selected) */}
+            {/* Start Zone dropdown with right padding to prevent text overlapping arrow */}
             <div className="flex items-center gap-1.5 text-xs text-muted shrink-0">
               <Layers className="h-3.5 w-3.5 text-muted shrink-0" aria-hidden />
               <select
                 aria-label="Filtra per zona di partenza"
                 value={filters.zone}
                 onChange={(e) => setZone(e.target.value as CardLinkZone | "all")}
-                className="field !py-1 !px-2 !text-xs rounded-lg cursor-pointer"
+                className="field !py-1 !pl-2 !pr-7 !text-xs rounded-lg cursor-pointer"
               >
                 <option value="all">Tutte le zone ({links.length})</option>
                 {(Object.keys(LINK_ZONES) as CardLinkZone[])
@@ -192,27 +270,15 @@ export function LinksFilters({ filters, onChange, layout, onLayoutChange, links 
             />
           </div>
         }
-        renderItem={(item) => {
-          const d = item.data;
-          if (!d) return null;
-          const icon = d.kind === "all" ? undefined : KIND_ICONS[d.kind];
-          const isAllSelected = d.kind === "all" && filters.kind === "all";
-          return (
-            <FilterChip
-              icon={icon}
-              label={item.label}
-              count={d.count}
-              active={isAllSelected || item.active}
-              color={d.color}
-              size="sm"
-              tooltip={d.kind === "all" ? `Tutti i tipi di collegamento (${d.count})` : `${item.label} (${d.count})`}
-              onClick={() => setKind(d.kind)}
-            />
-          );
-        }}
+        renderItem={renderChip}
         right={
           /* Accessible group (eliminates axe aria-required-children error) */
-          <div className="flex items-center rounded-lg border border-border bg-surface-2 p-0.5 shrink-0" role="group" aria-label="Modalità di visualizzazione">
+          <div
+            ref={rightRef}
+            className="flex items-center rounded-lg border border-border bg-surface-2 p-0.5 shrink-0"
+            role="group"
+            aria-label="Modalità di visualizzazione"
+          >
             <IconButton
               icon={<CircleDot className="h-4 w-4" />}
               ariaLabel="Vista mappa cerchio"

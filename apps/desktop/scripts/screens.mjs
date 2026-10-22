@@ -26,7 +26,10 @@ const RUN_AXE = hasArg("--axe");
 
 const VIEWPORTS = [
   { width: 1280, height: 800, name: "1280x800" },
+  { width: 1440, height: 900, name: "1440x900" },
+  { width: 1680, height: 1050, name: "1680x1050" },
   { width: 1920, height: 1080, name: "1920x1080" },
+  { width: 1280, height: 600, name: "1280x600" },
 ];
 
 const THEMES = ["forge", "light"];
@@ -93,6 +96,13 @@ async function main() {
             const navBtn = page.locator(`button:has-text("${section.name}")`).first();
             if (await navBtn.count()) {
               await navBtn.click();
+            }
+          }
+
+          if (section.id === "stats") {
+            const linksTab = page.locator('button:has-text("Collegamenti")').first();
+            if (await linksTab.count()) {
+              await linksTab.click();
             }
           }
 

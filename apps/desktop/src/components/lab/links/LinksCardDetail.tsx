@@ -199,21 +199,25 @@ export function LinksCardDetail({
       {/* Metric stats grid */}
       <div className="grid grid-cols-2 gap-2 text-center">
         <div className="rounded-lg border border-border/60 bg-surface-3/60 p-2">
-          <p className="eyebrow text-caption text-muted">Raggiungibilità</p>
+          <p className="eyebrow text-small text-muted">Raggiungibilità</p>
           <p className="text-body font-semibold tabular-nums text-text mt-0.5">
             {card.reach} <span className="text-small text-muted font-normal">/ {card.reachAll}</span>
           </p>
-          <p className="text-caption text-faint leading-tight mt-0.5">1 passo / tutti i passi</p>
+          <p className="text-small text-faint leading-tight mt-0.5">1 passo / tutti i passi</p>
         </div>
 
         <div
           className="rounded-lg border border-border/60 bg-surface-3/60 p-2 cursor-help"
           data-tip={chance.tooltip}
         >
-          <p className="eyebrow text-caption text-muted">In mano iniziale</p>
+          <p className="eyebrow text-small text-muted">In mano iniziale</p>
           <p className="text-body font-semibold tabular-nums text-sec mt-0.5">{chance.text}</p>
-          <p className="text-caption text-faint leading-tight mt-0.5">
-            {chance.isEstimated ? "stima cercata (±5%)" : "pescata o raggiunta"}
+          <p className="text-small text-faint leading-tight mt-0.5">
+            {card.extra && card.chance === 0
+              ? "non raggiunta nelle mani cercate"
+              : chance.isEstimated
+              ? "stima cercata (±5%)"
+              : "pescata o raggiunta in 1 passo"}
           </p>
         </div>
       </div>
@@ -245,7 +249,7 @@ export function LinksCardDetail({
       <div className="flex flex-col gap-1.5">
         <p className="text-small font-semibold text-text uppercase tracking-wider flex items-center justify-between">
           <span>Porta a ({outgoing.length})</span>
-          <span className="text-caption font-normal text-muted lowercase">in 1 passo</span>
+          <span className="text-small font-normal text-muted lowercase">in 1 passo</span>
         </p>
         {outgoing.length === 0 ? (
           <p className="text-small text-faint italic">Non porta a nessun'altra carta direttamente.</p>
@@ -256,38 +260,41 @@ export function LinksCardDetail({
               const meta = LINK_KINDS[l.kind];
               const zoneMeta = LINK_ZONES[l.zone];
               return (
-                <li
-                  key={`${l.from}-${l.to}-${l.kind}-${i}`}
-                  className="flex items-center justify-between gap-1.5 rounded-lg border border-border/50 bg-surface-3/50 px-2.5 py-1 text-small hover:border-sec/50 cursor-pointer transition-colors"
-                  onClick={() => {
-                    sound.play("page");
-                    onSelectCard(l.to);
-                  }}
-                  data-tip={`Clicca per vedere i collegamenti di ${toCard?.name ?? l.to}`}
-                >
-                  <div className="flex items-center gap-1.5 min-w-0">
-                    <span className="h-1.5 w-1.5 rounded-full shrink-0" style={{ background: meta.color }} />
-                    <span className="truncate font-medium text-text">{toCard?.name ?? l.to}</span>
-                  </div>
-                  <div className="flex items-center gap-1.5 shrink-0 text-small">
-                    <span className="chip !py-0 !px-1 text-caption" style={{ color: meta.color, borderColor: meta.color }}>
-                      {meta.verb}
-                    </span>
-                    <span className="text-faint">{zoneMeta?.short ?? l.zone}</span>
-                    {isLinkTextOnly(l) && (
-                      <span
-                        className="chip !py-0 !px-1.5 text-caption text-muted border-dashed border-border"
-                        data-tip="Nominato nel testo della carta, ma le linee combo cercate non lo usano"
-                      >
-                        dal testo
+                <li key={`${l.from}-${l.to}-${l.kind}-${i}`}>
+                  <button
+                    type="button"
+                    className="w-full flex items-center justify-between gap-1.5 rounded-lg border border-border/50 bg-surface-3/50 px-2.5 py-1 text-small hover:border-sec/50 cursor-pointer transition-colors text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/70"
+                    onClick={() => {
+                      sound.play("page");
+                      onSelectCard(l.to);
+                    }}
+                    data-tip={`Clicca per vedere i collegamenti di ${toCard?.name ?? l.to}`}
+                  >
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <span className="h-1.5 w-1.5 rounded-full shrink-0" style={{ background: meta.color }} />
+                      <span className="truncate font-medium text-text">{toCard?.name ?? l.to}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0 text-small">
+                      <span className="chip !py-0 !px-1.5 text-caption font-medium text-text border-border flex items-center gap-1">
+                        <span className="h-1.5 w-1.5 rounded-full shrink-0" style={{ background: meta.color }} />
+                        <span>{meta.verb}</span>
                       </span>
-                    )}
-                    {l.used > 0 && (
-                      <span className="text-sec font-medium tabular-nums" data-tip={`Usato nel ${Math.round(l.used * 100)}% delle linee migliori`}>
-                        {Math.round(l.used * 100)}%
-                      </span>
-                    )}
-                  </div>
+                      <span className="text-faint">{zoneMeta?.short ?? l.zone}</span>
+                      {isLinkTextOnly(l) && (
+                        <span
+                          className="chip !py-0 !px-1.5 text-caption text-muted border-dashed border-border"
+                          data-tip="Nominato nel testo della carta, ma le linee combo cercate non lo usano"
+                        >
+                          dal testo
+                        </span>
+                      )}
+                      {l.used > 0 && (
+                        <span className="text-sec font-medium tabular-nums" data-tip={`Usato nel ${Math.round(l.used * 100)}% delle linee migliori`}>
+                          {Math.round(l.used * 100)}%
+                        </span>
+                      )}
+                    </div>
+                  </button>
                 </li>
               );
             })}
@@ -308,37 +315,40 @@ export function LinksCardDetail({
               const fromCard = getCard(l.from);
               const meta = LINK_KINDS[l.kind];
               return (
-                <li
-                  key={`${l.from}-${l.to}-${l.kind}-${i}`}
-                  className="flex items-center justify-between gap-1.5 rounded-lg border border-border/50 bg-surface-3/50 px-2.5 py-1 text-small hover:border-sec/50 cursor-pointer transition-colors"
-                  onClick={() => {
-                    sound.play("page");
-                    onSelectCard(l.from);
-                  }}
-                  data-tip={`Clicca per vedere i collegamenti di ${fromCard?.name ?? l.from}`}
-                >
-                  <div className="flex items-center gap-1.5 min-w-0">
-                    <span className="h-1.5 w-1.5 rounded-full shrink-0" style={{ background: meta.color }} />
-                    <span className="truncate font-medium text-text">{fromCard?.name ?? l.from}</span>
-                  </div>
-                  <div className="flex items-center gap-1.5 shrink-0 text-small">
-                    <span className="chip !py-0 !px-1 text-caption" style={{ color: meta.color, borderColor: meta.color }}>
-                      {meta.verb}
-                    </span>
-                    {isLinkTextOnly(l) && (
-                      <span
-                        className="chip !py-0 !px-1.5 text-caption text-muted border-dashed border-border"
-                        data-tip="Nominato nel testo della carta, ma le linee combo cercate non lo usano"
-                      >
-                        dal testo
+                <li key={`${l.from}-${l.to}-${l.kind}-${i}`}>
+                  <button
+                    type="button"
+                    className="w-full flex items-center justify-between gap-1.5 rounded-lg border border-border/50 bg-surface-3/50 px-2.5 py-1 text-small hover:border-sec/50 cursor-pointer transition-colors text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/70"
+                    onClick={() => {
+                      sound.play("page");
+                      onSelectCard(l.from);
+                    }}
+                    data-tip={`Clicca per vedere i collegamenti di ${fromCard?.name ?? l.from}`}
+                  >
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <span className="h-1.5 w-1.5 rounded-full shrink-0" style={{ background: meta.color }} />
+                      <span className="truncate font-medium text-text">{fromCard?.name ?? l.from}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0 text-small">
+                      <span className="chip !py-0 !px-1.5 text-caption font-medium text-text border-border flex items-center gap-1">
+                        <span className="h-1.5 w-1.5 rounded-full shrink-0" style={{ background: meta.color }} />
+                        <span>{meta.verb}</span>
                       </span>
-                    )}
-                    {l.used > 0 && (
-                      <span className="text-sec font-medium tabular-nums">
-                        {Math.round(l.used * 100)}%
-                      </span>
-                    )}
-                  </div>
+                      {isLinkTextOnly(l) && (
+                        <span
+                          className="chip !py-0 !px-1.5 text-caption text-muted border-dashed border-border"
+                          data-tip="Nominato nel testo della carta, ma le linee combo cercate non lo usano"
+                        >
+                          dal testo
+                        </span>
+                      )}
+                      {l.used > 0 && (
+                        <span className="text-sec font-medium tabular-nums">
+                          {Math.round(l.used * 100)}%
+                        </span>
+                      )}
+                    </div>
+                  </button>
                 </li>
               );
             })}
@@ -349,7 +359,7 @@ export function LinksCardDetail({
       {/* Shortest path between cards */}
       {allCards.length > 1 && (
         <div className="flex flex-col gap-1.5 rounded-lg border border-border/70 bg-surface-3/40 p-2.5">
-          <p className="text-caption font-semibold text-muted uppercase tracking-wider">
+          <p className="text-small font-semibold text-muted uppercase tracking-wider">
             Percorso verso un'altra carta
           </p>
           <select
@@ -375,9 +385,9 @@ export function LinksCardDetail({
           {targetCode != null && (
             <div className="flex flex-col gap-1 mt-1 text-small">
               {shortestPath == null ? (
-                <p className="text-faint italic text-caption">Nessun percorso trovato tra queste due carte.</p>
+                <p className="text-faint italic text-small">Nessun percorso trovato tra queste due carte.</p>
               ) : shortestPath.length === 0 ? (
-                <p className="text-faint italic text-caption">Stessa carta selezionata.</p>
+                <p className="text-faint italic text-small">Stessa carta selezionata.</p>
               ) : (
                 <div className="flex flex-col gap-1.5">
                   <p className="text-small text-muted">

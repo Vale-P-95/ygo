@@ -9,16 +9,16 @@ import {
 
 describe("layout.ts - pure circle layout geometry and edge calculations", () => {
   it("determina correttamente i token CSS dei bordi per tipo di carta Yu-Gi-Oh", () => {
-    expect(getCardBorderColor({ frame: "spell", kind: "spell" })).toBe("var(--frame-spell, var(--df-border-strong))");
-    expect(getCardBorderColor({ frame: "trap", kind: "trap" })).toBe("var(--frame-trap, var(--df-border-strong))");
-    expect(getCardBorderColor({ frame: "fusion", kind: "monster" })).toBe("var(--frame-fusion, var(--df-border-strong))");
-    expect(getCardBorderColor({ frame: "synchro", kind: "monster" })).toBe("var(--frame-synchro, var(--df-border-strong))");
-    expect(getCardBorderColor({ frame: "xyz", kind: "monster" })).toBe("var(--frame-xyz, var(--df-border-strong))");
-    expect(getCardBorderColor({ frame: "xyz_pendulum", kind: "monster" })).toBe("var(--frame-xyz, var(--df-border-strong))");
-    expect(getCardBorderColor({ frame: "link", kind: "monster" })).toBe("var(--frame-link, var(--df-border-strong))");
-    expect(getCardBorderColor({ frame: "normal", kind: "monster" })).toBe("var(--frame-normal, var(--df-border-strong))");
-    expect(getCardBorderColor({ frame: "effect", kind: "monster" })).toBe("var(--frame-effect, var(--df-border-strong))");
-    expect(getCardBorderColor(undefined)).toBe("var(--df-border-strong)");
+    expect(getCardBorderColor({ frame: "spell", kind: "spell" })).toBe("var(--frame-spell, var(--df-muted))");
+    expect(getCardBorderColor({ frame: "trap", kind: "trap" })).toBe("var(--frame-trap, var(--df-muted))");
+    expect(getCardBorderColor({ frame: "fusion", kind: "monster" })).toBe("var(--frame-fusion, var(--df-muted))");
+    expect(getCardBorderColor({ frame: "synchro", kind: "monster" })).toBe("var(--frame-synchro, var(--df-muted))");
+    expect(getCardBorderColor({ frame: "xyz", kind: "monster" })).toBe("var(--frame-xyz, var(--df-muted))");
+    expect(getCardBorderColor({ frame: "xyz_pendulum", kind: "monster" })).toBe("var(--frame-xyz, var(--df-muted))");
+    expect(getCardBorderColor({ frame: "link", kind: "monster" })).toBe("var(--frame-link, var(--df-muted))");
+    expect(getCardBorderColor({ frame: "normal", kind: "monster" })).toBe("var(--frame-normal, var(--df-muted))");
+    expect(getCardBorderColor({ frame: "effect", kind: "monster" })).toBe("var(--frame-effect, var(--df-muted))");
+    expect(getCardBorderColor(undefined)).toBe("var(--df-muted)");
   });
 
   it("calcola percorsi archi che terminano precisamente sul bordo del nodo di destinazione", () => {
@@ -137,5 +137,58 @@ describe("layout.ts - pure circle layout geometry and edge calculations", () => 
     const labelLeft = getRadialLabelLayout(posLeft, 200);
     expect(labelLeft.textAnchor).toBe("end");
     expect(labelLeft.transform).toContain("rotate(360) translate(-228, 4)");
+  });
+
+  it("riserva margine verticale e include le etichette di 18 caratteri a ore 12 e 6 interamente nel viewBox a 1280x800 e 1440x900", () => {
+    // Test with card 0 at top (ore 12: -PI/2) and card N/2 at bottom (ore 6: PI/2)
+    const testDimensions = [
+      { width: 780, height: 480 }, // 1280x800 with panels
+      { width: 860, height: 540 }, // 1440x900
+      { width: 1100, height: 680 }, // 1920x1080
+    ];
+
+    for (const dim of testDimensions) {
+      const cardCount = 40;
+      const cards = Array.from({ length: cardCount }, (_, i) => ({
+        code: 3000 + i,
+        key: i === 0 || i === 20 ? 0.5 : 0.05,
+      }));
+
+      const geo = calculateCircleGeometry({
+        containerWidth: dim.width,
+        containerHeight: dim.height,
+        cardCount,
+        cards,
+      });
+
+      const [, minY, vbWidth, vbHeight] = geo.viewBox.split(" ").map(Number);
+      const halfH = vbHeight / 2;
+      const halfW = vbWidth / 2;
+
+      // Card at index 0 is at top (-PI/2)
+      const topNode = geo.positions.get(3000)!;
+      expect(topNode.x).toBeCloseTo(0, 1);
+      expect(topNode.y).toBeCloseTo(-geo.radius, 1);
+
+      // Label length for 18 chars (16 + ellipsis) with 12px font is ~115px
+      const labelLength = 115;
+      const topOutermostY = -(geo.radius + topNode.radius + 8 + labelLength);
+
+      // Verify top label outer edge is strictly within -halfH (minY)
+      expect(topOutermostY).toBeGreaterThanOrEqual(minY);
+
+      // Card at index 20 (halfway) is at bottom (PI/2)
+      const bottomNode = geo.positions.get(3020)!;
+      expect(bottomNode.x).toBeCloseTo(0, 1);
+      expect(bottomNode.y).toBeCloseTo(geo.radius, 1);
+
+      const bottomOutermostY = geo.radius + bottomNode.radius + 8 + labelLength;
+
+      // Verify bottom label outer edge is strictly within +halfH
+      expect(bottomOutermostY).toBeLessThanOrEqual(halfH);
+
+      // Also check horizontal bounds
+      expect(geo.radius + labelLength).toBeLessThanOrEqual(halfW);
+    }
   });
 });

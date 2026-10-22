@@ -42,28 +42,34 @@ export function LinksCircle({
   onHoverCard,
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [dimensions, setDimensions] = useState<{ width: number; height: number }>({ width: 740, height: 600 });
+  const [availableHeight, setAvailableHeight] = useState<number>(560);
+  const [dimensions, setDimensions] = useState<{ width: number; height: number }>({ width: 740, height: 560 });
   const markerIdPrefix = useId().replace(/:/g, "_");
   const reduceMotion = prefersReducedMotion();
 
-  // ResizeObserver for dynamic circle scaling across any screen
-  // Measured container has an explicit layout-controlled height to prevent feedback loops
+  // Dynamic circle height calculation based on available viewport space
   useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
     const update = () => {
-      const { clientWidth, clientHeight } = el;
-      if (clientWidth > 0 && clientHeight > 0) {
-        setDimensions((prev) => {
-          if (Math.abs(prev.width - clientWidth) < 2 && Math.abs(prev.height - clientHeight) < 2) return prev;
-          return { width: clientWidth, height: clientHeight };
-        });
+      if (!containerRef.current) return;
+      const rect = containerRef.current.getBoundingClientRect();
+      const freeHeight = window.innerHeight - rect.top - 24;
+      // Flexible bounds fitting within 1280x800 viewport without extending off-screen
+      const targetH = Math.max(360, Math.min(720, Math.floor(freeHeight)));
+      setAvailableHeight(targetH);
+
+      const clientW = containerRef.current.clientWidth;
+      if (clientW > 0) {
+        setDimensions({ width: clientW, height: targetH });
       }
     };
     update();
-    const ro = new ResizeObserver(update);
-    ro.observe(el);
-    return () => ro.disconnect();
+    window.addEventListener("resize", update);
+    const ro = new ResizeObserver(() => update());
+    if (containerRef.current) ro.observe(containerRef.current);
+    return () => {
+      window.removeEventListener("resize", update);
+      ro.disconnect();
+    };
   }, []);
 
   const gainedKeys = useMemo(
@@ -170,7 +176,8 @@ export function LinksCircle({
   return (
     <div
       ref={containerRef}
-      className="relative w-full h-[clamp(520px,calc(100vh-280px),720px)] min-h-[520px] overflow-hidden select-none"
+      style={{ height: `${availableHeight}px` }}
+      className="relative w-full overflow-hidden select-none"
     >
       <svg
         viewBox={geometry.viewBox}
@@ -179,19 +186,32 @@ export function LinksCircle({
       >
         <defs>
           {(Object.keys(LINK_KINDS) as (keyof typeof LINK_KINDS)[]).map((kind) => (
-            <marker
-              key={kind}
-              id={`${markerIdPrefix}-arrow-${kind}`}
-              viewBox="0 0 10 10"
-              refX="9"
-              refY="5"
-              markerUnits="userSpaceOnUse"
-              markerWidth="7"
-              markerHeight="7"
-              orient="auto-start-reverse"
-            >
-              <path d="M 0 1 L 9 5 L 0 9 z" fill={LINK_KINDS[kind].color} />
-            </marker>
+            <g key={kind}>
+              <marker
+                id={`${markerIdPrefix}-arrow-${kind}`}
+                viewBox="0 0 10 10"
+                refX="9"
+                refY="5"
+                markerUnits="userSpaceOnUse"
+                markerWidth="7"
+                markerHeight="7"
+                orient="auto-start-reverse"
+              >
+                <path d="M 0 1 L 9 5 L 0 9 z" fill={LINK_KINDS[kind].color} fillOpacity="0.95" />
+              </marker>
+              <marker
+                id={`${markerIdPrefix}-arrow-${kind}-faint`}
+                viewBox="0 0 10 10"
+                refX="9"
+                refY="5"
+                markerUnits="userSpaceOnUse"
+                markerWidth="7"
+                markerHeight="7"
+                orient="auto-start-reverse"
+              >
+                <path d="M 0 1 L 9 5 L 0 9 z" fill={LINK_KINDS[kind].color} fillOpacity="0.25" />
+              </marker>
+            </g>
           ))}
           {/* Comparison markers with CSS tokens */}
           <marker
@@ -204,7 +224,19 @@ export function LinksCircle({
             markerHeight="8"
             orient="auto-start-reverse"
           >
-            <path d="M 0 1 L 9 5 L 0 9 z" fill="var(--df-ok)" />
+            <path d="M 0 1 L 9 5 L 0 9 z" fill="var(--df-ok)" fillOpacity="0.95" />
+          </marker>
+          <marker
+            id={`${markerIdPrefix}-arrow-gained-faint`}
+            viewBox="0 0 10 10"
+            refX="9"
+            refY="5"
+            markerUnits="userSpaceOnUse"
+            markerWidth="8"
+            markerHeight="8"
+            orient="auto-start-reverse"
+          >
+            <path d="M 0 1 L 9 5 L 0 9 z" fill="var(--df-ok)" fillOpacity="0.25" />
           </marker>
           <marker
             id={`${markerIdPrefix}-arrow-lost`}
@@ -216,7 +248,19 @@ export function LinksCircle({
             markerHeight="7"
             orient="auto-start-reverse"
           >
-            <path d="M 0 1 L 9 5 L 0 9 z" fill="var(--df-danger)" />
+            <path d="M 0 1 L 9 5 L 0 9 z" fill="var(--df-danger)" fillOpacity="0.95" />
+          </marker>
+          <marker
+            id={`${markerIdPrefix}-arrow-lost-faint`}
+            viewBox="0 0 10 10"
+            refX="9"
+            refY="5"
+            markerUnits="userSpaceOnUse"
+            markerWidth="7"
+            markerHeight="7"
+            orient="auto-start-reverse"
+          >
+            <path d="M 0 1 L 9 5 L 0 9 z" fill="var(--df-danger)" fillOpacity="0.25" />
           </marker>
           {/* Path marker */}
           <marker
@@ -229,7 +273,7 @@ export function LinksCircle({
             markerHeight="9"
             orient="auto-start-reverse"
           >
-            <path d="M 0 1 L 9 5 L 0 9 z" fill="var(--sec)" />
+            <path d="M 0 1 L 9 5 L 0 9 z" fill="var(--sec)" fillOpacity="0.95" />
           </marker>
 
           {/* Card node artwork clip paths */}
@@ -272,8 +316,13 @@ export function LinksCircle({
             const pTo = positions.get(l.to);
             if (!pFrom || !pTo) return null;
 
-            // Compute edge path ending precisely at target node's border
-            const edge = getEdgePath(pFrom, pTo, pFrom.radius, pTo.radius);
+            // Compute edge path ending precisely at target node's border, leaving clearance for selection and hand rings
+            const isSelectedTarget = l.to === activeCardCode;
+            const isHandTarget = sampleHandCodes?.has(l.to) ?? false;
+            const isPathTarget = pathNodeCodes?.has(l.to) ?? false;
+            const targetRing = isSelectedTarget || isHandTarget ? 8 : isPathTarget ? 7 : 0;
+            const effectiveRTo = pTo.radius + targetRing;
+            const edge = getEdgePath(pFrom, pTo, pFrom.radius, effectiveRTo);
 
             const isRelated = targetCode != null && (l.from === targetCode || l.to === targetCode);
             const meta = LINK_KINDS[l.kind];
@@ -353,6 +402,8 @@ export function LinksCircle({
             }
 
             const shouldPulse = !reduceMotion && (isRelated || isPath) && opacity > 0.5;
+            const isFaint = opacity < 0.5;
+            const effectiveMarkerId = isFaint ? `${markerId}-faint` : markerId;
 
             return (
               <path
@@ -363,7 +414,7 @@ export function LinksCircle({
                 strokeWidth={strokeWidth}
                 strokeOpacity={opacity}
                 strokeDasharray={strokeDash}
-                markerEnd={opacity > 0.07 ? `url(#${markerId})` : undefined}
+                markerEnd={opacity > 0.07 ? `url(#${effectiveMarkerId})` : undefined}
                 className="transition-all duration-200"
               >
                 {shouldPulse && strokeDash && (
@@ -448,12 +499,23 @@ export function LinksCircle({
               .filter(Boolean)
               .join("\n");
 
+            const visibleSuffix = [
+              isAdded ? "(+)" : null,
+              isRemoved ? "(− tolta)" : null,
+              inSampleHand ? "(mano)" : null,
+              c.key >= KEY_CARD_THRESHOLD ? "★" : null,
+            ]
+              .filter(Boolean)
+              .join(" ");
+
+            const accessibleName = `${displayName} (${name})${visibleSuffix ? ` ${visibleSuffix}` : ""}`;
+
             return (
               <g
                 key={c.code}
                 tabIndex={matches ? 0 : -1}
                 role="button"
-                aria-label={`Carta ${name}`}
+                aria-label={accessibleName}
                 data-tip={tooltipContent}
                 className={`transition-opacity duration-200 outline-none ${matches ? "cursor-pointer" : "pointer-events-none"}`}
                 opacity={nodeOpacity}
@@ -473,11 +535,14 @@ export function LinksCircle({
                 onPointerEnter={() => onHoverCard(c.code)}
                 onPointerLeave={() => onHoverCard(null)}
               >
-                {/* Fixed invisible hit-area circle preventing pointer jitter or hover oscillation */}
+                {/* Fixed invisible hit-area circle limited to half chord to prevent neighbor and arrow overlap */}
                 <circle
                   cx={pos.x}
                   cy={pos.y}
-                  r={Math.max(nodeR + 4, 18)}
+                  r={Math.min(
+                    Math.max(nodeR + 2, 10),
+                    geometry.spacingChord > 0 ? geometry.spacingChord * 0.48 : 18,
+                  )}
                   fill="transparent"
                   pointerEvents="all"
                 />
