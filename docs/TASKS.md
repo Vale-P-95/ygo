@@ -49,7 +49,17 @@ Corsie di lavoro in parallelo del 22/10/2026 (piano in `docs/plans/piano-prossim
     - [x] le 90 board delle coppie del proprietario nel banco (77 trovate, 76 con la verità) e la tabella per coppia.
 
   Agente: claude-code, sessione sorella del collaudo. Branch: `claude/tools-qa`. File: script nuovi in `scripts/` (`objective_bench.py`), `docs/plans/collaudo-strumenti.md`, `docs/plans/banco-oggettivo.md`, `tests/fixtures/boards/`.
-- [ ] **Corsia 4, quinto task.** B5a, attrito avversario (`docs/plans/ricerca-piano-critico.md`, `ricerca-letteratura.md` §1, «Il caso Aeon»). Controllo: su Invoked la linea di Aeon con il bando dall'Extra Deck avversario sta sopra quella col «No», nella misura e nella stima; banco, `combo_hunt` e `search_regression` non peggiorano oltre il 2% (test appaiato per mano).
+- [ ] **Corsia 4, sesto task.** Difetti del livello 2 dal banco oggettivo (corsia 3) e dalla corsia 7: contro il deck scelto la tua linea si sfasava (Elfnote Kewl Tune su una catena vuota, Tearlaments e Earth Machine con 0 linee, railway contro Snake-Eye). La linea si rigioca per identità.
+
+  Agente: claude-code, sessione della corsia 4. Branch: `claude/placed-cards`. File: in `crates/ygo-solver/src/probe.rs` `Prelude::Own` e il suo ramo in `run_with`; `follow.rs` (`Script::up_to`); in `matchup.rs` `replay` (ramo per identità, recupero di `Rejected`, picks), `rival_breakers`, `against_moves`, `draw_trade_off`; la stampa di `print_moves` in `crates/ygo-cli/src/main.rs`.
+  - [x] La correzione.
+  - [x] `moves_report` e `matchup_report` prima e dopo; protocollo del motore; controllo senza `--vs`; rimisura di Kewl Tune per il banco oggettivo.
+    - Kewl Tune e Tearlaments: da 0 linee a 10-12 contro ciascuno dei 12 avversari; invoked, branded ed Earth Machine identici (tempi a parte).
+    - `matchup_report` (6 deck contro snake_eye, branded, yubel, kaiju): Kewl Tune contro tutti e 4 e railway contro kaiju non falliscono più; railway contro Snake-Eye e Branded: Maxx "C" non toglie più Carnot a ogni momento (12/23 e 19/23 → 1/23). Gli altri 4 deck identici.
+    - Senza `--vs`: banco 18,26 / 18,26 e `combo_hunt` (41 ok, 0 problemi) identici a B5a, JSON compreso (tempi a parte); test completi e `search_regression` verdi.
+    - Limite: con Kewl Tune Maxx "C" «ferma» tutti i momenti, perché le sue pescate cambiano l'esito casuale di Elfnote Tinia.
+  - [ ] Dopo, correzione piccola a parte (d'accordo con la coordinatrice): in `hand_trap_stops` una perdita uguale a ogni momento conta come effetto casuale, non come fermata.
+- [x] **Corsia 4, quinto task**, unita il 22/10 (PR #73). B5a, attrito avversario (`docs/plans/ricerca-piano-critico.md`, `ricerca-letteratura.md` §1, «Il caso Aeon»). Controllo: su Invoked la linea di Aeon con il bando dall'Extra Deck avversario sta sopra quella col «No», nella misura e nella stima; banco, `combo_hunt` e `search_regression` non peggiorano oltre il 2% (test appaiato per mano).
 
   Agente: claude-code, sessione della corsia 4. Branch: `claude/placed-cards`. File: `crates/ygo-solver/src/probe.rs` (kit, `Measure`, Observer, `run_with`), `follow.rs`; in `search.rs` solo `quick_score` e il passaggio dell'avversario di partenza; `crates/ygo-engine/src/italian.rs` (un'etichetta); la parte di `crates/ygo-cli/src/main.rs` che stampa la misura.
   - [x] Il sì opzionale di Aeon: nessuna regola lo rifiuta; la ricerca lo trova, ma la stima non vede l'avversario e a parità vince la linea più corta.
