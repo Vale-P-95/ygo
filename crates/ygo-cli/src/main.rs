@@ -512,10 +512,42 @@ fn combos(dir: &Path, setup: &Setup, options: CombosOptions) -> Result<()> {
             None => {}
         }
     }
-    let mut measured_boards = Vec::new();
-    let mut saved_lines = Vec::new();
+    // Measured first: the boards are then printed best measured first (the
+    // search's estimate next to it), as the Combo Lab ranks them; the JSON
+    // and the saved lines keep the search's order, with the printed rank.
+    struct Listed<'a> {
+        board: &'a ygo_solver::Board,
+        variants: usize,
+        measured: Option<Result<ygo_solver::Measure, ygo_engine::Error>>,
+        took: std::time::Duration,
+        exposure: Option<ygo_solver::Exposure>,
+    }
+    let mut boards: Vec<Listed> = Vec::new();
     for (i, board) in listed.into_iter().enumerate() {
-        let variants = looks[i].1;
+        let mut item = Listed { board, variants: looks[i].1, measured: None, took: std::time::Duration::ZERO, exposure: None };
+        if probe {
+            let started = std::time::Instant::now();
+            item.measured = Some(prober.measure(&board.line));
+            item.took = started.elapsed();
+            item.exposure =
+                ygo_solver::exposure(&engine, &config.deck, &config.hand, config.seed, config.opponent.as_ref(), &board.line).ok();
+        }
+        boards.push(item);
+    }
+    let measured_value = |item: &Listed| item.measured.as_ref().and_then(|m| m.as_ref().ok()).map(composite);
+    let mut printed: Vec<usize> = (0..boards.len()).collect();
+    // A board whose probe turn failed goes after the measured ones.
+    printed.sort_by(|&a, &b| {
+        let (va, vb) = (measured_value(&boards[a]), measured_value(&boards[b]));
+        vb.unwrap_or(f64::NEG_INFINITY).total_cmp(&va.unwrap_or(f64::NEG_INFINITY)).then(a.cmp(&b))
+    });
+    let mut rank_of = vec![0; boards.len()];
+    for (rank, &i) in printed.iter().enumerate() {
+        rank_of[i] = rank;
+    }
+    for (rank, &i) in printed.iter().enumerate() {
+        let Listed { board, variants, measured, took, exposure } = &boards[i];
+        let variants = *variants;
         let me = &board.state.players[0];
         let zone = |(z, c): (usize, &ygo_engine::FieldCard)| {
             if (5..=6).contains(&z) {
@@ -533,44 +565,38 @@ fn combos(dir: &Path, setup: &Setup, options: CombosOptions) -> Result<()> {
             .chain(me.spells.iter().flatten().map(|c| db.name(c.code)))
             .collect();
         let hand: Vec<String> = me.hand.iter().map(|&c| db.name(c)).collect();
+        let value = measured_value(&boards[i]).map_or(String::new(), |v| format!(" · measured {v:.2}"));
         println!(
-            "\n#{}{}{} score {:.1} · {} cards used · {} choices · found at {:.1} s\n   field: {}\n   hand: {}",
-            i + 1,
+            "\n#{}{}{} score {:.1}{value} · search #{} · {} cards used · {} choices · found at {:.1} s\n   field: {}\n   hand: {}",
+            rank + 1,
             if board.exact { "" } else { " (End Phase not played)" },
             if variants > 0 { format!(" (+{variants} variants)") } else { String::new() },
             board.quick_score,
+            i + 1,
             board.cards_used,
             board.line.choices.len(),
             board.found_after.as_secs_f64(),
             field.join(", "),
             hand.join(", ")
         );
-        if probe {
-            let started = std::time::Instant::now();
-            let measured = prober.measure(&board.line);
-            let took = started.elapsed();
-            match &measured {
-                Ok(m) => print_measure(&engine, m, took),
-                Err(e) => println!("   probe turn failed: {e}"),
-            }
-            let exposure =
-                ygo_solver::exposure(&engine, &config.deck, &config.hand, config.seed, config.opponent.as_ref(), &board.line).ok();
-            if let Some(x) = &exposure {
-                println!(
-                    "   exposure: {} choke points · Ash {} · on-field negation {} · summons {} (special {}) · searches {} · Deck cost {} · LP paid {}",
-                    x.choke_points(),
-                    x.ash,
-                    x.on_field,
-                    x.summons,
-                    x.special_summons,
-                    x.searches,
-                    x.deck_cost,
-                    x.lp_paid
-                );
-            }
-            measured_boards.push(board_json(&engine, &config, board, i, variants, measured.as_ref().ok(), took, exposure.as_ref()));
+        match measured {
+            Some(Ok(m)) => print_measure(&engine, m, *took),
+            Some(Err(e)) => println!("   probe turn failed: {e}"),
+            None => {}
         }
-        saved_lines.push(line_json(&board.line));
+        if let Some(x) = exposure {
+            println!(
+                "   exposure: {} choke points · Ash {} · on-field negation {} · summons {} (special {}) · searches {} · Deck cost {} · LP paid {}",
+                x.choke_points(),
+                x.ash,
+                x.on_field,
+                x.summons,
+                x.special_summons,
+                x.searches,
+                x.deck_cost,
+                x.lp_paid
+            );
+        }
         if show_lines {
             let (_, steps) = ygo_solver::explain(&engine, &config.deck, &config.hand, config.seed, config.opponent.as_ref(), &board.line)?;
             for (k, step) in steps.iter().enumerate() {
@@ -582,6 +608,17 @@ fn combos(dir: &Path, setup: &Setup, options: CombosOptions) -> Result<()> {
                 }
             }
         }
+    }
+    let mut measured_boards = Vec::new();
+    let mut saved_lines = Vec::new();
+    for (i, item) in boards.iter().enumerate() {
+        if probe {
+            let measured = item.measured.as_ref().and_then(|m| m.as_ref().ok());
+            let mut b = board_json(&engine, &config, item.board, i, item.variants, measured, item.took, item.exposure.as_ref());
+            b["printed"] = serde_json::json!(rank_of[i]);
+            measured_boards.push(b);
+        }
+        saved_lines.push(line_json(&item.board.line));
     }
     let header = |kind: &str, items: Vec<serde_json::Value>| {
         serde_json::json!({
@@ -1046,6 +1083,18 @@ fn matchup_json(x: &ygo_solver::Matchup) -> serde_json::Value {
             "moments": h.moments.iter().map(|m| serde_json::json!({ "playing": m.playing, "stops": m.stops, "drawn": m.drawn })).collect::<Vec<_>>(),
         })).collect::<Vec<_>>(),
     })
+}
+
+/// The measured value of a board with the "Bilanciato" profile of the app:
+/// the same weights as `WEIGHTS`, `FOLLOW_UP` and `REBUILD` in
+/// scripts/bench.py (the cards gained in the End Phase weigh 0 there).
+fn composite(m: &ygo_solver::Measure) -> f64 {
+    const WEIGHTS: [f64; 4] = [1.0, 0.9, 0.8, 0.6];
+    const FOLLOW_UP: f64 = 0.4;
+    const REBUILD: f64 = 0.3;
+    let parts = [m.field_value, m.hand_value, m.floodgate_value, m.resilience];
+    let rebuild = m.follow_up.map_or(0.0, |f| f.rebuild as f64);
+    WEIGHTS.iter().zip(parts).map(|(w, v)| w * v).sum::<f64>() + FOLLOW_UP * REBUILD * rebuild
 }
 
 fn print_measure(engine: &Engine, m: &ygo_solver::Measure, took: std::time::Duration) {
