@@ -51,6 +51,12 @@ interface Violation {
   excess: number;
 }
 
+interface DeckEvaluation {
+  violations: Violation[];
+  unverifiableIds: number[];
+  isLegal: boolean;
+}
+
 interface Props {
   artReady?: boolean;
   onOpenDeckInForge: (deckId: number) => void;
@@ -61,6 +67,7 @@ type TabMode = "confronto" | "impatto";
 export function Banditore({ artReady = true, onOpenDeckInForge }: Props) {
   const [activeTab, setActiveTab] = useState<TabMode>("confronto");
   const [status, setStatus] = useState<DataStatus | null>(null);
+  const [statusError, setStatusError] = useState<string | null>(null);
 
   // --- Tab 1: Confronto Formati state ---
   const [cards, setCards] = useState<Card[]>([]);
@@ -78,6 +85,7 @@ export function Banditore({ artReady = true, onOpenDeckInForge }: Props) {
   const [evalFormats, setEvalFormats] = useState<Record<number, DeckFormat>>({});
   const [decksLoading, setDecksLoading] = useState(false);
   const [decksError, setDecksError] = useState<string | null>(null);
+  const [decksWarning, setDecksWarning] = useState<string | null>(null);
 
   const cardsReqIdRef = useRef(0);
   const decksReqIdRef = useRef(0);
@@ -87,8 +95,8 @@ export function Banditore({ artReady = true, onOpenDeckInForge }: Props) {
     api
       .dataStatus()
       .then(setStatus)
-      .catch(() => {
-        // Fallback: non-fatal if status info fails
+      .catch((err) => {
+        setStatusError(err instanceof Error ? err.message : String(err));
       });
   }, []);
 
@@ -125,8 +133,8 @@ export function Banditore({ artReady = true, onOpenDeckInForge }: Props) {
       } else {
         // Default: load all restricted cards across MD and TCG/OCG
         Promise.all([
-          api.search("ban:forbidden ban:limited ban:semi").catch(() => ({ ids: [] })),
-          api.search("formato:md ban:forbidden ban:limited ban:semi").catch(() => ({ ids: [] })),
+          api.search("ban:forbidden ban:limited ban:semi"),
+          api.search("formato:md ban:forbidden ban:limited ban:semi"),
         ])
           .then(([tcgRes, mdRes]) => {
             if (reqId !== cardsReqIdRef.current) return;
@@ -160,6 +168,7 @@ export function Banditore({ artReady = true, onOpenDeckInForge }: Props) {
     const reqId = ++decksReqIdRef.current;
     setDecksLoading(true);
     setDecksError(null);
+    setDecksWarning(null);
 
     api
       .listDecks()
@@ -171,25 +180,39 @@ export function Banditore({ artReady = true, onOpenDeckInForge }: Props) {
           return;
         }
 
-        // Fetch each deck's full content
+        // Fetch all decks in parallel
+        const deckResults = await Promise.allSettled(summaries.map((s) => api.getDeck(s.id)));
+        if (reqId !== decksReqIdRef.current) return;
+
         const loadedDecks: Deck[] = [];
+        let failedDecksCount = 0;
         const cardIds = new Set<number>();
 
-        for (const s of summaries) {
-          try {
-            const d = await api.getDeck(s.id);
-            if (d) {
-              loadedDecks.push(d);
-              for (const id of d.main) cardIds.add(id);
-              for (const id of d.extra) cardIds.add(id);
-              for (const id of d.side) cardIds.add(id);
-            }
-          } catch {
-            // Ignore single deck load failure
+        for (const res of deckResults) {
+          if (res.status === "fulfilled" && res.value) {
+            const d = res.value;
+            loadedDecks.push(d);
+            for (const id of d.main) cardIds.add(id);
+            for (const id of d.extra) cardIds.add(id);
+            for (const id of d.side) cardIds.add(id);
+          } else {
+            failedDecksCount++;
           }
         }
 
-        if (reqId !== decksReqIdRef.current) return;
+        if (failedDecksCount > 0) {
+          setDecksWarning(
+            `${failedDecksCount} deck su ${summaries.length} non ${
+              failedDecksCount === 1 ? "è stato caricato" : "sono stati caricati"
+            }.`
+          );
+        }
+
+        if (loadedDecks.length === 0 && failedDecksCount > 0) {
+          setDecksError("Impossibile caricare i mazzi salvati nella Bottega.");
+          setDecksLoading(false);
+          return;
+        }
 
         // Fetch full Card metadata for all cards in decks
         let cardMap = new Map<number, Card>();
@@ -197,8 +220,13 @@ export function Banditore({ artReady = true, onOpenDeckInForge }: Props) {
           try {
             const loadedCards = await api.getCards(Array.from(cardIds));
             cardMap = new Map(loadedCards.map((c) => [c.id, c]));
-          } catch {
-            // Non-fatal
+          } catch (err) {
+            if (reqId !== decksReqIdRef.current) return;
+            setDecksError(
+              `Errore nel caricamento delle carte dei mazzi: ${err instanceof Error ? err.message : String(err)}`
+            );
+            setDecksLoading(false);
+            return;
           }
         }
 
@@ -259,17 +287,22 @@ export function Banditore({ artReady = true, onOpenDeckInForge }: Props) {
   const divergenceCount = useMemo(() => cards.filter(hasFormatDivergence).length, [cards]);
 
   // Tab 2: Evaluate Violations for a deck
-  const getDeckViolations = useCallback(
-    (deck: Deck, targetFormat: DeckFormat): Violation[] => {
+  const evaluateDeck = useCallback(
+    (deck: Deck, targetFormat: DeckFormat): DeckEvaluation => {
       const counts = new Map<number, number>();
       for (const id of [...deck.main, ...deck.extra, ...deck.side]) {
         counts.set(id, (counts.get(id) ?? 0) + 1);
       }
 
       const violations: Violation[] = [];
+      const unverifiableIds: number[] = [];
+
       for (const [id, copies] of counts) {
         const card = deckCardMap.get(id);
-        if (!card) continue;
+        if (!card) {
+          unverifiableIds.push(id);
+          continue;
+        }
         const limit = copyLimit(card, targetFormat);
         if (copies > limit) {
           violations.push({
@@ -281,7 +314,10 @@ export function Banditore({ artReady = true, onOpenDeckInForge }: Props) {
         }
       }
 
-      return violations.sort((a, b) => a.limit - b.limit || b.excess - a.excess);
+      violations.sort((a, b) => a.limit - b.limit || b.excess - a.excess);
+      const isLegal = violations.length === 0 && unverifiableIds.length === 0;
+
+      return { violations, unverifiableIds, isLegal };
     },
     [deckCardMap],
   );
@@ -293,7 +329,11 @@ export function Banditore({ artReady = true, onOpenDeckInForge }: Props) {
           <div className="flex items-center gap-2 rounded-lg border border-border bg-surface-2 px-3 py-1.5 shadow-sm">
             <span className="text-xs text-muted">Lista Master Duel:</span>
             <span className="text-xs font-semibold text-sec">
-              {status?.banlistMd ? formatDate(status.banlistMd) : "In vigore"}
+              {status?.banlistMd
+                ? formatDate(status.banlistMd)
+                : statusError
+                  ? "Data non disponibile"
+                  : "Caricamento data..."}
             </span>
           </div>
         </div>
@@ -361,7 +401,7 @@ export function Banditore({ artReady = true, onOpenDeckInForge }: Props) {
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Cerca carta per nome..."
-                  className="w-full rounded-lg border border-border bg-surface-2 px-3.5 py-2 pl-9 text-sm text-text placeholder-muted focus:border-sec focus:outline-none focus:ring-1 focus:ring-sec"
+                  className="w-full rounded-lg border border-border bg-surface-2 px-3.5 py-2 pl-9 text-sm text-text placeholder:text-muted focus:border-sec focus:outline-none focus:ring-1 focus:ring-sec"
                 />
                 <span className="pointer-events-none absolute left-3 top-2.5 text-muted">🔍</span>
                 {searchQuery && (
@@ -524,7 +564,7 @@ export function Banditore({ artReady = true, onOpenDeckInForge }: Props) {
                               </h3>
                               {isDivergent && (
                                 <span
-                                  className="shrink-0 rounded border border-sec/40 bg-sec/10 px-1 py-0.2 text-[10px] font-semibold text-sec"
+                                  className="shrink-0 rounded border border-sec/40 bg-sec/10 px-1.5 py-0.5 text-[10px] font-semibold text-sec"
                                   title="Stato differente tra i formati"
                                 >
                                   ⇄ Divergenza
@@ -576,6 +616,14 @@ export function Banditore({ artReady = true, onOpenDeckInForge }: Props) {
               </p>
             </div>
 
+            {/* Warning if some decks failed to load */}
+            {decksWarning && (
+              <div className="rounded-xl border border-warn/40 bg-warn/10 p-4 text-xs text-warn">
+                <p className="font-semibold">Avviso sul caricamento:</p>
+                <p>{decksWarning}</p>
+              </div>
+            )}
+
             {/* Error state */}
             {decksError && (
               <div className="rounded-xl border border-danger/40 bg-danger/10 p-4 text-sm text-danger">
@@ -612,8 +660,7 @@ export function Banditore({ artReady = true, onOpenDeckInForge }: Props) {
                 {decks.map((deck) => {
                   const deckId = deck.id!;
                   const evalFormat = evalFormats[deckId] ?? deck.format;
-                  const violations = getDeckViolations(deck, evalFormat);
-                  const isLegal = violations.length === 0;
+                  const { violations, unverifiableIds, isLegal } = evaluateDeck(deck, evalFormat);
                   const totalExcess = violations.reduce((acc, v) => acc + v.excess, 0);
 
                   return (
@@ -658,7 +705,20 @@ export function Banditore({ artReady = true, onOpenDeckInForge }: Props) {
                       </div>
 
                       {/* Legality status banner */}
-                      <div className="mt-4">
+                      <div className="mt-4 space-y-3">
+                        {unverifiableIds.length > 0 && (
+                          <div className="flex items-center gap-2 rounded-lg border border-warn/40 bg-warn/10 px-4 py-2.5 text-xs text-warn">
+                            <span className="text-base font-bold">⚠️</span>
+                            <span>
+                              <strong>Non completamente verificabile:</strong> {unverifiableIds.length}{" "}
+                              {unverifiableIds.length === 1
+                                ? "carta non è stata trovata nel database"
+                                : "carte non sono state trovate nel database"}{" "}
+                              (ID: {unverifiableIds.join(", ")}).
+                            </span>
+                          </div>
+                        )}
+
                         {isLegal ? (
                           <div className="flex items-center justify-between rounded-lg border border-ok/40 bg-ok/10 px-4 py-3 text-ok">
                             <div className="flex items-center gap-2">
@@ -678,66 +738,70 @@ export function Banditore({ artReady = true, onOpenDeckInForge }: Props) {
                           </div>
                         ) : (
                           <div className="space-y-3">
-                            <div className="flex items-center justify-between rounded-lg border border-danger/40 bg-danger/10 px-4 py-3 text-danger">
-                              <div className="flex items-center gap-2">
-                                <span className="text-base font-bold">⚠</span>
-                                <span className="text-xs font-medium">
-                                  <strong>Fuori legge in {FORMAT_LABELS[evalFormat]}:</strong> {violations.length}{" "}
-                                  {violations.length === 1 ? "carta supera" : "carte superano"} il limite ({totalExcess}{" "}
-                                  {totalExcess === 1 ? "copia in eccesso" : "copie in eccesso"}).
-                                </span>
+                            {violations.length > 0 && (
+                              <div className="flex items-center justify-between rounded-lg border border-danger/40 bg-danger/10 px-4 py-3 text-danger">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-base font-bold">⚠</span>
+                                  <span className="text-xs font-medium">
+                                    <strong>Fuori legge in {FORMAT_LABELS[evalFormat]}:</strong> {violations.length}{" "}
+                                    {violations.length === 1 ? "carta supera" : "carte superano"} il limite ({totalExcess}{" "}
+                                    {totalExcess === 1 ? "copia in eccesso" : "copie in eccesso"}).
+                                  </span>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => onOpenDeckInForge(deckId)}
+                                  className="flex items-center gap-1.5 rounded-lg border border-danger/40 bg-danger/20 px-3 py-1.5 text-xs font-semibold text-danger transition-colors hover:bg-danger/30"
+                                >
+                                  <span>⚡ Modifica nella Fucina</span>
+                                </button>
                               </div>
-                              <button
-                                type="button"
-                                onClick={() => onOpenDeckInForge(deckId)}
-                                className="flex items-center gap-1.5 rounded-lg border border-danger/40 bg-danger/20 px-3 py-1.5 text-xs font-semibold text-danger transition-colors hover:bg-danger/30"
-                              >
-                                <span>⚡ Modifica nella Fucina</span>
-                              </button>
-                            </div>
+                            )}
 
                             {/* Offending cards breakdown */}
-                            <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
-                              {violations.map(({ card, copies, limit, excess }) => (
-                                <div
-                                  key={card.id}
-                                  onClick={() => setViewerCard(card)}
-                                  className="group flex cursor-pointer items-center justify-between rounded-lg border border-border bg-surface-2 p-3 transition-colors hover:border-danger/40 hover:bg-surface-3"
-                                >
-                                  <div className="flex items-center gap-2.5 min-w-0">
-                                    <div className="h-10 w-7 shrink-0 overflow-hidden rounded border border-border bg-surface">
-                                      <img
-                                        src={cardImage(card.id, "cropped")}
-                                        alt={card.name}
-                                        loading="lazy"
-                                        className="h-full w-full object-cover"
-                                      />
+                            {violations.length > 0 && (
+                              <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
+                                {violations.map(({ card, copies, limit, excess }) => (
+                                  <div
+                                    key={card.id}
+                                    onClick={() => setViewerCard(card)}
+                                    className="group flex cursor-pointer items-center justify-between rounded-lg border border-border bg-surface-2 p-3 transition-colors hover:border-danger/40 hover:bg-surface-3"
+                                  >
+                                    <div className="flex items-center gap-2.5 min-w-0">
+                                      <div className="h-10 w-7 shrink-0 overflow-hidden rounded border border-border bg-surface">
+                                        <img
+                                          src={cardImage(card.id, "cropped")}
+                                          alt={card.name}
+                                          loading="lazy"
+                                          className="h-full w-full object-cover"
+                                        />
+                                      </div>
+                                      <div className="min-w-0">
+                                        <p className="truncate text-xs font-semibold text-text group-hover:text-sec">
+                                          {card.name}
+                                        </p>
+                                        <p className="text-[11px] text-muted">
+                                          {limit === 0
+                                            ? "Proibita (limite: 0)"
+                                            : limit === 1
+                                              ? "Limitata (limite: 1)"
+                                              : "Semi-limitata (limite: 2)"}
+                                        </p>
+                                      </div>
                                     </div>
-                                    <div className="min-w-0">
-                                      <p className="truncate text-xs font-semibold text-text group-hover:text-sec">
-                                        {card.name}
-                                      </p>
-                                      <p className="text-[11px] text-muted">
-                                        {limit === 0
-                                          ? "Proibita (limite: 0)"
-                                          : limit === 1
-                                            ? "Limitata (limite: 1)"
-                                            : "Semi-limitata (limite: 2)"}
-                                      </p>
-                                    </div>
-                                  </div>
 
-                                  <div className="text-right shrink-0">
-                                    <span className="rounded bg-danger/15 px-2 py-0.5 text-[11px] font-bold text-danger">
-                                      {copies} in lista
-                                    </span>
-                                    <p className="mt-0.5 text-[10px] font-medium text-danger">
-                                      - {excess} {excess === 1 ? "copia" : "copie"}
-                                    </p>
+                                    <div className="text-right shrink-0">
+                                      <span className="rounded bg-danger/15 px-2 py-0.5 text-[11px] font-bold text-danger">
+                                        {copies} in lista
+                                      </span>
+                                      <p className="mt-0.5 text-[10px] font-medium text-danger">
+                                        - {excess} {excess === 1 ? "copia" : "copie"}
+                                      </p>
+                                    </div>
                                   </div>
-                                </div>
-                              ))}
-                            </div>
+                                ))}
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>
