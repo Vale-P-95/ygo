@@ -20,6 +20,7 @@
 //! activation of any card and destroying it, once, without targeting.
 
 use std::collections::{HashMap, HashSet};
+use std::sync::Arc;
 
 use ygo_engine::auto::passive_answer;
 use ygo_engine::consts::{hint, location, position, reason};
@@ -27,6 +28,8 @@ use ygo_engine::{
     Action, ActionKind, CardDb, CardRef, Decision, DeckList, Duel, DuelState, Engine, Error, Event, Opponent, Placement, Step,
 };
 
+use crate::follow::{Follower, Script};
+use crate::matchup::RivalLine;
 use crate::search::Line;
 
 /// What the opponent tries; each probe has a weight (how much the action
@@ -45,10 +48,14 @@ pub enum Probe {
     /// The effect of a monster already on the field (not a trigger of its summon).
     FieldIgnition,
     DeckSummon,
+    /// A Spell from the hand that does not touch the Deck.
+    SpellNoDeck,
+    /// A monster effect from the hand that does not touch the Deck.
+    HandNoDeck,
 }
 
 impl Probe {
-    pub const ALL: [Probe; 11] = [
+    pub const ALL: [Probe; 13] = [
         Probe::Spell,
         Probe::Search,
         Probe::HandEffect,
@@ -60,6 +67,8 @@ impl Probe {
         Probe::ExtraSummon,
         Probe::FieldIgnition,
         Probe::DeckSummon,
+        Probe::SpellNoDeck,
+        Probe::HandNoDeck,
     ];
 
     pub fn label(self) -> &'static str {
@@ -75,18 +84,34 @@ impl Probe {
             Probe::ExtraSummon => "Evocare dall'Extra Deck",
             Probe::FieldIgnition => "attivare l'effetto di un mostro già sul campo",
             Probe::DeckSummon => "Evocare Specialmente dal Deck",
+            Probe::SpellNoDeck => "attivare una Magia senza toccare il Deck",
+            Probe::HandNoDeck => "attivare un effetto di mostro dalla mano senza toccare il Deck",
         }
     }
 
+    /// The activations weigh as often as their kind is played in real lines
+    /// (`duelforge-cli kit-mix`, 1979 activations in the lines of the best 5
+    /// boards of 45 decks, 22/10/2026): Spells and Traps 31% (half touch the
+    /// Deck), effects from the GY 18%, monster effects from the hand 11% and
+    /// on the field 11%, summon triggers 29% (two thirds touch the Deck). The
+    /// kinds the kit has no card for (effects from the GY that touch the
+    /// Deck, summon triggers that do not) are left out. Together they still
+    /// weigh 2.7, as before: summons stopped keep their weight against them.
     pub fn weight(self) -> f64 {
         match self {
-            Probe::Spell => 0.4,
-            Probe::Search => 0.5,
-            Probe::HandEffect | Probe::SendToGrave | Probe::SpecialFromHand | Probe::FieldEffect | Probe::GraveEffect => 0.3,
+            Probe::Spell => 0.13,
+            Probe::Search => 0.25,
+            Probe::HandEffect => 0.12,
+            Probe::SendToGrave => 0.1,
+            Probe::FieldEffect => 0.63,
+            Probe::GraveEffect => 0.41,
+            Probe::FieldIgnition => 0.18,
+            Probe::DeckSummon => 0.16,
+            Probe::SpellNoDeck => 0.5,
+            Probe::HandNoDeck => 0.22,
+            Probe::SpecialFromHand => 0.3,
             Probe::NormalSummon => 0.2,
             Probe::ExtraSummon => 0.6,
-            Probe::FieldIgnition => 0.3,
-            Probe::DeckSummon => 0.3,
         }
     }
 
@@ -198,6 +223,10 @@ struct Want {
     delta: i32,
 }
 
+/// The `location` of a goal met when the step's own activation resolves
+/// without being negated: for an effect that moves no card.
+const RESOLVED: u8 = 0;
+
 /// A board breaker of the kit.
 #[derive(Debug, Clone)]
 pub struct Breaker {
@@ -247,6 +276,17 @@ pub struct Kit {
     opponent: Opponent,
     steps: Vec<KitStep>,
     pub breakers: Vec<Breaker>,
+    /// The opponent plays a line of its deck again instead of the steps
+    /// one by one (the probe turn against a deck, level 2).
+    script: Option<Arc<LineScript>>,
+}
+
+/// A line of the opponent's deck to play again in its turn: its answers,
+/// and for each answer the step (one of its moves) it plays, if any.
+#[derive(Debug)]
+struct LineScript {
+    script: Script,
+    step_of: Vec<Option<usize>>,
 }
 
 impl Kit {
@@ -266,6 +306,8 @@ impl Kit {
         let spider = code("Link Spider");
         let dice = code("Speedroid Red-Eyed Dice");
         let filler = code("Alexandrite Dragon");
+        let bystial = code("Bystial Magnamhut");
+        let dian = code("Dian Keto the Cure Master");
 
         let step = |act: Act, picks: Vec<u32>, goals: Vec<(Probe, Want)>, needs: Option<Probe>| KitStep {
             act,
@@ -286,6 +328,11 @@ impl Kit {
         if let Some(pot) = pot {
             hand.push(pot);
             steps.push(step(Act::Activate(pot, location::HAND), vec![], vec![(Probe::Spell, want(None, location::HAND, 1))], None));
+        }
+        // A Spell that touches no Deck and needs nothing on the field.
+        if let Some(dian) = dian {
+            hand.push(dian);
+            steps.push(step(Act::Activate(dian, location::HAND), vec![], vec![(Probe::SpellNoDeck, want(None, RESOLVED, 0))], None));
         }
         if let (Some(reinforce), Some(celtic)) = (reinforce, celtic) {
             hand.push(reinforce);
@@ -332,6 +379,18 @@ impl Kit {
             );
             s.triggers = vec![terrortop];
             steps.push(s);
+        }
+        // A monster effect from the hand that touches no Deck: it banishes the
+        // Thunder Dragon discarded before and comes to the field (after
+        // Terrortop, which comes only while its controller has no monsters).
+        if let (Some(thunder), Some(bystial)) = (thunder, bystial) {
+            hand.push(bystial);
+            steps.push(step(
+                Act::Activate(bystial, location::HAND),
+                vec![thunder],
+                vec![(Probe::HandNoDeck, want(Some(bystial), location::MZONE, 1))],
+                Some(Probe::HandEffect),
+            ));
         }
         if let Some(bulb) = bulb {
             steps.push(step(
@@ -427,7 +486,7 @@ impl Kit {
             let missing = DECK.saturating_sub(deck.len());
             deck.splice(0..0, std::iter::repeat_n(filler, missing));
         }
-        Kit { opponent: Opponent { hand, deck, extra }, steps, breakers }
+        Kit { opponent: Opponent { hand, deck, extra }, steps, breakers, script: None }
     }
 
     /// The opponent's cards: give them to the search too
@@ -468,34 +527,33 @@ impl Kit {
         kit
     }
 
-    /// The opponent of `rival` playing `moves` instead of the kit's steps:
-    /// its typical moves (a card, how it is played and from where), in
-    /// their usual order, and no breakers. The cards played from the hand
-    /// are in its hand; the others come from the moves before them (a
-    /// monster summoned, then its effect on the field). Its Deck is its
-    /// own, at the size of the kit's, the plain card on top for the draw of
-    /// its turn, and its Extra Deck. A move it cannot make is skipped.
-    pub(crate) fn with_moves(&self, moves: &[(Act, u8)], rival: &DeckList, seed: u64) -> Kit {
-        let mut hand: Vec<u32> = Vec::new();
+    /// The opponent of `rival` playing `line` again ([`crate::rival_lines`])
+    /// instead of the kit's steps, with no breakers. It has the line's hand
+    /// and its Deck in the order of the duel the line was found in, the
+    /// plain card on top for the draw of its turn, and its Extra Deck. Each
+    /// move of the line is a step: a summon works when the monster lands,
+    /// an activation when it is not negated (judged by the measure).
+    pub(crate) fn with_line(&self, engine: &Engine, rival: &DeckList, line: &RivalLine, seed: u64) -> Kit {
+        let db = engine.cards();
         let mut main = rival.main.clone();
-        for &(act, from) in moves {
-            let (Act::Activate(code, _) | Act::SpecialSummon(code) | Act::NormalSummon(code)) = act;
-            if from == location::HAND && !hand.contains(&code) {
-                hand.push(code);
-                if let Some(i) = main.iter().position(|&c| c == code) {
-                    main.swap_remove(i);
-                }
+        // As the goldfish duel deals it: the hand out first, the first copy
+        // of each card, then the rest shuffled.
+        for &code in &line.hand {
+            if let Some(i) = main.iter().position(|&c| db.canonical_code(c) == db.canonical_code(code)) {
+                main.remove(i);
             }
         }
-        shuffle(&mut main, seed);
-        let filler = self.opponent.deck.last().copied();
-        main.truncate(self.opponent.deck.len().saturating_sub(filler.is_some() as usize));
-        main.extend(filler);
-        let steps = moves
+        ygo_engine::shuffle(&mut main, seed);
+        main.extend(self.opponent.deck.last().copied());
+        let steps = line
+            .moves
             .iter()
-            .map(|&(act, _)| {
-                // A summon works when the monster lands; an activation when
-                // it is not negated (judged by the measure).
+            .map(|&(code, kind, location)| {
+                let act = match kind {
+                    ActionKind::NormalSummon => Act::NormalSummon(code),
+                    ActionKind::SpecialSummon => Act::SpecialSummon(code),
+                    _ => Act::Activate(code, location),
+                };
                 let goals = match act {
                     Act::NormalSummon(code) => vec![(Probe::NormalSummon, Want { code: Some(code), location: location::MZONE, delta: 1 })],
                     Act::SpecialSummon(code) => {
@@ -503,13 +561,12 @@ impl Kit {
                     }
                     Act::Activate(..) => Vec::new(),
                 };
-                let (Act::Activate(code, _) | Act::SpecialSummon(code) | Act::NormalSummon(code)) = act;
                 KitStep {
                     act,
                     picks: Vec::new(),
                     take_max: false,
                     option: 0,
-                    triggers: vec![code],
+                    triggers: Vec::new(),
                     attack: false,
                     goals,
                     needs: None,
@@ -517,7 +574,12 @@ impl Kit {
                 }
             })
             .collect();
-        Kit { opponent: Opponent { hand, deck: main, extra: rival.extra.clone() }, steps, breakers: Vec::new() }
+        Kit {
+            opponent: Opponent { hand: line.hand.clone(), deck: main, extra: rival.extra.clone() },
+            steps,
+            breakers: Vec::new(),
+            script: Some(Arc::new(LineScript { script: line.script.clone(), step_of: line.move_of.clone() })),
+        }
     }
 
     /// The probes this kit can measure.
@@ -608,6 +670,8 @@ struct Context<'a> {
     /// What each of your responders is worth alone (by code): of two that
     /// can pay a cost, the one worth less pays.
     worth: Option<&'a HashMap<u32, f64>>,
+    /// Once the opponent is done, play on to your next Main Phase.
+    turn_three: bool,
 }
 
 /// A moment you could respond, and with what.
@@ -642,6 +706,7 @@ struct RunTrace {
     windows: Vec<Window>,
     uses: Vec<Use>,
     state: DuelState,
+    follow_up: Option<FollowUp>,
 }
 
 /// Follows the events of a run to tell what each use of the responder did.
@@ -965,6 +1030,21 @@ pub struct Measure {
     /// opponent's turn, and where (a handtrap missing here cannot be used
     /// with this board: the Mulcharmy only while you control no cards).
     pub offered: Vec<(u32, u8)>,
+    /// What you have for your next turn after the breaker that takes away
+    /// the most (none if the run could not get there).
+    pub follow_up: Option<FollowUp>,
+}
+
+/// Your next turn, after the opponent's: the board breaker that takes away
+/// the most played, then its End Phase and your Draw and Standby Phases.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct FollowUp {
+    /// Effects you can activate at the start of your Main Phase from the GY
+    /// or banishment, and summons from there (each card and effect once).
+    pub rebuild: usize,
+    /// Cards added to your hand and monsters summoned since the end of the
+    /// opponent's Main Phase, your draw aside.
+    pub gained: usize,
 }
 
 impl<'a> Prober<'a> {
@@ -1080,7 +1160,7 @@ impl<'a> Prober<'a> {
         }
         let debug = std::env::var_os("DUELFORGE_DEBUG_PROBE").is_some();
         let known: HashSet<ResponderId> = offered.iter().map(|(id, _, _)| *id).collect();
-        let follow = Context { known: Some(&known), worth: None };
+        let follow = Context { known: Some(&known), ..Context::default() };
         // What a step needs: a probe lost only because the one it needs was
         // stopped is not stopped again (negating Foolish Burial is not also
         // stopping Glow-Up Bulb's effect from the GY).
@@ -1102,7 +1182,11 @@ impl<'a> Prober<'a> {
             let mut covers: Vec<Probe> = Vec::new();
             let mut effect: Option<Effect> = None;
             let mut targeted = false;
-            for &window in windows.iter().take(12) {
+            // The first window of every step before the later ones of a step:
+            // the cap leaves out no step whole.
+            let mut tried = windows.clone();
+            tried.sort_by_key(|&(step, at)| (at, step));
+            for &window in tried.iter().take(16) {
                 let Ok(run) = self.run_with(prelude, &all_steps, Policy::UseAt(*id, window), follow) else { continue };
                 let stopped = stopped_by(&run);
                 if debug {
@@ -1168,7 +1252,7 @@ impl<'a> Prober<'a> {
                 let w = worth.entry(i.responder.code).or_default();
                 *w = w.max(i.alone);
             }
-            let context = Context { known: None, worth: Some(&worth) };
+            let context = Context { worth: Some(&worth), ..Context::default() };
             if let Ok(run) = self.run_with(prelude, &all_steps, Policy::UseAll(&order), context) {
                 for i in &mut interruptions {
                     let used = run.uses.iter().filter(|u| u.responder == i.responder).count() as u32;
@@ -1187,6 +1271,7 @@ impl<'a> Prober<'a> {
         let breakers = if parts.breakers { self.breakers(prelude, &interruptions, &self.kit.breakers) } else { Vec::new() };
         let weights: f64 = breakers.iter().map(|b| b.weight).sum();
         let resilience = if weights > 0.0 { breakers.iter().map(|b| b.weight * b.remaining).sum::<f64>() / weights } else { total };
+        let follow_up = if parts.breakers { self.follow_up(prelude, &interruptions, &breakers) } else { None };
 
         let hand_value = interruptions.iter().filter(|i| i.location == location::HAND).map(|i| i.value).sum::<f64>() + 0.0;
         let mut offered: Vec<(u32, u8)> = all.windows.iter().flat_map(|w| w.options.iter().map(|(id, loc)| (id.code, *loc))).collect();
@@ -1201,6 +1286,7 @@ impl<'a> Prober<'a> {
             breakers,
             resilience,
             offered,
+            follow_up,
         })
     }
 
@@ -1256,7 +1342,7 @@ impl<'a> Prober<'a> {
             *at += 1;
         }
         let known: HashSet<ResponderId> = offered.iter().map(|(id, _, _)| *id).collect();
-        let follow = Context { known: Some(&known), worth: None };
+        let follow = Context { known: Some(&known), ..Context::default() };
         let none = HashSet::new();
         let mut interruptions = Vec::new();
         for (id, loc, windows) in &offered {
@@ -1382,6 +1468,68 @@ impl<'a> Prober<'a> {
             + 0.0
     }
 
+    /// Your next turn after the board breaker that took away the most
+    /// (`results` are the breakers' runs, in the kit's order), or after an
+    /// opponent who only ends its turn if none could be played.
+    fn follow_up(&self, prelude: Prelude, interruptions: &[Interruption], results: &[BreakerResult]) -> Option<FollowUp> {
+        let worst = self
+            .kit
+            .breakers
+            .iter()
+            .zip(results)
+            .filter(|(_, r)| !r.not_applicable)
+            .min_by(|(_, a), (_, b)| a.remaining.total_cmp(&b.remaining))
+            .map(|(b, _)| b);
+        let targets: Vec<u32> = interruptions.iter().filter(|i| i.location == location::MZONE).map(|i| i.responder.code).collect();
+        let mut owned = worst.map(|b| b.steps.clone()).unwrap_or_default();
+        for s in &mut owned {
+            s.picks = targets.clone();
+        }
+        let steps: Vec<&KitStep> = owned.iter().collect();
+        let context = Context { turn_three: true, ..Context::default() };
+        self.run_with(prelude, &steps, Policy::Pass, context).ok()?.follow_up
+    }
+
+    /// From the opponent's End Phase to your next Main Phase: you use your
+    /// triggers, not your quick effects (as in your own End Phase), and the
+    /// opponent only passes. `idle_effects` are those you could activate at
+    /// the end of your first turn.
+    fn turn_three(&self, duel: &mut Duel, idle_effects: &HashSet<(u32, u64)>) -> Result<Option<FollowUp>, Error> {
+        const DRAW: u32 = 0x200_0000;
+        let mut gained = 0;
+        for _ in 0..2000 {
+            if self.out_of_time() {
+                return Err(Error::Engine("the probe turn ran out of time".to_owned()));
+            }
+            let (decision, events) = match duel.advance()? {
+                Step::Decision { decision, events } => (decision, events),
+                Step::End { .. } => return Ok(None),
+            };
+            for e in &events {
+                if let Event::Move { from, to, reason, .. } = e {
+                    let added = to.location == location::HAND && from.location != location::HAND && reason & DRAW == 0;
+                    let summoned = to.location == location::MZONE && from.location != location::MZONE;
+                    gained += usize::from(to.controller == 0 && (added || summoned));
+                }
+            }
+            let actions = duel.actions(&decision);
+            match decision {
+                Decision::IdleCmd { player: 0, activatable, special_summonable, .. } => {
+                    // What is still on the field is the resilience's: here,
+                    // what comes back from the GY and banishment.
+                    let away = |c: &CardRef| matches!(c.location, location::GRAVE | location::REMOVED);
+                    let mut effects: HashSet<(u32, u64)> =
+                        activatable.iter().filter(|a| away(&a.card)).map(|a| (a.card.code, a.description)).collect();
+                    effects.extend(special_summonable.iter().filter(|c| away(c)).map(|c| (c.code, 0)));
+                    return Ok(Some(FollowUp { rebuild: effects.len(), gained }));
+                }
+                _ if decision.player() == Some(1) => duel.respond(&end_turn(&decision, &actions)),
+                _ => duel.respond(&end_phase_answer(&decision, &actions, idle_effects)),
+            }
+        }
+        Ok(None)
+    }
+
     /// Plays your turn, then the opponent's steps, answering as `policy` says.
     fn run(&self, prelude: Prelude, steps: &[&KitStep], policy: Policy) -> Result<RunTrace, Error> {
         self.run_with(prelude, steps, policy, Context::default())
@@ -1400,8 +1548,13 @@ impl<'a> Prober<'a> {
             Prelude::Own(answers) => answers.iter(),
             Prelude::EndAtOnce | Prelude::Placed(_) => NO_ANSWERS.iter(),
         };
-        let mut trace =
-            RunTrace { steps: vec![StepRun::default(); steps.len()], windows: Vec::new(), uses: Vec::new(), state: DuelState::default() };
+        let mut trace = RunTrace {
+            steps: vec![StepRun::default(); steps.len()],
+            windows: Vec::new(),
+            uses: Vec::new(),
+            state: DuelState::default(),
+            follow_up: None,
+        };
         let mut observer = Observer::default();
         let mut next = 0usize;
         let mut current: Option<(usize, Piles)> = None;
@@ -1414,6 +1567,10 @@ impl<'a> Prober<'a> {
         let mut last_use: Option<usize> = None;
         // The opponent got back to choose after its last step.
         let mut complete = false;
+        // The opponent's line played again, when the kit has one (all its
+        // steps are played: they are the line's moves).
+        let script = self.kit.script.as_deref().filter(|_| steps.len() == self.kit.steps.len());
+        let mut follower = script.map(|l| Follower::new(&l.script));
         // The last link of the chain being built is yours: your effects
         // answer the opponent's, never your own (Invoked Mechaba would
         // negate your own Effect Veiler).
@@ -1526,6 +1683,42 @@ impl<'a> Prober<'a> {
             }
             let _ = &label;
             match decision.player() {
+                Some(1) if follower.is_some() => {
+                    let (Some(follower), Some(script)) = (follower.as_mut(), script) else { break };
+                    let idle = matches!(decision, Decision::IdleCmd { .. });
+                    match follower.answer(engine, &decision, &actions, mine_on_top).filter(|f| !idle || f.at.is_some()) {
+                        Some(followed) => {
+                            // One of its moves starts: the one before it is over.
+                            if let Some(i) = followed.at.and_then(|k| script.step_of.get(k).copied().flatten()) {
+                                if let Some((j, before)) = current.take() {
+                                    self.finish(&mut trace.steps[j], steps[j], &before, &Piles::of(&duel), &observer);
+                                }
+                                trace.steps[i].available = true;
+                                current = Some((i, Piles::of(&duel)));
+                                observer.new_step();
+                                windows_in_step = 0;
+                                last_use = None;
+                            }
+                            if verbose {
+                                eprintln!("     opponent's line: {}", label(&actions, &followed.answer));
+                            }
+                            duel.respond(&followed.answer);
+                        }
+                        // Its line is over: nothing left to play, or it ends
+                        // its Main Phase (the Battle Phase is not measured).
+                        None => {
+                            if let Some((j, before)) = current.take() {
+                                self.finish(&mut trace.steps[j], steps[j], &before, &Piles::of(&duel), &observer);
+                            }
+                            if context.turn_three {
+                                duel.respond(&end_turn(&decision, &actions));
+                                trace.follow_up = self.turn_three(&mut duel, &idle_effects)?;
+                            }
+                            complete = true;
+                            break;
+                        }
+                    }
+                }
                 Some(1) => {
                     if let Decision::IdleCmd { .. } = decision {
                         // A step that attacks is over after the Battle Phase.
@@ -1571,6 +1764,10 @@ impl<'a> Prober<'a> {
                                 duel.respond(&answer);
                             }
                             None => {
+                                if context.turn_three {
+                                    duel.respond(&end_turn(&decision, &actions));
+                                    trace.follow_up = self.turn_three(&mut duel, &idle_effects)?;
+                                }
                                 complete = true;
                                 break;
                             }
@@ -1601,15 +1798,22 @@ impl<'a> Prober<'a> {
                     };
                     // A chance to answer your own link is not a window at all.
                     let to_yourself = mine_on_top && matches!(decision, Decision::SelectChain { triggers: false, .. });
-                    match (window, current.as_ref()) {
-                        (Some(_), _) if to_yourself => duel.respond(&window_answer(&decision, None)),
-                        (Some(options), Some((step, _))) => {
+                    // Before the opponent's first step (its Draw and Standby
+                    // Phases) the windows belong to a step of their own after
+                    // the others, `steps.len()`: effects that can only be used
+                    // then (setting a Trap, a Quick Summon) are tried there.
+                    let step = current.as_ref().map_or(steps.len(), |(i, _)| *i);
+                    let before = step == steps.len();
+                    match window {
+                        Some(_) if to_yourself => duel.respond(&window_answer(&decision, None)),
+                        Some(options) => {
                             let at = windows_in_step;
                             windows_in_step += 1;
                             let pick = match policy {
-                                Policy::Use(id, skip) if !skip.contains(&(*step, at)) => options.iter().position(|(o, _)| *o == id),
-                                Policy::UseAll(ids) => ids.iter().find_map(|id| options.iter().position(|(o, _)| o == id)),
-                                Policy::UseAt(id, window) if window == (*step, at) => options.iter().position(|(o, _)| *o == id),
+                                Policy::Use(id, skip) if !skip.contains(&(step, at)) => options.iter().position(|(o, _)| *o == id),
+                                // All together: nothing to stop before the first step.
+                                Policy::UseAll(ids) if !before => ids.iter().find_map(|id| options.iter().position(|(o, _)| o == id)),
+                                Policy::UseAt(id, window) if window == (step, at) => options.iter().position(|(o, _)| *o == id),
                                 _ => None,
                             };
                             let pick = pick.or_else(|| {
@@ -1618,17 +1822,11 @@ impl<'a> Prober<'a> {
                                     .filter(|_| !trace.uses.is_empty())
                                     .and_then(|known| options.iter().position(|(o, _)| !known.contains(o)))
                             });
-                            trace.windows.push(Window { step: *step, options: options.clone() });
+                            trace.windows.push(Window { step, options: options.clone() });
                             let follow_up = matches!(decision, Decision::SelectChain { triggers: true, .. } | Decision::EffectYesNo { .. });
                             match (pick, last_use) {
                                 (Some(i), _) => {
-                                    trace.uses.push(Use {
-                                        responder: options[i].0,
-                                        step: *step,
-                                        window: at,
-                                        effect: None,
-                                        targeted: false,
-                                    });
+                                    trace.uses.push(Use { responder: options[i].0, step, window: at, effect: None, targeted: false });
                                     last_use = Some(trace.uses.len() - 1);
                                     observer.waiting = last_use;
                                     duel.respond(&window_answer(&decision, Some(i)));
@@ -1640,8 +1838,7 @@ impl<'a> Prober<'a> {
                                 (None, _) => duel.respond(&window_answer(&decision, None)),
                             }
                         }
-                        (Some(_), None) => duel.respond(&window_answer(&decision, None)),
-                        (None, _) => {
+                        None => {
                             let db = engine.cards();
                             // Your cards seen answering in this run, or the ones it uses.
                             let used: &[ResponderId] = match &policy {
@@ -1701,6 +1898,7 @@ impl<'a> Prober<'a> {
             .iter()
             .map(|(_, want)| match want.location {
                 location::MZONE => landed(want) >= want.delta,
+                RESOLVED => !observer.step_negated,
                 _ => count(after, want) - count(before, want) >= want.delta,
             })
             .collect();

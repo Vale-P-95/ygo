@@ -42,7 +42,7 @@ import subprocess
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from bench import WEIGHTS  # noqa: E402
+from bench import WEIGHTS, follow_up_value  # noqa: E402
 
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
 PAIRS = os.path.join(ROOT, "tests", "fixtures", "boards", "pairs.tsv")
@@ -88,7 +88,7 @@ def unzoned(signature):
 
 
 def composite(measure):
-    return sum(w * measure[k] for w, k in zip(WEIGHTS, ("field", "hand", "floodgates", "resilience")))
+    return sum(w * measure[k] for w, k in zip(WEIGHTS, ("field", "hand", "floodgates", "resilience"))) + follow_up_value(measure)
 
 
 def deck_path(deck, decks, extra):

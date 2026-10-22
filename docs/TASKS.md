@@ -8,27 +8,40 @@ Corsie di lavoro in parallelo del 22/10/2026 (piano in `docs/plans/piano-prossim
   - l'avversario rigioca le linee migliori che il motore trova per il suo deck, con la sua mano vera e l'ordine del suo Deck;
   - le risposte si ritrovano per identità dove la tua board cambia le domande.
 
-  Agente: claude-code (coordinatore). Branch: `claude/yugioh-deck-builder-simulator-cax0ya`. File: `crates/ygo-solver/src/probe.rs`, `matchup.rs`, `lib.rs`, `tests/matchup.rs`, `crates/ygo-cli/src/main.rs`. Per L5 anche `apps/desktop/src-tauri/src/lib.rs` e `apps/desktop/src/lib/api.ts`: si prendono solo quando servono, controllando che la corsia 2 non li tenga.
+  - [x] L1–L3: `rival_lines`/`rival_line` (mano e risposte della linea migliore), `Kit::with_line` e il `Follower` (`follow.rs`) nel ciclo del turno di prova, `against_moves` linea per linea; banco identico.
+  - [x] L5: contratto per l'interfaccia: `api.comboMoves(hand, key, vsDeckId)` → `ComboMoves` (`lib.rs` `combo_moves`, `api.ts`, `mock.ts`). Le linee del deck avversario si leggono una volta per deck (10-30 s) e restano in memoria; poi pochi secondi per board.
+  - [ ] L4: collaudo su 37 deck (corsia 3). L6: interfaccia (Gemini): unita con la PR #40.
+    - [x] Correzione da L4: le carte scelte dalla linea dell'avversario si ritrovano per identità anche quando lui gioca come giocatore 1. Prima si ripiegava sull'indice, che cadeva sulla carta pescata nel turno 2. Mosse fatte su campo vuoto dall'89% al 96% (Tearlaments e Branded contro 12 deck).
+
+  L1–L3 e L5 sono in `main` (PR #38); restano L4 (corsia 3) e L6 (Gemini). Lock dei file tolto.
 - [ ] **Corsia 2.** Deck lenti (piano P3):
-  - un giro su 37 deck × 6 mani a 1000 nodi, con il tempo oltre il limite per fase;
-  - poi la scadenza anche per `zone_variants` (si perdono solo varianti di zona) e per `confirm_best` (le board non confermate restano stimate, `exact: false`), con il banco prima e dopo.
+  - [x] un giro su 37 deck × 6 mani a 1000 nodi, con il tempo oltre il limite per fase (fatto su 41 deck; più un giro a 20 s senza limite di nodi; numeri in `docs/plans/velocita-ricerca.md`);
+  - [x] poi la scadenza anche per `zone_variants` (si perdono solo varianti di zona) e per `confirm_best` (le board non confermate restano stimate, `exact: false`), con il banco prima e dopo.
 
-  Dopo: il backend del Banditore v2, cioè gli stati delle carte prima dell'ultima lista, salvati a ogni aggiornamento (`ygo-data`, poi `lib.rs` e `api.ts`, presi solo se la corsia 1 non li tiene).
+  Dopo: il backend del Banditore v2, cioè gli stati delle carte prima dell'ultima lista, salvati a ogni aggiornamento (`ygo-data`, poi `lib.rs` e `api.ts`, presi solo se la corsia 1 non li tiene). Fatto, in una PR separata dalla P3: tabella `ban_changes` in `cards.db`, riportata da un aggiornamento delle carte all'altro; comando `ban_changes`, `api.banChanges(format?)` e stub in `mock.ts`.
 
-  Agente: claude-code, sessione sorella della velocità. Branch: `claude/search-speed`. File: `crates/ygo-solver/src/search.rs`, `scripts/`; poi `crates/ygo-data/src/`.
+  Agente: claude-code, sessione sorella della velocità. Branch: `claude/search-speed`. File: `crates/ygo-solver/src/search.rs`, `scripts/`; poi `crates/ygo-data/`, `crates/ygo-cli/src/main.rs` (una riga), `apps/desktop/src-tauri/src/lib.rs`, `apps/desktop/src/lib/api.ts` e `mock.ts` (lock preso il 22/10: la L5 della corsia 1 è unita).
 - [ ] **Corsia 3.** Collaudo:
   - [x] prima, le coppie di board da far giudicare al proprietario (circa 15 deck, le coppie dove la classifica è più incerta), per la #47 e i pesi (#43): 46 coppie su 16 deck in `tests/fixtures/boards/owner-pairs.tsv` e `.json` (22/10);
   - [x] il collaudo del livello 2 con le linee vere (L4) su `48efae0`: 88% delle mosse fatte su campo vuoto, 71% di mosse in comune tra semi, problemi L4-1…L4-5 in `docs/plans/collaudo-strumenti.md` (22/10);
   - [ ] il collaudo dei deck lenti (corsia 2).
 
   Agente: claude-code, sessione sorella del collaudo. Branch: `claude/tools-qa`. File: script nuovi in `scripts/`, `docs/plans/collaudo-strumenti.md`, `tests/fixtures/boards/`.
-- [ ] **Corsia 4.** Carte piazzate e ruoli (PIANO §30.4):
+- [x] **Corsia 4.** Carte piazzate e ruoli (PIANO §30.4), unita il 22/10 (PR #42):
   - gli equipaggiamenti piazzati con il mostro equipaggiato;
   - i mostri dell'Extra Deck piazzati con i materiali (Apollousa non più a 0 ATK);
   - la prova dell'estensore che non riparte da un turno nuovo (Evocazione Normale ed effetti "una volta per turno" già usati restano usati).
 
-  Con il protocollo del motore (banco prima e dopo). Agente: claude-code, sessione sorella nuova. Branch: `claude/placed-cards`. File: la parte delle carte piazzate di `crates/ygo-engine/src/duel.rs`, `crates/ygo-solver/src/roles.rs`, `value.rs` e i loro test.
-- [ ] Classificazione delle board più profonda, con criteri validati sui deck di Master Duel Meta (#47): **ferma fino alla fine della corsia 1**, poi D10 e D13 (D5–D7 saltati, decisione del 22/10). Agente: claude-code. Branch: `claude/yugioh-deck-builder-simulator-cax0ya`. I file si riprendono allora: `probe.rs`, `explain.rs`, `tests/probe.rs` (`value.rs` e `lib.rs` liberi intanto).
+  Con il protocollo del motore (banco prima e dopo). Agente: claude-code, sessione sorella nuova. Branch: `claude/placed-cards`. File: la parte delle carte piazzate di `crates/ygo-engine/src/duel.rs`; `crates/ygo-engine/src/ffi.rs`, `crates/ygo-engine/shim/` e `crates/ygo-engine/build.rs` solo se servono; `crates/ygo-solver/src/roles.rs`, `value.rs`; in `search.rs` solo `SearchConfig.prelude`, `new_duel` e l'uscita iniziale di `learn_round` (d'accordo con il coordinatore); in `matchup.rs` e `tests/probe.rs` solo i letterali di `Placement`; i loro test (`crates/ygo-engine/tests/`, `crates/ygo-solver/tests/` per i file nuovi); `docs/plans/carte-piazzate.md`.
+  - [x] Equipaggiamenti piazzati con il mostro equipaggiato.
+  - [x] Mostri dell'Extra Deck piazzati con i materiali.
+  - [x] Prova dell'estensore nello stesso turno dello starter.
+  - [x] Banco, ruoli e valori prima e dopo (`docs/plans/carte-piazzate.md`); PR aperta, in attesa di revisione.
+- [x] **Corsia 5.** Unita il 22/10 (PR #37). Pagina «Il Banditore» (Novità) v1: confronto tra formati (Master Duel, TCG, OCG) con ricerca e filtri, apertura Visore Carta, data banlistMd, e impatto sui deck salvati nella Bottega per formato scelto con apertura nella Fucina. Agente: gemini. Branch: `gemini/banditore`. File: `apps/desktop/src/pages/Banditore.tsx`, `apps/desktop/src/App.tsx`, `apps/desktop/src/sections.ts`, `apps/desktop/src/lib/mock.ts`.
+  - [ ] Seguito per Gemini: la ricerca vera ha ora anche la lista OCG (`formato:ocg ban:forbidden ban:limited ban:semi`). Le carte limitate solo in OCG entrano nell'elenco iniziale con una terza ricerca nel `Promise.all` di `Banditore.tsx`; nel backend finto (`searchCatalog` in `mock.ts`) `ban:` con `formato:ocg` deve leggere `banOcg`.
+  - [ ] Seguito per Gemini, la v2 («cosa è cambiato con l'ultima lista»): backend pronto nella PR della corsia 2, `api.banChanges(format?)` → `BanChange[]` (formato, id, data, stato prima e dopo; `null` è senza limiti), le più recenti prima. Per «l'ultima lista» di un formato si prendono le voci con la data più recente; per TCG e OCG la data è il giorno dell'aggiornamento dei dati di YGOPRODeck, non quello della lista. La storia comincia dal primo aggiornamento dopo questa versione: prima è vuota.
+- [ ] **Corsia 5b (P1 L6).** Turno di prova contro un deck, livello 2: interfaccia: pulsante «Contro le sue linee», messaggio di attesa 10-30s, riepilogo `ComboMoves` (left, floodgateShare, value, warning madeShare < 0.8), linee dell'avversario con stati delle mosse («fatta», «fermata dalla board», «persa», «non rigiocata») ed evidenziazione al passaggio/clic delle tue risposte (`stops`). Agente: gemini. Branch: `gemini/matchup-moves`. File: `apps/desktop/src/components/combo/RivalMoves.tsx`, `apps/desktop/src/components/combo/BoardDetail.tsx`, `docs/plans/turno-di-prova-livello-2-ui.md`.
+- [ ] Classificazione delle board più profonda, con criteri validati sui deck di Master Duel Meta (#47): **D10 in corso** (kit con azioni che non toccano il Deck, pesi dalle linee vere), poi D13 (D5–D7 saltati, decisione del 22/10). Agente: claude-code. Branch: `claude/yugioh-deck-builder-simulator-cax0ya`. File: `crates/ygo-solver/src/probe.rs`, `tests/probe.rs`, `explain.rs`, `crates/ygo-cli/src/main.rs` (`kit-mix`), `docs/plans/classificazione-board.md` (`value.rs` e `lib.rs` liberi).
   - Piano: `docs/plans/classificazione-board.md` (passi D0–D17; giudizio dato da un pannello di agenti, non dal proprietario).
   - [x] D0a: `combos --json/--save-lines`, `probe-line`.
   - [x] D0b: `combo_hunt.py --seed/--json`, `board_pairs.py`, `rank_report.py`, `tests/fixtures/boards/pairs.tsv`, numeri di partenza (piano §C7).
@@ -38,6 +51,10 @@ Corsie di lavoro in parallelo del 22/10/2026 (piano in `docs/plans/piano-prossim
     - [x] D3: un mostro conta come Evocato quando atterra; "nega l'Evocazione" solo prima dell'atterraggio (evento `Summoned` nel motore).
     - [x] Seguito delle risposte: le carte portate da una risposta (un mostro Evocato) rispondono anche loro; si Evoca il mostro più forte; si paga con la carta meno preziosa. Coppie sicure giuste da 14 a 18 su 29 (piano §C8).
     - [x] D4: un mostro girato coperto ha gli effetti negati; una carta attaccata come materiale Xyz è come bandita. Il resto di A4 non serve più dopo D2 e D3 (restavano 3 carte con etichette diverse tra le board).
+  - [x] D10: il kit pesato sulle linee vere. `kit-mix` divide le attivazioni per provenienza e per "tocca il Deck" (50% nelle linee vere, 78% del peso nel kit). Due azioni nuove senza Deck (Dian Keto, Bystial Magnamhut) e pesi dalle quote. Ash da 0,71 a 0,53; coppie sicure giuste da 18 a 20 su 29; ricerca +3,2% (piano §C9). Non fatte: l'Evocazione Xyz o Synchro e il trigger d'Evocazione senza Deck.
+  - [x] D13, prima parte: il tuo turno dopo il board breaker peggiore. Gli effetti che ripartono da Cimitero e bandite entrano nel follow-up (0,3 l'uno); le risorse non contano più il Cimitero. Coppie sicure giuste da 20 a 22 su 29 (piano §C10).
+  - [x] D13, costo (B8): non più le carte della mano usate oltre la prima (quelle rimaste sono già contate), ma 0,05 per carta del Deck pagata come costo, 0,1 per mostro dell'Extra Deck finito nel Cimitero o bandito, 1 ogni 4000 LP pagati. Testo dell'interfaccia chiesto a Gemini sotto.
+  - [x] D13, finestre prima dei passi del kit (B9, `PRE`): le tue risposte nella Draw e nella Standby avversarie si provano; coppie e banco invariati (piano §C10).
 - [x] Correzioni dalla caccia ai bug della ricerca (12 problemi confermati): fatte; l'ultima (valori delle carte che dipendono dal contesto) passa nella #47. Lock tolto.
   - [x] Set in un solo ordine anche dopo una finestra di catena; ricerca fermata a metà che riparte dal punto giusto.
   - [x] Carte rapide tenute per dopo nel dive; handtrap giudicate da ciò che permettono (Labrynth Cooclock); carte da tenere rispettate durante la ricerca.
@@ -61,20 +78,40 @@ Corsie di lavoro in parallelo del 22/10/2026 (piano in `docs/plans/piano-prossim
   - accanto all'esposizione, "fermata da X" (`handTrapChance`) e la lista `handTraps`: carta, probabilità, momenti in cui ferma la linea su quelli in cui si può usare (`stops`/`windows`), le tue carte in quei momenti (`at`). Le handtrap con `stops` a 0 (Maxx "C", Mulcharmy) si possono mostrare a parte: "si usano ma non fermano la linea";
   - una colonna o un ordinamento "contro X" nella classifica delle board, e il backend finto (`mock.ts`) con un `matchup` di esempio.
 - [x] Mappa dei collegamenti tra le carte, interfaccia base (PR #22, piano `docs/plans/mappa-collegamenti.md`): scheda «Collegamenti» nel Laboratorio, cerchio carte, frecce colorate per tipo (`CardLink.kind`, incluso `"set"`), spessore per `used`, tratteggio per possibili; filtri per tipo con conteggi e per zona; pannello dettagli con `reach`, `reachAll`, `chance` (e `LinkCard.measured` per stime) e conteggi.
+- [ ] **Turno di prova contro un deck, livello 2: interfaccia** (dopo Il Banditore v1; backend pronto, piano P1 in `docs/plans/piano-prossimi-passi.md`). Nel Circolo Arcano, nella scheda del punteggio di una board misurata «contro X» (livello 1), un pulsante «Contro le sue linee» che chiama `api.comboMoves(hand, key, vsDeckId)` a richiesta, per la board aperta.
+  - **Attese:** la prima volta per un deck servono 10-30 secondi (il backend legge le sue linee migliori da 12 mani), poi pochi secondi per board. Il messaggio di attesa lo deve dire.
+  - **Riepilogo** (`ComboMoves`):
+    - «con tutte le tue risposte resta il X% delle sue mosse» (`left`);
+    - «la tua board da sola ferma il X%» (`floodgateShare`);
+    - il valore (`value`);
+    - quante linee sono state misurate (`measured` su `lines.length`).
+    - Se `madeShare` è sotto 0,8, un avviso: «il turno di prova ha rigiocato solo il X% delle sue mosse».
+  - **Le sue linee:**
+    - per ogni linea, la mano (`hand`) e le mosse in ordine, con il loro stato da `moves` (stesso indice di linea): fatta, fermata dalla board, persa con una precedente, non rigiocata;
+    - una linea senza mosse si mostra come «solo carte Settate».
+  - **Le tue risposte** (`stops`):
+    - carta, posto, effetto, quota (`coverage`) e valore;
+    - le mosse che ferma (`moves`, indici in `moves`) evidenziate nelle linee al passaggio del mouse o al clic.
+  - **Regole:** protocollo dell'interfaccia di `AGENTS.md` (id di richiesta, azzeramento al cambio di board o di deck, errori in italiano). Nel backend finto c'è già un esempio (`mock.ts`, `comboMoves`).
+- [ ] **Testi di follow-up, risorse e costo** (dopo la PR di D13, #47). Il backend ora conta nel follow-up anche il tuo turno dopo: dopo il board breaker peggiore, ogni effetto che riparte dal Cimitero o dalle bandite vale 0,3. Le risorse non contano più il Cimitero. In `apps/desktop/src/lib/scoring.ts`:
+  - `followup`: `hint` ed `explain` dicono anche «effetti da Cimitero e bandite nel tuo turno dopo, dopo il board breaker peggiore (0,3 l'uno)»;
+  - `resources`: togliere «e un po' il Cimitero»;
+  - `cost`: non più «carte della mano usate oltre la prima», ma «quello che la linea spende oltre alla mano: carte del Deck pagate come costo (0,05 l'una), mostri dell'Extra Deck finiti nel Cimitero o banditi (0,1 l'uno), LP pagati (1 ogni 4000)». Le carte della mano rimaste contano già nelle altre voci;
+  - il dettaglio resta in `followupNote` e `resourcesNote`, che arrivano già dal backend. Il contratto (`ComboScore`) non cambia.
 - [ ] Tornare a TypeScript 7 (`apps/desktop/package.json`) quando `typescript-eslint` lo supporta: con la PR #29 è fissato a 6.0.3 perché `typescript-eslint` 8 non regge ancora la versione 7. Poi, già che ci si è, `tseslint.config(...)` → `defineConfig` di `eslint/config` in `eslint.config.js`.
-- [ ] Pagina «Il Banditore» (`Novità`), v1: confronto tra banlist (Master Duel, TCG, OCG) e impatto immediato sui deck salvati in Bottega. Non serve backend nuovo: ogni carta ha già `banTcg`, `banOcg` e `banMd` in `api.ts`. La v2 («cosa è cambiato con l'ultima lista») aspetta il backend della corsia 2.
 
 ### Motore e ricerca (Claude)
 - [ ] Linee del video Invoked: come si classificano, correzioni generali (#45).
 - [ ] Scale e pesi delle metriche del punteggio (#43).
 - [ ] Frontiera di Pareto e confronto tra board; preferenze apprese (#40).
 - [ ] Simulatore: giocare passo per passo una combo scelta (#36, alla fine).
-- [ ] Limiti noti delle carte piazzate: equipaggiamenti, materiali dei mostri dell'Extra Deck (PIANO §30.4).
+- [x] Limiti noti delle carte piazzate: equipaggiamenti, materiali dei mostri dell'Extra Deck (PIANO §30.4, PR #42).
 - [ ] **Più avanti, dopo la #47 e la #43:** valutatore imparato. Una rete piccola stima il turno di prova durante la ricerca, al posto di `quick_score`, come NNUE in Stockfish; il motore e le regole restano gli stessi (`docs/plans/valutatore-imparato.md`).
 
 ### Richieste dal backend per l'interfaccia
 
 ## Completati (recenti; lo storico è in `docs/PIANO.md`)
+- [x] Pagina «Il Banditore» (Novità) v1: confronto tra formati (Master Duel, TCG, OCG) con ricerca e filtri, apertura Visore Carta, data banlistMd, e impatto sui deck salvati nella Bottega per formato scelto con apertura nella Fucina (PR #37, piano `docs/plans/banditore-v1.md`).
 - [x] Giri di apprendimento della ricerca con una scadenza (10 secondi dopo il limite di tempo): su Elfnote Kewl Tune una ricerca da 60 secondi finiva dopo 170, ora dopo 116; banco identico. `probe-line` rigioca le linee salvate con il loro seme (`docs/plans/velocita-ricerca.md`).
 - [x] Velocità della ricerca (sessione sorella): partite riusate, script caricati una volta per thread, solo le corse del turno di prova che servono, mimalloc anche per il C++, limite di nodi senza race. Ricerca −37%, CLI −41% sulle 16 mani con uscite identiche; `combo_hunt.py` −50% (PR #33, resoconto `docs/plans/velocita-ricerca.md`).
 - [x] Deck dell'avversario del kit a 35 carte e breaker con il Deck vero dell'avversario (ultime correzioni del collaudo, A4 e M1; numeri in `docs/plans/turno-di-prova-matchup.md`).

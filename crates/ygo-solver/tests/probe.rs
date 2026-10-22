@@ -70,7 +70,7 @@ impl Lab {
                         (location::SZONE, spells - 1, position::FACEUP_ATTACK)
                     }
                 };
-                Placement { code: self.code(name), location, sequence, position, overlay: Vec::new() }
+                Placement::new(self.code(name), location, sequence, position)
             })
             .collect();
         let kit = Kit::standard(&self.engine);
@@ -169,4 +169,14 @@ fn a_response_is_worth_what_it_brings() {
     let m = lab.measure_with(&field, &[], &["Lovely Labrynth of the Silver Castle", "Labrynth Cooclock"]);
     let welcome = covers(&m, lab.code("Big Welcome Labrynth"));
     assert!(!welcome.is_empty(), "{:?}", m.interruptions);
+}
+
+#[test]
+fn a_card_that_comes_back_from_the_gy_is_follow_up() {
+    let Some(lab) = lab() else { return };
+    // The breaker destroys the monster: Glow-Up Bulb can come back from the
+    // GY in your next turn, a Normal Monster cannot.
+    let bulb = lab.measure(&[("Glow-Up Bulb", At::Monster)], &[]).follow_up.expect("your next turn is reached");
+    let plain = lab.measure(&[("Alexandrite Dragon", At::Monster)], &[]).follow_up.expect("your next turn is reached");
+    assert!(bulb.rebuild > plain.rebuild, "{bulb:?} against {plain:?}");
 }

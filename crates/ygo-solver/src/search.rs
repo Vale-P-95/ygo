@@ -33,14 +33,14 @@ use std::collections::hash_map::DefaultHasher;
 use std::collections::{BinaryHeap, HashMap, HashSet};
 use std::hash::{Hash, Hasher};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-use std::sync::{Arc, Condvar, Mutex, RwLock};
+use std::sync::{Arc, Condvar, Mutex, OnceLock, RwLock};
 use std::time::{Duration, Instant};
 
 use ygo_engine::auto::AutoPolicy;
 use ygo_engine::consts::{card_type, location};
 use ygo_engine::{
     canonical_fingerprint, fingerprint, italian, Action, ActionKind, CardDb, CardRef, ChainLink, Decision, DeckList, Duel, DuelState,
-    Engine, Error, Event, Opponent, Placement, Step,
+    Engine, Error, Event, Opponent, Placement, Prelude, Step,
 };
 
 use crate::coverage::{self, Audit, Coverage, Links, Mechanic};
@@ -87,6 +87,10 @@ pub struct SearchConfig {
     /// Cards of yours already on the field (or in the GY) when the turn
     /// starts, to try a hand on a board (empty: the usual duel).
     pub placed: Vec<Placement>,
+    /// A turn to go on from: answers played before the search starts
+    /// (from the duel of `placed`), then cards that join the hand. The
+    /// lines found start after it (empty: from the start of the turn).
+    pub prelude: Prelude,
     /// Record what the search does with each action of your cards
     /// ([`SearchResult::coverage`]); it costs a little time.
     pub coverage: bool,
@@ -113,6 +117,7 @@ impl SearchConfig {
             values: Arc::default(),
             learn: None,
             placed: Vec::new(),
+            prelude: Prelude::default(),
             coverage: false,
         }
     }
@@ -424,8 +429,12 @@ struct Shared<'a> {
     duplicates: AtomicU64,
     interrupted: AtomicU64,
     stop: Mutex<Option<Stop>>,
-    /// Playing the best provisional boards to the end: only cancelling stops it.
+    /// Playing the best provisional boards to the end: only cancelling, or
+    /// the deadline of the phases after the search, stops it.
     confirming: AtomicBool,
+    /// When the phases after the search (playing the best boards to the
+    /// end, their zone variants) must stop (see [`LEARN_GRACE`]).
+    deadline: OnceLock<Instant>,
     /// The card values the estimate uses, raised by what the search learns.
     values: RwLock<CardValues>,
     /// Cards (and kinds of zones) on the boards measured to learn from.
@@ -466,10 +475,15 @@ impl Shared<'_> {
     /// Whether a worker should leave its line now.
     fn halted(&self) -> bool {
         if self.confirming.load(Ordering::Relaxed) {
-            self.cancel.load(Ordering::Relaxed)
+            self.cancel.load(Ordering::Relaxed) || self.past_deadline()
         } else {
             self.stopped()
         }
+    }
+
+    /// Cancelled, or past the deadline of the phases after the search.
+    fn past_deadline(&self) -> bool {
+        self.cancel.load(Ordering::Relaxed) || self.deadline.get().is_some_and(|d| Instant::now() >= *d)
     }
 
     fn set_stop(&self, why: Stop) {
@@ -1003,7 +1017,15 @@ const IDLE_STRIKES: u32 = 3;
 
 fn new_duel(shared: &Shared) -> Result<Duel, Error> {
     let config = shared.config;
-    Duel::goldfish_against_placed(shared.engine, &config.deck, &config.hand, config.seed, config.opponent.as_ref(), &config.placed)
+    Duel::goldfish_against_from(
+        shared.engine,
+        &config.deck,
+        &config.hand,
+        config.seed,
+        config.opponent.as_ref(),
+        &config.placed,
+        &config.prelude,
+    )
 }
 
 /// Drops the answers that lead back where the search has been or goes
@@ -1605,7 +1627,9 @@ const LEARN_LAST: usize = 4;
 /// Time a round of learning may take past the search's time limit (or past
 /// its start, when it starts later): measuring a board takes well under a
 /// second, but with quick effects that check every combination of
-/// materials at each chain window (Kewl Tune) it can take minutes.
+/// materials at each chain window (Kewl Tune) it can take minutes. The
+/// phases after the search (the last round, playing the best boards to the
+/// end, their zone variants) all stop this long after the limit too.
 const LEARN_GRACE: Duration = Duration::from_secs(10);
 
 /// Your cards on the field of `state`, by kind of zone, as keys, with a
@@ -1651,9 +1675,12 @@ fn learn(shared: &Shared) {
 fn learn_round(shared: &Shared, count: usize) {
     let Some(kit) = shared.config.learn.as_deref() else { return };
     // The lines are measured again in a duel of their own: only the same
-    // duel as the search's (no cards placed, the kit's opponent) gives
-    // their answers the same meaning.
-    if !shared.config.placed.is_empty() || shared.config.opponent.as_ref() != Some(kit.opponent()) {
+    // duel as the search's (no cards placed, no prelude, the kit's
+    // opponent) gives their answers the same meaning.
+    if !shared.config.placed.is_empty()
+        || shared.config.prelude != Prelude::default()
+        || shared.config.opponent.as_ref() != Some(kit.opponent())
+    {
         return;
     }
     // Among the best boards, the ones with the most cards on the field not
@@ -1755,7 +1782,8 @@ fn confirm_best(shared: &Shared) {
             s.spawn(|| loop {
                 let i = next.fetch_add(1, Ordering::Relaxed) as usize;
                 let Some(edge) = picked.get(i) else { break };
-                if shared.cancel.load(Ordering::Relaxed) {
+                // Past the deadline the board stays provisional (not exact).
+                if shared.past_deadline() {
                     break;
                 }
                 // The End Phase may offer choices: their alternatives join the queue.
@@ -1784,7 +1812,7 @@ fn zone_variants(shared: &Shared) {
             s.spawn(|| loop {
                 let i = next.fetch_add(1, Ordering::Relaxed) as usize;
                 let Some(board) = best.get(i) else { break };
-                if shared.cancel.load(Ordering::Relaxed) {
+                if shared.past_deadline() {
                     break;
                 }
                 let _ = zone_variants_of(shared, &board.line);
@@ -1794,6 +1822,9 @@ fn zone_variants(shared: &Shared) {
 }
 
 fn zone_variants_of(shared: &Shared, line: &Line) -> Result<(), Error> {
+    if shared.past_deadline() {
+        return Ok(());
+    }
     let config = shared.config;
     // The zone choices of the line that had other kinds of zones.
     let mut spots = Vec::new();
@@ -1816,6 +1847,9 @@ fn zone_variants_of(shared: &Shared, line: &Line) -> Result<(), Error> {
     }
     for (i, k, others) in spots {
         for other in others {
+            if shared.past_deadline() {
+                return Ok(());
+            }
             let mut duel = new_duel(shared)?;
             let mut played = true;
             for (j, answer) in line.answers.iter().enumerate() {
@@ -1879,6 +1913,7 @@ pub fn resume(
         interrupted: AtomicU64::new(interrupted),
         stop: Mutex::new(None),
         confirming: AtomicBool::new(false),
+        deadline: OnceLock::new(),
         values: RwLock::new(values.unwrap_or_else(|| (*config.values).clone())),
         measured: Mutex::new(measured),
         next_learning: AtomicU64::new(nodes + LEARN_EVERY),
@@ -1902,10 +1937,31 @@ pub fn resume(
     run_workers(&shared, config.threads, &mut progress);
     let mut stop = shared.stop.lock().ok().and_then(|s| *s).unwrap_or(Stop::Exhausted);
     if stop != Stop::Cancelled {
+        // DUELFORGE_DEBUG_PHASES: when each phase after the search ends,
+        // against the time limit (the slow decks go past it there).
+        let phases = std::env::var_os("DUELFORGE_DEBUG_PHASES").is_some();
+        let phase = |name: &str| {
+            if phases {
+                eprintln!(
+                    "phase {name} done at {:.1} s (limit {:.1} s)",
+                    shared.start.elapsed().as_secs_f64(),
+                    config.time_limit.as_secs_f64()
+                );
+            }
+        };
+        phase("search");
+        // Slow decks (quick Synchro Summons that check every combination of
+        // materials at each chain window) can take minutes more here: the
+        // phases after the search stop LEARN_GRACE after the time limit
+        // (or after the search, if it ended later).
+        let _ = shared.deadline.set(shared.start + config.time_limit.max(shared.start.elapsed()) + LEARN_GRACE);
         // What the last boards found teach, before the best ones are picked.
         learn_round(&shared, LEARN_LAST);
+        phase("learning");
         confirm_best(&shared);
+        phase("confirm_best");
         zone_variants(&shared);
+        phase("zone_variants");
     }
     let final_progress = shared.progress();
     progress(&final_progress);

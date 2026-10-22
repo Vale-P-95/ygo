@@ -22,6 +22,17 @@ HANDS = os.path.join(ROOT, "tests", "fixtures", "hands", "bench.tsv")
 # Weights of field, hand, floodgates and resilience in the measured value
 # (the "Bilanciato" profile).
 WEIGHTS = (1.0, 0.9, 0.8, 0.6)
+# The follow-up of the "Bilanciato" profile, and what an effect to rebuild
+# with is worth in it (score_view). The cards gained in the End Phase are
+# measured, not weighed (docs/plans/classificazione-board.md, C10).
+FOLLOW_UP = 0.4
+REBUILD, GAINED = 0.3, 0.0
+
+
+def follow_up_value(measure):
+    """The next turn's part of a measure written by probe-line --json (0 when it has none)."""
+    f = measure.get("follow_up") or {}
+    return FOLLOW_UP * (REBUILD * f.get("rebuild", 0) + GAINED * f.get("gained", 0))
 
 
 def cases(decks: str):

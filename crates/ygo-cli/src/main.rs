@@ -150,9 +150,10 @@ enum Cmd {
         /// Mulcharmy makes it draw (a few seconds a line).
         #[arg(long)]
         stops: bool,
-        /// With --vs: the deck plays its typical moves (read from its own
-        /// best lines once), and each of your effects is measured against
-        /// them (level 2 of the probe turn against a deck).
+        /// With --vs: the deck's best lines (from 12 hands, read once) are
+        /// played again in its turn after yours, and each of your effects is
+        /// measured against their moves (level 2 of the probe turn against a
+        /// deck).
         #[arg(long)]
         moves: bool,
     },
@@ -203,8 +204,9 @@ enum Cmd {
         deck: PathBuf,
     },
     /// How often each kind of play the probe turn's kit tests happens in
-    /// lines found by the search (files of `combos --save-lines`): what the
-    /// weights of the probes are calibrated on.
+    /// lines found by the search (files of `combos --save-lines`), and each
+    /// kind of activation, touching the Deck or not: what the weights of the
+    /// probes are calibrated on.
     KitMix {
         /// Files written by `combos --save-lines`.
         lines: Vec<PathBuf>,
@@ -555,13 +557,15 @@ fn combos(dir: &Path, setup: &Setup, options: CombosOptions) -> Result<()> {
                 ygo_solver::exposure(&engine, &config.deck, &config.hand, config.seed, config.opponent.as_ref(), &board.line).ok();
             if let Some(x) = &exposure {
                 println!(
-                    "   exposure: {} choke points · Ash {} · on-field negation {} · summons {} (special {}) · searches {}",
+                    "   exposure: {} choke points · Ash {} · on-field negation {} · summons {} (special {}) · searches {} · Deck cost {} · LP paid {}",
                     x.choke_points(),
                     x.ash,
                     x.on_field,
                     x.summons,
                     x.special_summons,
-                    x.searches
+                    x.searches,
+                    x.deck_cost,
+                    x.lp_paid
                 );
             }
             measured_boards.push(board_json(&engine, &config, board, i, variants, measured.as_ref().ok(), took, exposure.as_ref()));
@@ -677,6 +681,8 @@ fn state_json(
         "hand_traps_in_hand": me.hand.iter().filter(|&&c| hand_trap(c)).count(),
         "grave": me.grave.len(),
         "banished": me.banished.len(),
+        "grave_names": me.grave.iter().map(|&c| db.name(c)).collect::<Vec<_>>(),
+        "banished_names": me.banished.iter().map(|&(c, _)| db.name(c)).collect::<Vec<_>>(),
     });
     if let Some(m) = measured {
         value["measure"] = serde_json::json!({
@@ -685,6 +691,7 @@ fn state_json(
             "hand": m.hand_value,
             "floodgates": m.floodgate_value,
             "resilience": m.resilience,
+            "follow_up": m.follow_up.map(|f| serde_json::json!({ "rebuild": f.rebuild, "gained": f.gained })),
             "floodgate_list": m.floodgates.iter().map(|p| p.label()).collect::<Vec<_>>(),
             "offered": m.offered.iter().map(|&(c, l)| serde_json::json!([c, l])).collect::<Vec<_>>(),
             "interruptions": m.interruptions.iter().map(|i| serde_json::json!({
@@ -716,6 +723,8 @@ fn state_json(
             "summons": x.summons,
             "special_summons": x.special_summons,
             "searches": x.searches,
+            "deck_cost": x.deck_cost,
+            "lp_paid": x.lp_paid,
         });
     }
     if let (Some(o), Some(v)) = (out.as_object_mut(), value.as_object()) {
@@ -787,22 +796,25 @@ fn probe_line(
                 if rival.breakers().is_empty() { "none it can play (standard ones)".to_owned() } else { names(rival.breakers()) }
             );
             println!("   handtraps: {}", names(&rival.hand_traps));
-            // Its typical moves, read once from its own best lines.
-            let plays = if moves {
+            // Its best lines, read once.
+            let lines = if moves {
                 let started = std::time::Instant::now();
                 let threads = std::thread::available_parallelism().map_or(4, |n| n.get());
-                let plays = ygo_solver::rival_plays(&engine, &rival_deck, seed, 12, 1000, threads);
-                let typical = ygo_solver::typical_moves(&plays);
-                println!(
-                    "   typical moves ({:.1} s): {}",
-                    started.elapsed().as_secs_f64(),
-                    typical.iter().map(|p| play_label(&engine, p.code, p.kind, p.location)).collect::<Vec<_>>().join(", ")
-                );
-                plays
+                let lines = ygo_solver::rival_lines(&engine, &rival_deck, seed, 12, 1000, threads);
+                println!("   its lines ({:.1} s): {} from 12 hands", started.elapsed().as_secs_f64(), lines.len());
+                for (k, l) in lines.iter().enumerate() {
+                    println!(
+                        "     line {}: {} · {}",
+                        k + 1,
+                        names(&l.hand),
+                        l.moves.iter().map(|&(c, kind, at)| play_label(&engine, c, kind, at)).collect::<Vec<_>>().join(" > ")
+                    );
+                }
+                lines
             } else {
                 Vec::new()
             };
-            Some((rival, rival_deck, plays))
+            Some((rival, rival_deck, lines))
         }
         None => None,
     };
@@ -826,7 +838,7 @@ fn probe_line(
             Err(e) => println!("   probe turn failed: {e}"),
         }
         let mut extra = serde_json::json!({ "index": i });
-        if let (Some((rival, rival_deck, plays)), Ok(m)) = (&rival, &measured) {
+        if let (Some((rival, rival_deck, lines)), Ok(m)) = (&rival, &measured) {
             let started = std::time::Instant::now();
             match ygo_solver::matchup(&engine, &deck, &hand, seed, &line, m, rival) {
                 Ok(x) => {
@@ -849,7 +861,7 @@ fn probe_line(
             }
             if moves {
                 let started = std::time::Instant::now();
-                match ygo_solver::against_moves(&engine, &deck, &hand, seed, &line, rival_deck, plays, &kit) {
+                match ygo_solver::against_moves(&engine, &deck, &hand, seed, &line, rival_deck, lines, &kit) {
                     Ok(x) => print_moves(&engine, &x, started.elapsed()),
                     Err(e) => println!("   moves failed: {e}"),
                 }
@@ -897,9 +909,12 @@ fn play_label(engine: &Engine, code: u32, kind: ActionKind, from: u8) -> String 
 
 fn print_moves(engine: &Engine, x: &ygo_solver::MovesMatchup, took: std::time::Duration) {
     let db = engine.cards();
+    let possible = x.moves.iter().filter(|m| m.possible).map(|m| m.weight).sum::<f64>();
     println!(
-        "   against its typical moves ({:.1} s): value {:.2} · floodgates stop {:.0}% of the moves' weight · {:.0}% of the rest left with all your answers",
+        "   against its lines ({:.1} s): {} lines · {:.0}% of their moves made on an empty board · value {:.2} · floodgates stop {:.0}% · {:.0}% of the rest left with all your answers",
         took.as_secs_f64(),
+        x.lines,
+        possible * 100.0,
         x.value,
         x.floodgate_share * 100.0,
         x.left * 100.0
@@ -911,7 +926,7 @@ fn print_moves(engine: &Engine, x: &ygo_solver::MovesMatchup, took: std::time::D
             (true, true, _) => "made",
             (true, false, _) => "lost with an earlier one",
         };
-        println!("     {}. {} · weight {:.2} · {state}", i + 1, play_label(engine, m.code, m.kind, m.location), m.weight);
+        println!("     {}. line {}: {} · {state}", i + 1, m.line + 1, play_label(engine, m.code, m.kind, m.location));
     }
     for s in &x.stops {
         let stops: Vec<String> = s.stops.iter().map(|&i| (i + 1).to_string()).collect();
@@ -1043,6 +1058,9 @@ fn print_measure(engine: &Engine, m: &ygo_solver::Measure, took: std::time::Dura
         m.floodgate_value,
         m.resilience
     );
+    if let Some(f) = m.follow_up {
+        println!("   your next turn, after the worst breaker: {} effects to rebuild with · {} cards gained", f.rebuild, f.gained);
+    }
     for i in &m.interruptions {
         let covers: Vec<&str> = i.covers.iter().map(|p| p.label()).collect();
         let shared = if i.value < i.alone { format!(" (alone {:.2})", i.alone) } else { String::new() };
@@ -1146,7 +1164,7 @@ fn update_cards(dir: &Path, force: bool) -> Result<()> {
     let runtime = tokio::runtime::Runtime::new()?;
     let installed = runtime.block_on(async {
         let client = sync::http_client()?;
-        sync::update_cards(&client, current.as_deref(), &new_db, &|p| {
+        sync::update_cards(&client, current.as_deref(), Some(&db_path), &new_db, &|p| {
             if !matches!(p.stage, sync::Stage::Downloading) || p.total == Some(p.done) {
                 println!("{:?} {}", p.stage, p.item);
             }
@@ -1385,6 +1403,61 @@ fn plays(db: &ygo_engine::CardDb, events: &[Event], landed: &mut Vec<u32>, mut c
     }
 }
 
+/// Where an activation of yours comes from, and whether its resolution
+/// touched your Main Deck (added, drew, summoned or sent from it): what
+/// "stop anything that touches the Deck" handtraps can answer.
+#[derive(Default)]
+struct DeckTouch {
+    /// Chain link -> kind of activation and whether it touched the Deck.
+    links: std::collections::HashMap<u32, (&'static str, bool)>,
+    solving: Option<u32>,
+    counts: std::collections::BTreeMap<(&'static str, bool), u64>,
+}
+
+impl DeckTouch {
+    fn read(&mut self, db: &ygo_engine::CardDb, events: &[Event], landed: &[u32]) {
+        let monster = |code: u32| db.get(code).is_some_and(|c| c.type_ & 0x1 != 0);
+        for e in events {
+            match e {
+                Event::Chaining { card, chain_link, .. } if card.controller == 0 => {
+                    let kind = match card.location {
+                        location::HAND if monster(card.code) => "monster from the hand",
+                        location::HAND | location::SZONE => "Spell or Trap",
+                        location::GRAVE | location::REMOVED => "from the GY or banished",
+                        location::MZONE if landed.contains(&db.canonical_code(card.code)) => "trigger of a summoned monster",
+                        location::MZONE => "monster on the field",
+                        _ => continue,
+                    };
+                    self.links.insert(*chain_link, (kind, false));
+                }
+                Event::ChainSolving { chain_link } => self.solving = Some(u32::from(*chain_link)),
+                Event::Move { from, .. } if from.controller == 0 && from.location == location::DECK => self.touch(),
+                Event::Draw { player: 0, .. } => self.touch(),
+                Event::ChainSolved { chain_link } => {
+                    if let Some(link) = self.links.remove(&u32::from(*chain_link)) {
+                        *self.counts.entry(link).or_default() += 1;
+                    }
+                    self.solving = None;
+                }
+                Event::ChainNegated { chain_link } | Event::ChainDisabled { chain_link } => {
+                    self.links.remove(&u32::from(*chain_link));
+                }
+                Event::ChainEnd => {
+                    self.links.clear();
+                    self.solving = None;
+                }
+                _ => {}
+            }
+        }
+    }
+
+    fn touch(&mut self) {
+        if let Some(link) = self.solving.and_then(|l| self.links.get_mut(&l)) {
+            link.1 = true;
+        }
+    }
+}
+
 fn kit_mix(dir: &Path, files: &[PathBuf], top: usize, seed: u64) -> Result<()> {
     use ygo_solver::Probe;
     let engine = Engine::load(dir)?;
@@ -1392,6 +1465,7 @@ fn kit_mix(dir: &Path, files: &[PathBuf], top: usize, seed: u64) -> Result<()> {
     let kit = ygo_solver::Kit::standard(&engine);
     let mut counts: std::collections::BTreeMap<Probe, u64> = Probe::ALL.iter().map(|&p| (p, 0)).collect();
     let mut lines = 0;
+    let mut touch = DeckTouch::default();
     for file in files {
         let saved: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(file)?)?;
         let deck = DeckList::from_ydk(&std::fs::read_to_string(saved["deck"].as_str().context("no deck in the file")?)?)?;
@@ -1404,6 +1478,7 @@ fn kit_mix(dir: &Path, files: &[PathBuf], top: usize, seed: u64) -> Result<()> {
             for answer in &line.answers {
                 let Step::Decision { decision, events } = duel.advance()? else { break };
                 plays(db, &events, &mut landed, |p| *counts.entry(p).or_default() += 1);
+                touch.read(db, &events, &landed);
                 if matches!(decision, ygo_engine::Decision::IdleCmd { player: 0, .. }) {
                     landed.clear();
                 }
@@ -1413,13 +1488,23 @@ fn kit_mix(dir: &Path, files: &[PathBuf], top: usize, seed: u64) -> Result<()> {
         }
     }
     let total: u64 = counts.values().sum();
-    let weights: f64 = Probe::ALL.iter().map(|p| p.weight()).sum();
     println!("{lines} lines, {total} plays");
-    println!("{:<52} {:>6} {:>6} {:>7} {:>9}", "probe", "plays", "share", "weight", "proposed");
+    println!("{:<62} {:>6} {:>6} {:>7}", "probe", "plays", "share", "weight");
     for (p, n) in &counts {
         let share = *n as f64 / total.max(1) as f64;
-        println!("{:<52} {:>6} {:>6.3} {:>7.2} {:>9.2}", p.label(), n, share, p.weight(), 0.5 * p.weight() + 0.5 * share * weights);
+        println!("{:<62} {:>6} {:>6.3} {:>7.2}", p.label(), n, share, p.weight());
     }
+    let activations: u64 = touch.counts.values().sum();
+    println!("\n{activations} activations resolved");
+    println!("{:<32} {:>8} {:>8} {:>6}", "activation", "Deck", "no Deck", "share");
+    let kinds: Vec<&str> = touch.counts.keys().map(|(k, _)| *k).collect::<std::collections::BTreeSet<_>>().into_iter().collect();
+    for kind in kinds {
+        let with = touch.counts.get(&(kind, true)).copied().unwrap_or(0);
+        let without = touch.counts.get(&(kind, false)).copied().unwrap_or(0);
+        println!("{kind:<32} {with:>8} {without:>8} {:>6.3}", (with + without) as f64 / activations.max(1) as f64);
+    }
+    let with: u64 = touch.counts.iter().filter(|((_, t), _)| *t).map(|(_, n)| n).sum();
+    println!("touching the Main Deck: {:.3}", with as f64 / activations.max(1) as f64);
     Ok(())
 }
 

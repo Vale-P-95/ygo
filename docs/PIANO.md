@@ -1252,10 +1252,11 @@ Conta anche le negazioni: quando un'altra tua carta lo nega, quando la carta era
 - **Carte mai offerte.** Sono quasi sempre carte che al primo turno non si possono usare (Lava Golem, PSY-Framegear Gamma, handtrap) o mostri dell'Extra Deck non raggiunti con il budget della prova.
 
 ### 30.4 Limiti rimasti
-- **Ruoli, prova dell'estensore.** La board dello starter viene ricreata in un turno nuovo: l'Evocazione Normale e gli effetti "una volta per turno" tornano disponibili. È un'approssimazione: l'estensore può sembrare migliore di quanto sia.
-- **Carte piazzate.**
-  - Le carte Equipaggiamento sono piazzate senza il mostro equipaggiato.
-  - Un mostro dell'Extra Deck piazzato risulta Evocato, ma senza i suoi materiali: Apollousa ha 0 ATK. Si corregge quando una board vera con quella carta passa il turno di prova (apprendimento, §29.4).
+- **Carte piazzate e prova dell'estensore: corretti il 22/10 (PR #42, `docs/plans/carte-piazzate.md`).**
+  - L'estensore si prova nello stesso turno dello starter. Si rigioca la linea dello starter fino all'ultima scelta libera, poi l'estensore entra in mano dal Deck senza eventi e la ricerca continua da lì (`Prelude`). Evocazione Normale ed effetti "una volta per turno" già usati restano usati. Sui 12 deck misurati gli estensori scendono da 43 a 26.
+  - Gli equipaggiamenti piazzati vanno al mostro indicato, o al mostro piazzato valido con più ATK.
+  - I mostri dell'Extra Deck piazzati hanno i materiali (quelli veri se si sanno, altrimenti generici; nei valori delle carte sono banditi), e le Evocazioni giocano i loro effetti continui: Apollousa ha 800 ATK per materiale.
+  - Resta fuori: gli effetti "se usato come materiale" delle carte materiale.
 - **Messaggio "effetto annullato" ambiguo.** Una carta disabilitata da un effetto duraturo tuo (Crossout Designator sul proprio nome) non fa più scartare la linea. Quella linea ha solo sprecato una carta, e la stima la mette comunque più in basso.
 
 ### 30.5 Due agenti sullo stesso repository

@@ -9,10 +9,12 @@
 //!   ([`crate::hand_traps`]).
 //! - **Starter**: alone, it reaches a board (the estimate of the search
 //!   rises by at least [`STARTER_GAIN`]).
-//! - **Extender**: on the board the best starter makes (put on the field
-//!   and in the GY), it makes the board better by at least
-//!   [`EXTENDER_GAIN`] than cards that do nothing would, and the best line
-//!   uses it (a short search can end a little higher by chance). (Searching from
+//! - **Extender**: in the turn of the best starter's line, played up to
+//!   its last free moment, the card joins the hand and the search goes on
+//!   from there: it makes the board better by at least [`EXTENDER_GAIN`]
+//!   than going on without it, and the best line uses it (a short search
+//!   can end a little higher by chance). What the starter's line used
+//!   stays used: the Normal Summon, effects once per turn. (Searching from
 //!   a hand with two real cards would not do: with more to try, a short
 //!   search ends lower than with the starter alone.)
 //! - **Board breaker**: its text removes or negates the opponent's cards.
@@ -27,8 +29,8 @@ use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use ygo_engine::consts::{card_type, location, position};
-use ygo_engine::{DeckList, DuelState, Engine, Placement};
+use ygo_engine::consts::card_type;
+use ygo_engine::{Decision, DeckList, Duel, Engine, Prelude, Step};
 
 use crate::probe::Kit;
 use crate::search::{search, Board, SearchConfig};
@@ -51,7 +53,7 @@ pub const STARTER_GAIN: f64 = 3.0;
 pub const EXTENDER_GAIN: f64 = 1.5;
 /// Nodes of each test alone in hand.
 const NODES: u64 = 400;
-/// Nodes of each test on the starter's board (more to try there).
+/// Nodes of each test that goes on from the starter's line (more to try there).
 const BOARD_NODES: u64 = 800;
 
 /// A card that does nothing: a Ritual Spell whose Ritual Monster is not in
@@ -67,18 +69,23 @@ struct Tester<'a> {
 }
 
 impl Tester<'_> {
-    /// The best board reached from `cards` and blanks up to five, with
-    /// `placed` on the field and in the GY.
-    fn run(&self, cards: &[u32], placed: &[Placement]) -> Option<Board> {
+    /// The hand of `cards` and blanks up to five.
+    fn hand(&self, cards: &[u32]) -> Vec<u32> {
         let mut hand = cards.to_vec();
         while hand.len() < 5 {
             hand.push(self.blank);
         }
+        hand
+    }
+
+    /// The best board reached from `cards` and blanks up to five, going on
+    /// from `prelude` (played from that hand).
+    fn run(&self, cards: &[u32], prelude: &Prelude) -> Option<Board> {
         let mut config = self.base.clone();
         config.deck = self.deck.clone();
-        config.hand = hand;
-        config.placed = placed.to_vec();
-        if !placed.is_empty() {
+        config.hand = self.hand(cards);
+        config.prelude = prelude.clone();
+        if !prelude.answers.is_empty() {
             config.max_nodes = BOARD_NODES;
         }
         let result = search(self.engine, &config, &AtomicBool::new(false), |_| {});
@@ -86,42 +93,39 @@ impl Tester<'_> {
     }
 
     /// The best estimate of [`Tester::run`].
-    fn best(&self, cards: &[u32], placed: &[Placement]) -> f64 {
-        self.run(cards, placed).map_or(f64::NEG_INFINITY, |b| b.quick_score)
+    fn best(&self, cards: &[u32], prelude: &Prelude) -> f64 {
+        self.run(cards, prelude).map_or(f64::NEG_INFINITY, |b| b.quick_score)
     }
 
-    /// The best estimate of [`Tester::run`] with `card`, if its line uses it.
-    fn best_using(&self, card: u32, placed: &[Placement]) -> f64 {
+    /// The best estimate of [`Tester::run`] with `card` joining the hand
+    /// after `prelude`, if its line uses it.
+    fn best_using(&self, cards: &[u32], prelude: &Prelude, card: u32) -> f64 {
         let db = self.engine.cards();
-        match self.run(&[card], placed) {
-            Some(b) if !b.state.players[0].hand.iter().any(|&c| db.canonical_code(c) == card) => b.quick_score,
+        let joined = Prelude { answers: prelude.answers.clone(), joining: vec![card] };
+        let in_hand = |b: &Board| b.state.players[0].hand.iter().filter(|&&c| db.canonical_code(c) == card).count();
+        // The starter's own copies still in the hand count too.
+        let before = cards.iter().filter(|&&c| db.canonical_code(c) == card).count();
+        match self.run(cards, &joined) {
+            Some(b) if in_hand(&b) <= before => b.quick_score,
             _ => f64::NEG_INFINITY,
         }
     }
-}
 
-/// Your field and GY in `state`, to put there again.
-fn placements(state: &DuelState) -> Vec<Placement> {
-    let me = &state.players[0];
-    let mut out = Vec::new();
-    for (z, c) in me.monsters.iter().enumerate() {
-        let Some(c) = c else { continue };
-        out.push(Placement {
-            code: c.code,
-            location: location::MZONE,
-            sequence: z as u32,
-            position: c.position,
-            overlay: c.overlay.clone(),
-        });
+    /// The answers of `board`'s line (found from `cards`) up to its last
+    /// free moment, the one that ends the Main Phase: the turn to go on from.
+    fn up_to_last_free_moment(&self, cards: &[u32], board: &Board) -> Option<Prelude> {
+        let config = &self.base;
+        let mut duel = Duel::goldfish_against(self.engine, &self.deck, &self.hand(cards), config.seed, config.opponent.as_ref()).ok()?;
+        let mut last_idle = None;
+        for (i, answer) in board.line.answers.iter().enumerate() {
+            let Ok(Step::Decision { decision, .. }) = duel.advance() else { break };
+            if matches!(decision, Decision::IdleCmd { .. }) {
+                last_idle = Some(i);
+            }
+            duel.respond(answer);
+        }
+        Some(Prelude { answers: board.line.answers[..last_idle?].to_vec(), joining: Vec::new() })
     }
-    for (z, c) in me.spells.iter().enumerate() {
-        let Some(c) = c else { continue };
-        out.push(Placement { code: c.code, location: location::SZONE, sequence: z as u32, position: c.position, overlay: Vec::new() });
-    }
-    for (i, &code) in me.grave.iter().enumerate() {
-        out.push(Placement { code, location: location::GRAVE, sequence: i as u32, position: position::FACEUP_ATTACK, overlay: Vec::new() });
-    }
-    out
 }
 
 /// Guesses the roles of the cards of the Main Deck of `deck`.
@@ -171,27 +175,27 @@ pub fn guess_roles(
     let total = tested.len() * 2 + 1;
     let done = AtomicUsize::new(0);
     let step = || progress(done.fetch_add(1, Ordering::Relaxed) + 1, total);
-    let blanks = tester.best(&[], &[]);
+    let none = Prelude::default();
+    let blanks = tester.best(&[], &none);
     step();
     // Alone in hand.
     let alone: HashMap<u32, f64> = parallel(&tested, threads, |&c| {
-        let v = tester.best(&[c], &[]);
+        let v = tester.best(&[c], &none);
         step();
         v
     });
     let starters: Vec<u32> = tested.iter().copied().filter(|c| alone[c] - blanks >= STARTER_GAIN).collect();
     let best_starter = starters.iter().copied().max_by(|a, b| alone[a].total_cmp(&alone[b]).then(b.cmp(a)));
-    // On the best starter's board, against blanks on the same board.
-    let board = best_starter.and_then(|s| tester.run(&[s], &[])).map(|b| placements(&b.state)).unwrap_or_default();
-    let on_board = if board.is_empty() { f64::NEG_INFINITY } else { tester.best(&[], &board) };
-    let with_starter: HashMap<u32, f64> = if board.is_empty() {
-        HashMap::new()
-    } else {
-        parallel(&tested, threads, |&c| {
-            let v = if starters.contains(&c) { on_board } else { tester.best_using(c, &board) };
+    // In the best starter's turn, going on with the card against going on without it.
+    let line = best_starter.and_then(|s| Some((s, tester.up_to_last_free_moment(&[s], &tester.run(&[s], &none)?)?)));
+    let on_board = line.as_ref().map_or(f64::NEG_INFINITY, |(s, prelude)| tester.best(&[*s], prelude));
+    let with_starter: HashMap<u32, f64> = match &line {
+        None => HashMap::new(),
+        Some((s, prelude)) => parallel(&tested, threads, |&c| {
+            let v = if starters.contains(&c) { on_board } else { tester.best_using(&[*s], prelude, c) };
             step();
             v
-        })
+        }),
     };
 
     let breakers: Vec<u32> = breakers_by_text(engine, &cards);

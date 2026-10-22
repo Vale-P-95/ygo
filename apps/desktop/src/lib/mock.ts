@@ -15,7 +15,9 @@ import type {
   ComboRequest,
   ComboScore,
   ComboDrawTradeOff,
+  ComboMoves,
   ComboStep,
+  BanChange,
   Cond,
   DataStatus,
   Deck,
@@ -732,6 +734,46 @@ const CARD_SEEDS: CardSeed[] = [
     archetype: "Invoked",
     mdRarity: "SR",
   },
+  {
+    id: 55144522,
+    name: "Pot of Greed",
+    kind: "spell",
+    frame: "spell",
+    humanType: "Normal Spell",
+    typeLine: ["Normal Spell"],
+    desc: "[Mock text] Draw 2 cards.",
+    race: "Normal",
+    mdRarity: "UR",
+    banTcg: "Forbidden",
+    banMd: "Forbidden",
+    banOcg: "Forbidden",
+  },
+  {
+    id: 19613556,
+    name: "Heavy Storm",
+    kind: "spell",
+    frame: "spell",
+    humanType: "Normal Spell",
+    typeLine: ["Normal Spell"],
+    desc: "[Mock text] Destroy all Spell and Trap Cards on the field.",
+    race: "Normal",
+    mdRarity: "UR",
+    banTcg: "Limited",
+    banMd: "Forbidden",
+    banOcg: "Limited",
+  },
+  {
+    id: 48130397,
+    name: "Super Polymerization",
+    kind: "spell",
+    frame: "spell",
+    humanType: "Quick-Play Spell",
+    typeLine: ["Quick-Play Spell"],
+    desc: "[Mock text] Discard 1 card; Fusion Summon 1 Fusion Monster from your Extra Deck, using monsters from either field as Fusion Material. Neither player can activate cards or effects in response to this card's activation.",
+    race: "Quick-Play",
+    mdRarity: "UR",
+    banMd: "Semi-Limited",
+  },
 ];
 
 const CARDS = new Map<number, Card>(CARD_SEEDS.map((s) => [s.id, makeCard(s)]));
@@ -1073,12 +1115,22 @@ function searchCatalog(rawQuery: string): SearchResult {
   let filterFrame: string | null = null;
   let filterLevel: number | null = null;
   let filterHandtrap = false;
+  const filterBans: string[] = [];
+  let filterFormat: string | null = null;
 
   for (const tok of tokens) {
     const lower = tok.toLowerCase();
     if (lower === "tag:handtrap") {
       filterHandtrap = true;
       chips.push({ token: tok, label: "Handtrap" });
+    } else if (lower.startsWith("ban:")) {
+      const b = lower.split(":")[1] ?? "";
+      filterBans.push(b);
+      chips.push({ token: tok, label: `Ban: ${b}` });
+    } else if (lower.startsWith("formato:") || lower.startsWith("format:")) {
+      const f = lower.split(":")[1] ?? "";
+      filterFormat = f;
+      chips.push({ token: tok, label: `Formato: ${f}` });
     } else if (lower.startsWith("kind:") || lower.startsWith("type:")) {
       filterKind = lower.split(":")[1] ?? null;
       chips.push({ token: tok, label: `Tipo: ${filterKind}` });
@@ -1107,6 +1159,29 @@ function searchCatalog(rawQuery: string): SearchResult {
 
   const matches = [...CARDS.values()].filter((c) => {
     if (filterHandtrap && !HANDTRAP_IDS.has(c.id)) return false;
+    if (filterBans.length > 0) {
+      const normalizedBans = filterBans.map((b) => {
+        const bl = b.toLowerCase();
+        if (bl === "forbidden" || bl === "banned" || bl === "proibita" || bl === "proibite") return "Forbidden";
+        if (bl === "limited" || bl === "limitata" || bl === "limitate") return "Limited";
+        if (bl === "semi" || bl === "semi-limited" || bl === "semi-limitata" || bl === "semilimitata") return "Semi-Limited";
+        return b;
+      });
+      const fmt = filterFormat?.toLowerCase();
+      if (fmt === "md" || fmt === "master duel" || fmt === "masterduel") {
+        if (!c.banMd || !normalizedBans.includes(c.banMd)) return false;
+      } else if (fmt === "ocg") {
+        if (!c.banOcg || !normalizedBans.includes(c.banOcg)) return false;
+      } else if (fmt === "tcg") {
+        if (!c.banTcg || !normalizedBans.includes(c.banTcg)) return false;
+      } else {
+        const matchesAny =
+          (c.banTcg && normalizedBans.includes(c.banTcg)) ||
+          (c.banMd && normalizedBans.includes(c.banMd)) ||
+          (c.banOcg && normalizedBans.includes(c.banOcg));
+        if (!matchesAny) return false;
+      }
+    }
     if (filterKind && c.kind !== filterKind && c.frame !== filterKind) return false;
     if (filterAttr && c.attribute?.toUpperCase() !== filterAttr) return false;
     if (filterRace && !c.race.toLowerCase().includes(filterRace)) return false;
@@ -2097,6 +2172,16 @@ export const mockApi: Api = {
     formats: ["Master Duel", "TCG", "OCG"],
   }),
 
+  banChanges: async (format?: BanChange["format"]): Promise<BanChange[]> => {
+    const changes: BanChange[] = [
+      { format: "md", id: 98159737, date: "2026-10-06", before: null, after: "Limited" },
+      { format: "md", id: 97045737, date: "2026-10-06", before: "Limited", after: "Semi-Limited" },
+      { format: "md", id: 81674782, date: "2026-10-06", before: "Limited", after: null },
+      { format: "tcg", id: 34267821, date: "2026-09-15", before: null, after: "Limited" },
+    ];
+    return changes.filter((c) => !format || c.format === format);
+  },
+
   listFavorites: async () => [...favoritesState],
 
   setFavorite: async (id: number, favorite: boolean) => {
@@ -2816,6 +2901,53 @@ export const mockApi: Api = {
       { code: 23434538, stops, best: 2, standardBreakers: false },
       { code: 73642296, stops: fuwalosStops, best: 1, standardBreakers: false },
     ];
+  },
+
+  comboMoves: async (): Promise<ComboMoves> => {
+    await delay(500);
+    // A Snake-Eye deck as the rival: two lines with moves, one that only Sets cards.
+    // The board's Infinite Impermanence stops Diabellstar in the first line; the rest of that line is lost with it.
+    const lines: ComboMoves["lines"] = [
+      {
+        hand: [72270339, 98159737, 34267821, 14558127, 10045474],
+        moves: [
+          { code: 72270339, kind: "specialSummon", place: "mano" },
+          { code: 72270339, kind: "activate", place: "campo" },
+          { code: 98159737, kind: "normalSummon", place: "mano" },
+          { code: 98159737, kind: "activate", place: "campo" },
+        ],
+      },
+      {
+        hand: [45298492, 58074572, 69105797, 97268402, 94145021],
+        moves: [
+          { code: 45298492, kind: "normalSummon", place: "mano" },
+          { code: 58074572, kind: "activate", place: "mano" },
+          { code: 11264180, kind: "specialSummon", place: "Extra Deck" },
+        ],
+      },
+      { hand: [10045474, 54693926, 15693423, 24224830, 65681983], moves: [] },
+    ];
+    return {
+      lines,
+      measured: 2,
+      moves: [
+        { line: 0, ...lines[0].moves[0], weight: 0.125, state: "made" },
+        { line: 0, ...lines[0].moves[1], weight: 0.125, state: "made" },
+        { line: 0, ...lines[0].moves[2], weight: 0.125, state: "made" },
+        { line: 0, ...lines[0].moves[3], weight: 0.125, state: "made" },
+        { line: 1, ...lines[1].moves[0], weight: 0.167, state: "made" },
+        { line: 1, ...lines[1].moves[1], weight: 0.167, state: "made" },
+        { line: 1, ...lines[1].moves[2], weight: 0.167, state: "notMade" },
+      ],
+      stops: [
+        { code: 10045474, place: "mano", effect: "nega l'effetto", moves: [1], coverage: 0.38, value: 0.3 },
+        { code: 14558127, place: "mano", effect: "nega l'effetto", moves: [5], coverage: 0.17, value: 0.15 },
+      ],
+      madeShare: 0.83,
+      floodgateShare: 0,
+      value: 0.45,
+      left: 0.55,
+    };
   },
 
   comboExplain: async (_hand: number, key: string): Promise<ComboStep[]> => {

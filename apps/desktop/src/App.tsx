@@ -8,6 +8,7 @@ import { api, isDesktop, type DataStatus, type DeckSummary } from "./lib/api";
 import { rememberDeck, requestNewDeck } from "./lib/deck";
 import { useSettings } from "./lib/settings";
 import { sound } from "./lib/sound";
+import { Banditore } from "./pages/Banditore";
 import { Combo } from "./pages/Combo";
 import { DeckBuilder } from "./pages/DeckBuilder";
 import { Lab } from "./pages/Lab";
@@ -23,6 +24,7 @@ const EMBER_COLORS: Partial<Record<SectionId, string>> = {
   stats: "#5ee6db",
   combo: "#c39bff",
   shelf: "#e2bb7d",
+  news: "#e5b158",
 };
 
 function isEditableElement(target: EventTarget | null): boolean {
@@ -166,8 +168,20 @@ export default function App() {
             />
           )}
           {active === "combo" && <Combo artReady={artReady} onGoForge={() => setActive("deck-builder")} />}
+          {active === "news" && (
+            <Banditore
+              artReady={artReady}
+              onOpenDeckInForge={(deckId) => {
+                rememberDeck(deckId);
+                setNavVersion((v) => v + 1);
+                setActive("deck-builder");
+              }}
+            />
+          )}
           {active === "settings" && <Settings onStatus={setStatus} />}
-          {!["overview", "deck-builder", "shelf", "stats", "combo", "settings"].includes(active) && <Upcoming section={section} artReady={artReady} />}
+          {!["overview", "deck-builder", "shelf", "stats", "combo", "news", "settings"].includes(active) && (
+            <Upcoming section={section} artReady={artReady} />
+          )}
         </div>
       </main>
       <CommandPalette

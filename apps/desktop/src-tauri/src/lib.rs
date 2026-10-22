@@ -8,8 +8,8 @@ use tauri::http::{Response, StatusCode};
 use tauri::{Emitter, Manager, State};
 use ygo_data::sync::{self, Progress};
 use ygo_data::{
-    banlist, deck, matchlog, Banlist, Card, CardChange, CardStore, Chip, Deck, DeckBox, DeckList, DeckSummary, Facets, Format, ImageCache,
-    ImageSize, Legality, MatchEntry, Recipe, SavedSearch, Tag, UserStore,
+    banlist, deck, matchlog, BanChange, Banlist, Card, CardChange, CardStore, Chip, Deck, DeckBox, DeckList, DeckSummary, Facets, Format,
+    ImageCache, ImageSize, Legality, MatchEntry, Recipe, SavedSearch, Tag, UserStore,
 };
 use ygo_engine::{Engine, ScriptStore};
 
@@ -33,6 +33,16 @@ struct AppState {
     combo_cancel: AtomicBool,
     /// The last map of links of each deck.
     links: Mutex<HashMap<i64, LinksCache>>,
+    /// The best lines of each rival deck, read for level 2 of the probe turn.
+    rival_lines: Mutex<HashMap<i64, RivalLinesCache>>,
+}
+
+/// The best lines of a rival deck (level 2 of the probe turn against a
+/// deck), read once for its cards and the search's seed.
+struct RivalLinesCache {
+    cards: Vec<u32>,
+    seed: u64,
+    lines: std::sync::Arc<Vec<ygo_solver::RivalLine>>,
 }
 
 /// A map of links and the cards (Main and Extra Deck) it was read for.
@@ -167,7 +177,11 @@ async fn update_data(app: tauri::AppHandle, state: State<'_, AppState>, force: b
     };
     let current = if force { None } else { state.with_store(|s| Ok(s.version())).ok().flatten() };
     let new_db = state.data_dir.join("cards.db.new");
-    if sync::update_cards(&state.client, current.as_deref(), &new_db, &report).await.map_err(|e| e.to_string())?.is_some() {
+    if sync::update_cards(&state.client, current.as_deref(), Some(&state.cards_db()), &new_db, &report)
+        .await
+        .map_err(|e| e.to_string())?
+        .is_some()
+    {
         // Close the old database before replacing its file.
         *state.store.lock().map_err(|e| e.to_string())? = None;
         sync::install_file(&new_db, &state.cards_db()).map_err(|e| e.to_string())?;
@@ -210,6 +224,13 @@ fn get_cards(state: State<'_, AppState>, ids: Vec<u32>) -> Result<Vec<Card>, Str
 #[tauri::command(async)]
 fn card_facets(state: State<'_, AppState>) -> Result<Facets, String> {
     state.with_store(|s| s.facets())
+}
+
+/// Cards whose Forbidden & Limited status changed with a list update,
+/// newest first (Il Banditore); only `format`'s (`tcg`, `ocg`, `md`) when given.
+#[tauri::command(async)]
+fn ban_changes(state: State<'_, AppState>, format: Option<String>) -> Result<Vec<BanChange>, String> {
+    state.with_store(|s| s.ban_changes(format.as_deref()))
 }
 
 #[tauri::command(async)]
@@ -851,6 +872,187 @@ fn combo_stops(state: State<'_, AppState>, hand: usize, key: String, vs_deck_id:
         .collect())
 }
 
+/// Where a card of the rival's moves was: its hand, the field, the GY,
+/// banished, its Extra Deck or its Deck.
+fn move_place(loc: u8) -> &'static str {
+    use ygo_engine::consts::location;
+    match loc {
+        location::HAND => "mano",
+        location::GRAVE => "Cimitero",
+        location::REMOVED => "bandita",
+        location::EXTRA => "Extra Deck",
+        location::DECK => "Deck",
+        _ => "campo",
+    }
+}
+
+/// One move of the rival: a card, how it is played and from where.
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct RivalPlayView {
+    code: u32,
+    /// "activate", "normalSummon" or "specialSummon".
+    kind: &'static str,
+    /// "mano", "campo", "Cimitero", "bandita", "Extra Deck", "Deck".
+    place: &'static str,
+}
+
+fn rival_play(code: u32, kind: ygo_engine::ActionKind, location: u8) -> RivalPlayView {
+    let kind = match kind {
+        ygo_engine::ActionKind::NormalSummon => "normalSummon",
+        ygo_engine::ActionKind::SpecialSummon => "specialSummon",
+        _ => "activate",
+    };
+    RivalPlayView { code, kind, place: move_place(location) }
+}
+
+/// One of the rival deck's best lines, from one opening hand.
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct RivalLineView {
+    hand: Vec<u32>,
+    /// Its moves in order; a line that only Sets cards has none.
+    moves: Vec<RivalPlayView>,
+}
+
+/// A move of a line, measured against the board.
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct MeasuredMoveView {
+    /// The line it belongs to (index in `lines`).
+    line: usize,
+    #[serde(flatten)]
+    play: RivalPlayView,
+    /// Its share of all the moves: every line weighs the same, and every
+    /// move of a line the same.
+    weight: f64,
+    /// "made" (made against the board with no answer), "stopped" (the
+    /// board stops it with no answer: a floodgate), "lost" (lost with an
+    /// earlier move the board stopped) or "notMade" (not made even on an
+    /// empty board).
+    state: &'static str,
+}
+
+/// One of your effects against the rival's lines.
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct MoveStopView {
+    code: u32,
+    /// "mano", "campo", "Cimitero", "bandita".
+    place: &'static str,
+    effect: String,
+    /// The moves it stops itself (indices in `moves`).
+    moves: Vec<usize>,
+    /// Share of the moves it takes away at its best moment, averaged over the lines.
+    coverage: f64,
+    value: f64,
+}
+
+/// The board against what a deck does in its turn: its best lines played
+/// again after yours (level 2 of the probe turn against a deck).
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct MovesView {
+    /// The deck's best lines from 12 random hands.
+    lines: Vec<RivalLineView>,
+    /// Lines measured: those with moves (a line whose run failed is left out).
+    measured: usize,
+    moves: Vec<MeasuredMoveView>,
+    stops: Vec<MoveStopView>,
+    /// Share of the moves the lines make on an empty board (the rest the
+    /// probe turn could not play again).
+    made_share: f64,
+    /// Share of those moves your board stops with no answer.
+    floodgate_share: f64,
+    /// Interruption value against these lines.
+    value: f64,
+    /// Share of the moves the board lets the lines make that they still
+    /// make with all your answers used together.
+    left: f64,
+}
+
+/// Combo Lab: the board against what a deck of the Bottega does in its
+/// turn (level 2 of the probe turn against a deck). The deck's best lines
+/// from 12 hands are read once per deck (10-30 seconds) and played again
+/// after your turn; each of your effects is measured against their moves
+/// (a few seconds a board).
+#[tauri::command(async)]
+fn combo_moves(state: State<'_, AppState>, hand: usize, key: String, vs_deck_id: i64) -> Result<MovesView, String> {
+    let engine = state.engine()?;
+    let (config, cards, line) = {
+        let job = state.combo.lock().map_err(|e| e.to_string())?;
+        let job = job.as_ref().ok_or("Nessuna ricerca da valutare")?;
+        let board =
+            job.boards.iter().find(|(h, b)| *h == hand && format!("{:016x}", b.key) == key).map(|(_, b)| b).ok_or("Board non trovata")?;
+        let (cards, _, _) = job.hands.get(hand).ok_or("Mano non trovata")?;
+        (job.config.clone(), cards.clone(), board.line.clone())
+    };
+    let deck = state.with_user(|u| u.get(vs_deck_id))?.ok_or("Il deck avversario non esiste più")?;
+    let list = ygo_engine::DeckList { main: deck.main.clone(), extra: deck.extra.clone(), side: deck.side.clone() };
+    let rival_cards: Vec<u32> = list.main.iter().chain(&list.extra).copied().collect();
+    let cached = state
+        .rival_lines
+        .lock()
+        .map_err(|e| e.to_string())?
+        .get(&vs_deck_id)
+        .filter(|c| c.cards == rival_cards && c.seed == config.seed)
+        .map(|c| c.lines.clone());
+    let lines = match cached {
+        Some(lines) => lines,
+        None => {
+            let threads = std::thread::available_parallelism().map_or(4, |n| n.get());
+            let lines = std::sync::Arc::new(ygo_solver::rival_lines(&engine, &list, config.seed, 12, 1000, threads));
+            state
+                .rival_lines
+                .lock()
+                .map_err(|e| e.to_string())?
+                .insert(vs_deck_id, RivalLinesCache { cards: rival_cards, seed: config.seed, lines: lines.clone() });
+            lines
+        }
+    };
+    let kit = ygo_solver::Kit::standard(&engine);
+    let x = ygo_solver::against_moves(&engine, &config.deck, &cards, config.seed, &line, &list, &lines, &kit).map_err(|e| e.to_string())?;
+    Ok(MovesView {
+        lines: lines
+            .iter()
+            .map(|l| RivalLineView { hand: l.hand.clone(), moves: l.moves.iter().map(|&(c, k, at)| rival_play(c, k, at)).collect() })
+            .collect(),
+        measured: x.lines,
+        made_share: x.moves.iter().filter(|m| m.possible).map(|m| m.weight).sum::<f64>() + 0.0,
+        moves: x
+            .moves
+            .iter()
+            .enumerate()
+            .map(|(i, m)| MeasuredMoveView {
+                line: m.line,
+                play: rival_play(m.code, m.kind, m.location),
+                weight: m.weight,
+                state: match (m.possible, m.here, x.floodgated.contains(&i)) {
+                    (false, _, _) => "notMade",
+                    (true, _, true) => "stopped",
+                    (true, true, _) => "made",
+                    (true, false, _) => "lost",
+                },
+            })
+            .collect(),
+        stops: x
+            .stops
+            .iter()
+            .map(|s| MoveStopView {
+                code: s.responder.code,
+                place: place_name(s.location),
+                effect: s.effect.label().to_owned(),
+                moves: s.stops.clone(),
+                coverage: s.coverage,
+                value: s.value,
+            })
+            .collect(),
+        floodgate_share: x.floodgate_share,
+        value: x.value,
+        left: x.left,
+    })
+}
+
 /// What the line does that the handtraps played most can stop.
 #[derive(Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -872,19 +1074,45 @@ fn place_name(loc: u8) -> &'static str {
 }
 
 /// The cards in hand that count as resources, in words.
-fn resources_note(others: usize, grave: usize, dead: usize) -> String {
+fn resources_note(others: usize, dead: usize) -> String {
     let hand = match others {
         0 => "nessun'altra carta in mano".to_owned(),
         1 => "1 altra carta in mano".to_owned(),
         n => format!("{n} altre carte in mano"),
     };
-    let grave = if grave == 1 { "1 carta nel Cimitero".to_owned() } else { format!("{grave} carte nel Cimitero") };
     match dead {
-        0 => format!("{hand}, {grave}"),
-        1 => format!("{hand}, {grave}; 1 handtrap che con questa board non si può usare (solo a campo vuoto): è la carta da scartare"),
-        n => format!(
-            "{hand}, {grave}; {n} handtrap che con questa board non si possono usare (solo a campo vuoto): sono le carte da scartare"
-        ),
+        0 => hand,
+        1 => format!("{hand}; 1 handtrap che con questa board non si può usare (solo a campo vuoto): è la carta da scartare"),
+        n => format!("{hand}; {n} handtrap che con questa board non si possono usare (solo a campo vuoto): sono le carte da scartare"),
+    }
+}
+
+/// The follow-up in words: the starters and extenders in hand, and what
+/// comes back from the GY and banishment in your next turn.
+fn followup_note(starters: usize, extenders: usize, follow_up: Option<ygo_solver::FollowUp>) -> String {
+    let hand = match (starters, extenders) {
+        (0, 0) => "nessuno starter o estensore in mano".to_owned(),
+        (s, 0) => format!("{s} starter in mano"),
+        (0, 1) => "1 estensore in mano".to_owned(),
+        (0, e) => format!("{e} estensori in mano"),
+        (s, 1) => format!("{s} starter e 1 estensore in mano"),
+        (s, e) => format!("{s} starter e {e} estensori in mano"),
+    };
+    match follow_up {
+        Some(f) => {
+            let rebuild = match f.rebuild {
+                0 => "nessun effetto da Cimitero o bandite".to_owned(),
+                1 => "1 effetto da Cimitero o bandite".to_owned(),
+                n => format!("{n} effetti da Cimitero o bandite"),
+            };
+            let gained = match f.gained {
+                0 => String::new(),
+                1 => " (1 carta presa o Evocata nella End Phase, non contata)".to_owned(),
+                n => format!(" ({n} carte prese o Evocate nella End Phase, non contate)"),
+            };
+            format!("{hand}; nel tuo turno dopo, dopo il board breaker peggiore: {rebuild}{gained}")
+        }
+        None => hand,
     }
 }
 
@@ -926,9 +1154,21 @@ fn score_view(
     let has_role = |c: u32, role: &str| roles.get(role).is_some_and(|ids| ids.contains(&c));
     let (starters, extenders) =
         (rest.iter().filter(|&&c| has_role(c, "starter")).count(), rest.iter().filter(|&&c| has_role(c, "extender")).count());
-    let followup = starters as f64 + 0.5 * extenders as f64;
+    // The next turn: an effect that comes back from the GY or banishment
+    // after the worst breaker weighs 0.3 of a starter. The cards gained in
+    // the End Phase are shown, not weighed: with them the board pairs the
+    // judges agreed on came out worse (docs/plans/classificazione-board.md, C10).
+    let follow_up = measured.as_ref().ok().and_then(|m| m.follow_up);
+    let followup = starters as f64 + 0.5 * extenders as f64 + 0.3 * follow_up.map_or(0.0, |f| f.rebuild as f64);
     let others = rest.iter().filter(|&&c| !has_role(c, "starter") && !has_role(c, "extender")).count();
-    let resources = others as f64 + 0.1 * me.grave.len() as f64;
+    // The GY is in the follow-up now, by what comes back from it.
+    let resources = others as f64;
+    // What the line spends besides the cards of the hand (those left are
+    // already counted above): Deck cards paid as a cost, Extra Deck monsters
+    // gone to the GY or banishment, Life Points.
+    let extra = |c: u32| db.get(c).is_some_and(|c| c.type_ & ygo_engine::consts::card_type::EXTRA != 0);
+    let extra_spent = me.grave.iter().filter(|&&c| extra(c)).count() + me.banished.iter().filter(|&&(c, _)| extra(c)).count();
+    let cost = exposure.map_or(0.0, |x| 0.05 * x.deck_cost as f64 + x.lp_paid as f64 / 4000.0) + 0.1 * extra_spent as f64;
     let mut view = ScoreView {
         hand,
         key: format!("{:016x}", board.key),
@@ -938,19 +1178,12 @@ fn score_view(
         resilience: 0.0,
         resources,
         followup,
-        cost: board.cards_used.saturating_sub(1) as f64,
+        cost,
         details: Vec::new(),
         floodgate_list: Vec::new(),
         breakers: Vec::new(),
-        resources_note: resources_note(others, me.grave.len(), dead),
-        followup_note: match (starters, extenders) {
-            (0, 0) => "nessuno starter o estensore in mano".to_owned(),
-            (s, 0) => format!("{s} starter in mano"),
-            (0, 1) => "1 estensore in mano".to_owned(),
-            (0, e) => format!("{e} estensori in mano"),
-            (s, 1) => format!("{s} starter e 1 estensore in mano"),
-            (s, e) => format!("{s} starter e {e} estensori in mano"),
-        },
+        resources_note: resources_note(others, dead),
+        followup_note: followup_note(starters, extenders, follow_up),
         exposure: exposure.map_or(0.0, |x| x.choke_points() as f64),
         exposure_detail: exposure.map(|x| ExposureView {
             ash: x.ash,
@@ -1958,6 +2191,7 @@ pub fn run() {
                 combo: Mutex::new(None),
                 combo_cancel: AtomicBool::new(false),
                 links: Mutex::new(HashMap::new()),
+                rival_lines: Mutex::new(HashMap::new()),
             };
             state.open_store();
             app.manage(state);
@@ -1989,6 +2223,7 @@ pub fn run() {
             search_cards,
             get_cards,
             card_facets,
+            ban_changes,
             list_favorites,
             set_favorite,
             list_saved_searches,
@@ -2025,6 +2260,7 @@ pub fn run() {
             combo_cancel,
             combo_explain,
             combo_stops,
+            combo_moves,
             shelf_decks,
             set_deck_box,
             duplicate_deck,
