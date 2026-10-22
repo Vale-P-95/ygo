@@ -426,3 +426,39 @@ Nessun codice nella ricerca: misure e stime, per decidere.
 2. Poi misurare quanto costa ripristinare quella copia rispetto a un replay. Se costa molto meno, la strada 5 (la vera istantanea a metà turno) vale il suo costo; altrimenti si ferma alla 4.
 3. Le strade 1-3 non valgono il lavoro.
 4. Nessuna richiede modifiche a `vendor/ygopro-core`: tutto passa dallo shim, come oggi.
+
+## B0: le prove (22/10/2026, corsia 2)
+### Strada 4: copia del duello dopo le carte aggiunte (fatta, non tenuta)
+- **Com'era fatta** (`shim/reuse.cpp`): prima di `OCG_StartDuel` si copiano carte, effetti, gruppi, le parti del campo cambiate dalle carte aggiunte (giocatori, effetti del campo, contatori, `global_flag`, i contatori di attività) e le tabelle Lua. Due accorgimenti:
+  - gli effetti della copia cancellati durante il duello vengono tenuti in memoria (patch di `duel::delete_effect` in `build.rs`) e rimessi al ripristino;
+  - i gruppi della copia sono tenuti vivi dalla copia, perché il collector di Lua li libererebbe.
+- **Verifiche:** `DUELFORGE_CHECK_REUSE` su tre mani del banco a 1000 nodi senza differenze, memcheck pulito, banco identico.
+- **Costi:** il ripristino costa circa 1,5 milioni di istruzioni contro circa 5,3 milioni per preparare il duello. Fare la copia costa circa 10 milioni e lascia migliaia di tabelle al collector. Per questo si copia solo una preparazione che torna: il turno di prova e l'apprendimento ne fanno una per mano.
+- **Banco alternato, prima → dopo:** ricerca 142,0 → 144,4 s e 136,1 → 148,0 s; tempo totale 368 → 527 s e 353 → 540 s.
+- **Conclusione:** guadagno nullo sulla ricerca e perdita sul resto. Ripristinare oggetti costa troppo rispetto a quello che risparmia. Il codice resta su un branch locale come riferimento.
+
+### B1a: l'ordine dei fratelli in coda (misurato, non tenuto)
+- A pari priorità la coda prende l'arco più nuovo, e i fratelli di un nodo, che hanno quasi sempre la stessa priorità, sono spinti nell'ordine di `dive_order`: esce per prima l'alternativa meno preferita.
+- Ribaltato l'ordine a ogni profondità, tenendo prima i più profondi, il banco a 4000 nodi peggiora:
+  - somma dei migliori 25,85 → 24,39 (−5,6%);
+  - peggiorano inv-r3 (3,09 → 1,60), dracotail (1,84 → 1,59), branded (1,16 → 1,05) e ignister (1,22 → 1,18); migliora mitsurugi (1,99 → 2,42).
+- L'ordine di oggi rende di più a nodi fissi: provare per primi Passa e la fine del turno chiude in fretta i rami e porta prima alle board da confermare.
+
+### Prototipo dell'arena (B13 = B0-5): il duello intero copiato come memoria
+- **L'idea**, da ygo-combo-solver (stesso core, licenza AGPL): tutte le allocazioni di Lua e del C++ del motore vanno in un'arena per thread. Una copia della parte usata è un salvataggio, e ripristinarla allo stesso indirizzo lascia validi tutti i puntatori. Le coroutine Lua sospese sono comprese, perché si copia memoria e non oggetti.
+- **Prototipo** (`shim/arena.cpp`, branch locale): regione riservata (`mmap` con `MAP_NORESERVE`; su Windows `VirtualAlloc`), allocatore a classi di grandezza con il suo stato in testa all'arena. `l_alloc` (patch di `build.rs`) e `operator new`/`delete` vanno nell'arena del thread mentre è attiva, altrimenti in mimalloc. `vendor/` non cambia.
+- **Prova:** partite con risposte casuali fino alla fine del turno; si salva a metà, si gioca il resto, si ripristina e si rigioca il resto 5 volte, confrontando stato ed esiti a ogni passo. Il lato Rust del duello (turno, fase, attività, catena, decisione in attesa) va salvato e ripristinato insieme.
+
+| Deck | Partite | Ripristini identici | Memoria del duello | Salvataggio | Ripristino | Replay fino allo stesso punto |
+|---|---|---|---|---|---|---|
+| Invoked | 100 | 500/500 | 2,0 MB | 0,22 ms | 0,18 ms | 4,12 ms |
+| Dracotail | 100 | 500/500 | 1,9 MB | 0,19 ms | 0,15 ms | 3,43 ms |
+| Elfnote Kewl Tune | 100 | 500/500 | 2,4 MB | 0,35 ms | 0,22 ms | 5,03 ms |
+
+- **Esito:** ripristinare costa circa 22 volte meno di rigiocare. La copia è intera; con le pagine sporche costerebbe ancora meno.
+- **Stima sulla ricerca:** il replay e la preparazione sono circa tre quarti del tempo delle discese, e le discese circa il 55% della ricerca. Con un ripristino da 0,2 ms al posto di un replay da 4-5 ms, la ricerca scende di circa il 35-40%, se si trova spesso una copia vicina al nodo.
+- **Da risolvere per farne la strada vera:**
+  - quante copie tenere: 2 MB l'una, quindi una cache limitata per thread, ai nodi con più fratelli in coda, ripartendo dalla copia più vicina e rigiocando solo il resto;
+  - il riuso dei duelli di oggi, che l'arena rende inutile: ogni ricerca riparte da una copia del duello appena preparato;
+  - Windows: `VirtualAlloc`, e `GetWriteWatch` per le pagine sporche;
+  - nessuna allocazione fuori arena durante un duello: da contare e controllare, come fa ygo-combo-solver.
