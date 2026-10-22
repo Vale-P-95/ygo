@@ -766,20 +766,20 @@
    "why": "A è B con una carta in più sul campo, la stessa mano",
    "start_hand": [
     {
-     "name": "Nervedo the Shadebeast Power Patron",
-     "code": 17473466
+     "name": "Elfnote Tinia",
+     "code": 59581480
     },
     {
-     "name": "Elfnote Regina",
-     "code": 56651978
+     "name": "Theorealize",
+     "code": 48739627
     },
     {
-     "name": "Ash Blossom & Joyous Spring",
-     "code": 14558127
+     "name": "Elfnote Power Patron",
+     "code": 12375297
     },
     {
-     "name": "Jupredo the Shademachine Power Patron",
-     "code": 43871165
+     "name": "Mulcharmy Fuwalos",
+     "code": 42141493
     },
     {
      "name": "Ash Blossom & Joyous Spring",
@@ -789,8 +789,14 @@
    "a": {
     "field": [
      {
-      "name": "D/D/D Wave High King Caesar",
-      "code": 79559912,
+      "name": "Baronne de Fleur",
+      "code": 84815190,
+      "zone": "monster",
+      "position": "face-up"
+     },
+     {
+      "name": "Elfnote Fortuna",
+      "code": 85976588,
       "zone": "monster",
       "position": "face-up"
      },
@@ -798,6 +804,12 @@
       "name": "Elfnote Tinia",
       "code": 59581480,
       "zone": "monster",
+      "position": "face-up"
+     },
+     {
+      "name": "Elfnotes: Rhapsodia of Madness",
+      "code": 24092792,
+      "zone": "spell_trap",
       "position": "face-up"
      },
      {
@@ -809,45 +821,48 @@
     ],
     "hand": [
      {
-      "name": "Effect Veiler",
-      "code": 97268402
-     },
-     {
-      "name": "Effect Veiler",
-      "code": 97268402
-     },
-     {
-      "name": "Elfnote Regina",
-      "code": 56651978
-     },
-     {
-      "name": "Ash Blossom & Joyous Spring",
-      "code": 14558127
+      "name": "Theorealize",
+      "code": 48739627
      },
      {
       "name": "Ash Blossom & Joyous Spring",
       "code": 14558127
      }
     ],
-    "grave": 5,
-    "banished": 0,
-    "line_length": 63,
+    "grave": [
+     {
+      "name": "Elfnote Power Patron",
+      "code": 12375297
+     },
+     {
+      "name": "Mulcharmy Fuwalos",
+      "code": 42141493
+     }
+    ],
+    "banished": [],
+    "line_length": 21,
     "rebuilt": false,
-    "score": 1.465,
+    "score": 2.655,
     "metrics": {
-     "field": 0.667,
-     "hand": 0.773,
+     "field": 1.688,
+     "hand": 0.533,
      "floodgates": 0.0,
-     "resilience": 0.171
+     "resilience": 0.811
     },
-    "signature": "D/D/D Wave High King Caesar, Elfnote Tinia, Elfnotes: Welcome Home | hand: Ash Blossom & Joyous Spring, Ash Blossom & Joyous Spring, Effect Veiler, Effect Veiler, Elfnote Regina"
+    "signature": "Baronne de Fleur, Elfnote Fortuna, Elfnote Tinia, Elfnotes: Rhapsodia of Madness, Elfnotes: Welcome Home | hand: Ash Blossom & Joyous Spring, Theorealize"
    },
    "b": {
     "field": [
      {
-      "name": "D/D/D Wave High King Caesar",
-      "code": 79559912,
+      "name": "Baronne de Fleur",
+      "code": 84815190,
       "zone": "extra_monster",
+      "position": "face-up"
+     },
+     {
+      "name": "Elfnote Fortuna",
+      "code": 85976588,
+      "zone": "monster",
       "position": "face-up"
      },
      {
@@ -855,224 +870,55 @@
       "code": 59581480,
       "zone": "monster",
       "position": "face-up"
+     },
+     {
+      "name": "Elfnotes: Rhapsodia of Madness",
+      "code": 24092792,
+      "zone": "spell_trap",
+      "position": "face-up"
      }
     ],
     "hand": [
      {
-      "name": "Effect Veiler",
-      "code": 97268402
-     },
-     {
-      "name": "Effect Veiler",
-      "code": 97268402
-     },
-     {
-      "name": "Elfnote Regina",
-      "code": 56651978
-     },
-     {
-      "name": "Ash Blossom & Joyous Spring",
-      "code": 14558127
+      "name": "Theorealize",
+      "code": 48739627
      },
      {
       "name": "Ash Blossom & Joyous Spring",
       "code": 14558127
      }
     ],
-    "grave": 5,
-    "banished": 0,
-    "line_length": 60,
+    "grave": [
+     {
+      "name": "Elfnote Power Patron",
+      "code": 12375297
+     },
+     {
+      "name": "Mulcharmy Fuwalos",
+      "code": 42141493
+     }
+    ],
+    "banished": [],
+    "line_length": 19,
     "rebuilt": false,
-    "score": 1.441,
+    "score": 2.553,
     "metrics": {
-     "field": 0.667,
-     "hand": 0.773,
+     "field": 1.578,
+     "hand": 0.533,
      "floodgates": 0.0,
-     "resilience": 0.13
+     "resilience": 0.826
     },
-    "signature": "D/D/D Wave High King Caesar, Elfnote Tinia | hand: Ash Blossom & Joyous Spring, Ash Blossom & Joyous Spring, Effect Veiler, Effect Veiler, Elfnote Regina"
+    "signature": "Baronne de Fleur, Elfnote Fortuna, Elfnote Tinia, Elfnotes: Rhapsodia of Madness | hand: Ash Blossom & Joyous Spring, Theorealize"
    }
   },
   {
    "id": "O9",
-   "deck": "invoked",
-   "kind": "controllo",
-   "source": "controllo",
-   "panel": "A>B",
-   "why": "A è B con una carta in più sul campo, la stessa mano",
-   "start_hand": [
-    {
-     "name": "Aleister the Invoker",
-     "code": 86120752
-    },
-    {
-     "name": "Mulcharmy Fuwalos",
-     "code": 42141493
-    },
-    {
-     "name": "Magical Meltdown",
-     "code": 47679935
-    },
-    {
-     "name": "Invocation - \"Sword\"",
-     "code": 37432075
-    },
-    {
-     "name": "Aleister the Reminiscent",
-     "code": 57294268
-    }
-   ],
-   "a": {
-    "field": [
-     {
-      "name": "Aleister the Reminiscent",
-      "code": 57294268,
-      "zone": "monster",
-      "position": "face-up"
-     },
-     {
-      "name": "Artemis, the Magistus Moon Maiden",
-      "code": 34755994,
-      "zone": "extra_monster",
-      "position": "face-up"
-     },
-     {
-      "name": "Invocation - \"Sword\"",
-      "code": 37432075,
-      "zone": "spell_trap",
-      "position": "set"
-     },
-     {
-      "name": "Invocation - \"Sword\"",
-      "code": 37432075,
-      "zone": "spell_trap",
-      "position": "set"
-     },
-     {
-      "name": "Invoked Baybarron",
-      "code": 70383419,
-      "zone": "monster",
-      "position": "face-up"
-     },
-     {
-      "name": "Invoked Mechaba",
-      "code": 75286621,
-      "zone": "monster",
-      "position": "face-up"
-     },
-     {
-      "name": "Magical Meltdown",
-      "code": 47679935,
-      "zone": "spell_trap",
-      "position": "face-up"
-     },
-     {
-      "name": "Virakam, the Divine Spirit of Artifice",
-      "code": 10673071,
-      "zone": "monster",
-      "position": "face-up"
-     }
-    ],
-    "hand": [
-     {
-      "name": "Aleister the Invoker",
-      "code": 86120752
-     }
-    ],
-    "grave": 1,
-    "banished": 3,
-    "line_length": 42,
-    "rebuilt": false,
-    "score": 0.617,
-    "metrics": {
-     "field": 0.556,
-     "hand": 0.0,
-     "floodgates": 0.0,
-     "resilience": 0.102
-    },
-    "signature": "Aleister the Reminiscent, Artemis, the Magistus Moon Maiden, Invocation - \"Sword\" (set), Invocation - \"Sword\" (set), Invoked Baybarron, Invoked Mechaba, Magical Meltdown, Virakam, the Divine Spirit of Artifice | hand: Aleister the Invoker"
-   },
-   "b": {
-    "field": [
-     {
-      "name": "Artemis, the Magistus Moon Maiden",
-      "code": 34755994,
-      "zone": "extra_monster",
-      "position": "face-up"
-     },
-     {
-      "name": "Invocation - \"Sword\"",
-      "code": 37432075,
-      "zone": "spell_trap",
-      "position": "set"
-     },
-     {
-      "name": "Invocation - \"Sword\"",
-      "code": 37432075,
-      "zone": "spell_trap",
-      "position": "set"
-     },
-     {
-      "name": "Invoked Baybarron",
-      "code": 70383419,
-      "zone": "monster",
-      "position": "face-up"
-     },
-     {
-      "name": "Invoked Mechaba",
-      "code": 75286621,
-      "zone": "monster",
-      "position": "face-up"
-     },
-     {
-      "name": "Magical Meltdown",
-      "code": 47679935,
-      "zone": "spell_trap",
-      "position": "face-up"
-     },
-     {
-      "name": "Virakam, the Divine Spirit of Artifice",
-      "code": 10673071,
-      "zone": "monster",
-      "position": "face-up"
-     }
-    ],
-    "hand": [
-     {
-      "name": "Aleister the Invoker",
-      "code": 86120752
-     }
-    ],
-    "grave": 2,
-    "banished": 3,
-    "line_length": 42,
-    "rebuilt": false,
-    "score": 0.617,
-    "metrics": {
-     "field": 0.556,
-     "hand": 0.0,
-     "floodgates": 0.0,
-     "resilience": 0.102
-    },
-    "signature": "Artemis, the Magistus Moon Maiden, Invocation - \"Sword\" (set), Invocation - \"Sword\" (set), Invoked Baybarron, Invoked Mechaba, Magical Meltdown, Virakam, the Divine Spirit of Artifice | hand: Aleister the Invoker"
-   }
-  },
-  {
-   "id": "O10",
    "deck": "labrynth",
    "kind": "controllo",
    "source": "controllo",
    "panel": "A>B",
    "why": "A è B con una carta in più sul campo, la stessa mano",
    "start_hand": [
-    {
-     "name": "Incredible Ecclesia, the Virtuous",
-     "code": 55273560
-    },
-    {
-     "name": "Transaction Rollback",
-     "code": 6351147
-    },
     {
      "name": "Dominus Spark",
      "code": 6325660
@@ -1082,8 +928,16 @@
      "code": 1984618
     },
     {
-     "name": "Dogmatika Punishment",
-     "code": 82956214
+     "name": "Dominus Impulse",
+     "code": 40366667
+    },
+    {
+     "name": "Super Polymerization",
+     "code": 48130397
+    },
+    {
+     "name": "Fydraulis Harmonia",
+     "code": 70088809
     }
    ],
    "a": {
@@ -1101,16 +955,16 @@
       "position": "set"
      },
      {
-      "name": "Dominus Spark",
-      "code": 6325660,
+      "name": "Dominus Impulse",
+      "code": 40366667,
       "zone": "spell_trap",
       "position": "set"
      },
      {
-      "name": "Fallen of the White Dragon",
-      "code": 73819701,
-      "zone": "monster",
-      "position": "face-up"
+      "name": "Dominus Spark",
+      "code": 6325660,
+      "zone": "spell_trap",
+      "position": "set"
      },
      {
       "name": "Fallen of the White Dragon",
@@ -1125,31 +979,39 @@
       "position": "face-up"
      },
      {
-      "name": "The Fallen & The Virtuous",
-      "code": 30271097,
-      "zone": "spell_trap",
-      "position": "set"
-     },
-     {
-      "name": "Transaction Rollback",
-      "code": 6351147,
+      "name": "Super Polymerization",
+      "code": 48130397,
       "zone": "spell_trap",
       "position": "set"
      }
     ],
-    "hand": [],
-    "grave": 4,
-    "banished": 0,
-    "line_length": 18,
+    "hand": [
+     {
+      "name": "Fydraulis Harmonia",
+      "code": 70088809
+     }
+    ],
+    "grave": [
+     {
+      "name": "Despian Luluwalilith",
+      "code": 53971455
+     },
+     {
+      "name": "Nadir Servant",
+      "code": 1984618
+     }
+    ],
+    "banished": [],
+    "line_length": 13,
     "rebuilt": false,
-    "score": 0.852,
+    "score": 1.371,
     "metrics": {
-     "field": 0.571,
+     "field": 0.92,
      "hand": 0.0,
      "floodgates": 0.0,
-     "resilience": 0.467
+     "resilience": 0.752
     },
-    "signature": "Dogmatika Ecclesia, the Virtuous, Dogmatika Punishment (set), Dominus Spark (set), Fallen of the White Dragon, Fallen of the White Dragon, Incredible Ecclesia, the Virtuous, The Fallen & The Virtuous (set), Transaction Rollback (set) | hand: "
+    "signature": "Dogmatika Ecclesia, the Virtuous, Dogmatika Punishment (set), Dominus Impulse (set), Dominus Spark (set), Fallen of the White Dragon, Incredible Ecclesia, the Virtuous, Super Polymerization (set) | hand: Fydraulis Harmonia"
    },
    "b": {
     "field": [
@@ -1166,111 +1028,137 @@
       "position": "set"
      },
      {
+      "name": "Dominus Impulse",
+      "code": 40366667,
+      "zone": "spell_trap",
+      "position": "set"
+     },
+     {
       "name": "Dominus Spark",
       "code": 6325660,
       "zone": "spell_trap",
       "position": "set"
      },
      {
-      "name": "Fallen of the White Dragon",
-      "code": 73819701,
+      "name": "Incredible Ecclesia, the Virtuous",
+      "code": 55273560,
       "zone": "monster",
       "position": "face-up"
      },
      {
-      "name": "Fallen of the White Dragon",
-      "code": 73819701,
-      "zone": "monster",
-      "position": "face-up"
-     },
-     {
-      "name": "The Fallen & The Virtuous",
-      "code": 30271097,
-      "zone": "spell_trap",
-      "position": "set"
-     },
-     {
-      "name": "Transaction Rollback",
-      "code": 6351147,
+      "name": "Super Polymerization",
+      "code": 48130397,
       "zone": "spell_trap",
       "position": "set"
      }
     ],
-    "hand": [],
-    "grave": 4,
-    "banished": 0,
-    "line_length": 17,
+    "hand": [
+     {
+      "name": "Fydraulis Harmonia",
+      "code": 70088809
+     }
+    ],
+    "grave": [
+     {
+      "name": "Despian Luluwalilith",
+      "code": 53971455
+     },
+     {
+      "name": "Nadir Servant",
+      "code": 1984618
+     }
+    ],
+    "banished": [],
+    "line_length": 11,
     "rebuilt": false,
-    "score": 1.091,
+    "score": 1.392,
     "metrics": {
-     "field": 0.732,
+     "field": 0.962,
      "hand": 0.0,
      "floodgates": 0.0,
-     "resilience": 0.598
+     "resilience": 0.718
     },
-    "signature": "Dogmatika Ecclesia, the Virtuous, Dogmatika Punishment (set), Dominus Spark (set), Fallen of the White Dragon, Fallen of the White Dragon, The Fallen & The Virtuous (set), Transaction Rollback (set) | hand: "
+    "signature": "Dogmatika Ecclesia, the Virtuous, Dogmatika Punishment (set), Dominus Impulse (set), Dominus Spark (set), Incredible Ecclesia, the Virtuous, Super Polymerization (set) | hand: Fydraulis Harmonia"
    }
   },
   {
-   "id": "O11",
-   "deck": "synchrons",
+   "id": "O10",
+   "deck": "snake_eye",
    "kind": "controllo",
    "source": "controllo",
    "panel": "A>B",
    "why": "A è B con una carta in più sul campo, la stessa mano",
    "start_hand": [
     {
-     "name": "Elfnotes: Welcome Home",
-     "code": 64491754
+     "name": "Bonfire",
+     "code": 85106525
     },
     {
-     "name": "Scrap Synchron",
-     "code": 16449363
+     "name": "Deception of the Sinful Spoils",
+     "code": 66328392
     },
     {
-     "name": "Elfnote Fortuna",
-     "code": 85976588
+     "name": "Elfnote Lucina",
+     "code": 13597785
     },
     {
-     "name": "Elfnote Power Patron",
-     "code": 12375297
+     "name": "Diabellstar the Black Witch",
+     "code": 72270339
     },
     {
-     "name": "Assault Synchron",
-     "code": 77202120
+     "name": "Elfnote Lucina",
+     "code": 13597785
     }
    ],
    "a": {
     "field": [
      {
-      "name": "Accel Synchro Stardust Dragon",
-      "code": 30983281,
-      "zone": "monster",
-      "position": "face-up"
-     },
-     {
       "name": "Baronne de Fleur",
       "code": 84815190,
-      "zone": "monster",
-      "position": "face-up"
-     },
-     {
-      "name": "Elfnote Lucina",
-      "code": 13597785,
-      "zone": "monster",
-      "position": "face-up"
-     },
-     {
-      "name": "Elfnote Seraphim Strelitzia",
-      "code": 42302563,
       "zone": "extra_monster",
       "position": "face-up"
      },
      {
+      "name": "Deception of the Sinful Spoils",
+      "code": 66328392,
+      "zone": "spell_trap",
+      "position": "face-up"
+     },
+     {
+      "name": "Elfnote Fortuna",
+      "code": 85976588,
+      "zone": "monster",
+      "position": "face-up"
+     },
+     {
       "name": "Elfnotes: Rhapsodia of Madness",
       "code": 24092792,
       "zone": "spell_trap",
       "position": "face-up"
+     },
+     {
+      "name": "Elfnotes: Welcome Home",
+      "code": 64491754,
+      "zone": "spell_trap",
+      "position": "face-up"
+     },
+     {
+      "name": "Red-Eyes Dark Dragoon",
+      "code": 37818794,
+      "zone": "monster",
+      "position": "face-up"
+     },
+     {
+      "name": "W:P Fancy Ball",
+      "code": 4993187,
+      "zone": "monster",
+      "position": "face-up"
+     },
+     {
+      "name": "WANTED: Seeker of Sinful Spoils",
+      "code": 80845034,
+      "zone": "spell_trap",
+      "position": "set"
      }
     ],
     "hand": [
@@ -1279,44 +1167,104 @@
       "code": 56651978
      }
     ],
-    "grave": 8,
-    "banished": 0,
-    "line_length": 44,
+    "grave": [
+     {
+      "name": "Elfnote Lucina",
+      "code": 13597785
+     },
+     {
+      "name": "Bonfire",
+      "code": 85106525
+     },
+     {
+      "name": "Elfnote Lucina",
+      "code": 13597785
+     },
+     {
+      "name": "The Gaze of Timaeus",
+      "code": 22283204
+     },
+     {
+      "name": "Hiita the Fire Charmer, Ablaze",
+      "code": 48815792
+     },
+     {
+      "name": "Elfnote Tinia",
+      "code": 59581480
+     },
+     {
+      "name": "Charmer Quartet in Bloom",
+      "code": 27519978
+     },
+     {
+      "name": "Elzette, Azamina of the White Forest",
+      "code": 38648860
+     },
+     {
+      "name": "Elfnote Power Patron",
+      "code": 12375297
+     }
+    ],
+    "banished": [
+     {
+      "name": "Diabellstar the Black Witch",
+      "code": 72270339
+     }
+    ],
+    "line_length": 60,
     "rebuilt": false,
-    "score": 1.978,
+    "score": 3.733,
     "metrics": {
-     "field": 1.522,
+     "field": 2.756,
      "hand": 0.0,
      "floodgates": 0.0,
-     "resilience": 0.759
+     "resilience": 1.63
     },
-    "signature": "Accel Synchro Stardust Dragon, Baronne de Fleur, Elfnote Lucina, Elfnote Seraphim Strelitzia, Elfnotes: Rhapsodia of Madness | hand: Elfnote Regina"
+    "signature": "Baronne de Fleur, Deception of the Sinful Spoils, Elfnote Fortuna, Elfnotes: Rhapsodia of Madness, Elfnotes: Welcome Home, Red-Eyes Dark Dragoon, W:P Fancy Ball, WANTED: Seeker of Sinful Spoils (set) | hand: Elfnote Regina"
    },
    "b": {
     "field": [
      {
-      "name": "Accel Synchro Stardust Dragon",
-      "code": 30983281,
-      "zone": "monster",
-      "position": "face-up"
-     },
-     {
       "name": "Baronne de Fleur",
       "code": 84815190,
-      "zone": "monster",
+      "zone": "extra_monster",
       "position": "face-up"
      },
      {
-      "name": "Elfnote Seraphim Strelitzia",
-      "code": 42302563,
-      "zone": "monster",
+      "name": "Deception of the Sinful Spoils",
+      "code": 66328392,
+      "zone": "spell_trap",
       "position": "face-up"
      },
      {
       "name": "Elfnotes: Rhapsodia of Madness",
       "code": 24092792,
       "zone": "spell_trap",
+      "position": "set"
+     },
+     {
+      "name": "Elfnotes: Welcome Home",
+      "code": 64491754,
+      "zone": "spell_trap",
       "position": "face-up"
+     },
+     {
+      "name": "Red-Eyes Dark Dragoon",
+      "code": 37818794,
+      "zone": "monster",
+      "position": "face-up"
+     },
+     {
+      "name": "W:P Fancy Ball",
+      "code": 4993187,
+      "zone": "monster",
+      "position": "face-up"
+     },
+     {
+      "name": "WANTED: Seeker of Sinful Spoils",
+      "code": 80845034,
+      "zone": "spell_trap",
+      "position": "set"
      }
     ],
     "hand": [
@@ -1325,22 +1273,64 @@
       "code": 56651978
      }
     ],
-    "grave": 9,
-    "banished": 0,
-    "line_length": 45,
+    "grave": [
+     {
+      "name": "Elfnote Lucina",
+      "code": 13597785
+     },
+     {
+      "name": "Bonfire",
+      "code": 85106525
+     },
+     {
+      "name": "Elfnote Lucina",
+      "code": 13597785
+     },
+     {
+      "name": "The Gaze of Timaeus",
+      "code": 22283204
+     },
+     {
+      "name": "Hiita the Fire Charmer, Ablaze",
+      "code": 48815792
+     },
+     {
+      "name": "Elfnote Tinia",
+      "code": 59581480
+     },
+     {
+      "name": "Charmer Quartet in Bloom",
+      "code": 27519978
+     },
+     {
+      "name": "Elzette, Azamina of the White Forest",
+      "code": 38648860
+     },
+     {
+      "name": "Elfnote Power Patron",
+      "code": 12375297
+     }
+    ],
+    "banished": [
+     {
+      "name": "Diabellstar the Black Witch",
+      "code": 72270339
+     }
+    ],
+    "line_length": 57,
     "rebuilt": false,
-    "score": 2.151,
+    "score": 3.424,
     "metrics": {
-     "field": 1.611,
+     "field": 2.578,
      "hand": 0.0,
      "floodgates": 0.0,
-     "resilience": 0.9
+     "resilience": 1.411
     },
-    "signature": "Accel Synchro Stardust Dragon, Baronne de Fleur, Elfnote Seraphim Strelitzia, Elfnotes: Rhapsodia of Madness | hand: Elfnote Regina"
+    "signature": "Baronne de Fleur, Deception of the Sinful Spoils, Elfnotes: Rhapsodia of Madness (set), Elfnotes: Welcome Home, Red-Eyes Dark Dragoon, W:P Fancy Ball, WANTED: Seeker of Sinful Spoils (set) | hand: Elfnote Regina"
    }
   },
   {
-   "id": "O12",
+   "id": "O11",
    "deck": "yubel",
    "kind": "controllo",
    "source": "controllo",
@@ -1348,31 +1338,37 @@
    "why": "A è B con una carta in più sul campo, la stessa mano",
    "start_hand": [
     {
-     "name": "Dominus Impulse",
-     "code": 40366667
+     "name": "Mutiny in the Sky",
+     "code": 71593652
     },
     {
-     "name": "Super Duper Polymerization",
-     "code": 44886582
-    },
-    {
-     "name": "Nightmare Pain",
-     "code": 65261141
-    },
-    {
-     "name": "Maxx \"C\"",
-     "code": 23434538
+     "name": "Dark Beckoning Beast",
+     "code": 81034083
     },
     {
      "name": "Opening of the Spirit Gates",
      "code": 80312545
+    },
+    {
+     "name": "Eternal Favorite",
+     "code": 87532344
+    },
+    {
+     "name": "Infinite Impermanence",
+     "code": 10045474
     }
    ],
    "a": {
     "field": [
      {
-      "name": "Dominus Impulse",
-      "code": 40366667,
+      "name": "Eternal Favorite",
+      "code": 87532344,
+      "zone": "spell_trap",
+      "position": "set"
+     },
+     {
+      "name": "Infinite Impermanence",
+      "code": 10045474,
       "zone": "spell_trap",
       "position": "set"
      },
@@ -1395,116 +1391,54 @@
       "position": "face-up"
      },
      {
-      "name": "Phantom of Yubel",
-      "code": 80453041,
-      "zone": "monster",
-      "position": "face-up"
-     },
-     {
-      "name": "S:P Little Knight",
-      "code": 29301450,
+      "name": "Unchained Soul of Rage",
+      "code": 67680512,
       "zone": "extra_monster",
       "position": "face-up"
      }
     ],
     "hand": [],
-    "grave": 4,
-    "banished": 0,
-    "line_length": 31,
+    "grave": [
+     {
+      "name": "Mutiny in the Sky",
+      "code": 71593652
+     },
+     {
+      "name": "Aerial Eater",
+      "code": 28143384
+     },
+     {
+      "name": "Unchained Soul of Sharvara",
+      "code": 41165831
+     },
+     {
+      "name": "Unchained Soul Lord of Yama",
+      "code": 24269961
+     },
+     {
+      "name": "Unchained Soul Lord of Yama",
+      "code": 24269961
+     }
+    ],
+    "banished": [],
+    "line_length": 41,
     "rebuilt": false,
-    "score": 1.07,
+    "score": 1.194,
     "metrics": {
-     "field": 0.816,
+     "field": 0.942,
      "hand": 0.0,
      "floodgates": 0.0,
-     "resilience": 0.424
+     "resilience": 0.421
     },
-    "signature": "Dominus Impulse (set), Nightmare Pain, Opening of the Spirit Gates, Phantom of Yubel, Phantom of Yubel, S:P Little Knight | hand: "
+    "signature": "Eternal Favorite (set), Infinite Impermanence (set), Nightmare Pain, Opening of the Spirit Gates, Phantom of Yubel, Unchained Soul of Rage | hand: "
    },
    "b": {
     "field": [
      {
-      "name": "Dominus Impulse",
-      "code": 40366667,
+      "name": "Eternal Favorite",
+      "code": 87532344,
       "zone": "spell_trap",
       "position": "set"
-     },
-     {
-      "name": "Nightmare Pain",
-      "code": 65261141,
-      "zone": "spell_trap",
-      "position": "face-up"
-     },
-     {
-      "name": "Phantom of Yubel",
-      "code": 80453041,
-      "zone": "monster",
-      "position": "face-up"
-     },
-     {
-      "name": "Phantom of Yubel",
-      "code": 80453041,
-      "zone": "monster",
-      "position": "face-up"
-     },
-     {
-      "name": "S:P Little Knight",
-      "code": 29301450,
-      "zone": "extra_monster",
-      "position": "face-up"
-     }
-    ],
-    "hand": [],
-    "grave": 4,
-    "banished": 1,
-    "line_length": 32,
-    "rebuilt": false,
-    "score": 1.07,
-    "metrics": {
-     "field": 0.816,
-     "hand": 0.0,
-     "floodgates": 0.0,
-     "resilience": 0.424
-    },
-    "signature": "Dominus Impulse (set), Nightmare Pain, Phantom of Yubel, Phantom of Yubel, S:P Little Knight | hand: "
-   }
-  },
-  {
-   "id": "O13",
-   "deck": "blue_eyes",
-   "kind": "controllo",
-   "source": "controllo",
-   "panel": "A>B",
-   "why": "A è B con una carta in più sul campo, la stessa mano",
-   "start_hand": [
-    {
-     "name": "Primite Lordly Lode",
-     "code": 56506740
-    },
-    {
-     "name": "Blue-Eyes White Dragon",
-     "code": 89631139
-    },
-    {
-     "name": "Majesty of the White Dragons",
-     "code": 43219114
-    },
-    {
-     "name": "Triple Tactics Talent",
-     "code": 25311006
-    },
-    {
-     "name": "Infinite Impermanence",
-     "code": 10045474
-    }
-   ],
-   "a": {
-    "field": [
-     {
-      "name": "Blue-Eyes White Dragon",
-      "code": 89631139,
-      "zone": "monster",
-      "position": "face-up"
      },
      {
       "name": "Infinite Impermanence",
@@ -1513,429 +1447,67 @@
       "position": "set"
      },
      {
-      "name": "Majesty of the White Dragons",
-      "code": 43219114,
-      "zone": "spell_trap",
-      "position": "set"
-     },
-     {
-      "name": "Mausoleum of White",
-      "code": 24382602,
+      "name": "Opening of the Spirit Gates",
+      "code": 80312545,
       "zone": "spell_trap",
       "position": "face-up"
      },
      {
-      "name": "Primite Drillbeam",
-      "code": 29095457,
-      "zone": "spell_trap",
-      "position": "set"
-     },
-     {
-      "name": "Primite Lordly Lode",
-      "code": 56506740,
-      "zone": "spell_trap",
+      "name": "Phantom of Yubel",
+      "code": 80453041,
+      "zone": "monster",
       "position": "face-up"
      },
      {
-      "name": "Spirit with Eyes of Blue",
-      "code": 42097666,
+      "name": "Unchained Soul of Rage",
+      "code": 67680512,
       "zone": "extra_monster",
       "position": "face-up"
      }
     ],
-    "hand": [
+    "hand": [],
+    "grave": [
      {
-      "name": "Triple Tactics Talent",
-      "code": 25311006
+      "name": "Mutiny in the Sky",
+      "code": 71593652
      },
      {
-      "name": "Blue-Eyes White Dragon",
-      "code": 89631139
+      "name": "Aerial Eater",
+      "code": 28143384
+     },
+     {
+      "name": "Unchained Soul of Sharvara",
+      "code": 41165831
+     },
+     {
+      "name": "Unchained Soul Lord of Yama",
+      "code": 24269961
+     },
+     {
+      "name": "Unchained Soul Lord of Yama",
+      "code": 24269961
      }
     ],
-    "grave": 1,
-    "banished": 0,
-    "line_length": 16,
+    "banished": [],
+    "line_length": 38,
     "rebuilt": false,
-    "score": 1.519,
+    "score": 1.194,
     "metrics": {
-     "field": 1.019,
+     "field": 0.942,
      "hand": 0.0,
      "floodgates": 0.0,
-     "resilience": 0.833
+     "resilience": 0.421
     },
-    "signature": "Blue-Eyes White Dragon, Infinite Impermanence (set), Majesty of the White Dragons (set), Mausoleum of White, Primite Drillbeam (set), Primite Lordly Lode, Spirit with Eyes of Blue | hand: Blue-Eyes White Dragon, Triple Tactics Talent"
-   },
-   "b": {
-    "field": [
-     {
-      "name": "Blue-Eyes White Dragon",
-      "code": 89631139,
-      "zone": "monster",
-      "position": "face-up"
-     },
-     {
-      "name": "Infinite Impermanence",
-      "code": 10045474,
-      "zone": "spell_trap",
-      "position": "set"
-     },
-     {
-      "name": "Majesty of the White Dragons",
-      "code": 43219114,
-      "zone": "spell_trap",
-      "position": "set"
-     },
-     {
-      "name": "Primite Drillbeam",
-      "code": 29095457,
-      "zone": "spell_trap",
-      "position": "set"
-     },
-     {
-      "name": "Primite Lordly Lode",
-      "code": 56506740,
-      "zone": "spell_trap",
-      "position": "face-up"
-     },
-     {
-      "name": "Spirit with Eyes of Blue",
-      "code": 42097666,
-      "zone": "extra_monster",
-      "position": "face-up"
-     }
-    ],
-    "hand": [
-     {
-      "name": "Blue-Eyes White Dragon",
-      "code": 89631139
-     },
-     {
-      "name": "Triple Tactics Talent",
-      "code": 25311006
-     }
-    ],
-    "grave": 1,
-    "banished": 0,
-    "line_length": 12,
-    "rebuilt": false,
-    "score": 1.519,
-    "metrics": {
-     "field": 1.019,
-     "hand": 0.0,
-     "floodgates": 0.0,
-     "resilience": 0.833
-    },
-    "signature": "Blue-Eyes White Dragon, Infinite Impermanence (set), Majesty of the White Dragons (set), Primite Drillbeam (set), Primite Lordly Lode, Spirit with Eyes of Blue | hand: Blue-Eyes White Dragon, Triple Tactics Talent"
+    "signature": "Eternal Favorite (set), Infinite Impermanence (set), Opening of the Spirit Gates, Phantom of Yubel, Unchained Soul of Rage | hand: "
    }
   },
   {
-   "id": "O14",
-   "deck": "branded",
-   "kind": "controllo",
-   "source": "controllo",
-   "panel": "A>B",
-   "why": "A è B con una carta in più sul campo, la stessa mano",
-   "start_hand": [
-    {
-     "name": "Bystial Magnamhut",
-     "code": 33854624
-    },
-    {
-     "name": "Tri-Brigade Springans Kitt",
-     "code": 19304410
-    },
-    {
-     "name": "Branded in Red",
-     "code": 82738008
-    },
-    {
-     "name": "Ash Blossom & Joyous Spring",
-     "code": 14558127
-    },
-    {
-     "name": "Fallen of the White Dragon",
-     "code": 73819701
-    }
-   ],
-   "a": {
-    "field": [
-     {
-      "name": "Branded Retribution",
-      "code": 17751597,
-      "zone": "spell_trap",
-      "position": "set"
-     },
-     {
-      "name": "Ecclesia and the Dark Dragon",
-      "code": 78397661,
-      "zone": "monster",
-      "position": "face-up"
-     },
-     {
-      "name": "Incredible Ecclesia, the Virtuous",
-      "code": 55273560,
-      "zone": "monster",
-      "position": "face-up"
-     },
-     {
-      "name": "Mirrorjade the Iceblade Dragon",
-      "code": 44146295,
-      "zone": "monster",
-      "position": "face-up"
-     },
-     {
-      "name": "Tri-Brigade Mercourier",
-      "code": 19096726,
-      "zone": "monster",
-      "position": "face-up"
-     },
-     {
-      "name": "Tri-Brigade Springans Kitt",
-      "code": 19304410,
-      "zone": "monster",
-      "position": "face-up"
-     }
-    ],
-    "hand": [
-     {
-      "name": "Ash Blossom & Joyous Spring",
-      "code": 14558127
-     }
-    ],
-    "grave": 2,
-    "banished": 3,
-    "line_length": 40,
-    "rebuilt": false,
-    "score": 1.697,
-    "metrics": {
-     "field": 0.794,
-     "hand": 0.711,
-     "floodgates": 0.0,
-     "resilience": 0.438
-    },
-    "signature": "Branded Retribution (set), Ecclesia and the Dark Dragon, Incredible Ecclesia, the Virtuous, Mirrorjade the Iceblade Dragon, Tri-Brigade Mercourier, Tri-Brigade Springans Kitt | hand: Ash Blossom & Joyous Spring"
-   },
-   "b": {
-    "field": [
-     {
-      "name": "Branded Retribution",
-      "code": 17751597,
-      "zone": "spell_trap",
-      "position": "set"
-     },
-     {
-      "name": "Ecclesia and the Dark Dragon",
-      "code": 78397661,
-      "zone": "monster",
-      "position": "face-up"
-     },
-     {
-      "name": "Incredible Ecclesia, the Virtuous",
-      "code": 55273560,
-      "zone": "monster",
-      "position": "face-up"
-     },
-     {
-      "name": "Mirrorjade the Iceblade Dragon",
-      "code": 44146295,
-      "zone": "monster",
-      "position": "face-up"
-     },
-     {
-      "name": "Tri-Brigade Mercourier",
-      "code": 19096726,
-      "zone": "monster",
-      "position": "face-up"
-     }
-    ],
-    "hand": [
-     {
-      "name": "Ash Blossom & Joyous Spring",
-      "code": 14558127
-     }
-    ],
-    "grave": 3,
-    "banished": 3,
-    "line_length": 37,
-    "rebuilt": false,
-    "score": 1.674,
-    "metrics": {
-     "field": 0.794,
-     "hand": 0.711,
-     "floodgates": 0.0,
-     "resilience": 0.4
-    },
-    "signature": "Branded Retribution (set), Ecclesia and the Dark Dragon, Incredible Ecclesia, the Virtuous, Mirrorjade the Iceblade Dragon, Tri-Brigade Mercourier | hand: Ash Blossom & Joyous Spring"
-   }
-  },
-  {
-   "id": "O15",
-   "deck": "fur_hire",
-   "kind": "controllo",
-   "source": "controllo",
-   "panel": "A>B",
-   "why": "A è B con una carta in più sul campo, la stessa mano",
-   "start_hand": [
-    {
-     "name": "Ghost Belle & Haunted Mansion",
-     "code": 73642296
-    },
-    {
-     "name": "Beat, Bladesman Fur Hire",
-     "code": 93850652
-    },
-    {
-     "name": "Rafale, Champion Fur Hire",
-     "code": 38916526
-    },
-    {
-     "name": "Crossout Designator",
-     "code": 65681983
-    },
-    {
-     "name": "Ash Blossom & Joyous Spring",
-     "code": 14558127
-    }
-   ],
-   "a": {
-    "field": [
-     {
-      "name": "Beat, Bladesman Fur Hire",
-      "code": 93850652,
-      "zone": "monster",
-      "position": "face-up"
-     },
-     {
-      "name": "Crossout Designator",
-      "code": 65681983,
-      "zone": "spell_trap",
-      "position": "set"
-     },
-     {
-      "name": "Furtive Techniques Fur Hire, Fur All Your Ultimate Moves",
-      "code": 59374259,
-      "zone": "spell_trap",
-      "position": "set"
-     },
-     {
-      "name": "Keel, Shipwright Fur Hire",
-      "code": 66736884,
-      "zone": "extra_monster",
-      "position": "face-up"
-     },
-     {
-      "name": "Rafale, Champion Fur Hire",
-      "code": 38916526,
-      "zone": "monster",
-      "position": "face-up"
-     },
-     {
-      "name": "Rex, Ride Fur Hire",
-      "code": 47647354,
-      "zone": "monster",
-      "position": "face-up"
-     },
-     {
-      "name": "Whirlwind Fur Hire",
-      "code": 53557529,
-      "zone": "spell_trap",
-      "position": "set"
-     }
-    ],
-    "hand": [
-     {
-      "name": "Ash Blossom & Joyous Spring",
-      "code": 14558127
-     },
-     {
-      "name": "Ghost Belle & Haunted Mansion",
-      "code": 73642296
-     }
-    ],
-    "grave": 0,
-    "banished": 1,
-    "line_length": 21,
-    "rebuilt": false,
-    "score": 1.338,
-    "metrics": {
-     "field": 0.443,
-     "hand": 0.811,
-     "floodgates": 0.0,
-     "resilience": 0.275
-    },
-    "signature": "Beat, Bladesman Fur Hire, Crossout Designator (set), Furtive Techniques Fur Hire, Fur All Your Ultimate Moves (set), Keel, Shipwright Fur Hire, Rafale, Champion Fur Hire, Rex, Ride Fur Hire, Whirlwind Fur Hire (set) | hand: Ash Blossom & Joyous Spring, Ghost Belle & Haunted Mansion"
-   },
-   "b": {
-    "field": [
-     {
-      "name": "Crossout Designator",
-      "code": 65681983,
-      "zone": "spell_trap",
-      "position": "set"
-     },
-     {
-      "name": "Furtive Techniques Fur Hire, Fur All Your Ultimate Moves",
-      "code": 59374259,
-      "zone": "spell_trap",
-      "position": "set"
-     },
-     {
-      "name": "Keel, Shipwright Fur Hire",
-      "code": 66736884,
-      "zone": "extra_monster",
-      "position": "face-up"
-     },
-     {
-      "name": "Rafale, Champion Fur Hire",
-      "code": 38916526,
-      "zone": "monster",
-      "position": "face-up"
-     },
-     {
-      "name": "Rex, Ride Fur Hire",
-      "code": 47647354,
-      "zone": "monster",
-      "position": "face-up"
-     },
-     {
-      "name": "Whirlwind Fur Hire",
-      "code": 53557529,
-      "zone": "spell_trap",
-      "position": "set"
-     }
-    ],
-    "hand": [
-     {
-      "name": "Ash Blossom & Joyous Spring",
-      "code": 14558127
-     },
-     {
-      "name": "Ghost Belle & Haunted Mansion",
-      "code": 73642296
-     }
-    ],
-    "grave": 2,
-    "banished": 0,
-    "line_length": 20,
-    "rebuilt": false,
-    "score": 1.959,
-    "metrics": {
-     "field": 0.788,
-     "hand": 0.811,
-     "floodgates": 0.0,
-     "resilience": 0.735
-    },
-    "signature": "Crossout Designator (set), Furtive Techniques Fur Hire, Fur All Your Ultimate Moves (set), Keel, Shipwright Fur Hire, Rafale, Champion Fur Hire, Rex, Ride Fur Hire, Whirlwind Fur Hire (set) | hand: Ash Blossom & Joyous Spring, Ghost Belle & Haunted Mansion"
-   }
-  },
-  {
-   "id": "O16",
+   "id": "O12",
    "deck": "blue_eyes",
    "kind": "nuova",
    "source": "nuova",
    "panel": null,
-   "why": "punteggi vicini (1.23 e 1.22), 5 carte diverse",
+   "why": "punteggi vicini (1.90 e 1.85), 5 carte diverse",
    "start_hand": [
     {
      "name": "Dominus Purge",
@@ -1961,9 +1533,22 @@
    "a": {
     "field": [
      {
-      "name": "Blue-Eyes Ultimate Spirit Dragon",
-      "code": 89604813,
-      "zone": "extra_monster",
+      "name": "Blue-Eyes Spirit Dragon",
+      "code": 59822133,
+      "zone": "monster",
+      "position": "face-up"
+     },
+     {
+      "name": "Blue-Eyes Spirit Dragon",
+      "code": 59822133,
+      "zone": "spell_trap",
+      "position": "face-up",
+      "equipped_to": "Blue-Eyes White Dragon"
+     },
+     {
+      "name": "Blue-Eyes White Dragon",
+      "code": 89631139,
+      "zone": "monster",
       "position": "face-up"
      },
      {
@@ -1971,6 +1556,112 @@
       "code": 97045737,
       "zone": "spell_trap",
       "position": "set"
+     },
+     {
+      "name": "Hieratic Seal of the Heavenly Spheres",
+      "code": 24361622,
+      "zone": "extra_monster",
+      "position": "face-up"
+     },
+     {
+      "name": "Mausoleum of White",
+      "code": 24382602,
+      "zone": "spell_trap",
+      "position": "face-up"
+     },
+     {
+      "name": "Primite Lordly Lode",
+      "code": 56506740,
+      "zone": "spell_trap",
+      "position": "face-up"
+     },
+     {
+      "name": "True Light",
+      "code": 62089826,
+      "zone": "spell_trap",
+      "position": "face-up"
+     }
+    ],
+    "hand": [
+     {
+      "name": "Primite Dragon Ether Beryl",
+      "code": 63198739
+     },
+     {
+      "name": "Effect Veiler",
+      "code": 97268402
+     }
+    ],
+    "grave": [
+     {
+      "name": "Maiden of White",
+      "code": 17947697
+     },
+     {
+      "name": "Primite Dragon Ether Beryl",
+      "code": 63198739
+     },
+     {
+      "name": "Sage with Eyes of Blue",
+      "code": 8240199
+     },
+     {
+      "name": "Spirit with Eyes of Blue",
+      "code": 42097666
+     },
+     {
+      "name": "Spirit with Eyes of Blue",
+      "code": 42097666
+     },
+     {
+      "name": "Blue-Eyes White Dragon",
+      "code": 89631139
+     },
+     {
+      "name": "Maiden of White",
+      "code": 17947697
+     },
+     {
+      "name": "Roar of the Blue-Eyed Dragons",
+      "code": 17725109
+     }
+    ],
+    "banished": [
+     {
+      "name": "Wishes for Eyes of Blue",
+      "code": 80326401
+     }
+    ],
+    "line_length": 38,
+    "rebuilt": false,
+    "score": 1.903,
+    "metrics": {
+     "field": 1.281,
+     "hand": 0.244,
+     "floodgates": 0.0,
+     "resilience": 0.671
+    },
+    "signature": "Blue-Eyes Spirit Dragon, Blue-Eyes Spirit Dragon -> Blue-Eyes White Dragon, Blue-Eyes White Dragon, Dominus Purge (set), Hieratic Seal of the Heavenly Spheres, Mausoleum of White, Primite Lordly Lode, True Light | hand: Effect Veiler, Primite Dragon Ether Beryl"
+   },
+   "b": {
+    "field": [
+     {
+      "name": "Blue-Eyes Spirit Dragon",
+      "code": 59822133,
+      "zone": "monster",
+      "position": "face-up"
+     },
+     {
+      "name": "Dominus Purge",
+      "code": 97045737,
+      "zone": "spell_trap",
+      "position": "set"
+     },
+     {
+      "name": "Hieratic Seal of the Heavenly Spheres",
+      "code": 24361622,
+      "zone": "extra_monster",
+      "position": "face-up"
      },
      {
       "name": "Majesty of the White Dragons",
@@ -2003,22 +1694,203 @@
       "code": 63198739
      },
      {
-      "name": "Primite Dragon Ether Beryl",
-      "code": 63198739
+      "name": "Maiden of White",
+      "code": 17947697
      }
     ],
-    "grave": 5,
-    "banished": 0,
-    "line_length": 23,
+    "grave": [
+     {
+      "name": "Maiden of White",
+      "code": 17947697
+     },
+     {
+      "name": "Primite Dragon Ether Beryl",
+      "code": 63198739
+     },
+     {
+      "name": "Wishes for Eyes of Blue",
+      "code": 80326401
+     },
+     {
+      "name": "Sage with Eyes of Blue",
+      "code": 8240199
+     },
+     {
+      "name": "Spirit with Eyes of Blue",
+      "code": 42097666
+     },
+     {
+      "name": "Spirit with Eyes of Blue",
+      "code": 42097666
+     },
+     {
+      "name": "Blue-Eyes White Dragon",
+      "code": 89631139
+     },
+     {
+      "name": "Maiden of White",
+      "code": 17947697
+     },
+     {
+      "name": "Blue-Eyes White Dragon",
+      "code": 89631139
+     }
+    ],
+    "banished": [],
+    "line_length": 36,
     "rebuilt": false,
-    "score": 1.226,
+    "score": 1.851,
     "metrics": {
-     "field": 0.856,
+     "field": 1.524,
      "hand": 0.0,
      "floodgates": 0.0,
-     "resilience": 0.617
+     "resilience": 0.545
     },
-    "signature": "Blue-Eyes Ultimate Spirit Dragon, Dominus Purge (set), Majesty of the White Dragons (set), Mausoleum of White, Primite Lordly Lode, True Light | hand: Primite Dragon Ether Beryl, Primite Dragon Ether Beryl"
+    "signature": "Blue-Eyes Spirit Dragon, Dominus Purge (set), Hieratic Seal of the Heavenly Spheres, Majesty of the White Dragons (set), Mausoleum of White, Primite Lordly Lode, True Light | hand: Maiden of White, Primite Dragon Ether Beryl"
+   }
+  },
+  {
+   "id": "O13",
+   "deck": "blue_eyes",
+   "kind": "nuova",
+   "source": "nuova",
+   "panel": null,
+   "why": "punteggi vicini (1.71 e 1.71), 3 carte diverse",
+   "start_hand": [
+    {
+     "name": "Dominus Purge",
+     "code": 97045737
+    },
+    {
+     "name": "Maiden of White",
+     "code": 17947697
+    },
+    {
+     "name": "Primite Lordly Lode",
+     "code": 56506740
+    },
+    {
+     "name": "Primite Dragon Ether Beryl",
+     "code": 63198739
+    },
+    {
+     "name": "Maiden of White",
+     "code": 17947697
+    }
+   ],
+   "a": {
+    "field": [
+     {
+      "name": "Blue-Eyes Spirit Dragon",
+      "code": 59822133,
+      "zone": "monster",
+      "position": "face-up"
+     },
+     {
+      "name": "Blue-Eyes Tyrant Dragon",
+      "code": 11443677,
+      "zone": "monster",
+      "position": "face-up"
+     },
+     {
+      "name": "Dominus Purge",
+      "code": 97045737,
+      "zone": "spell_trap",
+      "position": "set"
+     },
+     {
+      "name": "Hieratic Seal of the Heavenly Spheres",
+      "code": 24361622,
+      "zone": "extra_monster",
+      "position": "face-up"
+     },
+     {
+      "name": "Mausoleum of White",
+      "code": 24382602,
+      "zone": "spell_trap",
+      "position": "face-up"
+     },
+     {
+      "name": "Primite Lordly Lode",
+      "code": 56506740,
+      "zone": "spell_trap",
+      "position": "face-up"
+     },
+     {
+      "name": "True Light",
+      "code": 62089826,
+      "zone": "spell_trap",
+      "position": "face-up"
+     }
+    ],
+    "hand": [
+     {
+      "name": "Primite Dragon Ether Beryl",
+      "code": 63198739
+     },
+     {
+      "name": "Effect Veiler",
+      "code": 97268402
+     }
+    ],
+    "grave": [
+     {
+      "name": "Maiden of White",
+      "code": 17947697
+     },
+     {
+      "name": "Primite Dragon Ether Beryl",
+      "code": 63198739
+     },
+     {
+      "name": "Sage with Eyes of Blue",
+      "code": 8240199
+     },
+     {
+      "name": "Spirit with Eyes of Blue",
+      "code": 42097666
+     },
+     {
+      "name": "Spirit with Eyes of Blue",
+      "code": 42097666
+     },
+     {
+      "name": "Blue-Eyes White Dragon",
+      "code": 89631139
+     },
+     {
+      "name": "Maiden of White",
+      "code": 17947697
+     },
+     {
+      "name": "Roar of the Blue-Eyed Dragons",
+      "code": 17725109
+     },
+     {
+      "name": "Blue-Eyes White Dragon",
+      "code": 89631139
+     },
+     {
+      "name": "Neo Blue-Eyes Ultimate Dragon",
+      "code": 56532353
+     }
+    ],
+    "banished": [
+     {
+      "name": "Wishes for Eyes of Blue",
+      "code": 80326401
+     }
+    ],
+    "line_length": 41,
+    "rebuilt": false,
+    "score": 1.708,
+    "metrics": {
+     "field": 1.281,
+     "hand": 0.244,
+     "floodgates": 0.0,
+     "resilience": 0.346
+    },
+    "signature": "Blue-Eyes Spirit Dragon, Blue-Eyes Tyrant Dragon, Dominus Purge (set), Hieratic Seal of the Heavenly Spheres, Mausoleum of White, Primite Lordly Lode, True Light | hand: Effect Veiler, Primite Dragon Ether Beryl"
    },
    "b": {
     "field": [
@@ -2076,29 +1948,71 @@
      {
       "name": "Primite Dragon Ether Beryl",
       "code": 63198739
+     },
+     {
+      "name": "Effect Veiler",
+      "code": 97268402
      }
     ],
-    "grave": 8,
-    "banished": 1,
-    "line_length": 36,
+    "grave": [
+     {
+      "name": "Maiden of White",
+      "code": 17947697
+     },
+     {
+      "name": "Primite Dragon Ether Beryl",
+      "code": 63198739
+     },
+     {
+      "name": "Sage with Eyes of Blue",
+      "code": 8240199
+     },
+     {
+      "name": "Spirit with Eyes of Blue",
+      "code": 42097666
+     },
+     {
+      "name": "Spirit with Eyes of Blue",
+      "code": 42097666
+     },
+     {
+      "name": "Blue-Eyes White Dragon",
+      "code": 89631139
+     },
+     {
+      "name": "Maiden of White",
+      "code": 17947697
+     },
+     {
+      "name": "Roar of the Blue-Eyed Dragons",
+      "code": 17725109
+     }
+    ],
+    "banished": [
+     {
+      "name": "Wishes for Eyes of Blue",
+      "code": 80326401
+     }
+    ],
+    "line_length": 38,
     "rebuilt": false,
-    "score": 1.218,
+    "score": 1.708,
     "metrics": {
-     "field": 0.989,
-     "hand": 0.0,
+     "field": 1.281,
+     "hand": 0.244,
      "floodgates": 0.0,
-     "resilience": 0.382
+     "resilience": 0.346
     },
-    "signature": "Blue-Eyes Spirit Dragon, Blue-Eyes Ultimate Spirit Dragon -> Blue-Eyes White Dragon, Blue-Eyes White Dragon, Dominus Purge (set), Hieratic Seal of the Heavenly Spheres, Mausoleum of White, Primite Lordly Lode, True Light | hand: Primite Dragon Ether Beryl"
+    "signature": "Blue-Eyes Spirit Dragon, Blue-Eyes Ultimate Spirit Dragon -> Blue-Eyes White Dragon, Blue-Eyes White Dragon, Dominus Purge (set), Hieratic Seal of the Heavenly Spheres, Mausoleum of White, Primite Lordly Lode, True Light | hand: Effect Veiler, Primite Dragon Ether Beryl"
    }
   },
   {
-   "id": "O17",
+   "id": "O14",
    "deck": "blue_eyes",
    "kind": "nuova",
    "source": "nuova",
    "panel": null,
-   "why": "punteggi vicini (1.56 e 1.59), 4 carte diverse",
+   "why": "punteggi vicini (1.71 e 1.71), 2 carte diverse",
    "start_hand": [
     {
      "name": "Dominus Purge",
@@ -2130,16 +2044,29 @@
       "position": "face-up"
      },
      {
+      "name": "Blue-Eyes Tyrant Dragon",
+      "code": 11443677,
+      "zone": "spell_trap",
+      "position": "face-up",
+      "equipped_to": "Blue-Eyes White Dragon"
+     },
+     {
+      "name": "Blue-Eyes White Dragon",
+      "code": 89631139,
+      "zone": "monster",
+      "position": "face-up"
+     },
+     {
+      "name": "Dominus Purge",
+      "code": 97045737,
+      "zone": "spell_trap",
+      "position": "set"
+     },
+     {
       "name": "Hieratic Seal of the Heavenly Spheres",
       "code": 24361622,
       "zone": "extra_monster",
       "position": "face-up"
-     },
-     {
-      "name": "Majesty of the White Dragons",
-      "code": 43219114,
-      "zone": "spell_trap",
-      "position": "set"
      },
      {
       "name": "Mausoleum of White",
@@ -2166,26 +2093,60 @@
       "code": 63198739
      },
      {
-      "name": "Dominus Purge",
-      "code": 97045737
-     },
-     {
       "name": "Effect Veiler",
       "code": 97268402
      }
     ],
-    "grave": 8,
-    "banished": 0,
-    "line_length": 34,
+    "grave": [
+     {
+      "name": "Maiden of White",
+      "code": 17947697
+     },
+     {
+      "name": "Primite Dragon Ether Beryl",
+      "code": 63198739
+     },
+     {
+      "name": "Sage with Eyes of Blue",
+      "code": 8240199
+     },
+     {
+      "name": "Spirit with Eyes of Blue",
+      "code": 42097666
+     },
+     {
+      "name": "Spirit with Eyes of Blue",
+      "code": 42097666
+     },
+     {
+      "name": "Blue-Eyes White Dragon",
+      "code": 89631139
+     },
+     {
+      "name": "Maiden of White",
+      "code": 17947697
+     },
+     {
+      "name": "Roar of the Blue-Eyed Dragons",
+      "code": 17725109
+     }
+    ],
+    "banished": [
+     {
+      "name": "Wishes for Eyes of Blue",
+      "code": 80326401
+     }
+    ],
+    "line_length": 38,
     "rebuilt": false,
-    "score": 1.564,
+    "score": 1.708,
     "metrics": {
-     "field": 0.856,
-     "hand": 0.582,
+     "field": 1.281,
+     "hand": 0.244,
      "floodgates": 0.0,
-     "resilience": 0.307
+     "resilience": 0.346
     },
-    "signature": "Blue-Eyes Spirit Dragon, Hieratic Seal of the Heavenly Spheres, Majesty of the White Dragons (set), Mausoleum of White, Primite Lordly Lode, True Light | hand: Dominus Purge, Effect Veiler, Primite Dragon Ether Beryl"
+    "signature": "Blue-Eyes Spirit Dragon, Blue-Eyes Tyrant Dragon -> Blue-Eyes White Dragon, Blue-Eyes White Dragon, Dominus Purge (set), Hieratic Seal of the Heavenly Spheres, Mausoleum of White, Primite Lordly Lode, True Light | hand: Effect Veiler, Primite Dragon Ether Beryl"
    },
    "b": {
     "field": [
@@ -2208,16 +2169,23 @@
       "position": "set"
      },
      {
-      "name": "Majesty of the White Dragons",
-      "code": 43219114,
-      "zone": "spell_trap",
-      "position": "set"
+      "name": "Hieratic Seal of the Heavenly Spheres",
+      "code": 24361622,
+      "zone": "extra_monster",
+      "position": "face-up"
      },
      {
       "name": "Mausoleum of White",
       "code": 24382602,
       "zone": "spell_trap",
       "position": "face-up"
+     },
+     {
+      "name": "Neo Blue-Eyes Ultimate Dragon",
+      "code": 56532353,
+      "zone": "spell_trap",
+      "position": "face-up",
+      "equipped_to": "Blue-Eyes White Dragon"
      },
      {
       "name": "Primite Lordly Lode",
@@ -2238,31 +2206,69 @@
       "code": 63198739
      },
      {
-      "name": "Primite Dragon Ether Beryl",
-      "code": 63198739
+      "name": "Effect Veiler",
+      "code": 97268402
      }
     ],
-    "grave": 4,
-    "banished": 0,
-    "line_length": 21,
+    "grave": [
+     {
+      "name": "Maiden of White",
+      "code": 17947697
+     },
+     {
+      "name": "Primite Dragon Ether Beryl",
+      "code": 63198739
+     },
+     {
+      "name": "Sage with Eyes of Blue",
+      "code": 8240199
+     },
+     {
+      "name": "Spirit with Eyes of Blue",
+      "code": 42097666
+     },
+     {
+      "name": "Spirit with Eyes of Blue",
+      "code": 42097666
+     },
+     {
+      "name": "Blue-Eyes White Dragon",
+      "code": 89631139
+     },
+     {
+      "name": "Maiden of White",
+      "code": 17947697
+     },
+     {
+      "name": "Roar of the Blue-Eyed Dragons",
+      "code": 17725109
+     }
+    ],
+    "banished": [
+     {
+      "name": "Wishes for Eyes of Blue",
+      "code": 80326401
+     }
+    ],
+    "line_length": 39,
     "rebuilt": false,
-    "score": 1.593,
+    "score": 1.708,
     "metrics": {
-     "field": 1.222,
-     "hand": 0.0,
+     "field": 1.281,
+     "hand": 0.244,
      "floodgates": 0.0,
-     "resilience": 0.617
+     "resilience": 0.346
     },
-    "signature": "Blue-Eyes Spirit Dragon, Blue-Eyes White Dragon, Dominus Purge (set), Majesty of the White Dragons (set), Mausoleum of White, Primite Lordly Lode, True Light | hand: Primite Dragon Ether Beryl, Primite Dragon Ether Beryl"
+    "signature": "Blue-Eyes Spirit Dragon, Blue-Eyes White Dragon, Dominus Purge (set), Hieratic Seal of the Heavenly Spheres, Mausoleum of White, Neo Blue-Eyes Ultimate Dragon -> Blue-Eyes White Dragon, Primite Lordly Lode, True Light | hand: Effect Veiler, Primite Dragon Ether Beryl"
    }
   },
   {
-   "id": "O18",
+   "id": "O15",
    "deck": "branded",
    "kind": "nuova",
    "source": "nuova",
    "panel": null,
-   "why": "punteggi vicini (0.64 e 0.64), 2 carte diverse",
+   "why": "punteggi vicini (0.52 e 0.52), 2 carte diverse",
    "start_hand": [
     {
      "name": "Bystial Magnamhut",
@@ -2316,14 +2322,19 @@
       "code": 14558127
      }
     ],
-    "grave": 0,
-    "banished": 1,
+    "grave": [],
+    "banished": [
+     {
+      "name": "The Bystial Lubellion",
+      "code": 32731036
+     }
+    ],
     "line_length": 5,
     "rebuilt": false,
-    "score": 0.64,
+    "score": 0.524,
     "metrics": {
      "field": 0.0,
-     "hand": 0.711,
+     "hand": 0.582,
      "floodgates": 0.0,
      "resilience": 0.0
     },
@@ -2358,14 +2369,14 @@
       "code": 32731036
      }
     ],
-    "grave": 0,
-    "banished": 0,
+    "grave": [],
+    "banished": [],
     "line_length": 3,
     "rebuilt": false,
-    "score": 0.64,
+    "score": 0.524,
     "metrics": {
      "field": 0.0,
-     "hand": 0.711,
+     "hand": 0.582,
      "floodgates": 0.0,
      "resilience": 0.0
     },
@@ -2373,12 +2384,12 @@
    }
   },
   {
-   "id": "O19",
+   "id": "O16",
    "deck": "dracotail",
    "kind": "nuova",
    "source": "nuova",
    "panel": null,
-   "why": "punteggi vicini (1.77 e 1.77), 4 carte diverse",
+   "why": "punteggi vicini (1.83 e 1.83), 3 carte diverse",
    "start_hand": [
     {
      "name": "Incredible Ecclesia, the Virtuous",
@@ -2402,66 +2413,6 @@
     }
    ],
    "a": {
-    "field": [
-     {
-      "name": "Albion the Sanctifire Dragon",
-      "code": 38811586,
-      "zone": "monster",
-      "position": "face-up"
-     },
-     {
-      "name": "Dracotail Flame",
-      "code": 5431722,
-      "zone": "spell_trap",
-      "position": "set"
-     },
-     {
-      "name": "Dracotail Horn",
-      "code": 69932023,
-      "zone": "spell_trap",
-      "position": "set"
-     },
-     {
-      "name": "Ecclesia and the Dark Dragon",
-      "code": 78397661,
-      "zone": "monster",
-      "position": "face-up"
-     },
-     {
-      "name": "Predaplant Verte Anaconda",
-      "code": 70369116,
-      "zone": "extra_monster",
-      "position": "face-up"
-     }
-    ],
-    "hand": [
-     {
-      "name": "Mulcharmy Fuwalos",
-      "code": 42141493
-     },
-     {
-      "name": "Ash Blossom & Joyous Spring",
-      "code": 14558127
-     },
-     {
-      "name": "Effect Veiler",
-      "code": 97268402
-     }
-    ],
-    "grave": 8,
-    "banished": 0,
-    "line_length": 36,
-    "rebuilt": false,
-    "score": 1.774,
-    "metrics": {
-     "field": 0.699,
-     "hand": 0.938,
-     "floodgates": 0.0,
-     "resilience": 0.386
-    },
-    "signature": "Albion the Sanctifire Dragon, Dracotail Flame (set), Dracotail Horn (set), Ecclesia and the Dark Dragon, Predaplant Verte Anaconda | hand: Ash Blossom & Joyous Spring, Effect Veiler, Mulcharmy Fuwalos"
-   },
-   "b": {
     "field": [
      {
       "name": "Albion the Sanctifire Dragon",
@@ -2516,50 +2467,45 @@
       "code": 14558127
      }
     ],
-    "grave": 6,
-    "banished": 0,
+    "grave": [
+     {
+      "name": "Fallen of the White Dragon",
+      "code": 73819701
+     },
+     {
+      "name": "Incredible Ecclesia, the Virtuous",
+      "code": 55273560
+     },
+     {
+      "name": "Secreterion Dragon",
+      "code": 89851827
+     },
+     {
+      "name": "Branded Fusion",
+      "code": 44362883
+     },
+     {
+      "name": "Dracotail Phryxul",
+      "code": 84477320
+     },
+     {
+      "name": "Fallen of the White Dragon",
+      "code": 73819701
+     }
+    ],
+    "banished": [],
     "line_length": 36,
     "rebuilt": false,
-    "score": 1.774,
+    "score": 1.831,
     "metrics": {
-     "field": 0.699,
-     "hand": 0.938,
+     "field": 0.863,
+     "hand": 0.778,
      "floodgates": 0.0,
-     "resilience": 0.386
+     "resilience": 0.447
     },
     "signature": "Albion the Sanctifire Dragon, Dracotail Flame (set), Dracotail Sting (set), Ecclesia and the Dark Dragon, Predaplant Verte Anaconda | hand: Ash Blossom & Joyous Spring, Blazing Cartesia, the Virtuous, Effect Veiler, Incredible Ecclesia, the Virtuous, Mulcharmy Fuwalos"
-   }
-  },
-  {
-   "id": "O20",
-   "deck": "dracotail",
-   "kind": "nuova",
-   "source": "nuova",
-   "panel": null,
-   "why": "punteggi vicini (1.42 e 1.57), 4 carte diverse",
-   "start_hand": [
-    {
-     "name": "Incredible Ecclesia, the Virtuous",
-     "code": 55273560
-    },
-    {
-     "name": "Mulcharmy Fuwalos",
-     "code": 42141493
-    },
-    {
-     "name": "Ash Blossom & Joyous Spring",
-     "code": 14558127
-    },
-    {
-     "name": "Effect Veiler",
-     "code": 97268402
-    },
-    {
-     "name": "Dracotail Mululu",
-     "code": 7375867
-    }
-   ],
-   "a": {
+   },
+   "b": {
     "field": [
      {
       "name": "Albion the Sanctifire Dragon",
@@ -2594,107 +2540,72 @@
     ],
     "hand": [
      {
+      "name": "Mulcharmy Fuwalos",
+      "code": 42141493
+     },
+     {
+      "name": "Incredible Ecclesia, the Virtuous",
+      "code": 55273560
+     },
+     {
+      "name": "Ash Blossom & Joyous Spring",
+      "code": 14558127
+     },
+     {
       "name": "Effect Veiler",
       "code": 97268402
+     }
+    ],
+    "grave": [
+     {
+      "name": "Incredible Ecclesia, the Virtuous",
+      "code": 55273560
+     },
+     {
+      "name": "Dracotail Mululu",
+      "code": 7375867
+     },
+     {
+      "name": "Secreterion Dragon",
+      "code": 89851827
      },
      {
       "name": "Blazing Cartesia, the Virtuous",
       "code": 95515789
      },
      {
-      "name": "Incredible Ecclesia, the Virtuous",
-      "code": 55273560
+      "name": "Branded Fusion",
+      "code": 44362883
      },
      {
-      "name": "Mulcharmy Fuwalos",
-      "code": 42141493
+      "name": "Fallen of Albaz",
+      "code": 68468459
      },
      {
-      "name": "Ash Blossom & Joyous Spring",
-      "code": 14558127
+      "name": "Dracotail Phryxul",
+      "code": 84477320
      }
     ],
-    "grave": 6,
-    "banished": 0,
-    "line_length": 36,
+    "banished": [],
+    "line_length": 37,
     "rebuilt": false,
-    "score": 1.422,
+    "score": 1.827,
     "metrics": {
-     "field": 0.463,
-     "hand": 0.938,
+     "field": 0.868,
+     "hand": 0.778,
      "floodgates": 0.0,
-     "resilience": 0.193
+     "resilience": 0.432
     },
-    "signature": "Albion the Sanctifire Dragon, Dracotail Horn (set), Dracotail Sting (set), Ecclesia and the Dark Dragon, Predaplant Verte Anaconda | hand: Ash Blossom & Joyous Spring, Blazing Cartesia, the Virtuous, Effect Veiler, Incredible Ecclesia, the Virtuous, Mulcharmy Fuwalos"
-   },
-   "b": {
-    "field": [
-     {
-      "name": "Albion the Sanctifire Dragon",
-      "code": 38811586,
-      "zone": "monster",
-      "position": "face-up"
-     },
-     {
-      "name": "Dracotail Flame",
-      "code": 5431722,
-      "zone": "spell_trap",
-      "position": "set"
-     },
-     {
-      "name": "Dracotail Horn",
-      "code": 69932023,
-      "zone": "spell_trap",
-      "position": "set"
-     },
-     {
-      "name": "Ecclesia and the Dark Dragon",
-      "code": 78397661,
-      "zone": "monster",
-      "position": "face-up"
-     },
-     {
-      "name": "Predaplant Verte Anaconda",
-      "code": 70369116,
-      "zone": "extra_monster",
-      "position": "face-up"
-     }
-    ],
-    "hand": [
-     {
-      "name": "Mulcharmy Fuwalos",
-      "code": 42141493
-     },
-     {
-      "name": "Incredible Ecclesia, the Virtuous",
-      "code": 55273560
-     },
-     {
-      "name": "Ash Blossom & Joyous Spring",
-      "code": 14558127
-     }
-    ],
-    "grave": 9,
-    "banished": 0,
-    "line_length": 33,
-    "rebuilt": false,
-    "score": 1.57,
-    "metrics": {
-     "field": 0.699,
-     "hand": 0.711,
-     "floodgates": 0.0,
-     "resilience": 0.386
-    },
-    "signature": "Albion the Sanctifire Dragon, Dracotail Flame (set), Dracotail Horn (set), Ecclesia and the Dark Dragon, Predaplant Verte Anaconda | hand: Ash Blossom & Joyous Spring, Incredible Ecclesia, the Virtuous, Mulcharmy Fuwalos"
+    "signature": "Albion the Sanctifire Dragon, Dracotail Horn (set), Dracotail Sting (set), Ecclesia and the Dark Dragon, Predaplant Verte Anaconda | hand: Ash Blossom & Joyous Spring, Effect Veiler, Incredible Ecclesia, the Virtuous, Mulcharmy Fuwalos"
    }
   },
   {
-   "id": "O21",
+   "id": "O17",
    "deck": "elfnote",
    "kind": "nuova",
    "source": "nuova",
    "panel": null,
-   "why": "punteggi vicini (1.47 e 1.58), 3 carte diverse",
+   "why": "punteggi vicini (1.75 e 1.68), 3 carte diverse",
    "start_hand": [
     {
      "name": "Nervedo the Shadebeast Power Patron",
@@ -2722,7 +2633,7 @@
      {
       "name": "D/D/D Wave High King Caesar",
       "code": 79559912,
-      "zone": "monster",
+      "zone": "extra_monster",
       "position": "face-up"
      },
      {
@@ -2760,16 +2671,37 @@
       "code": 14558127
      }
     ],
-    "grave": 5,
-    "banished": 0,
+    "grave": [
+     {
+      "name": "Nervedo the Shadebeast Power Patron",
+      "code": 17473466
+     },
+     {
+      "name": "Prohibited Power Patron Portal - Terminus",
+      "code": 25661743
+     },
+     {
+      "name": "Medius the Pure",
+      "code": 97556336
+     },
+     {
+      "name": "Elfnote Power Patron",
+      "code": 12375297
+     },
+     {
+      "name": "Armades, Keeper of Boundaries",
+      "code": 88033975
+     }
+    ],
+    "banished": [],
     "line_length": 63,
     "rebuilt": false,
-    "score": 1.465,
+    "score": 1.749,
     "metrics": {
-     "field": 0.667,
-     "hand": 0.773,
+     "field": 0.719,
+     "hand": 1.022,
      "floodgates": 0.0,
-     "resilience": 0.171
+     "resilience": 0.184
     },
     "signature": "D/D/D Wave High King Caesar, Elfnote Tinia, Elfnotes: Welcome Home | hand: Ash Blossom & Joyous Spring, Ash Blossom & Joyous Spring, Effect Veiler, Effect Veiler, Elfnote Regina"
    },
@@ -2812,27 +2744,44 @@
       "code": 14558127
      }
     ],
-    "grave": 4,
-    "banished": 0,
+    "grave": [
+     {
+      "name": "Nervedo the Shadebeast Power Patron",
+      "code": 17473466
+     },
+     {
+      "name": "Prohibited Power Patron Portal - Terminus",
+      "code": 25661743
+     },
+     {
+      "name": "Elfnote Power Patron",
+      "code": 12375297
+     },
+     {
+      "name": "Armades, Keeper of Boundaries",
+      "code": 88033975
+     }
+    ],
+    "banished": [],
     "line_length": 64,
     "rebuilt": false,
-    "score": 1.579,
+    "score": 1.68,
     "metrics": {
-     "field": 0.667,
-     "hand": 0.927,
+     "field": 0.719,
+     "hand": 0.975,
      "floodgates": 0.0,
-     "resilience": 0.13
+     "resilience": 0.14
     },
     "signature": "D/D/D Wave High King Caesar, Elfnote Tinia, Medius the Pure | hand: Ash Blossom & Joyous Spring, Ash Blossom & Joyous Spring, Effect Veiler, Elfnote Regina"
    }
   },
   {
-   "id": "O22",
+   "id": "O18",
    "deck": "exodia",
    "kind": "nuova",
    "source": "nuova",
    "panel": null,
-   "why": "punteggi vicini (0.63 e 0.71), 6 carte diverse",
+   "why": "punteggi vicini (0.89 e 0.99), 6 carte diverse",
    "start_hand": [
     {
      "name": "Infinite Impermanence",
@@ -2889,16 +2838,57 @@
      }
     ],
     "hand": [],
-    "grave": 10,
-    "banished": 0,
+    "grave": [
+     {
+      "name": "Infinite Impermanence",
+      "code": 10045474
+     },
+     {
+      "name": "Fiendsmith's Tract",
+      "code": 98567237
+     },
+     {
+      "name": "Sengenjin Wakes from a Millennium",
+      "code": 38775407
+     },
+     {
+      "name": "Golem that Guards the Millennium Treasures",
+      "code": 74169516
+     },
+     {
+      "name": "Left Leg of the Forbidden One",
+      "code": 44519536
+     },
+     {
+      "name": "Lacrima the Crimson Tears",
+      "code": 28803166
+     },
+     {
+      "name": "Necroquip Princess",
+      "code": 93860227
+     },
+     {
+      "name": "Shield of the Millennium Dynasty",
+      "code": 1164211
+     },
+     {
+      "name": "Skull Meister",
+      "code": 67750322
+     },
+     {
+      "name": "Snake-Eyes Doomed Dragon",
+      "code": 58071334
+     }
+    ],
+    "banished": [],
     "line_length": 53,
     "rebuilt": false,
-    "score": 0.629,
+    "score": 0.886,
     "metrics": {
-     "field": 0.422,
+     "field": 0.595,
      "hand": 0.0,
      "floodgates": 0.0,
-     "resilience": 0.345
+     "resilience": 0.486
     },
     "signature": "Angel Statue - Azurune (set), Fiendsmith's Desirae, Fiendsmith's Sequence, Silhouhatte Rabbit, Wedju Temple | hand: "
    },
@@ -2945,27 +2935,68 @@
       "code": 67750322
      }
     ],
-    "grave": 10,
-    "banished": 0,
+    "grave": [
+     {
+      "name": "Infinite Impermanence",
+      "code": 10045474
+     },
+     {
+      "name": "Fiendsmith's Tract",
+      "code": 98567237
+     },
+     {
+      "name": "Sengenjin Wakes from a Millennium",
+      "code": 38775407
+     },
+     {
+      "name": "Golem that Guards the Millennium Treasures",
+      "code": 74169516
+     },
+     {
+      "name": "Left Leg of the Forbidden One",
+      "code": 44519536
+     },
+     {
+      "name": "Fiendsmith's Sequence",
+      "code": 49867899
+     },
+     {
+      "name": "Necroquip Princess",
+      "code": 93860227
+     },
+     {
+      "name": "Shield of the Millennium Dynasty",
+      "code": 1164211
+     },
+     {
+      "name": "Lacrima the Crimson Tears",
+      "code": 28803166
+     },
+     {
+      "name": "Fiendsmith's Requiem",
+      "code": 2463794
+     }
+    ],
+    "banished": [],
     "line_length": 45,
     "rebuilt": false,
-    "score": 0.709,
+    "score": 0.995,
     "metrics": {
-     "field": 0.422,
-     "hand": 0.089,
+     "field": 0.595,
+     "hand": 0.121,
      "floodgates": 0.0,
-     "resilience": 0.345
+     "resilience": 0.486
     },
     "signature": "Angel Statue - Azurune (set), Fiendsmith Engraver, Silhouhatte Rabbit, Snake-Eyes Doomed Dragon, Wedju Temple | hand: Millennium Ankh, Skull Meister"
    }
   },
   {
-   "id": "O23",
+   "id": "O19",
    "deck": "exodia",
    "kind": "nuova",
    "source": "nuova",
    "panel": null,
-   "why": "punteggi vicini (1.73 e 1.73), 3 carte diverse",
+   "why": "punteggi vicini (1.84 e 1.84), 3 carte diverse",
    "start_hand": [
     {
      "name": "Infinite Impermanence",
@@ -3027,16 +3058,33 @@
       "code": 67750322
      }
     ],
-    "grave": 4,
-    "banished": 0,
+    "grave": [
+     {
+      "name": "Infinite Impermanence",
+      "code": 10045474
+     },
+     {
+      "name": "Fiendsmith's Tract",
+      "code": 98567237
+     },
+     {
+      "name": "Sengenjin Wakes from a Millennium",
+      "code": 38775407
+     },
+     {
+      "name": "Golem that Guards the Millennium Treasures",
+      "code": 74169516
+     }
+    ],
+    "banished": [],
     "line_length": 24,
     "rebuilt": false,
-    "score": 1.732,
+    "score": 1.842,
     "metrics": {
-     "field": 1.133,
-     "hand": 0.089,
+     "field": 1.165,
+     "hand": 0.121,
      "floodgates": 0.0,
-     "resilience": 0.865
+     "resilience": 0.946
     },
     "signature": "Angel Statue - Azurune (set), Exxod Fires of Rage (set), Shield of the Millennium Dynasty, The Unstoppable Exodia Incarnate, Wedju Temple | hand: Skull Meister"
    },
@@ -3071,27 +3119,44 @@
       "code": 67750322
      }
     ],
-    "grave": 4,
-    "banished": 0,
+    "grave": [
+     {
+      "name": "Infinite Impermanence",
+      "code": 10045474
+     },
+     {
+      "name": "Fiendsmith's Tract",
+      "code": 98567237
+     },
+     {
+      "name": "Sengenjin Wakes from a Millennium",
+      "code": 38775407
+     },
+     {
+      "name": "Shield of the Millennium Dynasty",
+      "code": 1164211
+     }
+    ],
+    "banished": [],
     "line_length": 18,
     "rebuilt": false,
-    "score": 1.732,
+    "score": 1.842,
     "metrics": {
-     "field": 1.133,
-     "hand": 0.089,
+     "field": 1.165,
+     "hand": 0.121,
      "floodgates": 0.0,
-     "resilience": 0.865
+     "resilience": 0.946
     },
     "signature": "Angel Statue - Azurune (set), Exxod Fires of Rage (set), The Unstoppable Exodia Incarnate | hand: Lacrima the Crimson Tears, Skull Meister"
    }
   },
   {
-   "id": "O24",
+   "id": "O20",
    "deck": "fur_hire",
    "kind": "nuova",
    "source": "nuova",
    "panel": null,
-   "why": "punteggi vicini (1.04 e 0.99), 6 carte diverse",
+   "why": "punteggi vicini (0.90 e 0.90), 4 carte diverse",
    "start_hand": [
     {
      "name": "Droll & Lock Bird",
@@ -3123,75 +3188,15 @@
       "position": "face-up"
      },
      {
-      "name": "Keel, Shipwright Fur Hire",
-      "code": 66736884,
+      "name": "Folgo, Justice Fur Hire",
+      "code": 66023650,
       "zone": "extra_monster",
       "position": "face-up"
      },
      {
-      "name": "Rex, Freight Fur Hire",
-      "code": 28004531,
+      "name": "Keel, Shipwright Fur Hire",
+      "code": 66736884,
       "zone": "monster",
-      "position": "face-up"
-     },
-     {
-      "name": "Rex, Ride Fur Hire",
-      "code": 47647354,
-      "zone": "monster",
-      "position": "face-up"
-     },
-     {
-      "name": "Rookie Fur Hire",
-      "code": 48214588,
-      "zone": "spell_trap",
-      "position": "set"
-     }
-    ],
-    "hand": [
-     {
-      "name": "Ghost Ogre & Snow Rabbit",
-      "code": 59438930
-     },
-     {
-      "name": "Droll & Lock Bird",
-      "code": 94145021
-     },
-     {
-      "name": "Ash Blossom & Joyous Spring",
-      "code": 14558127
-     }
-    ],
-    "grave": 4,
-    "banished": 1,
-    "line_length": 35,
-    "rebuilt": false,
-    "score": 1.037,
-    "metrics": {
-     "field": 0.0,
-     "hand": 1.152,
-     "floodgates": 0.0,
-     "resilience": 0.0
-    },
-    "signature": "Fandora, the Flying Fighting Furtress, Keel, Shipwright Fur Hire, Rex, Freight Fur Hire, Rex, Ride Fur Hire, Rookie Fur Hire (set) | hand: Ash Blossom & Joyous Spring, Droll & Lock Bird, Ghost Ogre & Snow Rabbit"
-   },
-   "b": {
-    "field": [
-     {
-      "name": "Beat, Bladesman Fur Hire",
-      "code": 93850652,
-      "zone": "monster",
-      "position": "face-up"
-     },
-     {
-      "name": "Donner, Dagger Fur Hire",
-      "code": 8728498,
-      "zone": "monster",
-      "position": "face-up"
-     },
-     {
-      "name": "Fandora, the Flying Fighting Furtress",
-      "code": 26162470,
-      "zone": "spell_trap",
       "position": "face-up"
      },
      {
@@ -3221,27 +3226,139 @@
       "code": 14558127
      }
     ],
-    "grave": 4,
-    "banished": 1,
-    "line_length": 33,
+    "grave": [
+     {
+      "name": "Beat, Bladesman Fur Hire",
+      "code": 93850652
+     },
+     {
+      "name": "Ghost Ogre & Snow Rabbit",
+      "code": 59438930
+     },
+     {
+      "name": "Filo, Messenger Fur Hire",
+      "code": 36205132
+     },
+     {
+      "name": "Rafale, Champion Fur Hire",
+      "code": 38916526
+     },
+     {
+      "name": "Donner, Dagger Fur Hire",
+      "code": 8728498
+     }
+    ],
+    "banished": [
+     {
+      "name": "Rex, Freight Fur Hire",
+      "code": 28004531
+     }
+    ],
+    "line_length": 45,
     "rebuilt": false,
-    "score": 0.987,
+    "score": 0.902,
     "metrics": {
      "field": 0.0,
-     "hand": 1.096,
+     "hand": 1.003,
      "floodgates": 0.0,
      "resilience": 0.0
     },
-    "signature": "Beat, Bladesman Fur Hire, Donner, Dagger Fur Hire, Fandora, the Flying Fighting Furtress, Rex, Ride Fur Hire, Rookie Fur Hire (set) | hand: Ash Blossom & Joyous Spring, Droll & Lock Bird, Ghost Belle & Haunted Mansion"
+    "signature": "Fandora, the Flying Fighting Furtress, Folgo, Justice Fur Hire, Keel, Shipwright Fur Hire, Rex, Ride Fur Hire, Rookie Fur Hire (set) | hand: Ash Blossom & Joyous Spring, Droll & Lock Bird, Ghost Belle & Haunted Mansion"
+   },
+   "b": {
+    "field": [
+     {
+      "name": "Beat, Bladesman Fur Hire",
+      "code": 93850652,
+      "zone": "monster",
+      "position": "face-up"
+     },
+     {
+      "name": "Donner, Dagger Fur Hire",
+      "code": 8728498,
+      "zone": "monster",
+      "position": "face-up"
+     },
+     {
+      "name": "Fandora, the Flying Fighting Furtress",
+      "code": 26162470,
+      "zone": "spell_trap",
+      "position": "face-up"
+     },
+     {
+      "name": "Keel, Shipwright Fur Hire",
+      "code": 66736884,
+      "zone": "monster",
+      "position": "face-up"
+     },
+     {
+      "name": "Rookie Fur Hire",
+      "code": 48214588,
+      "zone": "spell_trap",
+      "position": "set"
+     }
+    ],
+    "hand": [
+     {
+      "name": "Droll & Lock Bird",
+      "code": 94145021
+     },
+     {
+      "name": "Ghost Belle & Haunted Mansion",
+      "code": 73642296
+     },
+     {
+      "name": "Ash Blossom & Joyous Spring",
+      "code": 14558127
+     }
+    ],
+    "grave": [
+     {
+      "name": "Ghost Ogre & Snow Rabbit",
+      "code": 59438930
+     },
+     {
+      "name": "Filo, Messenger Fur Hire",
+      "code": 36205132
+     },
+     {
+      "name": "Rex, Ride Fur Hire",
+      "code": 47647354
+     },
+     {
+      "name": "Rafale, Champion Fur Hire",
+      "code": 38916526
+     },
+     {
+      "name": "Folgo, Justice Fur Hire",
+      "code": 66023650
+     }
+    ],
+    "banished": [
+     {
+      "name": "Rex, Freight Fur Hire",
+      "code": 28004531
+     }
+    ],
+    "line_length": 43,
+    "rebuilt": false,
+    "score": 0.902,
+    "metrics": {
+     "field": 0.0,
+     "hand": 1.003,
+     "floodgates": 0.0,
+     "resilience": 0.0
+    },
+    "signature": "Beat, Bladesman Fur Hire, Donner, Dagger Fur Hire, Fandora, the Flying Fighting Furtress, Keel, Shipwright Fur Hire, Rookie Fur Hire (set) | hand: Ash Blossom & Joyous Spring, Droll & Lock Bird, Ghost Belle & Haunted Mansion"
    }
   },
   {
-   "id": "O25",
+   "id": "O21",
    "deck": "fur_hire",
    "kind": "nuova",
    "source": "nuova",
    "panel": null,
-   "why": "punteggi vicini (1.04 e 1.04), 4 carte diverse",
+   "why": "punteggi vicini (0.90 e 0.90), 2 carte diverse",
    "start_hand": [
     {
      "name": "Droll & Lock Bird",
@@ -3279,8 +3396,8 @@
       "position": "face-up"
      },
      {
-      "name": "Rex, Freight Fur Hire",
-      "code": 28004531,
+      "name": "Keel, Shipwright Fur Hire",
+      "code": 66736884,
       "zone": "monster",
       "position": "face-up"
      },
@@ -3299,36 +3416,62 @@
     ],
     "hand": [
      {
-      "name": "Ghost Ogre & Snow Rabbit",
-      "code": 59438930
-     },
-     {
       "name": "Droll & Lock Bird",
       "code": 94145021
+     },
+     {
+      "name": "Ghost Belle & Haunted Mansion",
+      "code": 73642296
      },
      {
       "name": "Ash Blossom & Joyous Spring",
       "code": 14558127
      }
     ],
-    "grave": 4,
-    "banished": 1,
-    "line_length": 33,
+    "grave": [
+     {
+      "name": "Beat, Bladesman Fur Hire",
+      "code": 93850652
+     },
+     {
+      "name": "Ghost Ogre & Snow Rabbit",
+      "code": 59438930
+     },
+     {
+      "name": "Filo, Messenger Fur Hire",
+      "code": 36205132
+     },
+     {
+      "name": "Rafale, Champion Fur Hire",
+      "code": 38916526
+     },
+     {
+      "name": "Folgo, Justice Fur Hire",
+      "code": 66023650
+     }
+    ],
+    "banished": [
+     {
+      "name": "Rex, Freight Fur Hire",
+      "code": 28004531
+     }
+    ],
+    "line_length": 43,
     "rebuilt": false,
-    "score": 1.037,
+    "score": 0.902,
     "metrics": {
      "field": 0.0,
-     "hand": 1.152,
+     "hand": 1.003,
      "floodgates": 0.0,
      "resilience": 0.0
     },
-    "signature": "Donner, Dagger Fur Hire, Fandora, the Flying Fighting Furtress, Rex, Freight Fur Hire, Rex, Ride Fur Hire, Rookie Fur Hire (set) | hand: Ash Blossom & Joyous Spring, Droll & Lock Bird, Ghost Ogre & Snow Rabbit"
+    "signature": "Donner, Dagger Fur Hire, Fandora, the Flying Fighting Furtress, Keel, Shipwright Fur Hire, Rex, Ride Fur Hire, Rookie Fur Hire (set) | hand: Ash Blossom & Joyous Spring, Droll & Lock Bird, Ghost Belle & Haunted Mansion"
    },
    "b": {
     "field": [
      {
-      "name": "Beat, Bladesman Fur Hire",
-      "code": 93850652,
+      "name": "Donner, Dagger Fur Hire",
+      "code": 8728498,
       "zone": "monster",
       "position": "face-up"
      },
@@ -3341,12 +3484,12 @@
      {
       "name": "Keel, Shipwright Fur Hire",
       "code": 66736884,
-      "zone": "extra_monster",
+      "zone": "monster",
       "position": "face-up"
      },
      {
-      "name": "Rex, Ride Fur Hire",
-      "code": 47647354,
+      "name": "Rafale, Champion Fur Hire",
+      "code": 38916526,
       "zone": "monster",
       "position": "face-up"
      },
@@ -3359,39 +3502,257 @@
     ],
     "hand": [
      {
-      "name": "Ghost Ogre & Snow Rabbit",
-      "code": 59438930
-     },
-     {
       "name": "Droll & Lock Bird",
       "code": 94145021
+     },
+     {
+      "name": "Ghost Belle & Haunted Mansion",
+      "code": 73642296
      },
      {
       "name": "Ash Blossom & Joyous Spring",
       "code": 14558127
      }
     ],
-    "grave": 4,
-    "banished": 1,
-    "line_length": 35,
+    "grave": [
+     {
+      "name": "Beat, Bladesman Fur Hire",
+      "code": 93850652
+     },
+     {
+      "name": "Ghost Ogre & Snow Rabbit",
+      "code": 59438930
+     },
+     {
+      "name": "Filo, Messenger Fur Hire",
+      "code": 36205132
+     },
+     {
+      "name": "Rex, Ride Fur Hire",
+      "code": 47647354
+     },
+     {
+      "name": "Folgo, Justice Fur Hire",
+      "code": 66023650
+     }
+    ],
+    "banished": [
+     {
+      "name": "Rex, Freight Fur Hire",
+      "code": 28004531
+     }
+    ],
+    "line_length": 43,
     "rebuilt": false,
-    "score": 1.037,
+    "score": 0.902,
     "metrics": {
      "field": 0.0,
-     "hand": 1.152,
+     "hand": 1.003,
      "floodgates": 0.0,
      "resilience": 0.0
     },
-    "signature": "Beat, Bladesman Fur Hire, Fandora, the Flying Fighting Furtress, Keel, Shipwright Fur Hire, Rex, Ride Fur Hire, Rookie Fur Hire (set) | hand: Ash Blossom & Joyous Spring, Droll & Lock Bird, Ghost Ogre & Snow Rabbit"
+    "signature": "Donner, Dagger Fur Hire, Fandora, the Flying Fighting Furtress, Keel, Shipwright Fur Hire, Rafale, Champion Fur Hire, Rookie Fur Hire (set) | hand: Ash Blossom & Joyous Spring, Droll & Lock Bird, Ghost Belle & Haunted Mansion"
    }
   },
   {
-   "id": "O26",
+   "id": "O22",
    "deck": "invoked",
    "kind": "nuova",
    "source": "nuova",
    "panel": null,
-   "why": "punteggi vicini (0.62 e 0.76), 3 carte diverse",
+   "why": "punteggi vicini (0.44 e 0.54), 6 carte diverse",
+   "start_hand": [
+    {
+     "name": "Aleister the Invoker",
+     "code": 86120752
+    },
+    {
+     "name": "Mulcharmy Fuwalos",
+     "code": 42141493
+    },
+    {
+     "name": "Magical Meltdown",
+     "code": 47679935
+    },
+    {
+     "name": "Invocation - \"Sword\"",
+     "code": 37432075
+    },
+    {
+     "name": "Aleister the Reminiscent",
+     "code": 57294268
+    }
+   ],
+   "a": {
+    "field": [
+     {
+      "name": "Artemis, the Magistus Moon Maiden",
+      "code": 34755994,
+      "zone": "extra_monster",
+      "position": "face-up"
+     },
+     {
+      "name": "Invocation",
+      "code": 74063034,
+      "zone": "spell_trap",
+      "position": "set"
+     },
+     {
+      "name": "Invocation - \"Sword\"",
+      "code": 37432075,
+      "zone": "spell_trap",
+      "position": "set"
+     },
+     {
+      "name": "Invoked Baybarron",
+      "code": 70383419,
+      "zone": "monster",
+      "position": "face-up"
+     },
+     {
+      "name": "Invoked Mechaba",
+      "code": 75286621,
+      "zone": "monster",
+      "position": "face-up"
+     },
+     {
+      "name": "Magical Meltdown",
+      "code": 47679935,
+      "zone": "spell_trap",
+      "position": "face-up"
+     },
+     {
+      "name": "Virakam, the Divine Spirit of Artifice",
+      "code": 10673071,
+      "zone": "monster",
+      "position": "face-up"
+     }
+    ],
+    "hand": [],
+    "grave": [
+     {
+      "name": "Aleister the Invoker",
+      "code": 86120751
+     },
+     {
+      "name": "Mulcharmy Fuwalos",
+      "code": 42141493
+     },
+     {
+      "name": "Invocation",
+      "code": 74063034
+     }
+    ],
+    "banished": [
+     {
+      "name": "Invoked Elysium",
+      "code": 11270236
+     },
+     {
+      "name": "Aleister the Reminiscent",
+      "code": 57294268
+     },
+     {
+      "name": "Invoked Sorath",
+      "code": 43989315
+     },
+     {
+      "name": "Aleister the Invoker",
+      "code": 86120751
+     }
+    ],
+    "line_length": 39,
+    "rebuilt": false,
+    "score": 0.441,
+    "metrics": {
+     "field": 0.296,
+     "hand": 0.0,
+     "floodgates": 0.0,
+     "resilience": 0.242
+    },
+    "signature": "Artemis, the Magistus Moon Maiden, Invocation (set), Invocation - \"Sword\" (set), Invoked Baybarron, Invoked Mechaba, Magical Meltdown, Virakam, the Divine Spirit of Artifice | hand: "
+   },
+   "b": {
+    "field": [
+     {
+      "name": "Aleister the Reminiscent",
+      "code": 57294268,
+      "zone": "monster",
+      "position": "face-up"
+     },
+     {
+      "name": "Invocation - \"Sword\"",
+      "code": 37432075,
+      "zone": "spell_trap",
+      "position": "set"
+     },
+     {
+      "name": "Invoked Mechaba",
+      "code": 75286621,
+      "zone": "monster",
+      "position": "face-up"
+     },
+     {
+      "name": "Invoked Sorath",
+      "code": 43989315,
+      "zone": "monster",
+      "position": "face-up"
+     },
+     {
+      "name": "Magical Meltdown",
+      "code": 47679935,
+      "zone": "spell_trap",
+      "position": "face-up"
+     }
+    ],
+    "hand": [],
+    "grave": [
+     {
+      "name": "Aleister the Invoker",
+      "code": 86120751
+     },
+     {
+      "name": "Mulcharmy Fuwalos",
+      "code": 42141493
+     },
+     {
+      "name": "Invocation",
+      "code": 74063034
+     },
+     {
+      "name": "Aleister the Invoker",
+      "code": 86120751
+     },
+     {
+      "name": "Artemis, the Magistus Moon Maiden",
+      "code": 34755994
+     }
+    ],
+    "banished": [
+     {
+      "name": "Invoked Oceanus",
+      "code": 6772168
+     }
+    ],
+    "line_length": 30,
+    "rebuilt": false,
+    "score": 0.541,
+    "metrics": {
+     "field": 0.386,
+     "hand": 0.0,
+     "floodgates": 0.0,
+     "resilience": 0.258
+    },
+    "signature": "Aleister the Reminiscent, Invocation - \"Sword\" (set), Invoked Mechaba, Invoked Sorath, Magical Meltdown | hand: "
+   }
+  },
+  {
+   "id": "O23",
+   "deck": "invoked",
+   "kind": "nuova",
+   "source": "nuova",
+   "panel": null,
+   "why": "punteggi vicini (0.78 e 0.71), 3 carte diverse",
    "start_hand": [
     {
      "name": "Aleister the Invoker",
@@ -3465,30 +3826,46 @@
       "code": 86120752
      }
     ],
-    "grave": 2,
-    "banished": 3,
+    "grave": [
+     {
+      "name": "Aleister the Invoker",
+      "code": 86120751
+     },
+     {
+      "name": "Mulcharmy Fuwalos",
+      "code": 42141493
+     }
+    ],
+    "banished": [
+     {
+      "name": "Invoked Elysium",
+      "code": 11270236
+     },
+     {
+      "name": "Aleister the Reminiscent",
+      "code": 57294268
+     },
+     {
+      "name": "Invoked Sorath",
+      "code": 43989315
+     }
+    ],
     "line_length": 42,
     "rebuilt": false,
-    "score": 0.617,
+    "score": 0.782,
     "metrics": {
-     "field": 0.556,
+     "field": 0.687,
      "hand": 0.0,
      "floodgates": 0.0,
-     "resilience": 0.102
+     "resilience": 0.158
     },
     "signature": "Artemis, the Magistus Moon Maiden, Invocation - \"Sword\" (set), Invocation - \"Sword\" (set), Invoked Baybarron, Invoked Mechaba, Magical Meltdown, Virakam, the Divine Spirit of Artifice | hand: Aleister the Invoker"
    },
    "b": {
     "field": [
      {
-      "name": "Aleister the Reminiscent",
-      "code": 57294268,
-      "zone": "monster",
-      "position": "face-up"
-     },
-     {
-      "name": "Artemis, the Magistus Moon Maiden",
-      "code": 34755994,
+      "name": "Aleister the Invoker of Madness",
+      "code": 97973962,
       "zone": "extra_monster",
       "position": "face-up"
      },
@@ -3499,10 +3876,10 @@
       "position": "set"
      },
      {
-      "name": "Invoked Baybarron",
-      "code": 70383419,
-      "zone": "monster",
-      "position": "face-up"
+      "name": "Invocation - \"Sword\"",
+      "code": 37432075,
+      "zone": "spell_trap",
+      "position": "set"
      },
      {
       "name": "Invoked Mechaba",
@@ -3515,35 +3892,71 @@
       "code": 47679935,
       "zone": "spell_trap",
       "position": "face-up"
+     },
+     {
+      "name": "Virakam, the Divine Spirit of Artifice",
+      "code": 10673071,
+      "zone": "monster",
+      "position": "face-up"
      }
     ],
     "hand": [
      {
-      "name": "Virakam, the Divine Spirit of Artifice",
-      "code": 10673071
+      "name": "Aleister the Invoker",
+      "code": 86120752
      }
     ],
-    "grave": 2,
-    "banished": 4,
-    "line_length": 35,
+    "grave": [
+     {
+      "name": "Aleister the Invoker",
+      "code": 86120751
+     },
+     {
+      "name": "Mulcharmy Fuwalos",
+      "code": 42141493
+     },
+     {
+      "name": "Invoked Baybarron",
+      "code": 70383419
+     },
+     {
+      "name": "Artemis, the Magistus Moon Maiden",
+      "code": 34755994
+     }
+    ],
+    "banished": [
+     {
+      "name": "Invoked Elysium",
+      "code": 11270236
+     },
+     {
+      "name": "Aleister the Reminiscent",
+      "code": 57294268
+     },
+     {
+      "name": "Invoked Sorath",
+      "code": 43989315
+     }
+    ],
+    "line_length": 46,
     "rebuilt": false,
-    "score": 0.757,
+    "score": 0.707,
     "metrics": {
-     "field": 0.65,
+     "field": 0.637,
      "hand": 0.0,
      "floodgates": 0.0,
-     "resilience": 0.179
+     "resilience": 0.117
     },
-    "signature": "Aleister the Reminiscent, Artemis, the Magistus Moon Maiden, Invocation - \"Sword\" (set), Invoked Baybarron, Invoked Mechaba, Magical Meltdown | hand: Virakam, the Divine Spirit of Artifice"
+    "signature": "Aleister the Invoker of Madness, Invocation - \"Sword\" (set), Invocation - \"Sword\" (set), Invoked Mechaba, Magical Meltdown, Virakam, the Divine Spirit of Artifice | hand: Aleister the Invoker"
    }
   },
   {
-   "id": "O27",
+   "id": "O24",
    "deck": "labrynth",
    "kind": "nuova",
    "source": "nuova",
    "panel": null,
-   "why": "punteggi vicini (0.85 e 0.85), 2 carte diverse",
+   "why": "punteggi vicini (1.24 e 1.24), 2 carte diverse",
    "start_hand": [
     {
      "name": "Incredible Ecclesia, the Virtuous",
@@ -3618,16 +4031,33 @@
      }
     ],
     "hand": [],
-    "grave": 4,
-    "banished": 0,
+    "grave": [
+     {
+      "name": "The Fallen & The Virtuous",
+      "code": 30271097
+     },
+     {
+      "name": "Despian Luluwalilith",
+      "code": 53971455
+     },
+     {
+      "name": "Nadir Servant",
+      "code": 1984618
+     },
+     {
+      "name": "Albion the Branded Dragon",
+      "code": 87746184
+     }
+    ],
+    "banished": [],
     "line_length": 18,
     "rebuilt": false,
-    "score": 0.852,
+    "score": 1.243,
     "metrics": {
-     "field": 0.571,
+     "field": 0.834,
      "hand": 0.0,
      "floodgates": 0.0,
-     "resilience": 0.467
+     "resilience": 0.682
     },
     "signature": "Dogmatika Ecclesia, the Virtuous, Dogmatika Punishment (set), Dominus Spark (set), Fallen of the White Dragon, Fallen of the White Dragon, Incredible Ecclesia, the Virtuous, The Fallen & The Virtuous (set), Transaction Rollback (set) | hand: "
    },
@@ -3682,288 +4112,40 @@
       "code": 68468459
      }
     ],
-    "grave": 3,
-    "banished": 0,
+    "grave": [
+     {
+      "name": "The Fallen & The Virtuous",
+      "code": 30271097
+     },
+     {
+      "name": "Albion the Branded Dragon",
+      "code": 87746184
+     },
+     {
+      "name": "Nadir Servant",
+      "code": 1984618
+     }
+    ],
+    "banished": [],
     "line_length": 16,
     "rebuilt": false,
-    "score": 0.852,
+    "score": 1.243,
     "metrics": {
-     "field": 0.571,
+     "field": 0.834,
      "hand": 0.0,
      "floodgates": 0.0,
-     "resilience": 0.467
+     "resilience": 0.682
     },
     "signature": "Dogmatika Ecclesia, the Virtuous, Dogmatika Punishment (set), Dominus Spark (set), Fallen of the White Dragon, Incredible Ecclesia, the Virtuous, The Fallen & The Virtuous (set), Transaction Rollback (set) | hand: Fallen of Albaz"
    }
   },
   {
-   "id": "O28",
-   "deck": "labrynth",
-   "kind": "nuova",
-   "source": "nuova",
-   "panel": null,
-   "why": "punteggi vicini (0.75 e 0.85), 2 carte diverse",
-   "start_hand": [
-    {
-     "name": "Incredible Ecclesia, the Virtuous",
-     "code": 55273560
-    },
-    {
-     "name": "Transaction Rollback",
-     "code": 6351147
-    },
-    {
-     "name": "Dominus Spark",
-     "code": 6325660
-    },
-    {
-     "name": "Nadir Servant",
-     "code": 1984618
-    },
-    {
-     "name": "Dogmatika Punishment",
-     "code": 82956214
-    }
-   ],
-   "a": {
-    "field": [
-     {
-      "name": "Dogmatika Ecclesia, the Virtuous",
-      "code": 60303688,
-      "zone": "monster",
-      "position": "face-up"
-     },
-     {
-      "name": "Dogmatika Punishment",
-      "code": 82956214,
-      "zone": "spell_trap",
-      "position": "set"
-     },
-     {
-      "name": "Dominus Spark",
-      "code": 6325660,
-      "zone": "spell_trap",
-      "position": "set"
-     },
-     {
-      "name": "Fallen of Albaz",
-      "code": 68468459,
-      "zone": "monster",
-      "position": "face-up"
-     },
-     {
-      "name": "Fallen of the White Dragon",
-      "code": 73819701,
-      "zone": "monster",
-      "position": "face-up"
-     },
-     {
-      "name": "Fallen of the White Dragon",
-      "code": 73819701,
-      "zone": "monster",
-      "position": "face-up"
-     },
-     {
-      "name": "Incredible Ecclesia, the Virtuous",
-      "code": 55273560,
-      "zone": "monster",
-      "position": "face-up"
-     },
-     {
-      "name": "Transaction Rollback",
-      "code": 6351147,
-      "zone": "spell_trap",
-      "position": "set"
-     }
-    ],
-    "hand": [],
-    "grave": 4,
-    "banished": 0,
-    "line_length": 18,
-    "rebuilt": false,
-    "score": 0.753,
-    "metrics": {
-     "field": 0.505,
-     "hand": 0.0,
-     "floodgates": 0.0,
-     "resilience": 0.413
-    },
-    "signature": "Dogmatika Ecclesia, the Virtuous, Dogmatika Punishment (set), Dominus Spark (set), Fallen of Albaz, Fallen of the White Dragon, Fallen of the White Dragon, Incredible Ecclesia, the Virtuous, Transaction Rollback (set) | hand: "
-   },
-   "b": {
-    "field": [
-     {
-      "name": "Dogmatika Ecclesia, the Virtuous",
-      "code": 60303688,
-      "zone": "monster",
-      "position": "face-up"
-     },
-     {
-      "name": "Dogmatika Punishment",
-      "code": 82956214,
-      "zone": "spell_trap",
-      "position": "set"
-     },
-     {
-      "name": "Fallen of the White Dragon",
-      "code": 73819701,
-      "zone": "monster",
-      "position": "face-up"
-     },
-     {
-      "name": "Fallen of the White Dragon",
-      "code": 73819701,
-      "zone": "monster",
-      "position": "face-up"
-     },
-     {
-      "name": "Incredible Ecclesia, the Virtuous",
-      "code": 55273560,
-      "zone": "monster",
-      "position": "face-up"
-     },
-     {
-      "name": "The Fallen & The Virtuous",
-      "code": 30271097,
-      "zone": "spell_trap",
-      "position": "set"
-     },
-     {
-      "name": "Transaction Rollback",
-      "code": 6351147,
-      "zone": "spell_trap",
-      "position": "set"
-     }
-    ],
-    "hand": [
-     {
-      "name": "Dominus Spark",
-      "code": 6325660
-     }
-    ],
-    "grave": 4,
-    "banished": 0,
-    "line_length": 18,
-    "rebuilt": false,
-    "score": 0.854,
-    "metrics": {
-     "field": 0.331,
-     "hand": 0.401,
-     "floodgates": 0.0,
-     "resilience": 0.27
-    },
-    "signature": "Dogmatika Ecclesia, the Virtuous, Dogmatika Punishment (set), Fallen of the White Dragon, Fallen of the White Dragon, Incredible Ecclesia, the Virtuous, The Fallen & The Virtuous (set), Transaction Rollback (set) | hand: Dominus Spark"
-   }
-  },
-  {
-   "id": "O29",
+   "id": "O25",
    "deck": "maliss",
    "kind": "nuova",
    "source": "nuova",
    "panel": null,
-   "why": "punteggi vicini (1.07 e 1.07), 3 carte diverse",
-   "start_hand": [
-    {
-     "name": "Wizard @Ignister",
-     "code": 3723262
-    },
-    {
-     "name": "Ash Blossom & Joyous Spring",
-     "code": 14558127
-    },
-    {
-     "name": "The Phantom Knights of Umbrage Veil",
-     "code": 85257384
-    },
-    {
-     "name": "The Phantom Knights of Doomed Soleret",
-     "code": 83566725
-    },
-    {
-     "name": "Gold Sarcophagus",
-     "code": 75500286
-    }
-   ],
-   "a": {
-    "field": [
-     {
-      "name": "Link Decoder",
-      "code": 30342076,
-      "zone": "extra_monster",
-      "position": "face-up"
-     },
-     {
-      "name": "Number 75: Bamboozling Gossip Shadow",
-      "code": 71166481,
-      "zone": "monster",
-      "position": "face-up"
-     }
-    ],
-    "hand": [
-     {
-      "name": "Ash Blossom & Joyous Spring",
-      "code": 14558127
-     },
-     {
-      "name": "Gold Sarcophagus",
-      "code": 75500286
-     }
-    ],
-    "grave": 1,
-    "banished": 0,
-    "line_length": 11,
-    "rebuilt": false,
-    "score": 1.074,
-    "metrics": {
-     "field": 0.389,
-     "hand": 0.711,
-     "floodgates": 0.0,
-     "resilience": 0.076
-    },
-    "signature": "Link Decoder, Number 75: Bamboozling Gossip Shadow | hand: Ash Blossom & Joyous Spring, Gold Sarcophagus"
-   },
-   "b": {
-    "field": [
-     {
-      "name": "Linguriboh",
-      "code": 24842059,
-      "zone": "extra_monster",
-      "position": "face-up"
-     },
-     {
-      "name": "Number 75: Bamboozling Gossip Shadow",
-      "code": 71166481,
-      "zone": "monster",
-      "position": "face-up"
-     }
-    ],
-    "hand": [
-     {
-      "name": "Ash Blossom & Joyous Spring",
-      "code": 14558127
-     }
-    ],
-    "grave": 2,
-    "banished": 1,
-    "line_length": 13,
-    "rebuilt": false,
-    "score": 1.074,
-    "metrics": {
-     "field": 0.389,
-     "hand": 0.711,
-     "floodgates": 0.0,
-     "resilience": 0.076
-    },
-    "signature": "Linguriboh, Number 75: Bamboozling Gossip Shadow | hand: Ash Blossom & Joyous Spring"
-   }
-  },
-  {
-   "id": "O30",
-   "deck": "maliss",
-   "kind": "nuova",
-   "source": "nuova",
-   "panel": null,
-   "why": "punteggi vicini (1.07 e 1.07), 3 carte diverse",
+   "why": "punteggi vicini (0.98 e 0.98), 3 carte diverse",
    "start_hand": [
     {
      "name": "Wizard @Ignister",
@@ -4011,16 +4193,21 @@
       "code": 75500286
      }
     ],
-    "grave": 1,
-    "banished": 0,
+    "grave": [
+     {
+      "name": "Wizard @Ignister",
+      "code": 3723262
+     }
+    ],
+    "banished": [],
     "line_length": 11,
     "rebuilt": false,
-    "score": 1.074,
+    "score": 0.978,
     "metrics": {
-     "field": 0.389,
-     "hand": 0.711,
+     "field": 0.446,
+     "hand": 0.533,
      "floodgates": 0.0,
-     "resilience": 0.076
+     "resilience": 0.087
     },
     "signature": "Linguriboh, Number 75: Bamboozling Gossip Shadow | hand: Ash Blossom & Joyous Spring, Gold Sarcophagus"
    },
@@ -4045,27 +4232,162 @@
       "code": 14558127
      }
     ],
-    "grave": 2,
-    "banished": 1,
+    "grave": [
+     {
+      "name": "Wizard @Ignister",
+      "code": 3723262
+     },
+     {
+      "name": "Gold Sarcophagus",
+      "code": 75500286
+     }
+    ],
+    "banished": [
+     {
+      "name": "Speedroid Taketomborg",
+      "code": 53932291
+     }
+    ],
     "line_length": 13,
     "rebuilt": false,
-    "score": 1.074,
+    "score": 0.978,
     "metrics": {
-     "field": 0.389,
-     "hand": 0.711,
+     "field": 0.446,
+     "hand": 0.533,
      "floodgates": 0.0,
-     "resilience": 0.076
+     "resilience": 0.087
     },
     "signature": "Link Decoder, Number 75: Bamboozling Gossip Shadow | hand: Ash Blossom & Joyous Spring"
    }
   },
   {
-   "id": "O31",
+   "id": "O26",
+   "deck": "maliss",
+   "kind": "nuova",
+   "source": "nuova",
+   "panel": null,
+   "why": "punteggi vicini (0.98 e 0.98), 3 carte diverse",
+   "start_hand": [
+    {
+     "name": "Wizard @Ignister",
+     "code": 3723262
+    },
+    {
+     "name": "Ash Blossom & Joyous Spring",
+     "code": 14558127
+    },
+    {
+     "name": "The Phantom Knights of Umbrage Veil",
+     "code": 85257384
+    },
+    {
+     "name": "The Phantom Knights of Doomed Soleret",
+     "code": 83566725
+    },
+    {
+     "name": "Gold Sarcophagus",
+     "code": 75500286
+    }
+   ],
+   "a": {
+    "field": [
+     {
+      "name": "Link Decoder",
+      "code": 30342076,
+      "zone": "extra_monster",
+      "position": "face-up"
+     },
+     {
+      "name": "Number 75: Bamboozling Gossip Shadow",
+      "code": 71166481,
+      "zone": "monster",
+      "position": "face-up"
+     }
+    ],
+    "hand": [
+     {
+      "name": "Ash Blossom & Joyous Spring",
+      "code": 14558127
+     },
+     {
+      "name": "Gold Sarcophagus",
+      "code": 75500286
+     }
+    ],
+    "grave": [
+     {
+      "name": "Wizard @Ignister",
+      "code": 3723262
+     }
+    ],
+    "banished": [],
+    "line_length": 11,
+    "rebuilt": false,
+    "score": 0.978,
+    "metrics": {
+     "field": 0.446,
+     "hand": 0.533,
+     "floodgates": 0.0,
+     "resilience": 0.087
+    },
+    "signature": "Link Decoder, Number 75: Bamboozling Gossip Shadow | hand: Ash Blossom & Joyous Spring, Gold Sarcophagus"
+   },
+   "b": {
+    "field": [
+     {
+      "name": "Linguriboh",
+      "code": 24842059,
+      "zone": "extra_monster",
+      "position": "face-up"
+     },
+     {
+      "name": "Number 75: Bamboozling Gossip Shadow",
+      "code": 71166481,
+      "zone": "monster",
+      "position": "face-up"
+     }
+    ],
+    "hand": [
+     {
+      "name": "Ash Blossom & Joyous Spring",
+      "code": 14558127
+     }
+    ],
+    "grave": [
+     {
+      "name": "Wizard @Ignister",
+      "code": 3723262
+     },
+     {
+      "name": "Gold Sarcophagus",
+      "code": 75500286
+     }
+    ],
+    "banished": [
+     {
+      "name": "Droll & Lock Bird",
+      "code": 94145021
+     }
+    ],
+    "line_length": 13,
+    "rebuilt": false,
+    "score": 0.978,
+    "metrics": {
+     "field": 0.446,
+     "hand": 0.533,
+     "floodgates": 0.0,
+     "resilience": 0.087
+    },
+    "signature": "Linguriboh, Number 75: Bamboozling Gossip Shadow | hand: Ash Blossom & Joyous Spring"
+   }
+  },
+  {
+   "id": "O27",
    "deck": "snake_eye",
    "kind": "nuova",
    "source": "nuova",
    "panel": null,
-   "why": "punteggi vicini (1.72 e 1.72), 2 carte diverse",
+   "why": "punteggi vicini (1.77 e 1.77), 2 carte diverse",
    "start_hand": [
     {
      "name": "The Hallowed Azamina",
@@ -4089,70 +4411,6 @@
     }
    ],
    "a": {
-    "field": [
-     {
-      "name": "Charmer Quartet in Bloom",
-      "code": 27519978,
-      "zone": "extra_monster",
-      "position": "face-up"
-     },
-     {
-      "name": "Crystal Wing Synchro Dragon",
-      "code": 50954680,
-      "zone": "monster",
-      "position": "face-up"
-     },
-     {
-      "name": "Elfnote Tinia",
-      "code": 59581480,
-      "zone": "monster",
-      "position": "face-up"
-     },
-     {
-      "name": "Elfnotes: Rhapsodia of Madness",
-      "code": 24092792,
-      "zone": "spell_trap",
-      "position": "face-up"
-     },
-     {
-      "name": "Elfnotes: Welcome Home",
-      "code": 64491754,
-      "zone": "spell_trap",
-      "position": "face-up"
-     },
-     {
-      "name": "Hiita the Fire Charmer, Ablaze",
-      "code": 48815792,
-      "zone": "monster",
-      "position": "face-up"
-     },
-     {
-      "name": "Junoldo the Shadespirit Power Patron",
-      "code": 10266279,
-      "zone": "monster",
-      "position": "face-up"
-     }
-    ],
-    "hand": [
-     {
-      "name": "The Hallowed Azamina",
-      "code": 94845588
-     }
-    ],
-    "grave": 8,
-    "banished": 0,
-    "line_length": 55,
-    "rebuilt": false,
-    "score": 1.719,
-    "metrics": {
-     "field": 1.22,
-     "hand": 0.0,
-     "floodgates": 0.0,
-     "resilience": 0.83
-    },
-    "signature": "Charmer Quartet in Bloom, Crystal Wing Synchro Dragon, Elfnote Tinia, Elfnotes: Rhapsodia of Madness, Elfnotes: Welcome Home, Hiita the Fire Charmer, Ablaze, Junoldo the Shadespirit Power Patron | hand: The Hallowed Azamina"
-   },
-   "b": {
     "field": [
      {
       "name": "Charmer Quartet in Bloom",
@@ -4203,27 +4461,157 @@
       "code": 94845588
      }
     ],
-    "grave": 8,
-    "banished": 0,
+    "grave": [
+     {
+      "name": "Ghost Ogre & Snow Rabbit",
+      "code": 59438930
+     },
+     {
+      "name": "Elfnote Lucina",
+      "code": 13597785
+     },
+     {
+      "name": "Elfnote Lucina",
+      "code": 13597785
+     },
+     {
+      "name": "Snake-Eyes Diabellstar",
+      "code": 27260347
+     },
+     {
+      "name": "Elfnote Regina",
+      "code": 56651978
+     },
+     {
+      "name": "Elfnote Fortuna",
+      "code": 85976588
+     },
+     {
+      "name": "Elfnote Seraphim Strelitzia",
+      "code": 42302563
+     },
+     {
+      "name": "Elfnote Power Patron",
+      "code": 12375297
+     }
+    ],
+    "banished": [],
     "line_length": 55,
     "rebuilt": false,
-    "score": 1.719,
+    "score": 1.771,
     "metrics": {
-     "field": 1.22,
+     "field": 1.334,
      "hand": 0.0,
      "floodgates": 0.0,
-     "resilience": 0.83
+     "resilience": 0.728
     },
     "signature": "Charmer Quartet in Bloom, Crystal Wing Synchro Dragon, Elfnote Power Patron, Elfnote Tinia, Elfnotes: Rhapsodia of Madness, Elfnotes: Welcome Home, Hiita the Fire Charmer, Ablaze | hand: The Hallowed Azamina"
+   },
+   "b": {
+    "field": [
+     {
+      "name": "Charmer Quartet in Bloom",
+      "code": 27519978,
+      "zone": "extra_monster",
+      "position": "face-up"
+     },
+     {
+      "name": "Crystal Wing Synchro Dragon",
+      "code": 50954680,
+      "zone": "monster",
+      "position": "face-up"
+     },
+     {
+      "name": "Elfnote Tinia",
+      "code": 59581480,
+      "zone": "monster",
+      "position": "face-up"
+     },
+     {
+      "name": "Elfnotes: Rhapsodia of Madness",
+      "code": 24092792,
+      "zone": "spell_trap",
+      "position": "face-up"
+     },
+     {
+      "name": "Elfnotes: Welcome Home",
+      "code": 64491754,
+      "zone": "spell_trap",
+      "position": "face-up"
+     },
+     {
+      "name": "Hiita the Fire Charmer, Ablaze",
+      "code": 48815792,
+      "zone": "monster",
+      "position": "face-up"
+     },
+     {
+      "name": "Junoldo the Shadespirit Power Patron",
+      "code": 10266279,
+      "zone": "monster",
+      "position": "face-up"
+     }
+    ],
+    "hand": [
+     {
+      "name": "The Hallowed Azamina",
+      "code": 94845588
+     }
+    ],
+    "grave": [
+     {
+      "name": "Ghost Ogre & Snow Rabbit",
+      "code": 59438930
+     },
+     {
+      "name": "Elfnote Lucina",
+      "code": 13597785
+     },
+     {
+      "name": "Elfnote Lucina",
+      "code": 13597785
+     },
+     {
+      "name": "Snake-Eyes Diabellstar",
+      "code": 27260347
+     },
+     {
+      "name": "Elfnote Regina",
+      "code": 56651978
+     },
+     {
+      "name": "Elfnote Fortuna",
+      "code": 85976588
+     },
+     {
+      "name": "Elfnote Seraphim Strelitzia",
+      "code": 42302563
+     },
+     {
+      "name": "Elfnote Power Patron",
+      "code": 12375297
+     }
+    ],
+    "banished": [],
+    "line_length": 55,
+    "rebuilt": false,
+    "score": 1.771,
+    "metrics": {
+     "field": 1.334,
+     "hand": 0.0,
+     "floodgates": 0.0,
+     "resilience": 0.728
+    },
+    "signature": "Charmer Quartet in Bloom, Crystal Wing Synchro Dragon, Elfnote Tinia, Elfnotes: Rhapsodia of Madness, Elfnotes: Welcome Home, Hiita the Fire Charmer, Ablaze, Junoldo the Shadespirit Power Patron | hand: The Hallowed Azamina"
    }
   },
   {
-   "id": "O32",
+   "id": "O28",
    "deck": "snake_eye",
    "kind": "nuova",
    "source": "nuova",
    "panel": null,
-   "why": "punteggi vicini (1.72 e 1.72), 2 carte diverse",
+   "why": "punteggi vicini (1.77 e 1.77), 2 carte diverse",
    "start_hand": [
     {
      "name": "The Hallowed Azamina",
@@ -4297,16 +4685,49 @@
       "code": 94845588
      }
     ],
-    "grave": 8,
-    "banished": 0,
+    "grave": [
+     {
+      "name": "Ghost Ogre & Snow Rabbit",
+      "code": 59438930
+     },
+     {
+      "name": "Elfnote Lucina",
+      "code": 13597785
+     },
+     {
+      "name": "Elfnote Lucina",
+      "code": 13597785
+     },
+     {
+      "name": "Elfnote Power Patron",
+      "code": 12375297
+     },
+     {
+      "name": "Snake-Eyes Diabellstar",
+      "code": 27260347
+     },
+     {
+      "name": "Elfnote Fortuna",
+      "code": 85976588
+     },
+     {
+      "name": "Elfnote Seraphim Strelitzia",
+      "code": 42302563
+     },
+     {
+      "name": "Elfnote Power Patron",
+      "code": 12375297
+     }
+    ],
+    "banished": [],
     "line_length": 55,
     "rebuilt": false,
-    "score": 1.719,
+    "score": 1.771,
     "metrics": {
-     "field": 1.22,
+     "field": 1.334,
      "hand": 0.0,
      "floodgates": 0.0,
-     "resilience": 0.83
+     "resilience": 0.728
     },
     "signature": "Charmer Quartet in Bloom, Crystal Wing Synchro Dragon, Elfnote Regina, Elfnote Tinia, Elfnotes: Rhapsodia of Madness, Elfnotes: Welcome Home, Hiita the Fire Charmer, Ablaze | hand: The Hallowed Azamina"
    },
@@ -4361,185 +4782,60 @@
       "code": 94845588
      }
     ],
-    "grave": 8,
-    "banished": 0,
+    "grave": [
+     {
+      "name": "Ghost Ogre & Snow Rabbit",
+      "code": 59438930
+     },
+     {
+      "name": "Elfnote Lucina",
+      "code": 13597785
+     },
+     {
+      "name": "Elfnote Lucina",
+      "code": 13597785
+     },
+     {
+      "name": "Snake-Eyes Diabellstar",
+      "code": 27260347
+     },
+     {
+      "name": "Elfnote Regina",
+      "code": 56651978
+     },
+     {
+      "name": "Elfnote Power Patron",
+      "code": 12375297
+     },
+     {
+      "name": "Elfnote Seraphim Strelitzia",
+      "code": 42302563
+     },
+     {
+      "name": "Elfnote Power Patron",
+      "code": 12375297
+     }
+    ],
+    "banished": [],
     "line_length": 56,
     "rebuilt": false,
-    "score": 1.719,
+    "score": 1.771,
     "metrics": {
-     "field": 1.22,
+     "field": 1.334,
      "hand": 0.0,
      "floodgates": 0.0,
-     "resilience": 0.83
+     "resilience": 0.728
     },
     "signature": "Charmer Quartet in Bloom, Crystal Wing Synchro Dragon, Elfnote Fortuna, Elfnote Tinia, Elfnotes: Rhapsodia of Madness, Elfnotes: Welcome Home, Hiita the Fire Charmer, Ablaze | hand: The Hallowed Azamina"
    }
   },
   {
-   "id": "O33",
-   "deck": "snake_eye",
-   "kind": "nuova",
-   "source": "nuova",
-   "panel": null,
-   "why": "punteggi vicini (1.35 e 1.49), 2 carte diverse",
-   "start_hand": [
-    {
-     "name": "The Hallowed Azamina",
-     "code": 94845588
-    },
-    {
-     "name": "Elfnote Lucina",
-     "code": 13597785
-    },
-    {
-     "name": "Snake-Eyes Diabellstar",
-     "code": 27260347
-    },
-    {
-     "name": "Elfnote Lucina",
-     "code": 13597785
-    },
-    {
-     "name": "Ghost Ogre & Snow Rabbit",
-     "code": 59438930
-    }
-   ],
-   "a": {
-    "field": [
-     {
-      "name": "Charmer Quartet in Bloom",
-      "code": 27519978,
-      "zone": "extra_monster",
-      "position": "face-up"
-     },
-     {
-      "name": "Crystal Wing Synchro Dragon",
-      "code": 50954680,
-      "zone": "monster",
-      "position": "face-up"
-     },
-     {
-      "name": "Elfnote Lucina",
-      "code": 13597785,
-      "zone": "monster",
-      "position": "face-up"
-     },
-     {
-      "name": "Elfnote Regina",
-      "code": 56651978,
-      "zone": "monster",
-      "position": "face-up"
-     },
-     {
-      "name": "Elfnotes: Rhapsodia of Madness",
-      "code": 24092792,
-      "zone": "spell_trap",
-      "position": "face-up"
-     },
-     {
-      "name": "Elfnotes: Welcome Home",
-      "code": 64491754,
-      "zone": "spell_trap",
-      "position": "face-up"
-     },
-     {
-      "name": "Hiita the Fire Charmer, Ablaze",
-      "code": 48815792,
-      "zone": "monster",
-      "position": "face-up"
-     }
-    ],
-    "hand": [
-     {
-      "name": "The Hallowed Azamina",
-      "code": 94845588
-     }
-    ],
-    "grave": 8,
-    "banished": 0,
-    "line_length": 57,
-    "rebuilt": false,
-    "score": 1.346,
-    "metrics": {
-     "field": 1.0,
-     "hand": 0.0,
-     "floodgates": 0.0,
-     "resilience": 0.577
-    },
-    "signature": "Charmer Quartet in Bloom, Crystal Wing Synchro Dragon, Elfnote Lucina, Elfnote Regina, Elfnotes: Rhapsodia of Madness, Elfnotes: Welcome Home, Hiita the Fire Charmer, Ablaze | hand: The Hallowed Azamina"
-   },
-   "b": {
-    "field": [
-     {
-      "name": "Charmer Quartet in Bloom",
-      "code": 27519978,
-      "zone": "extra_monster",
-      "position": "face-up"
-     },
-     {
-      "name": "Crystal Wing Synchro Dragon",
-      "code": 50954680,
-      "zone": "monster",
-      "position": "face-up"
-     },
-     {
-      "name": "Elfnote Power Patron",
-      "code": 12375297,
-      "zone": "monster",
-      "position": "face-up"
-     },
-     {
-      "name": "Elfnote Regina",
-      "code": 56651978,
-      "zone": "monster",
-      "position": "face-up"
-     },
-     {
-      "name": "Elfnotes: Rhapsodia of Madness",
-      "code": 24092792,
-      "zone": "spell_trap",
-      "position": "face-up"
-     },
-     {
-      "name": "Elfnotes: Welcome Home",
-      "code": 64491754,
-      "zone": "spell_trap",
-      "position": "face-up"
-     },
-     {
-      "name": "Hiita the Fire Charmer, Ablaze",
-      "code": 48815792,
-      "zone": "monster",
-      "position": "face-up"
-     }
-    ],
-    "hand": [
-     {
-      "name": "The Hallowed Azamina",
-      "code": 94845588
-     }
-    ],
-    "grave": 8,
-    "banished": 0,
-    "line_length": 56,
-    "rebuilt": false,
-    "score": 1.485,
-    "metrics": {
-     "field": 1.122,
-     "hand": 0.0,
-     "floodgates": 0.0,
-     "resilience": 0.605
-    },
-    "signature": "Charmer Quartet in Bloom, Crystal Wing Synchro Dragon, Elfnote Power Patron, Elfnote Regina, Elfnotes: Rhapsodia of Madness, Elfnotes: Welcome Home, Hiita the Fire Charmer, Ablaze | hand: The Hallowed Azamina"
-   }
-  },
-  {
-   "id": "O34",
+   "id": "O29",
    "deck": "synchrons",
    "kind": "nuova",
    "source": "nuova",
    "panel": null,
-   "why": "punteggi vicini (1.85 e 1.98), 5 carte diverse",
+   "why": "punteggi vicini (2.57 e 2.59), 3 carte diverse",
    "start_hand": [
     {
      "name": "Elfnotes: Welcome Home",
@@ -4571,12 +4867,6 @@
       "position": "face-up"
      },
      {
-      "name": "Assault Sonic Warrior",
-      "code": 18711696,
-      "zone": "monster",
-      "position": "face-up"
-     },
-     {
       "name": "Baronne de Fleur",
       "code": 84815190,
       "zone": "monster",
@@ -4585,7 +4875,7 @@
      {
       "name": "Elfnote Seraphim Strelitzia",
       "code": 42302563,
-      "zone": "extra_monster",
+      "zone": "monster",
       "position": "face-up"
      },
      {
@@ -4593,32 +4883,63 @@
       "code": 24092792,
       "zone": "spell_trap",
       "position": "face-up"
-     },
-     {
-      "name": "Nightwinged Cleric",
-      "code": 79519259,
-      "zone": "monster",
-      "position": "face-up"
      }
     ],
     "hand": [
      {
-      "name": "Synchro Fellowship",
-      "code": 43834302
+      "name": "Elfnote Regina",
+      "code": 56651978
      }
     ],
-    "grave": 11,
-    "banished": 2,
-    "line_length": 62,
+    "grave": [
+     {
+      "name": "Black Rose Dragon",
+      "code": 73580471
+     },
+     {
+      "name": "Assault Synchron",
+      "code": 77202120
+     },
+     {
+      "name": "Elfnotes: Welcome Home",
+      "code": 64491754
+     },
+     {
+      "name": "Scrap Synchron",
+      "code": 16449363
+     },
+     {
+      "name": "Elfnote Regina",
+      "code": 56651978
+     },
+     {
+      "name": "Elfnote Regina",
+      "code": 56651978
+     },
+     {
+      "name": "Elfnote Fortuna",
+      "code": 85976588
+     },
+     {
+      "name": "Elfnote Lucina",
+      "code": 13597785
+     },
+     {
+      "name": "Elfnote Power Patron",
+      "code": 12375297
+     }
+    ],
+    "banished": [],
+    "line_length": 45,
     "rebuilt": false,
-    "score": 1.853,
+    "score": 2.569,
     "metrics": {
-     "field": 1.444,
+     "field": 1.953,
      "hand": 0.0,
      "floodgates": 0.0,
-     "resilience": 0.682
+     "resilience": 1.028
     },
-    "signature": "Accel Synchro Stardust Dragon, Assault Sonic Warrior, Baronne de Fleur, Elfnote Seraphim Strelitzia, Elfnotes: Rhapsodia of Madness, Nightwinged Cleric | hand: Synchro Fellowship"
+    "signature": "Accel Synchro Stardust Dragon, Baronne de Fleur, Elfnote Seraphim Strelitzia, Elfnotes: Rhapsodia of Madness | hand: Elfnote Regina"
    },
    "b": {
     "field": [
@@ -4647,39 +4968,73 @@
       "position": "face-up"
      },
      {
+      "name": "Elfnote Tinia",
+      "code": 59581480,
+      "zone": "monster",
+      "position": "face-up"
+     },
+     {
       "name": "Elfnotes: Rhapsodia of Madness",
       "code": 24092792,
       "zone": "spell_trap",
       "position": "face-up"
      }
     ],
-    "hand": [
+    "hand": [],
+    "grave": [
+     {
+      "name": "Black Rose Dragon",
+      "code": 73580471
+     },
+     {
+      "name": "Assault Synchron",
+      "code": 77202120
+     },
+     {
+      "name": "Elfnotes: Welcome Home",
+      "code": 64491754
+     },
+     {
+      "name": "Scrap Synchron",
+      "code": 16449363
+     },
      {
       "name": "Elfnote Regina",
       "code": 56651978
+     },
+     {
+      "name": "Elfnote Regina",
+      "code": 56651978
+     },
+     {
+      "name": "Elfnote Fortuna",
+      "code": 85976588
+     },
+     {
+      "name": "Elfnote Power Patron",
+      "code": 12375297
      }
     ],
-    "grave": 8,
-    "banished": 0,
-    "line_length": 44,
+    "banished": [],
+    "line_length": 45,
     "rebuilt": false,
-    "score": 1.978,
+    "score": 2.591,
     "metrics": {
-     "field": 1.522,
+     "field": 1.974,
      "hand": 0.0,
      "floodgates": 0.0,
-     "resilience": 0.759
+     "resilience": 1.028
     },
-    "signature": "Accel Synchro Stardust Dragon, Baronne de Fleur, Elfnote Lucina, Elfnote Seraphim Strelitzia, Elfnotes: Rhapsodia of Madness | hand: Elfnote Regina"
+    "signature": "Accel Synchro Stardust Dragon, Baronne de Fleur, Elfnote Lucina, Elfnote Seraphim Strelitzia, Elfnote Tinia, Elfnotes: Rhapsodia of Madness | hand: "
    }
   },
   {
-   "id": "O35",
+   "id": "O30",
    "deck": "synchrons",
    "kind": "nuova",
    "source": "nuova",
    "panel": null,
-   "why": "punteggi vicini (2.02 e 2.10), 4 carte diverse",
+   "why": "punteggi vicini (2.30 e 2.26), 2 carte diverse",
    "start_hand": [
     {
      "name": "Elfnotes: Welcome Home",
@@ -4742,16 +5097,49 @@
      }
     ],
     "hand": [],
-    "grave": 8,
-    "banished": 0,
+    "grave": [
+     {
+      "name": "Black Rose Dragon",
+      "code": 73580471
+     },
+     {
+      "name": "Assault Synchron",
+      "code": 77202120
+     },
+     {
+      "name": "Elfnotes: Welcome Home",
+      "code": 64491754
+     },
+     {
+      "name": "Scrap Synchron",
+      "code": 16449363
+     },
+     {
+      "name": "Elfnote Regina",
+      "code": 56651978
+     },
+     {
+      "name": "Elfnote Regina",
+      "code": 56651978
+     },
+     {
+      "name": "Elfnote Fortuna",
+      "code": 85976588
+     },
+     {
+      "name": "Elfnote Power Patron",
+      "code": 12375297
+     }
+    ],
+    "banished": [],
     "line_length": 45,
     "rebuilt": false,
-    "score": 2.022,
+    "score": 2.301,
     "metrics": {
-     "field": 1.522,
+     "field": 1.775,
      "hand": 0.0,
      "floodgates": 0.0,
-     "resilience": 0.833
+     "resilience": 0.877
     },
     "signature": "Accel Synchro Stardust Dragon, Baronne de Fleur, Elfnote Lucina, Elfnote Lucina, Elfnote Seraphim Strelitzia, Elfnotes: Rhapsodia of Madness | hand: "
    },
@@ -4770,8 +5158,8 @@
       "position": "face-up"
      },
      {
-      "name": "Elfnote Fortuna",
-      "code": 85976588,
+      "name": "Elfnote Lucina",
+      "code": 13597785,
       "zone": "monster",
       "position": "face-up"
      },
@@ -4794,27 +5182,60 @@
       "code": 56651978
      }
     ],
-    "grave": 8,
-    "banished": 0,
+    "grave": [
+     {
+      "name": "Black Rose Dragon",
+      "code": 73580471
+     },
+     {
+      "name": "Assault Synchron",
+      "code": 77202120
+     },
+     {
+      "name": "Elfnotes: Welcome Home",
+      "code": 64491754
+     },
+     {
+      "name": "Scrap Synchron",
+      "code": 16449363
+     },
+     {
+      "name": "Elfnote Regina",
+      "code": 56651978
+     },
+     {
+      "name": "Elfnote Regina",
+      "code": 56651978
+     },
+     {
+      "name": "Elfnote Fortuna",
+      "code": 85976588
+     },
+     {
+      "name": "Elfnote Power Patron",
+      "code": 12375297
+     }
+    ],
+    "banished": [],
     "line_length": 44,
     "rebuilt": false,
-    "score": 2.097,
+    "score": 2.257,
     "metrics": {
-     "field": 1.611,
+     "field": 1.775,
      "hand": 0.0,
      "floodgates": 0.0,
-     "resilience": 0.81
+     "resilience": 0.804
     },
-    "signature": "Accel Synchro Stardust Dragon, Baronne de Fleur, Elfnote Fortuna, Elfnote Seraphim Strelitzia, Elfnotes: Rhapsodia of Madness | hand: Elfnote Regina"
+    "signature": "Accel Synchro Stardust Dragon, Baronne de Fleur, Elfnote Lucina, Elfnote Seraphim Strelitzia, Elfnotes: Rhapsodia of Madness | hand: Elfnote Regina"
    }
   },
   {
-   "id": "O36",
+   "id": "O31",
    "deck": "tearlaments",
    "kind": "nuova",
    "source": "nuova",
    "panel": null,
-   "why": "punteggi vicini (0.85 e 0.85), 3 carte diverse",
+   "why": "punteggi vicini (1.30 e 1.30), 4 carte diverse",
    "start_hand": [
     {
      "name": "Mezuki",
@@ -4840,187 +5261,103 @@
    "a": {
     "field": [
      {
-      "name": "Cross-Sheep",
-      "code": 50277355,
-      "zone": "extra_monster",
-      "position": "face-up"
-     },
-     {
-      "name": "Tearlaments Cryme",
-      "code": 1329620,
-      "zone": "spell_trap",
-      "position": "set"
-     },
-     {
-      "name": "Tearlaments Metanoise",
-      "code": 38436986,
-      "zone": "spell_trap",
-      "position": "set"
-     },
-     {
-      "name": "Tearlaments Rulkallos",
-      "code": 84330567,
+      "name": "Baronne de Fleur",
+      "code": 84815190,
       "zone": "monster",
       "position": "face-up"
      },
      {
-      "name": "Uni-Zombie",
-      "code": 49959355,
+      "name": "I:P Masquerena",
+      "code": 65741786,
+      "zone": "extra_monster",
+      "position": "face-up"
+     },
+     {
+      "name": "S:P Little Knight",
+      "code": 29301450,
+      "zone": "monster",
+      "position": "face-up"
+     },
+     {
+      "name": "Tearlaments Scheiren",
+      "code": 572850,
       "zone": "monster",
       "position": "face-up"
      }
     ],
     "hand": [],
-    "grave": 7,
-    "banished": 1,
-    "line_length": 34,
-    "rebuilt": false,
-    "score": 0.848,
-    "metrics": {
-     "field": 0.654,
-     "hand": 0.0,
-     "floodgates": 0.0,
-     "resilience": 0.323
-    },
-    "signature": "Cross-Sheep, Tearlaments Cryme (set), Tearlaments Metanoise (set), Tearlaments Rulkallos, Uni-Zombie | hand: "
-   },
-   "b": {
-    "field": [
+    "grave": [
      {
-      "name": "Cross-Sheep",
-      "code": 50277355,
-      "zone": "extra_monster",
-      "position": "face-up"
+      "name": "Stare of the Snake Hair",
+      "code": 54077752
      },
      {
-      "name": "Tearlaments Metanoise",
-      "code": 38436986,
-      "zone": "spell_trap",
-      "position": "set"
+      "name": "Tearlaments Grief",
+      "code": 33878367
      },
      {
-      "name": "Tearlaments Reinoheart",
-      "code": 73956664,
-      "zone": "monster",
-      "position": "face-up"
+      "name": "Tearlaments Sulliek",
+      "code": 74920585
      },
      {
-      "name": "Tearlaments Rulkallos",
-      "code": 84330567,
-      "zone": "monster",
-      "position": "face-up"
+      "name": "Call of the Haunted",
+      "code": 97077563
+     },
+     {
+      "name": "Tearlaments Kaleido-Heart",
+      "code": 28226490
+     },
+     {
+      "name": "Tearlaments Kitkallos",
+      "code": 92731385
+     },
+     {
+      "name": "Tearlaments Kashtira",
+      "code": 4928565
+     },
+     {
+      "name": "Ash Blossom & Joyous Spring",
+      "code": 14558127
      }
     ],
-    "hand": [
+    "banished": [
+     {
+      "name": "Tearlaments Metanoise",
+      "code": 38436986
+     },
+     {
+      "name": "Trivikarma",
+      "code": 7436169
+     },
+     {
+      "name": "The Black Goat Laughs",
+      "code": 49299410
+     },
      {
       "name": "Mezuki",
       "code": 92826944
-     },
-     {
-      "name": "Tearlaments Cryme",
-      "code": 1329620
-     }
-    ],
-    "grave": 6,
-    "banished": 1,
-    "line_length": 31,
-    "rebuilt": false,
-    "score": 0.848,
-    "metrics": {
-     "field": 0.654,
-     "hand": 0.0,
-     "floodgates": 0.0,
-     "resilience": 0.323
-    },
-    "signature": "Cross-Sheep, Tearlaments Metanoise (set), Tearlaments Reinoheart, Tearlaments Rulkallos | hand: Mezuki, Tearlaments Cryme"
-   }
-  },
-  {
-   "id": "O37",
-   "deck": "tearlaments",
-   "kind": "nuova",
-   "source": "nuova",
-   "panel": null,
-   "why": "punteggi vicini (2.36 e 2.36), 2 carte diverse",
-   "start_hand": [
-    {
-     "name": "Mezuki",
-     "code": 92826944
-    },
-    {
-     "name": "Tearlaments Reinoheart",
-     "code": 73956664
-    },
-    {
-     "name": "Tearlaments Reinoheart",
-     "code": 73956664
-    },
-    {
-     "name": "Tearlaments Metanoise",
-     "code": 38436986
-    },
-    {
-     "name": "Tearlaments Havnis",
-     "code": 37961969
-    }
-   ],
-   "a": {
-    "field": [
-     {
-      "name": "Cross-Sheep",
-      "code": 50277355,
-      "zone": "extra_monster",
-      "position": "face-up"
-     },
-     {
-      "name": "Tearlaments Cryme",
-      "code": 1329620,
-      "zone": "spell_trap",
-      "position": "set"
-     },
-     {
-      "name": "Tearlaments Metanoise",
-      "code": 38436986,
-      "zone": "spell_trap",
-      "position": "set"
-     },
-     {
-      "name": "Tearlaments Rulkallos",
-      "code": 84330567,
-      "zone": "monster",
-      "position": "face-up"
      },
      {
       "name": "Uni-Zombie",
-      "code": 49959355,
-      "zone": "monster",
-      "position": "face-up"
+      "code": 49959355
      }
     ],
-    "hand": [
-     {
-      "name": "Mezuki",
-      "code": 92826944
-     }
-    ],
-    "grave": 6,
-    "banished": 1,
-    "line_length": 32,
+    "line_length": 53,
     "rebuilt": false,
-    "score": 2.358,
+    "score": 1.299,
     "metrics": {
-     "field": 1.654,
+     "field": 1.091,
      "hand": 0.0,
      "floodgates": 0.0,
-     "resilience": 1.172
+     "resilience": 0.346
     },
-    "signature": "Cross-Sheep, Tearlaments Cryme (set), Tearlaments Metanoise (set), Tearlaments Rulkallos, Uni-Zombie | hand: Mezuki"
+    "signature": "Baronne de Fleur, I:P Masquerena, S:P Little Knight, Tearlaments Scheiren | hand: "
    },
    "b": {
     "field": [
      {
-      "name": "Ash Blossom & Joyous Spring",
-      "code": 14558127,
+      "name": "Baronne de Fleur",
+      "code": 84815190,
       "zone": "monster",
       "position": "face-up"
      },
@@ -5031,51 +5368,85 @@
       "position": "face-up"
      },
      {
-      "name": "Tearlaments Cryme",
-      "code": 1329620,
-      "zone": "spell_trap",
-      "position": "set"
-     },
-     {
-      "name": "Tearlaments Metanoise",
-      "code": 38436986,
-      "zone": "spell_trap",
-      "position": "set"
-     },
-     {
-      "name": "Tearlaments Rulkallos",
-      "code": 84330567,
+      "name": "S:P Little Knight",
+      "code": 29301450,
       "zone": "monster",
       "position": "face-up"
      }
     ],
     "hand": [
      {
+      "name": "Tearlaments Havnis",
+      "code": 37961969
+     }
+    ],
+    "grave": [
+     {
+      "name": "Tearlaments Reinoheart",
+      "code": 73956664
+     },
+     {
+      "name": "Tearlaments Kashtira",
+      "code": 4928565
+     },
+     {
+      "name": "I:P Masquerena",
+      "code": 65741786
+     },
+     {
+      "name": "Tearlaments Grief",
+      "code": 33878367
+     },
+     {
+      "name": "Tearlaments Rulkallos",
+      "code": 84330567
+     },
+     {
+      "name": "Uni-Zombie",
+      "code": 49959355
+     },
+     {
+      "name": "Stare of the Snake Hair",
+      "code": 54077752
+     }
+    ],
+    "banished": [
+     {
+      "name": "Tearlaments Metanoise",
+      "code": 38436986
+     },
+     {
+      "name": "Trivikarma",
+      "code": 7436169
+     },
+     {
+      "name": "Mezuki",
+      "code": 92826944
+     },
+     {
       "name": "Mezuki",
       "code": 92826944
      }
     ],
-    "grave": 6,
-    "banished": 1,
-    "line_length": 32,
+    "line_length": 53,
     "rebuilt": false,
-    "score": 2.358,
+    "score": 1.299,
     "metrics": {
-     "field": 1.654,
+     "field": 1.091,
      "hand": 0.0,
      "floodgates": 0.0,
-     "resilience": 1.172
+     "resilience": 0.346
     },
-    "signature": "Ash Blossom & Joyous Spring, Cross-Sheep, Tearlaments Cryme (set), Tearlaments Metanoise (set), Tearlaments Rulkallos | hand: Mezuki"
+    "signature": "Baronne de Fleur, Cross-Sheep, S:P Little Knight | hand: Tearlaments Havnis"
    }
   },
   {
-   "id": "O38",
+   "id": "O32",
    "deck": "tearlaments",
    "kind": "nuova",
    "source": "nuova",
    "panel": null,
-   "why": "punteggi vicini (2.41 e 2.36), 2 carte diverse",
+   "why": "punteggi vicini (1.85 e 1.85), 3 carte diverse",
    "start_hand": [
     {
      "name": "Mezuki",
@@ -5101,8 +5472,8 @@
    "a": {
     "field": [
      {
-      "name": "Cross-Sheep",
-      "code": 50277355,
+      "name": "I:P Masquerena",
+      "code": 65741786,
       "zone": "extra_monster",
       "position": "face-up"
      },
@@ -5113,20 +5484,20 @@
       "position": "set"
      },
      {
-      "name": "Tearlaments Metanoise",
-      "code": 38436986,
-      "zone": "spell_trap",
-      "position": "set"
-     },
-     {
-      "name": "Tearlaments Reinoheart",
-      "code": 73956664,
+      "name": "Tearlaments Kaleido-Heart",
+      "code": 28226490,
       "zone": "monster",
       "position": "face-up"
      },
      {
-      "name": "Tearlaments Rulkallos",
-      "code": 84330567,
+      "name": "Tearlaments Kashtira",
+      "code": 4928565,
+      "zone": "monster",
+      "position": "face-up"
+     },
+     {
+      "name": "Tearlaments Kitkallos",
+      "code": 92731385,
       "zone": "monster",
       "position": "face-up"
      }
@@ -5137,24 +5508,56 @@
       "code": 92826944
      }
     ],
-    "grave": 6,
-    "banished": 1,
-    "line_length": 32,
+    "grave": [
+     {
+      "name": "Uni-Zombie",
+      "code": 49959355
+     },
+     {
+      "name": "Stare of the Snake Hair",
+      "code": 54077752
+     },
+     {
+      "name": "Tearlaments Grief",
+      "code": 33878367
+     },
+     {
+      "name": "Tearlaments Scream",
+      "code": 6767771
+     }
+    ],
+    "banished": [
+     {
+      "name": "Tearlaments Metanoise",
+      "code": 38436986
+     },
+     {
+      "name": "Trivikarma",
+      "code": 7436169
+     }
+    ],
+    "line_length": 40,
     "rebuilt": false,
-    "score": 2.413,
+    "score": 1.855,
     "metrics": {
-     "field": 1.704,
+     "field": 1.302,
      "hand": 0.0,
      "floodgates": 0.0,
-     "resilience": 1.181
+     "resilience": 0.922
     },
-    "signature": "Cross-Sheep, Tearlaments Cryme (set), Tearlaments Metanoise (set), Tearlaments Reinoheart, Tearlaments Rulkallos | hand: Mezuki"
+    "signature": "I:P Masquerena, Tearlaments Cryme (set), Tearlaments Kaleido-Heart, Tearlaments Kashtira, Tearlaments Kitkallos | hand: Mezuki"
    },
    "b": {
     "field": [
      {
       "name": "Cross-Sheep",
       "code": 50277355,
+      "zone": "monster",
+      "position": "face-up"
+     },
+     {
+      "name": "I:P Masquerena",
+      "code": 65741786,
       "zone": "extra_monster",
       "position": "face-up"
      },
@@ -5165,20 +5568,8 @@
       "position": "set"
      },
      {
-      "name": "Tearlaments Havnis",
-      "code": 37961969,
-      "zone": "monster",
-      "position": "face-up"
-     },
-     {
-      "name": "Tearlaments Metanoise",
-      "code": 38436986,
-      "zone": "spell_trap",
-      "position": "set"
-     },
-     {
-      "name": "Tearlaments Rulkallos",
-      "code": 84330567,
+      "name": "Tearlaments Kaleido-Heart",
+      "code": 28226490,
       "zone": "monster",
       "position": "face-up"
      }
@@ -5189,27 +5580,61 @@
       "code": 92826944
      }
     ],
-    "grave": 6,
-    "banished": 1,
-    "line_length": 32,
+    "grave": [
+     {
+      "name": "Uni-Zombie",
+      "code": 49959355
+     },
+     {
+      "name": "Stare of the Snake Hair",
+      "code": 54077752
+     },
+     {
+      "name": "Tearlaments Grief",
+      "code": 33878367
+     },
+     {
+      "name": "Tearlaments Scream",
+      "code": 6767771
+     },
+     {
+      "name": "Tearlaments Kitkallos",
+      "code": 92731385
+     },
+     {
+      "name": "Tearlaments Kashtira",
+      "code": 4928565
+     }
+    ],
+    "banished": [
+     {
+      "name": "Tearlaments Metanoise",
+      "code": 38436986
+     },
+     {
+      "name": "Trivikarma",
+      "code": 7436169
+     }
+    ],
+    "line_length": 43,
     "rebuilt": false,
-    "score": 2.358,
+    "score": 1.855,
     "metrics": {
-     "field": 1.654,
+     "field": 1.302,
      "hand": 0.0,
      "floodgates": 0.0,
-     "resilience": 1.172
+     "resilience": 0.922
     },
-    "signature": "Cross-Sheep, Tearlaments Cryme (set), Tearlaments Havnis, Tearlaments Metanoise (set), Tearlaments Rulkallos | hand: Mezuki"
+    "signature": "Cross-Sheep, I:P Masquerena, Tearlaments Cryme (set), Tearlaments Kaleido-Heart | hand: Mezuki"
    }
   },
   {
-   "id": "O39",
+   "id": "O33",
    "deck": "yubel",
    "kind": "nuova",
    "source": "nuova",
    "panel": null,
-   "why": "punteggi vicini (0.87 e 0.87), 2 carte diverse",
+   "why": "punteggi vicini (0.97 e 1.08), 3 carte diverse",
    "start_hand": [
     {
      "name": "Dominus Impulse",
@@ -5278,16 +5703,25 @@
      }
     ],
     "hand": [],
-    "grave": 2,
-    "banished": 0,
+    "grave": [
+     {
+      "name": "Samsara D Lotus",
+      "code": 62318994
+     },
+     {
+      "name": "Super Duper Polymerization",
+      "code": 44886582
+     }
+    ],
+    "banished": [],
     "line_length": 27,
     "rebuilt": false,
-    "score": 0.869,
+    "score": 0.969,
     "metrics": {
-     "field": 0.656,
+     "field": 0.733,
      "hand": 0.0,
      "floodgates": 0.0,
-     "resilience": 0.355
+     "resilience": 0.393
     },
     "signature": "Aerial Eater, Dominus Impulse (set), Maxx \"C\", Nightmare Pain, Opening of the Spirit Gates, Phantom of Yubel, Phantom of Yubel | hand: "
    },
@@ -5298,12 +5732,6 @@
       "code": 40366667,
       "zone": "spell_trap",
       "position": "set"
-     },
-     {
-      "name": "Maxx \"C\"",
-      "code": 23434538,
-      "zone": "monster",
-      "position": "face-up"
      },
      {
       "name": "Nightmare Pain",
@@ -5330,61 +5758,262 @@
       "position": "face-up"
      },
      {
-      "name": "Starving Venom Fusion Dragon of the Four Heavenly Dragons",
-      "code": 27118421,
-      "zone": "monster",
+      "name": "S:P Little Knight",
+      "code": 29301450,
+      "zone": "extra_monster",
       "position": "face-up"
      }
     ],
     "hand": [],
-    "grave": 1,
-    "banished": 0,
-    "line_length": 28,
+    "grave": [
+     {
+      "name": "Samsara D Lotus",
+      "code": 62318994
+     },
+     {
+      "name": "Super Duper Polymerization",
+      "code": 44886582
+     },
+     {
+      "name": "Maxx \"C\"",
+      "code": 23434538
+     },
+     {
+      "name": "Aerial Eater",
+      "code": 28143384
+     }
+    ],
+    "banished": [],
+    "line_length": 31,
     "rebuilt": false,
-    "score": 0.869,
+    "score": 1.083,
     "metrics": {
-     "field": 0.656,
+     "field": 0.824,
      "hand": 0.0,
      "floodgates": 0.0,
-     "resilience": 0.355
+     "resilience": 0.431
     },
-    "signature": "Dominus Impulse (set), Maxx \"C\", Nightmare Pain, Opening of the Spirit Gates, Phantom of Yubel, Phantom of Yubel, Starving Venom Fusion Dragon of the Four Heavenly Dragons | hand: "
+    "signature": "Dominus Impulse (set), Nightmare Pain, Opening of the Spirit Gates, Phantom of Yubel, Phantom of Yubel, S:P Little Knight | hand: "
    }
   },
   {
-   "id": "O40",
+   "id": "O34",
+   "deck": "branded",
+   "kind": "nuova",
+   "source": "nuova",
+   "panel": null,
+   "why": "punteggi vicini (1.35 e 1.35), 5 carte diverse",
+   "start_hand": [
+    {
+     "name": "Bystial Magnamhut",
+     "code": 33854624
+    },
+    {
+     "name": "Tri-Brigade Springans Kitt",
+     "code": 19304410
+    },
+    {
+     "name": "Branded in Red",
+     "code": 82738008
+    },
+    {
+     "name": "Ash Blossom & Joyous Spring",
+     "code": 14558127
+    },
+    {
+     "name": "Fallen of the White Dragon",
+     "code": 73819701
+    }
+   ],
+   "a": {
+    "field": [
+     {
+      "name": "Alba-Lenatus the Abyss Dragon",
+      "code": 3410461,
+      "zone": "extra_monster",
+      "position": "face-up"
+     },
+     {
+      "name": "Ecclesia and the Dark Dragon",
+      "code": 78397661,
+      "zone": "monster",
+      "position": "face-up"
+     },
+     {
+      "name": "Guiding Quem, the Virtuous",
+      "code": 45883110,
+      "zone": "monster",
+      "position": "face-up"
+     },
+     {
+      "name": "Incredible Ecclesia, the Virtuous",
+      "code": 55273560,
+      "zone": "monster",
+      "position": "face-up"
+     },
+     {
+      "name": "Tri-Brigade Mercourier",
+      "code": 19096726,
+      "zone": "monster",
+      "position": "face-up"
+     },
+     {
+      "name": "Tri-Brigade Springans Kitt",
+      "code": 19304410,
+      "zone": "monster",
+      "position": "face-up"
+     }
+    ],
+    "hand": [
+     {
+      "name": "Ash Blossom & Joyous Spring",
+      "code": 14558127
+     }
+    ],
+    "grave": [
+     {
+      "name": "Branded in Red",
+      "code": 82738008
+     }
+    ],
+    "banished": [
+     {
+      "name": "The Golden Swordsoul",
+      "code": 82489470
+     },
+     {
+      "name": "Bystial Magnamhut",
+      "code": 33854624
+     },
+     {
+      "name": "Fallen of the White Dragon",
+      "code": 73819701
+     }
+    ],
+    "line_length": 24,
+    "rebuilt": false,
+    "score": 1.352,
+    "metrics": {
+     "field": 0.724,
+     "hand": 0.533,
+     "floodgates": 0.0,
+     "resilience": 0.246
+    },
+    "signature": "Alba-Lenatus the Abyss Dragon, Ecclesia and the Dark Dragon, Guiding Quem, the Virtuous, Incredible Ecclesia, the Virtuous, Tri-Brigade Mercourier, Tri-Brigade Springans Kitt | hand: Ash Blossom & Joyous Spring"
+   },
+   "b": {
+    "field": [
+     {
+      "name": "Albion the Branded Dragon",
+      "code": 87746184,
+      "zone": "extra_monster",
+      "position": "face-up"
+     },
+     {
+      "name": "Ecclesia and the Dark Dragon",
+      "code": 78397661,
+      "zone": "monster",
+      "position": "face-up"
+     },
+     {
+      "name": "Incredible Ecclesia, the Virtuous",
+      "code": 55273560,
+      "zone": "monster",
+      "position": "face-up"
+     },
+     {
+      "name": "Secreterion Dragon",
+      "code": 89851827,
+      "zone": "monster",
+      "position": "face-up"
+     },
+     {
+      "name": "Tri-Brigade Mercourier",
+      "code": 19096726,
+      "zone": "monster",
+      "position": "face-up"
+     }
+    ],
+    "hand": [
+     {
+      "name": "Ash Blossom & Joyous Spring",
+      "code": 14558127
+     }
+    ],
+    "grave": [
+     {
+      "name": "Branded in Red",
+      "code": 82738008
+     }
+    ],
+    "banished": [
+     {
+      "name": "The Golden Swordsoul",
+      "code": 82489470
+     },
+     {
+      "name": "Tri-Brigade Springans Kitt",
+      "code": 19304410
+     },
+     {
+      "name": "Fallen of the White Dragon",
+      "code": 73819701
+     },
+     {
+      "name": "Bystial Magnamhut",
+      "code": 33854624
+     },
+     {
+      "name": "Guiding Quem, the Virtuous",
+      "code": 45883110
+     }
+    ],
+    "line_length": 27,
+    "rebuilt": false,
+    "score": 1.352,
+    "metrics": {
+     "field": 0.724,
+     "hand": 0.533,
+     "floodgates": 0.0,
+     "resilience": 0.246
+    },
+    "signature": "Albion the Branded Dragon, Ecclesia and the Dark Dragon, Incredible Ecclesia, the Virtuous, Secreterion Dragon, Tri-Brigade Mercourier | hand: Ash Blossom & Joyous Spring"
+   }
+  },
+  {
+   "id": "O35",
    "deck": "dracotail",
    "kind": "nuova",
    "source": "nuova",
    "panel": null,
-   "why": "punteggi vicini (0.92 e 0.92), 5 carte diverse",
+   "why": "punteggi vicini (1.29 e 1.18), 3 carte diverse",
    "start_hand": [
     {
-     "name": "Incredible Ecclesia, the Virtuous",
-     "code": 55273560
+     "name": "Dracotail Horn",
+     "code": 69932023
     },
     {
-     "name": "Blazing Cartesia, the Virtuous",
-     "code": 95515789
+     "name": "Effect Veiler",
+     "code": 97268402
+    },
+    {
+     "name": "Dracotail Phryxul",
+     "code": 84477320
     },
     {
      "name": "Fallen of the White Dragon",
      "code": 73819701
     },
     {
-     "name": "Rahu Dracotail",
-     "code": 32548318
-    },
-    {
-     "name": "Dracotail Faimena",
-     "code": 1498449
+     "name": "Fallen of Albaz",
+     "code": 68468459
     }
    ],
    "a": {
     "field": [
      {
-      "name": "Albion the Sanctifire Dragon",
-      "code": 38811586,
+      "name": "Blazing Cartesia, the Virtuous",
+      "code": 95515789,
       "zone": "monster",
       "position": "face-up"
      },
@@ -5395,8 +6024,8 @@
       "position": "set"
      },
      {
-      "name": "Dracotail Sting",
-      "code": 80208225,
+      "name": "Dracotail Horn",
+      "code": 69932023,
       "zone": "spell_trap",
       "position": "set"
      },
@@ -5407,44 +6036,55 @@
       "position": "face-up"
      },
      {
-      "name": "Predaplant Verte Anaconda",
-      "code": 70369116,
+      "name": "Fallen of Albaz",
+      "code": 68468459,
+      "zone": "monster",
+      "position": "face-up"
+     },
+     {
+      "name": "Secreterion Dragon",
+      "code": 89851827,
       "zone": "extra_monster",
       "position": "face-up"
      }
     ],
     "hand": [
      {
-      "name": "Blazing Cartesia, the Virtuous",
-      "code": 95515789
-     },
-     {
-      "name": "Rahu Dracotail",
-      "code": 32548318
+      "name": "Effect Veiler",
+      "code": 97268402
      },
      {
       "name": "Incredible Ecclesia, the Virtuous",
       "code": 55273560
      }
     ],
-    "grave": 7,
-    "banished": 0,
-    "line_length": 45,
+    "grave": [
+     {
+      "name": "Albion the Sanctifire Dragon",
+      "code": 38811586
+     },
+     {
+      "name": "Fallen of the White Dragon",
+      "code": 73819701
+     }
+    ],
+    "banished": [],
+    "line_length": 26,
     "rebuilt": false,
-    "score": 0.916,
+    "score": 1.291,
     "metrics": {
-     "field": 0.699,
-     "hand": 0.0,
+     "field": 0.794,
+     "hand": 0.244,
      "floodgates": 0.0,
-     "resilience": 0.361
+     "resilience": 0.462
     },
-    "signature": "Albion the Sanctifire Dragon, Dracotail Flame (set), Dracotail Sting (set), Ecclesia and the Dark Dragon, Predaplant Verte Anaconda | hand: Blazing Cartesia, the Virtuous, Incredible Ecclesia, the Virtuous, Rahu Dracotail"
+    "signature": "Blazing Cartesia, the Virtuous, Dracotail Flame (set), Dracotail Horn (set), Ecclesia and the Dark Dragon, Fallen of Albaz, Secreterion Dragon | hand: Effect Veiler, Incredible Ecclesia, the Virtuous"
    },
    "b": {
     "field": [
      {
-      "name": "Alba-Lenatus the Abyss Dragon",
-      "code": 3410461,
+      "name": "Blazing Cartesia, the Virtuous",
+      "code": 95515789,
       "zone": "monster",
       "position": "face-up"
      },
@@ -5455,8 +6095,180 @@
       "position": "set"
      },
      {
-      "name": "Dracotail Sting",
-      "code": 80208225,
+      "name": "Dracotail Horn",
+      "code": 69932023,
+      "zone": "spell_trap",
+      "position": "set"
+     },
+     {
+      "name": "Dracotail Phryxul",
+      "code": 84477320,
+      "zone": "monster",
+      "position": "face-up"
+     },
+     {
+      "name": "Ecclesia and the Dark Dragon",
+      "code": 78397661,
+      "zone": "monster",
+      "position": "face-up"
+     },
+     {
+      "name": "Secreterion Dragon",
+      "code": 89851827,
+      "zone": "monster",
+      "position": "face-up"
+     }
+    ],
+    "hand": [
+     {
+      "name": "Effect Veiler",
+      "code": 97268402
+     }
+    ],
+    "grave": [
+     {
+      "name": "Fallen of the White Dragon",
+      "code": 73819701
+     },
+     {
+      "name": "Incredible Ecclesia, the Virtuous",
+      "code": 55273560
+     },
+     {
+      "name": "Fallen of Albaz",
+      "code": 68468459
+     }
+    ],
+    "banished": [],
+    "line_length": 24,
+    "rebuilt": false,
+    "score": 1.182,
+    "metrics": {
+     "field": 0.884,
+     "hand": 0.0,
+     "floodgates": 0.0,
+     "resilience": 0.497
+    },
+    "signature": "Blazing Cartesia, the Virtuous, Dracotail Flame (set), Dracotail Horn (set), Dracotail Phryxul, Ecclesia and the Dark Dragon, Secreterion Dragon | hand: Effect Veiler"
+   }
+  },
+  {
+   "id": "O36",
+   "deck": "dracotail",
+   "kind": "nuova",
+   "source": "nuova",
+   "panel": null,
+   "why": "punteggi vicini (1.40 e 1.42), 2 carte diverse",
+   "start_hand": [
+    {
+     "name": "Dracotail Horn",
+     "code": 69932023
+    },
+    {
+     "name": "Effect Veiler",
+     "code": 97268402
+    },
+    {
+     "name": "Dracotail Phryxul",
+     "code": 84477320
+    },
+    {
+     "name": "Fallen of the White Dragon",
+     "code": 73819701
+    },
+    {
+     "name": "Fallen of Albaz",
+     "code": 68468459
+    }
+   ],
+   "a": {
+    "field": [
+     {
+      "name": "Blazing Cartesia, the Virtuous",
+      "code": 95515789,
+      "zone": "monster",
+      "position": "face-up"
+     },
+     {
+      "name": "Dracotail Flame",
+      "code": 5431722,
+      "zone": "spell_trap",
+      "position": "set"
+     },
+     {
+      "name": "Dracotail Horn",
+      "code": 69932023,
+      "zone": "spell_trap",
+      "position": "set"
+     },
+     {
+      "name": "Dracotail Phryxul",
+      "code": 84477320,
+      "zone": "monster",
+      "position": "face-up"
+     },
+     {
+      "name": "Ecclesia and the Dark Dragon",
+      "code": 78397661,
+      "zone": "monster",
+      "position": "face-up"
+     },
+     {
+      "name": "Secreterion Dragon",
+      "code": 89851827,
+      "zone": "extra_monster",
+      "position": "face-up"
+     }
+    ],
+    "hand": [
+     {
+      "name": "Effect Veiler",
+      "code": 97268402
+     },
+     {
+      "name": "Incredible Ecclesia, the Virtuous",
+      "code": 55273560
+     }
+    ],
+    "grave": [
+     {
+      "name": "Fallen of the White Dragon",
+      "code": 73819701
+     },
+     {
+      "name": "Fallen of Albaz",
+      "code": 68468459
+     }
+    ],
+    "banished": [],
+    "line_length": 23,
+    "rebuilt": false,
+    "score": 1.402,
+    "metrics": {
+     "field": 0.884,
+     "hand": 0.244,
+     "floodgates": 0.0,
+     "resilience": 0.497
+    },
+    "signature": "Blazing Cartesia, the Virtuous, Dracotail Flame (set), Dracotail Horn (set), Dracotail Phryxul, Ecclesia and the Dark Dragon, Secreterion Dragon | hand: Effect Veiler, Incredible Ecclesia, the Virtuous"
+   },
+   "b": {
+    "field": [
+     {
+      "name": "Blazing Cartesia, the Virtuous",
+      "code": 95515789,
+      "zone": "monster",
+      "position": "face-up"
+     },
+     {
+      "name": "Dracotail Flame",
+      "code": 5431722,
+      "zone": "spell_trap",
+      "position": "set"
+     },
+     {
+      "name": "Dracotail Horn",
+      "code": 69932023,
       "zone": "spell_trap",
       "position": "set"
      },
@@ -5467,51 +6279,58 @@
       "position": "face-up"
      },
      {
-      "name": "Predaplant Verte Anaconda",
-      "code": 70369116,
-      "zone": "extra_monster",
+      "name": "Fallen of the White Dragon",
+      "code": 73819701,
+      "zone": "monster",
+      "position": "face-up"
+     },
+     {
+      "name": "Secreterion Dragon",
+      "code": 89851827,
+      "zone": "monster",
       "position": "face-up"
      }
     ],
     "hand": [
      {
-      "name": "Dracotail Faimena",
-      "code": 1498449
+      "name": "Effect Veiler",
+      "code": 97268402
      },
      {
-      "name": "Blazing Cartesia, the Virtuous",
-      "code": 95515789
-     },
-     {
-      "name": "The Fallen & The Virtuous",
-      "code": 30271097
-     },
-     {
-      "name": "Rahu Dracotail",
-      "code": 32548318
+      "name": "Incredible Ecclesia, the Virtuous",
+      "code": 55273560
      }
     ],
-    "grave": 7,
-    "banished": 0,
-    "line_length": 47,
+    "grave": [
+     {
+      "name": "Albion the Sanctifire Dragon",
+      "code": 38811586
+     },
+     {
+      "name": "Fallen of Albaz",
+      "code": 68468459
+     }
+    ],
+    "banished": [],
+    "line_length": 26,
     "rebuilt": false,
-    "score": 0.916,
+    "score": 1.421,
     "metrics": {
-     "field": 0.699,
-     "hand": 0.0,
+     "field": 0.901,
+     "hand": 0.244,
      "floodgates": 0.0,
-     "resilience": 0.361
+     "resilience": 0.5
     },
-    "signature": "Alba-Lenatus the Abyss Dragon, Dracotail Flame (set), Dracotail Sting (set), Ecclesia and the Dark Dragon, Predaplant Verte Anaconda | hand: Blazing Cartesia, the Virtuous, Dracotail Faimena, Rahu Dracotail, The Fallen & The Virtuous"
+    "signature": "Blazing Cartesia, the Virtuous, Dracotail Flame (set), Dracotail Horn (set), Ecclesia and the Dark Dragon, Fallen of the White Dragon, Secreterion Dragon | hand: Effect Veiler, Incredible Ecclesia, the Virtuous"
    }
   },
   {
-   "id": "O41",
+   "id": "O37",
    "deck": "exodia",
    "kind": "nuova",
    "source": "nuova",
    "panel": null,
-   "why": "punteggi vicini (1.65 e 1.65), 3 carte diverse",
+   "why": "punteggi vicini (1.73 e 1.73), 3 carte diverse",
    "start_hand": [
     {
      "name": "Mulcharmy Fuwalos",
@@ -5575,16 +6394,25 @@
       "code": 44519536
      }
     ],
-    "grave": 2,
-    "banished": 0,
+    "grave": [
+     {
+      "name": "Mulcharmy Fuwalos",
+      "code": 42141493
+     },
+     {
+      "name": "Sengenjin Wakes from a Millennium",
+      "code": 38775407
+     }
+    ],
+    "banished": [],
     "line_length": 16,
     "rebuilt": false,
-    "score": 1.652,
+    "score": 1.733,
     "metrics": {
-     "field": 1.133,
+     "field": 1.165,
      "hand": 0.0,
      "floodgates": 0.0,
-     "resilience": 0.865
+     "resilience": 0.946
     },
     "signature": "Angel Statue - Azurune (set), Exxod Fires of Rage (set), Shield of the Millennium Dynasty, The Unstoppable Exodia Incarnate | hand: Left Leg of the Forbidden One, Mulcharmy Purulia, Zoodiac Ramram"
    },
@@ -5615,35 +6443,407 @@
       "code": 4145852
      },
      {
-      "name": "Lacrima the Crimson Tears",
-      "code": 28803166
+      "name": "Fiendsmith Engraver",
+      "code": 60764609
      },
      {
       "name": "Left Leg of the Forbidden One",
       "code": 44519536
      }
     ],
-    "grave": 9,
-    "banished": 0,
+    "grave": [
+     {
+      "name": "Mulcharmy Fuwalos",
+      "code": 42141493
+     },
+     {
+      "name": "Sengenjin Wakes from a Millennium",
+      "code": 38775407
+     },
+     {
+      "name": "Moon of the Closed Heaven",
+      "code": 71818935
+     },
+     {
+      "name": "Constellar Ptolemy M7",
+      "code": 38495396
+     },
+     {
+      "name": "Shield of the Millennium Dynasty",
+      "code": 1164211
+     },
+     {
+      "name": "Necroquip Princess",
+      "code": 93860227
+     },
+     {
+      "name": "Fiendsmith Engraver",
+      "code": 60764609
+     },
+     {
+      "name": "Mulcharmy Purulia",
+      "code": 84192580
+     },
+     {
+      "name": "Fiendsmith's Tract",
+      "code": 98567237
+     }
+    ],
+    "banished": [],
     "line_length": 41,
     "rebuilt": false,
-    "score": 1.652,
+    "score": 1.733,
     "metrics": {
-     "field": 1.133,
+     "field": 1.165,
      "hand": 0.0,
      "floodgates": 0.0,
-     "resilience": 0.865
+     "resilience": 0.946
     },
-    "signature": "Angel Statue - Azurune (set), Exxod Fires of Rage (set), The Unstoppable Exodia Incarnate | hand: Lacrima the Crimson Tears, Left Leg of the Forbidden One, Zoodiac Ramram"
+    "signature": "Angel Statue - Azurune (set), Exxod Fires of Rage (set), The Unstoppable Exodia Incarnate | hand: Fiendsmith Engraver, Left Leg of the Forbidden One, Zoodiac Ramram"
    }
   },
   {
-   "id": "O42",
+   "id": "O38",
+   "deck": "fur_hire",
+   "kind": "nuova",
+   "source": "nuova",
+   "panel": null,
+   "why": "punteggi vicini (0.67 e 0.78), 5 carte diverse",
+   "start_hand": [
+    {
+     "name": "Ghost Belle & Haunted Mansion",
+     "code": 73642296
+    },
+    {
+     "name": "Beat, Bladesman Fur Hire",
+     "code": 93850652
+    },
+    {
+     "name": "Rafale, Champion Fur Hire",
+     "code": 38916526
+    },
+    {
+     "name": "Crossout Designator",
+     "code": 65681983
+    },
+    {
+     "name": "Ash Blossom & Joyous Spring",
+     "code": 14558127
+    }
+   ],
+   "a": {
+    "field": [
+     {
+      "name": "Crossout Designator",
+      "code": 65681983,
+      "zone": "spell_trap",
+      "position": "set"
+     },
+     {
+      "name": "Keel, Shipwright Fur Hire",
+      "code": 66736884,
+      "zone": "monster",
+      "position": "face-up"
+     },
+     {
+      "name": "Rafale, Champion Fur Hire",
+      "code": 38916526,
+      "zone": "monster",
+      "position": "face-up"
+     },
+     {
+      "name": "Spright Elf",
+      "code": 27381364,
+      "zone": "extra_monster",
+      "position": "face-up"
+     },
+     {
+      "name": "Whirlwind Fur Hire",
+      "code": 53557529,
+      "zone": "spell_trap",
+      "position": "set"
+     },
+     {
+      "name": "Whirlwind Fur Hire",
+      "code": 53557529,
+      "zone": "spell_trap",
+      "position": "set"
+     }
+    ],
+    "hand": [
+     {
+      "name": "Ash Blossom & Joyous Spring",
+      "code": 14558127
+     },
+     {
+      "name": "Ghost Belle & Haunted Mansion",
+      "code": 73642296
+     }
+    ],
+    "grave": [
+     {
+      "name": "Beat, Bladesman Fur Hire",
+      "code": 93850652
+     },
+     {
+      "name": "Rex, Ride Fur Hire",
+      "code": 47647354
+     }
+    ],
+    "banished": [
+     {
+      "name": "Rex, Freight Fur Hire",
+      "code": 28004531
+     }
+    ],
+    "line_length": 25,
+    "rebuilt": false,
+    "score": 0.669,
+    "metrics": {
+     "field": 0.0,
+     "hand": 0.743,
+     "floodgates": 0.0,
+     "resilience": 0.0
+    },
+    "signature": "Crossout Designator (set), Keel, Shipwright Fur Hire, Rafale, Champion Fur Hire, Spright Elf, Whirlwind Fur Hire (set), Whirlwind Fur Hire (set) | hand: Ash Blossom & Joyous Spring, Ghost Belle & Haunted Mansion"
+   },
+   "b": {
+    "field": [
+     {
+      "name": "Beat, Bladesman Fur Hire",
+      "code": 93850652,
+      "zone": "monster",
+      "position": "face-up"
+     },
+     {
+      "name": "Crossout Designator",
+      "code": 65681983,
+      "zone": "spell_trap",
+      "position": "set"
+     },
+     {
+      "name": "Keel, Shipwright Fur Hire",
+      "code": 66736884,
+      "zone": "extra_monster",
+      "position": "face-up"
+     },
+     {
+      "name": "Mayhem Fur Hire",
+      "code": 91405870,
+      "zone": "spell_trap",
+      "position": "set"
+     },
+     {
+      "name": "Rafale, Champion Fur Hire",
+      "code": 38916526,
+      "zone": "monster",
+      "position": "face-up"
+     },
+     {
+      "name": "Rex, Ride Fur Hire",
+      "code": 47647354,
+      "zone": "monster",
+      "position": "face-up"
+     },
+     {
+      "name": "Whirlwind Fur Hire",
+      "code": 53557529,
+      "zone": "spell_trap",
+      "position": "set"
+     }
+    ],
+    "hand": [
+     {
+      "name": "Ash Blossom & Joyous Spring",
+      "code": 14558127
+     },
+     {
+      "name": "Ghost Belle & Haunted Mansion",
+      "code": 73642296
+     }
+    ],
+    "grave": [],
+    "banished": [
+     {
+      "name": "Rex, Freight Fur Hire",
+      "code": 28004531
+     }
+    ],
+    "line_length": 21,
+    "rebuilt": false,
+    "score": 0.779,
+    "metrics": {
+     "field": 0.083,
+     "hand": 0.743,
+     "floodgates": 0.0,
+     "resilience": 0.045
+    },
+    "signature": "Beat, Bladesman Fur Hire, Crossout Designator (set), Keel, Shipwright Fur Hire, Mayhem Fur Hire (set), Rafale, Champion Fur Hire, Rex, Ride Fur Hire, Whirlwind Fur Hire (set) | hand: Ash Blossom & Joyous Spring, Ghost Belle & Haunted Mansion"
+   }
+  },
+  {
+   "id": "O39",
+   "deck": "labrynth",
+   "kind": "nuova",
+   "source": "nuova",
+   "panel": null,
+   "why": "punteggi vicini (0.85 e 1.00), 7 carte diverse",
+   "start_hand": [
+    {
+     "name": "Incredible Ecclesia, the Virtuous",
+     "code": 55273560
+    },
+    {
+     "name": "The Fallen & The Virtuous",
+     "code": 30271097
+    },
+    {
+     "name": "Arianna the Labrynth Servant",
+     "code": 1225009
+    },
+    {
+     "name": "Super Polymerization",
+     "code": 48130397
+    },
+    {
+     "name": "Dominus Spark",
+     "code": 6325660
+    }
+   ],
+   "a": {
+    "field": [
+     {
+      "name": "Dogmatika Ecclesia, the Virtuous",
+      "code": 60303688,
+      "zone": "monster",
+      "position": "face-up"
+     },
+     {
+      "name": "Dogmatika Punishment",
+      "code": 82956214,
+      "zone": "spell_trap",
+      "position": "set"
+     },
+     {
+      "name": "Dominus Spark",
+      "code": 6325660,
+      "zone": "spell_trap",
+      "position": "set"
+     },
+     {
+      "name": "Fallen of the White Dragon",
+      "code": 73819701,
+      "zone": "monster",
+      "position": "face-up"
+     },
+     {
+      "name": "Incredible Ecclesia, the Virtuous",
+      "code": 55273560,
+      "zone": "monster",
+      "position": "face-up"
+     },
+     {
+      "name": "Super Polymerization",
+      "code": 48130397,
+      "zone": "spell_trap",
+      "position": "set"
+     }
+    ],
+    "hand": [
+     {
+      "name": "Arianna the Labrynth Servant",
+      "code": 1225009
+     }
+    ],
+    "grave": [
+     {
+      "name": "The Fallen & The Virtuous",
+      "code": 30271097
+     }
+    ],
+    "banished": [],
+    "line_length": 12,
+    "rebuilt": false,
+    "score": 0.855,
+    "metrics": {
+     "field": 0.574,
+     "hand": 0.0,
+     "floodgates": 0.0,
+     "resilience": 0.469
+    },
+    "signature": "Dogmatika Ecclesia, the Virtuous, Dogmatika Punishment (set), Dominus Spark (set), Fallen of the White Dragon, Incredible Ecclesia, the Virtuous, Super Polymerization (set) | hand: Arianna the Labrynth Servant"
+   },
+   "b": {
+    "field": [
+     {
+      "name": "Dominus Spark",
+      "code": 6325660,
+      "zone": "spell_trap",
+      "position": "set"
+     },
+     {
+      "name": "Super Polymerization",
+      "code": 48130397,
+      "zone": "spell_trap",
+      "position": "set"
+     },
+     {
+      "name": "The Crimson King",
+      "code": 67809530,
+      "zone": "extra_monster",
+      "position": "face-up"
+     },
+     {
+      "name": "The Fallen & The Virtuous",
+      "code": 30271097,
+      "zone": "spell_trap",
+      "position": "set"
+     }
+    ],
+    "hand": [
+     {
+      "name": "Labrynth Chandraglier",
+      "code": 37629703
+     },
+     {
+      "name": "Arianna the Labrynth Servant",
+      "code": 1225009
+     }
+    ],
+    "grave": [
+     {
+      "name": "Fallen of the White Dragon",
+      "code": 73819701
+     },
+     {
+      "name": "Incredible Ecclesia, the Virtuous",
+      "code": 55273560
+     },
+     {
+      "name": "Crimson Call",
+      "code": 99398682
+     }
+    ],
+    "banished": [],
+    "line_length": 20,
+    "rebuilt": false,
+    "score": 0.997,
+    "metrics": {
+     "field": 0.669,
+     "hand": 0.0,
+     "floodgates": 0.0,
+     "resilience": 0.546
+    },
+    "signature": "Dominus Spark (set), Super Polymerization (set), The Crimson King, The Fallen & The Virtuous (set) | hand: Arianna the Labrynth Servant, Labrynth Chandraglier"
+   }
+  },
+  {
+   "id": "O40",
    "deck": "mitsurugi",
    "kind": "nuova",
    "source": "nuova",
    "panel": null,
-   "why": "punteggi vicini (2.01 e 1.95), 6 carte diverse",
+   "why": "punteggi vicini (1.86 e 1.74), 3 carte diverse",
    "start_hand": [
     {
      "name": "Mulcharmy Fuwalos",
@@ -5667,58 +6867,6 @@
     }
    ],
    "a": {
-    "field": [
-     {
-      "name": "Ame no Murakumo no Mitsurugi",
-      "code": 19899073,
-      "zone": "monster",
-      "position": "face-up"
-     },
-     {
-      "name": "Cross-Sheep",
-      "code": 50277355,
-      "zone": "extra_monster",
-      "position": "face-up"
-     },
-     {
-      "name": "Mitsurugi Great Purification",
-      "code": 17954937,
-      "zone": "spell_trap",
-      "position": "set"
-     }
-    ],
-    "hand": [
-     {
-      "name": "Pre-Preparation of Rites",
-      "code": 13048472
-     },
-     {
-      "name": "Aleister the Reminiscent",
-      "code": 57294268
-     },
-     {
-      "name": "Droll & Lock Bird",
-      "code": 94145021
-     },
-     {
-      "name": "Mulcharmy Purulia",
-      "code": 84192580
-     }
-    ],
-    "grave": 9,
-    "banished": 1,
-    "line_length": 39,
-    "rebuilt": false,
-    "score": 2.006,
-    "metrics": {
-     "field": 1.233,
-     "hand": 0.285,
-     "floodgates": 0.0,
-     "resilience": 0.86
-    },
-    "signature": "Ame no Murakumo no Mitsurugi, Cross-Sheep, Mitsurugi Great Purification (set) | hand: Aleister the Reminiscent, Droll & Lock Bird, Mulcharmy Purulia, Pre-Preparation of Rites"
-   },
-   "b": {
     "field": [
      {
       "name": "Ame no Murakumo no Mitsurugi",
@@ -5759,108 +6907,48 @@
       "code": 82782870
      }
     ],
-    "grave": 6,
-    "banished": 1,
-    "line_length": 30,
-    "rebuilt": false,
-    "score": 1.951,
-    "metrics": {
-     "field": 1.394,
-     "hand": 0.0,
-     "floodgates": 0.0,
-     "resilience": 0.928
-    },
-    "signature": "Ame no Murakumo no Mitsurugi, Invocation - \"Sword\" (set), Mitsurugi Great Purification (set), S:P Little Knight | hand: Aleister the Reminiscent, Mitsurugi no Mikoto, Kusanagi, Mulcharmy Purulia"
-   }
-  },
-  {
-   "id": "O43",
-   "deck": "mitsurugi",
-   "kind": "nuova",
-   "source": "nuova",
-   "panel": null,
-   "why": "punteggi vicini (1.75 e 1.75), 3 carte diverse",
-   "start_hand": [
-    {
-     "name": "Mulcharmy Fuwalos",
-     "code": 42141493
-    },
-    {
-     "name": "Ame no Habakiri no Mitsurugi",
-     "code": 13332685
-    },
-    {
-     "name": "Invocation - \"Sword\"",
-     "code": 37432075
-    },
-    {
-     "name": "Mulcharmy Purulia",
-     "code": 84192580
-    },
-    {
-     "name": "Aiwass, Divine Spirit of the Law",
-     "code": 84288367
-    }
-   ],
-   "a": {
-    "field": [
+    "grave": [
      {
-      "name": "Ame no Murakumo no Mitsurugi",
-      "code": 19899073,
-      "zone": "monster",
-      "position": "face-up"
+      "name": "Mulcharmy Fuwalos",
+      "code": 42141493
      },
      {
-      "name": "Invocation - \"Sword\"",
-      "code": 37432075,
-      "zone": "spell_trap",
-      "position": "set"
+      "name": "Ame no Habakiri no Mitsurugi",
+      "code": 13332685
      },
      {
-      "name": "Mitsurugi Great Purification",
-      "code": 17954937,
-      "zone": "spell_trap",
-      "position": "set"
+      "name": "Mitsurugi Ritual",
+      "code": 81560239
+     },
+     {
+      "name": "Mitsurugi Prayers",
+      "code": 45171524
      },
      {
       "name": "Mitsurugi no Mikoto, Aramasa",
-      "code": 40543231,
-      "zone": "monster",
-      "position": "face-up"
+      "code": 40543231
      },
      {
       "name": "Mitsurugi no Mikoto, Saji",
-      "code": 18176525,
-      "zone": "monster",
-      "position": "face-up"
+      "code": 18176525
      }
     ],
-    "hand": [
+    "banished": [
      {
-      "name": "Mulcharmy Purulia",
-      "code": 84192580
-     },
-     {
-      "name": "Aleister the Reminiscent",
-      "code": 57294268
-     },
-     {
-      "name": "Mitsurugi no Mikoto, Kusanagi",
-      "code": 82782870
+      "name": "Aiwass, Divine Spirit of the Law",
+      "code": 84288367
      }
     ],
-    "grave": 4,
-    "banished": 1,
-    "line_length": 27,
+    "line_length": 30,
     "rebuilt": false,
-    "score": 1.749,
+    "score": 1.858,
     "metrics": {
-     "field": 1.233,
+     "field": 1.319,
      "hand": 0.0,
      "floodgates": 0.0,
-     "resilience": 0.86
+     "resilience": 0.898
     },
-    "signature": "Ame no Murakumo no Mitsurugi, Invocation - \"Sword\" (set), Mitsurugi Great Purification (set), Mitsurugi no Mikoto, Aramasa, Mitsurugi no Mikoto, Saji | hand: Aleister the Reminiscent, Mitsurugi no Mikoto, Kusanagi, Mulcharmy Purulia"
+    "signature": "Ame no Murakumo no Mitsurugi, Invocation - \"Sword\" (set), Mitsurugi Great Purification (set), S:P Little Knight | hand: Aleister the Reminiscent, Mitsurugi no Mikoto, Kusanagi, Mulcharmy Purulia"
    },
    "b": {
     "field": [
@@ -5891,34 +6979,616 @@
     ],
     "hand": [
      {
-      "name": "Mulcharmy Purulia",
-      "code": 84192580
-     },
-     {
       "name": "Aleister the Reminiscent",
       "code": 57294268
      },
      {
       "name": "Mitsurugi no Mikoto, Kusanagi",
       "code": 82782870
+     },
+     {
+      "name": "Mulcharmy Purulia",
+      "code": 84192580
+     },
+     {
+      "name": "Ame no Habakiri no Mitsurugi",
+      "code": 13332685
      }
     ],
-    "grave": 4,
-    "banished": 1,
-    "line_length": 31,
+    "grave": [
+     {
+      "name": "Mulcharmy Fuwalos",
+      "code": 42141493
+     },
+     {
+      "name": "Ame no Habakiri no Mitsurugi",
+      "code": 13332685
+     },
+     {
+      "name": "Mitsurugi Ritual",
+      "code": 81560239
+     },
+     {
+      "name": "Mitsurugi Prayers",
+      "code": 45171524
+     },
+     {
+      "name": "Mitsurugi no Mikoto, Aramasa",
+      "code": 40543231
+     }
+    ],
+    "banished": [
+     {
+      "name": "Aiwass, Divine Spirit of the Law",
+      "code": 84288367
+     }
+    ],
+    "line_length": 34,
     "rebuilt": false,
-    "score": 1.749,
+    "score": 1.743,
     "metrics": {
-     "field": 1.233,
+     "field": 1.228,
      "hand": 0.0,
      "floodgates": 0.0,
-     "resilience": 0.86
+     "resilience": 0.859
     },
-    "signature": "Ame no Murakumo no Mitsurugi, Invocation - \"Sword\" (set), King of the Feral Imps, Mitsurugi Great Purification (set) | hand: Aleister the Reminiscent, Mitsurugi no Mikoto, Kusanagi, Mulcharmy Purulia"
+    "signature": "Ame no Murakumo no Mitsurugi, Invocation - \"Sword\" (set), King of the Feral Imps, Mitsurugi Great Purification (set) | hand: Aleister the Reminiscent, Ame no Habakiri no Mitsurugi, Mitsurugi no Mikoto, Kusanagi, Mulcharmy Purulia"
    }
   },
   {
-   "id": "O44",
+   "id": "O41",
+   "deck": "synchrons",
+   "kind": "nuova",
+   "source": "nuova",
+   "panel": null,
+   "why": "punteggi vicini (3.47 e 3.47), 3 carte diverse",
+   "start_hand": [
+    {
+     "name": "Elfnote Regina",
+     "code": 56651978
+    },
+    {
+     "name": "Wheel Synchron",
+     "code": 60283232
+    },
+    {
+     "name": "Elfnote Tinia",
+     "code": 59581480
+    },
+    {
+     "name": "Ash Blossom & Joyous Spring",
+     "code": 14558127
+    },
+    {
+     "name": "Elfnote Power Patron",
+     "code": 12375297
+    }
+   ],
+   "a": {
+    "field": [
+     {
+      "name": "Baronne de Fleur",
+      "code": 84815190,
+      "zone": "extra_monster",
+      "position": "face-up"
+     },
+     {
+      "name": "Elfnote Lucina",
+      "code": 13597785,
+      "zone": "monster",
+      "position": "face-up"
+     },
+     {
+      "name": "Elfnote Regina",
+      "code": 56651978,
+      "zone": "monster",
+      "position": "face-up"
+     },
+     {
+      "name": "Elfnote Regina",
+      "code": 56651978,
+      "zone": "monster",
+      "position": "face-up"
+     },
+     {
+      "name": "Elfnote Seraphim Strelitzia",
+      "code": 42302563,
+      "zone": "monster",
+      "position": "face-up"
+     },
+     {
+      "name": "Elfnotes: Rhapsodia of Madness",
+      "code": 24092792,
+      "zone": "spell_trap",
+      "position": "face-up"
+     }
+    ],
+    "hand": [
+     {
+      "name": "Ash Blossom & Joyous Spring",
+      "code": 14558127
+     }
+    ],
+    "grave": [
+     {
+      "name": "Elfnote Power Patron",
+      "code": 12375297
+     },
+     {
+      "name": "Elfnote Tinia",
+      "code": 59581480
+     },
+     {
+      "name": "Wheel Synchron",
+      "code": 60283232
+     },
+     {
+      "name": "Elfnote Power Patron",
+      "code": 12375297
+     },
+     {
+      "name": "Elfnote Fortuna",
+      "code": 85976588
+     },
+     {
+      "name": "Elfnotes: Welcome Home",
+      "code": 64491754
+     }
+    ],
+    "banished": [],
+    "line_length": 49,
+    "rebuilt": false,
+    "score": 3.472,
+    "metrics": {
+     "field": 2.228,
+     "hand": 0.533,
+     "floodgates": 0.0,
+     "resilience": 1.273
+    },
+    "signature": "Baronne de Fleur, Elfnote Lucina, Elfnote Regina, Elfnote Regina, Elfnote Seraphim Strelitzia, Elfnotes: Rhapsodia of Madness | hand: Ash Blossom & Joyous Spring"
+   },
+   "b": {
+    "field": [
+     {
+      "name": "Baronne de Fleur",
+      "code": 84815190,
+      "zone": "extra_monster",
+      "position": "face-up"
+     },
+     {
+      "name": "Elfnote Lucina",
+      "code": 13597785,
+      "zone": "monster",
+      "position": "face-up"
+     },
+     {
+      "name": "Elfnote Regina",
+      "code": 56651978,
+      "zone": "monster",
+      "position": "face-up"
+     },
+     {
+      "name": "Elfnote Seraphim Strelitzia",
+      "code": 42302563,
+      "zone": "monster",
+      "position": "face-up"
+     },
+     {
+      "name": "Elfnotes: Rhapsodia of Madness",
+      "code": 24092792,
+      "zone": "spell_trap",
+      "position": "face-up"
+     },
+     {
+      "name": "Elfnotes: Welcome Home",
+      "code": 64491754,
+      "zone": "spell_trap",
+      "position": "face-up"
+     }
+    ],
+    "hand": [
+     {
+      "name": "Elfnote Tinia",
+      "code": 59581480
+     },
+     {
+      "name": "Ash Blossom & Joyous Spring",
+      "code": 14558127
+     }
+    ],
+    "grave": [
+     {
+      "name": "Elfnote Power Patron",
+      "code": 12375297
+     },
+     {
+      "name": "Elfnote Tinia",
+      "code": 59581480
+     },
+     {
+      "name": "Wheel Synchron",
+      "code": 60283232
+     },
+     {
+      "name": "Elfnote Power Patron",
+      "code": 12375297
+     },
+     {
+      "name": "Elfnote Fortuna",
+      "code": 85976588
+     }
+    ],
+    "banished": [],
+    "line_length": 46,
+    "rebuilt": false,
+    "score": 3.472,
+    "metrics": {
+     "field": 2.228,
+     "hand": 0.533,
+     "floodgates": 0.0,
+     "resilience": 1.273
+    },
+    "signature": "Baronne de Fleur, Elfnote Lucina, Elfnote Regina, Elfnote Seraphim Strelitzia, Elfnotes: Rhapsodia of Madness, Elfnotes: Welcome Home | hand: Ash Blossom & Joyous Spring, Elfnote Tinia"
+   }
+  },
+  {
+   "id": "O42",
+   "deck": "tearlaments",
+   "kind": "nuova",
+   "source": "nuova",
+   "panel": null,
+   "why": "punteggi vicini (0.50 e 0.50), 3 carte diverse",
+   "start_hand": [
+    {
+     "name": "Mezuki",
+     "code": 92826944
+    },
+    {
+     "name": "Uni-Zombie",
+     "code": 49959355
+    },
+    {
+     "name": "Pumpking the King of Grave Ghosts",
+     "code": 81684048
+    },
+    {
+     "name": "Triple Tactics Thrust",
+     "code": 35269904
+    },
+    {
+     "name": "That Grass Looks Greener",
+     "code": 11110587
+    }
+   ],
+   "a": {
+    "field": [
+     {
+      "name": "Army of the Haunted",
+      "code": 18078153,
+      "zone": "monster",
+      "position": "face-up"
+     },
+     {
+      "name": "Call of the Haunted",
+      "code": 97077563,
+      "zone": "spell_trap",
+      "position": "face-up"
+     },
+     {
+      "name": "Call of the Haunted",
+      "code": 97077563,
+      "zone": "spell_trap",
+      "position": "set"
+     },
+     {
+      "name": "Delta of Invitation",
+      "code": 3129133,
+      "zone": "spell_trap",
+      "position": "face-up"
+     },
+     {
+      "name": "Mezuki",
+      "code": 92826944,
+      "zone": "monster",
+      "position": "face-up"
+     },
+     {
+      "name": "Necroworld Banshee",
+      "code": 66570171,
+      "zone": "monster",
+      "position": "face-up"
+     },
+     {
+      "name": "Tearlaments Rulkallos",
+      "code": 84330567,
+      "zone": "extra_monster",
+      "position": "face-up"
+     },
+     {
+      "name": "Tearlaments Scream",
+      "code": 6767771,
+      "zone": "spell_trap",
+      "position": "face-up"
+     },
+     {
+      "name": "The Undying Legion",
+      "code": 43355214,
+      "zone": "monster",
+      "position": "face-up"
+     }
+    ],
+    "hand": [
+     {
+      "name": "Uni-Zombie",
+      "code": 49959355
+     },
+     {
+      "name": "Triple Tactics Thrust",
+      "code": 35269904
+     },
+     {
+      "name": "Crystal Beast Emerald Tortoise",
+      "code": 68215963
+     }
+    ],
+    "grave": [
+     {
+      "name": "Uni-Zombie",
+      "code": 49959355
+     },
+     {
+      "name": "Pumpking the King of Grave Ghosts",
+      "code": 81684048
+     },
+     {
+      "name": "Ash Blossom & Joyous Spring",
+      "code": 14558127
+     },
+     {
+      "name": "Ash Blossom & Joyous Spring",
+      "code": 14558127
+     },
+     {
+      "name": "Changshi the Spiridao",
+      "code": 76352503
+     },
+     {
+      "name": "Pumpking the King of Grave Ghosts",
+      "code": 81684048
+     },
+     {
+      "name": "Fairy Tail - Snow",
+      "code": 55623480
+     },
+     {
+      "name": "Stare of the Snake Hair",
+      "code": 54077752
+     },
+     {
+      "name": "Maxx \"C\"",
+      "code": 23434538
+     },
+     {
+      "name": "Doomking Balerdroch",
+      "code": 39185163
+     },
+     {
+      "name": "Tearlaments Grief",
+      "code": 33878367
+     },
+     {
+      "name": "That Grass Looks Greener",
+      "code": 11110587
+     },
+     {
+      "name": "Zombie World",
+      "code": 4064256
+     },
+     {
+      "name": "Foolish Burial",
+      "code": 81439173
+     },
+     {
+      "name": "Ash Blossom & Joyous Spring",
+      "code": 14558127
+     }
+    ],
+    "banished": [
+     {
+      "name": "Trivikarma",
+      "code": 7436169
+     },
+     {
+      "name": "The Black Goat Laughs",
+      "code": 49299410
+     },
+     {
+      "name": "Mezuki",
+      "code": 92826944
+     },
+     {
+      "name": "Rainbow Bridge of Salvation",
+      "code": 5611760
+     }
+    ],
+    "line_length": 40,
+    "rebuilt": false,
+    "score": 0.5,
+    "metrics": {
+     "field": 0.4,
+     "hand": 0.0,
+     "floodgates": 0.0,
+     "resilience": 0.167
+    },
+    "signature": "Army of the Haunted, Call of the Haunted, Call of the Haunted (set), Delta of Invitation, Mezuki, Necroworld Banshee, Tearlaments Rulkallos, Tearlaments Scream, The Undying Legion | hand: Crystal Beast Emerald Tortoise, Triple Tactics Thrust, Uni-Zombie"
+   },
+   "b": {
+    "field": [
+     {
+      "name": "Call of the Haunted",
+      "code": 97077563,
+      "zone": "spell_trap",
+      "position": "face-up"
+     },
+     {
+      "name": "Delta Token",
+      "code": 3129134,
+      "zone": "monster",
+      "position": "face-up"
+     },
+     {
+      "name": "Delta of Invitation",
+      "code": 3129133,
+      "zone": "spell_trap",
+      "position": "face-up"
+     },
+     {
+      "name": "Mezuki",
+      "code": 92826944,
+      "zone": "monster",
+      "position": "face-up"
+     },
+     {
+      "name": "Necroworld Banshee",
+      "code": 66570171,
+      "zone": "monster",
+      "position": "face-up"
+     },
+     {
+      "name": "Tearlaments Rulkallos",
+      "code": 84330567,
+      "zone": "extra_monster",
+      "position": "face-up"
+     },
+     {
+      "name": "Tearlaments Scream",
+      "code": 6767771,
+      "zone": "spell_trap",
+      "position": "face-up"
+     },
+     {
+      "name": "The Undying Legion",
+      "code": 43355214,
+      "zone": "monster",
+      "position": "face-up"
+     }
+    ],
+    "hand": [
+     {
+      "name": "Uni-Zombie",
+      "code": 49959355
+     },
+     {
+      "name": "Triple Tactics Thrust",
+      "code": 35269904
+     },
+     {
+      "name": "Crystal Beast Emerald Tortoise",
+      "code": 68215963
+     }
+    ],
+    "grave": [
+     {
+      "name": "Uni-Zombie",
+      "code": 49959355
+     },
+     {
+      "name": "Pumpking the King of Grave Ghosts",
+      "code": 81684048
+     },
+     {
+      "name": "Ash Blossom & Joyous Spring",
+      "code": 14558127
+     },
+     {
+      "name": "Ash Blossom & Joyous Spring",
+      "code": 14558127
+     },
+     {
+      "name": "Call of the Haunted",
+      "code": 97077563
+     },
+     {
+      "name": "Changshi the Spiridao",
+      "code": 76352503
+     },
+     {
+      "name": "Pumpking the King of Grave Ghosts",
+      "code": 81684048
+     },
+     {
+      "name": "Fairy Tail - Snow",
+      "code": 55623480
+     },
+     {
+      "name": "Stare of the Snake Hair",
+      "code": 54077752
+     },
+     {
+      "name": "Maxx \"C\"",
+      "code": 23434538
+     },
+     {
+      "name": "Doomking Balerdroch",
+      "code": 39185163
+     },
+     {
+      "name": "Tearlaments Grief",
+      "code": 33878367
+     },
+     {
+      "name": "That Grass Looks Greener",
+      "code": 11110587
+     },
+     {
+      "name": "Zombie World",
+      "code": 4064256
+     },
+     {
+      "name": "Foolish Burial",
+      "code": 81439173
+     },
+     {
+      "name": "Ash Blossom & Joyous Spring",
+      "code": 14558127
+     },
+     {
+      "name": "Stare of the Snake Hair",
+      "code": 54077752
+     }
+    ],
+    "banished": [
+     {
+      "name": "Trivikarma",
+      "code": 7436169
+     },
+     {
+      "name": "The Black Goat Laughs",
+      "code": 49299410
+     },
+     {
+      "name": "Mezuki",
+      "code": 92826944
+     },
+     {
+      "name": "Rainbow Bridge of Salvation",
+      "code": 5611760
+     }
+    ],
+    "line_length": 39,
+    "rebuilt": false,
+    "score": 0.5,
+    "metrics": {
+     "field": 0.4,
+     "hand": 0.0,
+     "floodgates": 0.0,
+     "resilience": 0.167
+    },
+    "signature": "Call of the Haunted, Delta Token, Delta of Invitation, Mezuki, Necroworld Banshee, Tearlaments Rulkallos, Tearlaments Scream, The Undying Legion | hand: Crystal Beast Emerald Tortoise, Triple Tactics Thrust, Uni-Zombie"
+   }
+  },
+  {
+   "id": "O43",
    "deck": "white_forest_azamina",
    "kind": "nuova",
    "source": "nuova",
@@ -5975,7 +7645,7 @@
      {
       "name": "Red-Eyes Dark Dragoon",
       "code": 37818794,
-      "zone": "extra_monster",
+      "zone": "monster",
       "position": "face-up"
      },
      {
@@ -5991,8 +7661,38 @@
       "code": 38648860
      }
     ],
-    "grave": 6,
-    "banished": 1,
+    "grave": [
+     {
+      "name": "Ghost Ogre & Snow Rabbit",
+      "code": 59438930
+     },
+     {
+      "name": "Elzette of the White Forest",
+      "code": 61980241
+     },
+     {
+      "name": "Maxx \"C\"",
+      "code": 23434538
+     },
+     {
+      "name": "The Gaze of Timaeus",
+      "code": 22283204
+     },
+     {
+      "name": "Witch of the White Forest",
+      "code": 4398189
+     },
+     {
+      "name": "Diabellstar the Black Witch",
+      "code": 72270339
+     }
+    ],
+    "banished": [
+     {
+      "name": "Diabellstar the Black Witch",
+      "code": 72270339
+     }
+    ],
     "line_length": 44,
     "rebuilt": false,
     "score": 1.307,
@@ -6021,13 +7721,13 @@
      {
       "name": "Magistus Chorozo",
       "code": 66532962,
-      "zone": "monster",
+      "zone": "extra_monster",
       "position": "face-up"
      },
      {
       "name": "Red-Eyes Dark Dragoon",
       "code": 37818794,
-      "zone": "extra_monster",
+      "zone": "monster",
       "position": "face-up"
      },
      {
@@ -6053,8 +7753,30 @@
       "code": 98385955
      }
     ],
-    "grave": 4,
-    "banished": 1,
+    "grave": [
+     {
+      "name": "Ghost Ogre & Snow Rabbit",
+      "code": 59438930
+     },
+     {
+      "name": "Elzette of the White Forest",
+      "code": 61980241
+     },
+     {
+      "name": "Maxx \"C\"",
+      "code": 23434538
+     },
+     {
+      "name": "The Gaze of Timaeus",
+      "code": 22283204
+     }
+    ],
+    "banished": [
+     {
+      "name": "Diabellstar the Black Witch",
+      "code": 72270339
+     }
+    ],
     "line_length": 39,
     "rebuilt": false,
     "score": 1.307,
@@ -6068,12 +7790,12 @@
    }
   },
   {
-   "id": "O45",
+   "id": "O44",
    "deck": "white_forest_azamina",
    "kind": "nuova",
    "source": "nuova",
    "panel": null,
-   "why": "punteggi vicini (0.56 e 0.56), 4 carte diverse",
+   "why": "punteggi vicini (0.73 e 0.73), 4 carte diverse",
    "start_hand": [
     {
      "name": "Mulcharmy Fuwalos",
@@ -6147,16 +7869,29 @@
       "code": 98385955
      }
     ],
-    "grave": 3,
-    "banished": 0,
+    "grave": [
+     {
+      "name": "The Gaze of Timaeus",
+      "code": 22283204
+     },
+     {
+      "name": "WANTED: Seeker of Sinful Spoils",
+      "code": 80845034
+     },
+     {
+      "name": "Mulcharmy Fuwalos",
+      "code": 42141493
+     }
+    ],
+    "banished": [],
     "line_length": 25,
     "rebuilt": false,
-    "score": 0.563,
+    "score": 0.732,
     "metrics": {
-     "field": 0.378,
+     "field": 0.491,
      "hand": 0.0,
      "floodgates": 0.0,
-     "resilience": 0.309
+     "resilience": 0.401
     },
     "signature": "Diabellstar the Black Witch, Elzette of the White Forest, Elzette, Azamina of the White Forest, Mulcharmy Fuwalos, Poplar of the White Forest, Sinful Spoils of Betrayal - Silvera (set), Witch of the White Forest | hand: Silvy of the White Forest"
    },
@@ -6165,7 +7900,7 @@
      {
       "name": "Diabell, Queen of the White Forest",
       "code": 14307929,
-      "zone": "monster",
+      "zone": "extra_monster",
       "position": "face-up"
      },
      {
@@ -6193,8 +7928,8 @@
       "position": "set"
      },
      {
-      "name": "The Gaze of Timaeus",
-      "code": 22283204,
+      "name": "WANTED: Seeker of Sinful Spoils",
+      "code": 80845034,
       "zone": "spell_trap",
       "position": "set"
      },
@@ -6211,27 +7946,44 @@
       "code": 98385955
      }
     ],
-    "grave": 4,
-    "banished": 0,
+    "grave": [
+     {
+      "name": "The Gaze of Timaeus",
+      "code": 22283204
+     },
+     {
+      "name": "Mulcharmy Fuwalos",
+      "code": 42141493
+     },
+     {
+      "name": "Mulcharmy Fuwalos",
+      "code": 42141493
+     },
+     {
+      "name": "Poplar of the White Forest",
+      "code": 5800323
+     }
+    ],
+    "banished": [],
     "line_length": 31,
     "rebuilt": false,
-    "score": 0.563,
+    "score": 0.732,
     "metrics": {
-     "field": 0.378,
+     "field": 0.491,
      "hand": 0.0,
      "floodgates": 0.0,
-     "resilience": 0.309
+     "resilience": 0.401
     },
-    "signature": "Diabell, Queen of the White Forest, Diabellstar the Black Witch, Elzette of the White Forest, Elzette, Azamina of the White Forest, Sinful Spoils of Betrayal - Silvera (set), The Gaze of Timaeus (set), Witch of the White Forest | hand: Silvy of the White Forest"
+    "signature": "Diabell, Queen of the White Forest, Diabellstar the Black Witch, Elzette of the White Forest, Elzette, Azamina of the White Forest, Sinful Spoils of Betrayal - Silvera (set), WANTED: Seeker of Sinful Spoils (set), Witch of the White Forest | hand: Silvy of the White Forest"
    }
   },
   {
-   "id": "O46",
+   "id": "O45",
    "deck": "yubel",
    "kind": "nuova",
    "source": "nuova",
    "panel": null,
-   "why": "punteggi vicini (0.99 e 0.99), 3 carte diverse",
+   "why": "punteggi vicini (1.19 e 1.19), 3 carte diverse",
    "start_hand": [
     {
      "name": "Mutiny in the Sky",
@@ -6257,12 +8009,6 @@
    "a": {
     "field": [
      {
-      "name": "Aerial Eater",
-      "code": 28143384,
-      "zone": "monster",
-      "position": "face-up"
-     },
-     {
       "name": "Eternal Favorite",
       "code": 87532344,
       "zone": "spell_trap",
@@ -6287,34 +8033,49 @@
       "position": "face-up"
      },
      {
-      "name": "S:P Little Knight",
-      "code": 29301450,
+      "name": "Unchained Soul of Rage",
+      "code": 67680512,
       "zone": "extra_monster",
       "position": "face-up"
      }
     ],
     "hand": [],
-    "grave": 1,
-    "banished": 0,
-    "line_length": 20,
+    "grave": [
+     {
+      "name": "Mutiny in the Sky",
+      "code": 71593652
+     },
+     {
+      "name": "Aerial Eater",
+      "code": 28143384
+     },
+     {
+      "name": "Unchained Soul of Sharvara",
+      "code": 41165831
+     },
+     {
+      "name": "Unchained Soul Lord of Yama",
+      "code": 24269961
+     },
+     {
+      "name": "Unchained Soul Lord of Yama",
+      "code": 24269961
+     }
+    ],
+    "banished": [],
+    "line_length": 38,
     "rebuilt": false,
-    "score": 0.988,
+    "score": 1.194,
     "metrics": {
-     "field": 0.776,
+     "field": 0.942,
      "hand": 0.0,
      "floodgates": 0.0,
-     "resilience": 0.353
+     "resilience": 0.421
     },
-    "signature": "Aerial Eater, Eternal Favorite (set), Infinite Impermanence (set), Opening of the Spirit Gates, Phantom of Yubel, S:P Little Knight | hand: "
+    "signature": "Eternal Favorite (set), Infinite Impermanence (set), Opening of the Spirit Gates, Phantom of Yubel, Unchained Soul of Rage | hand: "
    },
    "b": {
     "field": [
-     {
-      "name": "Aerial Eater",
-      "code": 28143384,
-      "zone": "monster",
-      "position": "face-up"
-     },
      {
       "name": "Infinite Impermanence",
       "code": 10045474,
@@ -6340,8 +8101,8 @@
       "position": "face-up"
      },
      {
-      "name": "S:P Little Knight",
-      "code": 29301450,
+      "name": "Unchained Soul of Rage",
+      "code": 67680512,
       "zone": "extra_monster",
       "position": "face-up"
      }
@@ -6352,18 +8113,39 @@
       "code": 71593652
      }
     ],
-    "grave": 1,
-    "banished": 0,
-    "line_length": 26,
+    "grave": [
+     {
+      "name": "Aerial Eater",
+      "code": 28143384
+     },
+     {
+      "name": "Unchained Soul of Sharvara",
+      "code": 41165831
+     },
+     {
+      "name": "Unchained Soul Lord of Yama",
+      "code": 24269961
+     },
+     {
+      "name": "Eternal Favorite",
+      "code": 87532344
+     },
+     {
+      "name": "Unchained Soul Lord of Yama",
+      "code": 24269961
+     }
+    ],
+    "banished": [],
+    "line_length": 42,
     "rebuilt": false,
-    "score": 0.988,
+    "score": 1.194,
     "metrics": {
-     "field": 0.776,
+     "field": 0.942,
      "hand": 0.0,
      "floodgates": 0.0,
-     "resilience": 0.353
+     "resilience": 0.421
     },
-    "signature": "Aerial Eater, Infinite Impermanence (set), Nightmare Pain, Opening of the Spirit Gates, Phantom of Yubel, S:P Little Knight | hand: Mutiny in the Sky"
+    "signature": "Infinite Impermanence (set), Nightmare Pain, Opening of the Spirit Gates, Phantom of Yubel, Unchained Soul of Rage | hand: Mutiny in the Sky"
    }
   }
  ]

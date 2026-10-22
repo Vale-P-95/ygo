@@ -414,7 +414,7 @@ Provato sulla prima board di tearlaments, branded, k9 e white_forest_azamina con
 Per la #47 e i pesi (#43, D17 in `docs/plans/classificazione-board.md`): poche coppie chiare, su cui il proprietario dà il verdetto da una pagina.
 
 ### Come sono fatte
-- **Script:** `scripts/owner_pairs.py`, dopo `board_pairs.py make` (le coppie di `pairs.tsv` con il codice di oggi) e `combo_hunt.py --json` (le board di oggi).
+- **Script:** `scripts/owner_pairs.py`, dopo `board_pairs.py make` (le coppie di `pairs.tsv` con il codice di oggi) e `combo_hunt.py --json` (le board di oggi, con il binario di `main` `f61f05d`).
   ```
   python3 scripts/board_pairs.py make $S/made --decks $S/mdm
   python3 scripts/combo_hunt.py $S/mdm --lines-rule --top 8 --seed 7 --json $S/hunt7
@@ -423,33 +423,31 @@ Per la #47 e i pesi (#43, D17 in `docs/plans/classificazione-board.md`): poche c
   ```
 - **Uscita:**
   - `tests/fixtures/boards/owner-pairs.tsv`: condizioni come in `pairs.tsv` (`sig=`, leggibili da `board_pairs.py`), tipo, origine, punteggi di oggi, verdetto del pannello, perché;
-  - `tests/fixtures/boards/owner-pairs.json`: per la pagina. Per ogni coppia: mano di partenza, e per A e B le carte sul campo (nome, codice, zona, posizione, bersaglio dell'equipaggiamento), la mano finale, Cimitero e bandite, lunghezza della linea, punteggio e metriche (campo, mano, floodgate, resilienza).
+  - `tests/fixtures/boards/owner-pairs.json`: per la pagina. Per ogni coppia: mano di partenza, e per A e B le carte sul campo (nome, codice, zona, posizione, bersaglio dell'equipaggiamento), la mano finale, il Cimitero e le bandite (nomi e codici), la lunghezza della linea, il punteggio e le metriche (campo, mano, floodgate, resilienza).
   - Solo nomi e codici: niente testi delle carte, niente decklist.
 - **Deck:** 16 archetipi di Master Duel Meta, al più 3 coppie per deck. blue_eyes, branded, dracotail, elfnote, elfnote_kewl_tune, exodia, fur_hire, invoked, labrynth, maliss, mitsurugi, snake_eye, synchrons, tearlaments, white_forest_azamina, yubel.
 
-### Le 46 coppie
+### Le 45 coppie
 
 | Tipo | Coppie | Come sono scelte |
 |---|---|---|
 | da confermare | 7 | Coppie «da confermare» del pannello del 21/10 (J7, J18, J20, J21, J26, J31, J35), una per deck |
-| controllo | 8 | Una board e la stessa con una carta in più sul campo, stessa mano: il verdetto atteso è A>B |
-| nuova | 31 | Le board di una mano con punteggi vicini (al più 0,15) e almeno 2 carte diverse, di cui almeno una sul campo; punteggio massimo almeno 0,5; le più diverse prima |
+| controllo | 4 | Una board e la stessa con una carta in più sul campo: stessa mano, stesso Cimitero, stesse bandite. Il verdetto atteso è A>B |
+| nuova | 34 | Le board di una mano con punteggi vicini (al più 0,15) e almeno 2 carte diverse, di cui almeno una sul campo; punteggio massimo almeno 0,5; le più diverse prima |
 
 - **Le coppie del pannello quasi non si ritrovano.** Le liste di Master Duel Meta di oggi sono cambiate, quindi la regola "-lines" estrae altre mani: `board_pairs.py make` ritrova solo J21 (elfnote_kewl_tune).
-  - Le altre 6 sono ricostruite dalla firma `sig=`, che contiene tutte le carte di campo e mano. Non hanno la mano di partenza, la linea né i punteggi di oggi (`rebuilt: true`, `score: null`).
-  - Per misurarle di nuovo servono le liste del 21/10, se la coordinatrice le ha ancora.
-- **I controlli che il codice sbaglia già:** 3 controlli su 8 hanno il punteggio di A più basso di quello di B, benché A abbia una carta in più:
-  - labrynth: 0,85 contro 1,09;
-  - synchrons: 1,98 contro 2,15;
-  - fur_hire: 1,34 contro 1,96.
+  - Le altre 6 sono ricostruite dalla firma `sig=`, che contiene tutte le carte di campo e mano. Non hanno la mano di partenza, la linea, il Cimitero né i punteggi di oggi (`rebuilt: true`, `score: null`).
+  - Per la coordinatrice va bene così: il proprietario giudica dalle carte.
+- **I controlli.**
+  - Nella prima versione un controllo chiedeva solo una carta in più sul campo e la stessa mano. Così 5 controlli su 8 avevano Cimitero o bandite diversi, e due risultavano "al contrario" per una buona ragione:
+    - Fur Hire: in B Rex, Freight Fur Hire nega dal Cimitero (+0,57);
+    - Synchrons: in B Elfnote Lucina è nel Cimitero, e Rhapsodia of Madness vale 0,76 invece di 0,58.
+  - Ora il Cimitero e le bandite devono essere uguali, carta per carta. I controlli puliti sono 4: elfnote, labrynth, snake_eye, yubel.
+  - Con il binario di `main` sono tutti giusti o pari: labrynth 1,37 contro 1,39 è un pari (meno di 0,05).
+  - La PR #48 (D15) non cambia i controlli di prima: al più 0,05 di differenza con `main`.
+- **Pari esatti:** 16 coppie nuove su 34 hanno lo stesso punteggio. Sono i casi in cui la classifica non sa scegliere.
 
-  La differenza può stare nel Cimitero o nelle risorse, che le firme non mostrano. Se il proprietario dice A>B, sono errori della misura.
-- **21 coppie nuove su 31 hanno lo stesso punteggio** (pari). Sono proprio i casi in cui la classifica non sa scegliere.
-
-### Limiti, da sistemare nella CLI (corsia 1, `crates/ygo-cli/src/main.rs`)
-- **Cimitero e bandite:** `combos --json` dà solo quante carte ci sono (`grave`, `banished`), non quali. Nel JSON ora sono numeri.
-  - Basta aggiungere in `state_json` `grave_names` e `banished_names` (nomi o codici). `owner_pairs.py` li usa da solo appena ci sono.
-  - Per il giudizio servono: alcune coppie differiscono solo lì.
+### Limiti
 - **Posizione dei mostri:** si sa solo se sono coperti (`(set)`) e se sono nella Zona Mostri Extra (`[EMZ]`). Attacco o difesa scoperta no.
 - **Zone Pendulum:** una carta Pendulum nelle Zone Magie e Trappole risulta come mostro.
 
@@ -492,6 +490,28 @@ Per la #47 e i pesi (#43, D17 in `docs/plans/classificazione-board.md`): poche c
 
 ### Problemi
 *I numeri di questa sezione sono **prima** della correzione di L4-1, che la coordinatrice ha trovato in `follow.rs`: `Picked` confrontava anche il controllore della carta. Con la correzione, su Tearlaments e Branded contro 12 deck, le mosse fatte su campo vuoto passano dall'89% al 96%. Il giro completo si rifà dopo il merge, con i numeri prima e dopo separati.*
+
+### Dopo la correzione di `Picked` (`main` `f61f05d`, con la #46)
+Stesse 222 prove (6 board × 37 deck, seme 7).
+
+| | `48efae0` | `main` `f61f05d` |
+|---|---|---|
+| Mosse fatte su campo vuoto | 88,0% | **96,3%** (21520 su 22351) |
+| Deck al 90% o più | 21 su 37 | **32 su 37** |
+| Lunalight | 60% | 99% |
+| Chimera | 74% | 97% |
+| Megalith | 64% | 83% |
+| Branded | 63% | 76% |
+| Labrynth | 80% | 80% |
+| Errori | 37 (Tearlaments) | 37 (Tearlaments, L4-2 non ancora corretta) |
+| `against its lines` (2 prove alla volta) | mediana 6,0 s, p90 11,4 | mediana 6,8 s, p90 12,8 |
+| Contro Lunalight | 85-500 s | 64-624 s |
+
+#### L4-6 (media). Il rigioco dell'avversario si ferma prima della sua Fase Finale
+- **Branded e Labrynth:** le mosse non fatte sono sempre la coda della linea. Sono effetti dal Cimitero della Fase Finale: Titaniklad the Ash Dragon, Incredible Ecclesia, Blazing Cartesia, Despian Luluwalilith ("During the End Phase, if this card was sent to the GY this turn").
+- **Traccia** (`DUELFORGE_DEBUG_PROBE=2`, invoked contro labrynth, linea 2): il rigioco si ferma all'ultimo `IdleCmd` della Main Phase ("Set Dominus Impulse | ... | End turn"). La Fase Finale non arriva mai.
+- **Correzione:** rigiocare anche la Fase Finale dell'avversario, rispondendo con le risposte della sua linea. Oppure non contare come mosse quelle della Fase Finale, perché arrivano dopo la battaglia e servono al turno dopo.
+- **Megalith (83%):** le mosse si perdono a metà linea (Mitsurugi e rituali, effetti dal Cimitero). È un'altra causa, da guardare con la traccia.
 
 #### L4-1 (alta). La carta pescata nel turno 2 sposta le scelte della linea dell'avversario
 - **Riprodurre:**

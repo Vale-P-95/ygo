@@ -94,15 +94,19 @@ def field_entry(cards, text):
     return out
 
 
+def cards_of(cards, names):
+    return [{"name": n, "code": cards.code(n)} for n in names]
+
+
 def board_of(cards, deck, hand, item):
     m = item.get("measure") or {}
     codes = item.get("hand") or [cards.code(n) for n in item["hand_names"]]
     return {
         "field": [field_entry(cards, f) for f in item["field"]],
         "hand": [{"name": cards.name(c), "code": c} for c in codes],
-        # The names when the CLI writes them; until then, how many.
-        "grave": item.get("grave_names", item.get("grave")),
-        "banished": item.get("banished_names", item.get("banished")),
+        # The cards when the CLI writes their names; with an older CLI, how many.
+        "grave": cards_of(cards, item["grave_names"]) if "grave_names" in item else item.get("grave"),
+        "banished": cards_of(cards, item["banished_names"]) if "banished_names" in item else item.get("banished"),
         "line_length": item.get("choices"),
         # Rebuilt from a signature of pairs.tsv: no line, no measure today.
         "rebuilt": "signature" in item and "measure" not in item,
@@ -161,8 +165,9 @@ def from_made(cards, made, wanted):
 def superset(a, b):
     """A has every card of B, on the field and in the hand, and more on the field,
     with the same GY and banishment (a card in B's GY can still work there)."""
-    if (a.get("grave_names", a.get("grave")), a.get("banished_names", a.get("banished"))) != \
-            (b.get("grave_names", b.get("grave")), b.get("banished_names", b.get("banished"))):
+    zones = lambda x: tuple(sorted(x[k]) if isinstance(x.get(k), list) else x.get(k)  # noqa: E731
+                            for k in (("grave_names" if "grave_names" in x else "grave"), ("banished_names" if "banished_names" in x else "banished")))
+    if zones(a) != zones(b):
         return False
     fa, fb = card_bag({"field": a["field"], "hand_names": []}), card_bag({"field": b["field"], "hand_names": []})
     ha, hb = card_bag({"field": [], "hand_names": a["hand_names"]}), card_bag({"field": [], "hand_names": b["hand_names"]})
