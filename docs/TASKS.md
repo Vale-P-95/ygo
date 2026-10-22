@@ -26,7 +26,11 @@ Corsie di lavoro in parallelo del 22/10/2026 (piano in `docs/plans/piano-prossim
   - i mostri dell'Extra Deck piazzati con i materiali (Apollousa non più a 0 ATK);
   - la prova dell'estensore che non riparte da un turno nuovo (Evocazione Normale ed effetti "una volta per turno" già usati restano usati).
 
-  Con il protocollo del motore (banco prima e dopo). Agente: claude-code, sessione sorella nuova. Branch: `claude/placed-cards`. File: la parte delle carte piazzate di `crates/ygo-engine/src/duel.rs`, `crates/ygo-solver/src/roles.rs`, `value.rs` e i loro test.
+  Con il protocollo del motore (banco prima e dopo). Agente: claude-code, sessione sorella nuova. Branch: `claude/placed-cards`. File: la parte delle carte piazzate di `crates/ygo-engine/src/duel.rs`; `crates/ygo-engine/src/ffi.rs`, `crates/ygo-engine/shim/` e `crates/ygo-engine/build.rs` solo se servono; `crates/ygo-solver/src/roles.rs`, `value.rs`; i loro test (`crates/ygo-engine/tests/`, `crates/ygo-solver/tests/` per i file nuovi); `docs/plans/carte-piazzate.md`.
+  - [ ] Equipaggiamenti piazzati con il mostro equipaggiato.
+  - [ ] Mostri dell'Extra Deck piazzati con i materiali.
+  - [ ] Prova dell'estensore nello stesso turno dello starter.
+  - [ ] Banco, ruoli e valori prima e dopo; PR.
 - [ ] Classificazione delle board più profonda, con criteri validati sui deck di Master Duel Meta (#47): **ferma fino alla fine della corsia 1**, poi D10 e D13 (D5–D7 saltati, decisione del 22/10). Agente: claude-code. Branch: `claude/yugioh-deck-builder-simulator-cax0ya`. I file si riprendono allora: `probe.rs`, `explain.rs`, `tests/probe.rs` (`value.rs` e `lib.rs` liberi intanto).
   - Piano: `docs/plans/classificazione-board.md` (passi D0–D17; giudizio dato da un pannello di agenti, non dal proprietario).
   - [x] D0a: `combos --json/--save-lines`, `probe-line`.
