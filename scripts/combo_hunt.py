@@ -31,6 +31,7 @@ def main() -> int:
     parser.add_argument("decks", help="folder of .ydk files")
     parser.add_argument("--hands", type=int, default=2)
     parser.add_argument("--nodes", type=int, default=3000)
+    parser.add_argument("--seconds", type=int, default=600, help="time limit of each search")
     parser.add_argument("--top", type=int, default=5, help="boards put through the probe turn")
     parser.add_argument("--cli", default=os.path.join(ROOT, "target", "release", "duelforge-cli"))
     parser.add_argument("--logs", help="folder for the full output of each run")
@@ -56,7 +57,7 @@ def main() -> int:
         for k in range(1 if args.lines_rule else args.hands):
             hand = random.Random(f"{name}-lines" if args.lines_rule else f"{name}-{k}").sample(main_deck, 5)
             command = [args.cli, "--data", os.path.join(ROOT, "data"), "combos", "--deck", path, "--hand", ";".join(hand),
-                       "--nodes", str(args.nodes), "--seconds", "600", "--threads", "1", "--top", str(args.top), "--probe"]
+                       "--nodes", str(args.nodes), "--seconds", str(args.seconds), "--threads", "1", "--top", str(args.top), "--probe"]
             if args.seed is not None:
                 command += ["--seed", str(args.seed)]
             if args.json:

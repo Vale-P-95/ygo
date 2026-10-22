@@ -14,8 +14,8 @@ Corsie di lavoro in parallelo del 22/10/2026 (piano in `docs/plans/piano-prossim
 
   L1–L3 e L5 sono in `main` (PR #38); restano L4 (corsia 3) e L6 (Gemini). Lock dei file tolto.
 - [ ] **Corsia 2.** Deck lenti (piano P3):
-  - un giro su 37 deck × 6 mani a 1000 nodi, con il tempo oltre il limite per fase;
-  - poi la scadenza anche per `zone_variants` (si perdono solo varianti di zona) e per `confirm_best` (le board non confermate restano stimate, `exact: false`), con il banco prima e dopo.
+  - [x] un giro su 37 deck × 6 mani a 1000 nodi, con il tempo oltre il limite per fase (fatto su 41 deck; più un giro a 20 s senza limite di nodi; numeri in `docs/plans/velocita-ricerca.md`);
+  - [x] poi la scadenza anche per `zone_variants` (si perdono solo varianti di zona) e per `confirm_best` (le board non confermate restano stimate, `exact: false`), con il banco prima e dopo.
 
   Dopo: il backend del Banditore v2, cioè gli stati delle carte prima dell'ultima lista, salvati a ogni aggiornamento (`ygo-data`, poi `lib.rs` e `api.ts`, presi solo se la corsia 1 non li tiene).
 
