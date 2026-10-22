@@ -525,13 +525,14 @@ fn combos(dir: &Path, setup: &Setup, options: CombosOptions) -> Result<()> {
         measured: Option<Result<ygo_solver::Measure, ygo_engine::Error>>,
         took: std::time::Duration,
         exposure: Option<ygo_solver::Exposure>,
+        loss: Option<(ygo_solver::probe::ExpectedLoss, std::time::Duration)>,
     }
     let mut boards: Vec<Listed> = Vec::new();
     for (_, group) in &groups {
         let variants = group.len() - 1;
         let mut best: Option<Listed> = None;
         for &board in group.iter().take(if probe { MEASURED_VARIANTS } else { 1 }) {
-            let mut item = Listed { board, variants, measured: None, took: std::time::Duration::ZERO, exposure: None };
+            let mut item = Listed { board, variants, measured: None, took: std::time::Duration::ZERO, exposure: None, loss: None };
             if probe {
                 let started = std::time::Instant::now();
                 item.measured = Some(prober.measure(&board.line));
@@ -544,8 +545,17 @@ fn combos(dir: &Path, setup: &Setup, options: CombosOptions) -> Result<()> {
         }
         let Some(mut item) = best else { continue };
         if probe {
-            item.exposure =
-                ygo_solver::exposure(&engine, &config.deck, &config.hand, config.seed, config.opponent.as_ref(), &item.board.line).ok();
+            let points = ygo_solver::explain::exposure_points(
+                &engine,
+                &config.deck,
+                &config.hand,
+                config.seed,
+                config.opponent.as_ref(),
+                &item.board.line,
+            )
+            .ok();
+            item.exposure = points.as_ref().map(|(x, _)| *x);
+            item.loss = points.and_then(|(x, points)| expected_loss(&mut prober, &item.board.line, &x, &points));
         }
         boards.push(item);
     }
@@ -561,7 +571,7 @@ fn combos(dir: &Path, setup: &Setup, options: CombosOptions) -> Result<()> {
         rank_of[i] = rank;
     }
     for (rank, &i) in printed.iter().enumerate() {
-        let Listed { board, variants, measured, took, exposure } = &boards[i];
+        let Listed { board, variants, measured, took, exposure, loss } = &boards[i];
         let variants = *variants;
         let me = &board.state.players[0];
         let zone = |(z, c): (usize, &ygo_engine::FieldCard)| {
@@ -612,6 +622,9 @@ fn combos(dir: &Path, setup: &Setup, options: CombosOptions) -> Result<()> {
                 x.lp_paid
             );
         }
+        if let Some((l, took)) = loss {
+            print_loss(l, *took);
+        }
         if show_lines {
             let (_, steps) = ygo_solver::explain(&engine, &config.deck, &config.hand, config.seed, config.opponent.as_ref(), &board.line)?;
             for (k, step) in steps.iter().enumerate() {
@@ -631,6 +644,9 @@ fn combos(dir: &Path, setup: &Setup, options: CombosOptions) -> Result<()> {
             let measured = item.measured.as_ref().and_then(|m| m.as_ref().ok());
             let mut b = board_json(&engine, &config, item.board, i, item.variants, measured, item.took, item.exposure.as_ref());
             b["printed"] = serde_json::json!(rank_of[i]);
+            if let Some((l, took)) = &item.loss {
+                b["expected_loss"] = loss_json(l, *took);
+            }
             measured_boards.push(b);
         }
         saved_lines.push(line_json(&item.board.line));
@@ -880,7 +896,9 @@ fn probe_line(
         let started = std::time::Instant::now();
         let measured = prober.measure(&line);
         let took = started.elapsed();
-        let exposure = ygo_solver::exposure(&engine, &deck, &hand, seed, opponent.as_ref(), &line).ok();
+        let points = ygo_solver::explain::exposure_points(&engine, &deck, &hand, seed, opponent.as_ref(), &line).ok();
+        let exposure = points.as_ref().map(|(x, _)| *x);
+        let loss = points.and_then(|(x, points)| expected_loss(&mut prober, &line, &x, &points));
         let me = &state.players[0];
         println!(
             "#{} field: {}",
@@ -891,7 +909,13 @@ fn probe_line(
             Ok(m) => print_measure(&engine, m, took),
             Err(e) => println!("   probe turn failed: {e}"),
         }
+        if let Some((l, took)) = &loss {
+            print_loss(l, *took);
+        }
         let mut extra = serde_json::json!({ "index": i });
+        if let Some((l, took)) = &loss {
+            extra["expected_loss"] = loss_json(l, *took);
+        }
         if let (true, Ok(m)) = (protection, &measured) {
             let started = std::time::Instant::now();
             let pieces = prober.protection(&line, &m.interruptions);
@@ -1125,6 +1149,52 @@ fn matchup_json(x: &ygo_solver::Matchup) -> serde_json::Value {
             "code": h.code, "chance": h.chance, "windows": h.windows, "stops": h.stops, "at": h.at, "drawn": h.drawn,
             "moments": h.moments.iter().map(|m| serde_json::json!({ "playing": m.playing, "stops": m.stops, "drawn": m.drawn })).collect::<Vec<_>>(),
         })).collect::<Vec<_>>(),
+    })
+}
+
+/// What the handtraps are expected to take away from `line` (B6), with
+/// the default chances of the app, and how long it took.
+fn expected_loss(
+    prober: &mut ygo_solver::Prober,
+    line: &ygo_solver::Line,
+    exposure: &ygo_solver::Exposure,
+    points: &[ygo_solver::explain::ChokePoint],
+) -> Option<(ygo_solver::probe::ExpectedLoss, std::time::Duration)> {
+    let started = std::time::Instant::now();
+    let rates = ygo_solver::probe::HandTrapRates::default();
+    let loss = prober.expected_loss(line, points, exposure.special_summons, &rates).ok()?;
+    Some((loss, started.elapsed()))
+}
+
+fn loss_label(kind: ygo_solver::explain::ChokeKind) -> &'static str {
+    use ygo_solver::explain::ChokeKind;
+    match kind {
+        ChokeKind::DeckTouch => "Ash",
+        ChokeKind::FieldEffect => "Veiler/Impermanence",
+        ChokeKind::FifthSummon => "Nibiru",
+        ChokeKind::SecondSearch => "Droll",
+    }
+}
+
+fn print_loss(l: &ygo_solver::probe::ExpectedLoss, took: std::time::Duration) {
+    let kinds: Vec<String> = l.losses.iter().map(|&(k, v)| format!("{} {v:.2}", loss_label(k))).collect();
+    println!(
+        "   expected loss to handtraps ({:.1} s, {} cuts): {:.2} · lost at worst: {} · Maxx \"C\" {:.2}",
+        took.as_secs_f64(),
+        l.cuts,
+        l.expected,
+        if kinds.is_empty() { "nothing".to_owned() } else { kinds.join(", ") },
+        l.maxx
+    );
+}
+
+fn loss_json(l: &ygo_solver::probe::ExpectedLoss, took: std::time::Duration) -> serde_json::Value {
+    serde_json::json!({
+        "expected": l.expected,
+        "losses": l.losses.iter().map(|&(k, v)| serde_json::json!([loss_label(k), v])).collect::<Vec<_>>(),
+        "maxx": l.maxx,
+        "cuts": l.cuts,
+        "seconds": took.as_secs_f64(),
     })
 }
 
