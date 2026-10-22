@@ -32,7 +32,7 @@ export function RivalMoves({ board, matchup, getCard, onHover, onHoverEnd }: Riv
     setData(null);
     setSelectedStopIdx(null);
     setHoveredStopIdx(null);
-  }, [board.key, matchup.deckId]);
+  }, [board.hand, board.key, matchup.deckId]);
 
   const loadMoves = async () => {
     const reqId = ++requestIdRef.current;
@@ -261,7 +261,7 @@ export function RivalMoves({ board, matchup, getCard, onHover, onHoverEnd }: Riv
                             {card?.name ?? `#${stop.code}`}
                           </p>
                           <div className="flex items-center gap-1.5 text-[10px] text-muted">
-                            <span className="rounded bg-surface-3 px-1 py-0.2">{stop.place}</span>
+                            <span className="rounded bg-surface-3 px-1.5 py-0.5">{stop.place}</span>
                             <span className="truncate">{stop.effect}</span>
                           </div>
                         </div>
@@ -313,7 +313,9 @@ export function RivalMoves({ board, matchup, getCard, onHover, onHoverEnd }: Riv
                         <span className="text-[10px] text-muted">
                           {line.moves.length === 0
                             ? "Solo carte Settate"
-                            : `${line.moves.length} ${line.moves.length === 1 ? "mossa" : "mosse"}`}
+                            : lineMoves.length === 0
+                              ? "Non misurata"
+                              : `${lineMoves.length} ${lineMoves.length === 1 ? "mossa" : "mosse"}`}
                         </span>
                       </div>
 
@@ -345,7 +347,9 @@ export function RivalMoves({ board, matchup, getCard, onHover, onHoverEnd }: Riv
                     {/* Moves sequence */}
                     {lineMoves.length === 0 ? (
                       <p className="py-1 text-center text-xs italic text-faint">
-                        Solo carte Settate (nessuna mossa attiva tentata nel turno)
+                        {line.moves.length === 0
+                          ? "Solo carte Settate (nessuna mossa attiva tentata nel turno)"
+                          : "Linea non misurata: la partita rigiocata non è arrivata in fondo"}
                       </p>
                     ) : (
                       <div className="flex flex-col gap-1.5">
@@ -429,7 +433,7 @@ export function RivalMoves({ board, matchup, getCard, onHover, onHoverEnd }: Riv
                                 </span>
 
                                 {isStoppedByActive && (
-                                  <span className="shrink-0 rounded bg-sec/20 px-1.5 py-0.2 text-[9px] font-bold text-sec">
+                                  <span className="shrink-0 rounded bg-sec/20 px-1.5 py-0.5 text-[9px] font-bold text-sec">
                                     ⚡ Fermata da questa risposta
                                   </span>
                                 )}
