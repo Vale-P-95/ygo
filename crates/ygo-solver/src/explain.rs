@@ -2,7 +2,7 @@
 //! reaches: what the Combo Lab shows for a board.
 
 use ygo_engine::consts::{location, reason};
-use ygo_engine::{italian, ActionKind, CardDb, DeckList, Duel, DuelState, Engine, Error, Event, Opponent, Step};
+use ygo_engine::{italian, ActionKind, CardDb, Decision, DeckList, Duel, DuelState, Engine, Error, Event, Opponent, Step};
 
 use crate::search::Line;
 
@@ -174,6 +174,29 @@ impl Exposure {
     }
 }
 
+/// The kind of handtrap that stops a line at a choke point.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub enum ChokeKind {
+    /// An effect that takes a card from the Deck (Ash Blossom & Joyous Spring).
+    DeckTouch,
+    /// A monster effect activated on the field (Effect Veiler, Infinite
+    /// Impermanence, Ghost Ogre & Snow Rabbit).
+    FieldEffect,
+    /// The fifth summon (Nibiru, the Primal Being).
+    FifthSummon,
+    /// The second card added from the Deck (Droll & Lock Bird).
+    SecondSearch,
+}
+
+/// A moment of a line where a handtrap stops it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ChokePoint {
+    pub kind: ChokeKind,
+    /// The line's answer given at your free moment where what is stopped
+    /// began: played up to it (not included), the turn can end there.
+    pub answer: usize,
+}
+
 /// Plays `line` again and counts its [`Exposure`].
 pub fn exposure(
     engine: &Engine,
@@ -183,6 +206,18 @@ pub fn exposure(
     opponent: Option<&Opponent>,
     line: &Line,
 ) -> Result<Exposure, Error> {
+    exposure_points(engine, deck, hand, seed, opponent, line).map(|(x, _)| x)
+}
+
+/// [`exposure`], and where each choke point is in the line.
+pub fn exposure_points(
+    engine: &Engine,
+    deck: &DeckList,
+    hand: &[u32],
+    seed: u64,
+    opponent: Option<&Opponent>,
+    line: &Line,
+) -> Result<(Exposure, Vec<ChokePoint>), Error> {
     let mut duel = Duel::goldfish_against(engine, deck, hand, seed, opponent)?;
     let mut out = Exposure::default();
     // Chain links: yours, and already counted for Ash; the link resolving.
@@ -245,12 +280,31 @@ pub fn exposure(
             }
         }
     };
-    for answer in &line.answers {
-        let Step::Decision { events, .. } = duel.advance()? else { break };
+    // The choke points: what each count reached after the events of a
+    // step, against what it was before, at the last free moment.
+    let mut points = Vec::new();
+    let mut idle: Option<usize> = None;
+    let note = |before: &Exposure, after: &Exposure, idle: Option<usize>, points: &mut Vec<ChokePoint>| {
+        let Some(answer) = idle else { return };
+        let mut add = |kind, n: u32| points.extend((0..n).map(|_| ChokePoint { kind, answer }));
+        add(ChokeKind::DeckTouch, after.ash - before.ash);
+        add(ChokeKind::FieldEffect, after.on_field - before.on_field);
+        add(ChokeKind::FifthSummon, u32::from(before.summons < 5 && after.summons >= 5));
+        add(ChokeKind::SecondSearch, u32::from(before.searches < 2 && after.searches >= 2));
+    };
+    for (i, answer) in line.answers.iter().enumerate() {
+        let Step::Decision { decision, events } = duel.advance()? else { break };
+        let before = out;
         count(&events, &mut out);
+        note(&before, &out, idle, &mut points);
+        if matches!(decision, Decision::IdleCmd { player: 0, .. }) {
+            idle = Some(i);
+        }
         duel.respond(answer);
     }
     let (Step::Decision { events, .. } | Step::End { events }) = duel.advance()?;
+    let before = out;
     count(&events, &mut out);
-    Ok(out)
+    note(&before, &out, idle, &mut points);
+    Ok((out, points))
 }
