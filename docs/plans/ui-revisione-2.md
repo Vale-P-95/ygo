@@ -57,6 +57,7 @@ Un branch e una PR per passo, in quest'ordine. Il passo 0 è la base degli altri
 - **Strumento di screenshot** per confrontare prima e dopo: uno script con Playwright (`apps/desktop/scripts/screens.mjs`, solo devDependency) con `VITE_MOCK=1`.
   - Fotografa ogni pagina a 1280×800 e 1920×1080, in tutti e due i temi.
   - Le immagini restano fuori dal repository. Nella PR vanno solo le più utili.
+- *Completato il 22/10/2026 (Gemini):* aggiunti i token di tipografia e spaziatura in `src/index.css` con classi di utilità; installato `lucide-react` (ISC) per il set unico di icone; creati i componenti base accessibili `IconButton`, `FilterChip`, `HelpPopover`, `SidePanel` e `Toolbar` con logica pura di collasso testata in Vitest (`Toolbar.test.ts`); creato lo script `screens.mjs` con Playwright e axe.
 
 ### Passo 1. Collegamenti (`gemini/ui-links`)
 File: `src/components/lab/links/*`.
