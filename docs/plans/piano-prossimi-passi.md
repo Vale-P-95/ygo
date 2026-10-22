@@ -100,26 +100,27 @@ Le cause sono in `docs/plans/turno-di-prova-matchup.md` («Livello 2: collaudo s
 - Mentre gira, i tempi del banco non sono affidabili: le prove di stanotte giravano in 4 insieme, con tempi gonfiati di 3-4 volte.
 - Ogni sessione sorella ha un container suo, con core suoi: è lavoro e calcolo in più, non diviso.
 
-**Proposta: quattro corsie, non di più.**
+**Corsie decise il 22/10** (il proprietario ha approvato le cinque corsie; i lock sono in `docs/TASKS.md`):
 
-| Corsia | Chi | Branch | File (lock) | Cosa | Quando |
-|---|---|---|---|---|---|
-| 1 | Claude, questa sessione (coordina e rivede) | `claude/yugioh-deck-builder-simulator-cax0ya` | `probe.rs`, `matchup.rs`; per L5 `lib.rs` e `api.ts` | P1, poi P2 | dopo le decisioni P0 |
-| 2 | sessione sorella «deck lenti» | `claude/slow-decks` | `search.rs`, `scripts/` | P3 | subito: `search.rs` non serve alla corsia 1 |
-| 3 | sessione sorella «collaudo» | `claude/tools-qa` (esiste) | `scripts/`, `docs/plans/collaudo-strumenti.md` | collaudo di P1 (L4) e di P3 sui suoi core; poi le coppie per D10 e D13 | quando L3 è pronto |
-| 4 | Gemini | `gemini/banditore` | `apps/desktop/src/` | P4 (Banditore v1, poi livello 2) | subito |
-| — | proprietario | — | — | decisioni P0; prove nell'app (#26, #30-#32); scelte nel confronto della #26 | quando vuoi |
+| Corsia | Chi | Branch | File (lock) | Cosa |
+|---|---|---|---|---|
+| 1 | Claude, questa sessione (coordina e rivede) | `claude/yugioh-deck-builder-simulator-cax0ya` | `probe.rs`, `matchup.rs`; per L5 `lib.rs` e `api.ts` | P1, poi P2 |
+| 2 | sessione sorella della velocità | `claude/search-speed` | `search.rs`, `scripts/`; poi `ygo-data` | P3, poi il backend del Banditore v2 |
+| 3 | sessione sorella del collaudo | `claude/tools-qa` | `scripts/`, `docs/plans/collaudo-strumenti.md`, `tests/fixtures/boards/` | coppie di board da far giudicare al proprietario; poi il collaudo di P1 (L4) e di P3 sui suoi core |
+| 4 | sessione sorella nuova | `claude/placed-cards` | carte piazzate in `ygo-engine/src/duel.rs`, `roles.rs`, `value.rs` | carte piazzate e ruoli (PIANO §30.4) |
+| 5 | Gemini | `gemini/banditore` | `apps/desktop/src/` | P4: Il Banditore v1, poi il livello 2 |
+| — | proprietario | — | — | prove nell'app (#26, #30-#32); giudizi delle coppie di board |
 
-**Perché non di più:**
-- **File caldi.** P1 e P2 toccano entrambi `probe.rs`, e `lib.rs`/`api.ts` li usa una corsia alla volta. Una quinta corsia sul motore si scontrerebbe con la 1.
-- **Quota.** Ogni sessione consuma quota, e ogni PR va rivista: circa mezz'ora di revisione mia.
+**Perché cinque e non di più:**
+- **File caldi.** P1 e P2 toccano entrambi `probe.rs`, e `lib.rs`/`api.ts` li usa una corsia alla volta. La corsia 4 è stata scelta perché tocca solo file liberi.
+- **Revisioni.** Ogni PR va rivista: circa mezz'ora di revisione mia. Con più di tre sessioni sorelle la revisione diventa il collo di bottiglia.
 - **Minuti di GitHub Actions.**
-  - Ogni PR costa una CI Rust di circa 11 minuti.
-  - Le prove lunghe restano nei container: farle sulle macchine di GitHub brucerebbe i minuti contati del repository privato.
+  - Ogni PR costa una CI Rust di circa 11 minuti; le prove lunghe restano nei container.
+  - Budget: speso circa 2,5 $ su 10 tra il 21 e il 22/10; il proprietario lo alza se serve.
   - L'installer Windows solo su `main`.
 
 **Benefici attesi:**
-- P1, P3 e P4 insieme durano circa 2 giorni invece di 4.
+- P1, P3, P4 e le carte piazzate insieme durano circa 2 giorni invece di 5.
 - I giri di collaudo girano sui core delle altre sessioni, quindi qui banco e tempi restano puliti.
 - Ogni corsia ha file suoi, quindi nessun conflitto di merge oltre a `TASKS.md`. Ognuno ci scrive solo la sua riga.
 
@@ -127,7 +128,14 @@ Le cause sono in `docs/plans/turno-di-prova-matchup.md` («Livello 2: collaudo s
 - Una sessione sorella può fermarsi a metà (quota, container riavviato, come stanotte). Rimedio: commit piccoli e pushati a ogni passo, e il TASKS aggiornato.
 - Due PR che toccano gli stessi documenti. Rimedio: ognuna scrive in un file di piano suo; `STATO.md` lo aggiorna solo Claude.
 
-## Cosa serve dal proprietario
-1. Le quattro decisioni di P0.
-2. Il via alle corsie 2 e 3 (due sessioni sorelle) e a Gemini sul Banditore v1.
-3. Quando puoi: le prove nell'app della #26 (con qualche confronto di board registrato), della #30, della #31 e della #32.
+## Decisioni del 22/10
+Il proprietario ha lasciato P0 al giudizio di Claude:
+1. La PR #35 si unisce.
+2. Il livello 2 si rifà con le linee vere (P1).
+3. Deck lenti: prima la misura su 37 deck. Poi la scadenza anche per `zone_variants` e `confirm_best`; le board non confermate restano stimate.
+4. #47: D10 e D13; D5–D7 saltati.
+5. La rete neurale come valutatore imparato resta un'idea per dopo la #47 (`docs/plans/valutatore-imparato.md`).
+
+Dal proprietario, quando può:
+- le prove nell'app della #26, della #30, della #31 e della #32;
+- i giudizi delle coppie di board preparate dalla corsia 3.
