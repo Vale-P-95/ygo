@@ -97,6 +97,7 @@ Ogni correzione è generale: niente nomi di carte. Segue il protocollo del motor
   - La distanza serve solo a ordinare, mai a tagliare, così il verdetto «impossibile» resta corretto.
   - Tra le linee che raggiungono l'obiettivo vince quella con la board più forte.
   - **Controllo:** nodi alla prima soluzione −30% su un insieme fisso di obiettivi raggiungibili; i verdetti «impossibile» restano uguali.
+  - **B4a, fatto (22/10, corsia 2):** dalla diagnosi in `ricerca-esperimenti.md` §3, una carta dell'obiettivo scelta in una selezione che la manda via (suggerimenti del motore 500-504, 507, 511-513, 533) va per ultima nella discesa, e il ramo perde priorità in coda se era l'ultima copia. Le 4 mani Invoked, 1 thread, 60 s: «Oceanus + S:P» da 0/4 a 4/4 (1,3-5,9 s), «Oceanus@extra + S:P» da 0/4 a 4/4 (7,0-28,8 s). Test `a_goal_card_is_not_sent_away_first` in `search_regression`.
 - **B8. Obiettivi più ricchi.**
   - Ogni carta dell'obiettivo dice il posto: Mostro Principale o Extra, Magia/Trappola coperta o scoperta, Terreno, Cimitero, bandita, mano.
   - Ci sono anche atomi sull'avversario, come le carte tolte dal suo Extra Deck, e il segno duro o morbido.
