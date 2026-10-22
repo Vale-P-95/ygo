@@ -162,4 +162,5 @@ Leggendo le mosse tipiche di Elfnote Kewl Tune con 24 mani (seme 7) sono serviti
 - **Correzione:** i giri di apprendimento hanno una scadenza, 10 secondi dopo il limite di tempo della ricerca (o dopo il loro inizio, se cominciano più tardi). Se una board non finisce entro la scadenza, la sua misura non si usa e il giro si ferma.
   - Sulla mano lenta: da 170 a 116 secondi, stessa board migliore (14,4).
   - Banco (16 mani, 4000 nodi): uscite identiche in tutto tranne i tempi. Sulle mani normali una board si misura in meno di un secondo e la scadenza non scatta.
+  - `combo_hunt.py --seed 7` (37 deck, 74 mani): 73 identiche. In `radiant_typhoon_zoodiac-1` le board passano da 584 a 585, ma la build di prima rifatta tre volte dà sempre 585: è una variazione rara che c'era già (forse un ordine di `HashMap`), non viene dalla scadenza.
 - **Resta:** `confirm_best` e `zone_variants` non guardano il limite di tempo. Tagliarli cambia le board confermate, quindi è da decidere. L'alternativa è un limite di istruzioni Lua per ogni richiesta del motore: si potrebbe mettere nello shim, ma cambierebbe le linee trovate su questi deck.
