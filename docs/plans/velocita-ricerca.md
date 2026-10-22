@@ -462,3 +462,10 @@ Nessun codice nella ricerca: misure e stime, per decidere.
   - il riuso dei duelli di oggi, che l'arena rende inutile: ogni ricerca riparte da una copia del duello appena preparato;
   - Windows: `VirtualAlloc`, e `GetWriteWatch` per le pagine sporche;
   - nessuna allocazione fuori arena durante un duello: da contare e controllare, come fa ygo-combo-solver.
+
+### B13, PR 1: l'arena nel motore (22/10/2026, corsia 2)
+- **Cosa c'è:** `shim/arena.cpp` prende il posto di `new.cpp`. Ogni duello creato con `arena_duels(true)` ha la sua arena, in uno di 256 posti fissi da 4 GiB riservati (Linux `mmap` con `MAP_NORESERVE`, Windows `VirtualAlloc` con commit a passi di 1 MB). Ogni chiamata al motore entra nell'arena del suo duello; un blocco liberato torna all'arena a cui appartiene, trovata dall'indirizzo.
+- **`Duel::save`/`restore`:** copiano la parte usata dell'arena e il lato Rust del duello (`SavedDuel`). Ripristinare la copia di un altro duello è un errore. Se l'arena si riempie, le allocazioni ripiegano su mimalloc e il duello non si può più salvare: `save` lo dice con un errore leggibile, senza crash.
+- **Nessun uso nella ricerca:** senza `arena_duels(true)` tutto resta com'era (riuso dei duelli compreso). La ricerca le userà nella PR 2.
+- **Prove:** `tests/arena.rs` gioca 12 linee casuali, salva a metà e confronta tre ripristini con il replay senza arena, passo per passo. La CI ha un job Windows (`engine-windows`) che compila il motore e gira i suoi test quando una PR tocca `crates/ygo-engine`, `vendor/` o la CI.
+- **Protocollo** (37 deck, 4000 nodi, alternati con `main`): banco con ricerca 134,9/130,1 s su `main` e 130,4/134,3 s con la PR, board identiche tranne la nota differenza di arrotondamento di inv-aleister. `combo_hunt --seed 7`: 82 mani, stesse board e stesse linee, 0 problemi.
