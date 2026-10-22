@@ -19,7 +19,9 @@ Corsie di lavoro in parallelo del 22/10/2026 (piano in `docs/plans/piano-prossim
 
   Dopo: il backend del Banditore v2, cioè gli stati delle carte prima dell'ultima lista, salvati a ogni aggiornamento (`ygo-data`, poi `lib.rs` e `api.ts`, presi solo se la corsia 1 non li tiene). Fatto, in una PR separata dalla P3: tabella `ban_changes` in `cards.db`, riportata da un aggiornamento delle carte all'altro; comando `ban_changes`, `api.banChanges(format?)` e stub in `mock.ts`.
 
-  Agente: claude-code, sessione sorella della velocità. Branch: `claude/search-speed`. File: `crates/ygo-solver/src/search.rs`, `scripts/`; poi `crates/ygo-data/`, `crates/ygo-cli/src/main.rs` (una riga), `apps/desktop/src-tauri/src/lib.rs`, `apps/desktop/src/lib/api.ts` e `mock.ts` (lock preso il 22/10: la L5 della corsia 1 è unita).
+  - [ ] Misura delle istruzioni Lua per richiesta del motore (P3, «in misura»): conteggio solo con `DUELFORGE_LUA_COUNT`, giro su 41 deck × 2 mani a 20 s, soglia per deck che toglierebbe i secondi oltre il limite di elfnote e kewl_tune e quante richieste normali la supererebbero. Senza la variabile banco e `combo_hunt --seed 7` identici. Il tetto vero, se serve, in una PR a parte.
+
+  Agente: claude-code, sessione sorella della velocità. Branch: `claude/search-speed`. File (lock del 22/10 per la misura Lua): uno shim nuovo in `crates/ygo-engine/shim/`, `crates/ygo-engine/build.rs`, una funzione nuova in `crates/ygo-engine/src/duel.rs`, `scripts/`, `docs/plans/velocita-ricerca.md`. Banditore v2 unito (PR #45): `lib.rs`, `api.ts` e `mock.ts` liberi.
 - [ ] **Corsia 3.** Collaudo:
   - prima, le coppie di board da far giudicare al proprietario (circa 15 deck, le coppie dove la classifica è più incerta), per la #47 e i pesi (#43);
   - poi il collaudo del livello 2 con le linee vere (L4) e quello dei deck lenti.
