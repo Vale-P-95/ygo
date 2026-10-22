@@ -341,3 +341,55 @@ dracotail-0 resta sopra 60 s: le sue 11 misure costano circa 3 s l'una. Per scen
 **Cambio rimasto** (`search.rs`). Un giro di apprendimento non comincia una board che non finirebbe prima della scadenza, a giudicare dalla misura più lunga del giro: tagliata a metà, non insegna niente. Sulle prove qui sopra non scatta mai, e la mano lenta finisce come prima.
 
 Il tempo di queste mani lo accorcia l'utente, scegliendo il limite nell'app; la ricerca più efficiente è il lavoro del piano critico (`docs/plans/ricerca-piano-critico.md`, A2 e B1-B7).
+
+## Dove va il lavoro della ricerca (A2 del piano critico, 22/10/2026, corsia 2)
+**Strumento.** Con `DUELFORGE_SEARCH_STATS=1` la ricerca stampa alla fine una riga `search-stats` su stderr; senza, non registra niente (banco con e senza: uscite identiche). `scripts/search_stats.py <cartella>` somma le righe di tutte le ricerche. Per ogni discesa (un replay della linea dal principio, poi la prima risposta a ogni scelta fino alla fine del turno o a un taglio) conta:
+- come finisce, con i suoi nodi, il tempo del replay e il tempo totale;
+- la board migliore che legge, rispetto alla migliore della ricerca;
+- le risposte dopo cui niente di visibile cambia;
+- la posizione della risposta giusta, a ogni passo della linea migliore, tra quelle provate.
+
+**Giri.** Banco: 16 mani, 4000 nodi, un thread. `combo_hunt --seed 7`: 82 mani, 3000 nodi, `--top 5 --probe`, 4 giri insieme. `main` cc8a122 più la PR #64.
+
+| | Banco | `combo_hunt` |
+|---|---|---|
+| nodi | 60 211 | 222 071 |
+| tempo della ricerca | 148,0 s | 619,8 s |
+| di cui nelle discese | 87,6 s | 342,2 s |
+| replay della linea dal principio | 69,9 s (80% delle discese) | 266,8 s (78%) |
+| giri di apprendimento durante la ricerca | 28,5 s | 62,9 s |
+| fasi dopo la ricerca | 33,1 s | 223,3 s |
+| turno di prova e stampa | — | 859 s (58% del tempo totale di 1479 s) |
+
+**Come finiscono le discese** (`combo_hunt`; il banco è simile):
+
+| Fine | % nodi | % tempo delle discese |
+|---|---|---|
+| fine del turno, board letta | 73,5% | 66,6% |
+| nodo già esplorato per altre scelte | 15,6% | 18,3% |
+| nodo già esplorato con le stesse scelte in altro ordine | 9,3% | 10,2% |
+| ogni risposta riporta dove un'altra linea va già | 1,4% | 4,5% |
+| altro (negata, giro, handtrap inutile) | 0,2% | 0,4% |
+
+- **Board lette:** il 19% del tempo delle discese va in discese che non leggono nessuna board (quasi tutte finiscono su un nodo già esplorato). Il 73% va in discese con board sotto il 90% della migliore, l'8% in discese vicine alla migliore.
+- **Risposte che non cambiano niente di visibile:** 23,8% dei nodi. Sono i passi delle selezioni a più carte (`Choose`, 26 741) e la scelta di un'Evocazione Speciale prima dei suoi materiali (`SpecialSummon`, 21 521).
+- **Ordinamento delle mosse:** sulla linea migliore la risposta giusta era la prima provata nel 77% dei passi, la seconda nell'8%, la terza nel 4%, oltre la decima nello 0,3%.
+
+**I tre sprechi più grandi.**
+
+| | % nodi | % tempo della ricerca |
+|---|---|---|
+| 1. Replay delle linee dal principio del duello: ogni discesa rigioca tutte le risposte già date per arrivare al suo nodo | — | 43% (78-80% del tempo delle discese) |
+| 2. Discese che finiscono su un nodo già esplorato (altre scelte 15,6%, altro ordine 9,3%, risposte che riportano indietro 1,4%) | 26,3% | 18% (33% del tempo delle discese) |
+| 3. Nodi senza cambi visibili (passi delle selezioni a più carte, scelta dell'Evocazione prima dei materiali) | 23,8% | non misurato a parte: ogni nodo in più allunga anche i replay successivi |
+
+Fuori dalla ricerca, in `combo_hunt` pesa di più il turno di prova (58% del tempo totale) delle fasi dopo la ricerca (15%) e dei giri di apprendimento (4%).
+
+**Cosa ne segue per la fase B.**
+- **B2 (ordini scambiabili)** toglie al più il 9,3% dei nodi e il 10% del tempo delle discese: è lo spreco misurato più chiaro.
+- **B3 (chiave dei nodi)** tocca la parte "altre scelte" (15,6%) solo se quelle scelte arrivano davvero allo stesso stato; da misurare con la chiave più fine.
+- **B1 (ordinamento)** ha poco margine: la risposta giusta è già la prima nel 77% dei passi.
+- **Il replay** è lo spreco più grande e nessun punto B lo tocca. Due strade, entrambe nel motore e nella ricerca:
+  - discese più lunghe per replay, cioè più risposte lasciate in coda per ogni replay;
+  - un'istantanea del duello a metà turno, come quella che già riusa il duello all'inizio, per ripartire da un nodo senza rigiocare.
+- **I nodi senza cambi visibili** si potrebbero contare come un solo passo: una selezione a più carte, o un'Evocazione con i suoi materiali.
