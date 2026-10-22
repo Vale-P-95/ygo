@@ -393,3 +393,35 @@ Fuori dalla ricerca, in `combo_hunt` pesa di più il turno di prova (58% del tem
   - discese più lunghe per replay, cioè più risposte lasciate in coda per ogni replay;
   - un'istantanea del duello a metà turno, come quella che già riusa il duello all'inizio, per ripartire da un nodo senza rigiocare.
 - **I nodi senza cambi visibili** si potrebbero contare come un solo passo: una selezione a più carte, o un'Evocazione con i suoi materiali.
+
+## B0: il replay, studio delle strade (22/10/2026, corsia 2)
+Nessun codice nella ricerca: misure e stime, per decidere.
+
+**Dove va il tempo di una discesa.** Profilo con callgrind di una mano del banco (inv-r1, 300 nodi), dentro `play`:
+
+| Parte | Quota |
+|---|---|
+| rigiocare le risposte della linea (`advance` sul prefisso) | 45% |
+| preparare il duello: azzeramento e carte aggiunte (`goldfish_against_from`) | 29% |
+| esplorare i nodi nuovi | 17% |
+| leggere lo stato, chiavi, resto del nostro codice | meno del 10% |
+
+- Del rigiocare, il 98% è il motore (`OCG_DuelProcess`, quasi tutto Lua); leggere i messaggi è circa l'1%.
+- Della preparazione, circa due terzi sono le carte aggiunte: 111 per duello, ognuna con il suo `initial_effect` in Lua. Un terzo è il duello nuovo o riusato.
+- Sul banco ogni discesa rigioca in media 56 risposte per 4 nodi nuovi. Solo il 3,8% delle risposte rigiocate viene dopo l'ultimo momento libero (una finestra di scelta senza effetti a metà, Main Phase o catena aperta).
+
+**Le strade.**
+
+| Strada | Guadagno stimato | Costo e rischio |
+|---|---|---|
+| 1. Ordinare le discese perché condividano il prefisso | nessuno da sola: un duello non torna indietro, quindi due discese possono condividere un prefisso solo partendo da una copia | — |
+| 2. Discese più lunghe per replay | quasi nessuno: arrivano già alla fine del turno; il replay sprecato è quello delle discese che finiscono su nodi già visti (33% del tempo delle discese), e lo tolgono B2 e B3 prima del replay | — |
+| 3. Replay più economico dal nostro lato (saltare letture di messaggi e stato) | 1-2% del tempo delle discese | piccolo, ma inutile |
+| 4. Copia del duello dopo le carte aggiunte, prima di `OCG_StartDuel`: tutti i replay di una ricerca partono dalla stessa situazione | fino al 29% del tempo delle discese, circa il 15% della ricerca; anche le misure dell'apprendimento e del turno di prova con lo stesso mazzo | medio: estende il riuso dei duelli (`shim/reuse.cpp`), riportando le carte e i loro effetti allo stato iniziale invece di ricrearli; controllo già pronto con `DUELFORGE_CHECK_REUSE` (ogni passo confrontato con un duello nuovo). Una o due settimane |
+| 5. Copie del duello ai momenti liberi, tenute in una cache (le più recenti o i prefissi con più risposte in coda); ogni discesa riparte dalla copia più vicina | fino al 96% delle risposte rigiocate più la preparazione: circa il 70% del tempo delle discese, il 35-40% della ricerca, se la cache trova la copia spesso e se ripristinarla costa molto meno di 5,6 ms (il replay medio di oggi) | grande: copiare e ripristinare carte, effetti, gruppi, campo, catena e tabelle Lua a metà turno; ai momenti liberi non ci sono coroutine sospese, che Lua non sa copiare. Più settimane, rischio alto; si costruisce sopra la strada 4 |
+
+**Proposta.**
+1. Prima la strada 4: guadagno certo, sopra il meccanismo già provato del riuso e con lo stesso controllo.
+2. Poi misurare quanto costa ripristinare quella copia rispetto a un replay. Se costa molto meno, la strada 5 (la vera istantanea a metà turno) vale il suo costo; altrimenti si ferma alla 4.
+3. Le strade 1-3 non valgono il lavoro.
+4. Nessuna richiede modifiche a `vendor/ygopro-core`: tutto passa dallo shim, come oggi.
