@@ -121,14 +121,26 @@ pub fn parse_cardinfo(json: &[u8]) -> Result<Vec<Card>, Error> {
     Ok(response.data.into_iter().map(Card::from).collect())
 }
 
-/// Parses the `checkDBVer.php` response: `[{"database_version": "147.37", ...}]`.
-pub fn parse_db_version(json: &[u8]) -> Result<String, Error> {
+/// The card data version YGOPRODeck reports.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DbVersion {
+    pub version: String,
+    /// Day of the last update (`YYYY-MM-DD`), when reported.
+    pub date: Option<String>,
+}
+
+/// Parses the `checkDBVer.php` response: `[{"database_version": "147.37", "last_update": "2026-10-16", ...}]`.
+pub fn parse_db_version(json: &[u8]) -> Result<DbVersion, Error> {
     #[derive(Deserialize)]
     struct Version {
         database_version: String,
+        last_update: Option<String>,
     }
     let versions: Vec<Version> = serde_json::from_slice(json)?;
-    versions.into_iter().next().map(|v| v.database_version).ok_or_else(|| Error::Data("empty database version".into()))
+    let v = versions.into_iter().next().ok_or_else(|| Error::Data("empty database version".into()))?;
+    // Only the day counts (some responses carry a time too).
+    let date = v.last_update.and_then(|d| d.get(..10).map(str::to_owned)).filter(|d| crate::banlist::is_date(d));
+    Ok(DbVersion { version: v.database_version, date })
 }
 
 #[cfg(test)]
@@ -137,7 +149,9 @@ mod tests {
 
     #[test]
     fn parses_db_version() {
-        assert_eq!(parse_db_version(br#"[{"database_version":"147.37","last_update":"2026-10-16"}]"#).unwrap(), "147.37");
+        let v = parse_db_version(br#"[{"database_version":"147.37","last_update":"2026-10-16 08:00:00"}]"#).unwrap();
+        assert_eq!(v, DbVersion { version: "147.37".into(), date: Some("2026-10-16".into()) });
+        assert_eq!(parse_db_version(br#"[{"database_version":"147.38"}]"#).unwrap().date, None);
     }
 
     #[test]
