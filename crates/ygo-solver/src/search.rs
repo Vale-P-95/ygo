@@ -876,10 +876,15 @@ fn card_hash(state: &DuelState, kind: (usize, bool), c: &ygo_engine::FieldCard) 
 pub fn quick_score(engine: &Engine, state: &DuelState, hand_traps: &[u32], values: &CardValues) -> f64 {
     let me = &state.players[0];
     let mut score = 0.0;
-    for c in me.monsters.iter().flatten() {
+    for (z, c) in me.monsters.iter().enumerate() {
+        let Some(c) = c else { continue };
         let extra = engine.cards().get(c.code).is_some_and(|d| d.type_ & card_type::EXTRA != 0);
-        // A face-down monster applies no effect (a set Extra Deck monster almost never flips).
+        let spot = if z >= 5 { Spot::Extra } else { Spot::Main };
+        // A face-down monster applies no effect (a set Extra Deck monster
+        // almost never flips). A monster measured counts for what it stops
+        // (`of_field`), and a little as a body; the others by their kind.
         score += match (extra, c.is_face_up()) {
+            (_, true) if values.measured(engine, c.code, spot) => MEASURED_BODY,
             (true, true) => 2.0,
             (true, false) => 0.3,
             (false, _) => 1.0,
@@ -917,6 +922,10 @@ pub fn quick_score(engine: &Engine, state: &DuelState, hand_traps: &[u32], value
         .sum::<f64>();
     score + VALUE_WEIGHT * values.of_field(engine, state)
 }
+
+/// What a face-up monster whose value was measured adds to the estimate
+/// besides that value: a body to use as material or to block an attack.
+const MEASURED_BODY: f64 = 0.3;
 
 /// Weight in the estimate of what the cards on the field stop, alone
 /// (1 = an interruption that negates anything once): an Invoked Mechaba

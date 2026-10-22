@@ -44,6 +44,35 @@ pub enum Spot {
     Hand,
     /// In the hand, while you control a card.
     HandWithField,
+    /// [`Spot::Main`] with your hand empty (some effects cost a card from
+    /// the hand, or work only while it is empty).
+    MainNoHand,
+    /// [`Spot::Extra`] with your hand empty.
+    ExtraNoHand,
+    /// [`Spot::FaceUp`] with your hand empty.
+    FaceUpNoHand,
+}
+
+impl Spot {
+    /// The same spot with your hand empty, for the spots measured both ways.
+    fn without_hand(self) -> Option<Spot> {
+        match self {
+            Spot::Main => Some(Spot::MainNoHand),
+            Spot::Extra => Some(Spot::ExtraNoHand),
+            Spot::FaceUp => Some(Spot::FaceUpNoHand),
+            _ => None,
+        }
+    }
+
+    /// Where the card is put to be measured (the spot with a hand).
+    fn on_field(self) -> Spot {
+        match self {
+            Spot::MainNoHand => Spot::Main,
+            Spot::ExtraNoHand => Spot::Extra,
+            Spot::FaceUpNoHand => Spot::FaceUp,
+            other => other,
+        }
+    }
 }
 
 /// Measured values of single cards on the field ([`Spot`] by [`Spot`]).
@@ -77,17 +106,22 @@ impl CardValues {
         self.values.get(&(code, spot)).copied().unwrap_or(0.0)
     }
 
-    /// The sum of the values of your cards on the field in `state`.
+    /// The sum of the values of your cards on the field in `state` (with
+    /// your hand empty, their values measured so when they were).
     pub fn of_field(&self, engine: &Engine, state: &DuelState) -> f64 {
         if self.values.is_empty() {
             return 0.0;
         }
         let me = &state.players[0];
+        let value = |code: u32, spot: Spot| match spot.without_hand() {
+            Some(empty) if me.hand.is_empty() && self.measured(engine, code, empty) => self.get(engine, code, empty),
+            _ => self.get(engine, code, spot),
+        };
         let monsters = me.monsters.iter().enumerate().filter_map(|(z, c)| {
             let c = c.as_ref().filter(|c| c.is_face_up())?;
-            Some(self.get(engine, c.code, if z >= 5 { Spot::Extra } else { Spot::Main }))
+            Some(value(c.code, if z >= 5 { Spot::Extra } else { Spot::Main }))
         });
-        let spells = me.spells.iter().flatten().map(|c| self.get(engine, c.code, if c.is_face_up() { Spot::FaceUp } else { Spot::Set }));
+        let spells = me.spells.iter().flatten().map(|c| value(c.code, if c.is_face_up() { Spot::FaceUp } else { Spot::Set }));
         monsters.chain(spells).sum()
     }
 
@@ -110,6 +144,11 @@ impl CardValues {
             }
             Some(&v) => InHand::Usable(v),
         }
+    }
+
+    /// Whether `code` was measured at `spot` (its value, 0 included, is known).
+    pub fn measured(&self, engine: &Engine, code: u32, spot: Spot) -> bool {
+        self.values.contains_key(&(engine.cards().canonical_code(code), spot))
     }
 
     /// Whether the handtrap `code` can be used from the hand at `spot`.
@@ -137,7 +176,8 @@ impl CardValues {
     }
 }
 
-/// The cards of `deck` that can stay on the field, and where.
+/// The cards of `deck` that can stay on the field, and where (with your
+/// hand and without it).
 fn spots(engine: &Engine, deck: &DeckList) -> Vec<(u32, Spot)> {
     let db = engine.cards();
     let mut out = Vec::new();
@@ -145,9 +185,11 @@ fn spots(engine: &Engine, deck: &DeckList) -> Vec<(u32, Spot)> {
         let code = db.canonical_code(code);
         let Some(card) = db.get(code) else { continue };
         let t = card.type_;
-        let mut add = |spot| {
-            if !out.contains(&(code, spot)) {
-                out.push((code, spot));
+        let mut add = |spot: Spot| {
+            for spot in std::iter::once(spot).chain(spot.without_hand()) {
+                if !out.contains(&(code, spot)) {
+                    out.push((code, spot));
+                }
             }
         };
         if t & card_type::MONSTER != 0 {
@@ -170,6 +212,8 @@ fn placement(engine: &Engine, code: u32, spot: Spot, filler: u32) -> Vec<Placeme
     let t = engine.cards().get(code).map_or(0, |c| c.type_);
     let at = |location, sequence, position| Placement::new(code, location, sequence, position);
     match spot {
+        // Put there the same way; only the prober's hand differs.
+        Spot::MainNoHand | Spot::ExtraNoHand | Spot::FaceUpNoHand => placement(engine, code, spot.on_field(), filler),
         Spot::Main | Spot::Extra => {
             let mut p = at(location::MZONE, if spot == Spot::Main { 2 } else { 5 }, position::FACEUP_ATTACK);
             if t & card_type::XYZ != 0 {
@@ -241,6 +285,7 @@ pub fn card_values(engine: &Engine, deck: &DeckList, seed: u64, kit: &Kit, hand_
         for _ in 0..threads.clamp(1, todo.len().max(1)) {
             s.spawn(|| {
                 let mut prober = Prober::new(engine, &with_hand, &hand, seed, kit);
+                let mut no_hand = Prober::new(engine, deck, &[], seed, kit);
                 loop {
                     let i = next.fetch_add(1, Ordering::Relaxed);
                     let Some(&(code, spot)) = todo.get(i) else { break };
@@ -252,6 +297,7 @@ pub fn card_values(engine: &Engine, deck: &DeckList, seed: u64, kit: &Kit, hand_
                             (m.hand_value, m.offered.iter().any(|&(c, loc)| db.canonical_code(c) == code && loc == location::HAND))
                         })
                     } else {
+                        let prober = if spot.on_field() == spot { &mut prober } else { &mut no_hand };
                         prober.measure_placed_unbroken(&placed).map(|m| (m.field_value + FLOODGATE_WEIGHT * m.floodgate_value, true))
                     };
                     // A turn that could not be played tells nothing: left unmeasured.
