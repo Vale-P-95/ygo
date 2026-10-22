@@ -1,6 +1,41 @@
 import type { CardLink, CardLinkKind } from "../../../lib/api";
 
+import type { LinkCard } from "../../../lib/api";
+
 export type CardLinkZone = CardLink["zone"];
+
+/** Threshold above which a card is considered a key bottleneck hub. */
+export const KEY_CARD_THRESHOLD = 0.2;
+
+export interface FormattedChance {
+  text: string;
+  isEstimated: boolean;
+  tooltip: string;
+}
+
+/** Formats card reach chance consistently as exact or measured estimate (≈ X%). */
+export function formatChance(card: Pick<LinkCard, "chance" | "extra" | "measured">): FormattedChance {
+  if (card.extra && card.chance === 0) {
+    return {
+      text: "—",
+      isEstimated: false,
+      tooltip: "Non raggiungibile dalla mano iniziale",
+    };
+  }
+  const pct = Math.round(card.chance * 100);
+  if (card.measured) {
+    return {
+      text: `≈ ${pct}%`,
+      isEstimated: true,
+      tooltip: "Misurata sulle mani cercate dal motore (±5%)",
+    };
+  }
+  return {
+    text: `${pct}%`,
+    isEstimated: false,
+    tooltip: "Probabilità combinatoria esatta calcolata dalla mano iniziale",
+  };
+}
 
 export interface LinkKindMeta {
   id: CardLinkKind;

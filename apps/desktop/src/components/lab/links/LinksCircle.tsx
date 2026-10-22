@@ -2,8 +2,13 @@ import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { cardImage, type Card, type CardLink, type LinkCard, type LinksComparison } from "../../../lib/api";
 import { prefersReducedMotion } from "../../../lib/settings";
 import { sound } from "../../../lib/sound";
-import { calculateCircleGeometry, getCardBorderColor, getLabelCoordinates } from "./layout";
-import { isLinkTextOnly, LINK_KINDS, linkKey, type LinksFilterState } from "./types";
+import {
+  calculateCircleGeometry,
+  getCardBorderColor,
+  getEdgePath,
+  getRadialLabelLayout,
+} from "./layout";
+import { isLinkTextOnly, KEY_CARD_THRESHOLD, LINK_KINDS, linkKey, type LinksFilterState } from "./types";
 
 interface Props {
   cards: LinkCard[];
@@ -37,11 +42,12 @@ export function LinksCircle({
   onHoverCard,
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [dimensions, setDimensions] = useState<{ width: number; height: number }>({ width: 740, height: 620 });
+  const [dimensions, setDimensions] = useState<{ width: number; height: number }>({ width: 740, height: 600 });
   const markerIdPrefix = useId().replace(/:/g, "_");
   const reduceMotion = prefersReducedMotion();
 
-  // ResizeObserver for dynamic circle scaling across any screen or split layout
+  // ResizeObserver for dynamic circle scaling across any screen
+  // Measured container has an explicit layout-controlled height to prevent feedback loops
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
@@ -164,11 +170,11 @@ export function LinksCircle({
   return (
     <div
       ref={containerRef}
-      className="relative flex items-center justify-center w-full h-full min-h-[520px] overflow-hidden select-none"
+      className="relative w-full h-[clamp(520px,calc(100vh-280px),720px)] min-h-[520px] overflow-hidden select-none"
     >
       <svg
         viewBox={geometry.viewBox}
-        className="w-full h-full"
+        className="absolute inset-0 w-full h-full"
         style={{ overflow: "visible" }}
       >
         <defs>
@@ -177,7 +183,7 @@ export function LinksCircle({
               key={kind}
               id={`${markerIdPrefix}-arrow-${kind}`}
               viewBox="0 0 10 10"
-              refX="14"
+              refX="9"
               refY="5"
               markerUnits="userSpaceOnUse"
               markerWidth="7"
@@ -191,7 +197,7 @@ export function LinksCircle({
           <marker
             id={`${markerIdPrefix}-arrow-gained`}
             viewBox="0 0 10 10"
-            refX="14"
+            refX="9"
             refY="5"
             markerUnits="userSpaceOnUse"
             markerWidth="8"
@@ -203,7 +209,7 @@ export function LinksCircle({
           <marker
             id={`${markerIdPrefix}-arrow-lost`}
             viewBox="0 0 10 10"
-            refX="14"
+            refX="9"
             refY="5"
             markerUnits="userSpaceOnUse"
             markerWidth="7"
@@ -216,7 +222,7 @@ export function LinksCircle({
           <marker
             id={`${markerIdPrefix}-arrow-path`}
             viewBox="0 0 10 10"
-            refX="14"
+            refX="9"
             refY="5"
             markerUnits="userSpaceOnUse"
             markerWidth="9"
@@ -266,10 +272,8 @@ export function LinksCircle({
             const pTo = positions.get(l.to);
             if (!pFrom || !pTo) return null;
 
-            // Compute quadratic bezier curve pulling towards center (0, 0)
-            const kPull = 0.35;
-            const cx = ((pFrom.x + pTo.x) / 2) * kPull;
-            const cy = ((pFrom.y + pTo.y) / 2) * kPull;
+            // Compute edge path ending precisely at target node's border
+            const edge = getEdgePath(pFrom, pTo, pFrom.radius, pTo.radius);
 
             const isRelated = targetCode != null && (l.from === targetCode || l.to === targetCode);
             const meta = LINK_KINDS[l.kind];
@@ -286,7 +290,7 @@ export function LinksCircle({
                 (l.zone === "deck" || l.zone === "extra")
               : false;
 
-            // Opacity & styling
+            // Opacity & styling - preserve semantic stroke dash patterns
             let opacity = 0.25;
             let strokeWidth = l.used > 0 ? 1.5 + l.used * 2 : 1.2;
             let strokeColor = meta.color;
@@ -294,13 +298,11 @@ export function LinksCircle({
             let markerId = `${markerIdPrefix}-arrow-${l.kind}`;
 
             if (isPath) {
-              // Highlighted shortest path from A to B
               strokeColor = "var(--sec)";
               markerId = `${markerIdPrefix}-arrow-path`;
               strokeWidth = 3.5;
               opacity = 1;
             } else if (sampleHandCodes) {
-              // Sample hand overlay active
               if (isGained) {
                 strokeColor = "var(--df-ok)";
                 markerId = `${markerIdPrefix}-arrow-gained`;
@@ -332,7 +334,6 @@ export function LinksCircle({
               strokeWidth = 2;
               opacity = isRelated || targetCode == null ? 0.85 : 0.15;
             } else if (isTextOnly) {
-              // Fainter stroke for text-only links
               strokeDash = "2 3";
               strokeWidth = 1;
               opacity = isRelated ? 0.45 : 0.08;
@@ -351,18 +352,12 @@ export function LinksCircle({
               opacity = 0.03;
             }
 
-            // Directional animated pulse on active/focused links
-            const shouldAnimate = !reduceMotion && (isRelated || isPath) && opacity > 0.5;
-            if (shouldAnimate) {
-              strokeDash = "7 4";
-            }
-
-            const pathD = `M ${pFrom.x} ${pFrom.y} Q ${cx} ${cy} ${pTo.x} ${pTo.y}`;
+            const shouldPulse = !reduceMotion && (isRelated || isPath) && opacity > 0.5;
 
             return (
               <path
                 key={`${l.from}-${l.to}-${l.kind}-${idx}`}
-                d={pathD}
+                d={edge.pathD}
                 fill="none"
                 stroke={strokeColor}
                 strokeWidth={strokeWidth}
@@ -371,12 +366,20 @@ export function LinksCircle({
                 markerEnd={opacity > 0.07 ? `url(#${markerId})` : undefined}
                 className="transition-all duration-200"
               >
-                {shouldAnimate && (
+                {shouldPulse && strokeDash && (
                   <animate
                     attributeName="stroke-dashoffset"
-                    from="22"
+                    from="14"
                     to="0"
                     dur="1.2s"
+                    repeatCount="indefinite"
+                  />
+                )}
+                {shouldPulse && !strokeDash && (
+                  <animate
+                    attributeName="stroke-opacity"
+                    values={`${opacity * 0.75};${opacity};${opacity * 0.75}`}
+                    dur="1.5s"
                     repeatCount="indefinite"
                   />
                 )}
@@ -421,9 +424,9 @@ export function LinksCircle({
               nodeOpacity = 0.3;
             }
 
-            // Truncated label for circle perimeter (12-13px)
-            const displayName = name.length > 20 ? name.slice(0, 18) + "…" : name;
-            const labelCoord = getLabelCoordinates(pos, 8);
+            // Radial label transform & anchor ensuring clean divergence without overlap
+            const displayName = name.length > 18 ? name.slice(0, 16) + "…" : name;
+            const labelLayout = getRadialLabelLayout(pos, R);
 
             // Copies badge geometry on the node border
             const badgeR = Math.max(7, Math.min(10, Math.round(nodeR * 0.38)));
@@ -436,8 +439,8 @@ export function LinksCircle({
               `${name}${c.extra ? " (Extra Deck)" : ""}`,
               `Tipo: ${card?.kind === "monster" ? card.humanType || "Mostro" : card?.kind === "spell" ? "Magia" : card?.kind === "trap" ? "Trappola" : "Carta"}`,
               `Copie nel mazzo: ×${c.copies}`,
-              `Raggiungibilità: ${c.reach} su ${c.reachAll}`,
-              c.key >= 0.2 ? `★ Carta chiave del deck (−${c.key.toFixed(2)})` : null,
+              `Porta a ${c.reach} ${c.reach === 1 ? "carta" : "carte"} in 1 passo, ${c.reachAll} in tutti i passi`,
+              c.key >= KEY_CARD_THRESHOLD ? `★ Carta chiave del deck (−${c.key.toFixed(2)})` : null,
               inSampleHand ? "Nella mano di prova attuale" : null,
               isAdded ? "Nuova carta aggiunta nel confronto" : null,
               isRemoved ? "Carta rimossa nel confronto" : null,
@@ -454,11 +457,6 @@ export function LinksCircle({
                 data-tip={tooltipContent}
                 className={`transition-opacity duration-200 outline-none ${matches ? "cursor-pointer" : "pointer-events-none"}`}
                 opacity={nodeOpacity}
-                transform={isHovered ? `translate(${pos.x}, ${pos.y}) scale(1.18) translate(${-pos.x}, ${-pos.y})` : undefined}
-                style={{
-                  transition: "transform 0.18s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s ease",
-                  transformOrigin: `${pos.x}px ${pos.y}px`,
-                }}
                 onClick={() => {
                   if (!matches) return;
                   sound.play("page");
@@ -475,168 +473,182 @@ export function LinksCircle({
                 onPointerEnter={() => onHoverCard(c.code)}
                 onPointerLeave={() => onHoverCard(null)}
               >
-                {/* Hand overlay highlight ring */}
-                {inSampleHand && (
-                  <circle
-                    cx={pos.x}
-                    cy={pos.y}
-                    r={nodeR + 6}
-                    fill="none"
-                    stroke="var(--df-gold)"
-                    strokeWidth="3"
-                    className="anim-fade"
-                  />
-                )}
-                {isReachedFromHand && !inSampleHand && (
-                  <circle
-                    cx={pos.x}
-                    cy={pos.y}
-                    r={nodeR + 4}
-                    fill="none"
-                    stroke="var(--sec)"
-                    strokeWidth="2"
-                    strokeDasharray="3 2"
-                    className="anim-fade"
-                  />
-                )}
+                {/* Fixed invisible hit-area circle preventing pointer jitter or hover oscillation */}
+                <circle
+                  cx={pos.x}
+                  cy={pos.y}
+                  r={Math.max(nodeR + 4, 18)}
+                  fill="transparent"
+                  pointerEvents="all"
+                />
 
-                {/* Path node highlight ring */}
-                {isPathNode && !inSampleHand && (
-                  <circle
-                    cx={pos.x}
-                    cy={pos.y}
-                    r={nodeR + 5}
-                    fill="none"
-                    stroke="var(--sec)"
-                    strokeWidth="2.5"
-                    className="anim-fade"
-                  />
-                )}
+                {/* Inner graphical group that safely scales without moving pointer hit-area */}
+                <g
+                  transform={isHovered ? `translate(${pos.x}, ${pos.y}) scale(1.18) translate(${-pos.x}, ${-pos.y})` : undefined}
+                  style={{ pointerEvents: "none", transition: "transform 0.18s cubic-bezier(0.16, 1, 0.3, 1)" }}
+                >
+                  {/* Hand overlay highlight ring */}
+                  {inSampleHand && (
+                    <circle
+                      cx={pos.x}
+                      cy={pos.y}
+                      r={nodeR + 6}
+                      fill="none"
+                      stroke="var(--df-gold)"
+                      strokeWidth="3"
+                      className="anim-fade"
+                    />
+                  )}
+                  {isReachedFromHand && !inSampleHand && (
+                    <circle
+                      cx={pos.x}
+                      cy={pos.y}
+                      r={nodeR + 4}
+                      fill="none"
+                      stroke="var(--sec)"
+                      strokeWidth="2"
+                      strokeDasharray="3 2"
+                      className="anim-fade"
+                    />
+                  )}
 
-                {/* Focus / Selection outer ring */}
-                {isFocused && !inSampleHand && !isPathNode && (
+                  {/* Path node highlight ring */}
+                  {isPathNode && !inSampleHand && (
+                    <circle
+                      cx={pos.x}
+                      cy={pos.y}
+                      r={nodeR + 5}
+                      fill="none"
+                      stroke="var(--sec)"
+                      strokeWidth="2.5"
+                      className="anim-fade"
+                    />
+                  )}
+
+                  {/* Focus / Selection outer ring */}
+                  {isFocused && !inSampleHand && !isPathNode && (
+                    <circle
+                      cx={pos.x}
+                      cy={pos.y}
+                      r={nodeR + 4}
+                      fill="none"
+                      stroke={
+                        isAdded
+                          ? "var(--df-ok)"
+                          : isRemoved
+                            ? "var(--df-danger)"
+                            : c.key >= KEY_CARD_THRESHOLD
+                              ? "var(--df-gold)"
+                              : "var(--sec)"
+                      }
+                      strokeWidth="2.5"
+                      className="anim-fade"
+                    />
+                  )}
+
+                  {/* Comparison ring (when not focused) */}
+                  {!isFocused && !inSampleHand && !isPathNode && (isAdded || isRemoved || isChanged) && (
+                    <circle
+                      cx={pos.x}
+                      cy={pos.y}
+                      r={nodeR + 3}
+                      fill="none"
+                      stroke={isAdded ? "var(--df-ok)" : isRemoved ? "var(--df-danger)" : "var(--role-custom-1)"}
+                      strokeWidth="2"
+                      strokeDasharray={isRemoved ? "3 2" : undefined}
+                    />
+                  )}
+
+                  {/* Key card hub ring */}
+                  {c.key >= KEY_CARD_THRESHOLD && !isRemoved && !inSampleHand && !isFocused && !isPathNode && (
+                    <circle
+                      cx={pos.x}
+                      cy={pos.y}
+                      r={nodeR + 3}
+                      fill="none"
+                      stroke="var(--df-gold)"
+                      strokeWidth="1.5"
+                      strokeDasharray="2 2"
+                    />
+                  )}
+
+                  {/* Node base fill */}
                   <circle
                     cx={pos.x}
                     cy={pos.y}
-                    r={nodeR + 4}
+                    r={nodeR}
+                    fill="var(--df-surface-2)"
+                  />
+
+                  {/* Cropped card artwork inside circular frame */}
+                  <image
+                    href={cardImage(c.code, "cropped")}
+                    x={pos.x - nodeR}
+                    y={pos.y - nodeR}
+                    width={nodeR * 2}
+                    height={nodeR * 2}
+                    preserveAspectRatio="xMidYMid slice"
+                    clipPath={`url(#${markerIdPrefix}-clip-${c.code})`}
+                    opacity={isRemoved ? 0.45 : 1}
+                  />
+
+                  {/* Card-type colored circular frame border with CSS tokens */}
+                  <circle
+                    cx={pos.x}
+                    cy={pos.y}
+                    r={nodeR}
                     fill="none"
                     stroke={
                       isAdded
                         ? "var(--df-ok)"
                         : isRemoved
                           ? "var(--df-danger)"
-                          : c.key >= 0.2
-                            ? "var(--df-gold)"
-                            : "var(--sec)"
+                          : isPathNode
+                            ? "var(--sec)"
+                            : isFocused
+                              ? "var(--sec)"
+                              : c.key >= KEY_CARD_THRESHOLD
+                                ? "var(--df-gold)"
+                                : borderColor
                     }
-                    strokeWidth="2.5"
-                    className="anim-fade"
-                  />
-                )}
-
-                {/* Comparison ring (when not focused) */}
-                {!isFocused && !inSampleHand && !isPathNode && (isAdded || isRemoved || isChanged) && (
-                  <circle
-                    cx={pos.x}
-                    cy={pos.y}
-                    r={nodeR + 3}
-                    fill="none"
-                    stroke={isAdded ? "var(--df-ok)" : isRemoved ? "var(--df-danger)" : "var(--role-custom-1)"}
-                    strokeWidth="2"
+                    strokeWidth={isFocused || inSampleHand || isPathNode ? 3 : c.key >= KEY_CARD_THRESHOLD ? 2.5 : 2}
                     strokeDasharray={isRemoved ? "3 2" : undefined}
                   />
-                )}
 
-                {/* Key card hub ring */}
-                {c.key >= 0.2 && !isRemoved && !inSampleHand && !isFocused && !isPathNode && (
-                  <circle
-                    cx={pos.x}
-                    cy={pos.y}
-                    r={nodeR + 3}
-                    fill="none"
-                    stroke="var(--df-gold)"
-                    strokeWidth="1.5"
-                    strokeDasharray="2 2"
-                  />
-                )}
-
-                {/* Node base fill */}
-                <circle
-                  cx={pos.x}
-                  cy={pos.y}
-                  r={nodeR}
-                  fill="var(--df-surface-2)"
-                />
-
-                {/* Cropped card artwork inside circular frame */}
-                <image
-                  href={cardImage(c.code, "cropped")}
-                  x={pos.x - nodeR}
-                  y={pos.y - nodeR}
-                  width={nodeR * 2}
-                  height={nodeR * 2}
-                  preserveAspectRatio="xMidYMid slice"
-                  clipPath={`url(#${markerIdPrefix}-clip-${c.code})`}
-                  opacity={isRemoved ? 0.45 : 1}
-                />
-
-                {/* Card-type colored circular frame border */}
-                <circle
-                  cx={pos.x}
-                  cy={pos.y}
-                  r={nodeR}
-                  fill="none"
-                  stroke={
-                    isAdded
-                      ? "var(--df-ok)"
-                      : isRemoved
-                        ? "var(--df-danger)"
-                        : isPathNode
-                          ? "var(--sec)"
-                          : isFocused
-                            ? "var(--sec)"
-                            : c.key >= 0.2
-                              ? "var(--df-gold)"
-                              : borderColor
-                  }
-                  strokeWidth={isFocused || inSampleHand || isPathNode ? 3 : c.key >= 0.2 ? 2.5 : 2}
-                  strokeDasharray={isRemoved ? "3 2" : undefined}
-                />
-
-                {/* Copies indicator badge */}
-                <g className="copies-badge">
-                  <circle
-                    cx={badgeX}
-                    cy={badgeY}
-                    r={badgeR}
-                    fill="var(--df-surface)"
-                    stroke={isAdded ? "var(--df-ok)" : isRemoved ? "var(--df-danger)" : "var(--df-border-strong)"}
-                    strokeWidth="1"
-                  />
-                  <text
-                    x={badgeX}
-                    y={badgeY + Math.round(badgeR * 0.35)}
-                    textAnchor="middle"
-                    className="font-bold select-none tabular-nums"
-                    fontSize={Math.max(8, Math.round(badgeR * 1.1))}
-                    fill={
-                      isAdded
-                        ? "var(--df-ok)"
-                        : isRemoved
-                          ? "var(--df-danger)"
-                          : "var(--df-text)"
-                    }
-                  >
-                    {isAdded ? "+" : isRemoved ? "−" : c.copies}
-                  </text>
+                  {/* Copies indicator badge */}
+                  <g className="copies-badge">
+                    <circle
+                      cx={badgeX}
+                      cy={badgeY}
+                      r={badgeR}
+                      fill="var(--df-surface)"
+                      stroke={isAdded ? "var(--df-ok)" : isRemoved ? "var(--df-danger)" : "var(--df-border-strong)"}
+                      strokeWidth="1"
+                    />
+                    <text
+                      x={badgeX}
+                      y={badgeY + Math.round(badgeR * 0.35)}
+                      textAnchor="middle"
+                      className="font-bold select-none tabular-nums"
+                      fontSize={Math.max(8, Math.round(badgeR * 1.1))}
+                      fill={
+                        isAdded
+                          ? "var(--df-ok)"
+                          : isRemoved
+                            ? "var(--df-danger)"
+                            : "var(--df-text)"
+                      }
+                    >
+                      {isAdded ? "+" : isRemoved ? "−" : c.copies}
+                    </text>
+                  </g>
                 </g>
 
-                {/* Adjacent card label (12-13px) */}
+                {/* Radial outward label text */}
                 <text
-                  x={labelCoord.lx}
-                  y={labelCoord.ly + 4}
-                  textAnchor={labelCoord.textAnchor}
-                  className={`text-[12px] select-none transition-colors ${
+                  transform={labelLayout.transform}
+                  textAnchor={labelLayout.textAnchor}
+                  className={`text-[12px] select-none transition-colors pointer-events-none ${
                     isAdded
                       ? "font-semibold fill-[var(--df-ok)]"
                       : isRemoved
@@ -656,7 +668,7 @@ export function LinksCircle({
                   {isAdded && <tspan fill="var(--df-ok)"> (+)</tspan>}
                   {isRemoved && <tspan fill="var(--df-danger)"> (− tolta)</tspan>}
                   {inSampleHand && <tspan fill="var(--df-gold)"> (mano)</tspan>}
-                  {c.key >= 0.2 && <tspan fill="var(--df-gold)"> ★</tspan>}
+                  {c.key >= KEY_CARD_THRESHOLD && <tspan fill="var(--df-gold)"> ★</tspan>}
                 </text>
               </g>
             );

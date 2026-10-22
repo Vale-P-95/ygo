@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import type { Card, CardLink, LinkCard } from "../../../lib/api";
 import { sound } from "../../../lib/sound";
+import { formatChance, KEY_CARD_THRESHOLD } from "./types";
 
 interface Props {
   cards: LinkCard[];
@@ -17,7 +18,7 @@ export function LinksStats({ cards, links, getCard, selectedCode, onSelectCard }
     .slice(0, 4);
 
   const keyCards = [...cards]
-    .filter((c) => c.key > 0.05)
+    .filter((c) => c.key >= KEY_CARD_THRESHOLD)
     .sort((a, b) => b.key - a.key)
     .slice(0, 4);
 
@@ -61,7 +62,7 @@ export function LinksStats({ cards, links, getCard, selectedCode, onSelectCard }
                     onSelectCard(c.code);
                   }}
                   className={`chip !py-0.5 !px-2 flex items-center gap-1.5 ${active ? "chip-active" : ""}`}
-                  title={`${name}: porta a ${c.reachAll} carte in totale (mano iniziale: ${Math.round(c.chance * 100)}%)`}
+                  data-tip={`${name}: porta a ${c.reachAll} carte in totale (in mano iniziale: ${formatChance(c).text})`}
                 >
                   <span className="truncate max-w-[120px]">{name}</span>
                   <span className="text-[10px] font-semibold text-sec tabular-nums">+{c.reachAll}</span>
@@ -96,7 +97,7 @@ export function LinksStats({ cards, links, getCard, selectedCode, onSelectCard }
                     onSelectCard(c.code);
                   }}
                   className={`chip !py-0.5 !px-2 flex items-center gap-1.5 border-[var(--df-gold)]/40 ${active ? "chip-active !bg-[var(--df-gold)]/20" : ""}`}
-                  title={`${name}: se negata si perdono in media ${c.key.toFixed(2)} carte`}
+                  data-tip={`${name}: se negata si perdono in media ${c.key.toFixed(2)} carte`}
                 >
                   <span className="truncate max-w-[120px]">{name}</span>
                   <span className="text-[10px] font-bold text-[var(--df-gold)] tabular-nums">−{c.key.toFixed(1)}</span>

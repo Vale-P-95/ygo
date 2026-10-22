@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { Filter, X } from "lucide-react";
 import { FilterChip } from "./FilterChip";
 import { IconButton } from "./IconButton";
@@ -151,23 +152,52 @@ export function Toolbar<T = unknown>({
 }: ToolbarProps<T>) {
   const [popoverOpen, setPopoverOpen] = useState(false);
   const popoverRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLDivElement>(null);
+  const [popoverCoords, setPopoverCoords] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
 
-  // Close on Escape or click outside
+  // Update fixed portal coords and close on Escape, outside click, scroll, or resize
   useEffect(() => {
     if (!popoverOpen) return;
+
+    const updateCoords = () => {
+      if (!buttonRef.current) return;
+      const rect = buttonRef.current.getBoundingClientRect();
+      const left = Math.max(12, Math.min(rect.left, window.innerWidth - 260));
+      setPopoverCoords({ top: rect.bottom + 8, left });
+    };
+
+    updateCoords();
+
     const handleDown = (e: MouseEvent) => {
-      if (popoverRef.current && !popoverRef.current.contains(e.target as Node)) {
+      const target = e.target as Node;
+      if (
+        popoverRef.current &&
+        !popoverRef.current.contains(target) &&
+        buttonRef.current &&
+        !buttonRef.current.contains(target)
+      ) {
         setPopoverOpen(false);
       }
     };
+
     const handleKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") setPopoverOpen(false);
     };
+
+    const handleScrollOrResize = () => {
+      setPopoverOpen(false);
+    };
+
     document.addEventListener("mousedown", handleDown);
     document.addEventListener("keydown", handleKey);
+    window.addEventListener("scroll", handleScrollOrResize, true);
+    window.addEventListener("resize", handleScrollOrResize);
+
     return () => {
       document.removeEventListener("mousedown", handleDown);
       document.removeEventListener("keydown", handleKey);
+      window.removeEventListener("scroll", handleScrollOrResize, true);
+      window.removeEventListener("resize", handleScrollOrResize);
     };
   }, [popoverOpen]);
 
@@ -198,9 +228,9 @@ export function Toolbar<T = unknown>({
               </span>
             ))}
 
-            {/* Collapsed «Filtri» button & popover */}
+            {/* Collapsed «Filtri» button & fixed portal popover */}
             {collapseResult.isCollapsed && (
-              <div ref={popoverRef} className="relative inline-flex items-center shrink-0">
+              <div ref={buttonRef} className="relative inline-flex items-center shrink-0">
                 <FilterChip
                   icon={<Filter size={13} />}
                   label={filtersLabel}
@@ -212,11 +242,13 @@ export function Toolbar<T = unknown>({
                   aria-haspopup="dialog"
                 />
 
-                {popoverOpen && (
+                {popoverOpen && typeof document !== "undefined" && createPortal(
                   <div
+                    ref={popoverRef}
                     role="dialog"
                     aria-label="Filtri aggiuntivi"
-                    className="panel absolute top-full left-0 mt-2 z-45 min-w-56 p-3 shadow-xl border border-border-strong bg-surface anim-pop space-y-2"
+                    style={{ position: "fixed", top: `${popoverCoords.top}px`, left: `${popoverCoords.left}px` }}
+                    className="panel fixed z-50 min-w-56 p-3 shadow-xl border border-border-strong bg-surface anim-pop space-y-2"
                   >
                     <div className="flex items-center justify-between border-b border-border/80 pb-1.5">
                       <span className="font-semibold text-small text-text flex items-center gap-1.5">
@@ -238,7 +270,8 @@ export function Toolbar<T = unknown>({
                         </div>
                       ))}
                     </div>
-                  </div>
+                  </div>,
+                  document.body
                 )}
               </div>
             )}

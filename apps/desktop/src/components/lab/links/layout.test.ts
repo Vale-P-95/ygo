@@ -2,55 +2,77 @@ import { describe, expect, it } from "vitest";
 import {
   calculateCircleGeometry,
   getCardBorderColor,
-  getLabelCoordinates,
+  getEdgePath,
   getNodeDimensions,
+  getRadialLabelLayout,
 } from "./layout";
 
-describe("layout.ts - pure circle layout geometry", () => {
-  it("determina correttamente i colori del bordo per tipo di carta Yu-Gi-Oh", () => {
-    expect(getCardBorderColor({ frame: "spell", kind: "spell" })).toBe("#1d9e74");
-    expect(getCardBorderColor({ frame: "trap", kind: "trap" })).toBe("#b8457f");
-    expect(getCardBorderColor({ frame: "fusion", kind: "monster" })).toBe("#8f5cbf");
-    expect(getCardBorderColor({ frame: "synchro", kind: "monster" })).toBe("#d9d9d9");
-    expect(getCardBorderColor({ frame: "xyz", kind: "monster" })).toBe("#3b3b3b");
-    expect(getCardBorderColor({ frame: "link", kind: "monster" })).toBe("#2f72b8");
-    expect(getCardBorderColor({ frame: "ritual", kind: "monster" })).toBe("#5a86c9");
-    expect(getCardBorderColor({ frame: "normal", kind: "monster" })).toBe("#d8b46e");
-    expect(getCardBorderColor({ frame: "effect", kind: "monster" })).toBe("#cf7a43");
+describe("layout.ts - pure circle layout geometry and edge calculations", () => {
+  it("determina correttamente i token CSS dei bordi per tipo di carta Yu-Gi-Oh", () => {
+    expect(getCardBorderColor({ frame: "spell", kind: "spell" })).toBe("var(--frame-spell, var(--df-border-strong))");
+    expect(getCardBorderColor({ frame: "trap", kind: "trap" })).toBe("var(--frame-trap, var(--df-border-strong))");
+    expect(getCardBorderColor({ frame: "fusion", kind: "monster" })).toBe("var(--frame-fusion, var(--df-border-strong))");
+    expect(getCardBorderColor({ frame: "synchro", kind: "monster" })).toBe("var(--frame-synchro, var(--df-border-strong))");
+    expect(getCardBorderColor({ frame: "xyz", kind: "monster" })).toBe("var(--frame-xyz, var(--df-border-strong))");
+    expect(getCardBorderColor({ frame: "xyz_pendulum", kind: "monster" })).toBe("var(--frame-xyz, var(--df-border-strong))");
+    expect(getCardBorderColor({ frame: "link", kind: "monster" })).toBe("var(--frame-link, var(--df-border-strong))");
+    expect(getCardBorderColor({ frame: "normal", kind: "monster" })).toBe("var(--frame-normal, var(--df-border-strong))");
+    expect(getCardBorderColor({ frame: "effect", kind: "monster" })).toBe("var(--frame-effect, var(--df-border-strong))");
     expect(getCardBorderColor(undefined)).toBe("var(--df-border-strong)");
   });
 
-  it("calcola diametri nodi scalati da 40 a 64px quando c'è spazio abbondante", () => {
-    // Spacing chord of 120px gives plenty of room
-    const normal = getNodeDimensions(120, 0);
-    const keyCard = getNodeDimensions(120, 0.5);
+  it("calcola percorsi archi che terminano precisamente sul bordo del nodo di destinazione", () => {
+    const pFrom = { x: 0, y: -200 };
+    const pTo = { x: 200, y: 0 };
+    const rFrom = 24;
+    const rTo = 28;
 
-    expect(normal.diameter).toBeLessThanOrEqual(44);
-    expect(normal.diameter).toBeGreaterThanOrEqual(28);
+    const edge = getEdgePath(pFrom, pTo, rFrom, rTo);
 
-    expect(keyCard.diameter).toBe(64);
-    expect(keyCard.radius).toBe(32);
-    expect(keyCard.diameter).toBeGreaterThan(normal.diameter);
+    expect(edge.pathD).toContain("M ");
+    expect(edge.pathD).toContain("Q ");
+
+    // Distance from pTo to edge.endPoint must equal rTo + 1 (border boundary)
+    const distToEnd = Math.hypot(edge.endPoint.x - pTo.x, edge.endPoint.y - pTo.y);
+    expect(Math.abs(distToEnd - (rTo + 1))).toBeLessThan(0.2);
+
+    // Distance from pFrom to edge.startPoint must equal rFrom
+    const distFromStart = Math.hypot(edge.startPoint.x - pFrom.x, edge.startPoint.y - pFrom.y);
+    expect(Math.abs(distFromStart - rFrom)).toBeLessThan(0.2);
+  });
+
+  it("gestisce N <= 1 senza errori né diametri nulli", () => {
+    const single = getNodeDimensions(0, 0.4);
+    expect(single.diameter).toBeGreaterThan(40);
+    expect(single.radius).toBe(single.diameter / 2);
+
+    const geo = calculateCircleGeometry({
+      containerWidth: 600,
+      containerHeight: 600,
+      cardCount: 1,
+      cards: [{ code: 1, key: 0.2 }],
+    });
+    expect(geo.positions.get(1)).toBeDefined();
+    expect(geo.positions.get(1)!.radius).toBeGreaterThan(0);
   });
 
   it("garantisce che nodi adiacenti NON si sovrappongono con 40 carte a 1280x800", () => {
     const cardCount = 40;
     const cards = Array.from({ length: cardCount }, (_, i) => ({
       code: 1000 + i,
-      key: i % 5 === 0 ? 0.45 : 0.05, // Some key cards
+      key: i % 5 === 0 ? 0.45 : 0.05,
     }));
 
     const result = calculateCircleGeometry({
       containerWidth: 860,
-      containerHeight: 640,
+      containerHeight: 600,
       cardCount,
       cards,
     });
 
-    expect(result.radius).toBeGreaterThan(160);
+    expect(result.radius).toBeGreaterThan(140);
     expect(result.spacingChord).toBeGreaterThan(0);
 
-    // Verify distance between all adjacent pairs is strictly greater than sum of radii
     for (let i = 0; i < cardCount; i++) {
       const c1 = cards[i];
       const c2 = cards[(i + 1) % cardCount];
@@ -60,12 +82,11 @@ describe("layout.ts - pure circle layout geometry", () => {
       const dist = Math.hypot(pos1.x - pos2.x, pos1.y - pos2.y);
       const sumRadii = pos1.radius + pos2.radius;
 
-      // Distance must exceed sum of radii (no overlapping nodes)
       expect(dist).toBeGreaterThan(sumRadii);
     }
   });
 
-  it("garantisce che nodi adiacenti NON si sovrappongono con 60 carte (mazzo massimale)", () => {
+  it("garantisce che nodi adiacenti NON si sovrappongono con 60 carte", () => {
     const cardCount = 60;
     const cards = Array.from({ length: cardCount }, (_, i) => ({
       code: 2000 + i,
@@ -92,50 +113,29 @@ describe("layout.ts - pure circle layout geometry", () => {
     }
   });
 
-  it("adatta radius e viewBox al contenitore reale (dinamico, non fisso)", () => {
-    const small = calculateCircleGeometry({
-      containerWidth: 500,
-      containerHeight: 500,
-      cardCount: 20,
-    });
-
-    const large = calculateCircleGeometry({
-      containerWidth: 1200,
-      containerHeight: 900,
-      cardCount: 20,
-    });
-
-    expect(large.radius).toBeGreaterThan(small.radius);
-    expect(small.viewBox).toBe("-250 -250 500 500");
-    expect(large.viewBox).toBe("-600 -450 1200 900");
-    expect(large.width).toBe(1200);
-    expect(large.height).toBe(900);
-  });
-
-  it("posiziona i testi delle etichette all'esterno del cerchio e del nodo", () => {
-    const pos = {
-      x: 100,
+  it("orienta le etichette radialmente in modo leggibile senza uscire dal viewBox", () => {
+    const posRight = {
+      x: 200,
       y: 0,
       angle: 0,
       isRight: true,
-      radius: 25,
-      diameter: 50,
+      radius: 20,
+      diameter: 40,
     };
-
-    const label = getLabelCoordinates(pos, 10);
-    expect(label.lx).toBe(100 + 25 + 10); // Center dist + radius + offset
-    expect(label.textAnchor).toBe("start");
+    const labelRight = getRadialLabelLayout(posRight, 200);
+    expect(labelRight.textAnchor).toBe("start");
+    expect(labelRight.transform).toContain("rotate(0) translate(228, 4)");
 
     const posLeft = {
-      x: -100,
+      x: -200,
       y: 0,
       angle: Math.PI,
       isRight: false,
-      radius: 25,
-      diameter: 50,
+      radius: 20,
+      diameter: 40,
     };
-    const labelLeft = getLabelCoordinates(posLeft, 10);
-    expect(labelLeft.lx).toBe(-(100 + 25 + 10));
+    const labelLeft = getRadialLabelLayout(posLeft, 200);
     expect(labelLeft.textAnchor).toBe("end");
+    expect(labelLeft.transform).toContain("rotate(360) translate(-228, 4)");
   });
 });

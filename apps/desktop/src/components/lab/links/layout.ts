@@ -1,4 +1,5 @@
 import type { Card } from "../../../lib/api";
+import { KEY_CARD_THRESHOLD } from "./types";
 
 export interface NodePosition {
   x: number;
@@ -7,6 +8,13 @@ export interface NodePosition {
   isRight: boolean;
   radius: number;
   diameter: number;
+}
+
+export interface EdgePathResult {
+  pathD: string;
+  startPoint: { x: number; y: number };
+  endPoint: { x: number; y: number };
+  cp: { x: number; y: number };
 }
 
 export interface CircleGeometryOptions {
@@ -29,21 +37,18 @@ export interface CircleGeometryResult {
 }
 
 /**
- * Returns Yu-Gi-Oh card type frame color for SVG node borders.
+ * Returns Yu-Gi-Oh card type frame token for SVG node borders.
+ * Uses shared CSS custom properties defined in src/index.css.
  */
 export function getCardBorderColor(card?: { frame?: string; kind?: Card["kind"] } | Card): string {
   if (!card) return "var(--df-border-strong)";
-  if (card.frame === "spell" || card.kind === "spell") return "#1d9e74";
-  if (card.frame === "trap" || card.kind === "trap") return "#b8457f";
-  if (card.frame === "fusion") return "#8f5cbf";
-  if (card.frame === "synchro") return "#d9d9d9";
-  if (card.frame === "xyz") return "#3b3b3b";
-  if (card.frame === "link") return "#2f72b8";
-  if (card.frame === "ritual") return "#5a86c9";
-  if (card.frame === "normal") return "#d8b46e";
-  if (card.frame === "effect") return "#cf7a43";
-  if (card.frame === "token") return "#9a9a9a";
-  if (card.kind === "monster") return "#cf7a43";
+  if (card.frame) {
+    const base = card.frame.split("_")[0];
+    return `var(--frame-${base}, var(--df-border-strong))`;
+  }
+  if (card.kind === "spell") return "var(--frame-spell, var(--df-border-strong))";
+  if (card.kind === "trap") return "var(--frame-trap, var(--df-border-strong))";
+  if (card.kind === "monster") return "var(--frame-effect, var(--df-border-strong))";
   return "var(--df-border-strong)";
 }
 
@@ -55,21 +60,73 @@ export function getNodeDimensions(
   spacingChord: number,
   cardKey: number = 0,
 ): { radius: number; diameter: number } {
-  // Safe ceiling to ensure adjacent nodes never touch
-  const maxAllowedDiameter = Math.max(18, spacingChord * 0.9);
-  
-  // Base diameter ranges between 20px and 44px (normal cards)
-  const baseDiameter = Math.max(16, Math.min(40, maxAllowedDiameter * 0.72));
-  
-  // Top key cards scale up towards 64px, bounded by maxAllowedDiameter
+  // Safe single-card fallback when chord is not applicable
+  if (spacingChord <= 0) {
+    const d = Math.round(48 + Math.min(16, cardKey * 32));
+    return { radius: d / 2, diameter: d };
+  }
+
+  // Safe ceiling to ensure adjacent nodes never touch (at least 12% safety margin)
+  const maxAllowedDiameter = Math.max(8, spacingChord * 0.88);
+
+  // Base diameter for normal cards
+  const baseDiameter = Math.max(6, Math.min(40, maxAllowedDiameter * 0.72));
+
+  // Top key cards scale up towards 64px, strictly bounded by maxAllowedDiameter
   const targetMaxDiameter = Math.min(64, maxAllowedDiameter);
-  
-  // Key metric scaling: key values >= 0.2 are significant hubs, 0.4+ max bonus
-  const keyFactor = Math.min(1, Math.max(0, cardKey / 0.4));
+
+  // Scale bonus with key metric threshold
+  const keyFactor = Math.min(1, Math.max(0, cardKey / KEY_CARD_THRESHOLD));
   const diameter = Math.round((baseDiameter + (targetMaxDiameter - baseDiameter) * keyFactor) * 10) / 10;
   const radius = Math.round((diameter / 2) * 10) / 10;
 
   return { radius, diameter };
+}
+
+/**
+ * Computes exact bezier path between two nodes that starts at the source node's perimeter
+ * and ends precisely on the target node's border, leaving the arrow marker completely
+ * visible outside the node's artwork and border.
+ */
+export function getEdgePath(
+  pFrom: { x: number; y: number },
+  pTo: { x: number; y: number },
+  rFrom: number,
+  rTo: number,
+  kPull: number = 0.35,
+): EdgePathResult {
+  const cp = {
+    x: ((pFrom.x + pTo.x) / 2) * kPull,
+    y: ((pFrom.y + pTo.y) / 2) * kPull,
+  };
+
+  // Vector leaving pFrom towards cp
+  const sdx = cp.x - pFrom.x;
+  const sdy = cp.y - pFrom.y;
+  const slen = Math.hypot(sdx, sdy) || 1;
+  const startPoint = {
+    x: Math.round((pFrom.x + (sdx / slen) * rFrom) * 10) / 10,
+    y: Math.round((pFrom.y + (sdy / slen) * rFrom) * 10) / 10,
+  };
+
+  // Vector entering pTo from cp
+  const edx = pTo.x - cp.x;
+  const edy = pTo.y - cp.y;
+  const elen = Math.hypot(edx, edy) || 1;
+  // Stop at border of target node (with 1px margin so arrow tip touches outer border)
+  const endPoint = {
+    x: Math.round((pTo.x - (edx / elen) * (rTo + 1)) * 10) / 10,
+    y: Math.round((pTo.y - (edy / elen) * (rTo + 1)) * 10) / 10,
+  };
+
+  const pathD = `M ${startPoint.x} ${startPoint.y} Q ${cp.x} ${cp.y} ${endPoint.x} ${endPoint.y}`;
+
+  return {
+    pathD,
+    startPoint,
+    endPoint,
+    cp,
+  };
 }
 
 /**
@@ -82,15 +139,15 @@ export function calculateCircleGeometry({
   containerHeight,
   cardCount,
   cards = [],
-  minRadius = 160,
-  maxRadius = 420,
+  minRadius = 140,
+  maxRadius = 320,
 }: CircleGeometryOptions): CircleGeometryResult {
   const width = Math.max(320, containerWidth || 740);
-  const height = Math.max(320, containerHeight || 740);
+  const height = Math.max(320, containerHeight || 620);
 
-  // Reserve radial margins for labels (longer on horizontal axis) and outer nodes
-  const marginX = Math.min(140, Math.max(90, width * 0.16));
-  const marginY = Math.min(70, Math.max(45, height * 0.1));
+  // Reserve radial margins for labels (which radiate outward from nodes)
+  const marginX = Math.min(130, Math.max(90, width * 0.16));
+  const marginY = Math.min(130, Math.max(80, height * 0.18));
 
   const maxRx = width / 2 - marginX;
   const maxRy = height / 2 - marginY;
@@ -98,10 +155,10 @@ export function calculateCircleGeometry({
   const radius = Math.max(minRadius, Math.min(maxRadius, computedRadius));
 
   const N = Math.max(1, cardCount);
-  const deltaTheta = (2 * Math.PI) / N;
+  const deltaTheta = N > 1 ? (2 * Math.PI) / N : 0;
 
   // Exact Euclidean straight-line distance between centers of two adjacent nodes on the circle
-  const spacingChord = 2 * radius * Math.sin(deltaTheta / 2);
+  const spacingChord = N > 1 ? 2 * radius * Math.sin(deltaTheta / 2) : 0;
 
   const positions = new Map<number, NodePosition>();
 
@@ -140,18 +197,26 @@ export function calculateCircleGeometry({
 }
 
 /**
- * Computes radial label anchor and coordinate offset outside the node.
+ * Computes radial text transform and anchor so card labels radiate cleanly outwards
+ * along the ray through the node center without overlapping adjacent labels.
  */
-export function getLabelCoordinates(
+export function getRadialLabelLayout(
   pos: NodePosition,
-  extraOffset: number = 8,
-): { lx: number; ly: number; textAnchor: "start" | "end" } {
-  const dist = Math.hypot(pos.x, pos.y) + pos.radius + extraOffset;
-  const lx = Math.round(dist * Math.cos(pos.angle) * 10) / 10;
-  const ly = Math.round(dist * Math.sin(pos.angle) * 10) / 10;
+  radius: number,
+): { transform: string; textAnchor: "start" | "end" } {
+  const deg = Math.round(((pos.angle * 180) / Math.PI) * 10) / 10;
+  const dist = Math.round((radius + pos.radius + 8) * 10) / 10;
+
+  if (pos.isRight) {
+    return {
+      transform: `rotate(${deg}) translate(${dist}, 4)`,
+      textAnchor: "start",
+    };
+  }
+
+  // Flip text by 180deg on the left hemisphere so it reads upright from left to right
   return {
-    lx,
-    ly,
-    textAnchor: pos.isRight ? "start" : "end",
+    transform: `rotate(${deg + 180}) translate(${-dist}, 4)`,
+    textAnchor: "end",
   };
 }
