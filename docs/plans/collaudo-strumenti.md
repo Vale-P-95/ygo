@@ -410,6 +410,49 @@ Provato sulla prima board di tearlaments, branded, k9 e white_forest_azamina con
 - **"Posiziona dal Deck"** (M2) c'è: branded 18, chimera 12. Restano senza: Triple Tactics Thrust (si posiziona solo se l'avversario ha attivato un effetto di mostro: in goldfish mai) e Urgent Schedule (falso positivo della regex).
 - Collegamenti solo dalla bozza del testo: 112 su 1118.
 
+## Corsia 3: coppie di board per il giudizio del proprietario (22/10/2026)
+Per la #47 e i pesi (#43, D17 in `docs/plans/classificazione-board.md`): poche coppie chiare, su cui il proprietario dà il verdetto da una pagina.
+
+### Come sono fatte
+- **Script:** `scripts/owner_pairs.py`, dopo `board_pairs.py make` (le coppie di `pairs.tsv` con il codice di oggi) e `combo_hunt.py --json` (le board di oggi).
+  ```
+  python3 scripts/board_pairs.py make $S/made --decks $S/mdm
+  python3 scripts/combo_hunt.py $S/mdm --lines-rule --top 8 --seed 7 --json $S/hunt7
+  python3 scripts/combo_hunt.py $S/mdm --hands 2 --top 8 --seed 7 --json $S/hunt7b
+  python3 scripts/owner_pairs.py --made $S/made --hunt $S/hunt7 $S/hunt7b --per-deck 3 --controls 8 --only <16 deck>
+  ```
+- **Uscita:**
+  - `tests/fixtures/boards/owner-pairs.tsv`: condizioni come in `pairs.tsv` (`sig=`, leggibili da `board_pairs.py`), tipo, origine, punteggi di oggi, verdetto del pannello, perché;
+  - `tests/fixtures/boards/owner-pairs.json`: per la pagina. Per ogni coppia: mano di partenza, e per A e B le carte sul campo (nome, codice, zona, posizione, bersaglio dell'equipaggiamento), la mano finale, Cimitero e bandite, lunghezza della linea, punteggio e metriche (campo, mano, floodgate, resilienza).
+  - Solo nomi e codici: niente testi delle carte, niente decklist.
+- **Deck:** 16 archetipi di Master Duel Meta, al più 3 coppie per deck. blue_eyes, branded, dracotail, elfnote, elfnote_kewl_tune, exodia, fur_hire, invoked, labrynth, maliss, mitsurugi, snake_eye, synchrons, tearlaments, white_forest_azamina, yubel.
+
+### Le 46 coppie
+
+| Tipo | Coppie | Come sono scelte |
+|---|---|---|
+| da confermare | 7 | Coppie «da confermare» del pannello del 21/10 (J7, J18, J20, J21, J26, J31, J35), una per deck |
+| controllo | 8 | Una board e la stessa con una carta in più sul campo, stessa mano: il verdetto atteso è A>B |
+| nuova | 31 | Le board di una mano con punteggi vicini (al più 0,15) e almeno 2 carte diverse, di cui almeno una sul campo; punteggio massimo almeno 0,5; le più diverse prima |
+
+- **Le coppie del pannello quasi non si ritrovano.** Le liste di Master Duel Meta di oggi sono cambiate, quindi la regola "-lines" estrae altre mani: `board_pairs.py make` ritrova solo J21 (elfnote_kewl_tune).
+  - Le altre 6 sono ricostruite dalla firma `sig=`, che contiene tutte le carte di campo e mano. Non hanno la mano di partenza, la linea né i punteggi di oggi (`rebuilt: true`, `score: null`).
+  - Per misurarle di nuovo servono le liste del 21/10, se la coordinatrice le ha ancora.
+- **I controlli che il codice sbaglia già:** 3 controlli su 8 hanno il punteggio di A più basso di quello di B, benché A abbia una carta in più:
+  - labrynth: 0,85 contro 1,09;
+  - synchrons: 1,98 contro 2,15;
+  - fur_hire: 1,34 contro 1,96.
+
+  La differenza può stare nel Cimitero o nelle risorse, che le firme non mostrano. Se il proprietario dice A>B, sono errori della misura.
+- **21 coppie nuove su 31 hanno lo stesso punteggio** (pari). Sono proprio i casi in cui la classifica non sa scegliere.
+
+### Limiti, da sistemare nella CLI (corsia 1, `crates/ygo-cli/src/main.rs`)
+- **Cimitero e bandite:** `combos --json` dà solo quante carte ci sono (`grave`, `banished`), non quali. Nel JSON ora sono numeri.
+  - Basta aggiungere in `state_json` `grave_names` e `banished_names` (nomi o codici). `owner_pairs.py` li usa da solo appena ci sono.
+  - Per il giudizio servono: alcune coppie differiscono solo lì.
+- **Posizione dei mostri:** si sa solo se sono coperti (`(set)`) e se sono nella Zona Mostri Extra (`[EMZ]`). Attacco o difesa scoperta no.
+- **Zone Pendulum:** una carta Pendulum nelle Zone Magie e Trappole risulta come mostro.
+
 ## Conclusione
 Dopo `eedda66` restano queste correzioni, in ordine:
 1. **R3 e R4 in `replay`/`find_again` (`matchup.rs`):** ripiego su un altro effetto della stessa carta solo per le risposte venute da un `EffectYesNo`; un passo della linea lascia il posto alla sua prossima azione se è già offerta. Provate sulle 180 board: fermate false di Maxx "C" e Mulcharmy da 81 a 0, fermate vere invariate.

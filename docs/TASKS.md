@@ -17,8 +17,8 @@ Corsie di lavoro in parallelo del 22/10/2026 (piano in `docs/plans/piano-prossim
 
   Agente: claude-code, sessione sorella della velocità. Branch: `claude/search-speed`. File: `crates/ygo-solver/src/search.rs`, `scripts/`; poi `crates/ygo-data/src/`.
 - [ ] **Corsia 3.** Collaudo:
-  - prima, le coppie di board da far giudicare al proprietario (circa 15 deck, le coppie dove la classifica è più incerta), per la #47 e i pesi (#43);
-  - poi il collaudo del livello 2 con le linee vere (L4) e quello dei deck lenti.
+  - [x] prima, le coppie di board da far giudicare al proprietario (circa 15 deck, le coppie dove la classifica è più incerta), per la #47 e i pesi (#43): 46 coppie su 16 deck in `tests/fixtures/boards/owner-pairs.tsv` e `.json` (22/10);
+  - [ ] poi il collaudo del livello 2 con le linee vere (L4) e quello dei deck lenti.
 
   Agente: claude-code, sessione sorella del collaudo. Branch: `claude/tools-qa`. File: script nuovi in `scripts/`, `docs/plans/collaudo-strumenti.md`, `tests/fixtures/boards/`.
 - [ ] **Corsia 4.** Carte piazzate e ruoli (PIANO §30.4):
