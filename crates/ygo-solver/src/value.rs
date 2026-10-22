@@ -11,8 +11,8 @@
 //! Oceanus banishes what goes to the GY only from the first) and kept for
 //! the next searches with the same Deck. An Xyz Monster is put there with
 //! two materials to detach, another Extra Deck monster as Summoned with
-//! materials that do nothing ([`generic_materials`]: Apollousa's ATK
-//! counts them), an Equip Spell on a monster that does nothing (when it
+//! materials that do nothing, banished ([`generic_materials`]: Apollousa's
+//! ATK counts them), an Equip Spell on a monster that does nothing (when it
 //! can be equipped to it). Handtraps are measured in the hand alone, with
 //! your field empty and with a monster on it: some only work while you
 //! control no cards (Infinite Impermanence, the Mulcharmy). One that cannot
@@ -174,10 +174,19 @@ fn placement(engine: &Engine, code: u32, spot: Spot, filler: u32) -> Vec<Placeme
             let mut p = at(location::MZONE, if spot == Spot::Main { 2 } else { 5 }, position::FACEUP_ATTACK);
             if t & card_type::XYZ != 0 {
                 p.overlay = vec![filler; 2];
-            } else {
-                p.materials = generic_materials(engine, code);
+                return vec![p];
             }
-            vec![p]
+            // Banished, so that the GY stays empty as for the other cards:
+            // in the GY they would be targets for the opponent's plays.
+            p.materials = generic_materials(engine, code);
+            let mut out: Vec<Placement> = p
+                .materials
+                .iter()
+                .enumerate()
+                .map(|(i, &m)| Placement::new(m, location::REMOVED, i as u32, position::FACEUP_ATTACK))
+                .collect();
+            out.push(p);
+            out
         }
         Spot::Set => vec![at(location::SZONE, 2, position::FACEDOWN_DEFENSE)],
         Spot::FaceUp if t & card_type::FIELD != 0 => vec![at(location::SZONE, 5, position::FACEUP_ATTACK)],
