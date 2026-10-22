@@ -36,6 +36,21 @@ pub(crate) struct Script {
     pub(crate) idle: Vec<bool>,
 }
 
+impl Script {
+    /// The script's first `n` answers (a line stopped there).
+    pub(crate) fn up_to(&self, n: usize) -> Script {
+        let n = n.min(self.answers.len());
+        Script {
+            answers: self.answers[..n].to_vec(),
+            kinds: self.kinds[..n].to_vec(),
+            ids: self.ids[..n].to_vec(),
+            picks: self.picks[..n].to_vec(),
+            at_line: self.at_line[..n].to_vec(),
+            idle: self.idle[..n].to_vec(),
+        }
+    }
+}
+
 /// A card picked in a selection: what it is, where, and whether it is the
 /// chooser's own (the line of a deck is found as player 0 and played again
 /// as player 1, in its turn after yours).
