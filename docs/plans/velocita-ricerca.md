@@ -266,3 +266,32 @@ Il costo: su tutte e quattro le board le linee 9 e 10 di Lunalight (su 11) non s
 **Limiti.**
 - Le linee che superano il tetto si perdono: nella ricerca sono linee interrotte, nel livello 2 linee dell'avversario non misurate. Ricordare il prefisso della linea per non rigiocarlo tocca `search.rs` e `matchup.rs`.
 - La mano lenta usa ancora la copia locale della lista con Ghost Mourner.
+
+## Collaudo dei deck lenti con il tetto (22/10/2026, corsia 2)
+**Metodo.** Le mani e le opzioni di `combo_hunt.py --seed 7` (41 deck di Master Duel Meta, 2 mani, 3000 nodi, limite 600 s, un thread, `--top 5 --probe`), con il tempo totale di ogni mano e le fasi della ricerca (`DUELFORGE_DEBUG_PHASES`). Il resto, dopo la fine di `zone_variants`, è quasi tutto il turno di prova. Tre giri, 4 mani alla volta sui 4 core:
+- **prima:** `main` 27c9ba0, senza il tetto;
+- **dopo, tetto spento:** `main` e424904 con `DUELFORGE_LUA_LIMIT=0`;
+- **dopo:** `main` e424904.
+
+Fra 27c9ba0 ed e424904 sono entrati anche altri cambi della ricerca e di `combos`, quindi il tetto si giudica dal confronto fra gli ultimi due giri.
+
+**Il tetto in questi giri non scatta.** Con e senza il tetto le uscite delle 82 mani sono identiche, tolti i tempi, e i tempi sono gli stessi (1505 s contro 1550 s in tutto, con 4 giri insieme). I casi lenti che il tetto toglie sono quelli già misurati: la mano lenta di Kewl Tune con la lista locale, e il livello 2 contro Lunalight.
+
+**Mani sopra 60 s:** 2 prima (elfnote-0 95,9 s, elfnote_kewl_tune-1 103,5 s), 1 dopo (dracotail-0, 67,5-69,5 s). Rimisurate da sole, senza altri processi:
+
+| Mano | Prima | Dopo | Ricerca prima → dopo | Dopo la ricerca | Turno di prova e resto prima → dopo |
+|---|---|---|---|---|---|
+| dracotail-0 | 44,3 s | 70,7 s | 16,5 → 16,8 s | 9,7 → 8,9 s | 18,1 → 45,0 s |
+| elfnote-0 | 96,3 s | 60,1 s | 43,6 → 17,8 s | 20,8 → 10,5 s | 31,9 → 31,8 s |
+| elfnote_kewl_tune-0 | 33,9 s | 50,8 s | 12,5 → 13,8 s | 7,5 → 8,5 s | 13,9 → 28,5 s |
+
+**Cause.**
+- **dracotail-0 (e in parte elfnote_kewl_tune-0): il turno di prova di `combos --probe`, non Lua né la ricerca.**
+  - Dal commit 21c8885 («List each field once in combos») `--probe` misura le prime tre varianti di ogni campo e mostra la migliore.
+  - Le 5 board di dracotail-0 sono quindi 15 turni di prova invece di 5, da circa 3 s l'uno: il resto passa da 18 a 45 s.
+  - Lua è normale: la richiesta più grande fa 108 mila istruzioni e 2676 ingressi.
+  - Riguarda `combos` e `combo_hunt.py`; l'app va guardata a parte.
+- **elfnote-0: la ricerca** (43,6 s prima). Con e424904 scende a 17,8 s, per i cambi della ricerca entrati in `main`; ora sta sul filo dei 60 s per il turno di prova (31,8 s).
+- **elfnote_kewl_tune-1** (103,5 s prima): con e424904 fa 33 s.
+
+**Da decidere.** Per tenere ogni mano sotto 60 s con `--probe`, si possono misurare meno varianti per campo (una, o tre solo per le prime board) oppure misurarle tutte in un solo turno di prova. È una scelta di `crates/ygo-cli` e della corsia che ha fatto 21c8885, non del motore.
