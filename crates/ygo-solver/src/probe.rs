@@ -179,6 +179,38 @@ impl Effect {
     }
 }
 
+/// A way to take one card of your board out of the opponent's way, aimed
+/// at it (the protection of each piece, D15).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub enum Removal {
+    Destroy,
+    Banish,
+    FaceDown,
+    Negate,
+}
+
+impl Removal {
+    pub fn label(self) -> &'static str {
+        match self {
+            Removal::Destroy => "distruggere",
+            Removal::Banish => "bandire",
+            Removal::FaceDown => "girare coperto",
+            Removal::Negate => "negare",
+        }
+    }
+}
+
+/// One card of your board against each removal aimed at it, with only its
+/// own effects to answer: the removals it is still usable after, and those
+/// it is not.
+#[derive(Debug, Clone)]
+pub struct Protection {
+    pub responder: ResponderId,
+    pub location: u8,
+    pub holds: Vec<Removal>,
+    pub falls: Vec<Removal>,
+}
+
 /// One of your effects: the card (original code) and which of its effects.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ResponderId {
@@ -252,6 +284,8 @@ pub struct Breaker {
     /// How often it matters: the average over breakers is weighted by it.
     pub weight: f64,
     steps: Vec<KitStep>,
+    /// Its cards the opponent has only in its run (see [`Arsenal`]).
+    arsenal: Arsenal,
 }
 
 impl Breaker {
@@ -276,7 +310,7 @@ impl Breaker {
         } else {
             vec![step(Act::Activate(code, location::HAND), false)]
         };
-        Breaker { name, weight, steps }
+        Breaker { name, weight, steps, arsenal: Arsenal::default() }
     }
 
     /// The one card it plays, if it plays one.
@@ -297,9 +331,22 @@ pub struct Kit {
     /// What the opponent answers your first interruption with, when it can
     /// ([`Measure::countered`]).
     counters: Vec<u32>,
+    /// The cards that remove one of yours ([`Prober::protection`]), and
+    /// where the cards they can aim at are.
+    removals: Vec<(Removal, u8, u32)>,
     /// The opponent plays a line of its deck again instead of the steps
     /// one by one (the probe turn against a deck, level 2).
     script: Option<Arc<LineScript>>,
+}
+
+/// Cards added to the opponent's hand and Extra Deck only in the runs that
+/// play them: one card more in its hand changes the random cards your
+/// effects take from it and the monster it summons when one lets it, in the
+/// search as in the other runs of the measure.
+#[derive(Debug, Clone, Default)]
+struct Arsenal {
+    hand: Vec<u32>,
+    extra: Vec<u32>,
 }
 
 /// A line of the opponent's deck to play again in its turn: its answers,
@@ -468,7 +515,7 @@ impl Kit {
             let mut s = step(act, vec![], vec![], None);
             s.option = option;
             s.take_max = take_max;
-            breakers.push(Breaker { name: label.to_owned(), weight, steps: vec![s] });
+            breakers.push(Breaker { name: label.to_owned(), weight, steps: vec![s], arsenal: Arsenal::default() });
         };
         breaker("Dark Hole", "Dark Hole", 1.0, false, 0, false);
         breaker("Raigeki", "Raigeki", 1.0, false, 0, false);
@@ -479,18 +526,6 @@ impl Kit {
         breaker("Dark Ruler No More", "Dark Ruler No More", 1.0, false, 0, false);
         breaker("Book of Eclipse", "Book of Eclipse", 0.6, false, 0, false);
         breaker("Gameciel, the Sea Turtle Kaiju", "Kaiju (Gameciel)", 0.8, true, 0, false);
-        // The breakers the Master Duel Meta lists play in their Main Deck
-        // (D15, by axis): a targeted negation used before anything else
-        // (Infinite Impermanence comes from the hand while its controller has
-        // no cards), and a Fusion your negations cannot answer that takes
-        // your monsters as materials (Super Polymerization, with the two
-        // Fusions those lists play it for: any two monsters with the same
-        // Attribute are materials for one of them).
-        breaker("Infinite Impermanence", "Infinite Impermanence", 1.0, false, 0, false);
-        if let (Some(mudragon), Some(garura)) = (code("Mudragon of the Swamp"), code("Garura, Wings of Resonant Life")) {
-            extra.extend([mudragon, garura]);
-            breaker("Super Polymerization", "Super Polymerization", 1.0, false, 0, false);
-        }
         // An attack: Cyber Dragon (it comes from the hand while only you
         // control monsters) with Limiter Removal, 4200 ATK, at the monster
         // worth the most it may attack. Battle protections count here (Invoked
@@ -503,20 +538,41 @@ impl Kit {
                 name: "Attacco da 4200 ATK".to_owned(),
                 weight: 0.6,
                 steps: vec![step(Act::SpecialSummon(cyber), vec![], vec![], None), attack],
+                arsenal: Arsenal::default(),
             });
         }
 
-        // The opponent's answer to your first interruption it can answer
-        // (D15): Infinite Impermanence, already in its hand as a breaker, on
-        // a monster's effect while the opponent has no cards. Ghost Ogre was
-        // tried too: one card more in the hand changes the random cards your
-        // effects take from it and the monster it summons when one lets it.
-        let counters: Vec<u32> = [code("Infinite Impermanence")].into_iter().flatten().collect();
-        for &c in &counters {
-            if !hand.contains(&c) {
-                hand.push(c);
-            }
+        // The cards added from D15 on are in the opponent's hand and Extra
+        // Deck only in the runs that play them (an [`Arsenal`]).
+        // The breakers the Master Duel Meta lists play in their Main Deck
+        // (by axis): a targeted negation used before anything else (Infinite
+        // Impermanence comes from the hand while its controller has no
+        // cards), and a Fusion your negations cannot answer that takes your
+        // monsters as materials (Super Polymerization, with the two Fusions
+        // those lists play it for: any two monsters with the same Attribute
+        // are materials for one of them).
+        if let Some(imperm) = code("Infinite Impermanence") {
+            breakers.push(Breaker {
+                name: "Infinite Impermanence".to_owned(),
+                weight: 1.0,
+                steps: vec![step(Act::Activate(imperm, location::HAND), vec![], vec![], None)],
+                arsenal: Arsenal { hand: vec![imperm], extra: Vec::new() },
+            });
         }
+        if let (Some(poly), Some(mudragon), Some(garura)) =
+            (code("Super Polymerization"), code("Mudragon of the Swamp"), code("Garura, Wings of Resonant Life"))
+        {
+            breakers.push(Breaker {
+                name: "Super Polymerization".to_owned(),
+                weight: 1.0,
+                steps: vec![step(Act::Activate(poly, location::HAND), vec![], vec![], None)],
+                arsenal: Arsenal { hand: vec![poly], extra: vec![mudragon, garura] },
+            });
+        }
+        // The opponent's answer to your first interruption it can answer:
+        // Infinite Impermanence on a monster's effect while the opponent has
+        // no cards. Ghost Ogre was tried too and left out for the reason above.
+        let counters: Vec<u32> = [code("Infinite Impermanence")].into_iter().flatten().collect();
 
         // The last cards of the Deck are drawn or sent first (the draw of the
         // turn, Pot of Greed, the top card Glow-Up Bulb sends): plain ones,
@@ -531,7 +587,20 @@ impl Kit {
             let missing = DECK.saturating_sub(deck.len());
             deck.splice(0..0, std::iter::repeat_n(filler, missing));
         }
-        Kit { opponent: Opponent { hand, deck, extra }, steps, breakers, counters, script: None }
+        // Removals aimed at one card, each the plainest card of its kind (the
+        // protection of each piece), in the hand for that report only.
+        let removals: Vec<(Removal, u8, u32)> = [
+            (Removal::Destroy, location::MZONE, "Offerings to the Doomed"),
+            (Removal::Banish, location::MZONE, "Spiritual Entanglement"),
+            (Removal::FaceDown, location::MZONE, "Book of Moon"),
+            (Removal::Negate, location::MZONE, "Infinite Impermanence"),
+            (Removal::Destroy, location::SZONE, "Mystical Space Typhoon"),
+            (Removal::Banish, location::SZONE, "Cosmic Cyclone"),
+        ]
+        .into_iter()
+        .filter_map(|(r, at, name)| Some((r, at, code(name)?)))
+        .collect();
+        Kit { opponent: Opponent { hand, deck, extra }, steps, breakers, counters, removals, script: None }
     }
 
     /// The opponent's cards: give them to the search too
@@ -539,6 +608,18 @@ impl Kit {
     /// same in the probe turn.
     pub fn opponent(&self) -> &Opponent {
         &self.opponent
+    }
+
+    /// The opponent's cards with `arsenal` too.
+    fn armed(&self, arsenal: &Arsenal) -> Opponent {
+        let mut armed = self.opponent.clone();
+        for &c in &arsenal.hand {
+            if !armed.hand.contains(&c) {
+                armed.hand.push(c);
+            }
+        }
+        armed.extra.extend(&arsenal.extra);
+        armed
     }
 
     /// This kit with the breakers of `rival`, their cards in the opponent's
@@ -569,6 +650,10 @@ impl Kit {
         deck.splice(0..plain, main.into_iter().take(plain));
         kit.opponent.extra.extend(&rival.extra);
         kit.breakers = breakers;
+        // Its own breakers and nothing more: the kit's answer and removals
+        // are not its cards.
+        kit.counters.clear();
+        kit.removals.clear();
         kit
     }
 
@@ -624,6 +709,7 @@ impl Kit {
             steps,
             breakers: Vec::new(),
             counters: Vec::new(),
+            removals: Vec::new(),
             script: Some(Arc::new(LineScript { script: line.script.clone(), step_of: line.move_of.clone() })),
         }
     }
@@ -722,6 +808,8 @@ struct Context<'a> {
     /// counters, aimed at that link's card, else at these (your
     /// responders, the one worth the most first).
     counter: Option<&'a [u32]>,
+    /// The opponent's cards, if not the kit's.
+    opponent: Option<&'a Opponent>,
 }
 
 /// A moment you could respond, and with what.
@@ -1324,13 +1412,20 @@ impl<'a> Prober<'a> {
                         }
                     }
                 }
-                let stopped = |run: &RunTrace| stopped_by(run).iter().map(|p| p.weight()).sum::<f64>();
-                let all_stopped = stopped(&run);
-                let targets: Vec<u32> = interruptions.iter().filter(|i| i.location == location::MZONE).map(|i| i.responder.code).collect();
-                if answer && all_stopped > 0.0 {
-                    let context = Context { counter: Some(&targets), ..context };
-                    if let Ok(answered) = self.run_with(prelude, &all_steps, Policy::UseAll(&order), context) {
-                        countered = answered.countered.then(|| (stopped(&answered) / all_stopped).min(1.0));
+                // Both with its answer in the opponent's hand: the cards in its
+                // hand change what your random effects take from it.
+                if answer {
+                    let stopped = |run: &RunTrace| stopped_by(run).iter().map(|p| p.weight()).sum::<f64>();
+                    let armed = self.kit.armed(&Arsenal { hand: self.kit.counters.clone(), extra: Vec::new() });
+                    let targets: Vec<u32> =
+                        interruptions.iter().filter(|i| i.location == location::MZONE).map(|i| i.responder.code).collect();
+                    let context = Context { opponent: Some(&armed), ..context };
+                    let all_stopped = self.run_with(prelude, &all_steps, Policy::UseAll(&order), context).map_or(0.0, |r| stopped(&r));
+                    if all_stopped > 0.0 {
+                        let context = Context { counter: Some(&targets), ..context };
+                        if let Ok(answered) = self.run_with(prelude, &all_steps, Policy::UseAll(&order), context) {
+                            countered = answered.countered.then(|| (stopped(&answered) / all_stopped).min(1.0));
+                        }
                     }
                 }
                 interruptions.sort_by(|a, b| b.value.total_cmp(&a.value));
@@ -1471,7 +1566,9 @@ impl<'a> Prober<'a> {
                 s.picks = targets.clone();
             }
             let steps: Vec<&KitStep> = owned.iter().collect();
-            let run = match self.run(prelude, &steps, Policy::Pass) {
+            let armed = self.kit.armed(&breaker.arsenal);
+            let context = Context { opponent: Some(&armed), ..Context::default() };
+            let run = match self.run_with(prelude, &steps, Policy::Pass, context) {
                 Ok(run) if run.steps.iter().zip(&owned).all(|(r, s)| r.available || s.optional) => run,
                 _ => {
                     out.push(BreakerResult {
@@ -1498,7 +1595,7 @@ impl<'a> Prober<'a> {
                 .collect();
             for negator in negators {
                 let none = HashSet::new();
-                let Ok(tried) = self.run(prelude, &steps, Policy::Use(negator.responder, &none)) else { continue };
+                let Ok(tried) = self.run_with(prelude, &steps, Policy::Use(negator.responder, &none), context) else { continue };
                 if tried.steps.iter().any(|s| s.negated) {
                     let spent = if negator.location == location::HAND { 0.0 } else { negator.value / negator.uses as f64 };
                     let left = self.left(&tried.state, interruptions) - spent;
@@ -1510,6 +1607,47 @@ impl<'a> Prober<'a> {
                 }
             }
             out.push(result);
+        }
+        out
+    }
+
+    /// Each card of your board that interrupts, against each of the kit's
+    /// removals aimed at it after the board `line` reaches (a run each).
+    /// The card answers with its own effects only: what it does for itself,
+    /// with the lasting protections of the board (Stardust Sifr's).
+    pub fn protection(&self, line: &Line, interruptions: &[Interruption]) -> Vec<Protection> {
+        self.protection_from(Prelude::Line(line), interruptions)
+    }
+
+    /// [`Prober::protection`] of a board put straight on the field.
+    pub fn protection_placed(&self, placed: &[Placement], interruptions: &[Interruption]) -> Vec<Protection> {
+        self.protection_from(Prelude::Placed(placed), interruptions)
+    }
+
+    fn protection_from(&self, prelude: Prelude, interruptions: &[Interruption]) -> Vec<Protection> {
+        let opponent = self.kit.armed(&Arsenal { hand: self.kit.removals.iter().map(|r| r.2).collect(), extra: Vec::new() });
+        let context = Context { opponent: Some(&opponent), ..Context::default() };
+        let mut out: Vec<Protection> = Vec::new();
+        for i in interruptions.iter().filter(|i| matches!(i.location, location::MZONE | location::SZONE) && i.value > 0.0) {
+            if out.iter().any(|p| p.responder.code == i.responder.code) {
+                continue;
+            }
+            let own: Vec<ResponderId> =
+                interruptions.iter().filter(|o| o.responder.code == i.responder.code).map(|o| o.responder).collect();
+            let mut protection = Protection { responder: i.responder, location: i.location, holds: Vec::new(), falls: Vec::new() };
+            for &(removal, _, code) in self.kit.removals.iter().filter(|(_, at, _)| *at == i.location) {
+                let mut step = KitStep::aiming(vec![i.responder.code]);
+                step.act = Act::Activate(code, location::HAND);
+                let Ok(run) = self.run_with(prelude, &[&step], Policy::UseAll(&own), context) else { continue };
+                // Not played: it had nothing to aim at, this card included.
+                let hit = run.steps[0].available && self.left(&run.state, std::slice::from_ref(i)) <= 0.0;
+                if hit {
+                    protection.falls.push(removal);
+                } else {
+                    protection.holds.push(removal);
+                }
+            }
+            out.push(protection);
         }
         out
     }
@@ -1560,7 +1698,8 @@ impl<'a> Prober<'a> {
             s.picks = targets.clone();
         }
         let steps: Vec<&KitStep> = owned.iter().collect();
-        let context = Context { turn_three: true, ..Context::default() };
+        let armed = self.kit.armed(worst.map_or(&Arsenal::default(), |b| &b.arsenal));
+        let context = Context { turn_three: true, opponent: Some(&armed), ..Context::default() };
         self.run_with(prelude, &steps, Policy::Pass, context).ok()?.follow_up
     }
 
@@ -1612,9 +1751,10 @@ impl<'a> Prober<'a> {
     /// [`Prober::run`], knowing more (see [`Context`]).
     fn run_with(&self, prelude: Prelude, steps: &[&KitStep], policy: Policy, context: Context) -> Result<RunTrace, Error> {
         let engine = self.engine;
+        let opponent = context.opponent.unwrap_or(&self.kit.opponent);
         let mut duel = match prelude {
-            Prelude::Placed(placed) => Duel::goldfish_vs_placed(engine, self.deck, self.hand, self.seed, &self.kit.opponent, placed)?,
-            _ => Duel::goldfish_vs(engine, self.deck, self.hand, self.seed, &self.kit.opponent)?,
+            Prelude::Placed(placed) => Duel::goldfish_vs_placed(engine, self.deck, self.hand, self.seed, opponent, placed)?,
+            _ => Duel::goldfish_vs(engine, self.deck, self.hand, self.seed, opponent)?,
         };
         const NO_ANSWERS: &[Vec<u8>] = &[];
         let mut answers = match prelude {

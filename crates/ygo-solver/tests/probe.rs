@@ -5,7 +5,7 @@ use std::path::PathBuf;
 
 use ygo_engine::consts::{location, position};
 use ygo_engine::{DeckList, Engine, Placement};
-use ygo_solver::{Effect, Kit, Measure, Probe, Prober};
+use ygo_solver::{Effect, Kit, Measure, Probe, Prober, Protection, Removal};
 
 struct Lab {
     engine: Engine,
@@ -44,6 +44,23 @@ impl Lab {
 
     /// [`Lab::measure`], with these cards added to your Deck.
     fn measure_with(&self, field: &[(&str, At)], hand: &[&str], in_deck: &[&str]) -> Measure {
+        let (deck, hand, placed) = self.board(field, hand, in_deck);
+        let kit = Kit::standard(&self.engine);
+        let mut prober = Prober::new(&self.engine, &deck, &hand, 1, &kit);
+        prober.measure_placed(&placed).expect("the probe turn is played")
+    }
+
+    /// What each card of the board that interrupts holds against.
+    fn protection(&self, field: &[(&str, At)]) -> Vec<Protection> {
+        let (deck, hand, placed) = self.board(field, &[], &[]);
+        let kit = Kit::standard(&self.engine);
+        let mut prober = Prober::new(&self.engine, &deck, &hand, 1, &kit);
+        let m = prober.measure_placed(&placed).expect("the probe turn is played");
+        prober.protection_placed(&placed, &m.interruptions)
+    }
+
+    /// The Deck, the hand and the cards placed of a board.
+    fn board(&self, field: &[(&str, At)], hand: &[&str], in_deck: &[&str]) -> (DeckList, Vec<u32>, Vec<Placement>) {
         let mut hand: Vec<u32> = hand.iter().map(|n| self.code(n)).collect();
         if hand.is_empty() {
             hand = ["Alexandrite Dragon", "Pot of Greed", "Trap Hole"].iter().map(|n| self.code(n)).collect();
@@ -73,9 +90,7 @@ impl Lab {
                 Placement::new(self.code(name), location, sequence, position)
             })
             .collect();
-        let kit = Kit::standard(&self.engine);
-        let mut prober = Prober::new(&self.engine, &deck, &hand, 1, &kit);
-        prober.measure_placed(&placed).expect("the probe turn is played")
+        (deck, hand, placed)
     }
 }
 
@@ -179,4 +194,17 @@ fn a_card_that_comes_back_from_the_gy_is_follow_up() {
     let bulb = lab.measure(&[("Glow-Up Bulb", At::Monster)], &[]).follow_up.expect("your next turn is reached");
     let plain = lab.measure(&[("Alexandrite Dragon", At::Monster)], &[]).follow_up.expect("your next turn is reached");
     assert!(bulb.rebuild > plain.rebuild, "{bulb:?} against {plain:?}");
+}
+
+#[test]
+fn a_card_holds_against_the_removals_it_answers_itself() {
+    let Some(lab) = lab() else { return };
+    // Baronne de Fleur negates whatever is aimed at it; a Set Trap Hole
+    // cannot answer the removal of a Spell or Trap.
+    let pieces = lab.protection(&[("Baronne de Fleur", At::Monster), ("Trap Hole", At::Set)]);
+    let of = |name: &str| pieces.iter().find(|p| p.responder.code == lab.code(name)).unwrap_or_else(|| panic!("{name}: {pieces:?}"));
+    let baronne = of("Baronne de Fleur");
+    assert!(baronne.falls.is_empty() && baronne.holds.contains(&Removal::Negate), "{baronne:?}");
+    let hole = of("Trap Hole");
+    assert_eq!(hole.falls, vec![Removal::Destroy, Removal::Banish], "{hole:?}");
 }
