@@ -109,6 +109,12 @@ impl Lab {
     }
 
     fn search_with(&self, hand: &[u32], use_hand_traps: bool, goal: Goal) -> (SearchConfig, SearchResult) {
+        let config = self.config(hand, use_hand_traps, goal);
+        let result = search(&self.engine, &config, &AtomicBool::new(false), |_| {});
+        (config, result)
+    }
+
+    fn config(&self, hand: &[u32], use_hand_traps: bool, goal: Goal) -> SearchConfig {
         let engine = &self.engine;
         let mut config = SearchConfig::new(self.deck.clone(), hand.to_vec());
         config.goal = goal;
@@ -124,8 +130,7 @@ impl Lab {
             config.policy.passive = config.hand_traps.clone();
         }
         config.coverage = true;
-        let result = search(engine, &config, &AtomicBool::new(false), |_| {});
-        (config, result)
+        config
     }
 
     /// Your cards on the field (canonical codes).
@@ -368,4 +373,33 @@ fn a_goal_card_is_not_sent_away_first() {
             lab.describe(&result)
         );
     }
+}
+
+#[test]
+#[cfg_attr(debug_assertions, ignore = "slow in debug: run with --release")]
+fn lines_started_from_copies_play_like_replayed_ones() {
+    // The same search replaying every line from the start of the duel, and
+    // starting lines from copies of the duel (a small cap, so copies are
+    // also thrown away and made again): the same boards by the same lines.
+    let Some(lab) = lab() else { return };
+    let hand: Vec<u32> = [
+        "Aleister the Reminiscent",
+        "Aleister the Invoker",
+        "Invocation - \"Sword\"",
+        "Ash Blossom & Joyous Spring",
+        "Crowley, the Gifted Magistus",
+    ]
+    .iter()
+    .map(|n| lab.card(n))
+    .collect();
+    let run = |copies_mb| {
+        let mut config = lab.config(&hand, false, Goal::default());
+        config.max_nodes = 1500;
+        config.copies_mb = copies_mb;
+        search(&lab.engine, &config, &AtomicBool::new(false), |_| {})
+    };
+    let (replayed, copied) = (run(0), run(8));
+    let boards = |r: &SearchResult| r.boards.iter().map(|b| (b.key, b.line.answers.clone(), b.quick_score.to_bits())).collect::<Vec<_>>();
+    assert_eq!((replayed.progress.nodes, replayed.interrupted), (copied.progress.nodes, copied.interrupted));
+    assert!(boards(&replayed) == boards(&copied), "{}\n{}", lab.describe(&replayed), lab.describe(&copied));
 }
