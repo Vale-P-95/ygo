@@ -1,0 +1,49 @@
+# Verdicts of the owner on the pairs of owner-pairs.json (22/10/2026, judging page).
+# verdict: A, B or pari, with A and B as in owner-pairs.json. first: the board the page showed as «Board 1»,
+# which is what «la 1» and «la 2» mean in the note.
+id	deck	kind	verdict	first	note
+O1	elfnote_kewl_tune	da confermare	B	A	Preferisco la due. Perchè sul terreno ha le stesse carte della 1 tranne track maker che però non è un interruzione nel turno dell'avversario. Nella board 2 ,invcece, si hanno le stesse ht della board 1, ma in piu ho tune clip che è una ulteriore HT
+O2	branded	da confermare	A	B	preferisco la due solo perchè in mano ho una carta in piu a parità di board perchè è identica...cimitero e bandite non sono noti quindi mi baso solo su quella risorsa in piu in mano.
+O3	elfnote	da confermare	B	A	Le board sono molto vicine come potenza. Preferisco la seconda perchè Tinia permette tramite la sua interruzione, in abse a dove ho piazzato i miei mostri sul terreno, di schivare dei target di carte del mio avversario sui miei mostri, cambiandone posizione e contemporaneamente bandendo una carta dalla mano dell'avversario. In definitiva, carte che permettono di interagire in modo cosi dinamico con le azioni dell'avversario hanno molto valore.
+O4	elfnote_kewl_tune	da confermare	B	B	meglio la 1. Sul terreno ho due interazioni: RS c'è in entrambe le board ma nella prima Remix è piu forte di maker della seconda baord che invece è una carta usata in genere come starte/extender non come interruzione. Vero è che la board 2 ha una ht nella mano in piu, ma la board 1 mi permette di fare synchro evocando 2 mostri dal cimitero, e si presume che ho dei mostri kewl tune in cimitero se ho due syncrho sul terreno, anche se il cimitero dici che non è noto
+O5	invoked	da confermare	A	A	meglio la 1 perchè le board sono identiche ma ho una carta in piu in mano cioè aleister
+O6	maliss	da confermare	A	B	
+O7	mitsurugi	da confermare	A	A	la board 1 ha piu interruzioni complessive, è meglio evocare s:p nel turno avversario tramite masquerena perchè banno una sua carta.
+O8	elfnote	controllo	A	B	
+O9	labrynth	controllo	A	A	preferisco la 1 perchè la board è identica ma ho un mostro in piu su board. Una nota: carte come le dominus conviene non settarle sul terreno proprio perchè sono trappole HT che possono essere attivate dalla mano. Ovviamente, se sul terreno ho mostri che il cui attribbuto andrebbe in conflitto con le dominus allora conviene giocarle da terreno.
+O10	snake_eye	controllo	A	A	la baord 1 è piu forte perchè identica alla 2 ma ho un mostro in piu sul terreno che tra l'altro è una interazione effetto rapido nel turno dell'avversario e mi permette di spostare un mio mostro sul terreno in un altra zone schivando un target di una carda avversaria
+O11	yubel	controllo	A	B	
+O12	blue_eyes	nuova	B	A	meglio la due perchè ha una trappola in piu da usare nel turno avversario, Majesty of the White Dragonscoperta che è molto forte perchè spacca fino a 3 carte, considerando che al cimitero ho 2 draghi bianchi da mostrare spaccherebbe due carte. Nella board 1 in piu alla 2 ho un drago bianco sul terreno ma è una carta senza effetto che non mi da interazioni nel turno avversario, soprattutto perchè non ho la trappola citata prima
+O13	blue_eyes	nuova	pari	B	
+O14	blue_eyes	nuova	B	A	preferisco di poco la seconda perchè se Neo Blue-Eyes Ultimate Dragon nel turno avversario finisce al cimitero poi diventa una interazione utile
+O15	branded	nuova	A	B	
+O16	dracotail	nuova	B	A	preferisco di poco la seconda perchè dracotail horn potrebbe essere piu versatile di dracotail flame
+O17	elfnote	nuova	A	B	
+O18	exodia	nuova	A	A	
+O19	exodia	nuova	A	B	
+O20	fur_hire	nuova	pari	B	
+O21	fur_hire	nuova	B	A	
+O22	invoked	nuova	pari	B	
+O23	invoked	nuova	B	A	
+O24	labrynth	nuova	B	B	
+O25	maliss	nuova	pari	A	
+O26	maliss	nuova	pari	B	
+O27	snake_eye	nuova	A	A	
+O28	snake_eye	nuova	B	B	meglio la 1 perchè elfonote fortuna da terreno è una itnerazione nel turno avversario, regina no. Regina sarebbe piu forte dalla mano
+O29	synchrons	nuova	B	A	
+O30	synchrons	nuova	B	A	
+O31	tearlaments	nuova	A	B	
+O32	tearlaments	nuova	A	A	
+O33	yubel	nuova	B	B	
+O34	branded	nuova	A	A	
+O35	dracotail	nuova	B	B	
+O36	dracotail	nuova	B	A	
+O37	exodia	nuova	A	B	
+O38	fur_hire	nuova	A	A	
+O39	labrynth	nuova	A	B	
+O40	mitsurugi	nuova	A	B	
+O41	synchrons	nuova	B	A	
+O42	tearlaments	nuova	A	B	
+O43	white_forest_azamina	nuova	B	A	
+O44	white_forest_azamina	nuova	B	B	
+O45	yubel	nuova	pari	A	
