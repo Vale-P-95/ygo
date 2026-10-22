@@ -733,6 +733,46 @@ const CARD_SEEDS: CardSeed[] = [
     archetype: "Invoked",
     mdRarity: "SR",
   },
+  {
+    id: 55144522,
+    name: "Pot of Greed",
+    kind: "spell",
+    frame: "spell",
+    humanType: "Normal Spell",
+    typeLine: ["Normal Spell"],
+    desc: "[Mock text] Draw 2 cards.",
+    race: "Normal",
+    mdRarity: "UR",
+    banTcg: "Forbidden",
+    banMd: "Forbidden",
+    banOcg: "Forbidden",
+  },
+  {
+    id: 19613556,
+    name: "Heavy Storm",
+    kind: "spell",
+    frame: "spell",
+    humanType: "Normal Spell",
+    typeLine: ["Normal Spell"],
+    desc: "[Mock text] Destroy all Spell and Trap Cards on the field.",
+    race: "Normal",
+    mdRarity: "UR",
+    banTcg: "Limited",
+    banMd: "Forbidden",
+    banOcg: "Limited",
+  },
+  {
+    id: 48130397,
+    name: "Super Polymerization",
+    kind: "spell",
+    frame: "spell",
+    humanType: "Quick-Play Spell",
+    typeLine: ["Quick-Play Spell"],
+    desc: "[Mock text] Discard 1 card; Fusion Summon 1 Fusion Monster from your Extra Deck, using monsters from either field as Fusion Material. Neither player can activate cards or effects in response to this card's activation.",
+    race: "Quick-Play",
+    mdRarity: "UR",
+    banMd: "Semi-Limited",
+  },
 ];
 
 const CARDS = new Map<number, Card>(CARD_SEEDS.map((s) => [s.id, makeCard(s)]));
@@ -1074,12 +1114,22 @@ function searchCatalog(rawQuery: string): SearchResult {
   let filterFrame: string | null = null;
   let filterLevel: number | null = null;
   let filterHandtrap = false;
+  const filterBans: string[] = [];
+  let filterFormat: string | null = null;
 
   for (const tok of tokens) {
     const lower = tok.toLowerCase();
     if (lower === "tag:handtrap") {
       filterHandtrap = true;
       chips.push({ token: tok, label: "Handtrap" });
+    } else if (lower.startsWith("ban:")) {
+      const b = lower.split(":")[1] ?? "";
+      filterBans.push(b);
+      chips.push({ token: tok, label: `Ban: ${b}` });
+    } else if (lower.startsWith("formato:") || lower.startsWith("format:")) {
+      const f = lower.split(":")[1] ?? "";
+      filterFormat = f;
+      chips.push({ token: tok, label: `Formato: ${f}` });
     } else if (lower.startsWith("kind:") || lower.startsWith("type:")) {
       filterKind = lower.split(":")[1] ?? null;
       chips.push({ token: tok, label: `Tipo: ${filterKind}` });
@@ -1108,6 +1158,29 @@ function searchCatalog(rawQuery: string): SearchResult {
 
   const matches = [...CARDS.values()].filter((c) => {
     if (filterHandtrap && !HANDTRAP_IDS.has(c.id)) return false;
+    if (filterBans.length > 0) {
+      const normalizedBans = filterBans.map((b) => {
+        const bl = b.toLowerCase();
+        if (bl === "forbidden" || bl === "banned" || bl === "proibita" || bl === "proibite") return "Forbidden";
+        if (bl === "limited" || bl === "limitata" || bl === "limitate") return "Limited";
+        if (bl === "semi" || bl === "semi-limited" || bl === "semi-limitata" || bl === "semilimitata") return "Semi-Limited";
+        return b;
+      });
+      const fmt = filterFormat?.toLowerCase();
+      if (fmt === "md" || fmt === "master duel" || fmt === "masterduel") {
+        if (!c.banMd || !normalizedBans.includes(c.banMd)) return false;
+      } else if (fmt === "ocg") {
+        if (!c.banOcg || !normalizedBans.includes(c.banOcg)) return false;
+      } else if (fmt === "tcg") {
+        if (!c.banTcg || !normalizedBans.includes(c.banTcg)) return false;
+      } else {
+        const matchesAny =
+          (c.banTcg && normalizedBans.includes(c.banTcg)) ||
+          (c.banMd && normalizedBans.includes(c.banMd)) ||
+          (c.banOcg && normalizedBans.includes(c.banOcg));
+        if (!matchesAny) return false;
+      }
+    }
     if (filterKind && c.kind !== filterKind && c.frame !== filterKind) return false;
     if (filterAttr && c.attribute?.toUpperCase() !== filterAttr) return false;
     if (filterRace && !c.race.toLowerCase().includes(filterRace)) return false;
