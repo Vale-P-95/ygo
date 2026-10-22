@@ -143,6 +143,13 @@ Corsie di lavoro in parallelo del 22/10/2026 (piano in `docs/plans/piano-prossim
 - [ ] Tornare a TypeScript 7 (`apps/desktop/package.json`) quando `typescript-eslint` lo supporta: con la PR #29 è fissato a 6.0.3 perché `typescript-eslint` 8 non regge ancora la versione 7. Poi, già che ci si è, `tseslint.config(...)` → `defineConfig` di `eslint/config` in `eslint.config.js`.
 
 ### Motore e ricerca (Claude)
+- [ ] **Ricerca delle combo: piano critico** (dalle prove del proprietario, 22/10): board più forti in meno tempo. Piano: `docs/plans/ricerca-piano-critico.md`.
+  - [ ] Ruoli: board breaker che usano carte avversarie come materiale (Super Polymerization), starter ed estensore insieme, Invocation «Grail» estensore. Corsia 6.
+  - [ ] A1: linee di riferimento dalle guide, con il loro banco. Corsia 6, con le linee del proprietario.
+  - [ ] A2: dove va il lavoro della ricerca (nodi doppi, azioni inutili, ordini scambiabili, ordinamento delle mosse). Corsia 2.
+  - [ ] B1-B3, B6, B7: correzioni della ricerca, una PR l'una. Corsia 2.
+  - [ ] B4: ricerca per obiettivo guidata dalla mappa dei collegamenti.
+  - [ ] B5: il valore che la misura non vede (Extra Deck bandito, numero di materiali). Coordinatore, dopo D17 e D12.
 - [ ] Linee del video Invoked: come si classificano, correzioni generali (#45).
 - [ ] Scale e pesi delle metriche del punteggio (#43).
 - [ ] Frontiera di Pareto e confronto tra board; preferenze apprese (#40).
