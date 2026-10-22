@@ -875,6 +875,8 @@ pub struct Prober<'a> {
     kit: &'a Kit,
     /// The empty board: what each probe does with no answer at all.
     baseline: Option<RunTrace>,
+    /// When the runs stop (a search's learning round).
+    deadline: Option<std::time::Instant>,
 }
 
 /// One of your effects that stops what the opponent does.
@@ -967,7 +969,20 @@ pub struct Measure {
 
 impl<'a> Prober<'a> {
     pub fn new(engine: &'a Engine, deck: &'a DeckList, hand: &'a [u32], seed: u64, kit: &'a Kit) -> Self {
-        Prober { engine, deck, hand, seed, kit, baseline: None }
+        Prober { engine, deck, hand, seed, kit, baseline: None, deadline: None }
+    }
+
+    /// From `deadline` on, every run fails at its next decision: a measure
+    /// with your effects checked at each chain window can take minutes
+    /// (quick Synchro Summons with many materials), more than a search may
+    /// wait.
+    pub(crate) fn until(&mut self, deadline: std::time::Instant) {
+        self.deadline = Some(deadline);
+    }
+
+    /// Past the deadline: a measure taken now may be missing runs.
+    pub(crate) fn out_of_time(&self) -> bool {
+        self.deadline.is_some_and(|d| std::time::Instant::now() >= d)
     }
 
     /// Measures the board reached by `line`.
@@ -1412,6 +1427,9 @@ impl<'a> Prober<'a> {
         let label =
             |actions: &[Action], answer: &[u8]| actions.iter().find(|a| a.response == answer).map_or("?".to_owned(), |a| a.label.clone());
         for _ in 0..4000 {
+            if self.out_of_time() {
+                return Err(Error::Engine("the probe turn ran out of time".to_owned()));
+            }
             let (decision, events) = match duel.advance()? {
                 Step::Decision { decision, events } => (decision, events),
                 Step::End { .. } => break,
