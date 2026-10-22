@@ -288,6 +288,17 @@ impl<'a> Follower<'a> {
     }
 }
 
+impl Follower<'_> {
+    /// The player ended its Main Phase: the script goes on from its first
+    /// answer after its last free moment of the Main Phase (its End Phase),
+    /// even when its last actions were not offered.
+    pub(crate) fn end_main_phase(&mut self) {
+        if let Some(last) = self.script.idle.iter().rposition(|&idle| idle) {
+            self.next = last + 1;
+        }
+    }
+}
+
 /// A plain answer: decline when possible, else the first choice offered
 /// (the end of the turn at a free moment).
 fn fallback(decision: &Decision, actions: &[Action]) -> Vec<u8> {

@@ -1932,6 +1932,9 @@ impl<'a> Prober<'a> {
         // steps are played: they are the line's moves).
         let script = self.kit.script.as_deref().filter(|_| steps.len() == self.kit.steps.len());
         let mut follower = script.map(|l| Follower::new(&l.script));
+        // The opponent's line went on to its End Phase (its moves there
+        // are its line's too): the run is over when your next turn begins.
+        let mut ending = false;
         // The last link of the chain being built is yours: your effects
         // answer the opponent's, never your own (Invoked Mechaba would
         // negate your own Effect Veiler).
@@ -1995,6 +1998,13 @@ impl<'a> Prober<'a> {
                 }
             }
             let (turn, _, _) = duel.turn_info();
+            if ending && turn > 2 {
+                if let Some((j, before)) = current.take() {
+                    self.finish(&mut trace.steps[j], steps[j], &before, &Piles::of(&duel), &observer);
+                }
+                complete = true;
+                break;
+            }
             if let Decision::IdleCmd { player: 0, activatable, .. } = &decision {
                 idle_effects = activatable.iter().map(|a| (a.card.code, a.description)).collect();
             }
@@ -2080,6 +2090,17 @@ impl<'a> Prober<'a> {
                                 eprintln!("     opponent's line: {}", label(&actions, &followed.answer));
                             }
                             duel.respond(&followed.answer);
+                        }
+                        // Its Main Phase is over (the Battle Phase is not
+                        // measured): its End Phase is played too, the line's
+                        // moves there (Titaniklad from the GY) are its moves.
+                        None if idle && !context.turn_three => {
+                            ending = true;
+                            follower.end_main_phase();
+                            if verbose {
+                                eprintln!("     opponent's line: to the End Phase");
+                            }
+                            duel.respond(&end_turn(&decision, &actions));
                         }
                         // Its line is over: nothing left to play, or it ends
                         // its Main Phase (the Battle Phase is not measured).
