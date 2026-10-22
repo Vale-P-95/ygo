@@ -378,3 +378,39 @@ Con «30 → 13» (circa 65%) le mani che perdono sono 3, con perdita media 0,33
   2. **Il dato che manca alla sonda economica è il turno dopo.** Se la misura economica registrasse anche le carte guadagnate nella Fase Finale e nel turno dopo della run in cui l'avversario passa (senza breaker), Sky Striker non sarebbe più un caso. Va chiesto a chi scrive la misura: è un contatore, non una run in più.
   3. **Le quasi-parità** (Primite, 1,6%) andrebbero trattate come parità nel confronto tra scale: con il 2% di tolleranza il K non cambia, ma il criterio diventa più onesto.
 - **Da rifare senza la patch** quando `probe.rs` esporrà le finestre per risposta (corsia 8).
+
+## 6. A1b, passo 1: dove la misura e il livello 2 non sono d'accordo
+
+*Prototipo del passo 1 di A1b (`ricerca-piano-critico.md`). I numeri di questa versione sono parziali: il giro contro il meta era ancora in corso. Si aggiornano alla fine del giro.*
+
+**Domanda.** Su board già trovate, quando la misura del turno di prova e il livello 2 contro il meta ordinano due board al contrario, e perché?
+
+### Dati e comandi
+- **Board della caccia.** Le 82 mani del §1 (41 deck MDM, due mani di `combo_hunt --seed 7`), con le prime 5 board di ogni mano per misura completa e campi diversi (le zone non contano): 410 board.
+- **Board dell'oracolo.** Le fixture di `tests/fixtures/oracle` con la lista del deck ancora uguale (`deck_hash`): Branded e quattro mani Invoked (inv-r1, r2, r5, r6).
+  - Dracotail, Maliss e Tearlaments hanno liste cambiate. L'obiettivo Invoked non ha una linea salvata.
+  - Una fixture ha la linea della sola board migliore. Per confrontarla, la stessa mano è cercata con il budget normale (seme della fixture, 4000 nodi), e la board dell'oracolo si aggiunge alle prime 4 della ricerca normale.
+- **Livello 2 e verità.** `scripts/objective_bench.py`, cioè lo stesso banco oggettivo di `banco-oggettivo.md`:
+  - `probe-line --vs <avversario> --moves` contro i deck del meta con `popRank` di Master Duel Meta (letto il 22/10 sera), con Lunalight saltato;
+  - verità = 1 − `left`, media pesata con il meta, senza le coppie con meno dell'80% di mosse fatte su campo vuoto o senza linee.
+  - La misura si legge dagli stessi run: stesso codice, `main` 0d747f1.
+- **Disaccordo:** due board della stessa mano la cui verità differisce di almeno 0,05, mentre la misura (il composito di `bench.py`) mette prima l'altra.
+- **Comandi.**
+  ```
+  python3 scripts/research/a1b_setup.py <w>/a1b --hunt <w>/all82 --decks <mdm> --oracle tests/fixtures/oracle
+  python3 scripts/objective_bench.py <w>/a1b --decks <mdm> --hunt - --skip lunalight --jobs 4
+  python3 scripts/research/a1b_report.py <w>/a1b --json <w>/a1b_pairs.json --fixture tests/fixtures/research/a1b
+  ```
+  Per le mani dell'oracolo: `combos --seed <seme> --nodes 4000 --top 8 --json <h>/<deck>-<fixture>.json --save-lines …`, poi `a1b_setup.py <w>/a1bo --hunt <h> --per-hand 4 --oracle tests/fixtures/oracle`.
+
+### Come si classifica un disaccordo
+Per la coppia A (preferita dalla misura) e B (migliore al livello 2), `a1b_report.py` controlla, in quest'ordine:
+
+1. **turno dopo:** senza il valore del turno dopo (`follow_up`) la misura ordinerebbe bene;
+2. **trappole in mano:** la misura conta come interruzione una Trappola nella mano di A;
+3. **Extra Deck:** B ferma una quota delle Evocazioni dall'Extra Deck dell'avversario più alta di quella delle sue altre mosse, di almeno 0,1 più di A. Il kit della misura ha un solo mostro nell'Extra Deck;
+4. **risposte insieme:** al livello 2 le risposte di A valgono di più una per una, ma insieme fermano meno di quelle di B;
+5. **un posto** (Cimitero e bandite, mano, mostri, Magie e Trappole): quello che valgono al livello 2 le risposte da quel posto, B meno A, supera di almeno 0,1 quello che dà la misura;
+6. **altro.**
+
+Una coppia può avere più cause; la prima è la principale.

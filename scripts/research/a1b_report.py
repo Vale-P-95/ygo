@@ -3,7 +3,13 @@
 docs/plans/ricerca-esperimenti.md, section 6): where the probe turn's measure
 and level 2 against the meta disagree, and why.
 
-    python3 scripts/research/a1b_report.py <out of objective_bench.py> [--margin 0.05] [--json <file>]
+    python3 scripts/research/a1b_report.py <out of objective_bench.py> [--margin 0.05] [--json <file>] [--fixture <folder>]
+
+With --fixture, each hand with a disagreement gets a lines file of its boards
+in the pairs, to play again (the deck is the Master Duel Meta list named in
+"deck", not committed):
+
+    duelforge-cli probe-line --deck <mdm>/<deck> --lines <folder>/<hand>.lines.json --index <i> --vs <mdm>/<opponent>.ydk --moves
 
 For each board: the truth of the objective bench (1 - `left`, weighted by the
 meta, pairs with less than 80% of the opponent's moves made on an empty board
@@ -18,6 +24,8 @@ Each is classified, by what tells the two boards apart, as:
 - "Extra Deck": the better board stops a larger share of the opponents'
   summons from the Extra Deck than of their other moves, by at least 0.1 more
   than the worse board (the kit has one Extra Deck monster);
+- "risposte insieme": the worse board's answers are worth more one by one at
+  level 2, but stop less together;
 - a place ("Cimitero", "mano", "mostri", "Magie e Trappole"): what the
   answers from there are worth at level 2 (B minus A, meta-weighted)
   differs from what the measure gives them by at least 0.1, in favour of the
@@ -90,6 +98,7 @@ def main():
     p.add_argument("out")
     p.add_argument("--margin", type=float, default=0.05)
     p.add_argument("--json")
+    p.add_argument("--fixture", help="folder: one lines file per hand with a disagreement (only its boards), with the pairs")
     p.add_argument("--db", default=os.path.join(ROOT, "data", "cards.db"))
     a = p.parse_args()
     db = sqlite3.connect(a.db)
@@ -180,6 +189,11 @@ def main():
                         causes.append("trappole in mano")
                     if extra_share(B) - extra_share(A) >= 0.1:
                         causes.append("Extra Deck")
+                    # Each answer of A is worth more at level 2, yet B stops
+                    # more: A's answers spoil each other when used together
+                    # (one uses a piece the other needs, or its own board).
+                    if sum(l2_place(A, q) for q in PLACES) >= sum(l2_place(B, q) for q in PLACES):
+                        causes.append("risposte insieme")
                     gaps = {}
                     for place in PLACES:
                         d_l2 = l2_place(B, place) - l2_place(A, place)
@@ -203,7 +217,7 @@ def main():
     any_cause = Counter(c for p in pairs for c in p["causes"])
     print("| causa | principale | presente |")
     print("|---|---:|---:|")
-    for c in ("turno dopo", "trappole in mano", "Extra Deck") + PLACES + ("altro",):
+    for c in ("turno dopo", "trappole in mano", "Extra Deck", "risposte insieme") + PLACES + ("altro",):
         print(f"| {c} | {main_cause[c]} | {any_cause[c]} |")
     print("\nPer deck (disaccordi / coppie):\n")
     per_deck = Counter(p["deck"] for p in pairs)
@@ -215,6 +229,25 @@ def main():
     for p in pairs[:25]:
         print(f"| {p['hand']} | {p['worse'].split('#')[1]}: {p['worse_board'][:60]} | {p['better'].split('#')[1]}: {p['better_board'][:60]} | "
               f"{p['truth_gap']:.2f} | {p['score_gap']:.2f} | {', '.join(p['causes'])} |")
+    if a.fixture:
+        os.makedirs(a.fixture, exist_ok=True)
+        hands = defaultdict(list)
+        for q in pairs:
+            hands[q["hand"]].append(q)
+        for hand_file, ps in hands.items():
+            src = json.load(open(os.path.join(a.out, "lines", hand_file + ".lines.json")))
+            used = sorted({info[q[k]]["index"] for q in ps for k in ("worse", "better")})
+            where = {i: n for n, i in enumerate(used)}
+            doc = dict(kind="lines", deck=os.path.basename(src.get("deck", "")), hand=src["hand"], seed=src["seed"],
+                       items=[src["items"][i] for i in used],
+                       a1b=dict(margin=a.margin, boards=[dict(index=where[info[b]["index"]], truth=round(info[b]["truth"], 3),
+                                                              score=round(info[b]["score"], 3), board=info[b]["signature"])
+                                                         for b in sorted({q[k] for q in ps for k in ("worse", "better")},
+                                                                         key=lambda b: info[b]["index"])],
+                                pairs=[dict(worse=where[info[q["worse"]]["index"]], better=where[info[q["better"]]["index"]],
+                                            truth_gap=round(q["truth_gap"], 3), score_gap=round(q["score_gap"], 3), causes=q["causes"])
+                                       for q in ps]))
+            json.dump(doc, open(os.path.join(a.fixture, hand_file + ".lines.json"), "w"), indent=0)
     if a.json:
         json.dump(dict(margin=a.margin, boards=[dict(id=r["id"], truth=r["truth"], score=r["score"], opponents=len(r["opp"])) for r in rows],
                        pairs=pairs), open(a.json, "w"), indent=1)
