@@ -1,0 +1,672 @@
+{
+ "id": "hunt-blue_eyes-0",
+ "deck": "blue_eyes.ydk",
+ "hand": [
+  56506740,
+  89631139,
+  43219114,
+  25311006,
+  10045474
+ ],
+ "deck_hash": "11956e1df56e0329",
+ "seed": 7,
+ "goal": "",
+ "nodes": 200000,
+ "boards_found": 604,
+ "boards": [
+  {
+   "value": 1.8764772875816997,
+   "look_key": "762d6b3d7ffa2496",
+   "field": [
+    {
+     "code": 24361622,
+     "name": "Hieratic Seal of the Heavenly Spheres",
+     "zone": "emz"
+    },
+    {
+     "code": 10045474,
+     "name": "Infinite Impermanence",
+     "set": true
+    },
+    {
+     "code": 43219114,
+     "name": "Majesty of the White Dragons",
+     "set": true
+    },
+    {
+     "code": 24382602,
+     "name": "Mausoleum of White"
+    },
+    {
+     "code": 29095457,
+     "name": "Primite Drillbeam",
+     "set": true
+    },
+    {
+     "code": 56506740,
+     "name": "Primite Lordly Lode"
+    }
+   ],
+   "hand": [
+    89631139,
+    25311006
+   ],
+   "measure": {
+    "field": 1.3057314814814818,
+    "hand": 0.0,
+    "floodgates": 0.0,
+    "resilience": 0.9512430101670298,
+    "follow_up": {
+     "gained": 1,
+     "rebuild": 0
+    }
+   }
+  },
+  {
+   "value": 1.8764772875816997,
+   "look_key": "d50eb43e24185630",
+   "field": [
+    {
+     "code": 24361622,
+     "name": "Hieratic Seal of the Heavenly Spheres",
+     "zone": "emz"
+    },
+    {
+     "code": 10045474,
+     "name": "Infinite Impermanence",
+     "set": true
+    },
+    {
+     "code": 43219114,
+     "name": "Majesty of the White Dragons",
+     "set": true
+    },
+    {
+     "code": 29095457,
+     "name": "Primite Drillbeam",
+     "set": true
+    },
+    {
+     "code": 56506740,
+     "name": "Primite Lordly Lode"
+    }
+   ],
+   "hand": [
+    24382602,
+    89631139,
+    25311006
+   ],
+   "measure": {
+    "field": 1.3057314814814818,
+    "hand": 0.0,
+    "floodgates": 0.0,
+    "resilience": 0.9512430101670298,
+    "follow_up": {
+     "gained": 1,
+     "rebuild": 0
+    }
+   }
+  },
+  {
+   "value": 1.6465883986928107,
+   "look_key": "a5483db1dc9bf1d9",
+   "field": [
+    {
+     "code": 89631133,
+     "name": "Blue-Eyes White Dragon"
+    },
+    {
+     "code": 10045474,
+     "name": "Infinite Impermanence",
+     "set": true
+    },
+    {
+     "code": 43219114,
+     "name": "Majesty of the White Dragons",
+     "set": true
+    },
+    {
+     "code": 63198739,
+     "name": "Primite Dragon Ether Beryl"
+    },
+    {
+     "code": 29095457,
+     "name": "Primite Drillbeam",
+     "set": true
+    },
+    {
+     "code": 56506740,
+     "name": "Primite Lordly Lode"
+    }
+   ],
+   "hand": [
+    89631139,
+    25311006
+   ],
+   "measure": {
+    "field": 1.0098055555555556,
+    "hand": 0.0,
+    "floodgates": 0.0,
+    "resilience": 0.8613047385620916,
+    "follow_up": {
+     "gained": 0,
+     "rebuild": 1
+    }
+   }
+  },
+  {
+   "value": 1.5265883986928106,
+   "look_key": "6f8f2a34d6cc0eb0",
+   "field": [
+    {
+     "code": 89631133,
+     "name": "Blue-Eyes White Dragon"
+    },
+    {
+     "code": 10045474,
+     "name": "Infinite Impermanence",
+     "set": true
+    },
+    {
+     "code": 43219114,
+     "name": "Majesty of the White Dragons",
+     "set": true
+    },
+    {
+     "code": 24382602,
+     "name": "Mausoleum of White"
+    },
+    {
+     "code": 29095457,
+     "name": "Primite Drillbeam",
+     "set": true
+    },
+    {
+     "code": 56506740,
+     "name": "Primite Lordly Lode"
+    },
+    {
+     "code": 42097666,
+     "name": "Spirit with Eyes of Blue",
+     "zone": "emz"
+    }
+   ],
+   "hand": [
+    25311006,
+    89631139
+   ],
+   "measure": {
+    "field": 1.0098055555555556,
+    "hand": 0.0,
+    "floodgates": 0.0,
+    "resilience": 0.8613047385620916,
+    "follow_up": {
+     "gained": 1,
+     "rebuild": 0
+    }
+   }
+  },
+  {
+   "value": 1.5265883986928106,
+   "look_key": "d794a2ffcf2eb687",
+   "field": [
+    {
+     "code": 89631133,
+     "name": "Blue-Eyes White Dragon"
+    },
+    {
+     "code": 10045474,
+     "name": "Infinite Impermanence",
+     "set": true
+    },
+    {
+     "code": 43219114,
+     "name": "Majesty of the White Dragons",
+     "set": true
+    },
+    {
+     "code": 29095457,
+     "name": "Primite Drillbeam",
+     "set": true
+    },
+    {
+     "code": 56506740,
+     "name": "Primite Lordly Lode"
+    },
+    {
+     "code": 42097666,
+     "name": "Spirit with Eyes of Blue",
+     "zone": "emz"
+    }
+   ],
+   "hand": [
+    25311006,
+    24382602,
+    89631139
+   ],
+   "measure": {
+    "field": 1.0098055555555556,
+    "hand": 0.0,
+    "floodgates": 0.0,
+    "resilience": 0.8613047385620916,
+    "follow_up": {
+     "gained": 1,
+     "rebuild": 0
+    }
+   }
+  }
+ ],
+ "other_seeds": [],
+ "line": {
+  "answers": [
+   [
+    5,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    8,
+    1
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    0,
+    0,
+    0,
+    0,
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    4,
+    0
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    1,
+    0,
+    0,
+    0
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    0,
+    0,
+    0,
+    0,
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    8,
+    2
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    4,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    8,
+    3
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    1,
+    0,
+    0,
+    0
+   ],
+   [
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    4,
+    5
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    1,
+    0,
+    0,
+    0
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    0,
+    0,
+    0,
+    0,
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    4,
+    0,
+    2,
+    0
+   ],
+   [
+    0,
+    8,
+    0
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    5,
+    0,
+    0,
+    0
+   ],
+   [
+    163,
+    169,
+    87,
+    5
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    0,
+    0,
+    0,
+    0,
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    4,
+    0
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    1,
+    0,
+    0,
+    0
+   ],
+   [
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    4,
+    5
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    5,
+    0,
+    0,
+    0
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    7,
+    0,
+    0,
+    0
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ]
+  ]
+ }
+}

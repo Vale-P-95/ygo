@@ -1,0 +1,267 @@
+{
+ "id": "hunt-radiant_typhoon_zoodiac-0",
+ "deck": "radiant_typhoon_zoodiac.ydk",
+ "hand": [
+  42141493,
+  25940932,
+  24299458,
+  14558127,
+  94145021
+ ],
+ "deck_hash": "3a98d6a5aea7abac",
+ "seed": 7,
+ "goal": "",
+ "nodes": 200000,
+ "boards_found": 63,
+ "boards": [
+  {
+   "value": 1.1478257080610024,
+   "look_key": "390f772b3cf16700",
+   "field": [
+    {
+     "code": 24299458,
+     "name": "Forbidden Droplet",
+     "set": true
+    },
+    {
+     "code": 42141493,
+     "name": "Mulcharmy Fuwalos"
+    }
+   ],
+   "hand": [
+    25940932,
+    14558127,
+    94145021
+   ],
+   "measure": {
+    "field": 0.2874074074074075,
+    "hand": 0.7925925925925925,
+    "floodgates": 0.0,
+    "resilience": 0.24514161220043582,
+    "follow_up": {
+     "gained": 0,
+     "rebuild": 0
+    }
+   }
+  },
+  {
+   "value": 1.1359912854030503,
+   "look_key": "59967213e9fcedd3",
+   "field": [
+    {
+     "code": 24299458,
+     "name": "Forbidden Droplet",
+     "set": true
+    },
+    {
+     "code": 42141493,
+     "name": "Mulcharmy Fuwalos",
+     "set": true
+    }
+   ],
+   "hand": [
+    25940932,
+    14558127,
+    94145021
+   ],
+   "measure": {
+    "field": 0.2874074074074075,
+    "hand": 0.7925925925925925,
+    "floodgates": 0.0,
+    "resilience": 0.22541757443718233,
+    "follow_up": {
+     "gained": 0,
+     "rebuild": 0
+    }
+   }
+  },
+  {
+   "value": 1.1359912854030503,
+   "look_key": "a1d7a00435bc766d",
+   "field": [
+    {
+     "code": 24299458,
+     "name": "Forbidden Droplet",
+     "set": true
+    }
+   ],
+   "hand": [
+    42141493,
+    25940932,
+    14558127,
+    94145021
+   ],
+   "measure": {
+    "field": 0.2874074074074075,
+    "hand": 0.7925925925925925,
+    "floodgates": 0.0,
+    "resilience": 0.22541757443718233,
+    "follow_up": {
+     "gained": 0,
+     "rebuild": 0
+    }
+   }
+  },
+  {
+   "value": 0.9955294117647059,
+   "look_key": "39c2b8448cdb1b34",
+   "field": [
+    {
+     "code": 24299458,
+     "name": "Forbidden Droplet",
+     "set": true
+    },
+    {
+     "code": 42141493,
+     "name": "Mulcharmy Fuwalos"
+    },
+    {
+     "code": 25940932,
+     "name": "Radiant Typhoon Ascendance",
+     "set": true
+    }
+   ],
+   "hand": [
+    14558127,
+    94145021
+   ],
+   "measure": {
+    "field": 0.1866666666666667,
+    "hand": 0.7925925925925925,
+    "floodgates": 0.0,
+    "resilience": 0.15921568627450988,
+    "follow_up": {
+     "gained": 0,
+     "rebuild": 0
+    }
+   }
+  },
+  {
+   "value": 0.9955294117647059,
+   "look_key": "69749be9a7ab9709",
+   "field": [
+    {
+     "code": 24299458,
+     "name": "Forbidden Droplet",
+     "set": true
+    },
+    {
+     "code": 42141493,
+     "name": "Mulcharmy Fuwalos"
+    },
+    {
+     "code": 5318639,
+     "name": "Mystical Space Typhoon",
+     "set": true
+    }
+   ],
+   "hand": [
+    14558127,
+    94145021
+   ],
+   "measure": {
+    "field": 0.1866666666666667,
+    "hand": 0.7925925925925925,
+    "floodgates": 0.0,
+    "resilience": 0.15921568627450988,
+    "follow_up": {
+     "gained": 0,
+     "rebuild": 0
+    }
+   }
+  }
+ ],
+ "other_seeds": [],
+ "line": {
+  "answers": [
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    4,
+    0
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    4,
+    0,
+    1,
+    0
+   ],
+   [
+    0,
+    8,
+    1
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    7,
+    0,
+    0,
+    0
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ]
+  ]
+ }
+}

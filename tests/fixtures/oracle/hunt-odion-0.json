@@ -1,0 +1,405 @@
+{
+ "id": "hunt-odion-0",
+ "deck": "odion.ydk",
+ "hand": [
+  32909498,
+  95561146,
+  10045474,
+  23434538,
+  10045474
+ ],
+ "deck_hash": "782da04eed89a263",
+ "seed": 7,
+ "goal": "",
+ "nodes": 200000,
+ "boards_found": 138,
+ "boards": [
+  {
+   "value": 1.0625787037037038,
+   "look_key": "5ffcea754be0eeec",
+   "field": [
+    {
+     "code": 95561146,
+     "name": "Apophis the Serpent",
+     "set": true
+    },
+    {
+     "code": 10045474,
+     "name": "Infinite Impermanence",
+     "set": true
+    },
+    {
+     "code": 10045474,
+     "name": "Infinite Impermanence",
+     "set": true
+    },
+    {
+     "code": 32909498,
+     "name": "Kashtira Fenrir"
+    }
+   ],
+   "hand": [
+    32909498,
+    23434538
+   ],
+   "measure": {
+    "field": 0.687712962962963,
+    "hand": 0.04281481481481482,
+    "floodgates": 0.0,
+    "resilience": 0.560554012345679,
+    "follow_up": {
+     "gained": 0,
+     "rebuild": 0
+    }
+   }
+  },
+  {
+   "value": 1.0567364923747278,
+   "look_key": "334484c3b65044ae",
+   "field": [
+    {
+     "code": 95561146,
+     "name": "Apophis the Serpent",
+     "set": true
+    },
+    {
+     "code": 10045474,
+     "name": "Infinite Impermanence",
+     "set": true
+    },
+    {
+     "code": 10045474,
+     "name": "Infinite Impermanence",
+     "set": true
+    },
+    {
+     "code": 29301450,
+     "name": "S:P Little Knight",
+     "zone": "emz"
+    }
+   ],
+   "hand": [
+    32909498
+   ],
+   "measure": {
+    "field": 0.7188333333333334,
+    "hand": 0.0,
+    "floodgates": 0.0,
+    "resilience": 0.5631719317356574,
+    "follow_up": {
+     "gained": 0,
+     "rebuild": 0
+    }
+   }
+  },
+  {
+   "value": 1.0240453703703705,
+   "look_key": "9fa35277c38e3dc0",
+   "field": [
+    {
+     "code": 95561146,
+     "name": "Apophis the Serpent",
+     "set": true
+    },
+    {
+     "code": 10045474,
+     "name": "Infinite Impermanence",
+     "set": true
+    },
+    {
+     "code": 10045474,
+     "name": "Infinite Impermanence",
+     "set": true
+    },
+    {
+     "code": 32909498,
+     "name": "Kashtira Fenrir"
+    },
+    {
+     "code": 23434538,
+     "name": "Maxx \"C\"",
+     "set": true
+    }
+   ],
+   "hand": [
+    32909498
+   ],
+   "measure": {
+    "field": 0.687712962962963,
+    "hand": 0.0,
+    "floodgates": 0.0,
+    "resilience": 0.560554012345679,
+    "follow_up": {
+     "gained": 0,
+     "rebuild": 0
+    }
+   }
+  },
+  {
+   "value": 1.0215268518518519,
+   "look_key": "396b9f65d76c7574",
+   "field": [
+    {
+     "code": 95561146,
+     "name": "Apophis the Serpent",
+     "set": true
+    },
+    {
+     "code": 10045474,
+     "name": "Infinite Impermanence",
+     "set": true
+    },
+    {
+     "code": 10045474,
+     "name": "Infinite Impermanence",
+     "set": true
+    },
+    {
+     "code": 32909498,
+     "name": "Kashtira Fenrir"
+    },
+    {
+     "code": 23434538,
+     "name": "Maxx \"C\""
+    }
+   ],
+   "hand": [
+    32909498
+   ],
+   "measure": {
+    "field": 0.687712962962963,
+    "hand": 0.0,
+    "floodgates": 0.0,
+    "resilience": 0.5563564814814815,
+    "follow_up": {
+     "gained": 0,
+     "rebuild": 0
+    }
+   }
+  },
+  {
+   "value": 0.9659782135076255,
+   "look_key": "ffdc1dbccdb986b8",
+   "field": [
+    {
+     "code": 95561146,
+     "name": "Apophis the Serpent",
+     "set": true
+    },
+    {
+     "code": 10045474,
+     "name": "Infinite Impermanence",
+     "set": true
+    },
+    {
+     "code": 10045474,
+     "name": "Infinite Impermanence",
+     "set": true
+    }
+   ],
+   "hand": [
+    32909498,
+    23434538
+   ],
+   "measure": {
+    "field": 0.627851851851852,
+    "hand": 0.04740740740740742,
+    "floodgates": 0.0,
+    "resilience": 0.49243282498184476,
+    "follow_up": {
+     "gained": 0,
+     "rebuild": 0
+    }
+   }
+  }
+ ],
+ "other_seeds": [],
+ "line": {
+  "answers": [
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    4,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    8,
+    1
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    1,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    4,
+    0
+   ],
+   [
+    1,
+    0,
+    0,
+    0
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    5,
+    0,
+    1,
+    0
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    0,
+    0,
+    0,
+    0,
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    4,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    8,
+    2
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    4,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    8,
+    3
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    7,
+    0,
+    0,
+    0
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ]
+  ]
+ }
+}

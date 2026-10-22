@@ -11,68 +11,16 @@
  "deck_hash": "c77ecb6b1e53d7a1",
  "seed": 1,
  "goal": "",
- "nodes": 40000,
- "boards_found": 3586,
+ "nodes": 200000,
+ "boards_found": 9910,
  "boards": [
   {
-   "value": 2.179753703703704,
-   "look_key": "700d2dde29dee686",
+   "value": 2.2406814814814817,
+   "look_key": "a0a258ca8f18e38b",
    "field": [
     {
      "code": 38811586,
      "name": "Albion the Sanctifire Dragon"
-    },
-    {
-     "code": 95515789,
-     "name": "Blazing Cartesia, the Virtuous"
-    },
-    {
-     "code": 5431722,
-     "name": "Dracotail Flame",
-     "set": true
-    },
-    {
-     "code": 69932023,
-     "name": "Dracotail Horn",
-     "set": true
-    },
-    {
-     "code": 78397661,
-     "name": "Ecclesia and the Dark Dragon"
-    },
-    {
-     "code": 70369116,
-     "name": "Predaplant Verte Anaconda",
-     "zone": "emz"
-    }
-   ],
-   "hand": [
-    95515789,
-    1498449,
-    55273560
-   ],
-   "measure": {
-    "field": 1.4950555555555556,
-    "hand": 0.0,
-    "floodgates": 0.0,
-    "resilience": 0.9411635802469137,
-    "follow_up": {
-     "gained": 6,
-     "rebuild": 1
-    }
-   }
-  },
-  {
-   "value": 2.1274425925925926,
-   "look_key": "69b9398573722d65",
-   "field": [
-    {
-     "code": 38811586,
-     "name": "Albion the Sanctifire Dragon"
-    },
-    {
-     "code": 95515789,
-     "name": "Blazing Cartesia, the Virtuous"
     },
     {
      "code": 33760966,
@@ -93,84 +41,35 @@
      "name": "Ecclesia and the Dark Dragon"
     },
     {
-     "code": 70369116,
-     "name": "Predaplant Verte Anaconda",
-     "zone": "emz"
+     "code": 30271097,
+     "name": "The Fallen & The Virtuous",
+     "set": true
     }
    ],
    "hand": [
-    95515789,
+    84477320,
     1498449,
+    95515789,
     55273560
    ],
    "measure": {
-    "field": 1.3030185185185186,
+    "field": 1.3389074074074074,
     "hand": 0.2782962962962962,
     "floodgates": 0.0,
-    "resilience": 0.7565956790123457,
+    "resilience": 0.8855123456790125,
     "follow_up": {
-     "gained": 3,
+     "gained": 8,
      "rebuild": 1
     }
    }
   },
   {
-   "value": 2.1274425925925926,
-   "look_key": "8fd4f21b49715cbe",
+   "value": 2.102666666666667,
+   "look_key": "bf47dd28a528a7c2",
    "field": [
     {
      "code": 38811586,
      "name": "Albion the Sanctifire Dragon"
-    },
-    {
-     "code": 95515789,
-     "name": "Blazing Cartesia, the Virtuous"
-    },
-    {
-     "code": 33760966,
-     "name": "Dracotail Arthalion"
-    },
-    {
-     "code": 5431722,
-     "name": "Dracotail Flame",
-     "set": true
-    },
-    {
-     "code": 69932023,
-     "name": "Dracotail Horn",
-     "set": true
-    },
-    {
-     "code": 78397661,
-     "name": "Ecclesia and the Dark Dragon"
-    }
-   ],
-   "hand": [
-    55273560,
-    1498449
-   ],
-   "measure": {
-    "field": 1.3030185185185186,
-    "hand": 0.2782962962962962,
-    "floodgates": 0.0,
-    "resilience": 0.7565956790123457,
-    "follow_up": {
-     "gained": 6,
-     "rebuild": 1
-    }
-   }
-  },
-  {
-   "value": 1.997038888888889,
-   "look_key": "ebcfa71af450bca9",
-   "field": [
-    {
-     "code": 38811586,
-     "name": "Albion the Sanctifire Dragon"
-    },
-    {
-     "code": 95515789,
-     "name": "Blazing Cartesia, the Virtuous"
     },
     {
      "code": 33760966,
@@ -191,21 +90,123 @@
      "name": "Ecclesia and the Dark Dragon"
     },
     {
-     "code": 70369116,
-     "name": "Predaplant Verte Anaconda",
-     "zone": "emz"
+     "code": 30271097,
+     "name": "The Fallen & The Virtuous",
+     "set": true
     }
    ],
    "hand": [
-    95515789,
     1498449,
+    95515789,
+    55273560,
+    84477320
+   ],
+   "measure": {
+    "field": 1.2526481481481482,
+    "hand": 0.2782962962962962,
+    "floodgates": 0.0,
+    "resilience": 0.7992530864197532,
+    "follow_up": {
+     "gained": 8,
+     "rebuild": 1
+    }
+   }
+  },
+  {
+   "value": 2.0941074074074075,
+   "look_key": "b1bba1ec1e0f556a",
+   "field": [
+    {
+     "code": 38811586,
+     "name": "Albion the Sanctifire Dragon"
+    },
+    {
+     "code": 5431722,
+     "name": "Dracotail Flame",
+     "set": true
+    },
+    {
+     "code": 69932023,
+     "name": "Dracotail Horn",
+     "set": true
+    },
+    {
+     "code": 78397661,
+     "name": "Ecclesia and the Dark Dragon"
+    },
+    {
+     "code": 70369116,
+     "name": "Predaplant Verte Anaconda",
+     "zone": "emz"
+    },
+    {
+     "code": 30271097,
+     "name": "The Fallen & The Virtuous",
+     "set": true
+    }
+   ],
+   "hand": [
+    84477320,
+    1498449,
+    95515789,
     55273560
    ],
    "measure": {
-    "field": 1.2167592592592593,
+    "field": 1.3168703703703704,
     "hand": 0.2782962962962962,
     "floodgates": 0.0,
-    "resilience": 0.6830216049382716,
+    "resilience": 0.8779506172839505,
+    "follow_up": {
+     "gained": 4,
+     "rebuild": 0
+    }
+   }
+  },
+  {
+   "value": 2.0638148148148145,
+   "look_key": "059c376e5d5d10a6",
+   "field": [
+    {
+     "code": 38811586,
+     "name": "Albion the Sanctifire Dragon"
+    },
+    {
+     "code": 95515789,
+     "name": "Blazing Cartesia, the Virtuous"
+    },
+    {
+     "code": 5431722,
+     "name": "Dracotail Flame",
+     "set": true
+    },
+    {
+     "code": 69932023,
+     "name": "Dracotail Horn",
+     "set": true
+    },
+    {
+     "code": 78397661,
+     "name": "Ecclesia and the Dark Dragon"
+    },
+    {
+     "code": 70369116,
+     "name": "Predaplant Verte Anaconda",
+     "zone": "emz"
+    },
+    {
+     "code": 30271097,
+     "name": "The Fallen & The Virtuous",
+     "set": true
+    }
+   ],
+   "hand": [
+    1498449
+   ],
+   "measure": {
+    "field": 1.3677129629629627,
+    "hand": 0.0,
+    "floodgates": 0.0,
+    "resilience": 0.9601697530864195,
     "follow_up": {
      "gained": 2,
      "rebuild": 1
@@ -213,8 +214,8 @@
    }
   },
   {
-   "value": 1.9163833333333335,
-   "look_key": "0b185f00f1bbc2b6",
+   "value": 1.989088888888889,
+   "look_key": "6dfb5248e4ac69f7",
    "field": [
     {
      "code": 38811586,
@@ -235,25 +236,30 @@
      "set": true
     },
     {
-     "code": 78397661,
-     "name": "Ecclesia and the Dark Dragon"
+     "code": 70369116,
+     "name": "Predaplant Verte Anaconda",
+     "zone": "emz"
+    },
+    {
+     "code": 30271097,
+     "name": "The Fallen & The Virtuous",
+     "set": true
     }
    ],
    "hand": [
+    84477320,
     1498449,
-    73819701,
-    30271097,
     95515789,
     55273560
    ],
    "measure": {
-    "field": 1.1317592592592594,
+    "field": 1.2318703703703704,
     "hand": 0.2782962962962962,
     "floodgates": 0.0,
-    "resilience": 0.6902623456790125,
+    "resilience": 0.8445864197530866,
     "follow_up": {
-     "gained": 7,
-     "rebuild": 1
+     "gained": 5,
+     "rebuild": 0
     }
    }
   }
@@ -804,7 +810,7 @@
     0,
     0,
     0,
-    5,
+    2,
     0,
     0,
     0
@@ -830,7 +836,7 @@
     0,
     0,
     0,
-    3,
+    2,
     0,
     0,
     0
@@ -862,91 +868,6 @@
     5,
     0,
     0,
-    0
-   ],
-   [
-    0,
-    0,
-    0,
-    0,
-    1,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    5,
-    0,
-    2,
-    0
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    0,
-    4,
-    1
-   ],
-   [
-    1,
-    0,
-    0,
-    0
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    5,
-    0,
-    1,
     0
    ],
    [
@@ -1100,6 +1021,50 @@
     0,
     8,
     2
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    5,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    0,
+    0,
+    0,
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
    ],
    [
     255,
@@ -1134,7 +1099,7 @@
    [
     0,
     4,
-    3
+    1
    ],
    [
     255,
@@ -1266,10 +1231,66 @@
     0,
     0,
     0,
-    0,
+    3,
     0,
     0,
     0
+   ],
+   [
+    0,
+    0,
+    0,
+    0,
+    1,
+    0,
+    0,
+    0,
+    3,
+    0,
+    0,
+    0
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    1,
+    0,
+    0,
+    0
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
    ],
    [
     0,
@@ -1286,16 +1307,15 @@
     0
    ],
    [
-    255,
-    255,
-    255,
-    255
+    1,
+    0,
+    0,
+    0
    ],
    [
-    255,
-    255,
-    255,
-    255
+    0,
+    8,
+    3
    ],
    [
     255,
