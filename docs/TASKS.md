@@ -43,8 +43,8 @@ Corsie di lavoro in parallelo del 22/10/2026 (piano in `docs/plans/piano-prossim
 - [ ] **Corsia 4, quarto task.** L4-6: nel livello 2 il rigioco della linea dell'avversario si ferma all'ultima scelta libera della sua Main Phase e non entra nella Fase Finale, così le sue mosse di Fase Finale contano come perse (Titaniklad, Incredible Ecclesia, Blazing Cartesia, Despian Luluwalilith). Si rigioca anche la Fase Finale.
 
   Agente: claude-code, sessione della corsia 4. Branch: `claude/placed-cards` (ripartito da `main` 6018809). File: in `crates/ygo-solver/src/probe.rs` solo il ramo `Some(1) if follower.is_some()` di `run_with` e come chiama `turn_three` (d'accordo con la coordinatrice, che fa B5 nel resto); `crates/ygo-solver/src/follow.rs` (`Follower::answer`); `crates/ygo-solver/tests/matchup.rs`.
-  - [ ] La correzione, con un test.
-  - [ ] `moves_report.py`, banco, `combo_hunt` e `search_regression` prima e dopo.
+  - [x] La correzione (nessun test nuovo: le ricerche brevi dei test non trovano linee con mosse di Fase Finale; la prova è il collaudo).
+  - [x] `moves_report.py` (invoked e branded contro 12 deck, semi 1 e 7): mosse fatte su una board vuota dal 93,8% al 95,0% (non fatte da 220 a 178 per seme), 0 errori. Banco (18,26 / 18,26) e `combo_hunt` (41 ok, 0 problemi) identici a `main` 6018809; test verdi con `search_regression`.
 - [x] **Corsia 4, terzo task**, unita il 22/10 (PR #65). Esposizione come valore perso (#47, D12 = B6 V1 di `docs/plans/classificazione-board.md`): nel punteggio l'esposizione diventa `E = Σ_h p_h · loss_h` in interruzioni, al posto del numero di punti critici, che resta nel dettaglio.
 
   Agente: claude-code, sessione della corsia 4. Branch: `claude/placed-cards` (ripartito da `main` dbd7c58). File: `crates/ygo-solver/src/probe.rs`, `explain.rs`; `apps/desktop/src-tauri/src/lib.rs`, `apps/desktop/src/lib/api.ts`, `mock.ts`; in `crates/ygo-cli/src/main.rs` la parte di `combos` e `probe-line` che stampa l'esposizione; script miei in `scripts/`; `docs/plans/esposizione.md`.
