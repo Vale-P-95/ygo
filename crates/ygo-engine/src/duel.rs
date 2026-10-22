@@ -5,6 +5,7 @@ use std::ffi::{CStr, CString};
 use std::mem::ManuallyDrop;
 use std::os::raw::{c_char, c_int, c_void};
 use std::path::Path;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, OnceLock};
 
 use crate::carddb::CardDb;
@@ -128,9 +129,16 @@ unsafe extern "C" fn script_reader(payload: *mut c_void, duel: OCG_Duel, name: *
     }
 }
 
+/// Lines of the engine's log kept for each duel: a request stopped by the
+/// Lua limit logs a failure for every entry into Lua after it.
+const LOG_LINES: usize = 100;
+
 unsafe extern "C" fn log_handler(payload: *mut c_void, text: *const c_char, _kind: c_int) {
     let ctx = &*(payload as *const Context);
-    ctx.log.borrow_mut().push(CStr::from_ptr(text).to_string_lossy().into_owned());
+    let mut log = ctx.log.borrow_mut();
+    if log.len() < LOG_LINES {
+        log.push(CStr::from_ptr(text).to_string_lossy().into_owned());
+    }
 }
 
 pub struct Duel {
@@ -159,6 +167,54 @@ pub struct Duel {
     chain: Vec<ChainLink>,
     /// The duel ends ([`Step::End`]) as soon as a later turn begins.
     last_turn: Option<u32>,
+    /// The memory arena the engine allocates this duel in (shim/arena.cpp),
+    /// or null: with one the duel can be saved and put back ([`Duel::save`]).
+    arena: *mut c_void,
+    /// Which duel has the arena: arenas and their addresses are reused once
+    /// a duel is dropped, numbers are not.
+    arena_id: u64,
+}
+
+/// The next number of a duel made in an arena.
+static ARENA_IDS: AtomicU64 = AtomicU64::new(1);
+
+/// The arena of a duel active on this thread while the engine works for it;
+/// the one active before comes back when this is dropped.
+struct Entered(*mut c_void);
+
+impl Drop for Entered {
+    fn drop(&mut self) {
+        unsafe { df_arena_enter(self.0) };
+    }
+}
+
+/// A whole duel as it was at [`Duel::save`]: the engine's memory and what
+/// this side of the engine tracks.
+pub struct SavedDuel {
+    arena: *mut c_void,
+    arena_id: u64,
+    memory: Vec<u8>,
+    select_hint: u64,
+    pending: Option<Decision>,
+    last_response: Vec<u8>,
+    known: Vec<u32>,
+    turn: u32,
+    turn_player: u8,
+    phase: u16,
+    activity: TurnActivity,
+    open_chain: usize,
+    chain: Vec<ChainLink>,
+    last_turn: Option<u32>,
+}
+
+// The memory is plain bytes; the arena pointer only identifies the duel.
+unsafe impl Send for SavedDuel {}
+
+impl SavedDuel {
+    /// Bytes of engine memory kept.
+    pub fn size(&self) -> usize {
+        self.memory.len()
+    }
 }
 
 /// A link on the chain: whose, which effect of which card (the original
@@ -267,6 +323,8 @@ thread_local! {
     static FRESH: Cell<bool> = const { Cell::new(false) };
     /// The card scripts are not loaded ahead (see `df_duel_preload`).
     static NO_PRELOAD: Cell<bool> = const { Cell::new(false) };
+    /// See [`arena_duels`].
+    static ARENAS: Cell<bool> = const { Cell::new(false) };
 }
 
 /// Lua that gives each placed Extra Deck monster its materials (a placed
@@ -381,6 +439,13 @@ fn reuse_duels() -> bool {
     *REUSE.get_or_init(|| std::env::var_os("DUELFORGE_FRESH_DUELS").is_none()) && !FRESH.with(|f| f.get())
 }
 
+/// The duels this thread makes from now on live in a memory arena (`true`)
+/// and can be saved and put back ([`Duel::save`], [`Duel::restore`]); they
+/// are not reused (see [`fresh_duels`]).
+pub fn arena_duels(on: bool) {
+    ARENAS.with(|a| a.set(on));
+}
+
 /// Every duel of this thread new from now on (`true`), or reused when
 /// possible: to check that a reused duel plays like a new one.
 #[doc(hidden)]
@@ -413,19 +478,28 @@ fn duel_options(config: &DuelConfig, ctx: &Context) -> OCG_DuelOptions {
 
 impl Duel {
     pub fn new(engine: &Engine, config: &DuelConfig) -> Result<Self, Error> {
+        if ARENAS.with(Cell::get) {
+            let arena = unsafe { df_arena_new() };
+            if arena.is_null() {
+                return Err(Error::Engine("no memory arena left for a new duel".to_owned()));
+            }
+            let _before = Entered(unsafe { df_arena_enter(arena) });
+            return Self::fresh(engine, config, arena);
+        }
         if let Some(mut duel) = Self::reused(engine, config) {
             if check_reuse() {
-                duel.shadow = Some(Box::new(Self::fresh(engine, config)?));
+                duel.shadow = Some(Box::new(Self::fresh(engine, config, std::ptr::null_mut())?));
             }
             return Ok(duel);
         }
-        let mut duel = Self::fresh(engine, config)?;
+        let mut duel = Self::fresh(engine, config, std::ptr::null_mut())?;
         duel.reusable = reuse_duels() && unsafe { df_duel_snapshot(duel.raw) } != 0;
         Ok(duel)
     }
 
-    /// A duel with the base scripts loaded just now.
-    fn fresh(engine: &Engine, config: &DuelConfig) -> Result<Self, Error> {
+    /// A duel with the base scripts loaded just now, in `arena` (or null),
+    /// which it takes: on an error the arena is freed already.
+    fn fresh(engine: &Engine, config: &DuelConfig, arena: *mut c_void) -> Result<Self, Error> {
         let ctx = Box::new(Context {
             cards: engine.cards.clone(),
             scripts: engine.scripts.clone(),
@@ -436,10 +510,16 @@ impl Duel {
         let mut raw: OCG_Duel = std::ptr::null_mut();
         let status = unsafe { OCG_CreateDuel(&mut raw, &options) };
         if status != OCG_DUEL_CREATION_SUCCESS || raw.is_null() {
+            unsafe { df_arena_free(arena) };
             return Err(Error::Engine(format!("duel creation failed (status {status})")));
         }
         lua_count::install(raw);
-        let duel = Self::with(raw, ManuallyDrop::new(ctx));
+        let mut duel = Self::with(raw, ManuallyDrop::new(ctx));
+        // From here the duel frees it, when dropped.
+        duel.arena = arena;
+        if !arena.is_null() {
+            duel.arena_id = ARENA_IDS.fetch_add(1, Ordering::Relaxed);
+        }
         for base in ["constant.lua", "utility.lua"] {
             if !duel.load_script(base) {
                 return Err(Error::Engine(format!("cannot load {base}: {}", duel.log().join("; "))));
@@ -485,7 +565,68 @@ impl Duel {
             open_chain: 0,
             chain: Vec::new(),
             last_turn: None,
+            arena: std::ptr::null_mut(),
+            arena_id: 0,
         }
+    }
+
+    /// Makes this duel's arena (or none) the active one while the engine
+    /// works for it.
+    fn enter(&self) -> Entered {
+        Entered(unsafe { df_arena_enter(self.arena) })
+    }
+
+    /// The whole duel as it is now, to put back with [`Self::restore`]; only
+    /// for a duel made in an arena ([`arena_duels`]). Once the engine has
+    /// outgrown the arena the duel can no longer be saved, for good. The
+    /// engine's log ([`Self::log`]) is not saved.
+    pub fn save(&self) -> Result<SavedDuel, Error> {
+        if self.arena.is_null() {
+            return Err(Error::Engine("this duel has no memory arena: it cannot be saved".to_owned()));
+        }
+        if unsafe { df_arena_overflowed(self.arena) } != 0 {
+            return Err(Error::Engine("the duel outgrew its memory arena: it cannot be saved".to_owned()));
+        }
+        let mut memory = vec![0u8; unsafe { df_arena_used(self.arena) }];
+        unsafe { df_arena_save(self.arena, memory.as_mut_ptr().cast()) };
+        Ok(SavedDuel {
+            arena: self.arena,
+            arena_id: self.arena_id,
+            memory,
+            select_hint: self.select_hint,
+            pending: self.pending.clone(),
+            last_response: self.last_response.clone(),
+            known: self.known.clone(),
+            turn: self.turn,
+            turn_player: self.turn_player,
+            phase: self.phase,
+            activity: self.activity.clone(),
+            open_chain: self.open_chain,
+            chain: self.chain.clone(),
+            last_turn: self.last_turn,
+        })
+    }
+
+    /// Puts the duel back as it was at [`Self::save`] (of this same duel).
+    pub fn restore(&mut self, saved: &SavedDuel) -> Result<(), Error> {
+        if saved.arena != self.arena || saved.arena_id != self.arena_id || self.arena.is_null() {
+            return Err(Error::Engine("a duel can only be put back from its own save".to_owned()));
+        }
+        if unsafe { df_arena_restore(self.arena, saved.memory.as_ptr().cast(), saved.memory.len()) } == 0 {
+            return Err(Error::Engine("the duel's memory arena cannot hold the save".to_owned()));
+        }
+        self.select_hint = saved.select_hint;
+        self.pending = saved.pending.clone();
+        self.last_response = saved.last_response.clone();
+        self.known = saved.known.clone();
+        self.turn = saved.turn;
+        self.turn_player = saved.turn_player;
+        self.phase = saved.phase;
+        self.activity = saved.activity.clone();
+        self.open_chain = saved.open_chain;
+        self.chain = saved.chain.clone();
+        self.last_turn = saved.last_turn;
+        Ok(())
     }
 
     /// Creates a duel for solitaire testing ("goldfishing"): player 0 starts
@@ -555,7 +696,11 @@ impl Duel {
             shadow.deck_to_hand(code)?;
         }
         let wanted = self.ctx.cards.canonical_code(code);
-        if unsafe { df_deck_to_hand(self.raw, 0, wanted) } == 0 {
+        let moved = {
+            let _arena = self.enter();
+            unsafe { df_deck_to_hand(self.raw, 0, wanted) }
+        };
+        if moved == 0 {
             return Err(Error::Data(format!("{} is not in the Deck", self.ctx.cards.name(code))));
         }
         Ok(())
@@ -639,7 +784,7 @@ impl Duel {
                 // loading ahead on this thread.
                 NO_PRELOAD.with(|n| n.set(true));
                 duel.reusable = false;
-                duel = Self::fresh(engine, &config)?;
+                duel = Self::fresh(engine, &config, std::ptr::null_mut())?;
             }
         }
         for (i, &code) in main.iter().enumerate() {
@@ -719,12 +864,14 @@ impl Duel {
             shadow.run_lua_source(name, source);
         }
         let name = CString::new(name).expect("script name without NUL");
+        let _arena = self.enter();
         unsafe { OCG_LoadScript(self.raw, source.as_ptr() as *const c_char, source.len() as u32, name.as_ptr()) != 0 }
     }
 
     fn load_script(&self, name: &str) -> bool {
         let name = CString::new(name).expect("script name without NUL");
         let payload = &**self.ctx as *const Context as *mut c_void;
+        let _arena = self.enter();
         unsafe { script_reader(payload, self.raw, name.as_ptr()) != 0 }
     }
 
@@ -733,14 +880,20 @@ impl Duel {
             self.known.push(code);
         }
         let info = OCG_NewCardInfo { team: owner, duelist: 0, code, con: owner, loc: location as u32, seq: sequence, pos: position };
-        unsafe { OCG_DuelNewCard(self.raw, &info) };
+        {
+            let _arena = self.enter();
+            unsafe { OCG_DuelNewCard(self.raw, &info) };
+        }
         if let Some(shadow) = &mut self.shadow {
             shadow.add_card(owner, code, location, sequence, position);
         }
     }
 
     pub fn start(&mut self) {
-        unsafe { OCG_StartDuel(self.raw) };
+        {
+            let _arena = self.enter();
+            unsafe { OCG_StartDuel(self.raw) };
+        }
         if let Some(shadow) = &mut self.shadow {
             shadow.start();
         }
@@ -748,9 +901,14 @@ impl Duel {
 
     /// Runs the engine until it needs a decision or the duel ends.
     pub fn advance(&mut self) -> Result<Step, Error> {
-        let counted = lua_count::start();
+        let request = lua_count::start();
         let step = self.advance_once();
-        lua_count::finish(counted);
+        if lua_count::finish(request) {
+            // The scripts stopped half-way: the duel is not worth going on with.
+            self.reusable = false;
+            self.shadow = None;
+            return Err(Error::Engine("a card script ran too long (DUELFORGE_LUA_LIMIT)".into()));
+        }
         if let Some(mut shadow) = self.shadow.take() {
             shadow.last_turn = self.last_turn;
             let fresh = shadow.advance_once();
@@ -768,6 +926,7 @@ impl Duel {
     fn advance_once(&mut self) -> Result<Step, Error> {
         let mut events = Vec::new();
         loop {
+            let arena = self.enter();
             let status = unsafe { OCG_DuelProcess(self.raw) };
             let buffer = unsafe {
                 let mut len = 0u32;
@@ -778,6 +937,7 @@ impl Duel {
                     std::slice::from_raw_parts(ptr as *const u8, len as usize).to_vec()
                 }
             };
+            drop(arena);
             let mut decision = None;
             for record in message::split(&buffer) {
                 match message::parse(record, self.select_hint) {
@@ -879,6 +1039,7 @@ impl Duel {
 
     pub(crate) fn raw_query_location(&self, player: u8, loc: u8, flags: u32) -> Vec<u8> {
         let info = OCG_QueryInfo { flags, con: player, loc: loc as u32, seq: 0, overlay_seq: 0 };
+        let _arena = self.enter();
         unsafe {
             let mut len = 0u32;
             let ptr = OCG_DuelQueryLocation(self.raw, &mut len, &info);
@@ -890,6 +1051,7 @@ impl Duel {
     }
 
     pub(crate) fn raw_query_field(&self) -> Vec<u8> {
+        let _arena = self.enter();
         unsafe {
             let mut len = 0u32;
             let ptr = OCG_DuelQueryField(self.raw, &mut len);
@@ -920,6 +1082,7 @@ impl Duel {
             shadow.respond(response);
         }
         self.last_response = response.to_vec();
+        let _arena = self.enter();
         unsafe { OCG_DuelSetResponse(self.raw, response.as_ptr() as *const c_void, response.len() as u32) };
     }
 
@@ -930,6 +1093,7 @@ impl Duel {
     }
 
     pub fn count(&self, player: u8, loc: u8) -> u32 {
+        let _arena = self.enter();
         unsafe { OCG_DuelQueryCount(self.raw, player, loc as u32) }
     }
 
@@ -950,6 +1114,18 @@ impl Duel {
 
 impl Drop for Duel {
     fn drop(&mut self) {
+        if !self.arena.is_null() {
+            // Its memory goes with the arena.
+            {
+                let _arena = self.enter();
+                unsafe { df_duel_destroy(self.raw) };
+            }
+            unsafe {
+                df_arena_free(self.arena);
+                ManuallyDrop::drop(&mut self.ctx);
+            }
+            return;
+        }
         let ctx = unsafe { ManuallyDrop::take(&mut self.ctx) };
         let spare = Spare { raw: self.raw, ctx: ManuallyDrop::new(ctx) };
         if self.reusable && !std::thread::panicking() {
@@ -976,18 +1152,25 @@ pub fn shuffle<T>(items: &mut [T], seed: u64) {
     }
 }
 
-/// Lua instructions per engine request, measured with
-/// `DUELFORGE_LUA_COUNT=<file>`: what a limit per request would cut. Each
-/// request (from an answer to the next decision) adds two little-endian
-/// `u32` to the file at exit: thousands of instructions, and microseconds.
-/// Without the variable no hook is installed and nothing is recorded.
+/// Lua work per engine request (from an answer to the next decision). A
+/// request stops once the core has entered Lua `DUELFORGE_LUA_LIMIT` times
+/// (500 000 by default, 0 for no limit): a few positions make a card script
+/// enter Lua 0.5-5 million times in seconds, and the search pays them again
+/// at every replay, while no request of 82 searches on 41 decks of Master
+/// Duel Meta entered 120 000 times (`docs/plans/velocita-ricerca.md`).
+///
+/// With `DUELFORGE_LUA_COUNT=<file>` each request also adds four
+/// little-endian `u32` to the file at exit: thousands of instructions,
+/// calls, entries into Lua, and microseconds.
 mod lua_count {
     use std::os::raw::c_int;
     use std::path::PathBuf;
     use std::sync::{Mutex, OnceLock};
     use std::time::Instant;
 
-    use crate::ffi::{df_lua_count_install, df_lua_count_take, OCG_Duel};
+    use crate::ffi::{df_lua_hook_install, df_lua_request_end, df_lua_request_start, OCG_Duel};
+
+    const DEFAULT_LIMIT: u64 = 500_000;
 
     static RECORDS: Mutex<Vec<u32>> = Mutex::new(Vec::new());
 
@@ -1006,6 +1189,11 @@ mod lua_count {
             .as_ref()
     }
 
+    fn limit() -> u64 {
+        static LIMIT: OnceLock<u64> = OnceLock::new();
+        *LIMIT.get_or_init(|| std::env::var("DUELFORGE_LUA_LIMIT").ok().and_then(|v| v.parse().ok()).unwrap_or(DEFAULT_LIMIT))
+    }
+
     extern "C" fn write() {
         let (Some(path), Ok(records)) = (output(), RECORDS.lock()) else { return };
         let bytes: Vec<u8> = records.iter().flat_map(|v| v.to_le_bytes()).collect();
@@ -1018,24 +1206,39 @@ mod lua_count {
 
     pub fn install(raw: OCG_Duel) {
         if output().is_some() {
-            unsafe { df_lua_count_install(raw) };
+            unsafe { df_lua_hook_install(raw) };
         }
     }
+
+    pub struct Request(Option<Instant>);
 
     /// Starts a request: what Lua ran before it is not its own.
-    pub fn start() -> Option<Instant> {
-        output()?;
-        unsafe { df_lua_count_take() };
-        Some(Instant::now())
+    pub fn start() -> Request {
+        if limit() == 0 && output().is_none() {
+            return Request(None);
+        }
+        start_with(limit())
     }
 
-    pub fn finish(started: Option<Instant>) {
-        let Some(started) = started else { return };
-        let ticks = unsafe { df_lua_count_take() };
-        let micros = started.elapsed().as_micros();
-        if let Ok(mut records) = RECORDS.lock() {
-            records.extend([ticks.min(u32::MAX as u64) as u32, micros.min(u32::MAX as u128) as u32]);
+    /// A request with at most `max` entries into Lua (0: no limit).
+    pub fn start_with(max: u64) -> Request {
+        unsafe { df_lua_request_start(max) };
+        Request(Some(Instant::now()))
+    }
+
+    /// Ends a request; true when the limit stopped it.
+    pub fn finish(request: Request) -> bool {
+        let Request(Some(started)) = request else { return false };
+        let (mut entries, mut calls, mut instructions) = (0u64, 0u64, 0u64);
+        let stopped = unsafe { df_lua_request_end(&mut entries, &mut calls, &mut instructions) } != 0;
+        if output().is_some() {
+            let micros = started.elapsed().as_micros();
+            if let Ok(mut records) = RECORDS.lock() {
+                let field = |v: u128| v.min(u32::MAX as u128) as u32;
+                records.extend([field((instructions / 1000).into()), field(calls.into()), field(entries.into()), field(micros)]);
+            }
         }
+        stopped
     }
 }
 
@@ -1054,6 +1257,69 @@ mod tests {
         sorted.sort();
         assert_eq!(sorted, (0..40).collect::<Vec<_>>());
         assert_ne!(a, (0..40).collect::<Vec<_>>());
+    }
+
+    #[test]
+    fn a_request_stops_at_the_lua_limit() {
+        let root = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let data = std::env::var_os("DUELFORGE_DATA").map(std::path::PathBuf::from).unwrap_or_else(|| root.join("data"));
+        if !data.join("scripts/constant.lua").is_file() {
+            eprintln!("skipped: no game data in {}", data.display());
+            return;
+        }
+        let engine = Engine::load(&data).unwrap();
+        let ydk = std::fs::read_to_string(root.join("tests/fixtures/decks/invoked-siracusa-md.ydk")).unwrap();
+        let mut duel = Duel::goldfish_vs(&engine, &DeckList::from_ydk(&ydk).unwrap(), &[], 1, &Opponent::default()).unwrap();
+        // A script that enters Lua again and again, run as a request would be:
+        // past the limit each entry fails, the script goes on to its end.
+        let request = lua_count::start_with(1000);
+        let source = "local g = Duel.GetFieldGroup(0, LOCATION_DECK, 0)
+                      for i = 1, 2000 do g:Filter(function() return true end, nil) end";
+        assert!(duel.run_lua_source("loop.lua", source));
+        assert!(lua_count::finish(request), "the limit stopped it");
+        assert!(duel.log().len() <= LOG_LINES, "the failures do not fill the log");
+        // Outside a request nothing is counted against it.
+        assert!(duel.run_lua_source("short.lua", "local n = 0 for i = 1, 100 do n = n + i end"));
+        duel.reusable = false;
+    }
+
+    /// The arena self-test takes every slot for a moment: the tests that
+    /// make arenas take turns.
+    static ARENA_TESTS: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+    #[test]
+    fn arena_saves_and_restores_memory() {
+        let _turn = ARENA_TESTS.lock().unwrap_or_else(|e| e.into_inner());
+        assert_eq!(unsafe { df_arena_selftest() }, 1);
+    }
+
+    #[test]
+    fn a_duel_that_outgrew_its_arena_plays_on_but_cannot_be_saved() {
+        let root = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let data = std::env::var_os("DUELFORGE_DATA").map(std::path::PathBuf::from).unwrap_or_else(|| root.join("data"));
+        if !data.join("scripts/constant.lua").is_file() {
+            eprintln!("skipped: no game data in {}", data.display());
+            return;
+        }
+        let engine = Engine::load(&data).unwrap();
+        let ydk = std::fs::read_to_string(root.join("tests/fixtures/decks/invoked-siracusa-md.ydk")).unwrap();
+        let deck = DeckList::from_ydk(&ydk).unwrap();
+        let hand: Vec<u32> = deck.main.iter().copied().take(5).collect();
+        let _turn = ARENA_TESTS.lock().unwrap_or_else(|e| e.into_inner());
+        arena_duels(true);
+        let mut duel = Duel::goldfish_vs(&engine, &deck, &hand, 1, &Opponent::default()).unwrap();
+        arena_duels(false);
+        let saved = duel.save().unwrap();
+        // Full: what Lua makes now goes outside the arena.
+        unsafe { df_arena_limit(duel.arena, df_arena_used(duel.arena)) };
+        assert!(duel.run_lua_source("big.lua", "local t = {} for i = 1, 100000 do t[i] = {i} end"));
+        let err = duel.save().err().expect("a full arena is not saved");
+        assert!(err.to_string().contains("outgrew"), "{err}");
+        // The duel goes on, and is dropped with its blocks outside the arena.
+        assert!(matches!(duel.advance(), Ok(Step::Decision { .. })));
+        // A save made before still goes back in.
+        duel.restore(&saved).unwrap();
+        assert!(matches!(duel.advance(), Ok(Step::Decision { .. })));
     }
 
     #[test]

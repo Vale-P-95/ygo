@@ -64,6 +64,21 @@
   --role-custom-2: #6c9a35;
   --role-custom-3: #8a7d73;
   --lab-second: #9a72d4;
+
+  /* Yu-Gi-Oh card frames (contrast >= 3:1 on forge dark surface, distinct from roles). */
+  --frame-normal: #d8b46e;
+  --frame-effect: #cf7a43;
+  --frame-fusion: #a05cd4;
+  --frame-synchro: #e8e8ea;
+  --frame-xyz: #706e78;
+  --frame-link: #2f78d6;
+  --frame-ritual: #4b90e6;
+  --frame-spell: #14aa78;
+  --frame-trap: #cc3b88;
+  --frame-token: #908c88;
+  --frame-skill: #3a8bd8;
+  --stats-starter-num: #4ee0d5;
+  --stats-key-num: #ffd27a;
 }
 [data-theme="light"] {
   --role-starter: #0a8d82;
@@ -75,9 +90,41 @@
   --role-custom-2: #4f7d1c;
   --role-custom-3: #8c7a68;
   --lab-second: #7445b8;
+
+  /* Yu-Gi-Oh card frames (contrast >= 3:1 on light pergamena surface, distinct from roles). */
+  --frame-normal: #8c6214;
+  --frame-effect: #b8581e;
+  --frame-fusion: #7a3cb2;
+  --frame-synchro: #555660;
+  --frame-xyz: #1e1b24;
+  --frame-link: #1a5ca8;
+  --frame-ritual: #2465b8;
+  --frame-spell: #0b7f58;
+  --frame-trap: #9e1d62;
+  --frame-token: #605c56;
+  --frame-skill: #2566ab;
+  --stats-starter-num: #086b63;
+  --stats-key-num: #7a4e00;
 }
 
 :root {
+  /* Scala tipografica (revisione 2: corpo 13-14 px, piccolo 12 px, didascalia 11 px) */
+  --df-text-title-xl: 1.5rem;    /* 24px */
+  --df-text-title-lg: 1.25rem;   /* 20px */
+  --df-text-title: 1.125rem;     /* 18px */
+  --df-text-body: 0.875rem;      /* 14px */
+  --df-text-body-sm: 0.8125rem;  /* 13px */
+  --df-text-small: 0.75rem;      /* 12px */
+  --df-text-caption: 0.6875rem;  /* 11px */
+
+  /* Spaziature standard: 4, 8, 12, 16, 24, 32 px */
+  --df-space-1: 0.25rem;  /* 4px */
+  --df-space-2: 0.5rem;   /* 8px */
+  --df-space-3: 0.75rem;  /* 12px */
+  --df-space-4: 1rem;     /* 16px */
+  --df-space-6: 1.5rem;   /* 24px */
+  --df-space-8: 2rem;     /* 32px */
+
   /* Combo Lab score metrics, from the role colors. */
   --metric-interruptions: var(--role-starter);
   --metric-hand: var(--role-handtrap);
@@ -136,6 +183,19 @@
   --color-sec-2: var(--sec-2);
   --font-sans: "Inter Variable", "Segoe UI", system-ui, sans-serif;
   --font-display: "Cinzel", "Times New Roman", serif;
+  --spacing-df-1: var(--df-space-1);
+  --spacing-df-2: var(--df-space-2);
+  --spacing-df-3: var(--df-space-3);
+  --spacing-df-4: var(--df-space-4);
+  --spacing-df-6: var(--df-space-6);
+  --spacing-df-8: var(--df-space-8);
+  --text-title-xl: var(--df-text-title-xl);
+  --text-title-lg: var(--df-text-title-lg);
+  --text-title: var(--df-text-title);
+  --text-body: var(--df-text-body);
+  --text-body-sm: var(--df-text-body-sm);
+  --text-small: var(--df-text-small);
+  --text-caption: var(--df-text-caption);
 }
 
 html,
@@ -172,6 +232,13 @@ body {
 }
 
 @layer components {
+  .text-title-xl { font-family: var(--font-display); font-size: var(--df-text-title-xl); line-height: 1.25; }
+  .text-title-lg { font-family: var(--font-display); font-size: var(--df-text-title-lg); line-height: 1.3; }
+  .text-title { font-family: var(--font-display); font-size: var(--df-text-title); line-height: 1.35; }
+  .text-body { font-size: var(--df-text-body); line-height: 1.45; }
+  .text-body-sm { font-size: var(--df-text-body-sm); line-height: 1.4; }
+  .text-small { font-size: var(--df-text-small); line-height: 1.35; }
+  .text-caption { font-size: var(--df-text-caption); line-height: 1.25; }
   .panel {
     background: linear-gradient(180deg, var(--df-highlight), transparent 40%), var(--df-surface);
     border: 1px solid var(--df-border);

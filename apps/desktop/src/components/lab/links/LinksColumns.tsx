@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import type { Card, CardLink, LinkCard, LinksComparison } from "../../../lib/api";
 import { sound } from "../../../lib/sound";
 import { CardImage } from "../../combo/Field";
-import type { LinksFilterState } from "./types";
+import { formatChance, type LinksFilterState } from "./types";
 
 interface Props {
   cards: LinkCard[];
@@ -229,16 +229,8 @@ export function LinksColumns({
                                 {Math.round(ch.chanceAfter * 100)}%
                               </b>
                             </span>
-                          ) : c.extra ? (
-                            c.measured ? (
-                              `~${Math.round(c.chance * 100)}% (stima)`
-                            ) : c.chance > 0 ? (
-                              `${Math.round(c.chance * 100)}%`
-                            ) : (
-                              "—"
-                            )
                           ) : (
-                            `${Math.round(c.chance * 100)}%`
+                            <span data-tip={formatChance(c).tooltip}>{formatChance(c).text}</span>
                           )}
                         </span>
                       </div>

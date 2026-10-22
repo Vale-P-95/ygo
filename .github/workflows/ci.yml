@@ -32,6 +32,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       rust: ${{ steps.areas.outputs.rust }}
+      engine: ${{ steps.areas.outputs.engine }}
       frontend: ${{ steps.areas.outputs.frontend }}
     steps:
       - uses: actions/checkout@v4
@@ -41,17 +42,21 @@ jobs:
         run: |
           if [ "${{ github.event_name }}" != "pull_request" ]; then
             echo "rust=true" >> "$GITHUB_OUTPUT"
+            echo "engine=true" >> "$GITHUB_OUTPUT"
             echo "frontend=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           files=$(git diff --name-only "origin/${{ github.base_ref }}...HEAD")
           echo "$files"
           rust=false
+          engine=false
           frontend=false
           if echo "$files" | grep -qE '^(crates/|apps/desktop/src-tauri/|Cargo\.(toml|lock)$|rustfmt\.toml$|vendor/|tests/|\.gitmodules$|\.github/workflows/)'; then rust=true; fi
+          if echo "$files" | grep -qE '^(crates/ygo-engine/|vendor/|tests/fixtures/|Cargo\.(toml|lock)$|\.gitmodules$|\.github/workflows/)'; then engine=true; fi
           if echo "$files" | grep -E '^apps/desktop/' | grep -qvE '^apps/desktop/src-tauri/'; then frontend=true; fi
           if echo "$files" | grep -qE '^\.github/workflows/'; then frontend=true; fi
           echo "rust=$rust" >> "$GITHUB_OUTPUT"
+          echo "engine=$engine" >> "$GITHUB_OUTPUT"
           echo "frontend=$frontend" >> "$GITHUB_OUTPUT"
 
   rust:
@@ -96,6 +101,32 @@ jobs:
         timeout-minutes: 15
         run: cargo test --release -p ygo-solver --test search_regression
 
+  # The app runs on Windows: the engine's memory arenas (VirtualAlloc) and
+  # the rest of the engine are tested there too, with the game data.
+  engine-windows:
+    name: Engine on Windows
+    needs: changes
+    if: needs.changes.outputs.engine == 'true'
+    runs-on: windows-latest
+    # A hang in the engine must not hold a runner for hours.
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Cache game data
+        uses: actions/cache@v4
+        with:
+          path: data
+          key: game-data-windows-${{ github.run_id }}
+          restore-keys: game-data-windows-
+      - name: Download card scripts and databases
+        run: cargo run --release -p ygo-cli -- fetch-data
+      - name: Engine tests
+        run: cargo test --release -p ygo-engine
+
   frontend:
     name: Frontend (TypeScript)
     needs: changes
@@ -117,6 +148,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm lint
       - run: pnpm typecheck
+      - run: pnpm test
       - run: pnpm build
 
   windows-installer:

@@ -127,6 +127,12 @@ enum Cmd {
         /// Write the lines of the boards listed to this JSON file (for probe-line).
         #[arg(long)]
         save_lines: Option<PathBuf>,
+        /// Measure without the board breakers (and the follow-up after them).
+        #[arg(long)]
+        no_breakers: bool,
+        /// Also take the quick value of each board listed (two runs), with its time.
+        #[arg(long)]
+        quick_value: bool,
     },
     /// Measure lines saved by `combos --save-lines` with the probe turn,
     /// without searching (the same boards before and after a change). The
@@ -172,7 +178,7 @@ enum Cmd {
         #[arg(long, default_value_t = 1000)]
         nodes: u64,
         /// Hands searched for each card of the Main Deck.
-        #[arg(long, default_value_t = 2)]
+        #[arg(long, default_value_t = 3)]
         hands: usize,
         #[arg(long)]
         threads: Option<usize>,
@@ -187,6 +193,18 @@ enum Cmd {
         /// instead of the whole map.
         #[arg(long, requires = "after")]
         diff: bool,
+        /// Instead of the map: search this many opening hands drawn at
+        /// random and write to --json what their lines bring into play
+        /// (the measure the chances are checked against).
+        #[arg(long, requires = "json")]
+        truth: Option<usize>,
+        /// Seed of the hands drawn with --truth.
+        #[arg(long, default_value_t = 1)]
+        seed: u64,
+        /// Also write each hand searched for the map and what its lines
+        /// bring into play to this JSON file.
+        #[arg(long)]
+        hands_json: Option<PathBuf>,
     },
     /// A deck's typical opening: the moves of its best lines from random
     /// hands, the most played first (the probe turn against a deck, level 2).
@@ -316,6 +334,8 @@ fn main() -> Result<()> {
             probe,
             json,
             save_lines,
+            no_breakers,
+            quick_value,
         } => combos(
             &cli.data,
             &setup,
@@ -336,6 +356,8 @@ fn main() -> Result<()> {
                 probe: probe || json.is_some(),
                 json,
                 save_lines,
+                no_breakers,
+                quick_value,
             },
         ),
         Cmd::ProbeLine { setup, lines, index, json, vs, stops, moves, protection } => {
@@ -343,8 +365,12 @@ fn main() -> Result<()> {
         }
         Cmd::HandTraps { deck } => hand_traps(&cli.data, &deck),
         Cmd::RivalPlays { deck, hands, nodes, seed } => rival_plays(&cli.data, &deck, hands, nodes, seed),
-        Cmd::Links { deck, nodes, hands, threads, json, after, diff } => {
-            links(&cli.data, &deck, nodes, hands, threads, json.as_deref(), after.as_deref(), diff)
+        Cmd::Links { deck, nodes, hands, threads, json, after, diff, truth, seed, hands_json } => {
+            let out = LinksOut { json: json.as_deref(), hands_json: hands_json.as_deref() };
+            match truth {
+                Some(count) => links_truth(&cli.data, &deck, nodes, count, seed, threads, &json.unwrap_or_default()),
+                None => links(&cli.data, &deck, nodes, hands, threads, out, after.as_deref(), diff),
+            }
         }
         Cmd::CardValues { deck } => card_values(&cli.data, &deck),
         Cmd::KitMix { lines, top, seed } => kit_mix(&cli.data, &lines, top, seed),
@@ -374,6 +400,8 @@ struct CombosOptions {
     probe: bool,
     json: Option<PathBuf>,
     save_lines: Option<PathBuf>,
+    no_breakers: bool,
+    quick_value: bool,
 }
 
 fn combos(dir: &Path, setup: &Setup, options: CombosOptions) -> Result<()> {
@@ -394,6 +422,8 @@ fn combos(dir: &Path, setup: &Setup, options: CombosOptions) -> Result<()> {
         probe,
         json,
         save_lines,
+        no_breakers,
+        quick_value,
     } = options;
     let (engine, deck, hand) = start(dir, setup)?;
     let mut config = ygo_solver::SearchConfig::new(deck, hand);
@@ -505,7 +535,8 @@ fn combos(dir: &Path, setup: &Setup, options: CombosOptions) -> Result<()> {
     // Boards with the same field (other zones, another hand, other cards
     // in the GY) are variants of one: each field is listed once, so the
     // top boards are different fields. With --probe the first variants of
-    // each are measured and the best measured one is shown.
+    // the fields printed first are measured and the best measured one is
+    // shown.
     let mut groups: Vec<(u64, Vec<&ygo_solver::Board>)> = Vec::new();
     for board in &result.boards {
         let key = ygo_solver::search::field_key(&board.state);
@@ -525,29 +556,56 @@ fn combos(dir: &Path, setup: &Setup, options: CombosOptions) -> Result<()> {
         measured: Option<Result<ygo_solver::Measure, ygo_engine::Error>>,
         took: std::time::Duration,
         exposure: Option<ygo_solver::Exposure>,
+        loss: Option<(ygo_solver::probe::ExpectedLoss, std::time::Duration)>,
+        /// The quick value and its time (`--quick-value`).
+        quick: Option<(f64, std::time::Duration)>,
     }
-    let mut boards: Vec<Listed> = Vec::new();
-    for (_, group) in &groups {
-        let variants = group.len() - 1;
-        let mut best: Option<Listed> = None;
-        for &board in group.iter().take(if probe { MEASURED_VARIANTS } else { 1 }) {
-            let mut item = Listed { board, variants, measured: None, took: std::time::Duration::ZERO, exposure: None };
-            if probe {
-                let started = std::time::Instant::now();
-                item.measured = Some(prober.measure(&board.line));
-                item.took = started.elapsed();
-            }
-            let value = |item: &Listed| item.measured.as_ref().and_then(|m| m.as_ref().ok()).map(composite);
-            if best.as_ref().is_none_or(|b| value(&item).unwrap_or(f64::NEG_INFINITY) > value(b).unwrap_or(f64::NEG_INFINITY)) {
-                best = Some(item);
-            }
-        }
-        let Some(mut item) = best else { continue };
+    let value = |item: &Listed| item.measured.as_ref().and_then(|m| m.as_ref().ok()).map(composite).unwrap_or(f64::NEG_INFINITY);
+    // What to measure: `probe`, without the breakers, the quick value too.
+    let how = (probe, no_breakers, quick_value);
+    fn measure<'a>(prober: &mut ygo_solver::Prober, how: (bool, bool, bool), board: &'a ygo_solver::Board, variants: usize) -> Listed<'a> {
+        let (probe, no_breakers, quick_value) = how;
+        let mut item = Listed { board, variants, measured: None, took: std::time::Duration::ZERO, exposure: None, loss: None, quick: None };
         if probe {
-            item.exposure =
-                ygo_solver::exposure(&engine, &config.deck, &config.hand, config.seed, config.opponent.as_ref(), &item.board.line).ok();
+            let started = std::time::Instant::now();
+            item.measured = Some(if no_breakers { prober.measure_unbroken(&board.line) } else { prober.measure(&board.line) });
+            item.took = started.elapsed();
+            if quick_value {
+                let started = std::time::Instant::now();
+                item.quick = prober.quick_measure(&board.line).ok().map(|v| (v, started.elapsed()));
+            }
         }
-        boards.push(item);
+        item
+    }
+    let mut boards: Vec<Listed> = groups.iter().map(|(_, group)| measure(&mut prober, how, group[0], group.len() - 1)).collect();
+    if probe {
+        // The other variants only for the fields printed first: they decide
+        // the top of the list, and each variant is a probe turn more. A field
+        // only gains from them, so these fields stay first.
+        let mut first: Vec<usize> = (0..boards.len()).collect();
+        first.sort_by(|&a, &b| value(&boards[b]).total_cmp(&value(&boards[a])).then(a.cmp(&b)));
+        for &i in first.iter().take(FIELDS_WITH_VARIANTS) {
+            let group = &groups[i].1;
+            for &board in group.iter().skip(1).take(MEASURED_VARIANTS - 1) {
+                let item = measure(&mut prober, how, board, group.len() - 1);
+                if value(&item) > value(&boards[i]) {
+                    boards[i] = item;
+                }
+            }
+        }
+        for item in &mut boards {
+            let points = ygo_solver::explain::exposure_points(
+                &engine,
+                &config.deck,
+                &config.hand,
+                config.seed,
+                config.opponent.as_ref(),
+                &item.board.line,
+            )
+            .ok();
+            item.exposure = points.as_ref().map(|(x, _)| *x);
+            item.loss = points.and_then(|(x, points)| expected_loss(&mut prober, &item.board.line, &x, &points));
+        }
     }
     let measured_value = |item: &Listed| item.measured.as_ref().and_then(|m| m.as_ref().ok()).map(composite);
     let mut printed: Vec<usize> = (0..boards.len()).collect();
@@ -561,7 +619,7 @@ fn combos(dir: &Path, setup: &Setup, options: CombosOptions) -> Result<()> {
         rank_of[i] = rank;
     }
     for (rank, &i) in printed.iter().enumerate() {
-        let Listed { board, variants, measured, took, exposure } = &boards[i];
+        let Listed { board, variants, measured, took, exposure, loss, quick } = &boards[i];
         let variants = *variants;
         let me = &board.state.players[0];
         let zone = |(z, c): (usize, &ygo_engine::FieldCard)| {
@@ -612,6 +670,12 @@ fn combos(dir: &Path, setup: &Setup, options: CombosOptions) -> Result<()> {
                 x.lp_paid
             );
         }
+        if let Some((l, took)) = loss {
+            print_loss(l, *took);
+        }
+        if let Some((v, took)) = quick {
+            println!("   quick value ({:.1} s): {v:.2}", took.as_secs_f64());
+        }
         if show_lines {
             let (_, steps) = ygo_solver::explain(&engine, &config.deck, &config.hand, config.seed, config.opponent.as_ref(), &board.line)?;
             for (k, step) in steps.iter().enumerate() {
@@ -631,6 +695,12 @@ fn combos(dir: &Path, setup: &Setup, options: CombosOptions) -> Result<()> {
             let measured = item.measured.as_ref().and_then(|m| m.as_ref().ok());
             let mut b = board_json(&engine, &config, item.board, i, item.variants, measured, item.took, item.exposure.as_ref());
             b["printed"] = serde_json::json!(rank_of[i]);
+            if let Some((l, took)) = &item.loss {
+                b["expected_loss"] = loss_json(l, *took);
+            }
+            if let Some((v, took)) = item.quick {
+                b["quick_value"] = serde_json::json!({ "value": v, "seconds": took.as_secs_f64() });
+            }
             measured_boards.push(b);
         }
         saved_lines.push(line_json(&item.board.line));
@@ -744,6 +814,14 @@ fn state_json(
             "floodgates": m.floodgate_value,
             "resilience": m.resilience,
             "follow_up": m.follow_up.map(|f| serde_json::json!({ "rebuild": f.rebuild, "gained": f.gained })),
+            "seconds_by_part": {
+                "responses": m.seconds.responses,
+                "together": m.seconds.together,
+                "breakers": m.seconds.breakers,
+                "follow_up": m.seconds.follow_up,
+            },
+            "attrition": m.attrition,
+            "taken": m.taken.iter().map(|&(c, l)| serde_json::json!([db.name(c), location::name(l)])).collect::<Vec<_>>(),
             "countered": m.countered,
             "floodgate_list": m.floodgates.iter().map(|p| p.label()).collect::<Vec<_>>(),
             "offered": m.offered.iter().map(|&(c, l)| serde_json::json!([c, l])).collect::<Vec<_>>(),
@@ -880,7 +958,9 @@ fn probe_line(
         let started = std::time::Instant::now();
         let measured = prober.measure(&line);
         let took = started.elapsed();
-        let exposure = ygo_solver::exposure(&engine, &deck, &hand, seed, opponent.as_ref(), &line).ok();
+        let points = ygo_solver::explain::exposure_points(&engine, &deck, &hand, seed, opponent.as_ref(), &line).ok();
+        let exposure = points.as_ref().map(|(x, _)| *x);
+        let loss = points.and_then(|(x, points)| expected_loss(&mut prober, &line, &x, &points));
         let me = &state.players[0];
         println!(
             "#{} field: {}",
@@ -891,7 +971,13 @@ fn probe_line(
             Ok(m) => print_measure(&engine, m, took),
             Err(e) => println!("   probe turn failed: {e}"),
         }
+        if let Some((l, took)) = &loss {
+            print_loss(l, *took);
+        }
         let mut extra = serde_json::json!({ "index": i });
+        if let Some((l, took)) = &loss {
+            extra["expected_loss"] = loss_json(l, *took);
+        }
         if let (true, Ok(m)) = (protection, &measured) {
             let started = std::time::Instant::now();
             let pieces = prober.protection(&line, &m.interruptions);
@@ -1128,9 +1214,57 @@ fn matchup_json(x: &ygo_solver::Matchup) -> serde_json::Value {
     })
 }
 
+/// What the handtraps are expected to take away from `line` (B6), with
+/// the default chances of the app, and how long it took.
+fn expected_loss(
+    prober: &mut ygo_solver::Prober,
+    line: &ygo_solver::Line,
+    exposure: &ygo_solver::Exposure,
+    points: &[ygo_solver::explain::ChokePoint],
+) -> Option<(ygo_solver::probe::ExpectedLoss, std::time::Duration)> {
+    let started = std::time::Instant::now();
+    let rates = ygo_solver::probe::HandTrapRates::default();
+    let loss = prober.expected_loss(line, points, exposure.special_summons, &rates).ok()?;
+    Some((loss, started.elapsed()))
+}
+
+fn loss_label(kind: ygo_solver::explain::ChokeKind) -> &'static str {
+    use ygo_solver::explain::ChokeKind;
+    match kind {
+        ChokeKind::DeckTouch => "Ash",
+        ChokeKind::FieldEffect => "Veiler/Impermanence",
+        ChokeKind::FifthSummon => "Nibiru",
+        ChokeKind::SecondSearch => "Droll",
+    }
+}
+
+fn print_loss(l: &ygo_solver::probe::ExpectedLoss, took: std::time::Duration) {
+    let kinds: Vec<String> = l.losses.iter().map(|&(k, v)| format!("{} {v:.2}", loss_label(k))).collect();
+    println!(
+        "   expected loss to handtraps ({:.1} s, {} cuts): {:.2} · lost at worst: {} · Maxx \"C\" {:.2}",
+        took.as_secs_f64(),
+        l.cuts,
+        l.expected,
+        if kinds.is_empty() { "nothing".to_owned() } else { kinds.join(", ") },
+        l.maxx
+    );
+}
+
+fn loss_json(l: &ygo_solver::probe::ExpectedLoss, took: std::time::Duration) -> serde_json::Value {
+    serde_json::json!({
+        "expected": l.expected,
+        "losses": l.losses.iter().map(|&(k, v)| serde_json::json!([loss_label(k), v])).collect::<Vec<_>>(),
+        "maxx": l.maxx,
+        "cuts": l.cuts,
+        "seconds": took.as_secs_f64(),
+    })
+}
+
 /// Variants of a field measured in `combos --probe`, the first ones the
-/// search found: the best measured is shown.
+/// search found: the best measured is shown. Only for the first
+/// `FIELDS_WITH_VARIANTS` fields printed; the others are measured once.
 const MEASURED_VARIANTS: usize = 3;
+const FIELDS_WITH_VARIANTS: usize = 3;
 
 /// The measured value of a board with the "Bilanciato" profile of the app:
 /// the same weights as `WEIGHTS`, `FOLLOW_UP` and `REBUILD` in
@@ -1156,6 +1290,17 @@ fn print_measure(engine: &Engine, m: &ygo_solver::Measure, took: std::time::Dura
     );
     if let Some(f) = m.follow_up {
         println!("   your next turn, after the worst breaker: {} effects to rebuild with · {} cards gained", f.rebuild, f.gained);
+    }
+    if !m.taken.is_empty() {
+        let pile = |l: u8| m.taken.iter().filter(|t| t.1 == l).count();
+        println!(
+            "   taken from the opponent: {} cards (Extra Deck {}, Deck {}, hand {}) · attrition {:.2}",
+            m.taken.len(),
+            pile(location::EXTRA),
+            pile(location::DECK),
+            pile(location::HAND),
+            m.attrition
+        );
     }
     if let Some(kept) = m.countered {
         println!("   with an answer to your first interruption: {:.0}% of what your effects stop is still stopped", kept * 100.0);
@@ -1304,6 +1449,43 @@ fn search(dir: &Path, text: &str, limit: usize) -> Result<()> {
     Ok(())
 }
 
+/// Where `links` writes the map, and the hands searched for it.
+struct LinksOut<'a> {
+    json: Option<&'a Path>,
+    hands_json: Option<&'a Path>,
+}
+
+/// The hands and what each of their lines brings into play, as JSON.
+fn hands_reach_json(db: &ygo_engine::CardDb, reached: &[ygo_solver::HandReach]) -> serde_json::Value {
+    let hand = |h: &ygo_solver::HandReach| h.hand.iter().map(|&c| db.canonical_code(c)).collect::<Vec<_>>();
+    serde_json::json!(reached.iter().map(|h| serde_json::json!({ "hand": hand(h), "lines": h.lines })).collect::<Vec<_>>())
+}
+
+/// Searches `count` random opening hands and writes what their lines
+/// bring into play.
+fn links_truth(dir: &Path, deck: &Path, nodes: u64, count: usize, seed: u64, threads: Option<usize>, json: &Path) -> Result<()> {
+    let engine = load_engine(dir)?;
+    let text = std::fs::read_to_string(deck).with_context(|| format!("cannot read {}", deck.display()))?;
+    let deck = DeckList::from_ydk(&text)?;
+    let threads = threads.unwrap_or_else(|| std::thread::available_parallelism().map_or(4, |n| n.get()));
+    let budget = ygo_solver::LinksBudget { nodes_per_hand: nodes, threads, ..ygo_solver::LinksBudget::default() };
+    let cancel = std::sync::atomic::AtomicBool::new(false);
+    let started = std::time::Instant::now();
+    let hands = ygo_solver::random_hands(&deck.main, count, seed);
+    let reached = ygo_solver::hands_reach(&engine, &deck, &hands, 1, budget, &cancel, |done, total| eprint!("\r{done}/{total} hands"));
+    eprintln!();
+    let db = engine.cards();
+    let doc = serde_json::json!({
+        "main": deck.main.iter().map(|&c| db.canonical_code(c)).collect::<Vec<_>>(),
+        "extra": deck.extra.iter().map(|&c| db.canonical_code(c)).collect::<Vec<_>>(),
+        "seconds": started.elapsed().as_secs_f64(),
+        "hands": hands_reach_json(db, &reached),
+    });
+    std::fs::write(json, serde_json::to_string(&doc)?)?;
+    println!("{} hands in {:.1} s", reached.len(), started.elapsed().as_secs_f64());
+    Ok(())
+}
+
 #[allow(clippy::too_many_arguments)]
 fn links(
     dir: &Path,
@@ -1311,7 +1493,7 @@ fn links(
     nodes: u64,
     hands: usize,
     threads: Option<usize>,
-    json: Option<&Path>,
+    out: LinksOut,
     after: Option<&Path>,
     diff: bool,
 ) -> Result<()> {
@@ -1345,8 +1527,11 @@ fn links(
         }
         eprint!("\r{done}/{total} hands");
     };
-    let (map, _) = ygo_solver::deck_links_again(&engine, &deck, 1, budget, &cancel, progress, earlier.as_ref().map(|(_, work)| work));
+    let (map, work) = ygo_solver::deck_links_again(&engine, &deck, 1, budget, &cancel, progress, earlier.as_ref().map(|(_, work)| work));
     eprintln!();
+    if let Some(path) = out.hands_json {
+        std::fs::write(path, serde_json::to_string(&hands_reach_json(engine.cards(), &work.reached()))?)?;
+    }
     let db = engine.cards();
     if let (true, Some((old, _))) = (diff, &earlier) {
         print_links_diff(db, &ygo_solver::compare_links(old, &map), started.elapsed().as_secs_f64());
@@ -1386,7 +1571,7 @@ fn links(
             println!("    {:<9} {:<8} {}{how}{used}", l.kind.key(), l.zone.key(), db.name(l.to));
         }
     }
-    if let Some(path) = json {
+    if let Some(path) = out.json {
         let doc = serde_json::json!({
             "hands": map.hands,
             "lines": map.lines,

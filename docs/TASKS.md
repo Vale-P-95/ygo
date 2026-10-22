@@ -5,6 +5,10 @@ Regole in `AGENTS.md`. Per prendere un task, spostalo in "In corso" con agente, 
 ## In corso
 Corsie di lavoro in parallelo del 22/10/2026 (piano in `docs/plans/piano-prossimi-passi.md`): ogni corsia tocca solo i suoi file.
 - [x] **Scheda del punteggio** (Gemini, PR #54, unita il 22/10): testi di follow-up, risorse e costo in `scoring.ts`, «Con una risposta alla tua prima interruzione…» (`ComboScore.countered`) e il pannello «Protezione dei pezzi» (`api.boardProtection`, `PieceProtection.tsx`). Provata con il backend finto, `typecheck`, `lint` e `build`; da provare nell'app vera. Lock tolto.
+- [x] **Il Banditore v2** (Gemini, PR #55, unita il 22/10): ricerca con lista OCG (`formato:ocg`) nel `Promise.all` iniziale e in `mock.ts`, vista «Cosa è cambiato con l'ultima lista» (`api.banChanges`), raggruppamento per data/formato, apertura Visore Carta, messaggio esplicito per storico iniziale vuoto. Lock tolto.
+- [x] **Test automatici dell'interfaccia** (Gemini, PR #57, unita il 22/10): unit test con Vitest per le funzioni pure in `lib/` (`probability`, `query`, `conditions`, `deck`, `scoring`) e `Banditore.tsx`, script "test" e step nella CI. 75 test passati. Lock tolto.
+- [x] **Revisione dell'interfaccia, passo 0: fondamenta** (Gemini, PR #63, unita il 22/10): scala tipografica e spaziature come token in `src/index.css`, `lucide-react`, componenti base (`Toolbar`, `FilterChip`, `IconButton`, `SidePanel`, `HelpPopover`), script Playwright e test Vitest toolbar. Lock tolto.
+- [ ] **Revisione dell'interfaccia, passo 1: Collegamenti** (PR #66, correzioni da revisione Claude). Bloccanti (salto nodo, portal Toolbar per popover filtri < 1440, frecce sul bordo nodo con layout.ts), altezza contenitore, chip barra responsive, formatChance unificato, rotazione/margini etichette, token --frame-* in index.css, testi >= 12px e immagine grande, role group, costanti unificate. Agente: gemini. Branch: `gemini/ui-links`. File: `apps/desktop/src/components/lab/links/*`, `apps/desktop/src/components/ui/Toolbar.tsx`, `apps/desktop/src/components/CardDetails.tsx`, `apps/desktop/src/index.css`, `docs/plans/ui-revisione-2.md`, `docs/TASKS.md`.
 - [x] **Corsia 1.** Turno di prova contro un deck, livello 2, con le linee vere dell'avversario (piano P1, L1–L6):
   - l'avversario rigioca le linee migliori che il motore trova per il suo deck, con la sua mano vera e l'ordine del suo Deck;
   - le risposte si ritrovano per identità dove la tua board cambia le domande.
@@ -24,13 +28,17 @@ Corsie di lavoro in parallelo del 22/10/2026 (piano in `docs/plans/piano-prossim
 
   Dopo: il backend del Banditore v2, cioè gli stati delle carte prima dell'ultima lista, salvati a ogni aggiornamento (`ygo-data`, poi `lib.rs` e `api.ts`, presi solo se la corsia 1 non li tiene). Fatto, in una PR separata dalla P3: tabella `ban_changes` in `cards.db`, riportata da un aggiornamento delle carte all'altro; comando `ban_changes`, `api.banChanges(format?)` e stub in `mock.ts`.
 
-  - [ ] Misura delle istruzioni Lua per richiesta del motore (P3, «in misura»): conteggio solo con `DUELFORGE_LUA_COUNT`, giro su 41 deck × 2 mani a 20 s, soglia per deck che toglierebbe i secondi oltre il limite di elfnote e kewl_tune e quante richieste normali la supererebbero. Senza la variabile banco e `combo_hunt --seed 7` identici. Il tetto vero, se serve, in una PR a parte.
+  - [x] Misura delle istruzioni Lua per richiesta del motore (P3, «in misura»): PR #49, numeri in `docs/plans/velocita-ricerca.md`. Nessuna richiesta normale arriva a 3 milioni di istruzioni; la mano lenta di Kewl Tune ripaga a ogni replay due richieste da 19 e 104 milioni.
+  - [x] Tetto per richiesta, chiuso nel motore: 500 000 ingressi in Lua (`DUELFORGE_LUA_LIMIT`; contare le istruzioni costava il 21% del banco). La richiesta fermata è un errore, la linea risulta interrotta e il duello non si riusa. Banco identico e senza costo, `combo_hunt --seed 7` identico; mano lenta 117 → 1003 nodi; Lunalight livello 2 (L4-3) da 297-550 s a 4-19 s, perdendo 2 linee su 11. Numeri in `docs/plans/velocita-ricerca.md`.
 
-  Agente: claude-code, sessione sorella della velocità. Branch: `claude/search-speed`. File (lock del 22/10 per la misura Lua): uno shim nuovo in `crates/ygo-engine/shim/`, `crates/ygo-engine/build.rs`, una funzione nuova in `crates/ygo-engine/src/duel.rs`, `scripts/`, `docs/plans/velocita-ricerca.md`. Banditore v2 unito (PR #45): `lib.rs`, `api.ts` e `mock.ts` liberi.
+  - [x] `combos --probe`: 3 varianti misurate solo per le prime 3 board stampate, 1 per le altre. Il #1 stampato resta il migliore misurato (0 deck su 41 prima e dopo); dracotail-0 da 69,3 a 64,2 s, kewl_tune-0 da 54,3 a 47,4 s. Numeri in `docs/plans/velocita-ricerca.md`.
+  - [x] Le fasi dopo la ricerca: nessuna scadenza più corta tiene le board migliori della mano lenta di Kewl Tune (prove in `docs/plans/velocita-ricerca.md`), quindi resta quella di prima. Cambio rimasto: un giro di apprendimento non comincia una board che non finirebbe in tempo.
+
+  Agente: claude-code, sessione sorella della velocità. Branch: `claude/search-speed`. File (lock del 22/10): in `crates/ygo-cli/src/main.rs` solo la scelta delle varianti di `combos` (la stampa dell'esposizione è della corsia 4), `crates/ygo-solver/src/search.rs`, `docs/plans/velocita-ricerca.md`.
 - [ ] **Corsia 3.** Collaudo:
   - [x] prima, le coppie di board da far giudicare al proprietario (circa 15 deck, le coppie dove la classifica è più incerta), per la #47 e i pesi (#43): 46 coppie su 16 deck in `tests/fixtures/boards/owner-pairs.tsv` e `.json` (22/10);
   - [x] il collaudo del livello 2 con le linee vere (L4) su `48efae0`: 88% delle mosse fatte su campo vuoto, 71% di mosse in comune tra semi, problemi L4-1…L4-5 in `docs/plans/collaudo-strumenti.md` (22/10);
-  - [ ] il collaudo dei deck lenti (corsia 2).
+  - [x] il collaudo dei deck lenti (corsia 2, 22/10): con `combo_hunt --seed 7` su `main` e424904 resta sopra 60 s solo dracotail-0 (70,7 s da solo), per i turni di prova delle varianti di `--probe` (21c8885); il tetto Lua lì non scatta. Numeri in `docs/plans/velocita-ricerca.md`.
   - [x] il banco oggettivo della forza delle board (per D17 e #43): board di tutti i deck MDM contro i 15-20 avversari più diffusi, livello 1 e 2, misure generiche, divisione taratura/verifica:
     - [x] script e selezione delle board (205 board di 41 deck, 20 avversari da popRank);
     - [x] il giro completo (dopo la #53): 817 invocazioni, nessun timeout, 200 board con la verità;
@@ -38,7 +46,38 @@ Corsie di lavoro in parallelo del 22/10/2026 (piano in `docs/plans/piano-prossim
     - [x] le 90 board delle coppie del proprietario nel banco (77 trovate, 76 con la verità) e la tabella per coppia.
 
   Agente: claude-code, sessione sorella del collaudo. Branch: `claude/tools-qa`. File: script nuovi in `scripts/` (`objective_bench.py`), `docs/plans/collaudo-strumenti.md`, `docs/plans/banco-oggettivo.md`, `tests/fixtures/boards/`.
-- [ ] **Corsia 4, secondo task.** Ordine della ricerca e stima rapida (#47, D14 = B11 di `docs/plans/classificazione-board.md`): il #1 stampato è il migliore misurato; inversioni tra stima e misura nella top 8 (C5.7) ≤ 60; campi distinti nella top 8 (C5.8). Si accetta solo se `best` del banco non scende più del 5%.
+- [ ] **Corsia 4, quinto task.** B5a, attrito avversario (`docs/plans/ricerca-piano-critico.md`, `ricerca-letteratura.md` §1, «Il caso Aeon»). Controllo: su Invoked la linea di Aeon con il bando dall'Extra Deck avversario sta sopra quella col «No», nella misura e nella stima; banco, `combo_hunt` e `search_regression` non peggiorano oltre il 2% (test appaiato per mano).
+
+  Agente: claude-code, sessione della corsia 4. Branch: `claude/placed-cards`. File: `crates/ygo-solver/src/probe.rs` (kit, `Measure`, Observer, `run_with`), `follow.rs`; in `search.rs` solo `quick_score` e il passaggio dell'avversario di partenza; `crates/ygo-engine/src/italian.rs` (un'etichetta); la parte di `crates/ygo-cli/src/main.rs` che stampa la misura.
+  - [x] Il sì opzionale di Aeon: nessuna regola lo rifiuta; la ricerca lo trova, ma la stima non vede l'avversario e a parità vince la linea più corta.
+  - [x] Extra Deck dell'avversario del kit da 15 carte; risorse tolte all'avversario (`Measure::taken`, `attrition`); scelte tra le carte avversarie rigiocate per identità; Observer (controllo, Zona Magie e Trappole). Pushati.
+  - [x] Il termine in `quick_score` (test `tests/attrition.rs`).
+  - [x] L'etichetta italiana «Look at your dell'avversario, Extra Deck».
+  - [x] Banco, `combo_hunt` e `search_regression` prima e dopo, appaiati per mano (numeri in `docs/plans/attrito-avversario.md`).
+- [x] **Corsia 4, PR piccola per la corsia 7**, unita il 22/10 (PR #71). In `combos --json`: tempo della misura per parte (run base e risposte, insieme, breaker, follow-up), un'opzione per misurare senza breaker, e, se costa poco, `quick_value`. File: la parte `combos` di `crates/ygo-cli/src/main.rs`, i tempi in `probe.rs` (`measure_from`).
+- [x] **Corsia 4, quarto task**, unita il 22/10 (PR #69). L4-6: nel livello 2 il rigioco della linea dell'avversario si ferma all'ultima scelta libera della sua Main Phase e non entra nella Fase Finale, così le sue mosse di Fase Finale contano come perse (Titaniklad, Incredible Ecclesia, Blazing Cartesia, Despian Luluwalilith). Si rigioca anche la Fase Finale.
+
+  Agente: claude-code, sessione della corsia 4. Branch: `claude/placed-cards` (ripartito da `main` 6018809). File: in `crates/ygo-solver/src/probe.rs` solo il ramo `Some(1) if follower.is_some()` di `run_with` e come chiama `turn_three` (d'accordo con la coordinatrice, che fa B5 nel resto); `crates/ygo-solver/src/follow.rs` (`Follower::answer`); `crates/ygo-solver/tests/matchup.rs`.
+  - [x] La correzione (nessun test nuovo: le ricerche brevi dei test non trovano linee con mosse di Fase Finale; la prova è il collaudo).
+  - [x] `moves_report.py` (invoked e branded contro 12 deck, semi 1 e 7): mosse fatte su una board vuota dal 93,8% al 95,0% (non fatte da 220 a 178 per seme), 0 errori. Banco (18,26 / 18,26) e `combo_hunt` (41 ok, 0 problemi) identici a `main` 6018809; test verdi con `search_regression`.
+- [x] **Corsia 4, terzo task**, unita il 22/10 (PR #65). Esposizione come valore perso (#47, D12 = B6 V1 di `docs/plans/classificazione-board.md`): nel punteggio l'esposizione diventa `E = Σ_h p_h · loss_h` in interruzioni, al posto del numero di punti critici, che resta nel dettaglio.
+
+  Agente: claude-code, sessione della corsia 4. Branch: `claude/placed-cards` (ripartito da `main` dbd7c58). File: `crates/ygo-solver/src/probe.rs`, `explain.rs`; `apps/desktop/src-tauri/src/lib.rs`, `apps/desktop/src/lib/api.ts`, `mock.ts`; in `crates/ygo-cli/src/main.rs` la parte di `combos` e `probe-line` che stampa l'esposizione; script miei in `scripts/`; `docs/plans/esposizione.md`.
+  - [x] `ChokePoint` con la posizione nella linea.
+  - [x] `Prelude::Cut` e `Prober::quick_value`.
+  - [x] `loss_h`, il termine di Maxx "C" e Mulcharmy, `p_h` dalle liste e una tabella di default per l'app.
+  - [x] `E` nel punteggio (`score_view`), tutte le board misurate, cache; contratto `lib.rs` ↔ `api.ts`; testo per Gemini.
+  - [x] Banco, caccia, tempo per board (numeri in `docs/plans/esposizione.md`); le coppie non si riproducono con le liste del 22/10: da rifare con la cartella delle coppie del coordinatore.
+- [ ] **Corsia 6, secondo task.** Ruoli (piano `docs/plans/ricerca-piano-critico.md`, «Ruoli»): board breaker che usano carte avversarie come materiale o Tributo, starter ed estensore insieme, Invocation «Grail» estensore. Poi l'oracolo A1 e il test appaiato.
+
+  Agente: claude-code, sessione della corsia 6. Branch: `claude/roles-fix` (da `main` cc78f89). File: `crates/ygo-solver/src/roles.rs` e i suoi test, la parte `roles` di `crates/ygo-cli/src/main.rs` se serve, script nuovi miei in `scripts/`; `docs/plans/ricerca-piano-critico.md` (sezioni Ruoli e A1); per A1 anche `tests/fixtures/oracle/`.
+  - [x] Ruoli (in attesa della PR, la apre la coordinatrice): numeri nel piano, «Ruoli: fatto».
+  - [ ] A1: oracolo e test appaiato.
+- [x] **Corsia 6.** Probabilità della mappa dei collegamenti: una `chance` che distingua le carte e sia vicina al vero (misurata su mani cercate), senza saturazione. Fatto, in attesa della PR (la apre la coordinatrice): errore medio contro 200 mani a caso da 0,344 a 0,059 su 6 deck; carte a ≥ 0,99 sui 41 deck da 29 + 20 a 6 + 2; nessun collegamento perso; ricerca delle combo invariata. Numeri e cosa resta aperto in `docs/plans/mappa-collegamenti.md`, «Probabilità misurata sulle mani cercate».
+
+  Agente: claude-code, sessione sorella della mappa. Branch: `claude/links-chance`. File: `crates/ygo-solver/src/links.rs` e i suoi test, la parte `links` di `crates/ygo-cli/src/main.rs`, `Rng` di `crates/ygo-solver/src/card.rs` (solo la visibilità), script nuovi miei in `scripts/` (`links_chance.py`) e il default di `links_report.py`, `docs/plans/mappa-collegamenti.md`, `tests/fixtures/links/`; solo i commenti di `LinkCard` in `apps/desktop/src-tauri/src/lib.rs` e `apps/desktop/src/lib/api.ts` (nessun campo nuovo). Lock tolto.
+  - Seguito per Gemini: `chance` ora dice «una mano porta in gioco la carta» ed è una stima per quasi tutte le carte (`measured` vero dopo la prima mano cercata): si può mostrare come «circa 45%». Durante l'aggiornamento progressivo le probabilità si muovono un po'.
+- [x] **Corsia 4, secondo task**, unita il 22/10 (PR #50). Ordine della ricerca e stima rapida (#47, D14 = B11 di `docs/plans/classificazione-board.md`): il #1 stampato è il migliore misurato; inversioni tra stima e misura nella top 8 (C5.7) ≤ 60; campi distinti nella top 8 (C5.8). Si accetta solo se `best` del banco non scende più del 5%.
 
   Agente: claude-code, sessione della corsia 4. Branch: `claude/placed-cards` (ripartito da `main`). File: `crates/ygo-solver/src/search.rs`, `value.rs`, `crates/ygo-cli/src/main.rs` (solo la parte `combos`), script miei in `scripts/`, `docs/plans/ordine-ricerca.md`.
   - [x] Linea di base (C5.7, C5.8, banco).
@@ -49,7 +88,7 @@ Corsie di lavoro in parallelo del 22/10/2026 (piano in `docs/plans/piano-prossim
   - [x] 5. Spot mancanti.
   - [x] 6. Look key con Cimitero usabile: saltato (tocca `src-tauri/src/lib.rs`; nella CLI lo copre il 7).
   - [x] 7. Varianti nella top N.
-  - [ ] C5.7: inversioni da 223 a 174 su 1110, obiettivo ≤ 60 non raggiunto; #1 stampato sempre il migliore (19 deck → 0). Numeri in `docs/plans/ordine-ricerca.md`.
+  - [x] C5.7: inversioni da 223 a 174 su 1110, obiettivo ≤ 60 non raggiunto; #1 stampato sempre il migliore (19 deck → 0). Numeri in `docs/plans/ordine-ricerca.md`.
 - [x] **Corsia 4.** Carte piazzate e ruoli (PIANO §30.4), unita il 22/10 (PR #42):
   - gli equipaggiamenti piazzati con il mostro equipaggiato;
   - i mostri dell'Extra Deck piazzati con i materiali (Apollousa non più a 0 ATK);
@@ -61,8 +100,8 @@ Corsie di lavoro in parallelo del 22/10/2026 (piano in `docs/plans/piano-prossim
   - [x] Prova dell'estensore nello stesso turno dello starter.
   - [x] Banco, ruoli e valori prima e dopo (`docs/plans/carte-piazzate.md`); PR aperta, in attesa di revisione.
 - [x] **Corsia 5.** Unita il 22/10 (PR #37). Pagina «Il Banditore» (Novità) v1: confronto tra formati (Master Duel, TCG, OCG) con ricerca e filtri, apertura Visore Carta, data banlistMd, e impatto sui deck salvati nella Bottega per formato scelto con apertura nella Fucina. Agente: gemini. Branch: `gemini/banditore`. File: `apps/desktop/src/pages/Banditore.tsx`, `apps/desktop/src/App.tsx`, `apps/desktop/src/sections.ts`, `apps/desktop/src/lib/mock.ts`.
-  - [ ] Seguito per Gemini: la ricerca vera ha ora anche la lista OCG (`formato:ocg ban:forbidden ban:limited ban:semi`). Le carte limitate solo in OCG entrano nell'elenco iniziale con una terza ricerca nel `Promise.all` di `Banditore.tsx`; nel backend finto (`searchCatalog` in `mock.ts`) `ban:` con `formato:ocg` deve leggere `banOcg`.
-  - [ ] Seguito per Gemini, la v2 («cosa è cambiato con l'ultima lista»): backend pronto nella PR della corsia 2, `api.banChanges(format?)` → `BanChange[]` (formato, id, data, stato prima e dopo; `null` è senza limiti), le più recenti prima. Per «l'ultima lista» di un formato si prendono le voci con la data più recente; per TCG e OCG la data è il giorno dell'aggiornamento dei dati di YGOPRODeck, non quello della lista. La storia comincia dal primo aggiornamento dopo questa versione: prima è vuota.
+  - [x] Seguito per Gemini (PR #55): la ricerca vera ha ora anche la lista OCG (`formato:ocg ban:forbidden ban:limited ban:semi`). Le carte limitate solo in OCG entrano nell'elenco iniziale con una terza ricerca nel `Promise.all` di `Banditore.tsx`; nel backend finto (`searchCatalog` in `mock.ts`) `ban:` con `formato:ocg` deve leggere `banOcg`.
+  - [x] Seguito per Gemini, la v2 (PR #55; «cosa è cambiato con l'ultima lista»): backend pronto nella PR della corsia 2, `api.banChanges(format?)` → `BanChange[]` (formato, id, data, stato prima e dopo; `null` è senza limiti), le più recenti prima. Per «l'ultima lista» di un formato si prendono le voci con la data più recente; per TCG e OCG la data è il giorno dell'aggiornamento dei dati di YGOPRODeck, non quello della lista. La storia comincia dal primo aggiornamento dopo questa versione: prima è vuota.
 - [x] **Corsia 5b (P1 L6).** Unita il 22/10 (PR #40). Turno di prova contro un deck, livello 2: interfaccia: pulsante «Contro le sue linee», messaggio di attesa 10-30s, riepilogo `ComboMoves` (left, floodgateShare, value, warning madeShare < 0.8), linee dell'avversario con stati delle mosse («fatta», «fermata dalla board», «persa», «non rigiocata») ed evidenziazione al passaggio/clic delle tue risposte (`stops`). Agente: gemini. Branch: `gemini/matchup-moves`. File: `apps/desktop/src/components/combo/RivalMoves.tsx`, `apps/desktop/src/components/combo/BoardDetail.tsx`, `docs/plans/turno-di-prova-livello-2-ui.md`.
 - [ ] Classificazione delle board più profonda, con criteri validati sui deck di Master Duel Meta (#47): D10, D13, D14 (corsia 4, PR #50) e D15 (PR #48) in `main`. D12 (esposizione come valore perso) alla corsia 4, con il suo lock. Restano D11 (esca, solo da mostrare), D16 (handtrap vera e ripresa) e D17 (pesi: aspetta i giudizi del proprietario). Agente: claude-code (coordinatore). Branch: `claude/yugioh-deck-builder-simulator-cax0ya`. File: nessun lock.
   - Piano: `docs/plans/classificazione-board.md` (passi D0–D17; giudizio dato da un pannello di agenti, non dal proprietario).
@@ -95,6 +134,17 @@ Corsie di lavoro in parallelo del 22/10/2026 (piano in `docs/plans/piano-prossim
 ## Da fare (in ordine di priorità)
 
 ### Interfaccia (Gemini)
+- [ ] **Per Gemini: l'esposizione come valore perso** (D12, backend della corsia 4; piano B6 in `docs/plans/classificazione-board.md`, numeri in `docs/plans/esposizione.md`). `ComboScore.exposure` non è più il numero di punti critici. Ora è la perdita attesa per le handtrap, in interruzioni: per ogni tipo di handtrap, quello che toglie nel momento peggiore per la linea, per la probabilità che l'avversario ne abbia una.
+  - **Scheda del punteggio** (`Score.tsx`) e **confronto** (`BoardCompareModal.tsx`). Il valore si mostra come "perdita attesa per le handtrap: X interruzioni". Sotto va una riga per tipo da `exposureDetail.losses`: "Ash Blossom: −1,2 se arriva (34%)", "Veiler/Impermanence", "Nibiru", "Droll & Lock Bird". Poi Maxx "C" (`maxx`, `maxxChance`), e il numero di punti critici (`chokePoints`) come prima.
+  - **Tipi.** I campi nuovi sono opzionali (`ExposureLoss` in `api.ts`); il backend finto ha già i tre esempi aggiornati.
+- [ ] **Revisione dell'interfaccia, seconda parte** (dalle prove del proprietario nell'app vera, 22/10). Piano: `docs/plans/ui-revisione-2.md`. Un branch e una PR per passo, in quest'ordine:
+  - [x] Passo 0, fondamenta: scala tipografica e spaziature, set di icone unico, componenti di base (`Toolbar`, `FilterChip`, `IconButton`, `SidePanel`, `HelpPopover`), script di screenshot.
+  - [ ] Passo 1, Collegamenti: cerchio a tutta larghezza, nodi con l'immagine della carta, barra dei filtri su una riga, pannello utile senza selezione, probabilità come stima (PR #66 aperta, in correzione dopo la revisione).
+  - [ ] Passo 2, Fucina: ispettore della carta a sinistra (passaggio del mouse, un clic per fissarla, doppio clic come oggi).
+  - [ ] Passo 3, ricerca e filtri del catalogo su una riga.
+  - [ ] Passo 4, passata su tutte le sezioni: scritte piccole, testi fissi, barre affollate.
+  - [ ] Passo 5, Bottega: scatole smussate con materiali veri, mensole di legno.
+  - [ ] Passo 6, effetti visivi e suoni nuovi, ognuno con il suo interruttore nelle Impostazioni.
 - [x] **Piccola correzione rimasta dalla PR #18** (da fare per prima, anche dentro la PR della mappa): in `apps/desktop/src/pages/Combo.tsx` il chip «vs X: …» (righe ~995-1000) e l'ordinamento «vs deck» (riga ~278) non guardano `s.matchup.error`: una board con il calcolo contro il deck fallito mostra «vs X: 0,00» e viene ordinata come se valesse 0. Escluderla in entrambi i punti (`s.matchup && !s.matchup.error`), e nel chip mostrare «vs X: errore» come in `Score.tsx`.
 - [x] Turno di prova contro un deck scelto (#44, livello 1; backend pronto, piano in `docs/plans/turno-di-prova-matchup.md`). Nel Circolo Arcano:
   - un selettore "Contro: generico / deck della Bottega" vicino al pulsante che misura le board;
@@ -130,6 +180,16 @@ Corsie di lavoro in parallelo del 22/10/2026 (piano in `docs/plans/piano-prossim
 - [ ] Tornare a TypeScript 7 (`apps/desktop/package.json`) quando `typescript-eslint` lo supporta: con la PR #29 è fissato a 6.0.3 perché `typescript-eslint` 8 non regge ancora la versione 7. Poi, già che ci si è, `tseslint.config(...)` → `defineConfig` di `eslint/config` in `eslint.config.js`.
 
 ### Motore e ricerca (Claude)
+- [ ] **Ricerca delle combo: piano critico** (dalle prove del proprietario, 22/10): board più forti in meno tempo. Piano: `docs/plans/ricerca-piano-critico.md`; letteratura e audit delle carte: `docs/plans/ricerca-letteratura.md`.
+  - [x] Ruoli: board breaker che usano carte avversarie come materiale (Super Polymerization), starter ed estensore insieme, Invocation «Grail» estensore. Corsia 6, branch `claude/roles-fix`, in attesa della PR.
+  - [ ] A1: oracolo automatico (la stessa ricerca con un budget enorme, le board misurate con il banco oggettivo) e test appaiato per accettare le modifiche. Corsia 6.
+  - [x] A2: dove va il lavoro della ricerca (PR #67): replay 43% del tempo della ricerca, nodi già visti 26%, nodi senza cambi visibili 24%; turno di prova 58% del tempo di `combo_hunt`.
+  - [ ] B0: il replay (prima un prototipo dell'arena di memoria, poi la copia del duello). Corsia 2.
+    - [ ] B13, PR 1 (corsia 2, `claude/search-speed`): arena di memoria per duello e `Duel::save`/`restore` col lato Rust. File: `crates/ygo-engine/shim/arena.cpp` (al posto di `new.cpp`), `build.rs`, `src/duel.rs`, `src/ffi.rs`, `src/lib.rs`, `tests/arena.rs`, `.github/workflows/ci.yml` (job Windows del motore).
+    - [ ] B13, PR 2: la ricerca usa le copie (cache per thread con tetto in MB) al posto del riuso dei duelli; modalità di controllo ripristino contro replay ogni N discese. Poi turno di prova (con la corsia 4) e giri di apprendimento.
+  - [ ] B1a, B2, B2b, B3, B1b-c, poi B8 (motore e contratto), B10, B11, B16, B4. Corsia 2, una PR l'una.
+  - [ ] B5a (attrito avversario, caso Aeon), B14 (quali board misurare), B5b-d, B9. Coordinatore, dopo D17.
+  - [ ] B8, interfaccia degli obiettivi ricchi. Gemini, dopo il contratto.
 - [ ] Linee del video Invoked: come si classificano, correzioni generali (#45).
 - [ ] Scale e pesi delle metriche del punteggio (#43).
 - [ ] Frontiera di Pareto e confronto tra board; preferenze apprese (#40).
@@ -140,6 +200,7 @@ Corsie di lavoro in parallelo del 22/10/2026 (piano in `docs/plans/piano-prossim
 ### Richieste dal backend per l'interfaccia
 
 ## Completati (recenti; lo storico è in `docs/PIANO.md`)
+- [x] Test automatici dell'interfaccia con Vitest nella CI: 75 unit test per funzioni pure (`probability`, `query`, `conditions`, `deck`, `scoring`, `Banditore.tsx`), script `"test": "vitest run"` e step CI nel job Frontend (TypeScript) (PR #57, piano `docs/plans/test-interfaccia.md`).
 - [x] Pagina «Il Banditore» (Novità) v1: confronto tra formati (Master Duel, TCG, OCG) con ricerca e filtri, apertura Visore Carta, data banlistMd, e impatto sui deck salvati nella Bottega per formato scelto con apertura nella Fucina (PR #37, piano `docs/plans/banditore-v1.md`).
 - [x] Giri di apprendimento della ricerca con una scadenza (10 secondi dopo il limite di tempo): su Elfnote Kewl Tune una ricerca da 60 secondi finiva dopo 170, ora dopo 116; banco identico. `probe-line` rigioca le linee salvate con il loro seme (`docs/plans/velocita-ricerca.md`).
 - [x] Velocità della ricerca (sessione sorella): partite riusate, script caricati una volta per thread, solo le corse del turno di prova che servono, mimalloc anche per il C++, limite di nodi senza race. Ricerca −37%, CLI −41% sulle 16 mani con uscite identiche; `combo_hunt.py` −50% (PR #33, resoconto `docs/plans/velocita-ricerca.md`).

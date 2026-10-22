@@ -44,7 +44,7 @@ use ygo_engine::{
 };
 
 use crate::coverage::{self, Audit, Coverage, Links, Mechanic};
-use crate::probe::{Kit, Prober};
+use crate::probe::{taken_weight, Kit, Prober};
 use crate::value::{CardValues, InHand, Spot};
 
 #[derive(Debug, Clone)]
@@ -457,6 +457,8 @@ struct Shared<'a> {
     /// The times each handtrap did nothing at your idle moment: one is not
     /// enough to leave it in the hand (Labrynth Cooclock before a Trap is Set).
     idle_strikes: Mutex<HashMap<u32, u32>>,
+    /// Where the work goes (`DUELFORGE_SEARCH_STATS`): `None` otherwise.
+    stats: Option<stats::Stats>,
 }
 
 struct Queue {
@@ -644,7 +646,10 @@ impl Shared<'_> {
         Board {
             key: board_key(&state),
             cards_used: cards_used(&self.config.hand, &state),
-            quick_score: self.values.read().map_or(0.0, |v| quick_score(self.engine, &state, &self.config.hand_traps, &v)),
+            quick_score: self
+                .values
+                .read()
+                .map_or(0.0, |v| quick_score(self.engine, &state, &self.config.hand_traps, &v, self.config.opponent.as_ref())),
             goal_hits: self.config.goal.hits(self.engine, &state),
             exact,
             line,
@@ -890,7 +895,7 @@ fn card_hash(state: &DuelState, kind: (usize, bool), c: &ygo_engine::FieldCard) 
 /// replaces it at the end with the real score): monsters on the field,
 /// more for Extra Deck monsters, set cards, cards kept in hand, more for
 /// `hand_traps`, and what the cards on the field stop alone (`values`).
-pub fn quick_score(engine: &Engine, state: &DuelState, hand_traps: &[u32], values: &CardValues) -> f64 {
+pub fn quick_score(engine: &Engine, state: &DuelState, hand_traps: &[u32], values: &CardValues, opponent: Option<&Opponent>) -> f64 {
     let me = &state.players[0];
     let mut score = 0.0;
     for (z, c) in me.monsters.iter().enumerate() {
@@ -947,7 +952,19 @@ pub fn quick_score(engine: &Engine, state: &DuelState, hand_traps: &[u32], value
             InHand::Unknown => 0.3,
         })
         .sum::<f64>();
-    score + VALUE_WEIGHT * values.of_field(engine, state)
+    score + VALUE_WEIGHT * (values.of_field(engine, state) + opponent.map_or(0.0, |o| taken_from(o, state)))
+}
+
+/// What your turn took from the opponent (B5a): its cards when the turn
+/// began (`opponent`) against those it still has, pile by pile, at the
+/// weights of the probe turn's [`crate::probe::attrition`]. Its Extra Deck
+/// banished by Hyperinvoked Aeon is worth something to the search too.
+fn taken_from(opponent: &Opponent, state: &DuelState) -> f64 {
+    let them = &state.players[1];
+    let gone = |before: usize, now: usize| before.saturating_sub(now) as f64;
+    gone(opponent.extra.len(), them.extra.len()) * taken_weight(location::EXTRA)
+        + gone(opponent.hand.len(), them.hand.len()) * taken_weight(location::HAND)
+        + gone(opponent.deck.len(), them.deck.len()) * taken_weight(location::DECK)
 }
 
 /// What a face-up monster whose value was measured adds to the estimate
@@ -1162,8 +1179,13 @@ const DISCREPANCY: f64 = 0.6;
 /// answer of their line that is not the dive's; the other zones of a line's
 /// last choice go last.
 fn work(shared: &Shared, edge: Edge) -> Result<(), Error> {
-    let mut dive = Dive { left: Vec::new(), boards: Vec::new() };
+    let started = Instant::now();
+    let mut dive =
+        Dive { left: Vec::new(), boards: Vec::new(), end: stats::End::Error, nodes: 0, replay: Duration::ZERO, replayed: 0, after_free: 0 };
     let result = play(shared, &edge, &mut dive);
+    if let Some(stats) = &shared.stats {
+        stats.dive(&dive, started.elapsed());
+    }
     let discrepancies = edge.discrepancies + 1;
     // Best board estimate from each depth of the line on.
     let mut after: Vec<(usize, f64)> = dive.boards.clone();
@@ -1204,6 +1226,14 @@ fn work(shared: &Shared, edge: Edge) -> Result<(), Error> {
 struct Dive {
     left: Vec<LeftAnswer>,
     boards: Vec<(usize, f64)>,
+    /// For the stats: why the dive ended, its nodes, the time of its replay,
+    /// the answers it replayed and how many of them came after the last
+    /// free moment (where a copy of the duel could start them).
+    end: stats::End,
+    nodes: u64,
+    replay: Duration,
+    replayed: u64,
+    after_free: u64,
 }
 
 struct LeftAnswer {
@@ -1223,9 +1253,11 @@ fn play(shared: &Shared, edge: &Edge, dive: &mut Dive) -> Result<(), Error> {
     // its End Phase would only be read once more.
     if let Some(key) = edge.confirms.filter(|_| !shared.confirming.load(Ordering::Relaxed)) {
         if shared.boards.lock().is_ok_and(|b| b.get(&key).is_none_or(|b| b.exact)) {
+            dive.end = stats::End::Confirmed;
             return Ok(());
         }
     }
+    let replay_started = Instant::now();
     let mut duel = new_duel(shared)?;
     let mut line = (*edge.prefix).clone();
     let mut pending = Pending::default();
@@ -1243,7 +1275,12 @@ fn play(shared: &Shared, edge: &Edge, dive: &mut Dive) -> Result<(), Error> {
     let mut trial: Option<(u32, HashSet<Offer>)> = None;
     let mut quiet = false;
     for answer in &line.answers {
+        dive.replayed += 1;
+        dive.after_free += 1;
         if let Step::Decision { decision, events } = duel.advance()? {
+            if is_free(&decision) {
+                dive.after_free = 1;
+            }
             since_free.meet(&decision, events.len());
             pending.answered(&decision, answer);
             if events.iter().any(|e| matches!(e, Event::Chaining { .. })) {
@@ -1283,6 +1320,7 @@ fn play(shared: &Shared, edge: &Edge, dive: &mut Dive) -> Result<(), Error> {
                     })
             }) {
                 shared.duplicates.fetch_add(1, Ordering::Relaxed);
+                dive.end = stats::End::IdleHandTrap;
                 return Ok(());
             }
             if let Some(Ok(mut c)) = shared.coverage.as_ref().map(Mutex::lock) {
@@ -1312,6 +1350,9 @@ fn play(shared: &Shared, edge: &Edge, dive: &mut Dive) -> Result<(), Error> {
     // moment was answered (automatically) since.
     let mut hidden: Option<(usize, ActionKind, u64)> = None;
     let mut freed = false;
+    dive.replay = replay_started.elapsed();
+    // For the stats: the state shown at the last node, and what was given there.
+    let mut last_shown: Option<(u64, ActionKind)> = None;
     loop {
         if shared.halted() {
             match given.take() {
@@ -1325,6 +1366,7 @@ fn play(shared: &Shared, edge: &Edge, dive: &mut Dive) -> Result<(), Error> {
                     discrepancies: edge.discrepancies,
                 }]),
             }
+            dive.end = stats::End::Halted;
             return Ok(());
         }
         let (step, mut actions) = duel.advance_auto_seen(&config.policy, &mut line.answers, |d, a| {
@@ -1395,6 +1437,7 @@ fn play(shared: &Shared, edge: &Edge, dive: &mut Dive) -> Result<(), Error> {
                 let told: Vec<String> = events.iter().filter_map(|e| italian::describe(db, e)).collect();
                 eprintln!("negated after: {}\n  events: {}", line.choices.join(" | "), told.join(" | "));
             }
+            dive.end = stats::End::Negated;
             return Ok(());
         }
         let happened = events.len();
@@ -1422,6 +1465,7 @@ fn play(shared: &Shared, edge: &Edge, dive: &mut Dive) -> Result<(), Error> {
                         left.last_zone = true;
                     }
                 }
+                dive.end = stats::End::Board;
                 return Ok(());
             }
         };
@@ -1437,6 +1481,14 @@ fn play(shared: &Shared, edge: &Edge, dive: &mut Dive) -> Result<(), Error> {
             }
         }
         shared.nodes.fetch_add(1, Ordering::Relaxed);
+        dive.nodes += 1;
+        if let Some(stats) = &shared.stats {
+            let shown = shown_state(&state);
+            if let Some((before, kind)) = last_shown.filter(|(before, _)| happened == 0 && *before == shown) {
+                stats.no_change(kind, before);
+            }
+            last_shown = Some((shown, ActionKind::Pass));
+        }
         let free = is_free(&decision);
         let canonical = canonical_fingerprint(&state);
         // The same state met again since the last free moment, by the
@@ -1445,11 +1497,20 @@ fn play(shared: &Shared, edge: &Edge, dive: &mut Dive) -> Result<(), Error> {
             || (!free && !since_free.seen.insert(node_key(canonical, duel.chain(), &decision, &Pending::default())))
         {
             shared.duplicates.fetch_add(1, Ordering::Relaxed);
+            dive.end = stats::End::Loop;
             return Ok(());
         }
-        if !shared.first_visit(node_key(canonical, duel.chain(), &decision, &pending)) {
+        let key = node_key(canonical, duel.chain(), &decision, &pending);
+        if !shared.first_visit(key) {
             shared.duplicates.fetch_add(1, Ordering::Relaxed);
+            dive.end = match &shared.stats {
+                Some(stats) if stats.same_choices(key, &line) => stats::End::OtherOrder,
+                _ => stats::End::Duplicate,
+            };
             return Ok(());
+        }
+        if let Some(stats) = &shared.stats {
+            stats.first(key, &line);
         }
         // Your effects known to negate your own chain links are not chained
         // to it (they are left out like the answer policy's).
@@ -1514,6 +1575,7 @@ fn play(shared: &Shared, edge: &Edge, dive: &mut Dive) -> Result<(), Error> {
         if actions.is_empty() {
             record(audit, None);
             shared.interrupted.fetch_add(1, Ordering::Relaxed);
+            dive.end = stats::End::NoAction;
             return Ok(());
         }
         if actions.len() > 1 {
@@ -1525,6 +1587,7 @@ fn play(shared: &Shared, edge: &Edge, dive: &mut Dive) -> Result<(), Error> {
                 // Every pick leads where another line already goes.
                 record(audit, None);
                 shared.duplicates.fetch_add(1, Ordering::Relaxed);
+                dive.end = stats::End::Returns;
                 return Ok(());
             }
         }
@@ -1562,6 +1625,9 @@ fn play(shared: &Shared, edge: &Edge, dive: &mut Dive) -> Result<(), Error> {
                 let extra = |a: &Action| matches!(*a.response.as_slice(), [0, location::MZONE, seq] if seq >= 5);
                 actions.sort_by_key(|a| extra(a) != first);
             }
+        }
+        if let Some(stats) = &shared.stats {
+            stats.order(&line, &actions);
         }
         let prefix = Arc::new(line.clone());
         let depth = line.choices.len();
@@ -1613,6 +1679,9 @@ fn play(shared: &Shared, edge: &Edge, dive: &mut Dive) -> Result<(), Error> {
             last_zone: false,
         });
         hidden = (!free).then(|| (depth, first.kind, shown_state(&state)));
+        if let Some((_, kind)) = last_shown.as_mut() {
+            *kind = first.kind;
+        }
         freed = false;
         record(audit, Some(&first.response));
         if let Some(c) = first.card.filter(|c| c.location == location::EXTRA) {
@@ -1640,7 +1709,11 @@ fn run_workers(shared: &Shared, threads: usize, mut progress: impl FnMut(&Progre
                     }
                     shared.done_with_edge();
                     shared.check_limits();
+                    let learning = Instant::now();
                     learn(shared);
+                    if let Some(stats) = &shared.stats {
+                        stats.learned(learning.elapsed());
+                    }
                 }
             });
         }
@@ -1665,7 +1738,11 @@ const LEARN_LAST: usize = 4;
 /// second, but with quick effects that check every combination of
 /// materials at each chain window (Kewl Tune) it can take minutes. The
 /// phases after the search (the last round, playing the best boards to the
-/// end, their zone variants) all stop this long after the limit too.
+/// end, their zone variants) all stop this long after the limit too. On
+/// the slow Elfnote Kewl Tune hand of `docs/plans/velocita-ricerca.md` the
+/// best boards come from the whole last round and from the zone variants
+/// played to their end: an earlier deadline after a search that ended
+/// early loses them.
 const LEARN_GRACE: Duration = Duration::from_secs(10);
 
 /// Your cards on the field of `state`, by kind of zone, as keys, with a
@@ -1744,13 +1821,19 @@ fn learn_round(shared: &Shared, count: usize) {
     };
     let config = shared.config;
     let mut prober = Prober::new(shared.engine, &config.deck, &config.hand, config.seed, kit);
-    prober.until(shared.start + config.time_limit.max(shared.start.elapsed()) + LEARN_GRACE);
+    let until = shared.start + config.time_limit.max(shared.start.elapsed()) + LEARN_GRACE;
+    prober.until(until);
     let mut raised = false;
+    // The longest measure of the round so far: a board that would not end
+    // before `until` is not started (cut short, it would teach nothing).
+    let mut longest = Duration::ZERO;
     for board in &picked {
-        if shared.cancel.load(Ordering::Relaxed) {
+        if shared.cancel.load(Ordering::Relaxed) || Instant::now() + longest > until {
             break;
         }
+        let started = Instant::now();
         let measured = prober.measure_alone(&board.line);
+        longest = longest.max(started.elapsed());
         // Cut short: what it learnt is not the whole board's.
         if prober.out_of_time() {
             break;
@@ -1783,7 +1866,7 @@ fn learn_round(shared: &Shared, count: usize) {
     if raised {
         let (Ok(values), Ok(mut boards)) = (shared.values.read(), shared.boards.lock()) else { return };
         for b in boards.values_mut() {
-            b.quick_score = quick_score(shared.engine, &b.state, &config.hand_traps, &values);
+            b.quick_score = quick_score(shared.engine, &b.state, &config.hand_traps, &values, config.opponent.as_ref());
         }
     }
 }
@@ -1961,6 +2044,7 @@ pub fn resume(
         idle_hand_traps: RwLock::default(),
         useful_hand_traps: RwLock::default(),
         idle_strikes: Mutex::default(),
+        stats: std::env::var_os("DUELFORGE_SEARCH_STATS").map(|_| stats::Stats::default()),
     };
     if !started {
         shared.push(vec![NewEdge {
@@ -2004,6 +2088,11 @@ pub fn resume(
     }
     let final_progress = shared.progress();
     progress(&final_progress);
+    if let (Some(stats), Ok(boards)) = (&shared.stats, shared.boards.lock()) {
+        let mut best: Vec<&Board> = boards.values().collect();
+        best.sort_by(|a, b| rank(a, b));
+        stats.report(best.first().copied(), best.first().map_or(0.0, |b| estimate(b)), shared.start.elapsed());
+    }
     let boards: HashMap<u64, Board> = shared.boards.into_inner().unwrap_or_else(|e| e.into_inner());
     let queue = shared.queue.into_inner().unwrap_or_else(|e| e.into_inner());
     // Playing the End Phases above may have queued new choices.
@@ -2029,6 +2118,206 @@ pub fn resume(
         measured: shared.measured.into_inner().unwrap_or_else(|e| e.into_inner()),
     };
     SearchResult { boards: sorted, progress: final_progress, stop, interrupted, frontier, coverage }
+}
+
+/// Where the work of a search goes (`DUELFORGE_SEARCH_STATS`, plan A2 of
+/// `docs/plans/ricerca-piano-critico.md`): how each dive ends and what it
+/// cost, the nodes reached again by another order of the same choices, the
+/// answers that change nothing shown, and where the right answer was in the
+/// order tried at each step of the best line. Printed as one line of JSON
+/// on stderr at the end of the search; the search does not change.
+mod stats {
+    use std::collections::hash_map::DefaultHasher;
+    use std::collections::HashMap;
+    use std::hash::{Hash, Hasher};
+    use std::sync::Mutex;
+    use std::time::Duration;
+
+    use ygo_engine::{Action, ActionKind};
+
+    use super::{Board, Dive, Line};
+
+    /// Why a dive ended.
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+    pub enum End {
+        /// The turn ended: a board was read.
+        Board,
+        /// A node already explored, reached by another order of the same choices.
+        OtherOrder,
+        /// A node already explored, reached by other choices.
+        Duplicate,
+        /// The same situation again since the last free moment.
+        Loop,
+        /// Every answer leads where another line already goes.
+        Returns,
+        /// One of your effects negated another, or a handtrap did nothing.
+        Negated,
+        /// A handtrap known to do nothing here.
+        IdleHandTrap,
+        /// Nothing to answer.
+        NoAction,
+        /// The board was already played to its end.
+        Confirmed,
+        /// The search stopped.
+        Halted,
+        /// The engine failed.
+        Error,
+    }
+
+    #[derive(Default)]
+    struct Dives {
+        count: u64,
+        nodes: u64,
+        replay: Duration,
+        time: Duration,
+    }
+
+    struct DiveRecord {
+        end: End,
+        nodes: u64,
+        replay: Duration,
+        time: Duration,
+        best: Option<f64>,
+        replayed: u64,
+        after_free: u64,
+    }
+
+    #[derive(Default)]
+    pub struct Stats {
+        dives: Mutex<Vec<DiveRecord>>,
+        /// For each node, the choices that first reached it (sorted).
+        first: Mutex<HashMap<u64, u64>>,
+        /// Position of each answer in the order tried, by the answers up to it.
+        order: Mutex<HashMap<u64, u32>>,
+        /// Answers after which nothing shown changed, by kind.
+        no_change: Mutex<HashMap<String, u64>>,
+        learning: Mutex<Duration>,
+    }
+
+    fn choices_key(line: &Line) -> u64 {
+        let mut sorted: Vec<&String> = line.choices.iter().collect();
+        sorted.sort();
+        let mut h = DefaultHasher::new();
+        sorted.hash(&mut h);
+        h.finish()
+    }
+
+    fn answers_key(answers: &[Vec<u8>], last: &[u8]) -> u64 {
+        let mut h = DefaultHasher::new();
+        answers.hash(&mut h);
+        last.hash(&mut h);
+        h.finish()
+    }
+
+    impl Stats {
+        pub(super) fn dive(&self, dive: &Dive, time: Duration) {
+            let best = dive.boards.iter().map(|b| b.1).fold(None, |m: Option<f64>, v| Some(m.map_or(v, |m| m.max(v))));
+            if let Ok(mut d) = self.dives.lock() {
+                d.push(DiveRecord {
+                    end: dive.end,
+                    nodes: dive.nodes,
+                    replay: dive.replay,
+                    time,
+                    best,
+                    replayed: dive.replayed,
+                    after_free: dive.after_free,
+                });
+            }
+        }
+
+        pub(super) fn first(&self, key: u64, line: &Line) {
+            if let Ok(mut f) = self.first.lock() {
+                f.insert(key, choices_key(line));
+            }
+        }
+
+        /// Whether the node `key` was first reached by the same choices as `line`.
+        pub(super) fn same_choices(&self, key: u64, line: &Line) -> bool {
+            self.first.lock().is_ok_and(|f| f.get(&key) == Some(&choices_key(line)))
+        }
+
+        pub(super) fn order(&self, line: &Line, actions: &[Action]) {
+            if let Ok(mut o) = self.order.lock() {
+                for (i, a) in actions.iter().enumerate() {
+                    o.entry(answers_key(&line.answers, &a.response)).or_insert(i as u32);
+                }
+            }
+        }
+
+        pub(super) fn no_change(&self, kind: ActionKind, _shown: u64) {
+            if let Ok(mut n) = self.no_change.lock() {
+                *n.entry(format!("{kind:?}")).or_default() += 1;
+            }
+        }
+
+        pub(super) fn learned(&self, time: Duration) {
+            if let Ok(mut l) = self.learning.lock() {
+                *l += time;
+            }
+        }
+
+        /// Prints the stats: `best` is the best board and `top` its estimate.
+        pub(super) fn report(&self, best: Option<&Board>, top: f64, elapsed: Duration) {
+            let Ok(dives) = self.dives.lock() else { return };
+            let mut by_end: HashMap<End, Dives> = HashMap::new();
+            // Dives by the best board they read: none, under 90% of the best
+            // board of the search, or near it.
+            let mut by_board: [Dives; 3] = Default::default();
+            for d in dives.iter() {
+                for e in [
+                    by_end.entry(d.end).or_default(),
+                    &mut by_board[match d.best {
+                        None => 0,
+                        Some(v) if top > 0.0 && v < 0.9 * top => 1,
+                        Some(_) => 2,
+                    }],
+                ] {
+                    e.count += 1;
+                    e.nodes += d.nodes;
+                    e.replay += d.replay;
+                    e.time += d.time;
+                }
+            }
+            let group = |d: &Dives| {
+                format!(
+                    "{{\"dives\":{},\"nodes\":{},\"replay_s\":{:.3},\"time_s\":{:.3}}}",
+                    d.count,
+                    d.nodes,
+                    d.replay.as_secs_f64(),
+                    d.time.as_secs_f64()
+                )
+            };
+            let mut ends: Vec<String> = by_end.iter().map(|(e, d)| format!("\"{e:?}\":{}", group(d))).collect();
+            ends.sort();
+            // Where each answer of the best line was in the order tried
+            // (none: an answer given automatically, or by a later run).
+            let ranks: Vec<String> = match (best, self.order.lock()) {
+                (Some(b), Ok(order)) => b
+                    .line
+                    .choice_at
+                    .iter()
+                    .map(|&at| order.get(&answers_key(&b.line.answers[..at], &b.line.answers[at])).map_or("null".into(), |r| r.to_string()))
+                    .collect(),
+                _ => Vec::new(),
+            };
+            let mut unchanged: Vec<String> =
+                self.no_change.lock().map(|n| n.iter().map(|(k, v)| format!("\"{k}\":{v}")).collect()).unwrap_or_default();
+            unchanged.sort();
+            let replayed: u64 = dives.iter().map(|d| d.replayed).sum();
+            let after_free: u64 = dives.iter().map(|d| d.after_free).sum();
+            eprintln!(
+                "search-stats {{\"replayed\":{replayed},\"after_free\":{after_free},\"elapsed_s\":{:.3},\"learning_s\":{:.3},\"best\":{top:.4},\"ends\":{{{}}},\"boards\":{{\"none\":{},\"weak\":{},\"near\":{}}},\"no_change\":{{{}}},\"best_line_ranks\":[{}]}}",
+                elapsed.as_secs_f64(),
+                self.learning.lock().map_or(0.0, |l| l.as_secs_f64()),
+                ends.join(","),
+                group(&by_board[0]),
+                group(&by_board[1]),
+                group(&by_board[2]),
+                unchanged.join(","),
+                ranks.join(",")
+            );
+        }
+    }
 }
 
 #[cfg(test)]

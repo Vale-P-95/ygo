@@ -628,6 +628,9 @@ struct ComboJob {
     roles: BTreeMap<String, Vec<u32>>,
     /// Boards already put to the probe turn, by `(hand, key)`.
     scores: HashMap<(usize, u64), ScoreView>,
+    /// What the handtraps take away from each board's line, by `(hand,
+    /// key)`: the same whatever deck the boards are measured against.
+    losses: HashMap<(usize, u64), Option<ygo_solver::probe::ExpectedLoss>>,
     /// The deck they were also measured against.
     vs: Option<i64>,
 }
@@ -677,7 +680,9 @@ struct ScoreView {
     breakers: Vec<BreakerView>,
     resources_note: String,
     followup_note: String,
-    /// Moments of the line where a handtrap stops it ([`ygo_solver::Exposure::choke_points`]).
+    /// What the handtraps are expected to take away from the line, in
+    /// interruptions ([`ygo_solver::probe::ExpectedLoss::expected`]); the
+    /// choke points are counted in `exposure_detail`.
     exposure: f64,
     exposure_note: String,
     exposure_detail: Option<ExposureView>,
@@ -1108,6 +1113,24 @@ struct ExposureView {
     summons: u32,
     special_summons: u32,
     searches: u32,
+    /// Moments of the line where a handtrap stops it ([`ygo_solver::Exposure::choke_points`]).
+    choke_points: u32,
+    /// For each kind of handtrap the line meets: what it takes away at the
+    /// worst moment and the chance the opponent holds one.
+    losses: Vec<ExposureLossView>,
+    /// What Maxx "C" or a Mulcharmy gives the opponent, in interruptions,
+    /// and the chance it holds one.
+    maxx: f64,
+    maxx_chance: f64,
+}
+
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct ExposureLossView {
+    /// "ash", "fieldEffect", "nibiru", "droll".
+    kind: &'static str,
+    loss: f64,
+    chance: f64,
 }
 
 fn place_name(loc: u8) -> &'static str {
@@ -1116,6 +1139,16 @@ fn place_name(loc: u8) -> &'static str {
         ygo_engine::consts::location::GRAVE => "Cimitero",
         ygo_engine::consts::location::REMOVED => "bandita",
         _ => "campo",
+    }
+}
+
+fn choke_kind_key(kind: ygo_solver::explain::ChokeKind) -> &'static str {
+    use ygo_solver::explain::ChokeKind;
+    match kind {
+        ChokeKind::DeckTouch => "ash",
+        ChokeKind::FieldEffect => "fieldEffect",
+        ChokeKind::FifthSummon => "nibiru",
+        ChokeKind::SecondSearch => "droll",
     }
 }
 
@@ -1163,15 +1196,18 @@ fn followup_note(starters: usize, extenders: usize, follow_up: Option<ygo_solver
 }
 
 /// The metrics of a board from its measure and its state.
+#[allow(clippy::too_many_arguments)]
 fn score_view(
     engine: &ygo_engine::Engine,
     hand: usize,
     board: &ygo_solver::Board,
     measured: Result<ygo_solver::Measure, String>,
     exposure: Option<ygo_solver::Exposure>,
+    loss: Option<&ygo_solver::probe::ExpectedLoss>,
     hand_traps: &[u32],
     roles: &BTreeMap<String, Vec<u32>>,
 ) -> ScoreView {
+    let rates = ygo_solver::probe::HandTrapRates::default();
     let me = &board.state.players[0];
     let db = engine.cards();
     // Each card in hand counts once: a handtrap the probe turn measured in
@@ -1230,19 +1266,30 @@ fn score_view(
         breakers: Vec::new(),
         resources_note: resources_note(others, dead),
         followup_note: followup_note(starters, extenders, follow_up),
-        exposure: exposure.map_or(0.0, |x| x.choke_points() as f64),
+        exposure: loss.map_or(0.0, |l| l.expected),
         exposure_detail: exposure.map(|x| ExposureView {
             ash: x.ash,
             on_field: x.on_field,
             summons: x.summons,
             special_summons: x.special_summons,
             searches: x.searches,
+            choke_points: x.choke_points(),
+            losses: loss.map_or_else(Vec::new, |l| {
+                l.losses
+                    .iter()
+                    .map(|&(kind, value)| ExposureLossView { kind: choke_kind_key(kind), loss: value, chance: rates.chance(kind) })
+                    .collect()
+            }),
+            maxx: loss.map_or(0.0, |l| l.maxx),
+            maxx_chance: rates.special_summons,
         }),
         exposure_note: exposure.map_or_else(String::new, |x| {
-            let mut parts = vec![
-                format!("{} effetti che Ash Blossom nega", x.ash),
-                format!("{} effetti di mostri sul campo (Veiler, Impermanence)", x.on_field),
-            ];
+            let mut parts = Vec::new();
+            if let Some(l) = loss {
+                parts.push(format!("perdita attesa per le handtrap {:.2} interruzioni", l.expected));
+            }
+            parts.push(format!("{} effetti che Ash Blossom nega", x.ash));
+            parts.push(format!("{} effetti di mostri sul campo (Veiler, Impermanence)", x.on_field));
             parts.push(if x.summons >= 5 {
                 format!("{} Evocazioni: Nibiru dalla quinta", x.summons)
             } else {
@@ -1592,6 +1639,7 @@ fn combo_search(app: tauri::AppHandle, state: State<'_, AppState>, request: Comb
         status: Vec::new(),
         roles: deck.roles.clone(),
         scores: HashMap::new(),
+        losses: HashMap::new(),
         vs: None,
     };
     if let Ok(mut slot) = state.combo.lock() {
@@ -1655,10 +1703,10 @@ struct LinkCardView {
     /// in any number of steps ([`ygo_solver::LinkCard`]).
     reach: u32,
     reach_all: u32,
-    /// Chance that an opening hand of 5 holds it or a card that brings it into play.
+    /// Chance that an opening hand of 5 brings it into play: holds it, or its
+    /// best line adds it to the hand or puts it on the field ([`ygo_solver::LinkCard`]).
     chance: f64,
-    /// `chance` is measured (an Extra Deck monster no card names: share of the
-    /// hands searched whose best line summons it), not exact.
+    /// `chance` is measured on the hands searched, not the draft's.
     measured: bool,
     /// Cards an opening hand reaches on average that are lost when its effects are negated.
     key: f64,
@@ -1848,7 +1896,7 @@ const SCORED_BOARDS: usize = 30;
 fn combo_score(app: tauri::AppHandle, state: State<'_, AppState>, vs_deck_id: Option<i64>) -> Result<usize, String> {
     let engine = state.engine()?;
     // What is needed, copied out so the search state stays free meanwhile.
-    let (config, hands, todo, roles) = {
+    let (config, hands, todo, roles, losses) = {
         let mut job = state.combo.lock().map_err(|e| e.to_string())?;
         let job = job.as_mut().ok_or("Nessuna ricerca da valutare")?;
         if job.vs != vs_deck_id {
@@ -1870,7 +1918,7 @@ fn combo_score(app: tauri::AppHandle, state: State<'_, AppState>, vs_deck_id: Op
             .take(limit)
             .cloned()
             .collect();
-        (job.config.clone(), job.hands.iter().map(|(h, _, _)| h.clone()).collect::<Vec<_>>(), todo, job.roles.clone())
+        (job.config.clone(), job.hands.iter().map(|(h, _, _)| h.clone()).collect::<Vec<_>>(), todo, job.roles.clone(), job.losses.clone())
     };
     state.combo_cancel.store(false, Ordering::Relaxed);
     let kit = ygo_solver::Kit::standard(&engine);
@@ -1899,8 +1947,24 @@ fn combo_score(app: tauri::AppHandle, state: State<'_, AppState>, vs_deck_id: Op
                     let prober = probers
                         .entry(*hand)
                         .or_insert_with(|| ygo_solver::Prober::new(&engine, &config.deck, &hands[*hand], config.seed, &kit));
-                    let exposure =
-                        ygo_solver::exposure(&engine, &config.deck, &hands[*hand], config.seed, config.opponent.as_ref(), &board.line).ok();
+                    let points = ygo_solver::explain::exposure_points(
+                        &engine,
+                        &config.deck,
+                        &hands[*hand],
+                        config.seed,
+                        config.opponent.as_ref(),
+                        &board.line,
+                    )
+                    .ok();
+                    let exposure = points.as_ref().map(|(x, _)| *x);
+                    // Every board ranked has it: one without would rank higher.
+                    let loss = match losses.get(&(*hand, board.key)) {
+                        Some(known) => known.clone(),
+                        None => points.as_ref().and_then(|(x, points)| {
+                            let rates = ygo_solver::probe::HandTrapRates::default();
+                            prober.expected_loss(&board.line, points, x.special_summons, &rates).ok()
+                        }),
+                    };
                     let measured = prober.measure(&board.line).map_err(|e| e.to_string());
                     let matchup = rival.as_ref().map(|(id, name, rival)| {
                         let m = measured.as_ref().map_err(String::clone).and_then(|m| {
@@ -1909,11 +1973,11 @@ fn combo_score(app: tauri::AppHandle, state: State<'_, AppState>, vs_deck_id: Op
                         });
                         matchup_view(*id, name, m)
                     });
-                    let mut view = score_view(&engine, *hand, board, measured, exposure, &config.hand_traps, &roles);
+                    let mut view = score_view(&engine, *hand, board, measured, exposure, loss.as_ref(), &config.hand_traps, &roles);
                     view.matchup = matchup;
                     let _ = app.emit("combo-score", view.clone());
                     if let Ok(mut r) = results.lock() {
-                        r.push(((*hand, board.key), view));
+                        r.push(((*hand, board.key), view, loss));
                     }
                 }
             });
@@ -1921,7 +1985,10 @@ fn combo_score(app: tauri::AppHandle, state: State<'_, AppState>, vs_deck_id: Op
     });
     let mut job = state.combo.lock().map_err(|e| e.to_string())?;
     let job = job.as_mut().ok_or("La ricerca è cambiata")?;
-    job.scores.extend(results.into_inner().unwrap_or_default());
+    for (key, view, loss) in results.into_inner().unwrap_or_default() {
+        job.scores.insert(key, view);
+        job.losses.insert(key, loss);
+    }
     Ok(job.scores.len())
 }
 

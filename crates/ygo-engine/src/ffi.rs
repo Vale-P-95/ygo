@@ -104,10 +104,22 @@ extern "C" {
     pub fn df_duel_destroy(duel: OCG_Duel);
     pub fn df_duel_preload(duel: OCG_Duel, codes: *const u32, count: usize) -> c_int;
 
+    // shim/arena.cpp
+    pub fn df_arena_new() -> *mut c_void;
+    pub fn df_arena_free(arena: *mut c_void);
+    pub fn df_arena_enter(arena: *mut c_void) -> *mut c_void;
+    pub fn df_arena_used(arena: *mut c_void) -> usize;
+    pub fn df_arena_overflowed(arena: *mut c_void) -> c_int;
+    pub fn df_arena_save(arena: *mut c_void, out: *mut c_void);
+    pub fn df_arena_restore(arena: *mut c_void, data: *const c_void, size: usize) -> c_int;
+    pub fn df_arena_limit(arena: *mut c_void, bytes: usize);
+    pub fn df_arena_selftest() -> c_int;
+
     // shim/hand.cpp
     pub fn df_deck_to_hand(duel: OCG_Duel, player: u8, code: u32) -> c_int;
 
     // shim/count.cpp
-    pub fn df_lua_count_install(duel: OCG_Duel);
-    pub fn df_lua_count_take() -> u64;
+    pub fn df_lua_hook_install(duel: OCG_Duel);
+    pub fn df_lua_request_start(max: u64);
+    pub fn df_lua_request_end(entries: *mut u64, calls: *mut u64, instructions: *mut u64) -> c_int;
 }

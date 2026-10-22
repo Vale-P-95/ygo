@@ -1176,11 +1176,8 @@ function searchCatalog(rawQuery: string): SearchResult {
       } else if (fmt === "tcg") {
         if (!c.banTcg || !normalizedBans.includes(c.banTcg)) return false;
       } else {
-        const matchesAny =
-          (c.banTcg && normalizedBans.includes(c.banTcg)) ||
-          (c.banMd && normalizedBans.includes(c.banMd)) ||
-          (c.banOcg && normalizedBans.includes(c.banOcg));
-        if (!matchesAny) return false;
+        // Without format, ban: follows the TCG list, matching ygo-data query parser
+        if (!c.banTcg || !normalizedBans.includes(c.banTcg)) return false;
       }
     }
     if (filterKind && c.kind !== filterKind && c.frame !== filterKind) return false;
@@ -1940,9 +1937,22 @@ function buildMockScoreForBoard(b: ComboBoard, vsDeckId?: number | null): ComboS
       ],
       resourcesNote: "2 carte extra in mano e 3 nel Cimitero pronte per il turno successivo",
       followupNote: "1 starter (Diabellstar) e 1 estensore (Kirin) in mano",
-      exposure: 2,
-      exposureNote: "Linea compatta in 4 Evocazioni: non attiva mai Nibiru",
-      exposureDetail: { ash: 1, onField: 1, summons: 4, specialSummons: 3, searches: 1 },
+      exposure: 0.51,
+      exposureNote: "Perdita attesa per le handtrap 0.51 interruzioni; linea compatta in 4 Evocazioni: non attiva mai Nibiru",
+      exposureDetail: {
+        ash: 1,
+        onField: 1,
+        summons: 4,
+        specialSummons: 3,
+        searches: 1,
+        chokePoints: 2,
+        losses: [
+          { kind: "ash", loss: 0.6, chance: 0.335 },
+          { kind: "fieldEffect", loss: 0.6, chance: 0.363 },
+        ],
+        maxx: 0.2,
+        maxxChance: 0.47,
+      },
       countered: null,
       error: null,
     };
@@ -2030,9 +2040,24 @@ function buildMockScoreForBoard(b: ComboBoard, vsDeckId?: number | null): ComboS
       ],
       resourcesNote: "3 carte in mano e 5 nel Cimitero con recupero attivo",
       followupNote: "1 starter garantito in mano per il terzo turno",
-      exposure: 4,
-      exposureNote: "Esposta a Ash Blossom, Veiler/Impermanence, Droll e Nibiru",
-      exposureDetail: { ash: 2, onField: 2, summons: 8, specialSummons: 7, searches: 3 },
+      exposure: 1.42,
+      exposureNote: "Perdita attesa per le handtrap 1.42 interruzioni: esposta a Ash Blossom, Veiler/Impermanence, Droll e Nibiru",
+      exposureDetail: {
+        ash: 2,
+        onField: 2,
+        summons: 8,
+        specialSummons: 7,
+        searches: 3,
+        chokePoints: 6,
+        losses: [
+          { kind: "ash", loss: 1.5, chance: 0.335 },
+          { kind: "fieldEffect", loss: 1.2, chance: 0.363 },
+          { kind: "nibiru", loss: 1.5, chance: 0.035 },
+          { kind: "droll", loss: 0.9, chance: 0.167 },
+        ],
+        maxx: 0.6,
+        maxxChance: 0.47,
+      },
       matchup: getMatchup(vsDeckId),
       countered: 0.68,
       error: null,
@@ -2130,9 +2155,24 @@ function buildMockScoreForBoard(b: ComboBoard, vsDeckId?: number | null): ComboS
     ],
     resourcesNote: "3 carte in mano e 7 nel Cimitero (Flamberge + Promethean + Garunix pronti)",
     followupNote: "1 starter (Ponix) e 1 estensore (Kirin) in mano",
-    exposure: 4,
-    exposureNote: "Esposta a Ash Blossom, Veiler/Impermanence, Droll e Nibiru (ma Flamberge/Princess permettono di recuperare)",
-    exposureDetail: { ash: 2, onField: 3, summons: 10, specialSummons: 9, searches: 3 },
+    exposure: 1.33,
+    exposureNote: "Perdita attesa per le handtrap 1.33 interruzioni: esposta a Ash Blossom, Veiler/Impermanence, Droll e Nibiru",
+    exposureDetail: {
+      ash: 2,
+      onField: 3,
+      summons: 10,
+      specialSummons: 9,
+      searches: 3,
+      chokePoints: 7,
+      losses: [
+        { kind: "ash", loss: 1.1, chance: 0.335 },
+        { kind: "fieldEffect", loss: 1.1, chance: 0.363 },
+        { kind: "nibiru", loss: 1.4, chance: 0.035 },
+        { kind: "droll", loss: 0.8, chance: 0.167 },
+      ],
+      maxx: 0.8,
+      maxxChance: 0.47,
+    },
     countered: 1,
     error: null,
   };
