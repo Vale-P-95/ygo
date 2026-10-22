@@ -260,13 +260,14 @@ fn aleister_grail_meltdown_reach_mechaba() {
 #[cfg_attr(debug_assertions, ignore = "slow in debug: run with --release")]
 fn reminiscent_alone_keeps_the_handtraps() {
     // The two Drolls are kept; the Mulcharmies only work while you control
-    // no cards, so one may be spent. Invoked Caliga, a floodgate, no longer
-    // counts the steps lost after the one it stops: Invoked Mechaba with
-    // Hyperinvoked Aeon comes first.
+    // no cards, so one may be spent. Invoked Caliga lets each player try one
+    // monster effect a turn: with the kit weighed on real lines, where two
+    // activations in three are monster effects, it stops more than Invoked
+    // Mechaba's one negation, and comes first with Hyperinvoked Aeon.
     check(Expect {
         hand: &["Aleister the Reminiscent", "Droll & Lock Bird", "Droll & Lock Bird", "Mulcharmy Fuwalos", "Mulcharmy Purulia"],
         use_hand_traps: true,
-        pieces: &["Invoked Mechaba"],
+        pieces: &["Invoked Caliga", "Hyperinvoked Aeon"],
         monsters: 3,
         kept: 2,
         min_score: 12.0,
