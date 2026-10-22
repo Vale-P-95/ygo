@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { api, type Card, ComboBreaker, ComboInterruption, ComboRivalBreaker, ComboRivalHandTrap, ComboScore, type LearnedWeights } from "../../lib/api";
+import { api, type Card, type ComboBoard, ComboBreaker, ComboInterruption, ComboRivalBreaker, ComboRivalHandTrap, ComboScore, type LearnedWeights } from "../../lib/api";
 import { METRICS, NEGATIVE, parts, pickProfile, PROFILES, score, setWeight, applyLearnedWeights, getPriorWeights, useWeights, type Metric, type MetricKey, type Weights } from "../../lib/scoring";
 import { sound } from "../../lib/sound";
 import { toast } from "../../lib/toast";
 import { InfoButton } from "../InfoButton";
 import { CardImage, type HoverCard } from "./Field";
+import { PieceProtection } from "./PieceProtection";
 
 const fmt = (n: number) => n.toLocaleString("it-IT", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 /** One decimal, two for a small amount that would read as zero. */
@@ -602,6 +603,7 @@ function Exposure({ s }: { s: ComboScore }) {
 
 /** Why a board has its score: a summary, each metric, then what the probe turn saw. */
 export function ScoreBreakdown({
+  board,
   s,
   weights,
   getCard,
@@ -611,6 +613,7 @@ export function ScoreBreakdown({
   s: ComboScore;
   weights: Weights;
   getCard: (id: number) => Card | undefined;
+  board?: ComboBoard;
   onHover?: HoverCard;
   onHoverEnd?: () => void;
 }) {
@@ -693,6 +696,24 @@ export function ScoreBreakdown({
               <Stopper key={i} d={d} getCard={getCard} onHover={onHover} onHoverEnd={onHoverEnd} />
             ))}
           </ul>
+        )}
+
+        {s.countered != null && (
+          <div className="mt-2.5 rounded-lg border border-border/80 bg-surface-2/60 p-2.5 text-xs text-muted flex items-start gap-2">
+            <span className="chip !py-0.5 !px-2 text-[10px] font-semibold text-sec shrink-0 mt-0.5">
+              Risposta rivale
+            </span>
+            <span className="leading-relaxed">
+              Con una risposta alla tua prima interruzione (Infinite Impermanence) fermi ancora il{" "}
+              <b className="text-text tabular-nums">{Math.round(s.countered * 100)}%</b> di quello che fermi.
+            </span>
+          </div>
+        )}
+
+        {board && (
+          <div className="mt-2.5 border-t border-border/60 pt-2.5">
+            <PieceProtection board={board} getCard={getCard} onHover={onHover} onHoverEnd={onHoverEnd} />
+          </div>
         )}
       </Section>
 
