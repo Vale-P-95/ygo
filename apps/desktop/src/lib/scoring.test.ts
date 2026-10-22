@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ComboScore } from "./api";
-import { METRICS, NEGATIVE, parts, PROFILES, score, type Weights } from "./scoring";
+import { METRICS, NEGATIVE, parts, PROFILES, score, migrateLegacyWeights, type Weights } from "./scoring";
 
 function makeScore(partial: Partial<ComboScore> = {}): ComboScore {
   return {
@@ -146,6 +146,64 @@ describe("scoring", () => {
       expect(breakdown).toHaveLength(METRICS.length);
       const totalFromParts = breakdown.reduce((acc, p) => acc + p.value, 0);
       expect(totalFromParts).toBeCloseTo(score(s, w), 6);
+    });
+  });
+
+  describe("PROFILES exposure weights (D17)", () => {
+    it("assigns calibrated exposure weights in the new scale", () => {
+      const getExposure = (id: string) => PROFILES.find((p) => p.id === id)!.weights.exposure;
+
+      expect(getExposure("balanced")).toBeCloseTo(-0.5, 6);
+      expect(getExposure("negates")).toBeCloseTo(-0.4, 6);
+      expect(getExposure("control")).toBeCloseTo(-0.4, 6);
+      expect(getExposure("resilient")).toBeCloseTo(-0.6, 6);
+      expect(getExposure("grind")).toBeCloseTo(-0.3, 6);
+      expect(getExposure("safe")).toBeCloseTo(-1.0, 6);
+    });
+
+    it("ranks board with lower exposure higher when other metrics are equal", () => {
+      const balanced = PROFILES.find((p) => p.id === "balanced")!;
+      const saferBoard = makeScore({ interruptions: 2, resilience: 1, exposure: 0.5 });
+      const riskierBoard = makeScore({ interruptions: 2, resilience: 1, exposure: 1.8 });
+
+      expect(score(saferBoard, balanced.weights)).toBeGreaterThan(score(riskierBoard, balanced.weights));
+    });
+  });
+
+  describe("migrateLegacyWeights", () => {
+    const baseWeights: Weights = {
+      interruptions: 1,
+      handTraps: 0.9,
+      floodgates: 0.8,
+      resilience: 0.6,
+      followup: 0.4,
+      resources: 0.1,
+      cost: -0.1,
+      exposure: -0.04,
+    };
+
+    it("multiplies legacy exposure (|exposure| < 0.2) by 12.5", () => {
+      const migrated = migrateLegacyWeights({ ...baseWeights, exposure: -0.04 });
+      expect(migrated.exposure).toBeCloseTo(-0.5, 2);
+
+      const migratedNegates = migrateLegacyWeights({ ...baseWeights, exposure: -0.03 });
+      expect(migratedNegates.exposure).toBeCloseTo(-0.375, 3);
+
+      const migratedCustom = migrateLegacyWeights({ ...baseWeights, exposure: -0.08 });
+      expect(migratedCustom.exposure).toBeCloseTo(-1.0, 2);
+    });
+
+    it("leaves already-migrated exposure (>= 0.2 in magnitude) unchanged", () => {
+      const current = migrateLegacyWeights({ ...baseWeights, exposure: -0.5 });
+      expect(current.exposure).toBe(-0.5);
+
+      const safe = migrateLegacyWeights({ ...baseWeights, exposure: -1.0 });
+      expect(safe.exposure).toBe(-1.0);
+    });
+
+    it("leaves zero exposure unchanged", () => {
+      const zero = migrateLegacyWeights({ ...baseWeights, exposure: 0 });
+      expect(zero.exposure).toBe(0);
     });
   });
 });

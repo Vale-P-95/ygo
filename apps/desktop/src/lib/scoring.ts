@@ -99,15 +99,13 @@ export const METRICS: Metric[] = [
   {
     key: "exposure",
     label: "Esposizione",
-    hint: "Punti della linea in cui una handtrap la ferma: effetti che Ash Blossom nega, effetti di mostri sul campo (Veiler, Impermanence), Nibiru dalla quinta Evocazione, Droll dalla seconda carta aggiunta dal Deck (peso negativo)",
+    hint: "Perdita attesa in interruzioni causata dalle handtrap più comuni mentre giochi la linea (peso negativo)",
     color: "var(--df-danger)",
     explain: [
-      "Quante volte l'avversario può fermare la linea mentre la giochi, con le handtrap più usate:",
-      "• ogni tuo effetto che aggiunge, evoca o manda carte dal Deck (Ash Blossom lo nega);",
-      "• ogni effetto di mostro attivato sul campo (Effect Veiler, Infinite Impermanence, Ghost Ogre);",
-      "• Nibiru, se arrivi a 5 Evocazioni;",
-      "• Droll & Lock Bird, se aggiungi più di una carta dal Deck.",
-      "Toglie punti: due linee che arrivano alla stessa board non valgono uguale se una si ferma alla prima Ash. Il profilo «Linee sicure» le pesa di più.",
+      "La perdita attesa in interruzioni che la linea subisce per mano delle handtrap più usate:",
+      "• per ogni tipo di handtrap (Ash Blossom, Effect Veiler / Infinite Impermanence, Nibiru, Droll & Lock Bird), quanto toglie nel momento peggiore per la probabilità che l'avversario ne abbia una;",
+      "• l'impatto di Maxx \"C\" e Mulcharmy in base alle Evocazioni Speciali concesse.",
+      "Toglie punti: due linee che arrivano alla stessa board non valgono uguale se una si espone a perdere le sue interruzioni. Il profilo «Linee sicure» la pesa di più.",
     ],
   },
 ];
@@ -124,15 +122,15 @@ export interface Profile {
 }
 
 export const PROFILES: Profile[] = [
-  { id: "balanced", label: "Bilanciato", weights: { interruptions: 1, handTraps: 0.9, floodgates: 0.8, resilience: 0.6, followup: 0.4, resources: 0.1, cost: -0.1, exposure: -0.04 } },
-  { id: "negates", label: "Più negazioni", weights: { interruptions: 1.5, handTraps: 1.2, floodgates: 0.5, resilience: 0.4, followup: 0.2, resources: 0.05, cost: -0.05, exposure: -0.03 } },
-  { id: "control", label: "Controllo e floodgate", weights: { interruptions: 0.8, handTraps: 0.7, floodgates: 1.6, resilience: 0.6, followup: 0.3, resources: 0.05, cost: -0.1, exposure: -0.04 } },
-  { id: "resilient", label: "A prova di board breaker", weights: { interruptions: 0.8, handTraps: 0.9, floodgates: 0.6, resilience: 1.5, followup: 0.5, resources: 0.1, cost: -0.1, exposure: -0.04 } },
-  { id: "grind", label: "Risorse e follow-up", weights: { interruptions: 0.7, handTraps: 0.7, floodgates: 0.5, resilience: 0.6, followup: 1.2, resources: 0.3, cost: -0.2, exposure: -0.03 } },
+  { id: "balanced", label: "Bilanciato", weights: { interruptions: 1, handTraps: 0.9, floodgates: 0.8, resilience: 0.6, followup: 0.4, resources: 0.1, cost: -0.1, exposure: -0.5 } },
+  { id: "negates", label: "Più negazioni", weights: { interruptions: 1.5, handTraps: 1.2, floodgates: 0.5, resilience: 0.4, followup: 0.2, resources: 0.05, cost: -0.05, exposure: -0.4 } },
+  { id: "control", label: "Controllo e floodgate", weights: { interruptions: 0.8, handTraps: 0.7, floodgates: 1.6, resilience: 0.6, followup: 0.3, resources: 0.05, cost: -0.1, exposure: -0.4 } },
+  { id: "resilient", label: "A prova di board breaker", weights: { interruptions: 0.8, handTraps: 0.9, floodgates: 0.6, resilience: 1.5, followup: 0.5, resources: 0.1, cost: -0.1, exposure: -0.6 } },
+  { id: "grind", label: "Risorse e follow-up", weights: { interruptions: 0.7, handTraps: 0.7, floodgates: 0.5, resilience: 0.6, followup: 1.2, resources: 0.3, cost: -0.2, exposure: -0.3 } },
   {
     id: "safe",
     label: "Linee sicure",
-    weights: { interruptions: 0.9, handTraps: 0.9, floodgates: 0.7, resilience: 0.6, followup: 0.4, resources: 0.1, cost: -0.15, exposure: -0.15 },
+    weights: { interruptions: 0.9, handTraps: 0.9, floodgates: 0.7, resilience: 0.6, followup: 0.4, resources: 0.1, cost: -0.15, exposure: -1.0 },
   },
 ];
 
@@ -202,18 +200,28 @@ export interface Choice {
 
 const KEY = "duelforge.combo.weights";
 
+/** Converts legacy exposure weights (|exposure| < 0.2) to the new scale (x12.5). */
+export function migrateLegacyWeights(weights: Weights): Weights {
+  if (weights.exposure !== undefined && Math.abs(weights.exposure) > 1e-6 && Math.abs(weights.exposure) < 0.2) {
+    return { ...weights, exposure: weights.exposure * 12.5 };
+  }
+  return weights;
+}
+
 function loadChoice(): Choice {
   try {
     const raw = localStorage.getItem(KEY);
     if (raw) {
       const saved = JSON.parse(raw) as Partial<Choice>;
       const baseProfile = PROFILES.find((p) => p.id === saved.priorProfile) ?? PROFILES[0];
-      const priorWeights = saved.priorWeights ?? baseProfile.weights;
+      const priorWeights = saved.priorWeights
+        ? migrateLegacyWeights({ ...baseProfile.weights, ...saved.priorWeights })
+        : baseProfile.weights;
       if (saved.profile === "learned") {
         return {
           profile: "learned",
           priorProfile: saved.priorProfile ?? baseProfile.id,
-          weights: { ...baseProfile.weights, ...saved.weights },
+          weights: migrateLegacyWeights({ ...baseProfile.weights, ...saved.weights }),
           priorWeights,
         };
       }
@@ -229,8 +237,8 @@ function loadChoice(): Choice {
       return {
         profile: saved.profile ?? "custom",
         priorProfile: saved.priorProfile ?? "custom",
-        weights: { ...PROFILES[0].weights, ...saved.weights },
-        priorWeights: saved.priorWeights ?? PROFILES[0].weights,
+        weights: migrateLegacyWeights({ ...PROFILES[0].weights, ...saved.weights }),
+        priorWeights,
       };
     }
   } catch {
