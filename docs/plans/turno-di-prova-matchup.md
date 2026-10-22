@@ -255,7 +255,10 @@ Prova: 6 board contro i 37 deck di Master Duel Meta, con `probe-line --vs X --mo
   - Prima rigiocava le linee salvate con il seme di `--seed` (1), non con quello salvato con le linee (7). Con un altro seme cambia l'ordine del Deck, e una linea che manda carte dal Deck al Cimitero si rompe: le board Branded e Tearlaments fallivano contro tutti i deck.
   - Ora usa il seme salvato nel file.
 - **Tempi:** le mosse tipiche 31 secondi di mediana e 109 al massimo (Yummy, Elfnote); la misura contro le mosse 0,9 secondi di mediana e 4 al massimo. Erano 4 prove insieme su 4 core: da sola la lettura delle mosse prende 4-13 secondi.
-- **Le mosse tipiche cambiano molto con il seme.** Con 12 mani, lo stesso deck con il seme 1 e con il seme 7 ha in comune in media il 46% delle mosse: dal 18% di Ignister al 67% di Azamina, D/D/D, Exosister e Maliss. Per avere mosse stabili servono più mani (più tempo) o le linee vere (sotto).
+- **Le mosse tipiche cambiano molto con il seme.** Con 12 mani, lo stesso deck con il seme 1 e con il seme 7 ha in comune in media il 43% delle mosse (37 deck): dal 18% di Ignister al 67% di Azamina, D/D/D, Exosister e Maliss.
+  - Con 24 mani si sale solo al 50% (dal 24% di Warrior Combo all'83% di Dogmatika), e la lettura costa il doppio.
+  - Elfnote Kewl Tune con 24 mani ha impiegato 463 secondi: vedi `docs/plans/velocita-ricerca.md`.
+  - Più mani non bastano: per mosse stabili servono le linee vere (sotto).
 - **Il 38% delle mosse tipiche non si fa nemmeno contro un campo vuoto** (816 su 2166). Il kit non le trova offerte; nessuna è offerta e poi fallisce. Seguendo una linea di Tearlaments, le cause sono quattro:
   1. **Effetti in catena.** Una mossa che nella linea vera si attiva in catena (un effetto nel Cimitero, un mostro evocato durante la catena) non può cominciare: il kit comincia un passo solo nella sua Main Phase.
   2. **Effetti della stessa carta.** Due effetti della stessa carta nello stesso posto sono la stessa mossa. Il kit ha usato l'effetto di Kitkallos all'Evocazione al posto di quello sul campo, e le mosse dopo si sono perse.
