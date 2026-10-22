@@ -74,13 +74,43 @@
   - In una posizione costruita (Invoked Sorath, Magistus Chorozo e Invoked Oceanus nel Cimitero), l'effetto di Sorath dal Cimitero offre Hyperinvoked Aeon. Scelti Sorath e Oceanus, il motore offre sia «finisci» sia Chorozo come terzo materiale.
   - La linea migliore trovata su inv-r5 Evoca Aeon con 2 materiali (Sorath e Chorozo), ma lì un terzo valido non c'è: nel Cimitero Invoked Elysium è LIGHT come Sorath, e Aeon vuole attributi diversi. Elysium ha tutti gli attributi solo scoperta sul campo.
   - Quindi niente azione non offerta né risposta automatica sbagliata. Manca una linea che prepari tre Fusioni di attributo diverso, e la misura non dà alla ricerca un motivo per farlo: sono le cecità della misura descritte sopra (Aeon vale quasi zero, il kit ha un solo mostro nell'Extra Deck).
-- **Il giro vero, per il proprietario:**
+- **Il giro vero.** Lo fa la corsia 6 in una sessione cloud, per decisione del proprietario, sul branch `claude/oracle-run`:
   ```
-  python3 scripts/oracle.py build <out> --decks <mdm> --mult 50 --seeds 1,2,3 --jobs 4
+  python3 scripts/oracle.py build <out> --decks <mdm> --mult 50 --own-seed-only --jobs 4
   python3 scripts/oracle.py fixtures <out> tests/fixtures/oracle --decks <mdm>
   python3 scripts/oracle.py measure tests/fixtures/oracle <out>/measure --decks <mdm> --budgets 1000,2000,4000,8000,16000
   ```
-  Stima del tempo: 91 mani per 3 semi a 200 000 nodi. Dal pilota, una mano a 40 000 nodi prende da 5 s a 6,5 minuti; a 200 000 nodi va da qualche minuto a mezz'ora. Con 4 lavori in parallelo è una notte, forse due.
+  - Si parte con il solo seme della mano, perché è l'unico che fa la fixture. Costa circa un terzo delle tre corse.
+  - I semi 2 e 3 si aggiungono dopo (`--seeds 1,2,3`).
+  - Un comando in background nel cloud si ferma dopo 2 ore. `build` riparte dalle corse già scritte, quindi si rilancia la stessa riga finché ha finito.
+  - Dal pilota, una mano a 40 000 nodi prende da 5 s a 6,5 minuti; a 200 000 nodi va da qualche minuto a mezz'ora.
+
+### A1b. Oltre i limiti dell'oracolo (corsia 6, dopo il giro vero; il livello 2 con la corsia 3)
+L'oracolo ha tre limiti:
+- è la board migliore *trovata* con molto budget, non per forza la migliore che esiste;
+- le sue board valgono quanto la misura, quindi ne eredita le cecità;
+- le liste di Master Duel Meta cambiano.
+
+Quattro passi, in quest'ordine.
+
+1. **Livello 2 sulle board dell'oracolo e rapporto dei disaccordi.** È il passo con più valore, e gli strumenti ci sono già.
+   - Ogni board delle fixture si gioca con `probe-line --vs X --moves` contro i deck del meta, pesati con la popolarità come nel banco oggettivo (`banco-oggettivo.md`).
+   - Si scrivono le coppie di board dove la misura e il livello 2 non sono d'accordo, cioè l'ordine si inverte di almeno 0,05 di verità. Ognuna è una cecità della misura da correggere in B5 (esempi: Aeon, interruzioni dal Cimitero, trappole in mano, turno dopo).
+   - Si aggiungono le ricerche per obiettivo automatiche (`--auto-goals N`): una board che raggiunge un mostro dell'Extra Deck, forte al livello 2 ma bassa per la misura, è una cecità trovata senza indovinarla.
+   - Le fixture tengono anche board diverse, non solo le 5 migliori per punteggio. Per esempio la migliore per interruzioni, per risorse del turno dopo e per protezioni. Così un tipo di board che la misura sottovaluta resta fra i riferimenti.
+   - **Controllo:** il rapporto elenca i disaccordi per deck, con la linea da rigiocare. Ogni correzione di B5 deve ridurli, senza peggiorare il test appaiato.
+2. **Convergenza.** Su un campione di 12 mani (una per tipo di deck, con le 4 più lontane dal pilota) si lancia a 100× e 200× i nodi.
+   - Una mano il cui valore non cresce più da 50× a 200× ha il tetto stabile.
+   - Le altre si segnano «provvisorie» nella fixture, e `measure` le riporta a parte.
+   - **Controllo:** la quota di mani stabili. Se è sotto l'80%, il giro vero passa a 100×.
+3. **Corsa incrementale.** `oracle.py build --changed-only` confronta l'impronta delle liste (`deck_hash`) e rifà solo le mani dei deck cambiati.
+   - Un'attività programmata nel cloud, per esempio settimanale, scarica le liste, rifà i deck cambiati e apre una PR con le fixture nuove.
+   - Le liste non si committano.
+   - **Controllo:** una lista modificata a mano rifà solo le sue mani.
+4. **Più avanti, dopo l'arena nel turno di prova (B13).**
+   - **Ricerca esaustiva sulle mani piccole:** senza potature e con le trasposizioni, fino a un tetto di nodi. Dove finisce, il migliore è certo e misura quanto ci arriva l'oracolo.
+   - **Secondo cercatore indipendente:** ygo-combo-solver, con la stessa versione del core e degli script. Una board migliore della nostra abbassa il tetto e dà la linea da rigiocare, come per B4a.
+   - **Controllo:** l'oracolo arriva ad almeno il 99% dell'esaustiva sulle mani dove questa finisce.
 
 ### A2. Dove va il lavoro della ricerca: fatto (corsia 2, PR #67)
 `DUELFORGE_SEARCH_STATS=1` e `scripts/search_stats.py`; numeri in `velocita-ricerca.md`.
