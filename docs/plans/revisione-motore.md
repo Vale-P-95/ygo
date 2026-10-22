@@ -46,7 +46,8 @@ In `search.rs`:
 Quindi la ricerca ottimizza una somma di valori di carte singole. Il valore di una board di Yu-Gi-Oh! è però **interazione**: Allied Code Talker vale per il Link che punta, Aeon per i materiali, una Trappola per il mostro che Evoca, una negazione per le altre che la proteggono. L'additività è un prior accettabile per ordinare dentro la ricerca; non è accettabile come criterio di quali board misurare, perché decide cosa l'utente vede.
 
 Tre difetti precisi della stima, dal codice:
-- **Incentivo rovesciato per le carte non misurate.** Un mostro dell'Extra Deck scoperto *non misurato* vale 2,0; uno *misurato* debole vale 0,3 + 5 × 0,04 = 0,5 (`quick_score`, righe 956-961). La stima preferisce ciò che non conosce. I giri di apprendimento poi lo misurano e la board crolla in classifica: è una delle cause delle oscillazioni «il valore non cresce con il budget» (maliss da 100% a 88% con più nodi, A1).
+- **Le board misurate sono scelte dalla stima.** Si misurano le 10-30 migliori per `quick_score`; con più nodi la stima mette davanti altre board e quella che misurava meglio esce dalla lista. È la causa, già scritta in A1, dei valori che *scendono* con il budget (maliss da 100% a 88%, inv-r5 da 68% a 61%). Non è un difetto di budget: è la selezione sbagliata di cosa misurare.
+- **Un'anomalia piccola, da contare.** Un mostro dell'Extra Deck scoperto *senza valore misurato* vale 2,0; uno misurato debole vale 0,3 + 5 × 0,04 = 0,5 (`quick_score`, righe 956-961). `card_values` misura in anticipo tutte le carte del deck, quindi il caso tocca solo le carte la cui misura è fallita («a turn that could not be played tells nothing», `value.rs:365`) e i token. Quante siano per deck va contato con `card-values`; se sono più di qualche unità, l'anomalia pesa.
 - **Inflazione monotona.** `CardValues::raise` alza e non abbassa mai (`value.rs:207`). Una carta vista forte in un contesto resta forte in ogni contesto per tutta la ricerca. Il segnale giusto sarebbe «quanto la board intera misura rispetto alla stima», con segno.
 - **La stima non vede l'avversario, il Cimitero, le bandite, i materiali, i limiti già usati.** Noto e nel piano (B5a fatto in parte: `taken_from`, riga 1010).
 
@@ -93,7 +94,7 @@ Conclusione: **la struttura resta**. Cambiano la stima, il ritorno dalla misura,
    - la classifica T1 come **criterio di quali board confermare e misurare**, al posto della stima.
    I valori delle carte restano come prior di T0; il `raise` monotono va sostituito da una media con segno.
 3. **Taratura di T0 su T2, non su T1, con deck tenuti fuori.** Perdita a coppie tra board della stessa mano, regolarizzata verso i pesi di oggi, 30% dei deck fuori (è B9 con il protocollo della corsia 7). Caratteristiche da aggiungere perché l'avversario, i materiali, gli effetti già usati e il Cimitero entrino nella stima: le 6 che la corsia 7 chiede al motore.
-4. **Via l'incentivo rovesciato**: un mostro non misurato deve valere come la media dei misurati del suo tipo, non 2,0. È una riga, e togliere questa anomalia da sola dovrebbe ridurre le oscillazioni dell'oracolo a budget crescente. Da misurare con il test appaiato.
+4. **Le board da misurare si scelgono con T1, non con T0.** È questo che rende il valore monotono nel budget: una board che T1 giudica buona non esce più dalla lista perché T0 ne preferisce altre. L'anomalia del 2,0 per le carte senza misura si corregge insieme (media dei misurati del suo tipo), dopo averne contato il peso.
 
 ### 2.3 Controllo
 - Spearman T0/T2 sulle board finali, deck tenuti fuori: da 0,57 a 0,75 o più.
@@ -175,7 +176,7 @@ Il turno di prova (`probe.rs`, `measure_from`): si rigioca il tuo turno, poi l'a
 
 ### 5.2 Perché non è la verità
 1. **I pesi sono scritti a mano** (effetto, bersaglio, copertura, i pesi delle sonde, i pesi dei breaker, 1/0,9/0,8/0,6 tra le voci). La taratura su 200 board del banco oggettivo non li sposta fuori campione (`taratura-pesi.md`): un segno che le *componenti* non catturano ciò che la verità vede, non solo i pesi.
-2. **Il kit è un avversario che non esiste.** Il livello 2 (linee vere) ordina le prime 8 in modo diverso: Spearman 0,52 in mediana (corsia 7). Con le coppie del proprietario l'accordo è 6 su 32.
+2. **Il kit è un avversario che non esiste.** Il livello 2 (linee vere) ordina le prime 8 in modo diverso: Spearman 0,52 in mediana (corsia 7; 39 mani, quasi sempre contro il solo Snake-Eye, quindi un dato da rifare con più avversari). Con le coppie del proprietario l'accordo è 6 su 32 (`taratura-pesi.md`). Con le coppie sicure dei tre giudici è 22 su 29, ma quasi tutte le sbagliate sono *pari*: le board differiscono in carte che contro il kit valgono zero.
 3. **È deterministico**: una mano, un ordine. Il valore di una board è un'aspettativa su mani e deck avversari.
 4. **Misura solo il turno 2 dell'avversario**, mentre il proprietario giudica anche il turno 3 (follow-up, Cimitero, attrito dell'Extra Deck avversario). Le cecità note (Aeon a 3 materiali, interruzioni dal Cimitero, Trappole in mano, valore del turno dopo) sono tutte di questo tipo.
 
