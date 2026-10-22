@@ -1,6 +1,6 @@
 # Revisione del motore delle combo: cosa deve essere, dove sbaglia, che strada prendere
 
-*Scritto il 22/10/2026 dalla corsia 9 (sessione sorella di Claude, branch `claude/engine-review`), su richiesta del proprietario tramite il coordinatore. È una revisione indipendente, da principi primi, della ricerca delle combo (`crates/ygo-solver`: `search.rs`, `probe.rs`, `value.rs`, `matchup.rs`, `follow.rs`) e del suo aggancio al motore (`crates/ygo-engine`). Ho letto i piani (`ricerca-piano-critico.md`, `ricerca-letteratura.md`, `ricerca-esperimenti.md` della corsia 7, `velocita-ricerca.md`, `classificazione-board.md`, `banco-oggettivo.md`, `taratura-pesi.md`, `valutatore-imparato.md`, `esposizione.md`) e il codice. Non ho modificato né `crates/` né `apps/`. Le prove fatte qui sono in §9; le fonti esterne e quanto le ho lette in §10.*
+*Scritto il 22/10/2026 dalla corsia 9 (sessione sorella di Claude, branch `claude/engine-review`), su richiesta del proprietario tramite il coordinatore. È una revisione indipendente, da principi primi, della ricerca delle combo (`crates/ygo-solver`: `search.rs`, `probe.rs`, `value.rs`, `matchup.rs`, `follow.rs`) e del suo aggancio al motore (`crates/ygo-engine`). Ho letto i piani (`ricerca-piano-critico.md`, `ricerca-letteratura.md`, `revisione-bibliografica.md` della corsia 10, `ricerca-esperimenti.md` della corsia 7, `velocita-ricerca.md`, `classificazione-board.md`, `banco-oggettivo.md`, `taratura-pesi.md`, `valutatore-imparato.md`, `esposizione.md`) e il codice. Non ho modificato né `crates/` né `apps/`. Le prove fatte qui sono in §9; il confronto con la revisione bibliografica della corsia 10 in §10; le fonti che ho letto io in §11.*
 
 *Lo stile è quello del progetto: frasi corte, e il perché di ogni affermazione. Dove dico «questo è sbagliato» porto la riga di codice o il numero che lo mostra. Dove non ho potuto verificare, lo dico.*
 
@@ -8,7 +8,7 @@
 
 1. **Il collo di bottiglia non è l'algoritmo di ricerca. È la funzione che la guida.** La stima rapida ordina le board con una correlazione di Spearman 0,57 con la misura, e in 10 mani su 82 la board migliore vera è oltre la 30ª posizione (corsia 7, §1). Una ricerca perfetta guidata da questa stima trova board sbagliate. L'oracolo a 10 volte il budget che resta al 55% su inv-r6 ne è la prova: più nodi non aiutano se la bussola è storta.
 2. **La misura è anche l'obiettivo, e l'obiettivo non è definito.** «Board più forte» oggi vuol dire «ciò che il turno di prova contro il kit premia». Il kit è un avversario scritto a mano, e il suo accordo con il livello 2 (linee vere del meta) è debole: Spearman 0,52 (corsia 7, §1). La definizione va data: valore atteso dell'esito contro gli avversari del meta, pesati per diffusione. Il kit resta uno strumento per *misurare* componenti, non la verità.
-3. **L'architettura (best-first con tuffi, tabella delle trasposizioni, stima rapida, misura cara sulle finaliste) è giusta per questo problema.** Non va sostituita con MCTS, beam o altro. Vanno cambiate tre cose dentro di essa: la stima (da formula additiva a piccola simulazione), il modo in cui la misura corregge la ricerca (da «alza i valori delle carte» a «riordina le board intere»), e il replay (arena).
+3. **L'architettura (best-first con tuffi, tabella delle trasposizioni, stima rapida, misura cara sulle finaliste) è giusta per questo problema.** Non va sostituita con MCTS, beam o altro. Vanno cambiate tre cose dentro di essa: la stima (da formula additiva a piccola simulazione), il modo in cui la misura corregge la ricerca (da «alza i valori delle carte» a «riordina le board intere»), e il replay (arena). Più una correzione precisa: la tabella delle trasposizioni chiude un nodo alla prima visita, anche quando il primo cammino era il più penalizzato (§3.2, punto 10).
 4. **L'arena di memoria è la sola leva da ordine di grandezza sul tempo, ed è già dimostrata (ripristino 22 volte più economico del replay).** Va portata sia nella ricerca sia nel turno di prova, dove il 69% del tempo è il ciclo delle risposte che rigioca il tuo turno a ogni finestra. Il resto delle ottimizzazioni della ricerca (ordine dei fratelli, ordini scambiabili, chiavi dei nodi) vale percentuali.
 5. **La ricerca per obiettivo è un problema diverso (raggiungibilità) e merita un risolutore suo**, con una distanza dall'obiettivo e un ordinamento guidato da una politica. Mescolare «+3 per carta dell'obiettivo» nella stessa coda della ricerca aperta è una formulazione sbagliata, e i numeri lo dicono: 0 su 4 mani Invoked contro 4 su 4 di un solver esterno sullo stesso motore (corsia 7, §3), prima della correzione B4a.
 6. **Sicurezza: l'unica garanzia forte oggi è la correttezza (ogni linea si rigioca nel motore, ogni board si misura nel motore).** La completezza vale solo «al netto delle potature», che sono una dozzina e non sono elencate. Non esistono limiti superiori ammissibili sulla misura, quindi nessun certificato «entro ε dall'ottimo». Le garanzie raggiungibili sono empiriche: convergenza misurata contro un oracolo *indipendente*, stabilità su più semi, e un audit periodico di ciò che ogni potatura perde.
@@ -62,7 +62,7 @@ Giudizio per ciascuna, con il motivo. La regola che uso: un'alternativa vale sol
 | **Beam search / allargamento iterativo** | **no** | Il beam pota per livello con la stima, cioè con la cosa meno affidabile che abbiamo. La profondità in «scelte» non è semantica (una selezione a 5 carte sono 5 livelli). La ricerca di oggi è già un beam morbido: le discrepanze fanno da larghezza. |
 | **Macro-azioni / livello degli effetti** | **sì, come riformulazione del grafo** | Un nodo dovrebbe essere un *momento libero* (`is_free`, riga 751) e un arco una *giocata intera* (attivazione più tutte le sue sotto-scelte fino al momento libero seguente). Oggi `Pending` e `node_key` lo approssimano, e il 24% dei nodi non cambia nulla di visibile (A2). Il 96% delle risposte rigiocate viene prima dell'ultimo momento libero (B0): le istantanee ai momenti liberi coprono quasi tutto. B2b è il primo passo; la forma piena è «grafo dei momenti liberi con archi enumerati pigramente». |
 | **Riduzione per ordine parziale, simmetrie** | **solo ciò che c'è, più i sleep set se gratis** | Copie, Set in un ordine, zone canoniche, selezioni come insiemi ci sono già. Resta il 9,3% dei nodi «altro ordine»: percentuali, non ordini di grandezza. DPOR vuole la profondità; qui no. |
-| **Trasposizioni** | **tenere; aggiungere l'audit** | La tabella c'è (`seen`, 64 shard sulla chiave canonica più la scelta e il `Pending`). I bersagli e i nomi dichiarati non sono nella chiave: una scelta alternativa dello stesso effetto non si esplora (§30.8). È una perdita di linee nota e non misurata nel tempo: va nell'audit delle potature (§3.2). |
+| **Trasposizioni** | **tenere; correggere la voce; aggiungere l'audit** | La tabella c'è (`seen`, 64 shard sulla chiave canonica più la scelta e il `Pending`). Due difetti. (1) I bersagli e i nomi dichiarati non sono nella chiave: una scelta alternativa dello stesso effetto non si esplora (§30.8). (2) **La voce è «chiuso alla prima visita»** (`first_visit`, riga 1562): se un nodo è raggiunto prima da un cammino con 3 deviazioni, i suoi figli entrano in coda con penalità 4 × 0,6, e il cammino a 0 deviazioni che arriva dopo finisce come duplicato (riga 1563) senza rimettere i figli a penalità più bassa. È l'interazione tra potatura per ordine e tabella chiusa di cui avvertono Burch e Holte (corsia 10, G4.13 e G8.8), verificata nel codice. Correzione: la voce tiene la penalità minima vista, e un arrivo con penalità minore riaccoda i figli. |
 | **Dominanza** (A domina B se ha più risorse) | **no come potatura, forse come ordine** | In Yu-Gi-Oh! non è monotona: una volta per turno, blocchi («non puoi Evocare Speciale per il resto del turno»), limite della mano, carte che vogliono il Cimitero vuoto. Una potatura per dominanza perde linee giuste. |
 | **Valore imparato dalle caratteristiche statiche della board** | **no** | La corsia 7 l'ha provato: 27 caratteristiche con perdita a coppie peggiorano fuori campione (inversioni dal 14,7% al 15,6-16,5%). Ciò che la stima sbaglia non si legge dalla board, si legge *giocando*. Due run economiche del turno di prova (0,06 s) spostano le coppie giuste dal 72% all'80%. Il valutatore imparato va riformulato (§8). |
 | **Politica imparata (ordinamento delle mosse)** | **sì, a medio termine, addestrata sull'oracolo** | È la leva lunga: se la risposta giusta è già la prima nel 77% dei passi, portarla al 90-95% rende i tuffi quasi sempre buoni e riduce i nodi alla board migliore di molto. Caratteristiche senza nomi (tipo di decisione, tipo di carta, da dove a dove, ruolo, profondità). Rischio di imparare i difetti della ricerca: per questo serve un oracolo indipendente (§3.3). |
@@ -126,6 +126,7 @@ Dal codice, tutto ciò che riduce lo spazio al di là della tabella delle traspo
 7. Risposte rapide fuori dalla Main Phase: «passa» per prima (ordine, ma con il budget diventa potatura).
 8. Copie identiche offerte una volta.
 9. Nella misura: 16 finestre per risposta al massimo, 3 giri degli usi, il kit stesso.
+10. La tabella delle trasposizioni chiusa alla prima visita, con priorità che dipendono dal cammino (§1.3, riga «Trasposizioni»): non perde stati, perde *priorità*, cioè ordine, che a budget finito è la stessa cosa.
 
 Nessuna è sbagliata a priori. Tutte insieme sono la differenza tra «esaustivo» e «esaustivo nel senso nostro». Proposta:
 - una struttura `Pruning` con un flag per voce, tutte vere di default, tutte false con `--exact`;
@@ -244,8 +245,8 @@ In ordine. Ogni voce ha un controllo misurabile; senza il controllo la voce non 
 5. **Risolutore per obiettivo** (3-4 settimane, `relax.rs` nuovo, aggancio in `search.rs`).
    - Distanza rilassata sulla mappa dei collegamenti, azioni utili prima, credito AMAF, miglioramento attorno alla prima linea (B4). Dopo l'arena, NRPA come secondo motore per l'obiettivo, da confrontare.
    - **Controllo:** `invoked-goals.tsv` 4 su 4 sotto 5 s su un thread; 20 obiettivi generati dalle board dell'oracolo raggiunti al 95% del valore dell'oracolo; verdetti «impossibile» invariati in `--exact`.
-6. **Economia dei nodi** (2-3 settimane, `search.rs`): B2b, poi la chiave dei nodi con le scelte nascoste *in fondo alla coda* (riprovata con il gate su taratura e freschi), poi i sleep set solo se gratis.
-   - **Controllo:** nodi a parità di board migliore −25%; nessuna mano peggiore del 2% nel test appaiato.
+6. **Economia dei nodi e correttezza della tabella** (2-3 settimane, `search.rs`): la voce della tabella con la penalità minima vista e il riaccodamento dei figli quando scende (è piccolo e va per primo); B2b; poi la chiave dei nodi con le scelte nascoste *in fondo alla coda* (riprovata con il gate su taratura e freschi); i sleep set solo se gratis e solo con la prova di commutatività a campione che propone la corsia 10.
+   - **Controllo:** quota di nodi raggiunti una seconda volta con penalità minore (da contare prima: oggi ignota); nodi a parità di board migliore −25%; nessuna mano peggiore del 2% nel test appaiato.
 7. **Politica imparata dall'oracolo** (6-8 settimane, modulo nuovo e script). Caratteristiche senza nomi; perdita a coppie tra la risposta della linea dell'oracolo e le altre offerte; uso come ordine del tuffo e come termine di priorità, mai come taglio.
    - **Controllo:** accuratezza top-1 ≥ 85% sui deck freschi; nodi alla board migliore −50% sul banco; test appaiato verde.
 8. **Più semi per le linee con eventi casuali** (1-2 settimane, `follow.rs`, CLI, poi contratto): quota di semi in cui la linea riesce, nel punteggio e nell'app.
@@ -322,10 +323,40 @@ Tre cose da leggere qui.
 ```
 duelforge-cli combos --deck <fixture> --hand "Aleister the Invoker;Invocation" --nodes 300000 --seconds 900 --threads 1
 ```
-Dopo 70 s: 25 252 nodi, 15 859 risposte ancora in coda, e la coda **cresce** di circa 200 risposte al secondo. Una mano di due carte, in un deck di 40, non si esaurisce in minuti. (Il risultato finale della corsa è sotto, se è arrivato prima della chiusura della sessione.) Conseguenza per il §3.2: l'audit delle potature non può appoggiarsi all'esaurimento, nemmeno su mani piccole; va fatto **a budget fisso**, confrontando il valore della migliore e le board distinte con e senza ogni regola, su mani di 1-2 carte e con `max_choices` basso. E il verdetto «impossibile» a budget finito resta «non trovato».
+| Mano | Dopo 900 s | Coda alla fine | Board distinte | Migliore (stima) |
+|---|---|---|---|---|
+| Aleister the Invoker + Invocation | 216 131 nodi (239/s), 102 453 replay, 51 403 duplicati | **99 103**, in crescita | 24 114 | 9,1 (ferma dal secondo 25) |
+| + Magical Meltdown | 285 292 nodi (315/s), 96 253 replay, 46 497 duplicati | **224 101**, in crescita | 37 064 | 13,9 |
 
-## 10. Fonti, e quanto le ho lette
-Segno: **intero** = codice o README letto per intero; **abstract** = solo abstract o pagina di riepilogo; **memoria** = conoscenza pregressa, non riverificata in questa sessione. Molti siti di articoli sono bloccati dal proxy del container, come già per la corsia 7.
+Una mano di due carte, in un deck di 40, non si esaurisce in 15 minuti: la coda cresce più in fretta di quanto si svuoti. La board migliore per la stima è trovata dopo 25 s e non cambia più nei 14 minuti seguenti: un indicatore di stabilità (§3.1) avrebbe fermato la ricerca lì. Un quarto dei nodi sono duplicati anche qui. Conseguenza per il §3.2: l'audit delle potature non può appoggiarsi all'esaurimento, nemmeno su mani piccole; va fatto **a budget fisso**, confrontando il valore della migliore e le board distinte con e senza ogni regola, su mani di 1-2 carte e con `max_choices` basso. E il verdetto «impossibile» a budget finito resta «non trovato».
+
+### 9.5 Una mano morta esaurisce in un secondo
+```
+duelforge-cli combos --deck <mdm>/branded.ydk --hand 68468459;48130397;19271881;14558127;19096726 --seed 1 --nodes 3000 --threads 1 --probe
+```
+Cinque carte a caso (seme 1) della lista Branded: 28 nodi, esaurita in 1,1 s, migliore misurata 0,85 (Mercourier, un Branded King e Super Polymerization coperta). Lo spazio di ricerca va da «esaurito in un secondo» a «inesauribile in un quarto d'ora» secondo la mano, non secondo il numero di carte: i limiti a nodi fissi del banco (3000-4000) misurano cose diverse su mani diverse. Un budget in *tempo alla stabilità del migliore* (B16) è più sensato di un budget in nodi.
+
+## 10. Rispetto alla revisione bibliografica della corsia 10
+`revisione-bibliografica.md` (circa 150 lavori, 45 letti per intero su GitHub, nessun articolo letto per intero: lo dice in §1.4) è il riferimento per le fonti; qui non la rifaccio. Dove concordiamo e dove no.
+
+**Concordo, e lo uso.**
+- Il self-play RL è escluso; ogni parte imparata ordina, non decide. Le etichette vengono da un oracolo, con validazione su carte posteriori all'istantanea (le sue A1b.3 e §4.4 B12 sono il mio §4.2 e il mio punto 7 di §7).
+- Il livello 2 come media su K mani avversarie campionate dal meta, con le stesse mani per tutte le board e una correzione sul quarto peggiore (CVaR): è la forma precisa della mia definizione del §5.3, e la prendo così com'è. Il kit derivato dalle aperture del meta (§5.3.2) è il modo di pagarla.
+- L'avvertimento di Burch e Holte sulla tabella chiusa più la potatura per ordine: l'ho verificato nel codice ed è nel §3.2 e nel §7.
+- I numeri di ygorl sull'arena (0,59 ms di ripristino contro 47,5 ms di replay sullo stesso core) confermano il nostro prototipo (0,2 contro 4-5 ms).
+- La firma dallo script Lua come caratteristica delle carte (MirrorForce) è il modo giusto di dare alla stima le «funzioni del core che la carta chiama» senza nomi: va in B5d e B9.
+
+**Ordino diversamente.**
+- La corsia 10 mette per prime la struttura della ricerca (novità, bandit per prompt, dimezzamenti alla radice, portafoglio di politiche). Io metto per prima la **stima** (T1 dentro la ricerca) e la **selezione di cosa misurare**: i numeri del §9.3 dicono che il 91% dei nodi va dove la stima manda, e nessuna disciplina di coda cambia dove si guarda se la bussola è la stessa. Novità e bandit sono percentuali sopra una stima giusta; sopra una sbagliata ordinano meglio le linee sbagliate.
+- Il portafoglio di politiche di risposta (Prismata, PGS) è utile come **semina** dei tuffi e come secondo oracolo (§3.3), non come sostituto della ricerca: le combinazioni di politiche generiche raggiungono le board «ovvie», e le linee che ci mancano sono quelle non ovvie.
+- Il nodo afterstate per il caso (B17) è giusto in teoria; a 300 nodi al secondo lo terrei fuori dalla ricerca e dentro la *verifica* delle linee finali su più semi (§3.4). Dentro la ricerca costa un fattore n su ogni evento casuale.
+
+**Non farei ora.**
+- Gumbel e i dimezzamenti alla radice: vogliono un priore per azione, che senza nomi è debole; la nostra prima scelta è già quasi sempre giusta (74-77%). Rinviare a dopo la politica imparata.
+- La ricerca a fascio di SabberStone come modalità: è il best-first con un'altra coda; il problema resta cosa c'è nella coda.
+
+## 11. Fonti, e quanto le ho lette
+Per la bibliografia completa vale `revisione-bibliografica.md` (corsia 10). Qui solo ciò che ho letto io in questa sessione, con il segno: **intero** = codice o README letto per intero; **abstract** = solo abstract o pagina di riepilogo; **memoria** = conoscenza pregressa, non riverificata in questa sessione. I siti degli articoli sono bloccati dal proxy del container.
 
 - Codice di DuelForge: `search.rs`, `value.rs`, `probe.rs` (prime 2100 righe), `matchup.rs` e `follow.rs` (intestazioni), `auto.rs`, `duel.rs` (`advance`): **intero** per le parti citate.
 - [ygo-combo-solver, README](https://github.com/Armytille/ygo-combo-solver) (Armytille, AGPL): **intero**. NRPA/GNRPA a livelli annidati, snapshot in arena, tabella delle trasposizioni condivisa, zone canoniche, «74,6% dei nodi senza scelta» giocati in linea, Go-Explore e Levin Tree Search come finitore, obiettivi con `--resolve` e `--summon-min`; «le board difficili non si convertono a ogni corsa».
@@ -338,9 +369,9 @@ Segno: **intero** = codice o README letto per intero; **abstract** = solo abstra
 - Ecoffet et al., *Go-Explore* (2019/2021): **memoria**. Archivio di celle e ritorno a basso costo: richiede l'arena.
 - Churchill & Buro, *Hierarchical Portfolio Search* (Prismata): **memoria**. Portafoglio di politiche per turni a molte azioni.
 - Stockfish: history heuristic, correction history, SPRT di fishtest; Texel tuning: **memoria**.
-- `ricerca-letteratura.md` e `ricerca-esperimenti.md` del repository: **intero**. Le loro conclusioni che ho ribaltato o ristretto sono dette nel testo (§1.3: valore statico imparato; §3.3: oracolo; §5.4: livello 2 e kit).
+- `ricerca-letteratura.md`, `ricerca-esperimenti.md` e `revisione-bibliografica.md` del repository: **intero** le prime due; della terza il sommario, i gruppi 2.4 e 2.8, le raccomandazioni (§4) e le lacune (§5). Le conclusioni che ho ribaltato o ristretto sono dette nel testo (§1.3: valore statico imparato; §3.3: oracolo; §5.4: livello 2 e kit; §10: ordine delle priorità).
 
-## 11. Cose che non ho potuto verificare in questa sessione
+## 12. Cose che non ho potuto verificare in questa sessione
 - Non ho rifatto i numeri della corsia 7 né della corsia 2: li uso come sono, con la loro data e versione.
 - Il costo di un'istantanea per finestra nel turno di prova è una stima dal prototipo dell'arena (0,2 ms per 2 MB), non una misura nella misura.
 - L'accordo tra il kit derivato dalle aperture del meta e il banco oggettivo è una previsione, non un dato: va misurato prima di sostituire le sonde.
