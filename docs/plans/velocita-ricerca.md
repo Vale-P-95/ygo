@@ -540,7 +540,7 @@ Nessun codice nella ricerca: misure e stime, per decidere.
 - **Gradino più corto.** Il gradino prova ogni risposta alle prime 8 finestre e conta gli usi in 1 giro, invece di 16 e 3. La misura completa riprende dalle finestre 9-16 e dagli altri giri, senza rigiocare quelli fatti.
 - **Il turno dopo nel gradino.** La run in cui l'avversario passa continua fino alla tua Main Phase successiva. Così il gradino ha il follow-up senza breaker: effetti da cui ripartire e carte guadagnate, senza una run in più. Il valore economico pesa gli effetti da cui ripartire come il composito: 0,4 · 0,3 per effetto.
   - Lo chiedeva la corsia 7 (`ricerca-esperimenti.md` §5) per le mani il cui #1 vince nel turno dopo, come Sky Striker.
-- **Taglio:** 30 → 14 invece di 30 → 15.
+- **Taglio:** 30 → 15, come nella scala sicura.
 - **La misura ripresa è identica a quella fatta da capo:** 72 board, Snake-Eye, Branded e Sky Striker, 2 mani ciascuno, breaker e follow-up compresi.
 
 **Protocollo.** `main` e9cb76c (misura completa delle prime 30) contro il branch, `combo_hunt.py --hands 2 --seed 7 --top 30`, 82 mani, 4 processi su 4 core.
@@ -549,13 +549,13 @@ Nessun codice nella ricerca: misure e stime, per decidere.
 |---|---:|---:|---:|---:|
 | oggi: 30 complete | 1915 s (100%) | | | |
 | sicura: 30 senza breaker → 15 (PR #89) | 82% (misurato su c559078) | 82/82 | 0 | 80/82 |
-| 8 finestre, 1 giro → 15 | 1456 s (76%) | 82/82 | 0 | 80/82 |
-| **8 finestre, 1 giro → 14 (tenuta)** | **1418 s (74%)** | **82/82** | **0** | 80/82 |
+| **8 finestre, 1 giro → 15 (tenuta)** | **1456 s (76%)** | **82/82** | **0** | 80/82 |
+| 8 finestre, 1 giro → 14 | 1418 s (74%) | 82/82 | 0 | 80/82 |
 
-- **Il margine è zero.** Da un giro con il solo gradino economico sulle 30 board (`--staged-full 0`), simulando il taglio:
-  - in Paleozoic-0 la board migliore è la 14ª per valore economico;
+- **Con 15 resta una board di margine.** Da un giro con il solo gradino economico sulle 30 board (`--staged-full 0`), simulando il taglio:
+  - il caso più vicino è Paleozoic-0, la cui board migliore è la 14ª per valore economico;
   - con 13 si perde il #1 in quella mano, del 38%;
-  - con 15 c'è una board di margine, al 76% del tempo.
+  - 14 terrebbe le 82 mani al 74%, ma senza margine. Il motore deve valere per deck mai visti, quindi si tiene 15.
 
   Le altre mani dove la migliore sta oltre l'8ª: D/D/D-0 10ª, Dracotail-0 9ª, Dracotail-1 11ª, Phantom Knights-1 11ª.
 - `paired_test.py` sulle 82 mani: 82 pari, accettato. Banco a 4000 nodi identico (best 11,56, first 11,55, 12 mani su 16), `paired_test.py` accettato.

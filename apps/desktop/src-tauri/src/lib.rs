@@ -1902,7 +1902,7 @@ fn links_view(deck_id: i64, map: &ygo_solver::DeckLinks) -> DeckLinksView {
 /// sees your next turn when nothing is broken. "Card + rest" puts all the
 /// boards kept to the full measure.
 const CHEAP_BOARDS: usize = 30;
-const SCORED_BOARDS: usize = 14;
+const SCORED_BOARDS: usize = 15;
 /// The page ranks every score it gets by its weights, and a cheap score has
 /// no breaker nor exposure to lose: it would rank above a full one of the
 /// same field. Until the page puts the [`ScoreView::cheap`] ones after the

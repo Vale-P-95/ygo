@@ -1419,7 +1419,7 @@ const FIELDS_WITH_VARIANTS: usize = 3;
 /// those the best by it given the full one, as in the Combo Lab
 /// (`docs/plans/velocita-ricerca.md`, B14); what the cheap measure tries.
 const STAGED_CHEAP: usize = 30;
-const STAGED_FULL: usize = 14;
+const STAGED_FULL: usize = 15;
 const STAGED_WINDOWS: usize = 8;
 const STAGED_ROUNDS: usize = 1;
 
