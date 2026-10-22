@@ -1897,11 +1897,12 @@ fn links_view(deck_id: i64, map: &ygo_solver::DeckLinks) -> DeckLinksView {
 /// first in the search's order, and of those the best by it put to the full
 /// one, which goes on from the cheap one (B14, `docs/plans/velocita-ricerca.md`):
 /// the same best board as measuring the 30 in full, in less time. The cheap
-/// measure is the full one without the breakers: with fewer windows it
-/// misses responses that stop something only later. "Card + rest" puts all
-/// the boards kept to the full measure.
+/// measure tries each response at its first 8 windows and counts its uses
+/// once (with 2 it misses responses that stop something only later), and
+/// sees your next turn when nothing is broken. "Card + rest" puts all the
+/// boards kept to the full measure.
 const CHEAP_BOARDS: usize = 30;
-const SCORED_BOARDS: usize = 15;
+const SCORED_BOARDS: usize = 14;
 /// The page ranks every score it gets by its weights, and a cheap score has
 /// no breaker nor exposure to lose: it would rank above a full one of the
 /// same field. Until the page puts the [`ScoreView::cheap`] ones after the
@@ -1909,7 +1910,7 @@ const SCORED_BOARDS: usize = 15;
 /// ranked by the search's estimate, as the boards past the first 30.
 const SEND_CHEAP_SCORES: bool = false;
 /// What the cheap measure tries.
-const CHEAP_MEASURE: ygo_solver::probe::Cheap = ygo_solver::probe::Cheap { windows: 16, use_rounds: 3 };
+const CHEAP_MEASURE: ygo_solver::probe::Cheap = ygo_solver::probe::Cheap { windows: 8, use_rounds: 1 };
 
 /// The value a cheap measure ranks the boards by: field, hand, floodgates
 /// and the effects to rebuild with on your next turn, as the "Bilanciato"
