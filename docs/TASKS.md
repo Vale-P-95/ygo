@@ -51,10 +51,11 @@ Corsie di lavoro in parallelo del 22/10/2026 (piano in `docs/plans/piano-prossim
 - [ ] **Corsia 8.** B14, valutazione delle board a gradini (`docs/plans/ricerca-piano-critico.md`, `ricerca-esperimenti.md` §1 sul branch `claude/research-lab`): stima → prime 40 → misura economica (2 finestre per risposta, niente ciclo degli usi, breaker e `countered`) → prime 15 → misura completa. Controllo: nessuna mano con un #1 peggiore oltre l'1%, tempo della valutazione almeno −25%.
 
   Agente: claude-code, sessione della corsia 8. Branch: `claude/staged-measure`. File: in `crates/ygo-solver/src/probe.rs` solo l'aggiunta del modo economico (`Parts`, `Prober::measure_cheap`), senza le parti della corsia 4; `apps/desktop/src-tauri/src/lib.rs` (`combo_score`); `apps/desktop/src/lib/api.ts` (solo il tipo `ScoreView`, se serve); la parte `combos --probe` di `crates/ygo-cli/src/main.rs`; la sezione «B14» di `docs/plans/velocita-ricerca.md`.
-  - [ ] Modo economico in `probe.rs`.
-  - [ ] Scala nell'app (`combo_score`).
-  - [ ] `combos --probe --staged`.
-  - [ ] Protocollo del motore, numeri prima e dopo.
+  - [x] Modo economico in `probe.rs` (`Prober::measure_cheap`); misura completa identica.
+  - [x] Scala nell'app (`combo_score`): 40 economiche → 15 complete; `ScoreView.cheap` (`cheap?: boolean` in `api.ts`). Compilata con clippy; non provata nell'app vera.
+  - [x] `combos --staged` (e `combo_hunt.py --staged`).
+  - [x] Protocollo: `combo_hunt --seed 7` su 41 deck, tempo dei turni di prova 914 → 653 s (71%), #1 uguale o migliore in 41 mani su 41, nessuna peggiore oltre l'1%, migliore in 3; banco a 4000 nodi identico (12 mani su 16: 4 deck mancano nelle liste MDM del 22/10); `search_regression` verde. Numeri in `docs/plans/velocita-ricerca.md`, «B14». In attesa della PR (la apre la coordinatrice).
+  - Richiesta per Gemini (scheda del punteggio): con la valutazione a gradini l'app manda anche board con `cheap: true`, solo con la misura economica. Non hanno breaker (la `resilience` è tutto il loro campo), follow-up, esposizione né confronto con il deck scelto. Vanno messe dopo quelle con la misura completa, con un'etichetta come «valutata in breve», senza confrontarne il punteggio pesato con quello delle altre. Un evento `combo-score` con la misura completa sostituisce quello economico della stessa board.
 - [x] **Corsia 4, PR piccola per la corsia 7** (fatta, PR da aprire). In `combos --json`: tempo della misura per parte (run base e risposte, insieme, breaker, follow-up), un'opzione per misurare senza breaker, e, se costa poco, `quick_value`. File: la parte `combos` di `crates/ygo-cli/src/main.rs`, i tempi in `probe.rs` (`measure_from`).
 - [x] **Corsia 4, quarto task**, unita il 22/10 (PR #69). L4-6: nel livello 2 il rigioco della linea dell'avversario si ferma all'ultima scelta libera della sua Main Phase e non entra nella Fase Finale, così le sue mosse di Fase Finale contano come perse (Titaniklad, Incredible Ecclesia, Blazing Cartesia, Despian Luluwalilith). Si rigioca anche la Fase Finale.
 

@@ -1952,7 +1952,7 @@ fn on_all_cores<'a, R: Send>(
 fn combo_score(app: tauri::AppHandle, state: State<'_, AppState>, vs_deck_id: Option<i64>) -> Result<usize, String> {
     let engine = state.engine()?;
     // What is needed, copied out so the search state stays free meanwhile.
-    let (config, hands, candidates, cheap, roles, losses) = {
+    let (config, hands, mut candidates, cheap, roles, losses) = {
         let mut job = state.combo.lock().map_err(|e| e.to_string())?;
         let job = job.as_mut().ok_or("Nessuna ricerca da valutare")?;
         if job.vs != vs_deck_id {
@@ -2026,7 +2026,8 @@ fn combo_score(app: tauri::AppHandle, state: State<'_, AppState>, vs_deck_id: Op
                 ranked.into_iter().take(SCORED_BOARDS).cloned().collect()
             }
         }
-        None => candidates,
+        // Not needed after: "card + rest" keeps no cheap scores.
+        None => std::mem::take(&mut candidates),
     };
     // Boards with the full measure already are not measured again.
     let todo: Vec<(usize, ygo_solver::Board)> = {
