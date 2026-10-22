@@ -17,6 +17,7 @@ import type {
   ComboDrawTradeOff,
   ComboMoves,
   ComboStep,
+  BanChange,
   Cond,
   DataStatus,
   Deck,
@@ -2170,6 +2171,16 @@ export const mockApi: Api = {
     archetypes: ["Snake-Eye", "Sinful Spoils", "Fire King", "Diabellstar", "Salamangreat", "Fiendsmith", "Invoked", "Witchcrafter", "Ancient Gear"],
     formats: ["Master Duel", "TCG", "OCG"],
   }),
+
+  banChanges: async (format?: BanChange["format"]): Promise<BanChange[]> => {
+    const changes: BanChange[] = [
+      { format: "md", id: 98159737, date: "2026-10-06", before: null, after: "Limited" },
+      { format: "md", id: 97045737, date: "2026-10-06", before: "Limited", after: "Semi-Limited" },
+      { format: "md", id: 81674782, date: "2026-10-06", before: "Limited", after: null },
+      { format: "tcg", id: 34267821, date: "2026-09-15", before: null, after: "Limited" },
+    ];
+    return changes.filter((c) => !format || c.format === format);
+  },
 
   listFavorites: async () => [...favoritesState],
 
