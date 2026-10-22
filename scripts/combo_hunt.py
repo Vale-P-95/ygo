@@ -20,6 +20,7 @@ import argparse
 import os
 import random
 import re
+import shlex
 import subprocess
 import sys
 
@@ -42,6 +43,7 @@ def main() -> int:
     parser.add_argument("--only", default="", help="only the decks whose name contains this")
     parser.add_argument("--shard", default="0/1", help="K/N: only every Nth deck from the Kth")
     parser.add_argument("--staged", action="store_true", help="measure in steps, as the Combo Lab does (combos --staged)")
+    parser.add_argument("--combos-args", default="", help="more options for combos, as one string (e.g. \"--staged-windows 6\")")
     parser.add_argument("--lua-count", help="folder for each run's Lua instructions per engine request (DUELFORGE_LUA_COUNT)")
     args = parser.parse_args()
 
@@ -64,6 +66,7 @@ def main() -> int:
                 command += ["--seed", str(args.seed)]
             if args.staged:
                 command += ["--staged"]
+            command += shlex.split(args.combos_args)
             if args.json:
                 command += ["--json", os.path.join(args.json, f"{name}-{k}.json"), "--save-lines", os.path.join(args.json, f"{name}-{k}.lines.json")]
             env = None
