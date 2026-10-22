@@ -501,7 +501,8 @@ Nessun codice nella ricerca: misure e stime, per decidere.
   - `Prober::measure_resumed(line, partial)` finisce la misura completa;
   - `Parts` ha due campi in più, le finestre e i giri degli usi; la misura completa resta a 16 e 3.
 - **App** (`combo_score`, mano precisa): la scala qui sopra, con l'esposizione e il confronto con il deck scelto solo per le 15.
-  - Le altre restano visibili con il punteggio senza breaker, segnato da `ScoreView.cheap` (`cheap?: boolean` in `api.ts`).
+  - Le altre hanno un punteggio senza breaker, segnato da `ScoreView.cheap` (`cheap?: boolean` in `api.ts`).
+  - **Per ora l'app non lo manda alla pagina** (`SEND_CHEAP_SCORES = false`). La pagina ordina ogni punteggio con i suoi pesi, e uno senza breaker né esposizione starebbe sopra quello completo dello stesso campo. Così quelle board restano «non misurate», ordinate dalla stima, come oggi le board oltre la 30ª. Si accende quando la scheda di Gemini mette le board `cheap` dopo le altre.
   - Queste misure non dipendono dal deck avversario, quindi restano valide quando lo si cambia.
   - In «carta + resto» non cambia niente.
 - **CLI:**
