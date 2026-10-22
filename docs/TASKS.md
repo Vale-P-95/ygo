@@ -43,6 +43,8 @@ Corsie di lavoro in parallelo del 22/10/2026 (piano in `docs/plans/piano-prossim
     - [x] D3: un mostro conta come Evocato quando atterra; "nega l'Evocazione" solo prima dell'atterraggio (evento `Summoned` nel motore).
     - [x] Seguito delle risposte: le carte portate da una risposta (un mostro Evocato) rispondono anche loro; si Evoca il mostro più forte; si paga con la carta meno preziosa. Coppie sicure giuste da 14 a 18 su 29 (piano §C8).
     - [x] D4: un mostro girato coperto ha gli effetti negati; una carta attaccata come materiale Xyz è come bandita. Il resto di A4 non serve più dopo D2 e D3 (restavano 3 carte con etichette diverse tra le board).
+  - [x] D10: il kit pesato sulle linee vere. `kit-mix` divide le attivazioni per provenienza e per "tocca il Deck" (50% nelle linee vere, 78% del peso nel kit). Due azioni nuove senza Deck (Dian Keto, Bystial Magnamhut) e pesi dalle quote. Ash da 0,71 a 0,53; coppie sicure giuste da 18 a 20 su 29; ricerca +3,2% (piano §C9). Non fatte: l'Evocazione Xyz o Synchro e il trigger d'Evocazione senza Deck.
+  - [ ] D13: costo e risorse senza doppio conteggio, follow-up misurato (turno 3), finestre prima e dopo i passi del kit (piano B7, B8, B9).
 - [x] Correzioni dalla caccia ai bug della ricerca (12 problemi confermati): fatte; l'ultima (valori delle carte che dipendono dal contesto) passa nella #47. Lock tolto.
   - [x] Set in un solo ordine anche dopo una finestra di catena; ricerca fermata a metà che riparte dal punto giusto.
   - [x] Carte rapide tenute per dopo nel dive; handtrap giudicate da ciò che permettono (Labrynth Cooclock); carte da tenere rispettate durante la ricerca.

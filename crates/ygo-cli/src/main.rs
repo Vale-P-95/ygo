@@ -204,8 +204,9 @@ enum Cmd {
         deck: PathBuf,
     },
     /// How often each kind of play the probe turn's kit tests happens in
-    /// lines found by the search (files of `combos --save-lines`): what the
-    /// weights of the probes are calibrated on.
+    /// lines found by the search (files of `combos --save-lines`), and each
+    /// kind of activation, touching the Deck or not: what the weights of the
+    /// probes are calibrated on.
     KitMix {
         /// Files written by `combos --save-lines`.
         lines: Vec<PathBuf>,
@@ -1394,6 +1395,61 @@ fn plays(db: &ygo_engine::CardDb, events: &[Event], landed: &mut Vec<u32>, mut c
     }
 }
 
+/// Where an activation of yours comes from, and whether its resolution
+/// touched your Main Deck (added, drew, summoned or sent from it): what
+/// "stop anything that touches the Deck" handtraps can answer.
+#[derive(Default)]
+struct DeckTouch {
+    /// Chain link -> kind of activation and whether it touched the Deck.
+    links: std::collections::HashMap<u32, (&'static str, bool)>,
+    solving: Option<u32>,
+    counts: std::collections::BTreeMap<(&'static str, bool), u64>,
+}
+
+impl DeckTouch {
+    fn read(&mut self, db: &ygo_engine::CardDb, events: &[Event], landed: &[u32]) {
+        let monster = |code: u32| db.get(code).is_some_and(|c| c.type_ & 0x1 != 0);
+        for e in events {
+            match e {
+                Event::Chaining { card, chain_link, .. } if card.controller == 0 => {
+                    let kind = match card.location {
+                        location::HAND if monster(card.code) => "monster from the hand",
+                        location::HAND | location::SZONE => "Spell or Trap",
+                        location::GRAVE | location::REMOVED => "from the GY or banished",
+                        location::MZONE if landed.contains(&db.canonical_code(card.code)) => "trigger of a summoned monster",
+                        location::MZONE => "monster on the field",
+                        _ => continue,
+                    };
+                    self.links.insert(*chain_link, (kind, false));
+                }
+                Event::ChainSolving { chain_link } => self.solving = Some(u32::from(*chain_link)),
+                Event::Move { from, .. } if from.controller == 0 && from.location == location::DECK => self.touch(),
+                Event::Draw { player: 0, .. } => self.touch(),
+                Event::ChainSolved { chain_link } => {
+                    if let Some(link) = self.links.remove(&u32::from(*chain_link)) {
+                        *self.counts.entry(link).or_default() += 1;
+                    }
+                    self.solving = None;
+                }
+                Event::ChainNegated { chain_link } | Event::ChainDisabled { chain_link } => {
+                    self.links.remove(&u32::from(*chain_link));
+                }
+                Event::ChainEnd => {
+                    self.links.clear();
+                    self.solving = None;
+                }
+                _ => {}
+            }
+        }
+    }
+
+    fn touch(&mut self) {
+        if let Some(link) = self.solving.and_then(|l| self.links.get_mut(&l)) {
+            link.1 = true;
+        }
+    }
+}
+
 fn kit_mix(dir: &Path, files: &[PathBuf], top: usize, seed: u64) -> Result<()> {
     use ygo_solver::Probe;
     let engine = Engine::load(dir)?;
@@ -1401,6 +1457,7 @@ fn kit_mix(dir: &Path, files: &[PathBuf], top: usize, seed: u64) -> Result<()> {
     let kit = ygo_solver::Kit::standard(&engine);
     let mut counts: std::collections::BTreeMap<Probe, u64> = Probe::ALL.iter().map(|&p| (p, 0)).collect();
     let mut lines = 0;
+    let mut touch = DeckTouch::default();
     for file in files {
         let saved: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(file)?)?;
         let deck = DeckList::from_ydk(&std::fs::read_to_string(saved["deck"].as_str().context("no deck in the file")?)?)?;
@@ -1413,6 +1470,7 @@ fn kit_mix(dir: &Path, files: &[PathBuf], top: usize, seed: u64) -> Result<()> {
             for answer in &line.answers {
                 let Step::Decision { decision, events } = duel.advance()? else { break };
                 plays(db, &events, &mut landed, |p| *counts.entry(p).or_default() += 1);
+                touch.read(db, &events, &landed);
                 if matches!(decision, ygo_engine::Decision::IdleCmd { player: 0, .. }) {
                     landed.clear();
                 }
@@ -1422,13 +1480,23 @@ fn kit_mix(dir: &Path, files: &[PathBuf], top: usize, seed: u64) -> Result<()> {
         }
     }
     let total: u64 = counts.values().sum();
-    let weights: f64 = Probe::ALL.iter().map(|p| p.weight()).sum();
     println!("{lines} lines, {total} plays");
-    println!("{:<52} {:>6} {:>6} {:>7} {:>9}", "probe", "plays", "share", "weight", "proposed");
+    println!("{:<62} {:>6} {:>6} {:>7}", "probe", "plays", "share", "weight");
     for (p, n) in &counts {
         let share = *n as f64 / total.max(1) as f64;
-        println!("{:<52} {:>6} {:>6.3} {:>7.2} {:>9.2}", p.label(), n, share, p.weight(), 0.5 * p.weight() + 0.5 * share * weights);
+        println!("{:<62} {:>6} {:>6.3} {:>7.2}", p.label(), n, share, p.weight());
     }
+    let activations: u64 = touch.counts.values().sum();
+    println!("\n{activations} activations resolved");
+    println!("{:<32} {:>8} {:>8} {:>6}", "activation", "Deck", "no Deck", "share");
+    let kinds: Vec<&str> = touch.counts.keys().map(|(k, _)| *k).collect::<std::collections::BTreeSet<_>>().into_iter().collect();
+    for kind in kinds {
+        let with = touch.counts.get(&(kind, true)).copied().unwrap_or(0);
+        let without = touch.counts.get(&(kind, false)).copied().unwrap_or(0);
+        println!("{kind:<32} {with:>8} {without:>8} {:>6.3}", (with + without) as f64 / activations.max(1) as f64);
+    }
+    let with: u64 = touch.counts.iter().filter(|((_, t), _)| *t).map(|(_, n)| n).sum();
+    println!("touching the Main Deck: {:.3}", with as f64 / activations.max(1) as f64);
     Ok(())
 }
 
