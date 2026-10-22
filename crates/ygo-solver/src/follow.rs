@@ -79,6 +79,30 @@ pub(crate) fn picked(engine: &Engine, decision: &Decision, answer: &[u8]) -> Opt
     at.iter().map(|&i| cards.get(i).map(|c| Picked::of(engine, c, decision.player()))).collect()
 }
 
+/// For each answer of your `line`, played against `opponent` (the duel it
+/// was found in), the cards it picks when some are the opponent's: played
+/// against another opponent (more cards in its Extra Deck), the line picks
+/// the same cards again by what they are, not by their place in the list
+/// (Hyperinvoked Aeon banishing from the opponent's Extra Deck).
+pub(crate) fn line_picks(
+    engine: &Engine,
+    deck: &DeckList,
+    hand: &[u32],
+    seed: u64,
+    opponent: &Opponent,
+    line: &Line,
+) -> Result<Vec<Option<Vec<Picked>>>, Error> {
+    let mut duel = Duel::goldfish_vs(engine, deck, hand, seed, opponent)?;
+    let mut out = Vec::with_capacity(line.answers.len());
+    for answer in &line.answers {
+        let Step::Decision { decision, .. } = duel.advance()? else { break };
+        let picks = picked(engine, &decision, answer).filter(|p| decision.player() == Some(0) && p.iter().any(|c| !c.own));
+        out.push(picks);
+        duel.respond(answer);
+    }
+    Ok(out)
+}
+
 /// The answer to `decision` that picks `picks` again, wherever they are listed.
 pub(crate) fn pick_again(engine: &Engine, decision: &Decision, picks: &[Picked]) -> Option<Vec<u8>> {
     let cards = selection(decision)?;

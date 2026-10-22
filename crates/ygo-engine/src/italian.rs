@@ -193,7 +193,8 @@ pub fn choice(action: &crate::actions::Action) -> String {
             ("(Hand)", "(mano)"),
             ("(GY)", "(Cimitero)"),
             ("(Banished)", "(bandita)"),
-            ("opponent's ", "dell'avversario, "),
+            // Only in a place: an effect's text stays in English.
+            ("(opponent's ", "(dell'avversario, "),
             ("face-down card", "carta coperta"),
         ] {
             out = out.replace(en, it);

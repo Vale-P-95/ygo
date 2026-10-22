@@ -45,11 +45,11 @@ Corsie di lavoro in parallelo del 22/10/2026 (piano in `docs/plans/piano-prossim
 
   Agente: claude-code, sessione della corsia 4. Branch: `claude/placed-cards`. File: `crates/ygo-solver/src/probe.rs` (kit, `Measure`, Observer, `run_with`), `follow.rs`; in `search.rs` solo `quick_score` e il passaggio dell'avversario di partenza; `crates/ygo-engine/src/italian.rs` (un'etichetta); la parte di `crates/ygo-cli/src/main.rs` che stampa la misura.
   - [x] Il sì opzionale di Aeon: nessuna regola lo rifiuta; la ricerca lo trova, ma la stima non vede l'avversario e a parità vince la linea più corta.
-  - [ ] Extra Deck dell'avversario del kit da 15 carte; risorse tolte all'avversario (`Measure::taken`, `attrition`); scelte tra le carte avversarie rigiocate per identità; Observer (controllo, Zona Magie e Trappole). Fatti in locale, si pushano dopo la PR dei tempi.
-  - [ ] Il termine in `quick_score`.
-  - [ ] L'etichetta italiana «Look at your dell'avversario, Extra Deck».
-  - [ ] Banco, `combo_hunt` e `search_regression` prima e dopo, appaiati per mano.
-- [x] **Corsia 4, PR piccola per la corsia 7** (fatta, PR da aprire). In `combos --json`: tempo della misura per parte (run base e risposte, insieme, breaker, follow-up), un'opzione per misurare senza breaker, e, se costa poco, `quick_value`. File: la parte `combos` di `crates/ygo-cli/src/main.rs`, i tempi in `probe.rs` (`measure_from`).
+  - [x] Extra Deck dell'avversario del kit da 15 carte; risorse tolte all'avversario (`Measure::taken`, `attrition`); scelte tra le carte avversarie rigiocate per identità; Observer (controllo, Zona Magie e Trappole). Pushati.
+  - [x] Il termine in `quick_score` (test `tests/attrition.rs`).
+  - [x] L'etichetta italiana «Look at your dell'avversario, Extra Deck».
+  - [x] Banco, `combo_hunt` e `search_regression` prima e dopo, appaiati per mano (numeri in `docs/plans/attrito-avversario.md`).
+- [x] **Corsia 4, PR piccola per la corsia 7**, unita il 22/10 (PR #71). In `combos --json`: tempo della misura per parte (run base e risposte, insieme, breaker, follow-up), un'opzione per misurare senza breaker, e, se costa poco, `quick_value`. File: la parte `combos` di `crates/ygo-cli/src/main.rs`, i tempi in `probe.rs` (`measure_from`).
 - [x] **Corsia 4, quarto task**, unita il 22/10 (PR #69). L4-6: nel livello 2 il rigioco della linea dell'avversario si ferma all'ultima scelta libera della sua Main Phase e non entra nella Fase Finale, così le sue mosse di Fase Finale contano come perse (Titaniklad, Incredible Ecclesia, Blazing Cartesia, Despian Luluwalilith). Si rigioca anche la Fase Finale.
 
   Agente: claude-code, sessione della corsia 4. Branch: `claude/placed-cards` (ripartito da `main` 6018809). File: in `crates/ygo-solver/src/probe.rs` solo il ramo `Some(1) if follower.is_some()` di `run_with` e come chiama `turn_three` (d'accordo con la coordinatrice, che fa B5 nel resto); `crates/ygo-solver/src/follow.rs` (`Follower::answer`); `crates/ygo-solver/tests/matchup.rs`.
