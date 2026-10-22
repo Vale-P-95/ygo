@@ -117,7 +117,7 @@ def make(a):
         lines_json = os.path.join(a.out, f"{deck}.lines.json")
         subprocess.run([a.cli, "--data", os.path.join(ROOT, "data"), "combos", "--deck", path, "--hand", ";".join(hand),
                         "--nodes", str(a.nodes), "--seconds", "900", "--threads", "1", "--seed", str(a.seed), "--top", str(a.top),
-                        "--json", boards_json, "--save-lines", lines_json], capture_output=True, text=True)
+                        "--json", boards_json, "--save-lines", lines_json, "--every-look"], capture_output=True, text=True)
         return deck, path, hand, json.load(open(boards_json))["items"] if os.path.exists(boards_json) else []
 
     with cf.ThreadPoolExecutor(a.jobs) as ex:
