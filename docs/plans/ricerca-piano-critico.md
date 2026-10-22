@@ -44,6 +44,44 @@
   - Per ogni mano: meglio, peggio o pari, con una soglia dell'1% sul valore della board migliore.
   - Si accetta se le mani peggiori non superano quelle migliori (test del segno) e nessuna perde più del 5%.
 
+#### A1: strumenti fatti e primo pilota (corsia 6, 22/10, branch `claude/oracle`)
+- **`scripts/oracle.py`.**
+  - `hands`: l'insieme fisso di mani. Sono le mani del banco (seme 1), le 82 di `combo_hunt --seed 7` e gli obiettivi. Per ora l'obiettivo è uno solo: Invoked Oceanus nella Zona Mostri Extra + S:P Little Knight, sulla lista Invoked della fixture. Con `--auto-goals N` si aggiungono le ricerche per obiettivo sui mostri dell'Extra Deck delle board dell'oracolo.
+  - `build`: la ricerca lunga, su un thread (stesse board su ogni macchina), con più semi. Le corse già scritte restano: una notte interrotta riparte da dove era.
+  - `fixtures`: scrive `tests/fixtures/oracle/<id>.json`. Dentro ci sono mano, seme, impronta del deck, le 5 board migliori (codici e zone), la misura, le risposte della linea migliore e il valore trovato con gli altri semi. Nessun testo di carta.
+  - `measure`: la ricerca normale a budget crescenti, contro l'oracolo.
+- **`scripts/paired_test.py`**, il test appaiato: vecchio contro nuovo, stesse mani, stesso seme, stesso budget. Prima e dopo possono essere due eseguibili (lo script li lancia sulle mani del banco e di `combo_hunt --seed 7`), due cartelle di `combo_hunt --json`, oppure due `results.json` di `bench.py`. Ogni mano risulta meglio, peggio o pari, con una soglia dell'1%. Si accetta se le mani peggiori non superano le migliori (test del segno) e nessuna perde più del 5%.
+- **Il valore** di una board è quello del banco: le parti del turno di prova pesate come il profilo «Bilanciato», più il follow-up.
+- **Mani del banco che non si giocano più.** Con le liste di Master Duel Meta di oggi, 4 mani Invoked del banco chiedono carte che la lista non ha, o due copie dove ne ha una: inv-remi, inv-aleister (2 Droll & Lock Bird), inv-r3, inv-r4 (Mulcharmy Purulia, The Book of the Law, Invocation - "Grail"). La ricerca non parte: 0 nodi. Vale anche per `bench.py`, che lì misura board vuote. `oracle.py` le salta con un avviso. Mancano anche 4 deck del banco (ignister, labrynth, mitsurugi, yummy_mimighoul).
+- **Pilota** (non è l'oracolo vero). Le 8 mani del banco giocabili, a 40 000 nodi (10 volte), solo con il seme della mano. Le fixture in `tests/fixtures/oracle` sono queste, finché il proprietario non lancia il giro lungo. Poi la ricerca normale a 1000-16 000 nodi:
+
+  | mano | oracolo | 1000 | 2000 | 4000 | 8000 | 16 000 |
+  |---|---|---|---|---|---|---|
+  | branded | 1,38 | 89% | 89% | 91% | 91% | 89% |
+  | dracotail | 2,18 | 67% | 67% | 70% | 79% | 79% |
+  | inv-r1 | 3,10 | 59% | 62% | 66% | 66% | 96% |
+  | inv-r2 | 2,53 | 72% | 76% | 76% | 82% | 100% |
+  | inv-r5 | 2,45 | 63% | 68% | 61% | 61% | 61% |
+  | inv-r6 | 2,69 | 55% | 55% | 55% | 55% | 55% |
+  | maliss | 1,13 | 100% | 100% | 88% | 88% | 88% |
+  | tearlaments | 2,73 | 56% | 56% | 56% | 69% | 69% |
+
+  - Al budget del banco (4000 nodi) la ricerca normale arriva al 55-91% dell'oracolo in 7 mani su 8. A 16 000 nodi arriva al 95% in 3 su 8.
+  - Una board con il 99% del valore dell'oracolo è fra le prime 3 in 1 mano su 8. La board stessa dell'oracolo in nessuna: spesso c'è una board diversa con lo stesso valore (mostri Link in più che la misura non conta). Per questo `measure` riporta tutte e due le posizioni.
+  - **Il valore misurato non cresce sempre con il budget:** maliss da 100% a 88%, inv-r5 da 68% a 61%. Le board da misurare sono le 10 migliori per la stima rapida. Con più nodi la stima ne mette davanti altre, e la board che si misurava meglio esce dalla lista. È lo stesso problema delle inversioni tra stima e misura (C5.7).
+- **Obiettivo Invoked** (Oceanus nella Zona Mostri Extra + S:P). Con la mano Aleister, "Grail", Magical Meltdown, Ash e Fuwalos, nemmeno 40 000 nodi trovano una board con tutte e due. A 4000 nodi escono board con S:P e Caliga o Mechaba, oppure con Oceanus senza S:P.
+- **Aeon a 3 materiali: il motore la sa giocare.**
+  - In una posizione costruita (Invoked Sorath, Magistus Chorozo e Invoked Oceanus nel Cimitero), l'effetto di Sorath dal Cimitero offre Hyperinvoked Aeon. Scelti Sorath e Oceanus, il motore offre sia «finisci» sia Chorozo come terzo materiale.
+  - La linea migliore trovata su inv-r5 Evoca Aeon con 2 materiali (Sorath e Chorozo), ma lì un terzo valido non c'è: nel Cimitero Invoked Elysium è LIGHT come Sorath, e Aeon vuole attributi diversi. Elysium ha tutti gli attributi solo scoperta sul campo.
+  - Quindi niente azione non offerta né risposta automatica sbagliata. Manca una linea che prepari tre Fusioni di attributo diverso, e la misura non dà alla ricerca un motivo per farlo: sono le cecità della misura descritte sopra (Aeon vale quasi zero, il kit ha un solo mostro nell'Extra Deck).
+- **Il giro vero, per il proprietario:**
+  ```
+  python3 scripts/oracle.py build <out> --decks <mdm> --mult 50 --seeds 1,2,3 --jobs 4
+  python3 scripts/oracle.py fixtures <out> tests/fixtures/oracle --decks <mdm>
+  python3 scripts/oracle.py measure tests/fixtures/oracle <out>/measure --decks <mdm> --budgets 1000,2000,4000,8000,16000
+  ```
+  Stima del tempo: 91 mani per 3 semi a 200 000 nodi. Dal pilota, una mano a 40 000 nodi prende da 5 s a 6,5 minuti; a 200 000 nodi va da qualche minuto a mezz'ora. Con 4 lavori in parallelo è una notte, forse due.
+
 ### A2. Dove va il lavoro della ricerca: fatto (corsia 2, PR #67)
 `DUELFORGE_SEARCH_STATS=1` e `scripts/search_stats.py`; numeri in `velocita-ricerca.md`.
 
@@ -97,6 +135,7 @@ Ogni correzione è generale: niente nomi di carte. Segue il protocollo del motor
   - La distanza serve solo a ordinare, mai a tagliare, così il verdetto «impossibile» resta corretto.
   - Tra le linee che raggiungono l'obiettivo vince quella con la board più forte.
   - **Controllo:** nodi alla prima soluzione −30% su un insieme fisso di obiettivi raggiungibili; i verdetti «impossibile» restano uguali.
+  - **B4a, fatto (22/10, corsia 2):** dalla diagnosi in `ricerca-esperimenti.md` §3, una carta dell'obiettivo scelta in una selezione che la manda via (suggerimenti del motore 500-504, 507, 511-513, 533) va per ultima nella discesa, e il ramo perde priorità in coda se era l'ultima copia. Le 4 mani Invoked, 1 thread, 60 s: «Oceanus + S:P» da 0/4 a 4/4 (1,3-5,9 s), «Oceanus@extra + S:P» da 0/4 a 4/4 (7,0-28,8 s). Test `a_goal_card_is_not_sent_away_first` in `search_regression`.
 - **B8. Obiettivi più ricchi.**
   - Ogni carta dell'obiettivo dice il posto: Mostro Principale o Extra, Magia/Trappola coperta o scoperta, Terreno, Cimitero, bandita, mano.
   - Ci sono anche atomi sull'avversario, come le carte tolte dal suo Extra Deck, e il segno duro o morbido.

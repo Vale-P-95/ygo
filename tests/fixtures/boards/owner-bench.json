@@ -1,0 +1,968 @@
+{
+ "pairs": [
+  {
+   "id": "O1",
+   "deck": "elfnote_kewl_tune",
+   "kind": "da confermare",
+   "verdict": "B",
+   "a": {
+    "field": 0.4911,
+    "hand": 0.7329,
+    "floodgates": 0.0,
+    "resilience": 0.1204,
+    "countered": null,
+    "truth": null
+   },
+   "b": null,
+   "missing": [
+    "O1b"
+   ]
+  },
+  {
+   "id": "O2",
+   "deck": "branded",
+   "kind": "da confermare",
+   "verdict": "A",
+   "a": null,
+   "b": null,
+   "missing": [
+    "O2a",
+    "O2b"
+   ]
+  },
+  {
+   "id": "O3",
+   "deck": "elfnote",
+   "kind": "da confermare",
+   "verdict": "B",
+   "a": null,
+   "b": null,
+   "missing": [
+    "O3a",
+    "O3b"
+   ]
+  },
+  {
+   "id": "O4",
+   "deck": "elfnote_kewl_tune",
+   "kind": "da confermare",
+   "verdict": "B",
+   "a": null,
+   "b": null,
+   "missing": [
+    "O4a",
+    "O4b"
+   ]
+  },
+  {
+   "id": "O5",
+   "deck": "invoked",
+   "kind": "da confermare",
+   "verdict": "A",
+   "a": null,
+   "b": null,
+   "missing": [
+    "O5a",
+    "O5b"
+   ]
+  },
+  {
+   "id": "O6",
+   "deck": "maliss",
+   "kind": "da confermare",
+   "verdict": "A",
+   "a": null,
+   "b": null,
+   "missing": [
+    "O6a",
+    "O6b"
+   ]
+  },
+  {
+   "id": "O7",
+   "deck": "mitsurugi",
+   "kind": "da confermare",
+   "verdict": "A",
+   "a": null,
+   "b": null,
+   "missing": [
+    "O7a",
+    "O7b"
+   ]
+  },
+  {
+   "id": "O8",
+   "deck": "elfnote",
+   "kind": "controllo",
+   "verdict": "A",
+   "a": {
+    "field": 1.688,
+    "hand": 0.5333,
+    "floodgates": 0.0,
+    "resilience": 0.8853,
+    "countered": 1.0,
+    "truth": 0.8315855670103093
+   },
+   "b": {
+    "field": 1.5778,
+    "hand": 0.5333,
+    "floodgates": 0.0,
+    "resilience": 0.7967,
+    "countered": 1.0,
+    "truth": 0.8260505154639176
+   },
+   "missing": []
+  },
+  {
+   "id": "O9",
+   "deck": "labrynth",
+   "kind": "controllo",
+   "verdict": "A",
+   "a": {
+    "field": 0.92,
+    "hand": 0.0,
+    "floodgates": 0.0,
+    "resilience": 0.7847,
+    "countered": 1.0,
+    "truth": 0.6908041237113403
+   },
+   "b": {
+    "field": 0.9615,
+    "hand": 0.0,
+    "floodgates": 0.0,
+    "resilience": 0.7446,
+    "countered": 1.0,
+    "truth": 0.6862175257731958
+   },
+   "missing": []
+  },
+  {
+   "id": "O10",
+   "deck": "snake_eye",
+   "kind": "controllo",
+   "verdict": "A",
+   "a": {
+    "field": 2.7556,
+    "hand": 0.0,
+    "floodgates": 0.0,
+    "resilience": 1.7523,
+    "countered": 0.20634920634920637,
+    "truth": 0.8616381443298969
+   },
+   "b": {
+    "field": 2.5778,
+    "hand": 0.0,
+    "floodgates": 0.0,
+    "resilience": 1.5418,
+    "countered": 0.20634920634920637,
+    "truth": 0.8268896907216495
+   },
+   "missing": []
+  },
+  {
+   "id": "O11",
+   "deck": "yubel",
+   "kind": "controllo",
+   "verdict": "A",
+   "a": {
+    "field": 0.9418,
+    "hand": 0.0,
+    "floodgates": 0.0,
+    "resilience": 0.4795,
+    "countered": 0.4285714285714285,
+    "truth": 0.623
+   },
+   "b": {
+    "field": 0.9418,
+    "hand": 0.0,
+    "floodgates": 0.0,
+    "resilience": 0.4795,
+    "countered": 0.4285714285714285,
+    "truth": 0.623
+   },
+   "missing": []
+  },
+  {
+   "id": "O12",
+   "deck": "blue_eyes",
+   "kind": "nuova",
+   "verdict": "B",
+   "a": {
+    "field": 1.2807,
+    "hand": 0.2443,
+    "floodgates": 0.0,
+    "resilience": 0.7613,
+    "countered": 1.0,
+    "truth": 0.7081721649484536
+   },
+   "b": {
+    "field": 1.5244,
+    "hand": 0.0,
+    "floodgates": 0.0,
+    "resilience": 0.5805,
+    "countered": 1.0,
+    "truth": 0.6992443298969072
+   },
+   "missing": []
+  },
+  {
+   "id": "O13",
+   "deck": "blue_eyes",
+   "kind": "nuova",
+   "verdict": "pari",
+   "a": {
+    "field": 1.2807,
+    "hand": 0.2443,
+    "floodgates": 0.0,
+    "resilience": 0.3726,
+    "countered": 1.0,
+    "truth": 0.7117567010309278
+   },
+   "b": {
+    "field": 1.2807,
+    "hand": 0.2443,
+    "floodgates": 0.0,
+    "resilience": 0.3726,
+    "countered": 1.0,
+    "truth": 0.7081721649484536
+   },
+   "missing": []
+  },
+  {
+   "id": "O14",
+   "deck": "blue_eyes",
+   "kind": "nuova",
+   "verdict": "B",
+   "a": {
+    "field": 1.2807,
+    "hand": 0.2443,
+    "floodgates": 0.0,
+    "resilience": 0.3726,
+    "countered": 1.0,
+    "truth": 0.7081721649484536
+   },
+   "b": {
+    "field": 1.2807,
+    "hand": 0.2443,
+    "floodgates": 0.0,
+    "resilience": 0.3726,
+    "countered": 1.0,
+    "truth": 0.7081721649484536
+   },
+   "missing": []
+  },
+  {
+   "id": "O15",
+   "deck": "branded",
+   "kind": "nuova",
+   "verdict": "A",
+   "a": {
+    "field": 0.0,
+    "hand": 0.5818,
+    "floodgates": 0.0,
+    "resilience": 0.0,
+    "countered": null,
+    "truth": 0.6035226804123711
+   },
+   "b": {
+    "field": 0.0,
+    "hand": 0.5818,
+    "floodgates": 0.0,
+    "resilience": 0.0,
+    "countered": null,
+    "truth": 0.6053494845360825
+   },
+   "missing": []
+  },
+  {
+   "id": "O16",
+   "deck": "dracotail",
+   "kind": "nuova",
+   "verdict": "B",
+   "a": {
+    "field": 0.8629,
+    "hand": 0.7776,
+    "floodgates": 0.0,
+    "resilience": 0.5179,
+    "countered": 1.0,
+    "truth": 0.7955525773195876
+   },
+   "b": {
+    "field": 0.8676,
+    "hand": 0.7776,
+    "floodgates": 0.0,
+    "resilience": 0.5071,
+    "countered": 1.0,
+    "truth": 0.7199453608247423
+   },
+   "missing": []
+  },
+  {
+   "id": "O17",
+   "deck": "elfnote",
+   "kind": "nuova",
+   "verdict": "A",
+   "a": {
+    "field": 0.7185,
+    "hand": 1.0219,
+    "floodgates": 0.0,
+    "resilience": 0.1479,
+    "countered": null,
+    "truth": 0.7721309278350516
+   },
+   "b": {
+    "field": 0.7185,
+    "hand": 0.9747,
+    "floodgates": 0.0,
+    "resilience": 0.1127,
+    "countered": 0.5467625899280575,
+    "truth": 0.7993597938144329
+   },
+   "missing": []
+  },
+  {
+   "id": "O18",
+   "deck": "exodia",
+   "kind": "nuova",
+   "verdict": "A",
+   "a": {
+    "field": 0.5946,
+    "hand": 0.0,
+    "floodgates": 0.0,
+    "resilience": 0.5072,
+    "countered": null,
+    "truth": 0.41572474226804124
+   },
+   "b": {
+    "field": 0.5946,
+    "hand": 0.1215,
+    "floodgates": 0.0,
+    "resilience": 0.5072,
+    "countered": null,
+    "truth": 0.49650721649484536
+   },
+   "missing": []
+  },
+  {
+   "id": "O19",
+   "deck": "exodia",
+   "kind": "nuova",
+   "verdict": "A",
+   "a": {
+    "field": 1.165,
+    "hand": 0.1215,
+    "floodgates": 0.0,
+    "resilience": 0.9568,
+    "countered": null,
+    "truth": 0.7350546391752577
+   },
+   "b": {
+    "field": 1.165,
+    "hand": 0.1215,
+    "floodgates": 0.0,
+    "resilience": 0.9568,
+    "countered": null,
+    "truth": 0.7350546391752577
+   },
+   "missing": []
+  },
+  {
+   "id": "O20",
+   "deck": "fur_hire",
+   "kind": "nuova",
+   "verdict": "pari",
+   "a": {
+    "field": 0.0,
+    "hand": 1.0026,
+    "floodgates": 0.0,
+    "resilience": 0.0,
+    "countered": 1.0,
+    "truth": 0.6711134020618557
+   },
+   "b": {
+    "field": 0.0,
+    "hand": 1.0026,
+    "floodgates": 0.0,
+    "resilience": 0.0,
+    "countered": 1.0,
+    "truth": 0.6763680412371135
+   },
+   "missing": []
+  },
+  {
+   "id": "O21",
+   "deck": "fur_hire",
+   "kind": "nuova",
+   "verdict": "B",
+   "a": {
+    "field": 0.0,
+    "hand": 1.0026,
+    "floodgates": 0.0,
+    "resilience": 0.0,
+    "countered": 1.0,
+    "truth": 0.6739432989690722
+   },
+   "b": {
+    "field": 0.0,
+    "hand": 1.0026,
+    "floodgates": 0.0,
+    "resilience": 0.0,
+    "countered": 1.0,
+    "truth": 0.6754659793814433
+   },
+   "missing": []
+  },
+  {
+   "id": "O22",
+   "deck": "invoked",
+   "kind": "nuova",
+   "verdict": "pari",
+   "a": {
+    "field": 0.2959,
+    "hand": 0.0,
+    "floodgates": 0.0,
+    "resilience": 0.2524,
+    "countered": null,
+    "truth": 0.3648824742268041
+   },
+   "b": {
+    "field": 0.3863,
+    "hand": 0.0,
+    "floodgates": 0.0,
+    "resilience": 0.2657,
+    "countered": null,
+    "truth": 0.37873195876288657
+   },
+   "missing": []
+  },
+  {
+   "id": "O23",
+   "deck": "invoked",
+   "kind": "nuova",
+   "verdict": "B",
+   "a": {
+    "field": 0.6874,
+    "hand": 0.0,
+    "floodgates": 0.0,
+    "resilience": 0.1366,
+    "countered": 1.0,
+    "truth": 0.6781896907216495
+   },
+   "b": {
+    "field": 0.637,
+    "hand": 0.0,
+    "floodgates": 0.0,
+    "resilience": 0.0937,
+    "countered": -0.0,
+    "truth": 0.6246628865979381
+   },
+   "missing": []
+  },
+  {
+   "id": "O24",
+   "deck": "labrynth",
+   "kind": "nuova",
+   "verdict": "B",
+   "a": {
+    "field": 0.8344,
+    "hand": 0.0,
+    "floodgates": 0.0,
+    "resilience": 0.7117,
+    "countered": null,
+    "truth": 0.5066391752577319
+   },
+   "b": {
+    "field": 0.8344,
+    "hand": 0.0,
+    "floodgates": 0.0,
+    "resilience": 0.7117,
+    "countered": null,
+    "truth": 0.5059257731958763
+   },
+   "missing": []
+  },
+  {
+   "id": "O25",
+   "deck": "maliss",
+   "kind": "nuova",
+   "verdict": "pari",
+   "a": {
+    "field": 0.4459,
+    "hand": 0.5333,
+    "floodgates": 0.0,
+    "resilience": 0.1137,
+    "countered": 0.52,
+    "truth": 0.6857329896907217
+   },
+   "b": {
+    "field": 0.4459,
+    "hand": 0.5333,
+    "floodgates": 0.0,
+    "resilience": 0.1137,
+    "countered": 0.52,
+    "truth": 0.6836639175257733
+   },
+   "missing": []
+  },
+  {
+   "id": "O26",
+   "deck": "maliss",
+   "kind": "nuova",
+   "verdict": "pari",
+   "a": {
+    "field": 0.4459,
+    "hand": 0.5333,
+    "floodgates": 0.0,
+    "resilience": 0.1137,
+    "countered": 0.52,
+    "truth": 0.6838546391752578
+   },
+   "b": {
+    "field": 0.4459,
+    "hand": 0.5333,
+    "floodgates": 0.0,
+    "resilience": 0.1137,
+    "countered": 0.52,
+    "truth": 0.6855422680412372
+   },
+   "missing": []
+  },
+  {
+   "id": "O27",
+   "deck": "snake_eye",
+   "kind": "nuova",
+   "verdict": "A",
+   "a": {
+    "field": 1.3344,
+    "hand": 0.0,
+    "floodgates": 0.0,
+    "resilience": 0.7439,
+    "countered": 1.0,
+    "truth": 0.7083783505154638
+   },
+   "b": {
+    "field": 1.3344,
+    "hand": 0.0,
+    "floodgates": 0.0,
+    "resilience": 0.7439,
+    "countered": 1.0,
+    "truth": 0.7083783505154638
+   },
+   "missing": []
+  },
+  {
+   "id": "O28",
+   "deck": "snake_eye",
+   "kind": "nuova",
+   "verdict": "B",
+   "a": {
+    "field": 1.3344,
+    "hand": 0.0,
+    "floodgates": 0.0,
+    "resilience": 0.6814,
+    "countered": 1.0,
+    "truth": 0.7083783505154638
+   },
+   "b": {
+    "field": 1.3344,
+    "hand": 0.0,
+    "floodgates": 0.0,
+    "resilience": 0.7439,
+    "countered": 1.0,
+    "truth": 0.7060742268041237
+   },
+   "missing": []
+  },
+  {
+   "id": "O29",
+   "deck": "synchrons",
+   "kind": "nuova",
+   "verdict": "B",
+   "a": {
+    "field": 1.9526,
+    "hand": 0.0,
+    "floodgates": 0.0,
+    "resilience": 0.9499,
+    "countered": 1.0,
+    "truth": 0.7507298969072165
+   },
+   "b": {
+    "field": 1.9744,
+    "hand": 0.0,
+    "floodgates": 0.0,
+    "resilience": 1.0176,
+    "countered": 1.0,
+    "truth": 0.7672381443298969
+   },
+   "missing": []
+  },
+  {
+   "id": "O30",
+   "deck": "synchrons",
+   "kind": "nuova",
+   "verdict": "B",
+   "a": {
+    "field": 1.7748,
+    "hand": 0.0,
+    "floodgates": 0.0,
+    "resilience": 0.8571,
+    "countered": 1.0,
+    "truth": 0.7430103092783505
+   },
+   "b": {
+    "field": 1.7748,
+    "hand": 0.0,
+    "floodgates": 0.0,
+    "resilience": 0.7983,
+    "countered": 1.0,
+    "truth": 0.744578350515464
+   },
+   "missing": []
+  },
+  {
+   "id": "O31",
+   "deck": "tearlaments",
+   "kind": "nuova",
+   "verdict": "A",
+   "a": {
+    "field": 1.091,
+    "hand": 0.0,
+    "floodgates": 0.0,
+    "resilience": 0.2603,
+    "countered": null,
+    "truth": 0.716001030927835
+   },
+   "b": {
+    "field": 1.091,
+    "hand": 0.0,
+    "floodgates": 0.0,
+    "resilience": 0.2692,
+    "countered": null,
+    "truth": 0.7170463917525773
+   },
+   "missing": []
+  },
+  {
+   "id": "O32",
+   "deck": "tearlaments",
+   "kind": "nuova",
+   "verdict": "A",
+   "a": {
+    "field": 1.3015,
+    "hand": 0.0,
+    "floodgates": 0.0,
+    "resilience": 0.9474,
+    "countered": 1.0,
+    "truth": 0.7637886597938144
+   },
+   "b": {
+    "field": 1.3015,
+    "hand": 0.0,
+    "floodgates": 0.0,
+    "resilience": 0.972,
+    "countered": 1.0,
+    "truth": 0.7651185567010309
+   },
+   "missing": []
+  },
+  {
+   "id": "O33",
+   "deck": "yubel",
+   "kind": "nuova",
+   "verdict": "B",
+   "a": {
+    "field": 0.7333,
+    "hand": 0.0,
+    "floodgates": 0.0,
+    "resilience": 0.4594,
+    "countered": 1.0,
+    "truth": 0.6543350515463917
+   },
+   "b": {
+    "field": 0.8243,
+    "hand": 0.0,
+    "floodgates": 0.0,
+    "resilience": 0.5084,
+    "countered": null,
+    "truth": 0.6773061855670103
+   },
+   "missing": []
+  },
+  {
+   "id": "O34",
+   "deck": "branded",
+   "kind": "nuova",
+   "verdict": "A",
+   "a": {
+    "field": 0.7237,
+    "hand": 0.5333,
+    "floodgates": 0.0,
+    "resilience": 0.2139,
+    "countered": 1.0,
+    "truth": 0.7315680412371134
+   },
+   "b": {
+    "field": 0.7237,
+    "hand": 0.5333,
+    "floodgates": 0.0,
+    "resilience": 0.2139,
+    "countered": 1.0,
+    "truth": 0.6181061855670102
+   },
+   "missing": []
+  },
+  {
+   "id": "O35",
+   "deck": "dracotail",
+   "kind": "nuova",
+   "verdict": "B",
+   "a": {
+    "field": 0.7943,
+    "hand": 0.2443,
+    "floodgates": 0.0,
+    "resilience": 0.4693,
+    "countered": 1.0,
+    "truth": 0.622139175257732
+   },
+   "b": {
+    "field": 0.8837,
+    "hand": 0.0,
+    "floodgates": 0.0,
+    "resilience": 0.5076,
+    "countered": 1.0,
+    "truth": 0.6200350515463918
+   },
+   "missing": []
+  },
+  {
+   "id": "O36",
+   "deck": "dracotail",
+   "kind": "nuova",
+   "verdict": "B",
+   "a": {
+    "field": 0.8837,
+    "hand": 0.2443,
+    "floodgates": 0.0,
+    "resilience": 0.5076,
+    "countered": 1.0,
+    "truth": 0.6350721649484536
+   },
+   "b": {
+    "field": 0.9013,
+    "hand": 0.2443,
+    "floodgates": 0.0,
+    "resilience": 0.5102,
+    "countered": 1.0,
+    "truth": 0.6224762886597938
+   },
+   "missing": []
+  },
+  {
+   "id": "O37",
+   "deck": "exodia",
+   "kind": "nuova",
+   "verdict": "A",
+   "a": {
+    "field": 1.165,
+    "hand": 0.0,
+    "floodgates": 0.0,
+    "resilience": 0.9568,
+    "countered": null,
+    "truth": 0.7094298969072166
+   },
+   "b": {
+    "field": 1.165,
+    "hand": 0.0,
+    "floodgates": 0.0,
+    "resilience": 0.9568,
+    "countered": null,
+    "truth": 0.7094298969072166
+   },
+   "missing": []
+  },
+  {
+   "id": "O38",
+   "deck": "fur_hire",
+   "kind": "nuova",
+   "verdict": "A",
+   "a": {
+    "field": 0.0,
+    "hand": 0.7433,
+    "floodgates": 0.0,
+    "resilience": 0.0,
+    "countered": null,
+    "truth": 0.6658422680412371
+   },
+   "b": {
+    "field": 0.083,
+    "hand": 0.7433,
+    "floodgates": 0.0,
+    "resilience": 0.048,
+    "countered": 1.0,
+    "truth": 0.6749917525773196
+   },
+   "missing": []
+  },
+  {
+   "id": "O39",
+   "deck": "labrynth",
+   "kind": "nuova",
+   "verdict": "A",
+   "a": {
+    "field": 0.5738,
+    "hand": 0.0,
+    "floodgates": 0.0,
+    "resilience": 0.4894,
+    "countered": 1.0,
+    "truth": 0.5045474226804124
+   },
+   "b": {
+    "field": 0.6687,
+    "hand": 0.0,
+    "floodgates": 0.0,
+    "resilience": 0.5704,
+    "countered": null,
+    "truth": 0.4995298969072165
+   },
+   "missing": []
+  },
+  {
+   "id": "O40",
+   "deck": "mitsurugi",
+   "kind": "nuova",
+   "verdict": "A",
+   "a": {
+    "field": 1.3191,
+    "hand": 0.0,
+    "floodgates": 0.0,
+    "resilience": 0.9266,
+    "countered": 1.0,
+    "truth": 0.7377649484536082
+   },
+   "b": {
+    "field": 1.2281,
+    "hand": 0.0,
+    "floodgates": 0.0,
+    "resilience": 0.8865,
+    "countered": 1.0,
+    "truth": 0.729760824742268
+   },
+   "missing": []
+  },
+  {
+   "id": "O41",
+   "deck": "synchrons",
+   "kind": "nuova",
+   "verdict": "B",
+   "a": {
+    "field": 2.2281,
+    "hand": 0.5333,
+    "floodgates": 0.0,
+    "resilience": 1.2215,
+    "countered": 1.0,
+    "truth": 0.8478773195876289
+   },
+   "b": {
+    "field": 2.2281,
+    "hand": 0.5333,
+    "floodgates": 0.0,
+    "resilience": 1.2215,
+    "countered": 1.0,
+    "truth": 0.8468319587628866
+   },
+   "missing": []
+  },
+  {
+   "id": "O42",
+   "deck": "tearlaments",
+   "kind": "nuova",
+   "verdict": "A",
+   "a": {
+    "field": 0.3996,
+    "hand": 0.0,
+    "floodgates": 0.0,
+    "resilience": 0.1284,
+    "countered": 1.0,
+    "truth": 0.6699999999999999
+   },
+   "b": {
+    "field": 0.3996,
+    "hand": 0.0,
+    "floodgates": 0.0,
+    "resilience": 0.1284,
+    "countered": 1.0,
+    "truth": 0.6699999999999999
+   },
+   "missing": []
+  },
+  {
+   "id": "O43",
+   "deck": "white_forest_azamina",
+   "kind": "nuova",
+   "verdict": "B",
+   "a": {
+    "field": 1.0,
+    "hand": 0.0,
+    "floodgates": 0.0,
+    "resilience": 0.5098,
+    "countered": null,
+    "truth": 0.6877979381443299
+   },
+   "b": {
+    "field": 1.0,
+    "hand": 0.0,
+    "floodgates": 0.0,
+    "resilience": 0.5098,
+    "countered": null,
+    "truth": 0.6877979381443299
+   },
+   "missing": []
+  },
+  {
+   "id": "O44",
+   "deck": "white_forest_azamina",
+   "kind": "nuova",
+   "verdict": "B",
+   "a": {
+    "field": 0.4911,
+    "hand": 0.0,
+    "floodgates": 0.0,
+    "resilience": 0.4189,
+    "countered": 1.0,
+    "truth": 0.345259793814433
+   },
+   "b": {
+    "field": 0.4911,
+    "hand": 0.0,
+    "floodgates": 0.0,
+    "resilience": 0.4189,
+    "countered": 1.0,
+    "truth": 0.34421443298969073
+   },
+   "missing": []
+  },
+  {
+   "id": "O45",
+   "deck": "yubel",
+   "kind": "nuova",
+   "verdict": "pari",
+   "a": {
+    "field": 0.9418,
+    "hand": 0.0,
+    "floodgates": 0.0,
+    "resilience": 0.4795,
+    "countered": 0.4285714285714285,
+    "truth": 0.623
+   },
+   "b": {
+    "field": 0.9418,
+    "hand": 0.0,
+    "floodgates": 0.0,
+    "resilience": 0.4795,
+    "countered": 0.4285714285714285,
+    "truth": 0.6250907216494845
+   },
+   "missing": []
+  }
+ ]
+}

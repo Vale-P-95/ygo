@@ -1,0 +1,18 @@
+{
+ "id": "goal-invoked-oceanus-sp",
+ "deck": "tests/fixtures/decks/invoked-siracusa-md.ydk",
+ "hand": [
+  86120751,
+  76334960,
+  47679935,
+  14558127,
+  42141493
+ ],
+ "deck_hash": "324b7279cc7752b5",
+ "seed": 1,
+ "goal": "Invoked Oceanus@extra;S:P Little Knight",
+ "nodes": 40000,
+ "boards_found": 6937,
+ "boards": [],
+ "other_seeds": []
+}
