@@ -1,4 +1,4 @@
-# DuelForge: piano di progetto (v1.9)
+# DuelForge: piano di progetto (v1.10)
 
 > Nome provvisorio. Il documento è la proposta iniziale: una volta approvate le decisioni aperte (§14) diventa la roadmap di sviluppo.
 >
@@ -11,6 +11,8 @@
 > **v0.5 (18/10/2026)**: Fase 1 realizzata; risultati nella §17.
 >
 > **v0.6 (18/10/2026)**: Fase 2, prima parte: editor dei deck in stile Master Duel; risultati nella §18.
+>
+> **v1.10 (22/10/2026)**: cinque corsie di lavoro in parallelo (sessioni sorelle e Gemini). Turno di prova contro un deck al livello 2 con le linee vere dell'avversario; classificazione delle board con il kit pesato sulle linee vere, il turno dopo, i breaker giocati davvero e la board #1 sempre la migliore misurata; Il Banditore; deck lenti (§31).
 >
 > **v1.9 (20/10/2026)**: revisione del lavoro della v1.8 (21 difetti confermati e corretti); nuovo strumento di copertura delle meccaniche (`duelforge-cli coverage`) passato su 45 deck; bug di meccanica e inefficienze trovati con i dati e corretti; piano per lavorare con due agenti (§30).
 >
@@ -1370,4 +1372,35 @@ Richiesta #40. Quando si confrontano due board, il giocatore può dire quale pre
 - **Modello.** I pesi si ricavano con il modello di Bradley-Terry: la probabilità di preferire A a B dipende dalla differenza dei punteggi pesati. È una regressione logistica penalizzata, tirata verso il profilo in uso: 4 scelte pesano quanto il profilo, quindi poche scelte lo spostano poco (`ygo-stats/src/prefs.rs`).
 - **Cosa si vede.** Oltre ai pesi, quante scelte spiegano i pesi imparati e quante il profilo di partenza.
 - **Interfaccia.** Pulsante «Preferisco questa» nel confronto, profilo «Imparato dalle tue scelte», filtro della frontiera di Pareto: richiesta a Gemini in `docs/TASKS.md`.
+
+## 31. Lavoro in parallelo del 22/10/2026
+Cinque corsie: il coordinatore (Claude), tre sessioni sorelle di Claude e Gemini sull'interfaccia. Ogni corsia tiene i suoi file con un lock in `docs/TASKS.md`; le PR le apre e le unisce il coordinatore, dopo la CI. Il piano è in `docs/plans/piano-prossimi-passi.md`.
+
+### 31.1 Turno di prova contro un deck, livello 2 con le linee vere
+- **Cosa.** L'avversario rigioca nel suo turno le linee migliori che il motore trova per il suo deck, da 12 mani, con la sua mano vera e l'ordine del suo Deck (PR #38). Ogni mossa della linea è un passo del turno di prova: si vede quali tue risposte fermano quali mosse. Nell'app: «Contro le sue linee», a richiesta per la board aperta (PR #40, Gemini).
+- **Le scelte dell'avversario per identità** (PR #46). Le carte che le sue risposte scelgono si ritrovavano per codice, posto e controllore. Come giocatore 1 non ne corrispondeva nessuna, e si ripiegava sull'indice, che cadeva sulla carta pescata nel suo turno. Mosse fatte su campo vuoto: dall'89% al 96% (Tearlaments e Branded contro 12 deck).
+- **Collaudo** (corsia 3, 6 board contro 37 deck). Prima della correzione le mosse fatte erano l'88% (il 62% con il kit delle mosse tipiche). Ha trovato anche:
+  - L4-2: una board con That Grass Looks Greener non si misurava contro nessun deck. I rigiochi della tua linea davano all'avversario tutto il suo Main Deck invece di un Deck grande come quello contro cui la linea è stata trovata (corretto nella PR #48);
+  - L4-3: Lunalight impiega fino a 500 s (alla corsia 2).
+
+### 31.2 Classificazione delle board: D10, D13, D14, D15
+Piano e numeri in `docs/plans/classificazione-board.md` (§C9–§C11) e `docs/plans/ordine-ricerca.md`. Le coppie sono quelle giudicate da tre agenti (C7): una coppia è giusta se la misura dà il vincitore atteso.
+
+| Passo | Cosa | Coppie sicure giuste | Da confermare giuste |
+|---|---|---|---|
+| prima (D2–D4) | | 18 su 29 | |
+| D10 | kit pesato sulle linee vere: azioni che non toccano il Deck, pesi dalle quote delle linee | 20 | |
+| D13 | il turno dopo il breaker peggiore (effetti da Cimitero e bandite), risorse senza Cimitero, costo di quello che la linea spende oltre alla mano, finestre nella Draw e nella Standby avversarie | 22 | 14 su 46 |
+| D15 | i breaker che le liste giocano davvero (Infinite Impermanence, Super Polymerization), mirati alla carta che vale di più; risposta alla tua prima interruzione e protezione dei pezzi, solo da mostrare | 22 | 16 su 46 |
+
+- **D14** (corsia 4, PR #50) non cambia la misura ma l'ordine. La board stampata per prima è sempre la migliore misurata: prima non lo era in 19 deck su 41. La stima rapida usa i valori misurati delle carte (anche a mano vuota e per la seconda copia) invece di bonus fissi, e nelle prime 8 ci sono più campi diversi. Le inversioni tra stima e misura scendono da 223 a 174 su 1110; per arrivare a 60 serve una stima della board intera (`docs/plans/valutatore-imparato.md`).
+- **La ricerca non cambia con D13 e D15**: le carte nuove del kit stanno nella mano dell'avversario solo nelle run che le giocano. Con una carta in più nella sua mano cambiavano le carte prese a caso dai tuoi effetti, e con esse la strada della ricerca (il banco perdeva il 4%).
+- **Cosa resta.** Le coppie sicure sbagliate sono quasi tutte pari: le board differiscono in carte che contro il kit valgono 0, o in un equipaggiamento. D12 (esposizione come valore perso) è alla corsia 4; D11, D16 e i pesi (D17) dopo. I pesi aspettano i giudizi del proprietario.
+
+### 31.3 Il Banditore
+Pagina nuova dell'interfaccia (Gemini, PR #37): confronto delle liste Master Duel, TCG e OCG, con l'impatto sui deck salvati. Il backend ha aggiunto la lista OCG nella ricerca (`formato:ocg`, PR #39) e lo storico dei cambi di lista, salvato a ogni aggiornamento delle carte (`api.banChanges`, PR #45). `ban:forbidden` non trovava le carte proibite di TCG e OCG, che i dati chiamano «Forbidden» e non «Banned» (PR #46).
+
+### 31.4 Deck lenti
+- La scadenza vale anche per le varianti di zona e per la conferma delle board migliori (PR #44): una board non confermata resta stimata.
+- **Istruzioni Lua per richiesta del motore** (PR #49, solo misura con `DUELFORGE_LUA_COUNT`). Nei giri normali nessuna richiesta arriva a 3 milioni di istruzioni. Nella mano lenta invece due richieste da 18 e 104 milioni, ripagate a ogni replay, valgono 70 s su 77. Prossimo passo: un tetto di 10 milioni per richiesta (corsia 2).
 
