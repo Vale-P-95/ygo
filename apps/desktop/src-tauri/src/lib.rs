@@ -1911,10 +1911,12 @@ const SEND_CHEAP_SCORES: bool = false;
 /// What the cheap measure tries.
 const CHEAP_MEASURE: ygo_solver::probe::Cheap = ygo_solver::probe::Cheap { windows: 16, use_rounds: 3 };
 
-/// The value a cheap measure ranks the boards by: field, hand and floodgates
-/// as the page weighs them, with no breaker played.
+/// The value a cheap measure ranks the boards by: field, hand, floodgates
+/// and the effects to rebuild with on your next turn, as the "Bilanciato"
+/// profile weighs them, with no breaker played.
 fn cheap_value(m: &ygo_solver::Measure) -> f64 {
-    m.field_value + 0.9 * m.hand_value + 0.8 * m.floodgate_value
+    let rebuild = m.follow_up.map_or(0.0, |f| f.rebuild as f64);
+    m.field_value + 0.9 * m.hand_value + 0.8 * m.floodgate_value + 0.4 * 0.3 * rebuild
 }
 
 /// `work` on each board, on all cores, until `cancel`; one prober per hand

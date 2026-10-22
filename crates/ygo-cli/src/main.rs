@@ -1420,9 +1420,11 @@ const STAGED_WINDOWS: usize = 16;
 const STAGED_ROUNDS: usize = 3;
 
 /// The value of a cheap measure ([`ygo_solver::Prober::measure_cheap`]):
-/// [`composite`] without the parts it does not play.
+/// [`composite`] without the resilience, and with your next turn when the
+/// opponent breaks nothing.
 fn cheap_composite(m: &ygo_solver::Measure) -> f64 {
-    m.field_value + 0.9 * m.hand_value + 0.8 * m.floodgate_value
+    let rebuild = m.follow_up.map_or(0.0, |f| f.rebuild as f64);
+    m.field_value + 0.9 * m.hand_value + 0.8 * m.floodgate_value + 0.4 * 0.3 * rebuild
 }
 
 /// The measured value of a board with the "Bilanciato" profile of the app:
