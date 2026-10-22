@@ -159,7 +159,11 @@ def from_made(cards, made, wanted):
 
 
 def superset(a, b):
-    """A has every card of B, on the field and in the hand, and more on the field."""
+    """A has every card of B, on the field and in the hand, and more on the field,
+    with the same GY and banishment (a card in B's GY can still work there)."""
+    if (a.get("grave_names", a.get("grave")), a.get("banished_names", a.get("banished"))) != \
+            (b.get("grave_names", b.get("grave")), b.get("banished_names", b.get("banished"))):
+        return False
     fa, fb = card_bag({"field": a["field"], "hand_names": []}), card_bag({"field": b["field"], "hand_names": []})
     ha, hb = card_bag({"field": [], "hand_names": a["hand_names"]}), card_bag({"field": [], "hand_names": b["hand_names"]})
     return all(fa.get(k, 0) >= v for k, v in fb.items()) and ha == hb and sum(fa.values()) > sum(fb.values())
