@@ -283,3 +283,29 @@ Prova: 6 board contro i 37 deck di Master Duel Meta, con `probe-line --vs X --mo
   - le risposte ritrovate per identità (`find_again`) dove la tua board cambia le domande.
 
   Insieme alle linee vere, rende stabili anche le mosse (punto sopra). Lavoro stimato: circa un giorno. Da decidere insieme agli altri punti aperti del livello 2.
+
+### Livello 2 con le linee vere dell'avversario (22/10/2026)
+Fatto il piano P1 di `docs/plans/piano-prossimi-passi.md`: al posto della sequenza di mosse tipiche giocata dal kit, l'avversario rigioca le sue linee migliori.
+- **Le linee** (`rival_lines`, `rival_line`): 12 mani a caso del deck avversario, cercate a 1000 nodi contro l'avversario del kit come fa il Combo Lab. Per ogni mano restano la mano e le risposte della linea migliore, registrate per quello che fanno (`own_answers`), e le sue mosse.
+- **Il suo turno** (`Kit::with_line`): l'avversario ha la mano della linea e il suo Deck nello stesso ordine della ricerca (`ygo_engine::shuffle`, ora pubblica), più la carta del kit in cima per la pescata del turno 2.
+  - Un `Follower` (`follow.rs`) rigioca le risposte e ritrova le azioni per identità (carta, posto, effetto) e le carte scelte per quello che sono.
+  - Declina le domande che la linea non aveva, e non risponde mai ai tuoi effetti.
+  - Quando un'azione non c'è più (la tua board ha fermato ciò che le serviva), la linea riparte dalla prima azione successiva offerta.
+  - Ogni mossa della linea è un passo del turno di prova: `Prober::against_moves` resta com'era.
+- **La misura** (`against_moves`): linea per linea; ogni linea pesa uguale, e ogni mossa di una linea pure. Una linea senza mosse non si misura, perché la sua mano ha solo Settato carte e il pericolo è nel tuo turno: è il caso di molte mani Labrynth.
+- **Collaudo veloce:** board Branded e Tearlaments (la prima della caccia `--seed 7`) contro i 37 deck di Master Duel Meta, 74 prove:
+
+  | | Prima (sequenza tipica) | Ora (linee vere) |
+  |---|---|---|
+  | Errori | 0 | 0 |
+  | Mosse fatte su un campo vuoto | 62% | 90,7% (Branded), 90,9% (Tearlaments); minimo 74% (Branded contro Branded) |
+  | Misura di una board | 0,1-0,5 s | 4 s di mediana, 9 al massimo (2 prove insieme) |
+  | Lettura delle linee di un deck | 4-13 s | 10 s di mediana, 25 al massimo |
+
+- **Nell'app:** `api.comboMoves(hand, key, vsDeckId)`, a richiesta per la board aperta. Le linee di un deck si leggono una volta e restano in memoria finché il deck e il seme sono gli stessi. L'interfaccia è chiesta a Gemini in `docs/TASKS.md`.
+- **Resta da capire:**
+  - il 9-10% di mosse che il turno di prova non rigioca;
+  - la stabilità dei risultati tra semi diversi.
+
+  Lo misura il collaudo completo della corsia 3 (L4, 6 board).
+- **Banco** (16 mani, 4000 nodi): identico, perché la misura generica e la ricerca non cambiano.

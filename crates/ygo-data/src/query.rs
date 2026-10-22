@@ -10,7 +10,7 @@
 //! arch:invoked                  archetype
 //! atk>=2500  def<1000  lv:4-6   numeric ranges (atk, def, level/rank, link, scale)
 //! format:md  rarity:ur          Master Duel availability and rarity
-//! ban:limited                   Forbidden/Limited status (Master Duel list with format:md, else TCG)
+//! ban:limited                   Forbidden/Limited status (Master Duel list with format:md, OCG with format:ocg, else TCG)
 //! tag:handtrap                  quick groups: handtrap, staple, breaker, fav (favourites)
 //! sort:atk                      name, atk, def, level, popular, new
 //! ```
@@ -374,8 +374,14 @@ pub fn parse(input: &str) -> Parsed {
             None => out.errors.push(token),
         }
     }
-    // `ban:` follows Master Duel's list when the search is limited to Master Duel.
-    let list = if out.query.formats.iter().any(|f| f == "Master Duel") { "Master Duel" } else { "TCG" };
+    // `ban:` follows Master Duel's or the OCG list when the search is limited to that format.
+    let list = if out.query.formats.iter().any(|f| f == "Master Duel") {
+        "Master Duel"
+    } else if out.query.formats.iter().any(|f| f == "OCG") {
+        "OCG"
+    } else {
+        "TCG"
+    };
     for chip in out.chips.iter_mut().filter(|c| c.label.starts_with("Banlist: ")) {
         chip.label = chip.label.replacen("Banlist", &format!("Banlist {list}"), 1);
     }
