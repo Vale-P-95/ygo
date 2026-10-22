@@ -39,6 +39,7 @@ Corsia 4, terzo task. Il piano è B6 di `docs/plans/classificazione-board.md`. B
    - C'è una cache per `(mano, board)`, che resta valida anche quando si cambia il deck avversario.
 7. **CLI**: `combos --probe` e `probe-line` stampano `expected loss to handtraps` e lo scrivono nel JSON (`expected_loss`).
 8. **Pesi e scheda.** Il peso dell'esposizione in `scoring.ts` (oggi −0,04 per punto critico) lo mette la coordinatrice nella taratura D17, con gli altri. Per il piano B6 è −0,5 nel Bilanciato e −1,0 in "Linee sicure". Finché non cambia, l'esposizione pesa meno di prima. A Gemini, in TASKS, resta la scheda con le perdite per tipo.
+   - *Completato il 22/10/2026 (Gemini, interfaccia):* aggiornata la scheda del punteggio (`Score.tsx`) e il confronto tra board (`BoardCompareModal.tsx`). `measured` e `summary` mostrano «perdita attesa per le handtrap: X interruzioni». Il dettaglio dell'esposizione mostra la perdita attesa totale e la ripartizione per tipo di handtrap con la formula «Nome: −X,X se arriva (P%)» da `exposureDetail.losses`, l'impatto di Maxx "C"/Mulcharmy (`maxx`, `maxxChance`) e il conteggio dei punti critici (`chokePoints`), mantenendo la retrocompatibilità per i payload con soli conteggi.
 
 ## Numeri
 `main` (dbd7c58) contro questo branch. Liste MDM del 22/10.

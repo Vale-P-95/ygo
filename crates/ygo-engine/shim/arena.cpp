@@ -295,6 +295,12 @@ void* df_lua_alloc(void* ud, void* ptr, size_t osize, size_t nsize) {
 	auto* home = static_cast<Arena*>(ud);
 	if(!home)
 		return mi_realloc(ptr, nsize);
+	// Same size class: the block already fits.
+	if(ptr && arena_of(ptr) == home) {
+		size_t block;
+		if(class_of(nsize, &block) == class_at(ptr))
+			return ptr;
+	}
 	void* p = allocate(home, nsize, true);
 	if(p && ptr) {
 		std::memcpy(p, ptr, osize < nsize ? osize : nsize);

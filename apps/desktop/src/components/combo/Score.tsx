@@ -12,7 +12,45 @@ const fmt = (n: number) => n.toLocaleString("it-IT", { minimumFractionDigits: 1,
 const num = (n: number) => (Math.abs(n) > 0.005 && Math.abs(n) < 0.1 ? fmt2(n) : fmt(n));
 const fmt2 = (n: number) => n.toLocaleString("it-IT", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const signed = (n: number) => (n > 0.005 ? `+${fmt2(n)}` : n < -0.005 ? `−${fmt2(-n)}` : "0");
-const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+export const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+
+export const HANDTRAP_NAMES: Record<string, string> = {
+  ash: "Ash Blossom",
+  fieldEffect: "Veiler/Impermanence",
+  nibiru: "Nibiru",
+  droll: "Droll & Lock Bird",
+};
+
+export function formatExposureValue(loss: number): string {
+  const isOne = Math.abs(loss - 1) < 0.005;
+  return `${fmt2(loss)} ${isOne ? "interruzione" : "interruzioni"}`;
+}
+
+export function formatHandtrapLoss(loss: number, chance: number): string {
+  return `−${fmt2(loss)} se arriva (${Math.round(chance * 100)}%)`;
+}
+
+export function formatMaxxImpact(impact: number, chance: number): string {
+  const isOne = Math.abs(impact - 1) < 0.005;
+  return `+${fmt2(impact)} ${isOne ? "interruzione" : "interruzioni"} all'avversario (${Math.round(chance * 100)}%)`;
+}
+
+/** Legacy exposure format: score has exposureDetail object but without 'losses' property. */
+export function isLegacyExposure(s: ComboScore): boolean {
+  return s.exposureDetail != null && s.exposureDetail.losses === undefined;
+}
+
+export function formatExposureText(s: ComboScore): string {
+  if (isLegacyExposure(s)) {
+    return s.exposure > 0
+      ? `${plural(Math.round(s.exposure), "punto", "punti")} in cui una handtrap la ferma`
+      : "nessun punto critico per le handtrap comuni";
+  }
+  return s.exposure > 0.005
+    ? `perdita attesa per le handtrap: ${formatExposureValue(s.exposure)}`
+    : "nessuna perdita attesa per le handtrap comuni";
+}
+
 const cap = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
 
 /** Where an effect is used from, as the probe turn names the place. */
@@ -263,7 +301,7 @@ function measured(key: MetricKey, s: ComboScore): string {
     case "cost":
       return s.cost > 0 ? `usa ${plural(s.cost, "carta", "carte")} della mano oltre la prima` : "nessuna carta oltre la prima";
     case "exposure":
-      return s.exposure > 0 ? plural(s.exposure, "punto in cui una handtrap la ferma", "punti in cui una handtrap la ferma") : "nessuna handtrap comune la ferma";
+      return formatExposureText(s);
   }
 }
 
@@ -324,11 +362,19 @@ function summary(s: ComboScore): string[] {
     out.push(`Contro i board breaker più giocati regge ${held} volte su ${tried.length}.`);
   }
   if (s.exposureDetail || s.exposureNote) {
-    out.push(
-      s.exposure > 0
-        ? `Mentre la giochi, le handtrap più comuni possono fermarla in ${plural(s.exposure, "punto", "punti")}.`
-        : "Mentre la giochi, nessuna delle handtrap più comuni può fermarla.",
-    );
+    if (isLegacyExposure(s)) {
+      out.push(
+        s.exposure > 0
+          ? `Mentre la giochi, ha ${plural(Math.round(s.exposure), "punto critico", "punti critici")} in cui una handtrap può fermarla.`
+          : "Mentre la giochi, non ha punti critici per le handtrap comuni.",
+      );
+    } else {
+      out.push(
+        s.exposure > 0.005
+          ? `Mentre la giochi, la perdita attesa per le handtrap più comuni è di ${formatExposureValue(s.exposure)}.`
+          : "Mentre la giochi, nessuna delle handtrap più comuni toglie interruzioni alla linea.",
+      );
+    }
   }
   return out;
 }
@@ -411,12 +457,12 @@ function BreakerRow({ b, s, name }: { b: ComboBreaker; s: ComboScore; name: (cod
 /** One handtrap and where it stops the line. */
 function Risk({ name, text, counts }: { name: string; text: string; counts: boolean }) {
   return (
-    <li className="flex items-baseline gap-2 text-xs">
+    <li className="flex items-baseline gap-2 text-small">
       <span className={counts ? "text-danger" : "text-faint"} aria-hidden>
         {counts ? "●" : "○"}
       </span>
       <span className="w-32 xl:w-36 shrink-0 font-medium">{name}</span>
-      <span className={`min-w-0 text-[11px] ${counts ? "text-muted" : "text-faint"}`}>{text}</span>
+      <span className="min-w-0 text-small text-muted">{text}</span>
     </li>
   );
 }
@@ -577,27 +623,113 @@ function RivalHandTrapRow({
 
 function Exposure({ s }: { s: ComboScore }) {
   const x = s.exposureDetail;
-  if (!x) return <p className="text-xs text-muted">{s.exposureNote}</p>;
+  if (!x) return <p className="text-small text-muted">{s.exposureNote}</p>;
+
+  const legacy = isLegacyExposure(s);
+  const lossAsh = x.losses?.find((l) => l.kind === "ash");
+  const lossField = x.losses?.find((l) => l.kind === "fieldEffect");
+  const lossNibiru = x.losses?.find((l) => l.kind === "nibiru");
+  const lossDroll = x.losses?.find((l) => l.kind === "droll");
+
+  const chokePoints = x.chokePoints ?? (x.ash + x.onField + (x.summons >= 5 ? 1 : 0) + (x.searches >= 2 ? 1 : 0));
+
   return (
-    <ul className="flex flex-col gap-1">
-      <Risk name="Ash Blossom" counts={x.ash > 0} text={x.ash > 0 ? `${plural(x.ash, "effetto", "effetti")} che prendono carte dal Deck` : "nessun effetto da negare"} />
-      <Risk
-        name="Effect Veiler, Impermanence"
-        counts={x.onField > 0}
-        text={x.onField > 0 ? `${plural(x.onField, "effetto", "effetti")} di mostri attivati sul campo` : "nessun effetto di mostro sul campo"}
-      />
-      <Risk name="Nibiru" counts={x.summons >= 5} text={x.summons >= 5 ? `arriva: ${x.summons} Evocazioni (basta la quinta)` : `non arriva: ${x.summons} Evocazioni su 5`} />
-      <Risk
-        name="Droll & Lock Bird"
-        counts={x.searches >= 2}
-        text={x.searches >= 2 ? `ferma ${plural(x.searches - 1, "aggiunta", "aggiunte")} dal Deck dopo la prima` : x.searches === 1 ? "una sola carta aggiunta dal Deck: non ferma nulla" : "nessuna carta aggiunta dal Deck"}
-      />
-      <Risk
-        name={'Maxx "C"'}
-        counts={false}
-        text={`${plural(x.specialSummons, "Evocazione Speciale", "Evocazioni Speciali")}: l'avversario pesca, ma non ti ferma (non toglie punti)`}
-      />
-    </ul>
+    <div className="flex flex-col gap-2">
+      <div className="flex items-baseline justify-between text-small pb-1 border-b border-border/50">
+        <span className="text-muted">
+          {legacy ? "Punti critici per le handtrap:" : "Perdita attesa per le handtrap:"}
+        </span>
+        <span className="font-semibold tabular-nums text-text">
+          {legacy
+            ? `${plural(Math.round(s.exposure), "punto", "punti")} in cui una handtrap la ferma`
+            : formatExposureValue(s.exposure)}
+        </span>
+      </div>
+      <ul className="flex flex-col gap-1">
+        <Risk
+          name={HANDTRAP_NAMES.ash}
+          counts={legacy ? x.ash > 0 : (lossAsh?.loss ?? 0) > 0.005}
+          text={
+            legacy
+              ? x.ash > 0
+                ? `${plural(x.ash, "effetto", "effetti")} che prendono carte dal Deck`
+                : "nessun effetto da negare"
+              : lossAsh && lossAsh.loss > 0.005
+                ? formatHandtrapLoss(lossAsh.loss, lossAsh.chance)
+                : x.ash > 0
+                  ? "non toglie interruzioni alla linea"
+                  : "nessun effetto da negare"
+          }
+        />
+        <Risk
+          name={HANDTRAP_NAMES.fieldEffect}
+          counts={legacy ? x.onField > 0 : (lossField?.loss ?? 0) > 0.005}
+          text={
+            legacy
+              ? x.onField > 0
+                ? `${plural(x.onField, "effetto", "effetti")} di mostri attivati sul campo`
+                : "nessun effetto di mostro sul campo"
+              : lossField && lossField.loss > 0.005
+                ? formatHandtrapLoss(lossField.loss, lossField.chance)
+                : x.onField > 0
+                  ? "non toglie interruzioni alla linea"
+                  : "nessun effetto di mostro sul campo"
+          }
+        />
+        <Risk
+          name={HANDTRAP_NAMES.nibiru}
+          counts={legacy ? x.summons >= 5 : (lossNibiru?.loss ?? 0) > 0.005}
+          text={
+            legacy
+              ? x.summons >= 5
+                ? `arriva: ${x.summons} Evocazioni (basta la quinta)`
+                : `non arriva: ${x.summons} Evocazioni su 5`
+              : lossNibiru && lossNibiru.loss > 0.005
+                ? formatHandtrapLoss(lossNibiru.loss, lossNibiru.chance)
+                : x.summons < 5
+                  ? `non arriva: ${x.summons} Evocazioni su 5`
+                  : "arriva ma non toglie interruzioni"
+          }
+        />
+        <Risk
+          name={HANDTRAP_NAMES.droll}
+          counts={legacy ? x.searches >= 2 : (lossDroll?.loss ?? 0) > 0.005}
+          text={
+            legacy
+              ? x.searches >= 2
+                ? `ferma ${plural(x.searches - 1, "aggiunta", "aggiunte")} dal Deck dopo la prima`
+                : x.searches === 1
+                  ? "una sola carta aggiunta dal Deck: non ferma nulla"
+                  : "nessuna carta aggiunta dal Deck"
+              : lossDroll && lossDroll.loss > 0.005
+                ? formatHandtrapLoss(lossDroll.loss, lossDroll.chance)
+                : x.searches < 2
+                  ? x.searches === 1
+                    ? "una sola carta aggiunta dal Deck: non ferma nulla"
+                    : "nessuna carta aggiunta dal Deck"
+                  : "arriva ma non toglie interruzioni"
+          }
+        />
+        <Risk
+          name={'Maxx "C", Mulcharmy'}
+          counts={false}
+          text={
+            legacy
+              ? `${plural(x.specialSummons, "Evocazione Speciale", "Evocazioni Speciali")}: l'avversario pesca, ma non ti ferma (non toglie punti)`
+              : x.maxx != null && x.maxxChance != null
+                ? x.maxx > 0.005
+                  ? `${formatMaxxImpact(x.maxx, x.maxxChance)} · ${plural(x.specialSummons, "Evocazione Speciale", "Evocazioni Speciali")}`
+                  : `${plural(x.specialSummons, "Evocazione Speciale", "Evocazioni Speciali")}: nessuna pescata concessa oltre la prima`
+                : `${plural(x.specialSummons, "Evocazione Speciale", "Evocazioni Speciali")}: l'avversario pesca, ma non ti ferma (non toglie punti)`
+          }
+        />
+      </ul>
+      {chokePoints > 0 && (
+        <p className="text-small text-muted pt-1 border-t border-border/40">
+          Punti critici nella linea: {plural(chokePoints, "momento", "momenti")} in cui una handtrap può intervenire
+        </p>
+      )}
+    </div>
   );
 }
 

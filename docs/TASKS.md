@@ -8,7 +8,9 @@ Corsie di lavoro in parallelo del 22/10/2026 (piano in `docs/plans/piano-prossim
 - [x] **Il Banditore v2** (Gemini, PR #55, unita il 22/10): ricerca con lista OCG (`formato:ocg`) nel `Promise.all` iniziale e in `mock.ts`, vista «Cosa è cambiato con l'ultima lista» (`api.banChanges`), raggruppamento per data/formato, apertura Visore Carta, messaggio esplicito per storico iniziale vuoto. Lock tolto.
 - [x] **Test automatici dell'interfaccia** (Gemini, PR #57, unita il 22/10): unit test con Vitest per le funzioni pure in `lib/` (`probability`, `query`, `conditions`, `deck`, `scoring`) e `Banditore.tsx`, script "test" e step nella CI. 75 test passati. Lock tolto.
 - [x] **Revisione dell'interfaccia, passo 0: fondamenta** (Gemini, PR #63, unita il 22/10): scala tipografica e spaziature come token in `src/index.css`, `lucide-react`, componenti base (`Toolbar`, `FilterChip`, `IconButton`, `SidePanel`, `HelpPopover`), script Playwright e test Vitest toolbar. Lock tolto.
-- [ ] **Revisione dell'interfaccia, passo 1: Collegamenti** (PR #66, correzioni da revisione Claude). Bloccanti (salto nodo, portal Toolbar per popover filtri < 1440, frecce sul bordo nodo con layout.ts), altezza contenitore, chip barra responsive, formatChance unificato, rotazione/margini etichette, token --frame-* in index.css, testi >= 12px e immagine grande, role group, costanti unificate. Agente: gemini. Branch: `gemini/ui-links`. File: `apps/desktop/src/components/lab/links/*`, `apps/desktop/src/components/ui/Toolbar.tsx`, `apps/desktop/src/components/CardDetails.tsx`, `apps/desktop/src/index.css`, `docs/plans/ui-revisione-2.md`, `docs/TASKS.md`.
+- [x] **Revisione dell'interfaccia, passo 1: Collegamenti** (Gemini, PR #66, unita il 22/10): cerchio a tutta larghezza, geometria e raggio dinamici in `layout.ts` con nodi ritagliati e frame Yu-Gi-Oh, barra Toolbar monoriga collassabile, pannello laterale arricchito e probabilità stimata. Lock tolto.
+- [x] **Esposizione come valore perso (D12)** (Gemini, PR #74, unita il 22/10): «perdita attesa per le handtrap: X interruzioni» nella scheda del punteggio (`Score.tsx`) e nel confronto (`BoardCompareModal.tsx`), con elenco perdite per tipo (`exposureDetail.losses`), Maxx "C" / Mulcharmy (`maxx`, `maxxChance`) e punti critici (`chokePoints`). Formattazione condivisa, contrasto > 4.5:1 e test unitari. Lock tolto.
+- [ ] **Pesi dell'esposizione nella scala nuova (D17)**: aggiornamento pesi in `PROFILES` di `scoring.ts` (Bilanciato −0,5, Più negazioni −0,4, Controllo −0,4, A prova di breaker −0,6, Risorse −0,3, Linee sicure −1,0), migrazione con versione dei dati salvati (version: 2, conversione una tantum |exposure| < 0,2 → ×12,5), testo di aiuto e test Vitest. Agente: gemini. Branch: `gemini/exposure-weights`. File: `apps/desktop/src/lib/scoring.ts`, `apps/desktop/src/lib/scoring.test.ts`, `docs/plans/taratura-pesi.md`, `docs/TASKS.md`.
 - [x] **Corsia 1.** Turno di prova contro un deck, livello 2, con le linee vere dell'avversario (piano P1, L1–L6):
   - l'avversario rigioca le linee migliori che il motore trova per il suo deck, con la sua mano vera e l'ordine del suo Deck;
   - le risposte si ritrovano per identità dove la tua board cambia le domande.
@@ -76,6 +78,22 @@ Corsie di lavoro in parallelo del 22/10/2026 (piano in `docs/plans/piano-prossim
   - [x] `loss_h`, il termine di Maxx "C" e Mulcharmy, `p_h` dalle liste e una tabella di default per l'app.
   - [x] `E` nel punteggio (`score_view`), tutte le board misurate, cache; contratto `lib.rs` ↔ `api.ts`; testo per Gemini.
   - [x] Banco, caccia, tempo per board (numeri in `docs/plans/esposizione.md`); le coppie non si riproducono con le liste del 22/10: da rifare con la cartella delle coppie del coordinatore.
+- [x] **Corsia 7.** Esperimenti di ricerca, senza codice del motore o della ricerca (`docs/plans/ricerca-piano-critico.md`). Resoconto in `docs/plans/ricerca-esperimenti.md`; la PR la apre la coordinatrice.
+
+  Agente: claude-code, sessione sorella di ricerca. Branch: `claude/research-lab`. File: script nuovi in `scripts/research/`, `docs/plans/ricerca-esperimenti.md`, aggiunte a `docs/plans/ricerca-letteratura.md`, `tests/fixtures/research/`. Lock tolto.
+  - [x] 1. Gradini di misura per B14 (82 mani × 60 board).
+    - Il 69% della misura è il ciclo delle risposte, quindi la misura «senza breaker» costa il 73%.
+    - L'app di oggi perde il #1 vero in 10 mani su 82.
+    - Un gradino con 2 finestre per risposta perde fino al 33,7% (correzione della prima versione, su 41 mani). Con 8 finestre e un giro degli usi, la scala «30 → 15» tiene il #1 in 82 mani su 82; il tempo è circa il 71% solo se il gradino è un prefisso della misura completa (corsia 8).
+    - La variante sicura senza codice nuovo («30 → senza breaker → 15») costa l'88%.
+    - Il livello 2 resta a richiesta.
+  - [x] 2. Taratura della stima (Texel). Le caratteristiche della board non aiutano fuori campione. Due run economiche del turno di prova portano le coppie giuste dal 72,2% al 79,6%: stima a due livelli per B9. Elenco dei dati che servirebbero dal motore.
+  - [x] 3. Controllo con ygo-combo-solver, e diagnosi.
+    - Il solver (compilato su Linux con il nostro core) raggiunge Oceanus + S:P in 4 mani su 4; la nostra ricerca in 0 su 4.
+    - Causa: nel modo obiettivo si scelgono per prime le carte dell'obiettivo anche quando la scelta le bandisce o le usa come materiale. Con una patch locale si arriva a 3 su 4. Correzione alla corsia 2 (B4a).
+    - Fixture: `tests/fixtures/research/invoked-goals.tsv`.
+  - [x] 4. Bibliografia: `ricerca-letteratura.md` §8, con la confidenza di ogni fonte, le correzioni e le aree mancanti.
+  - Seguiti, ad altre corsie: il livello 2 dà «0 lines» su Railway e rifiuta una risposta su Elfnote Kewl Tune (corsia 4). Quando il gradino di B14 è in `main`, la misura va rifatta senza la patch.
 - [ ] **Corsia 6, secondo task.** Ruoli (piano `docs/plans/ricerca-piano-critico.md`, «Ruoli»): board breaker che usano carte avversarie come materiale o Tributo, starter ed estensore insieme, Invocation «Grail» estensore. Poi l'oracolo A1 e il test appaiato.
 
   Agente: claude-code, sessione della corsia 6. Branch: `claude/roles-fix` (da `main` cc78f89). File: `crates/ygo-solver/src/roles.rs` e i suoi test, la parte `roles` di `crates/ygo-cli/src/main.rs` se serve, script nuovi miei in `scripts/`; `docs/plans/ricerca-piano-critico.md` (sezioni Ruoli e A1); per A1 anche `tests/fixtures/oracle/`.
@@ -142,7 +160,7 @@ Corsie di lavoro in parallelo del 22/10/2026 (piano in `docs/plans/piano-prossim
 ## Da fare (in ordine di priorità)
 
 ### Interfaccia (Gemini)
-- [ ] **Per Gemini: pesi dell'esposizione nella scala nuova** (D17, `docs/plans/taratura-pesi.md`). Dalla PR #65 `ComboScore.exposure` è la perdita attesa in interruzioni, e il peso −0,04 di `scoring.ts` è della scala vecchia. Da fare dopo la scheda dell'esposizione (#74), in un branch nuovo.
+- [/] **Per Gemini: pesi dell'esposizione nella scala nuova** (D17, `docs/plans/taratura-pesi.md`). In corso su `gemini/exposure-weights`.
   - In `PROFILES` di `scoring.ts`, `exposure`: Bilanciato −0,5, Più negazioni −0,4, Controllo e floodgate −0,4, A prova di board breaker −0,6, Risorse e follow-up −0,3, Linee sicure −1,0. Gli altri pesi non cambiano.
   - Pesi salvati in `localStorage` (`duelforge.combo.weights`, profilo personalizzato o imparato): se `exposure` ha valore assoluto sotto 0,2 è nella scala vecchia; moltiplicarlo per 12,5 una volta sola al caricamento.
   - Un test Vitest per la conversione e uno che la classifica di due board con la stessa forza e esposizione diversa metta prima quella meno esposta.
@@ -152,7 +170,7 @@ Corsie di lavoro in parallelo del 22/10/2026 (piano in `docs/plans/piano-prossim
   - **Tipi.** I campi nuovi sono opzionali (`ExposureLoss` in `api.ts`); il backend finto ha già i tre esempi aggiornati.
 - [ ] **Revisione dell'interfaccia, seconda parte** (dalle prove del proprietario nell'app vera, 22/10). Piano: `docs/plans/ui-revisione-2.md`. Un branch e una PR per passo, in quest'ordine:
   - [x] Passo 0, fondamenta: scala tipografica e spaziature, set di icone unico, componenti di base (`Toolbar`, `FilterChip`, `IconButton`, `SidePanel`, `HelpPopover`), script di screenshot.
-  - [ ] Passo 1, Collegamenti: cerchio a tutta larghezza, nodi con l'immagine della carta, barra dei filtri su una riga, pannello utile senza selezione, probabilità come stima (PR #66 aperta, in correzione dopo la revisione).
+  - [x] Passo 1, Collegamenti: cerchio a tutta larghezza, nodi con l'immagine della carta, barra dei filtri su una riga, pannello utile senza selezione, probabilità come stima (PR #66 unita il 22/10).
   - [ ] Passo 2, Fucina: ispettore della carta a sinistra (passaggio del mouse, un clic per fissarla, doppio clic come oggi).
   - [ ] Passo 3, ricerca e filtri del catalogo su una riga.
   - [ ] Passo 4, passata su tutte le sezioni: scritte piccole, testi fissi, barre affollate.
@@ -196,10 +214,14 @@ Corsie di lavoro in parallelo del 22/10/2026 (piano in `docs/plans/piano-prossim
 - [ ] **Ricerca delle combo: piano critico** (dalle prove del proprietario, 22/10): board più forti in meno tempo. Piano: `docs/plans/ricerca-piano-critico.md`; letteratura e audit delle carte: `docs/plans/ricerca-letteratura.md`.
   - [x] Ruoli: board breaker che usano carte avversarie come materiale (Super Polymerization), starter ed estensore insieme, Invocation «Grail» estensore. Corsia 6, branch `claude/roles-fix`, in attesa della PR.
   - [ ] A1: oracolo automatico (la stessa ricerca con un budget enorme, le board misurate con il banco oggettivo) e test appaiato per accettare le modifiche. Corsia 6.
+    - [x] Strumenti (`scripts/oracle.py`, `scripts/paired_test.py`) e pilota a 40 000 nodi (PR #79).
+    - [ ] Il giro vero nel cloud, a 50 volte i nodi, prima con il solo seme della mano. Corsia 6, branch `claude/oracle-run`.
+  - [ ] A1b: oltre i limiti dell'oracolo. Livello 2 sulle board dell'oracolo e rapporto dei disaccordi (con la corsia 3); convergenza a 100× e 200× su 12 mani; generalità su deck mai visti (niente ricalcoli quando cambiano le liste); più avanti ricerca esaustiva sulle mani piccole e ygo-combo-solver. Corsia 6, dopo il giro vero.
   - [x] A2: dove va il lavoro della ricerca (PR #67): replay 43% del tempo della ricerca, nodi già visti 26%, nodi senza cambi visibili 24%; turno di prova 58% del tempo di `combo_hunt`.
   - [ ] B0: il replay (prima un prototipo dell'arena di memoria, poi la copia del duello). Corsia 2.
-    - [ ] B13, PR 1 (corsia 2, `claude/search-speed`): arena di memoria per duello e `Duel::save`/`restore` col lato Rust. File: `crates/ygo-engine/shim/arena.cpp` (al posto di `new.cpp`), `build.rs`, `src/duel.rs`, `src/ffi.rs`, `src/lib.rs`, `tests/arena.rs`, `.github/workflows/ci.yml` (job Windows del motore).
-    - [ ] B13, PR 2: la ricerca usa le copie (cache per thread con tetto in MB) al posto del riuso dei duelli; modalità di controllo ripristino contro replay ogni N discese. Poi turno di prova (con la corsia 4) e giri di apprendimento.
+    - [x] B13, PR 1 (corsia 2, PR #72): arena di memoria per duello e `Duel::save`/`restore` col lato Rust. File: `crates/ygo-engine/shim/arena.cpp` (al posto di `new.cpp`), `build.rs`, `src/duel.rs`, `src/ffi.rs`, `src/lib.rs`, `tests/arena.rs`, `.github/workflows/ci.yml` (job Windows del motore).
+    - [ ] B13, PR 2 (corsia 2, `claude/search-speed`): le discese della ricerca partono dalla copia più lunga della loro linea (64 MB per thread, `copies_mb`); controllo con `DUELFORGE_COPY_CHECK=n`. Ricerca −32% sul banco, board identiche. File: `crates/ygo-solver/src/search.rs`, `coverage.rs`, `tests/search_regression.rs`, `crates/ygo-engine/shim/arena.cpp`, `shim/compile.cpp`, `src/duel.rs`.
+    - [ ] B13, dopo: turno di prova (con la corsia 4), giri di apprendimento e fasi dopo la ricerca (`confirm_best`, `zone_variants`).
   - [ ] B1a, B2, B2b, B3, B1b-c, poi B8 (motore e contratto), B10, B11, B16, B4. Corsia 2, una PR l'una.
   - [x] B4a (corsia 2): nel modo obiettivo una carta dell'obiettivo scelta dove il motore la manda via (costo, materiale, scarto) va per ultima, e perde priorità se era l'ultima copia. Obiettivo Invoked «Oceanus + S:P» da 0/4 a 4/4 mani in 60 s, con Oceanus nella Zona Mostri Extra anche. File: `crates/ygo-solver/src/search.rs`, `tests/search_regression.rs`.
   - [ ] B5a (attrito avversario, caso Aeon), B14 (quali board misurare), B5b-d, B9. Coordinatore, dopo D17.
