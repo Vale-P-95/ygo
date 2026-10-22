@@ -383,7 +383,7 @@ Il tempo di queste mani lo accorcia l'utente, scegliendo il limite nell'app; la 
 | 2. Discese che finiscono su un nodo già esplorato (altre scelte 15,6%, altro ordine 9,3%, risposte che riportano indietro 1,4%) | 26,3% | 18% (33% del tempo delle discese) |
 | 3. Nodi senza cambi visibili (passi delle selezioni a più carte, scelta dell'Evocazione prima dei materiali) | 23,8% | non misurato a parte: ogni nodo in più allunga anche i replay successivi |
 
-Fuori dalla ricerca, in `combo_hunt` pesa di più il turno di prova (58% del tempo totale) delle fasi dopo la ricerca (15%) e dei giri di apprendimento (4%).
+Fuori dalla ricerca, in `combo_hunt` pesa di più il turno di prova (58% del tempo totale) delle fasi dopo la ricerca (15%) e dei giri di apprendimento (4%). Il turno di prova lo guarda il coordinatore insieme a B5.
 
 **Cosa ne segue per la fase B.**
 - **B2 (ordini scambiabili)** toglie al più il 9,3% dei nodi e il 10% del tempo delle discese: è lo spreco misurato più chiaro.
@@ -392,7 +392,8 @@ Fuori dalla ricerca, in `combo_hunt` pesa di più il turno di prova (58% del tem
 - **Il replay** è lo spreco più grande e nessun punto B lo tocca. Due strade, entrambe nel motore e nella ricerca:
   - discese più lunghe per replay, cioè più risposte lasciate in coda per ogni replay;
   - un'istantanea del duello a metà turno, come quella che già riusa il duello all'inizio, per ripartire da un nodo senza rigiocare.
-- **I nodi senza cambi visibili** si potrebbero contare come un solo passo: una selezione a più carte, o un'Evocazione con i suoi materiali.
+- **I nodi senza cambi visibili** si potrebbero contare come un solo passo: una selezione a più carte, o un'Evocazione con i suoi materiali. Nel piano è B2b, dopo B2, con il controllo che la chiave dei nodi non perda stati distinti.
+- **Ordine deciso:** B0 (il replay, studio sotto), B2, B2b, B3, B1.
 
 ## B0: il replay, studio delle strade (22/10/2026, corsia 2)
 Nessun codice nella ricerca: misure e stime, per decidere.
