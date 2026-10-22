@@ -2,10 +2,17 @@
 
 *Corsia 10, 22-23/10/2026, branch `claude/literature-review`. Per il proprietario e il coordinatore. Estende e corregge `ricerca-letteratura.md` (22/10), che resta il riferimento per le idee già adottate; qui non si ripetono le fonti già verificate lì (§8.3), se non per correggerle o per collocarle rispetto a fonti nuove.*
 
-**Bozza in lavorazione.** Le sezioni si riempiono una alla volta e si pushano a ogni passo.
-
 ## 0. Sommario esecutivo
-*(da scrivere alla fine: 15 righe, le 5 direzioni più promettenti con i lavori chiave)*
+1. **Non esiste letteratura scientifica su Yu-Gi-Oh! come problema di pianificazione**; il lavoro vero sta in quattro repository (ygo-agent, MirrorForce, ygorl, ygo-combo-solver), letti per intero. Tutti giocano partite intere o raggiungono un obiettivo: nessuno cerca la board più forte del primo turno valutata contro il turno avversario. Il nostro problema è una lacuna (§5.1).
+2. **Il self-play RL è escluso come componente**: ygo-agent 100 milioni di partite su 32 RTX 4090 per un deck, MirrorForce 32 H20 per 3 giorni per un mirror, e perde le linee che ci interessano (96 scene a mano); LOCM 2022 e Rudolph (ICLR 2026) confermano. La ricerca esatta sul motore resta la base, e ogni parte imparata ordina, non decide (§2.3, §2.7).
+3. **Direzione 1, struttura della ricerca (B1b, B2, B3, B11, B14):** novità alla Iterated Width partizionata per progresso (Lipovetzky; Bandres; ygo-combo-solver), bandit locali per tipo di prompt (NaïveMCTS, CadiaPlayer), disciplina della ricerca su grafo per le trasposizioni (KataGo `GraphSearch`, Burch & Holte: la penalità 0,6 più la tabella può perdere la linea migliore), dimezzamenti alla radice (Gumbel MuZero), retropropagazione del massimo (SP-MCTS, sts_lightspeed, SabberStone).
+4. **Direzione 2, la mano avversaria come K scenari (A1b, B5b):** DESPOT, GIB, Long et al., SAA robusta e la predizione dei deck in Hearthstone dicono che il valore di livello 2 è la media su K mani pescate dal meta con una correzione CVaR, con le stesse mani per tutte le board; le interruzioni si modellano come classi astratte e si ripianifica dopo (Brown & Sandholm, SPARTA), misurando per mondo senza pianificare per mondo.
+5. **Direzione 3, rappresentazione per le carte mai viste (B5d, B9):** caratteristiche dalla struttura dello script Lua (MirrorForce lo fa; Ludii lo spiega con i canali semantici; Bertram e OpenAI Five mostrano che gli id crollano fuori dal pool; ygorl che il testo da solo non basta), validate su carte uscite dopo l'istantanea (Procgen).
+6. **Direzione 4, apprendimento dall'oracolo come ranker (B12, B1c):** perdita a coppie sui fratelli delle linee dell'oracolo (Garrett et al., DeepChess, Giraffe), ordinamento focale per discrepanze (Greco et al.), modello piccolo (GOOSE: le caratteristiche classiche battono le GNN dentro la ricerca); ygorl misura il tetto della clonazione (41/100 contro 62/100 del solver).
+7. **Direzione 5, motore e budget (B0, B13, B7):** lo snapshot vale 0,59 ms contro 47,5 ms di replay sullo stesso core (ygorl); con decine di secondi si comprano 10^4-10^5 nodi, quindi la potatura conta più della velocità della valutazione; da ygo-combo-solver `elide_forced`, la distanza in Evocazioni e il finisher alla Levin; da Prismata e PGS un portafoglio di politiche di risposta per tipo di messaggio; Forge è il progetto ammonitore più vicino (profondità 3, nessuna tabella, copia intera per nodo).
+8. **Metodo e limiti.** Circa 170 interrogazioni eseguite e 50 rifiutate per budget, tutte nel registro (§1.5); dal container solo GitHub e PyPI erano raggiungibili, quindi **nessun articolo è stato letto per intero** e i numeri degli articoli sono da abstract o estratti, marcati come tali; circa 150 lavori censiti (§3), 45 letti per intero su GitHub.
+9. **Correzioni al rapporto precedente** (§3.1): nessuna riga risulta falsa; precisati WindBot (47 deck, 66 file), ygo-agent (tabella per id inizializzata dal testo), ygo-combo-solver (impianto completo letto) e Prismata (nessuna tabella né ordinamento nel codice).
+10. **Lacune da riempire** (§5): catene nella ricerca, limiti ammissibili per un turno, riduzione per ordine parziale su effetti in Lua, novità con caso, strategy fusion con interruzioni a metà linea, e l'articolo su Duelyst (UNH 2023) ancora da leggere.
 
 ## 1. Domande, metodo e registro delle interrogazioni
 
@@ -666,10 +673,226 @@ Un fatto nuovo rispetto a `ricerca-letteratura.md`: nel 2026 c'è stata una **pr
 6. **Sicurezza delle potature per ordine**: qualunque filtro «A poi B ≡ B poi A» aggiunto al Combo Lab va dimostrato incapace di cancellare ogni cammino a una board (Burch & Holte 2012), e non va combinato ingenuamente con una tabella delle trasposizioni a insieme chiuso (Holte 2013): la nostra tabella più la penalità di deviazione è esattamente la situazione in cui la prima visita penalizzata può escludere una visita migliore dopo; si tenga la miglior penalità vista nella voce e si permetta la riespansione se migliora (B2, B3).
 
 ## 3. Tabella di tutti i lavori
-*(riferimento, tipo, livello di lettura, trasferibilità)*
+Legenda. **Tipo:** PR = peer-reviewed; arXiv = preprint; tesi; repo = repository di codice (amatoriale o di ricerca: indicato); comp = competizione; sec = solo fonte secondaria. **Lettura:** intero = codice, README o documenti letti per intero da GitHub; abstract = abstract ed estratti via motore di ricerca; sec = stampa, blog o altro articolo; titolo = solo il titolo. **Trasf.:** trasferibilità a DuelForge: A alta, M media, B bassa (con la ragione nelle schede di §2). La colonna «Voce» rimanda alla scheda.
+
+### 3.1 Correzioni e integrazioni a `ricerca-letteratura.md`
+- **WindBot** (§8.2, punto 3): il README elenca 47 deck; la cartella `Game/AI/Decks` ha 64 file `*Executor.cs` più 2 varianti, 66 file. I due numeri contano cose diverse ed erano entrambi giusti; `DefaultExecutor.cs` (oltre 1000 righe) contiene la logica comune, tutta per ID.
+- **ygo-combo-solver** (§4, voce 1 e 8; §8.2, punto 4): ora `search.cpp` è letto per intero. L'impianto è NRPA/GNRPA con novità alla Iterated Width partizionata per progresso, archivio alla Go-Explore per sotto-obiettivo, finisher best-first alla Levin con costo `log(d+1) − log π + λ·h` e varianti con re-rooting, distanza in Evocazioni sulle «ricette», riconoscimento con il senno di poi, macro scelte con perdita alla Levin, landmark, `elide_forced` («74,6% dei nodi senza scelta»). Il README cita per LTS e PHS* arXiv 2103.11505 (Orseau & Lelis, AAAI 2021) e 2412.05196 (non verificato), per IW arXiv 1801.03354 (Bandres, Bonet & Geffner 2018), per Go-Explore 2004.12919, per le macro 2410.11262, per i landmark 2508.21564, per la retrosintesi 2006.15820 e 2407.06334, per MCPS 2510.06381. «Ordini di grandezza in meno» resta non misurato da loro; **la misura esterna è di ygorl sul proprio porting: 0,59 ms contro 47,5 ms di replay (rapporto 0,012)**.
+- **ygorl** (§8.2, punto 1): i numeri «41 su 120 per la casualità contro 7 per PPO» e «41 su 100 per la clonazione contro 62 del solver» sono confermati in `solver.md`, `bc.md` e `benchmarks.md`; in più ora ci sono il costo del solver per mano (56% risolte a 20 s; 92% degli scenari di blocco a 10 s), l'imbuto (mani morte 42,5% contro 40,8% reali) e l'ablazione del testo (solo-ID 0,609 contro 0,585-0,590).
+- **ygo-agent** (§4, voce 13): la frase «parole chiave dal testo delle carte» va precisata: ygo-agent **inizializza** una tabella di embedding per ID (999 + 1) dagli embedding LLM del testo degli effetti, poi la impara; una carta fuori lista riceve il vettore medio. Il «100 milioni di partite, 32 RTX 4090 per 5 giorni» è confermato dal README (tre corsie indipendenti).
+- **Prismata HPS** (§8.4, punto 1): il codice conferma e precisa: `AlphaBetaSearch` è senza tabella delle trasposizioni e senza ordinamento, con tetto di 40 figli; il portafoglio di radice del profilo difficile dà al massimo 5 mosse-turno; i tempi sono 1-7 s. Il «25% migliore della classifica umana» resta solo dall'abstract.
+- **ISMCTS** (§4, «da non adottare»): l'implementazione di OpenSpiel è «implementata ma poco testata» (documentazione letta); l'esclusione dalla ricerca del proprio turno resta; per il livello 2 vale la struttura dati, non le iterazioni.
+- **LTS/PHS garanzie** (§8.2, punto 5): il focal search di Greco, Araneda & Baier (SoCS 2021) è la cornice che contiene la nostra penalità di deviazione come caso particolare, con limite di subottimalità; da aggiungere accanto a LTS e PHS.
+- **Nessuna riga del rapporto precedente risulta falsa** alla luce delle fonti nuove; le aggiunte riguardano meccanismi (novità per progresso, finisher alla Levin, bandit locali, GraphSearch) e numeri esterni (ygorl, MirrorForce, LOCM).
+
+### 3.2 Tabella
+| Voce | Riferimento | Tipo | Lettura | Trasf. |
+|---|---|---|---|---|
+| G1.1 | sbl1996/ygo-agent (ygoenv + ygoai), 2024 | repo (ricerca amatoriale) | intero | B-M |
+| G1.2 | tommy85/MirrorForce, 2026; cita Sokota et al., *Scalable decision-making for games of imperfect information*, Nature 2026 | repo; PR (non letto) | intero; titolo | M |
+| G1.3 | n0tevi1/ygorl, 2026 | repo (ricerca) | intero (11 documenti) | A (evidenza) / B (metodo) |
+| G1.4 | Armytille/ygo-combo-solver e fork 96jonesa | repo (amatoriale, AGPL) | intero (`search.cpp`, README) | A (meccanismi) / B (impianto) |
+| G1.5 | ProjectIgnis/windbot, IceYGO/windbot | repo (bot a script) | intero | B |
+| G1.x | crispy-chiken/YugiohAi; sbl1996/yugioh-ai; JMaster-Duel-Bot; Duel-Forge-Bot; Yugioh-bot | repo | intero | esclusi |
+| G1.x | Konami: gara AI duelist (Automaton); Master Duel «AI da 100k partite» (Gamerbraves); «YGO agent competition» 2026 (Bilibili) | sec | sec | — |
+| G2.1 | Card-Forge/forge, `forge-ai/simulation` | repo (GPL) | intero (16 file) | A (schema) / B (com'è) |
+| G2.2 | gamerpuppy/sts_lightspeed, `BattleScumSearcher2` | repo (MIT) | intero | A (P5-P7) / M |
+| G2.3 | HearthSim/SabberStone | repo (AGPL) | intero (README; `OptionNode.cs` ecc. in G8.11) | B / M |
+| G2.4 | Hearthstone-AI competition 2018-2020 (via Kowalski & Miernik 2023; Dockhorn & Mostaghim 2019) | comp | sec | M |
+| G2.5 | Santos et al., *MCTS Experiments in Hearthstone*, IEEE CIG 2017 | PR | abstract | B-M |
+| G2.6 | Choe & Kim, *Enhancing MCTS for Playing Hearthstone*, IEEE CoG 2019 | PR | abstract | M |
+| G2.7 | Zhang, tesi MSc UAlberta 2017 | tesi | abstract | M |
+| G2.8 | Sakurai & Hasebe, RHEA per Hearthstone, SciTePress 2023 | PR | sec | M |
+| G2.9 | peter1591/hearthstone-ai | repo (amatoriale) | intero (README) | M |
+| G2.10 | Janusz et al., AAIA'17 (arXiv 1708.00730); Grad, FedCSIS 2017 | PR | abstract | M |
+| G2.11 | Kowalski & Miernik, *Summarizing SCGAI Competition*, IEEE CoG 2023 (arXiv 2305.11814) | PR/arXiv | abstract | M |
+| G2.12 | Miernik & Kowalski, *Evolving Evaluation Functions for CCG AI*, ICAART 2022 (arXiv 2105.01115) | PR | abstract | M |
+| G2.13 | Xi et al., arXiv 2303.04096; Xiao et al., arXiv 2303.05197 (ByteRL) | arXiv | abstract | B |
+| G2.14 | Vieira, Tavares & Chaimowicz, *Learning to Beat ByteRL*, arXiv 2404.16689 | arXiv | abstract | B |
+| G2.15 | Vieira et al., SBGames 2019/2020/2022, Ent. Computing 2023; gym-locm | PR; repo | abstract; intero | B |
+| G2.16 | Vieira et al., *A Taxonomy of CCGs*, ICEC 2024 (arXiv 2410.06299) | PR | abstract | B |
+| G2.17 | Hoover et al., *The Many AI Challenges of Hearthstone*, KI 2020 (arXiv 1907.06562) | PR | abstract | B |
+| G2.18 | Cowling, Ward & Powley, *Ensemble Determinization in MCTS for Magic*, IEEE TCIAIG 2012; Ward & Cowling, CIG 2009 | PR | abstract/sec; titolo | M |
+| G2.19 | Churchill, Biderman & Herrick, FUN 2021 (arXiv 1904.09828); Biderman, arXiv 2003.05119 | PR; arXiv | abstract | B (argomento) |
+| G2.20 | Taucer, Polk & Oommen, AIAI 2018 | PR | abstract | M/B |
+| G2.21 | Godlewski & Sawicki, arXiv 2109.12112, 2109.12001 (BPASTS 2021), tesi 2022, BPASTS 2024 | PR/arXiv/tesi | abstract | M |
+| G2.22 | Fisher, Provincial; *Dominion: A New Frontier*, arXiv 2405.06846 | sec; arXiv | sec | B |
+| G2.23 | sts-rl-agent (HF), AutoClad, Mini-spire | repo/blog | sec | B-M |
+| G2.24 | tesi su Gwent (VUT 2024, UPV) | tesi | abstract | B |
+| G2.25 | Pokémon TCG AI Battle Challenge (Kaggle 2026); pkm-cabt-ppo (HF); DeNA CEDEC 2026 | comp; repo; sec | sec | B-M |
+| G2.26 | Hosei 2014, MCTS per un TCG | tesi | sec | B |
+| G3.2 | Zha et al., DouZero, ICML 2021 (arXiv 2106.06135) | PR; repo | abstract; README | M (idea) / B |
+| G3.3 | Yang et al., PerfectDou, NeurIPS 2022 (arXiv 2203.16406) | PR; repo | abstract; README + `env.py` | M |
+| G3.4 | Jiang et al., DeltaDou, IJCAI 2019 | PR | abstract | B-M |
+| G3.5 | Li et al., Suphx, arXiv 2003.13590 | arXiv | abstract | M |
+| G3.6 | Zhao et al., AlphaHoldem, AAAI 2022 | PR | abstract | B |
+| G3.7 | Zha et al., RLCard, arXiv 1910.04376 | arXiv; repo | README | B |
+| G3.8 | Lanctot et al., OpenSpiel, arXiv 1908.09453 | arXiv; repo | `algorithms.md` | B |
+| G3.9 | Vinyals et al., AlphaStar, Nature 2019; TStarBot-X; Huang et al. NeurIPS 2023 | PR; arXiv | sec | B |
+| G3.10 | Berner et al., OpenAI Five, arXiv 1912.06680 | arXiv | abstract/sec | B |
+| G3.11 | Silver et al., AlphaZero, Science 2018; Schrittwieser et al., MuZero, Nature 2020 | PR | sec | B |
+| G3.12 | Danihelka et al., Gumbel MuZero, ICLR 2022; `mctx` | PR; repo | abstract; intero (`policies.py`) | M-A (allocatore) |
+| G3.13 | Hubert et al., Sampled MuZero, ICML 2021 | PR | abstract | M |
+| G3.14 | Antonoglou et al., Stochastic MuZero, ICLR 2022 | PR | abstract; `mctx` intero | M (struttura) / B |
+| G3.15 | Schmid et al., Player of Games, Science 2023 | PR | abstract | B |
+| G3.16 | Brown et al., ReBeL, NeurIPS 2020 | PR; repo | abstract; README | B (M come vocabolario) |
+| G3.17 | Hennes et al., NeuRD, AAMAS 2020 | PR | abstract | B |
+| G3.18 | Perolat et al., DeepNash, Science 2022 | PR | abstract | B |
+| G3.19 | Hu & Foerster, SAD, ICLR 2020; Other-Play; OBL; hanabi_SAD | PR; repo | abstract; README | B |
+| G3.20 | Xia et al., Cardsformer, ECAI 2023; tesi CTU su PPO/A2C | PR; tesi | abstract (codice in G6.1) | M |
+| G3.21 | Vieira 2022; Xi 2023; *Unsound Search … LOCM*, arXiv 2609.06816; Kubíček et al., IJCAI 2024 | PR; arXiv | abstract; solo bibliografia | M (negativa) |
+| G3.22 | Charlesworth, Big 2 PPO, arXiv 1808.10442 | arXiv; repo | README; sec | B-M |
+| G3.23 | pkm-cabt-ppo (HF) | repo | sec | M |
+| G3.24 | Rudolph et al., *Reevaluating Policy Gradient Methods for II Games*, ICLR 2026 | PR | abstract | M (guida) |
+| G3.25 | Narvekar et al., JMLR 2020; arXiv 1903.12328; Camargo & Sáenz 2021 | PR; arXiv | abstract | B-M |
+| G4.1 | Browne et al., survey MCTS, IEEE TCIAIG 2012 | PR | abstract | M (mappa) |
+| G4.2 | Świechowski et al., AI Review 2023 (arXiv 2103.04931) | PR | abstract | M (mappa) |
+| G4.4 | Couëtoux et al., *Continuous UCT* (DPW), LION 2011 | PR | abstract | M |
+| G4.5 | Schadd et al., SP-MCTS, CG 2008 / KBS 2012; tesi Tak | PR; tesi | abstract | A (obiettivo) / B (budget) |
+| G4.6 | Cazenave, NMCS, IJCAI 2009; Cazenave & Jouandeau | PR | abstract | M |
+| G4.7 | Ontañón, NaïveMCTS/CMAB, AIIDE 2013, JAIR 2017; MicroRTS | PR; repo | abstract; intero (codice) | A |
+| G4.8 | Churchill & Buro, PGS, IEEE CIG 2013; Churchill, Lin & Synnaeve, AIIDE 2017; `PortfolioAI.java` | PR; repo | abstract; intero | A (schema) |
+| G4.9 | Gaina et al., RHEA, IEEE ToG 2020 (arXiv 2003.12331) | PR | abstract | B-M |
+| G4.10 | Zhou & Hansen, Beam-Stack, ICAPS 2005; Lemons & Ruml, ICAPS 2022; Rectangle Search, AAAI 2024 | PR | abstract | A (forma) |
+| G4.11 | Thayer & Ruml, EES, IJCAI 2011; Hatem & Ruml, SEES, AAAI 2014 | PR | abstract | M |
+| G4.12 | Likhachev et al., ARA*, NIPS 2003; Aine et al., AWA*, IJCAI 2007 | PR | abstract | M |
+| G4.13 | Akagi, Kishimoto & Fukunaga, SoCS 2010; Holte, Canadian AI 2013 | PR | abstract | A (avvertimento) |
+| G4.14 | Felner et al., *Inconsistent Heuristics*, AIJ 2011; Zhang et al., IJCAI 2009 | PR | abstract | B-M |
+| G4.15 | Silver et al., AlphaGo, Nature 2016; Rosin, PUCB, AMAI 2011 | PR | abstract/sec | M |
+| G4.16 | Wu, KataGo, arXiv 1902.10565; `KataGoMethods.md`, `GraphSearch.md` | arXiv; repo | abstract; intero | A (GraphSearch) / M |
+| G4.19 | Grill et al., *MCTS as Regularized Policy Optimization*, ICML 2020 | PR | abstract | M |
+| G4.20 | Zahavy et al., *Action Elimination*, NeurIPS 2018 | PR | abstract | B |
+| G4.21 | BraVE, NeurIPS 2025 (arXiv 2410.21151) | PR | abstract | B |
+| G4.24 | Duelyst «action factoring» (UNH, IEEE CoG 2023); Korea Univ. DAG; MDPI Mathematics 2022 | PR | titolo/snippet | M-A non verificata |
+| G4.25 | Lisý et al., ICAART 2009 | PR | sec | B-M |
+| G4.26 | Ontañón & Buro, AHTN, IJCAI 2015 | PR | abstract | B |
+| G4.27 | Jooken et al., arXiv 2010.11523 | arXiv | abstract | B-M |
+| G4.28 | Kubíček, Burch & Lisý, IJCAI 2024 (arXiv 2312.15220) | PR | abstract | B |
+| G5.1 | Zinkevich et al., CFR, NIPS 2007 | PR | abstract | B |
+| G5.2 | Lanctot et al., MCCFR, NIPS 2009; OpenSpiel `mccfr.py` | PR; repo | abstract; intero | B-M |
+| G5.3 | Bowling et al., Science 2015; Tammelin et al., IJCAI 2015 (CFR+) | PR | abstract/sec | B |
+| G5.4 | Brown & Sandholm, *Safe and Nested Subgame Solving*, NeurIPS 2017 | PR | abstract | M (concetto) |
+| G5.5 | Brown & Sandholm, Pluribus, Science 2019 | PR | sec | B |
+| G5.6 | Brown et al., Deep CFR, ICML 2019; Steinberger, SD-CFR | PR; arXiv; repo | abstract; README | B |
+| G5.7 | Steinberger, Lerer & Brown, DREAM, NeurIPS 2020 | PR; repo | abstract; README | B (idea della baseline) |
+| G5.9 | Ginsberg, GIB, JAIR 2001; Partition Search, AAAI 1996 | PR | abstract | A |
+| G5.10 | Long, Sturtevant, Buro & Furtak, AAAI 2010 | PR | abstract/sec | A (diagnostica) |
+| G5.11 | Cowling, Powley & Whitehouse, ISMCTS, IEEE TCIAIG 2012; OpenSpiel `is_mcts` | PR; repo | abstract; intero | M |
+| G5.12 | Buro et al., IJCAI 2009; Solinas, Rebstock & Buro, AAAI 2019 | PR | abstract | M |
+| G5.13 | Parker, Nau & Subrahmanian, IJCAI 2005 | PR | sec | B-M |
+| G5.14 | Zhang & Sandholm, Obscuro, ICLR 2026 (arXiv 2506.01242) | PR | abstract | M |
+| G5.15 | Silver & Veness, POMCP, NIPS 2010 | PR | abstract | B-M |
+| G5.16 | Somani et al., DESPOT, NIPS 2013; Ye et al., JAIR 2017 | PR; repo | abstract; README | A |
+| G5.17 | Gmytrasiewicz & Doshi, I-POMDP, JAIR 2005 e seguiti | PR | abstract | B |
+| G5.18 | Ganzfried & Sandholm, AAMAS 2011; Ganzfried 2022, 2025 | PR; arXiv | abstract | B |
+| G5.19 | Richards & Amir, IJCAI 2007; AAAI 2012 | PR | abstract; titolo | B / M |
+| G5.20 | Bursztein, CIG 2016; Dockhorn & Kruse, IJCIS 2020; Hoover et al. 2019 | PR | sec | A (priore) |
+| G5.21 | Foerster et al., BAD, ICML 2019; Lerer et al., SPARTA, AAAI 2020; Hu et al., LBS 2021 | PR; repo | abstract; README | M (schema) |
+| G5.22 | Kovařík et al., FOSG, AIJ 2022 | PR | abstract | B (vocabolario) |
+| G5.23 | Morenville & Piette, IEEE CoG 2025 (arXiv 2507.19263) | PR | abstract | M |
+| G5.24 | Anderson et al., SAA robusta; arXiv 1906.01476; arXiv 1904.07381 | arXiv | abstract | A (regola) |
+| G6.1 | Xia et al., Cardsformer, ECAI 2023; WannianXia/Cardsformer | PR; repo | intero (13 file) + abstract | M |
+| G6.2 | Xia et al., AAMAS 2025; GeneralizableHS | PR; repo | README + abstract | M |
+| G6.3 | Bertram, Fürnkranz & Müller, IEEE CoG 2024 (arXiv 2407.05879) | PR | abstract | B-M |
+| G6.4 | Ling et al., ACL 2016; card2code | PR; repo | README + abstract | B (metodo) / A (dato) |
+| G6.5 | Kirk et al., JAIR 2023 (arXiv 2111.09794) | PR | abstract | M |
+| G6.6 | Justesen et al., 2018 (arXiv 1806.10729) | arXiv | abstract | B-M |
+| G6.7 | Cobbe et al., Procgen, ICML 2020 | PR; repo | README | B (protocollo) |
+| G6.8 | Anand et al., 2021 (arXiv 2111.01587) | arXiv | abstract | M |
+| G6.9 | Ye et al., IEEE CoG 2020 (arXiv 2001.09908) | PR | abstract | B |
+| G6.10 | *Evaluating Generalisation in GVGP*, arXiv 2005.11247 | arXiv | abstract | B |
+| G6.11 | Perez-Liebana et al., GVGAI, IEEE ToG 2019 | PR; repo | README + abstract | M |
+| G6.12 | Björnsson & Finnsson, CadiaPlayer, IEEE TCIAIG 2009; KI 2011; AAAI 2010 | PR | abstract | A (spirito) / B |
+| G6.13 | Goldwaser & Thielscher, AAAI 2020 | PR | abstract | B-M |
+| G6.14 | Wang, Emmerich & Plaat, arXiv 1802.05944 | arXiv | abstract | B |
+| G6.15 | Soemers et al., TMLR 2023 (arXiv 2102.12375); Transfer-DNNs-Ludii-Polygames | PR; repo | README + abstract | M |
+| G6.16 | Stephenson et al., IEEE CoG 2021 | PR | abstract | M |
+| G6.17 | Winter, Entity Gym / enn-trainer | repo; blog | README | M |
+| G6.18 | Vinyals et al., AlphaStar (codificatore di entità) | PR | sec | B-M |
+| G6.19 | Berner et al., OpenAI Five (chirurgia, eroi) | arXiv; blog | sec | B (dato negativo) |
+| G6.20 | Hu, Huang & Liu, PokéLLMon, arXiv 2402.01118 | arXiv; repo | README + abstract | B / M |
+| G6.21 | Nguyen & Lee, LED-WM, NeurIPS 2025 ws (arXiv 2511.22904) | arXiv | abstract | M |
+| G6.22 | Liu, Zhu & Zhang, GCRL survey, IJCAI 2022 | PR | abstract | B |
+| G6.23 | Harris et al., *Meta-Learning in Games*, ICLR 2023 | PR | abstract | B-M |
+| G6.24 | Fu et al., GSCU, ICML 2022 | PR | abstract | B / M |
+| G6.25 | Shen & How, ICAPS 2021 (arXiv 1909.08735) | PR | abstract | B-M |
+| G6.26 | MageBench | sec | sec | B |
+| G6.27 | peter1591/hearthstone-card2vec | repo | README | B |
+| G7.1 | Huang & Ontañón, FLAIRS 2022 (arXiv 2006.14171) | PR; repo | abstract; README | M |
+| G7.2 | Hausknecht & Stone, ICLR 2016 | PR | abstract | B |
+| G7.3 | AlphaStar (teste autoregressive) via Mathieu et al. 2023; Han et al. 2020 | arXiv | sec | A (rappr.) / M |
+| G7.4 | Lee et al., Set Transformer, ICML 2019 | PR; repo | abstract; README | A (schema) |
+| G7.6 | agente Hearthstone con T5, AAMAS 2025 | PR | abstract | M-A |
+| G7.9 | Shen, Trevizan & Thiébaux, STRIPS-HGN, ICAPS 2020 | PR; repo | abstract; README | B-M |
+| G7.10 | Ferber et al., ECAI 2020; ICAPS 2022; tesi 2022 | PR; tesi | abstract | M |
+| G7.11 | Chen, Trevizan & Thiébaux, GOOSE, ICAPS 2024 (arXiv 2403.16508) | PR; repo | README | M (lezione) |
+| G7.12 | Garrett et al., IJCAI 2016 (arXiv 1608.01302); GABAR; arXiv 1401.3885; IJCAI 2024 #0743 | PR; arXiv | abstract | A (perdita) |
+| G7.13 | Greco, Araneda & Baier, SoCS 2021 (arXiv 2104.10535); Yoon, Fern & Givan, IJCAI 2007; Bhardwaj et al., SaIL, CoRL 2017 | PR | abstract | A (scheletro) |
+| G7.14 | Lai, Giraffe, 2015; David et al., DeepChess, ICANN 2016; Maia, KDD 2020; lc0 | tesi; PR; repo | abstract; README/wiki | A (schema) / B (codifica) |
+| G7.15 | Schultz et al., ICML 2025 (arXiv 2412.12119) | PR | abstract | B / M |
+| G7.16 | Acharya et al., IEEE TAI 2023; IBM LOA, ILP, EXPLORER, NESTA | PR; repo | abstract; README | B-M |
+| G7.17 | Shindo et al., BlendRL, ICLR 2025 | PR | abstract | B |
+| G7.18 | Li et al., Cardiverse, EMNLP 2025; XMage testo→codice (FLAIRS) | PR; repo | README; abstract | M |
+| G7.19 | ronaldosvieira/reinforced-greediness (3° CEC 2020) | comp; repo | README | M |
+| G7.20 | Othello-GPT; MetaOthello; RTS transformer; Da Vinci Code; Risk GCN; Hex GNN | arXiv | abstract | B (M insieme) |
+| G8.1 | Lipovetzky, Ramírez & Geffner, IJCAI 2015; ALE-Atari-Width | PR; repo | abstract; README | M |
+| G8.2 | Bandres, Bonet & Geffner, AAAI 2018 (arXiv 1801.03354) | PR | abstract | M-A |
+| G8.3 | Junyent, Jonsson & Gómez, π-IW, ICAPS 2019 | PR | abstract | M |
+| G8.4 | Junyent, Gómez & Jonsson, HIW, ICAPS 2021; hierarchical-IW | PR; repo | abstract; README | M |
+| G8.5-6 | Dittadi et al., AAAI 2021; Ayton & Asai, Olive | PR; arXiv | abstract | B |
+| G8.7 | OLETS (Couëtoux et al.), GVGAI 2014 | comp; repo | intero (codice) | M |
+| G8.8 | Burch & Holte, SoCS 2011, 2012; AI Comm. 2014; Holte 2013 | PR | abstract | M (avvertimento) |
+| G8.9 | Churchill & Buro, HPS, AIIDE 2015; Game AI Pro 3; PrismataAI | PR; repo | abstract; intero (13 file) | M-A (schema) / B (codice) |
+| G8.11 | SabberStone `SabberStoneBasicAI` | repo | intero (codice) | M |
+| G8.12 | MetaStone `GreedyOptimizeTurn`, `TranspositionTable` | repo | intero (codice) | B-M |
+| G8.14 | acatai/Strategy-Card-Game-AI-Competition (LOCM 2020-2022) | comp; repo | intero (README, regole, risultati) | B-M |
+
+**Conteggio.** Circa 150 lavori distinti censiti; letti per intero (solo GitHub) circa 45 fra repository, documenti di progetto e file di codice; i restanti per abstract o fonte secondaria. **Nessun articolo scientifico è stato letto per intero**, per i limiti di rete di §1.4: ogni numero preso da un articolo è un numero da abstract o da estratto.
+
 
 ## 4. Raccomandazioni sul piano (A1b, voci B di `ricerca-piano-critico.md`)
-*(ogni voce con un controllo misurabile)*
+Ogni raccomandazione dice: la voce del piano, cosa prendere dalla letteratura, le fonti, e **un controllo misurabile** che si aggiunge a quelli già scritti nel piano. Le fonti sono le schede di §2. L'ordine segue la priorità del proprietario (prima ciò che fa trovare le linee forti, poi la velocità), ma dove la letteratura dà una ragione forte per anticipare qualcosa lo dice.
+
+### 4.1 Oracolo e valutazione (A1, A1b)
+- **A1b.2, convergenza: riuso anytime dell'albero.** L'oracolo è oggi «la stessa ricerca a 50×». ARA* e AWA* (G4.12) dicono che un programma anytime che riusa la coda e le trasposizioni della ricerca precedente converge con meno nodi di una ripartenza. `resume()` esiste già. **Controllo:** sulle 12 mani di A1b.2, i nodi totali per arrivare al tetto stabile con riuso (1× → 10× → 50× → 200× in continuità) sono almeno il 30% in meno che con tre ricerche separate, a board migliori uguali.
+- **A1b.3, generalità: protocollo con istantanea disgiunta.** Procgen e Kirk et al. (G6.5, G6.7) e Bertram (G6.3): ogni componente tarato o imparato si valuta **su carte o deck usciti dopo l'istantanea** usata per tararlo, mai su una divisione casuale dello stesso pool. **Controllo:** nelle fixture dell'oracolo si registra la data dell'istantanea di `cards.db` e degli script; il rapporto A1b.3 distingue «deck con carte tutte anteriori» da «deck con almeno una carta posteriore», e la quota di valore dell'oracolo raggiunta nel secondo gruppo non scende di oltre 5 punti rispetto al primo (è la soglia già nel piano, con il criterio di divisione reso esplicito).
+- **A1b.4, secondo cercatore indipendente.** ygorl ha già misurato ygo-combo-solver sullo stesso core: 56% di mani risolte a 20 s, 45-60 s per mano con `--fire`, 48 linee per un obiettivo Snake-Eye in 45 s (G1.3, G1.4). **Controllo:** sulle mani con obiettivo di A1 (Invoked e `--auto-goals`), il solver con 60 s e la nostra ricerca per obiettivo con lo stesso budget di tempo concordano sul verdetto raggiungibile/non raggiungibile in almeno il 90% dei casi; ogni disaccordo si rigioca e si classifica (azione non offerta, risposta automatica, potatura, budget).
+- **Forza vera: K mani campionate con CVaR (A1b.1, banco oggettivo).** DESPOT, GIB, SAA robusta e la predizione dei deck in Hearthstone (G5.9, G5.16, G5.20, G5.24): il valore di livello 2 di una board è la **media su K mani avversarie pescate dalle liste del meta** meno λ volte la media delle ⌈αK⌉ peggiori, con le stesse K mani riusate per tutte le board della stessa ricerca (numeri casuali comuni, come Forge e ygorl). Oggi il livello 2 gioca linee del deck avversario; questo lo rende esplicito e dà la regola di decisione. **Controllo:** con K = 8 e α = 0,25, la classifica delle top 5 board delle fixture cambia in meno del 10% delle coppie rispetto a K = 32 (stabilità), e la correlazione di Spearman con il livello 2 attuale non scende sotto 0,9.
+
+### 4.2 Velocità della ricerca
+- **B0 e B13, replay e arena: la decisione ha un numero esterno.** ygorl misura 0,59 ms di ripristino contro 47,5 ms di replay (rapporto 0,012) sullo stesso core, con lo stesso meccanismo (copia del prefisso usato dell'arena, GC di Lua fermo), e 4-6 MiB per ramo vivo (G1.3, G8 (f)). **Controllo** (si aggiunge a quello del piano): il nostro prototipo dell'arena raggiunge un rapporto ripristino/replay ≤ 0,05 sul banco; se è sopra 0,2, la strada 4 (copia del duello) è da preferire. Flusso dei messaggi identico su 1000 ripristini, come nel test di ygorl.
+- **B1a, ordine dei fratelli, e B1b/B1c, ordinamento imparato: bandit locali per prompt.** NaïveMCTS (G4.7), MAST/CadiaPlayer online (G6.12), Coac in LOCM (G2.11: il solo ordinamento muove il risultato; ProphetCoac perde perché ruba tempo). La history di B1b va **indicizzata per tipo di prompt** (idle, catena, carta, somma, posto, posizione, sì/no) e caratteristiche senza nome, con una tabella per sotto-decisione, non una sola; la penalità di deviazione di B1c diventa la storia di Greco et al. (G7.13: ordinamento focale per numero di scelte non avide). **Controllo** (oltre a quello del piano): sul banco, la quota di passi della linea migliore in cui la risposta giusta è la prima provata sale dal 77% (A2) ad almeno l'85%; nessuna regressione sul test appaiato.
+- **B2, ordini scambiabili: solo con la prova di sicurezza.** Burch & Holte 2012 e Holte 2013 (G8.8, G4.13): un filtro di commutatività può cancellare ogni cammino a una board, e non si combina in modo sicuro con una tabella a insieme chiuso. **Controllo:** prima del filtro, un contatore in debug che per ogni coppia (A, B) dichiarata scambiabile verifica su un campione del 5% che `A·B` e `B·A` diano la stessa chiave canonica **e** le stesse offerte al nodo successivo; il filtro si attiva solo per le coppie con 0 violazioni su almeno 200 campioni.
+- **B2b, selezioni a più carte come un solo passo.** `elide_forced` di ygo-combo-solver («74,6% dei nodi senza scelta», G1.4) e le trappole di `ygopro.h` (tetto delle opzioni che tronca, `SELECT_SUM` senza limite, eccezioni su tributi, G3.1, G7.7). **Controllo:** il contatore A2 «nodi senza cambi visibili» scende dal 23,8% a meno del 10%; nessuna offerta persa (confronto delle chiavi dei figli prima/dopo su 100 mani).
+- **B3, chiave dei nodi: disciplina della ricerca su grafo.** `GraphSearch.md` di KataGo (G4.16: visite degli archi separate dai nodi, Q ricalcolato dai figli), MetaStone (G8.12: stato della catena nella chiave), Burch & Holte. La voce della tabella tiene **il miglior valore senza penalità e la miglior penalità vista**, e permette la riespansione se un cammino arriva con penalità minore. **Controllo:** il controllo a campione di B3 include «nodo raggiunto con penalità minore di quella registrata»: la quota di questi casi si misura prima (oggi ignota) e dopo la riespansione il `best` del banco non scende e sale su almeno 2 mani delle 16.
+- **B6, più thread.** Nessuna fonte nuova oltre a Kuroiwa & Fukunaga (già in `ricerca-letteratura.md`); ygo-combo-solver dichiara «thread 1 divide la resa per 5-6» con una tabella condivisa e claim sui punti di deviazione (G1.4). **Controllo:** quello del piano (nodi e tempo alla board migliore per numero di thread), più la riproducibilità a giri sincroni.
+- **B7, partire da linee già trovate: portafoglio di politiche di risposta.** Prismata HPS e PGS (G8.9, G4.8), Lord of the Rings (G2.21: ibrido per stadio), warm start fra mani dello stesso deck (G6.23). Le macro di B7 diventano un **portafoglio di 4-6 politiche di risposta generiche per tipo di messaggio** («accetta ogni opzionale», «preferisci l'Extra Deck», «bersaglio con il Livello più alto», «Setta tutto»); le combinazioni danno linee iniziali diverse per il tuffo, scelte con salita a coordinate valutata dalla stima rapida. **Controllo:** sulle 16 mani del banco, almeno 3 delle 5 board migliori dell'oracolo sono raggiunte da una combinazione del portafoglio entro 500 nodi; il tempo alla board migliore della ricerca completa, seminata dal portafoglio, scende del 15%.
+- **B10, B11, B16: novità per progresso e più code.** Rollout-IW e HIW (G8.2, G8.4), la tabella di novità **partizionata per progresso** di ygo-combo-solver (G1.4), OLETS (G8.7: retropropagazione media/massimo), Gumbel MuZero (G3.12, G4.18: dimezzamenti alla radice). Gli atomi di B11 includono la profondità della catena e gli effetti attivati nel turno (altrimenti la novità collassa le finestre di risposta, G8.1). **Controllo:** il contatore A2 «stati a novità zero» si misura prima; dopo, i nodi doppi «altre scelte» scendono dal 15,6% a meno dell'8%, e il tempo alla board migliore −10% come nel piano.
+- **B14, quali board misurare: dimezzamenti con Sequential Halving e fascio.** Gumbel MuZero (G3.12), SabberStone (G8.11: tieni i top-W per profondità, raccogli tutte le board di fine turno), KataGo (G4.16: pesatura per incertezza fra stima e misura). **Controllo:** quello del piano (tempo −50%, #1 identico, 2 su 3 nella top 3), più: con il dimezzamento a budget fisso di misure, la quota di mani in cui il #1 vero (misura completa su tutte le board) sta nelle misurate sale dal valore di `ricerca-esperimenti.md` §1 (10 mani su 81 con il #1 oltre la 30ª) a meno di 5.
+- **B15, taratura delle costanti.** Nessuna fonte nuova oltre SPSA/CEM; Stephenson et al. (G6.16) suggerisce di **predire dalle caratteristiche del deck quali costanti usare**, per deck. **Controllo:** se un modello lineare dalle caratteristiche di `roles.rs` (numero di starter, estensori, handtrap, Evocazioni per tipo) predice la costante migliore per deck con errore inferiore al 20% su deck tenuti fuori, le costanti diventano per deck; altrimenti restano globali.
+- **B17, più ordini del Deck: afterstate e raggruppamento.** Stochastic MuZero/`mctx` (G4.17), DPW (G4.4), Zhang (G2.7: raggruppare gli esiti simili), Forge e sts_lightspeed (seme fisso fra fratelli). Ogni evento casuale è un nodo afterstate con al massimo n esiti campionati, raggruppati per chiave canonica risultante. **Controllo:** con n = 4, sulle linee top con eventi casuali, la quota di semi in cui riescono stimata con 4 esiti è entro ±10 punti di quella con 16 nell'80% delle linee.
+
+### 4.3 Ricerca per obiettivo
+- **B4: distanza in Evocazioni accanto alla distanza rilassata.** ygo-combo-solver (G1.4) misura la distanza come **numero di Evocazioni ancora necessarie sulle ricette osservate**, con i prodotti ignoti a costo 1, e usa il riconoscimento con il senno di poi delle Evocazioni dall'Extra Deck con peso ridotto «altrimenti la politica converge sulle Fusioni economiche». Entrambi sono generali. Il finisher alla Levin con re-rooting è il modo di chiudere gli ultimi passi dopo che il tuffo ha avvicinato l'obiettivo. **Controllo** (oltre al −30% di nodi alla prima soluzione): sull'obiettivo Invoked «Oceanus@extra + S:P», tempo alla prima soluzione ≤ 10 s su 4 mani su 4 con 1 thread (oggi 7,0-28,8 s).
+- **B8, obiettivi più ricchi.** La sintassi `password[@zone[:fd]]`, i vincoli `--summon-min`, `--resolve`, `--material`, `--guard` e `--fire` di ygo-combo-solver (G1.4) sono un elenco di ciò che un utente chiede in pratica; le ricerche per obiettivo ygorl le usa come «imbuto» con un budget per mano. **Controllo:** quello del piano, più: ogni atomo nuovo del contratto ha un obiettivo raggiungibile e uno impossibile nel `search_regression`.
+
+### 4.4 La misura
+- **B5a, attrito avversario.** `GameStateEvaluator` di Forge (già nel piano) più la divisione «valore disponibile / valore strategico» (G8.10: ciò che conterà nel turno avversario); OLETS per la mescolanza media/massimo. Nessun cambiamento al controllo del piano (Aeon a 3 sopra Aeon a 2).
+- **B5b, run «react», e l'esposizione letta dal motore (B5f): ri-risoluzione dopo l'interruzione, senza strategy fusion.** Brown & Sandholm, SPARTA, Long et al., DESPOT (G5.4, G5.21, G5.10, G5.16). Le interruzioni si modellano come **classi astratte** (nega alla finestra w, distruggi l'Evocato, ferma le Evocazioni Speciali) iniettate alle finestre di catena; dopo l'interruzione si ripianifica dal nodo con `resume()` e un budget piccolo; la resilienza è l'attesa sulle K mani del valore recuperato. La linea non deve adattarsi alla mano campionata (strategy fusion): si misura, non si pianifica, per mondo. **Controllo** (oltre a quello del piano): su 20 board delle fixture, la resilienza con ripianificazione (budget 300 nodi per interruzione) e quella senza differiscono in media di almeno 0,1 sulle board con floater o estensori rapidi e di meno di 0,02 sulle altre; la correlazione con il livello 2 non scende.
+- **B5d, firma di costruzione, e B9, stima tarata: caratteristiche dallo script, ranking a coppie, modello piccolo.** MirrorForce (G1.2: 16 unità di effetto hashate dallo script Lua), Cardsformer (G6.1: statistiche randomizzate così la rete legge l'effetto), Ludii (G6.15: canali semantici), GOOSE (G7.11: caratteristiche classiche battono le GNN dentro la ricerca), Garrett et al. e DeepChess (G7.12, G7.14: perdita a coppie), Ferber (G7.10: bersaglio «sforzo residuo»), ygorl (G1.3: il testo da solo non aiuta la generalizzazione). Quindi: le caratteristiche di `quick_score` e dei `CardValues` si estendono con una **firma dallo script** (quali funzioni del core chiama: SpecialSummon, Negate, Draw, Search, Banish, …, più i parametri di costruzione già nel piano), il fit resta lineare o ad alberi, la perdita è a coppie sulle board della stessa mano (già nel piano), e **la validazione è su deck con carte posteriori all'istantanea**. **Controllo** (oltre alle 60 inversioni su 1110): le inversioni sui deck tenuti fuori con carte posteriori non superano di oltre il 20% quelle sui deck di taratura.
+- **B12, politica imparata dall'oracolo: ranker, non policy; ordina, non pota.** π-IW (G8.3), Giraffe (G7.14: etichette dai nodi interni della ricerca), Greco et al. (G7.13), SaIL, ygorl (G1.3: clonazione dal solver 41/100 contro 62/100 del solver). Il bersaglio è l'ordine dei fratelli nelle linee dell'oracolo; il modello è lineare o a piccoli alberi su caratteristiche senza nome; l'uso è −λ·ln p nella priorità, mai un taglio. **Controllo** (oltre a top-k sull'oracolo e nodi risparmiati): accuratezza top-1 sui fratelli delle linee dell'oracolo ≥ 85% su deck tenuti fuori, e, come ygorl, la quota di obiettivi dell'oracolo raggiunti dalla ricerca guidata a budget fisso rispetto alla non guidata sale di almeno 10 punti (ygorl: 7/16 contro 5/16, sotto la loro soglia).
+- **Cosa non fare, con le fonti.** Self-play RL come componente (ygo-agent, MirrorForce, LOCM 2022, Rudolph ICLR 2026, G1.1, G1.2, G8.14, G3.24): costo di 4-6 ordini di grandezza oltre una scrivania e legame al pool; CFR, ReBeL, Player of Games, I-POMDP per il primo turno (G5); UCT con rollout casuali (peter1591: 300 000 contro 15 000 iterazioni, G2.9); modelli del mondo imparati al posto del motore (G7.15, G6.1); LLM dentro il ciclo di ricerca (G6.20, G7.15).
+
 
 ## 5. Lacune: dove la letteratura non c'è
-*(opportunità di ricerca)*
+Ognuna è un'opportunità di ricerca per DuelForge: nessuno l'ha pubblicata, e noi abbiamo il banco per misurarla.
+1. **Yu-Gi-Oh! come problema di pianificazione.** Nessun articolo scientifico tratta la ricerca delle linee del primo turno, la forza di una board o la generalizzazione a carte nuove; esistono quattro repository (G1.1-G1.4) e due gare appena nate (MirrorForce e Konami), tutte su partite intere. Il problema «board più forte del primo turno, valutata contro il turno avversario, su qualunque deck» non ha letteratura: **A1 e A1b sono il primo banco pubblico possibile**.
+2. **Le catene nella ricerca.** Nessun lavoro di ricerca su CCG ramifica sulle finestre di risposta: Forge le risolve dentro il nodo e dichiara di non trattarle (G2.1); Hearthstone e LOCM non le hanno; Magic le ha e nessun cercatore pubblicato le affronta (G2.16, G2.19). Come contare gli atomi di novità, le trasposizioni e le deviazioni **dentro** una catena (P1) è aperto.
+3. **Generalizzazione a carte mai viste con caratteristiche dallo script.** MirrorForce la fa senza misurarla; ygorl misura che il testo da solo non aiuta; Cardsformer e l'agente T5 dichiarano un «degrado minore» senza numeri pubblici letti (G1.2, G1.3, G6.1, G6.2). Un esperimento con istantanea disgiunta (A1b.3) su caratteristiche dallo script Lua sarebbe il primo risultato del genere.
+4. **Limiti ottimistici e ammissibili per un turno di CCG.** La corsia non ha trovato nulla (anche per budget): nessun limite superiore pubblicato sul valore raggiungibile in un turno con risorse e Evocazioni, che permetterebbe potature sicure (branch and bound) invece di sole penalità. Dal rilassamento sulla mappa dei collegamenti (B4) si può derivare un limite superiore sulle carte raggiungibili; va misurato quanto è stretto.
+5. **Riduzione per ordine parziale su un motore a script.** Burch & Holte lavorano su operatori con precondizioni ed effetti dichiarati; con effetti in Lua la commutatività si può solo **verificare empiricamente** (il controllo di B2 proposto in §4.2). Una procedura che certifichi coppie scambiabili dal motore stesso non esiste.
+6. **Caso nel proprio turno dentro la pianificazione per larghezza.** IW, Rollout-IW, HIW e π-IW sono deterministici; DESPOT e Stochastic MuZero trattano il caso ma non la novità. La combinazione «novità + afterstate con esiti campionati» (B11 + B17) non è pubblicata.
+7. **Strategy fusion con interruzioni a metà linea.** Long et al. e ISMCTS dicono quando PIMC fallisce; nessuno misura, su un turno a un giocatore con risposte nascoste dell'avversario, quanto perde una linea che si adatta per mondo rispetto a una che non lo fa. B5b con la regola «misura per mondo, non pianificare per mondo» è un esperimento pubblicabile.
+8. **Validazione esterna della verità** (già in §7.2 del rapporto precedente): le etichette dell'oracolo e del livello 2 sono un altro modello; nessun insieme di board di riferimento da esperti esiste per Yu-Gi-Oh!. Le gare (MirrorForce contro il campione Sky Striker) sono l'unico confronto umano pubblico, su partite intere.
+9. **Lavori in tema non letti**, da recuperare appena la rete lo permette: Duelyst «action factoring» (gruppo di Ruml, UNH, IEEE CoG 2023: l'articolo più vicino a P2 fra quelli accademici); Sakurai & Hasebe 2023 (potatura in RHEA per Hearthstone); le voci della Hearthstone-AI competition (Pruned BFS, Dynamic Lookahead) e la gara Tales of Tribute; Sokota et al., Nature 2026 (la ricetta di MirrorForce); l'annuncio della «YGO agent competition»; i numeri dell'articolo HPS di Prismata; Hamrick et al. 2020 sul budget di ricerca; Rectangle Search e Expert Iteration; Wehrle & Helmert sugli stubborn set forti.
+10. **Budget di ricerca.** Circa 50 interrogazioni programmate non sono state eseguite (§1.5); i temi scoperti sono i limiti ammissibili (tutto il tema (b)), la riduzione per ordine parziale oltre Burch & Holte, e le ricerche in rete su Hearthstone e LOCM delle aggiunte (coperte in parte dai gruppi 2 e 4).
