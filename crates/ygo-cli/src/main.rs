@@ -1075,6 +1075,15 @@ fn play_label(engine: &Engine, code: u32, kind: ActionKind, from: u8) -> String 
 
 fn print_moves(engine: &Engine, x: &ygo_solver::MovesMatchup, took: std::time::Duration) {
     let db = engine.cards();
+    // No line of the opponent could be played against the board: no
+    // measure, not a measure of 0 (the scripts read it as missing).
+    if x.lines == 0 {
+        println!(
+            "   against its lines ({:.1} s): no line of the opponent could be played against this board: not measured",
+            took.as_secs_f64()
+        );
+        return;
+    }
     let possible = x.moves.iter().filter(|m| m.possible).map(|m| m.weight).sum::<f64>();
     println!(
         "   against its lines ({:.1} s): {} lines · {:.0}% of their moves made on an empty board · value {:.2} · floodgates stop {:.0}% · {:.0}% of the rest left with all your answers",
