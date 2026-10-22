@@ -52,11 +52,13 @@ impl Picked {
     }
 }
 
-/// The cards of a selection, in the order the engine lists them.
+/// The cards of a selection, in the order the engine lists them (for a
+/// sum of Levels, the cards to pick besides those it must use).
 pub(crate) fn selection(decision: &Decision) -> Option<Vec<CardRef>> {
     match decision {
         Decision::SelectCard { cards, .. } => Some(cards.clone()),
         Decision::SelectTribute { cards, .. } => Some(cards.iter().map(|(c, _)| *c).collect()),
+        Decision::SelectSum { cards, .. } => Some(cards.iter().map(|(c, _)| *c).collect()),
         Decision::SelectUnselectCard { selectable, .. } => Some(selectable.clone()),
         _ => None,
     }
@@ -69,7 +71,7 @@ pub(crate) fn picked(engine: &Engine, decision: &Decision, answer: &[u8]) -> Opt
     let cards = selection(decision)?;
     let at: Vec<usize> = match (decision, word(0)?) {
         (Decision::SelectUnselectCard { .. }, 1) => vec![usize::try_from(word(1)?).ok()?],
-        (Decision::SelectCard { .. } | Decision::SelectTribute { .. }, 0) => {
+        (Decision::SelectCard { .. } | Decision::SelectTribute { .. } | Decision::SelectSum { .. }, 0) => {
             (0..usize::try_from(word(1)?).ok()?).map(|k| word(2 + k).and_then(|v| usize::try_from(v).ok())).collect::<Option<_>>()?
         }
         _ => return None,
