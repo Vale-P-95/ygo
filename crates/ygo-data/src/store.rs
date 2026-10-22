@@ -351,17 +351,21 @@ impl CardStore {
             }
         }
         if !q.bans.is_empty() {
+            // The card data says "Forbidden"; older versions said "Banned".
+            let statuses: Vec<&str> =
+                q.bans.iter().flat_map(|b| if b == "Forbidden" { vec!["Forbidden", "Banned"] } else { vec![b.as_str()] }).collect();
             if q.formats.iter().any(|f| f == "Master Duel") {
                 // Master Duel cards follow Master Duel's own list.
-                clauses
-                    .push(format!("c.id IN (SELECT id FROM banlists WHERE format = 'md' AND status IN ({}))", placeholders(q.bans.len())));
-                args.extend(q.bans.iter().map(|b| Value::Text(if b == "Banned" { "Forbidden".into() } else { b.clone() })));
+                clauses.push(format!(
+                    "c.id IN (SELECT id FROM banlists WHERE format = 'md' AND status IN ({}))",
+                    placeholders(statuses.len())
+                ));
             } else {
                 // OCG cards follow the OCG list, everything else the TCG one.
                 let column = if q.formats.iter().any(|f| f == "OCG") { "c.ban_ocg" } else { "c.ban_tcg" };
-                clauses.push(format!("{column} IN ({})", placeholders(q.bans.len())));
-                args.extend(q.bans.iter().map(|b| Value::Text(b.clone())));
+                clauses.push(format!("{column} IN ({})", placeholders(statuses.len())));
             }
+            args.extend(statuses.iter().map(|s| Value::Text((*s).to_owned())));
         }
         if !clauses.is_empty() {
             sql.push_str(" WHERE ");
