@@ -1,7 +1,7 @@
 //! A line played again from the start, told in Italian, with the state it
 //! reaches: what the Combo Lab shows for a board.
 
-use ygo_engine::consts::location;
+use ygo_engine::consts::{location, reason};
 use ygo_engine::{italian, ActionKind, CardDb, DeckList, Duel, DuelState, Engine, Error, Event, Opponent, Step};
 
 use crate::search::Line;
@@ -158,6 +158,11 @@ pub struct Exposure {
     /// Cards added from the Deck to your hand, drawn by an effect too:
     /// after the first, Droll & Lock Bird stops the rest.
     pub searches: u32,
+    /// Cards of your Deck sent to the GY or banished as a cost (Pot of
+    /// Desires banishes ten): what the line spends besides the hand.
+    pub deck_cost: u32,
+    /// Life Points paid as a cost.
+    pub lp_paid: u32,
 }
 
 impl Exposure {
@@ -212,7 +217,10 @@ pub fn exposure(
                     links.clear();
                     solving.clear();
                 }
-                Event::Move { from, to, .. } if from.location == location::DECK && to.controller == 0 => {
+                Event::Move { from, to, reason: why, .. } if from.location == location::DECK && to.controller == 0 => {
+                    if why & reason::COST != 0 && matches!(to.location, location::GRAVE | location::REMOVED) {
+                        out.deck_cost += 1;
+                    }
                     if to.location == location::HAND {
                         out.searches += 1;
                     }
@@ -232,6 +240,7 @@ pub fn exposure(
                     out.summons += u32::from(summoning_mine);
                 }
                 Event::SpecialSummoned if summoning_mine => out.special_summons += 1,
+                Event::PayLpCost { player: 0, amount } => out.lp_paid += amount,
                 _ => {}
             }
         }

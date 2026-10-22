@@ -20,11 +20,11 @@ import subprocess
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from bench import ROOT, WEIGHTS, cases  # noqa: E402
+from bench import ROOT, WEIGHTS, cases, follow_up_value  # noqa: E402
 
 
 def composite(m):
-    return sum(w * m[k] for w, k in zip(WEIGHTS, ("field", "hand", "floodgates", "resilience")))
+    return sum(w * m[k] for w, k in zip(WEIGHTS, ("field", "hand", "floodgates", "resilience"))) + follow_up_value(m)
 
 
 def search(cli, case, nodes, top, lines):

@@ -1063,19 +1063,45 @@ fn place_name(loc: u8) -> &'static str {
 }
 
 /// The cards in hand that count as resources, in words.
-fn resources_note(others: usize, grave: usize, dead: usize) -> String {
+fn resources_note(others: usize, dead: usize) -> String {
     let hand = match others {
         0 => "nessun'altra carta in mano".to_owned(),
         1 => "1 altra carta in mano".to_owned(),
         n => format!("{n} altre carte in mano"),
     };
-    let grave = if grave == 1 { "1 carta nel Cimitero".to_owned() } else { format!("{grave} carte nel Cimitero") };
     match dead {
-        0 => format!("{hand}, {grave}"),
-        1 => format!("{hand}, {grave}; 1 handtrap che con questa board non si può usare (solo a campo vuoto): è la carta da scartare"),
-        n => format!(
-            "{hand}, {grave}; {n} handtrap che con questa board non si possono usare (solo a campo vuoto): sono le carte da scartare"
-        ),
+        0 => hand,
+        1 => format!("{hand}; 1 handtrap che con questa board non si può usare (solo a campo vuoto): è la carta da scartare"),
+        n => format!("{hand}; {n} handtrap che con questa board non si possono usare (solo a campo vuoto): sono le carte da scartare"),
+    }
+}
+
+/// The follow-up in words: the starters and extenders in hand, and what
+/// comes back from the GY and banishment in your next turn.
+fn followup_note(starters: usize, extenders: usize, follow_up: Option<ygo_solver::FollowUp>) -> String {
+    let hand = match (starters, extenders) {
+        (0, 0) => "nessuno starter o estensore in mano".to_owned(),
+        (s, 0) => format!("{s} starter in mano"),
+        (0, 1) => "1 estensore in mano".to_owned(),
+        (0, e) => format!("{e} estensori in mano"),
+        (s, 1) => format!("{s} starter e 1 estensore in mano"),
+        (s, e) => format!("{s} starter e {e} estensori in mano"),
+    };
+    match follow_up {
+        Some(f) => {
+            let rebuild = match f.rebuild {
+                0 => "nessun effetto da Cimitero o bandite".to_owned(),
+                1 => "1 effetto da Cimitero o bandite".to_owned(),
+                n => format!("{n} effetti da Cimitero o bandite"),
+            };
+            let gained = match f.gained {
+                0 => String::new(),
+                1 => " (1 carta presa o Evocata nella End Phase, non contata)".to_owned(),
+                n => format!(" ({n} carte prese o Evocate nella End Phase, non contate)"),
+            };
+            format!("{hand}; nel tuo turno dopo, dopo il board breaker peggiore: {rebuild}{gained}")
+        }
+        None => hand,
     }
 }
 
@@ -1117,9 +1143,21 @@ fn score_view(
     let has_role = |c: u32, role: &str| roles.get(role).is_some_and(|ids| ids.contains(&c));
     let (starters, extenders) =
         (rest.iter().filter(|&&c| has_role(c, "starter")).count(), rest.iter().filter(|&&c| has_role(c, "extender")).count());
-    let followup = starters as f64 + 0.5 * extenders as f64;
+    // The next turn: an effect that comes back from the GY or banishment
+    // after the worst breaker weighs 0.3 of a starter. The cards gained in
+    // the End Phase are shown, not weighed: with them the board pairs the
+    // judges agreed on came out worse (docs/plans/classificazione-board.md, C10).
+    let follow_up = measured.as_ref().ok().and_then(|m| m.follow_up);
+    let followup = starters as f64 + 0.5 * extenders as f64 + 0.3 * follow_up.map_or(0.0, |f| f.rebuild as f64);
     let others = rest.iter().filter(|&&c| !has_role(c, "starter") && !has_role(c, "extender")).count();
-    let resources = others as f64 + 0.1 * me.grave.len() as f64;
+    // The GY is in the follow-up now, by what comes back from it.
+    let resources = others as f64;
+    // What the line spends besides the cards of the hand (those left are
+    // already counted above): Deck cards paid as a cost, Extra Deck monsters
+    // gone to the GY or banishment, Life Points.
+    let extra = |c: u32| db.get(c).is_some_and(|c| c.type_ & ygo_engine::consts::card_type::EXTRA != 0);
+    let extra_spent = me.grave.iter().filter(|&&c| extra(c)).count() + me.banished.iter().filter(|&&(c, _)| extra(c)).count();
+    let cost = exposure.map_or(0.0, |x| 0.05 * x.deck_cost as f64 + x.lp_paid as f64 / 4000.0) + 0.1 * extra_spent as f64;
     let mut view = ScoreView {
         hand,
         key: format!("{:016x}", board.key),
@@ -1129,19 +1167,12 @@ fn score_view(
         resilience: 0.0,
         resources,
         followup,
-        cost: board.cards_used.saturating_sub(1) as f64,
+        cost,
         details: Vec::new(),
         floodgate_list: Vec::new(),
         breakers: Vec::new(),
-        resources_note: resources_note(others, me.grave.len(), dead),
-        followup_note: match (starters, extenders) {
-            (0, 0) => "nessuno starter o estensore in mano".to_owned(),
-            (s, 0) => format!("{s} starter in mano"),
-            (0, 1) => "1 estensore in mano".to_owned(),
-            (0, e) => format!("{e} estensori in mano"),
-            (s, 1) => format!("{s} starter e 1 estensore in mano"),
-            (s, e) => format!("{s} starter e {e} estensori in mano"),
-        },
+        resources_note: resources_note(others, dead),
+        followup_note: followup_note(starters, extenders, follow_up),
         exposure: exposure.map_or(0.0, |x| x.choke_points() as f64),
         exposure_detail: exposure.map(|x| ExposureView {
             ash: x.ash,

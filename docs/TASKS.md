@@ -45,7 +45,9 @@ Corsie di lavoro in parallelo del 22/10/2026 (piano in `docs/plans/piano-prossim
     - [x] Seguito delle risposte: le carte portate da una risposta (un mostro Evocato) rispondono anche loro; si Evoca il mostro più forte; si paga con la carta meno preziosa. Coppie sicure giuste da 14 a 18 su 29 (piano §C8).
     - [x] D4: un mostro girato coperto ha gli effetti negati; una carta attaccata come materiale Xyz è come bandita. Il resto di A4 non serve più dopo D2 e D3 (restavano 3 carte con etichette diverse tra le board).
   - [x] D10: il kit pesato sulle linee vere. `kit-mix` divide le attivazioni per provenienza e per "tocca il Deck" (50% nelle linee vere, 78% del peso nel kit). Due azioni nuove senza Deck (Dian Keto, Bystial Magnamhut) e pesi dalle quote. Ash da 0,71 a 0,53; coppie sicure giuste da 18 a 20 su 29; ricerca +3,2% (piano §C9). Non fatte: l'Evocazione Xyz o Synchro e il trigger d'Evocazione senza Deck.
-  - [ ] D13: costo e risorse senza doppio conteggio, follow-up misurato (turno 3), finestre prima e dopo i passi del kit (piano B7, B8, B9).
+  - [x] D13, prima parte: il tuo turno dopo il board breaker peggiore. Gli effetti che ripartono da Cimitero e bandite entrano nel follow-up (0,3 l'uno); le risorse non contano più il Cimitero. Coppie sicure giuste da 20 a 22 su 29 (piano §C10).
+  - [x] D13, costo (B8): non più le carte della mano usate oltre la prima (quelle rimaste sono già contate), ma 0,05 per carta del Deck pagata come costo, 0,1 per mostro dell'Extra Deck finito nel Cimitero o bandito, 1 ogni 4000 LP pagati. Testo dell'interfaccia chiesto a Gemini sotto.
+  - [x] D13, finestre prima dei passi del kit (B9, `PRE`): le tue risposte nella Draw e nella Standby avversarie si provano; coppie e banco invariati (piano §C10).
 - [x] Correzioni dalla caccia ai bug della ricerca (12 problemi confermati): fatte; l'ultima (valori delle carte che dipendono dal contesto) passa nella #47. Lock tolto.
   - [x] Set in un solo ordine anche dopo una finestra di catena; ricerca fermata a metà che riparte dal punto giusto.
   - [x] Carte rapide tenute per dopo nel dive; handtrap giudicate da ciò che permettono (Labrynth Cooclock); carte da tenere rispettate durante la ricerca.
@@ -84,6 +86,11 @@ Corsie di lavoro in parallelo del 22/10/2026 (piano in `docs/plans/piano-prossim
     - carta, posto, effetto, quota (`coverage`) e valore;
     - le mosse che ferma (`moves`, indici in `moves`) evidenziate nelle linee al passaggio del mouse o al clic.
   - **Regole:** protocollo dell'interfaccia di `AGENTS.md` (id di richiesta, azzeramento al cambio di board o di deck, errori in italiano). Nel backend finto c'è già un esempio (`mock.ts`, `comboMoves`).
+- [ ] **Testi di follow-up, risorse e costo** (dopo la PR di D13, #47). Il backend ora conta nel follow-up anche il tuo turno dopo: dopo il board breaker peggiore, ogni effetto che riparte dal Cimitero o dalle bandite vale 0,3. Le risorse non contano più il Cimitero. In `apps/desktop/src/lib/scoring.ts`:
+  - `followup`: `hint` ed `explain` dicono anche «effetti da Cimitero e bandite nel tuo turno dopo, dopo il board breaker peggiore (0,3 l'uno)»;
+  - `resources`: togliere «e un po' il Cimitero»;
+  - `cost`: non più «carte della mano usate oltre la prima», ma «quello che la linea spende oltre alla mano: carte del Deck pagate come costo (0,05 l'una), mostri dell'Extra Deck finiti nel Cimitero o banditi (0,1 l'uno), LP pagati (1 ogni 4000)». Le carte della mano rimaste contano già nelle altre voci;
+  - il dettaglio resta in `followupNote` e `resourcesNote`, che arrivano già dal backend. Il contratto (`ComboScore`) non cambia.
 - [ ] Tornare a TypeScript 7 (`apps/desktop/package.json`) quando `typescript-eslint` lo supporta: con la PR #29 è fissato a 6.0.3 perché `typescript-eslint` 8 non regge ancora la versione 7. Poi, già che ci si è, `tseslint.config(...)` → `defineConfig` di `eslint/config` in `eslint.config.js`.
 
 ### Motore e ricerca (Claude)
