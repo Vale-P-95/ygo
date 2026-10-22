@@ -31,6 +31,9 @@ Corsie di lavoro in parallelo del 22/10/2026 (piano in `docs/plans/piano-prossim
   - [ ] il collaudo dei deck lenti (corsia 2).
 
   Agente: claude-code, sessione sorella del collaudo. Branch: `claude/tools-qa`. File: script nuovi in `scripts/`, `docs/plans/collaudo-strumenti.md`, `tests/fixtures/boards/`.
+- [ ] **Corsia 6.** Probabilità della mappa dei collegamenti: una `chance` che distingua le carte e sia vicina al vero (misurata su mani cercate), senza saturazione.
+
+  Agente: claude-code, sessione sorella della mappa. Branch: `claude/links-chance`. File: `crates/ygo-solver/src/links.rs` e i suoi test, la parte `links` di `crates/ygo-cli/src/main.rs`, script nuovi miei in `scripts/`, `docs/plans/mappa-collegamenti.md`, `tests/fixtures/links/`.
 - [ ] **Corsia 4, secondo task.** Ordine della ricerca e stima rapida (#47, D14 = B11 di `docs/plans/classificazione-board.md`): il #1 stampato è il migliore misurato; inversioni tra stima e misura nella top 8 (C5.7) ≤ 60; campi distinti nella top 8 (C5.8). Si accetta solo se `best` del banco non scende più del 5%.
 
   Agente: claude-code, sessione della corsia 4. Branch: `claude/placed-cards` (ripartito da `main`). File: `crates/ygo-solver/src/search.rs`, `value.rs`, `crates/ygo-cli/src/main.rs` (solo la parte `combos`), script miei in `scripts/`, `docs/plans/ordine-ricerca.md`.
