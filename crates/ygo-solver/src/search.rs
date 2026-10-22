@@ -1665,7 +1665,11 @@ const LEARN_LAST: usize = 4;
 /// second, but with quick effects that check every combination of
 /// materials at each chain window (Kewl Tune) it can take minutes. The
 /// phases after the search (the last round, playing the best boards to the
-/// end, their zone variants) all stop this long after the limit too.
+/// end, their zone variants) all stop this long after the limit too. On
+/// the slow Elfnote Kewl Tune hand of `docs/plans/velocita-ricerca.md` the
+/// best boards come from the whole last round and from the zone variants
+/// played to their end: an earlier deadline after a search that ended
+/// early loses them.
 const LEARN_GRACE: Duration = Duration::from_secs(10);
 
 /// Your cards on the field of `state`, by kind of zone, as keys, with a
@@ -1744,13 +1748,19 @@ fn learn_round(shared: &Shared, count: usize) {
     };
     let config = shared.config;
     let mut prober = Prober::new(shared.engine, &config.deck, &config.hand, config.seed, kit);
-    prober.until(shared.start + config.time_limit.max(shared.start.elapsed()) + LEARN_GRACE);
+    let until = shared.start + config.time_limit.max(shared.start.elapsed()) + LEARN_GRACE;
+    prober.until(until);
     let mut raised = false;
+    // The longest measure of the round so far: a board that would not end
+    // before `until` is not started (cut short, it would teach nothing).
+    let mut longest = Duration::ZERO;
     for board in &picked {
-        if shared.cancel.load(Ordering::Relaxed) {
+        if shared.cancel.load(Ordering::Relaxed) || Instant::now() + longest > until {
             break;
         }
+        let started = Instant::now();
         let measured = prober.measure_alone(&board.line);
+        longest = longest.max(started.elapsed());
         // Cut short: what it learnt is not the whole board's.
         if prober.out_of_time() {
             break;

@@ -319,3 +319,25 @@ La somma scende in 3 deck, dove la variante migliore era di un campo oltre il te
 | elfnote_kewl_tune-0 | 54,3 s | 47,4 s | 30,7 → 24,5 s |
 
 dracotail-0 resta sopra 60 s: le sue 11 misure costano circa 3 s l'una. Per scendere ancora servirebbe misurare due varianti invece di tre, o rendere più veloce la misura stessa.
+
+## Le fasi dopo la ricerca (22/10/2026, corsia 2)
+**Domanda.** Sulla mano lenta di Kewl Tune (60 s, 1000 nodi, seme 7) la ricerca finisce presto, ma le fasi successive arrivano comunque verso la scadenza (limite + 10 s). Si possono fermare prima, senza perdere board?
+
+**Prove** (`main` cc8a122, mano lenta da sola; prima: ricerca a 10,5 s, fine a 47,6 s, prime 3 board 8,6 · 8,4 · 8,3):
+
+| Apprendimento | `confirm_best` e `zone_variants` | Fine | Prime 3 board |
+|---|---|---|---|
+| fermo 10 s dopo la ricerca | 10 s dopo la ricerca | 19,8 s | 8,3 · 8,3 · 8,1 |
+| fermo 10 s dopo la ricerca | 15, 20, 25, 30, 40 s dopo la ricerca | 24,5-31,8 s | 8,3 · 8,3 · 8,1 |
+| come prima | 20 s dopo la ricerca | 31,2 s | 8,3 · 8,3 · 8,1 |
+| come prima | 25 s dopo la ricerca | 35,3 s | 8,6 · 8,4 · 8,3 |
+| come prima | 25 s dopo la ricerca (secondo giro) | 36,9 s | 8,6 · 8,3 · 8,3 |
+| come prima | 30 s dopo la ricerca | 41,0 s | 8,6 · 8,4 · 8,3 |
+
+- Le board migliori vengono sia dall'ultimo giro di apprendimento intero, sia dalle varianti di zona giocate fino in fondo. Le varianti finiscono da sole circa 37 s dopo la ricerca.
+- Un taglio a tempo prima di allora le perde o no a seconda della velocità della macchina: a 25 s, una volta sì e una volta no.
+- Nessuna scadenza più corta di quella di prima tiene la qualità in modo affidabile. Quindi la scadenza resta quella di prima.
+
+**Cambio rimasto** (`search.rs`). Un giro di apprendimento non comincia una board che non finirebbe prima della scadenza, a giudicare dalla misura più lunga del giro: tagliata a metà, non insegna niente. Sulle prove qui sopra non scatta mai, e la mano lenta finisce come prima.
+
+Il tempo di queste mani lo accorcia l'utente, scegliendo il limite nell'app; la ricerca più efficiente è il lavoro del piano critico (`docs/plans/ricerca-piano-critico.md`, A2 e B1-B7).
