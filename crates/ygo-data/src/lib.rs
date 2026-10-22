@@ -17,7 +17,7 @@ pub use banlist::Banlist;
 pub use deck::{Deck, DeckBox, Format, Issue, Legality, Severity};
 pub use images::{ImageCache, ImageSize};
 pub use matchlog::{CardChange, DeckList, MatchEntry};
-pub use model::{Card, CardKind, Facets};
+pub use model::{BanChange, Card, CardKind, Facets};
 pub use query::{parse as parse_query, Chip, Parsed, SearchQuery, Sort};
 pub use store::CardStore;
 pub use tags::Tag;

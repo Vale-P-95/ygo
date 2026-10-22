@@ -40,16 +40,19 @@ pub fn status_name(limit: u8) -> &'static str {
     }
 }
 
+/// Whether `s` is shaped like `YYYY-MM-DD`.
+pub(crate) fn is_date(s: &str) -> bool {
+    let b = s.as_bytes();
+    b.len() == 10 && b.iter().enumerate().all(|(i, c)| if i == 4 || i == 7 { *c == b'-' } else { c.is_ascii_digit() })
+}
+
 impl Banlist {
     pub fn parse(json: &str) -> Result<Self, Error> {
         let list: Banlist = serde_json::from_str(json)?;
         if list.format != "md" {
             return Err(Error::Data(format!("banlist di un formato sconosciuto: {}", list.format)));
         }
-        let date = list.effective.as_bytes();
-        let is_date =
-            date.len() == 10 && date.iter().enumerate().all(|(i, b)| if i == 4 || i == 7 { *b == b'-' } else { b.is_ascii_digit() });
-        if !is_date {
+        if !is_date(&list.effective) {
             return Err(Error::Data(format!("data della banlist non valida: {}", list.effective)));
         }
         if let Some(e) = list.cards.iter().find(|e| e.limit > 2) {

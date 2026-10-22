@@ -57,6 +57,17 @@ export interface Facets {
   formats: string[];
 }
 
+/** A card whose Forbidden & Limited status changed with a list update. */
+export interface BanChange {
+  format: "tcg" | "ocg" | "md";
+  id: number;
+  /** `YYYY-MM-DD`: when the list took effect (Master Duel) or when the card data showed the change (TCG, OCG). */
+  date: string;
+  /** "Forbidden", "Limited" or "Semi-Limited"; `null` is unlimited. */
+  before: string | null;
+  after: string | null;
+}
+
 export interface DataStatus {
   dataDir: string;
   cards: { version: string; count: number } | null;
@@ -774,6 +785,8 @@ const tauriApi = {
   search: (query: string) => invoke<SearchResult>("search_cards", { query }),
   getCards: (ids: number[]) => invoke<Card[]>("get_cards", { ids }),
   facets: () => invoke<Facets>("card_facets"),
+  /** Status changes of every list update, newest first; only `format`'s when given. */
+  banChanges: (format?: BanChange["format"]) => invoke<BanChange[]>("ban_changes", { format: format ?? null }),
   listFavorites: () => invoke<number[]>("list_favorites"),
   setFavorite: (id: number, favorite: boolean) => invoke<void>("set_favorite", { id, favorite }),
   listSavedSearches: () => invoke<SavedSearch[]>("list_saved_searches"),

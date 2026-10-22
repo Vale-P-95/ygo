@@ -40,7 +40,7 @@ use ygo_engine::auto::AutoPolicy;
 use ygo_engine::consts::{card_type, location};
 use ygo_engine::{
     canonical_fingerprint, fingerprint, italian, Action, ActionKind, CardDb, CardRef, ChainLink, Decision, DeckList, Duel, DuelState,
-    Engine, Error, Event, Opponent, Placement, Step,
+    Engine, Error, Event, Opponent, Placement, Prelude, Step,
 };
 
 use crate::coverage::{self, Audit, Coverage, Links, Mechanic};
@@ -87,6 +87,10 @@ pub struct SearchConfig {
     /// Cards of yours already on the field (or in the GY) when the turn
     /// starts, to try a hand on a board (empty: the usual duel).
     pub placed: Vec<Placement>,
+    /// A turn to go on from: answers played before the search starts
+    /// (from the duel of `placed`), then cards that join the hand. The
+    /// lines found start after it (empty: from the start of the turn).
+    pub prelude: Prelude,
     /// Record what the search does with each action of your cards
     /// ([`SearchResult::coverage`]); it costs a little time.
     pub coverage: bool,
@@ -113,6 +117,7 @@ impl SearchConfig {
             values: Arc::default(),
             learn: None,
             placed: Vec::new(),
+            prelude: Prelude::default(),
             coverage: false,
         }
     }
@@ -1012,7 +1017,15 @@ const IDLE_STRIKES: u32 = 3;
 
 fn new_duel(shared: &Shared) -> Result<Duel, Error> {
     let config = shared.config;
-    Duel::goldfish_against_placed(shared.engine, &config.deck, &config.hand, config.seed, config.opponent.as_ref(), &config.placed)
+    Duel::goldfish_against_from(
+        shared.engine,
+        &config.deck,
+        &config.hand,
+        config.seed,
+        config.opponent.as_ref(),
+        &config.placed,
+        &config.prelude,
+    )
 }
 
 /// Drops the answers that lead back where the search has been or goes
@@ -1662,9 +1675,12 @@ fn learn(shared: &Shared) {
 fn learn_round(shared: &Shared, count: usize) {
     let Some(kit) = shared.config.learn.as_deref() else { return };
     // The lines are measured again in a duel of their own: only the same
-    // duel as the search's (no cards placed, the kit's opponent) gives
-    // their answers the same meaning.
-    if !shared.config.placed.is_empty() || shared.config.opponent.as_ref() != Some(kit.opponent()) {
+    // duel as the search's (no cards placed, no prelude, the kit's
+    // opponent) gives their answers the same meaning.
+    if !shared.config.placed.is_empty()
+        || shared.config.prelude != Prelude::default()
+        || shared.config.opponent.as_ref() != Some(kit.opponent())
+    {
         return;
     }
     // Among the best boards, the ones with the most cards on the field not

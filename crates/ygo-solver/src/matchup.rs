@@ -963,8 +963,7 @@ fn playable(engine: &Engine, rival: &DeckList, cards: &[u32], seed: u64) -> Vec<
     if cards.is_empty() {
         return Vec::new();
     }
-    let place =
-        |code: u32, location: u8, sequence: u32, position: u32| Placement { code, location, sequence, position, overlay: Vec::new() };
+    let place = |code: u32, location: u8, sequence: u32, position: u32| Placement::new(code, location, sequence, position);
     let placed: Vec<Placement> = (0..3)
         .map(|i| place(monsters[i as usize], location::MZONE, i, position::FACEUP_ATTACK))
         .chain((1..3).map(|i| place(set, location::SZONE, i, position::FACEDOWN_DEFENSE)))

@@ -71,36 +71,67 @@ async fn download(client: &reqwest::Client, url: &str, item: &str, progress: &(d
 }
 
 /// Downloads the card list if YGOPRODeck has a newer version than `current`
-/// and builds a new database at `new_db`. Returns the version installed, or
-/// `None` when already up to date. The caller swaps `new_db` in place (see
-/// [`install_file`]) once it has closed the old database.
+/// and builds a new database at `new_db`, with what `previous` (the database
+/// in use) holds beyond the card list: the Master Duel list and the history
+/// of status changes, plus the TCG and OCG changes this update brings.
+/// Returns the version installed, or `None` when already up to date. The
+/// caller swaps `new_db` in place (see [`install_file`]) once it has closed
+/// the old database.
 pub async fn update_cards(
     client: &reqwest::Client,
     current: Option<&str>,
+    previous: Option<&Path>,
     new_db: &Path,
     progress: &(dyn Fn(Progress) + Sync),
 ) -> Result<Option<String>, Error> {
     progress(Progress::new("cards", Stage::Checking));
     let remote = import::parse_db_version(&client.get(DB_VERSION_URL).send().await?.error_for_status()?.bytes().await?)?;
-    if current == Some(remote.as_str()) {
+    if current == Some(remote.version.as_str()) {
         progress(Progress::new("cards", Stage::UpToDate));
         return Ok(None);
     }
     let json = download(client, CARDINFO_URL, "cards", progress).await?;
     progress(Progress::new("cards", Stage::Indexing));
     let new_db = new_db.to_owned();
-    let version = remote.clone();
+    let previous = previous.filter(|p| p.is_file()).map(Path::to_owned);
+    let version = remote.version.clone();
+    let date = remote.date.unwrap_or_else(today);
     tokio::task::spawn_blocking(move || -> Result<(), Error> {
         let cards = import::parse_cardinfo(&json)?;
         if new_db.exists() {
             std::fs::remove_file(&new_db)?;
         }
-        CardStore::open(&new_db)?.replace_all(&cards, &version)
+        let mut store = CardStore::open(&new_db)?;
+        store.replace_all(&cards, &version)?;
+        if let Some(previous) = previous {
+            store.carry_over(&previous, &date)?;
+        }
+        Ok(())
     })
     .await
     .map_err(|e| Error::Data(e.to_string()))??;
     progress(Progress::new("cards", Stage::Done));
-    Ok(Some(remote))
+    Ok(Some(remote.version))
+}
+
+/// Today's date (UTC), `YYYY-MM-DD`.
+fn today() -> String {
+    let secs = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_secs());
+    civil_date(secs / 86_400)
+}
+
+/// The calendar date `days` days after 1970-01-01 (H. Hinnant's `civil_from_days`).
+fn civil_date(days: u64) -> String {
+    let z = days as i64 + 719_468;
+    let era = z.div_euclid(146_097);
+    let doe = z - era * 146_097;
+    let yoe = (doe - doe / 1460 + doe / 36_524 - doe / 146_096) / 365;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    let mp = (5 * doy + 2) / 153;
+    let day = doy - (153 * mp + 2) / 5 + 1;
+    let month = if mp < 10 { mp + 3 } else { mp - 9 };
+    let year = yoe + era * 400 + i64::from(month <= 2);
+    format!("{year:04}-{month:02}-{day:02}")
 }
 
 /// Replaces `target` with `new` (removing `target` first: Windows does not
@@ -208,6 +239,13 @@ mod tests {
         }
         writer.finish().unwrap();
         buf.into_inner()
+    }
+
+    #[test]
+    fn civil_dates() {
+        assert_eq!(civil_date(0), "1970-01-01");
+        assert_eq!(civil_date(11_016), "2000-02-29");
+        assert_eq!(civil_date(20_748), "2026-10-22");
     }
 
     #[test]

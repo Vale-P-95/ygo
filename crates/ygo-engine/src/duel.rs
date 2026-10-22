@@ -172,17 +172,64 @@ pub struct ChainLink {
 }
 
 /// A card put on the field before the duel starts.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Hash)]
 pub struct Placement {
     pub code: u32,
     /// A Pendulum Monster in Spell & Trap Zone 0 or 4 is placed as a
     /// Pendulum Scale; an Extra Deck monster in a Monster Zone counts as
-    /// Summoned by its own kind of summon (its materials are not known).
+    /// Summoned by its own kind of summon, with `materials`.
     pub location: u8,
     pub sequence: u32,
     pub position: u32,
     /// Xyz Materials attached to it.
     pub overlay: Vec<u32>,
+    /// The materials of an Extra Deck monster's summon ("gains 800 ATK for
+    /// each material used"): each is a card placed in the GY, banished or
+    /// attached to it, or a new one in the GY, where most materials go.
+    /// Empty: an Xyz Monster's attached materials, none for the others
+    /// (see [`generic_materials`]).
+    pub materials: Vec<u32>,
+    /// The Monster Zone of the monster a face-up card in a Spell & Trap
+    /// Zone is equipped to. `None`: an Equip Card goes to the placed
+    /// monster it can be equipped to (the one with the most ATK).
+    pub equip_to: Option<u32>,
+}
+
+impl Placement {
+    pub fn new(code: u32, location: u8, sequence: u32, position: u32) -> Self {
+        Placement { code, location, sequence, position, ..Default::default() }
+    }
+}
+
+/// Materials an Extra Deck monster could have been Summoned with, when the
+/// real ones are not known: as many as a Link Monster's rating (each counts
+/// as one), two for the others; Normal Monsters with different names,
+/// which do nothing in the GY. Empty for a card not in the Extra Deck, or
+/// if the database lacks them.
+pub fn generic_materials(engine: &Engine, code: u32) -> Vec<u32> {
+    const FILLERS: [&str; 6] =
+        ["Alexandrite Dragon", "Mystical Elf", "Luster Dragon", "Gene-Warped Warwolf", "Giant Soldier of Stone", "Gemini Elf"];
+    let db = engine.cards();
+    let Some(card) = db.get(code).filter(|c| c.type_ & card_type::EXTRA != 0) else { return Vec::new() };
+    let count = if card.type_ & card_type::LINK != 0 { (card.level & 0xff).max(1) as usize } else { 2 };
+    let fillers: Vec<u32> = FILLERS.iter().filter_map(|n| db.find_by_name(n)).map(|c| c.code).collect();
+    if fillers.is_empty() {
+        return Vec::new();
+    }
+    (0..count).map(|i| fillers[i % fillers.len()]).collect()
+}
+
+/// A turn already begun when a duel is handed over
+/// ([`Duel::goldfish_against_from`]): the answers given from the start,
+/// then cards of the Deck that join the hand. A line played up to a point
+/// goes on with one card more, and what the line used stays used (the
+/// Normal Summon, effects once per turn).
+#[derive(Debug, Clone, Default, PartialEq, Eq, Hash)]
+pub struct Prelude {
+    pub answers: Vec<Vec<u8>>,
+    /// Put in the hand from the Deck with nothing happening (no draw, no
+    /// event): as if they had been in the hand all along.
+    pub joining: Vec<u32>,
 }
 
 /// The opponent's cards in [`Duel::goldfish_vs`].
@@ -220,6 +267,108 @@ thread_local! {
     static FRESH: Cell<bool> = const { Cell::new(false) };
     /// The card scripts are not loaded ahead (see `df_duel_preload`).
     static NO_PRELOAD: Cell<bool> = const { Cell::new(false) };
+}
+
+/// Lua that gives each placed Extra Deck monster its materials (a placed
+/// card of that code in the GY, banished or attached to it, each used
+/// once, else a new one in the GY; an Xyz Monster without `materials` has
+/// its attached ones), then plays what its summon does by rule: its checks
+/// of the materials and its continuous effects when Special Summoned
+/// ("its original ATK becomes 800 x the materials"). Its optional and
+/// mandatory triggers are not played: the line that made the board used them.
+fn placement_materials(engine: &Engine, placed: &[Placement]) -> String {
+    let db = engine.cards();
+    let mut lua = String::new();
+    for p in placed {
+        let type_ = db.get(p.code).map_or(0, |c| c.type_);
+        if p.location != location::MZONE || type_ & card_type::EXTRA == 0 {
+            continue;
+        }
+        let materials = if !p.materials.is_empty() {
+            let codes: Vec<String> = p.materials.iter().map(|&m| db.canonical_code(m).to_string()).collect();
+            format!("local g=Group.CreateGroup() for _,code in ipairs({{{}}}) do local m=df_take(c,code) if m then g:AddCard(m) end end c:SetMaterial(g)", codes.join(","))
+        } else if !p.overlay.is_empty() {
+            "c:SetMaterial(c:GetOverlayGroup())".to_owned()
+        } else {
+            String::new()
+        };
+        lua +=
+            &format!("do local c=Duel.GetFieldCard(0,{},{}) if c then {materials} df_summoned(c) end end\n", location::MZONE, p.sequence);
+    }
+    if lua.is_empty() {
+        return lua;
+    }
+    format!(
+        "local used=Group.CreateGroup()
+local function df_take(c,code)
+  local function free(tc) return tc:GetOriginalCode()==code and not used:IsContains(tc) end
+  local pool=Duel.GetMatchingGroup(free,0,{},0,nil)
+  pool:Merge(c:GetOverlayGroup():Filter(free,nil))
+  local m=pool:GetFirst() or Debug.AddCard(code,0,0,{},0,{})
+  if m then used:AddCard(m) end
+  return m
+end
+local function df_summoned(c)
+  local eg=Group.FromCards(c)
+  local effects={{c:GetOwnEffects()}}
+  for _,e in ipairs(effects) do
+    local v=e:GetValue()
+    if e:GetCode()==EFFECT_MATERIAL_CHECK and type(v)=='function' then pcall(v,e,c) end
+  end
+  for _,e in ipairs(effects) do
+    local t=e:GetType()
+    if e:GetCode()==EVENT_SPSUMMON_SUCCESS and t&EFFECT_TYPE_SINGLE~=0 and t&EFFECT_TYPE_CONTINUOUS~=0 then
+      local cond,op=e:GetCondition(),e:GetOperation()
+      if op and (not cond or cond(e,0,eg,0,0,nil,0,0)) then pcall(op,e,0,eg,0,0,nil,0,0) end
+    end
+  end
+end
+{lua}",
+        location::GRAVE | location::REMOVED,
+        location::GRAVE,
+        position::FACEUP_ATTACK,
+    )
+}
+
+/// Lua that equips each placed face-up card with a target to it, and each
+/// Equip Card without one to the placed monster it can be equipped to that
+/// has the most ATK (none: it stays as it is).
+fn placement_equips(engine: &Engine, placed: &[Placement]) -> String {
+    let db = engine.cards();
+    let mut lua = String::new();
+    for p in placed {
+        if p.location != location::SZONE || p.position & (position::FACEUP_ATTACK | position::FACEUP_DEFENSE) == 0 {
+            continue;
+        }
+        let equip = db.get(p.code).is_some_and(|c| c.type_ & card_type::EQUIP != 0);
+        let target = match p.equip_to {
+            Some(zone) => format!("Duel.GetFieldCard(0,{},{zone})", location::MZONE),
+            None if equip => "df_best(ec)".to_owned(),
+            None => continue,
+        };
+        lua += &format!(
+            "do local ec=Duel.GetFieldCard(0,{},{}) local tc=ec and {target} if ec and tc then Debug.PreEquip(ec,tc) end end\n",
+            location::SZONE,
+            p.sequence
+        );
+    }
+    if !lua.contains("df_best") {
+        return lua;
+    }
+    format!(
+        "local function df_best(ec)
+  local best=nil
+  local g=Duel.GetMatchingGroup(function(m) return m:IsFaceup() and ec:CheckEquipTarget(m) end,0,{},0,nil)
+  local m=g:GetFirst()
+  while m do
+    if not best or m:GetAttack()>best:GetAttack() then best=m end
+    m=g:GetNext()
+  end
+  return best
+end
+{lua}",
+        location::MZONE
+    )
 }
 
 fn check_reuse() -> bool {
@@ -373,6 +522,44 @@ impl Duel {
         Ok(duel)
     }
 
+    /// Like [`Duel::goldfish_against_placed`], with `prelude` played: the
+    /// duel goes on from there. Fails if an answer is not asked for or a
+    /// card to join the hand is not in the Deck.
+    pub fn goldfish_against_from(
+        engine: &Engine,
+        deck: &DeckList,
+        hand: &[u32],
+        seed: u64,
+        opponent: Option<&Opponent>,
+        placed: &[Placement],
+        prelude: &Prelude,
+    ) -> Result<Self, Error> {
+        let mut duel = Self::goldfish_against_placed(engine, deck, hand, seed, opponent, placed)?;
+        for answer in &prelude.answers {
+            match duel.advance()? {
+                Step::Decision { .. } => duel.respond(answer),
+                Step::End { .. } => return Err(Error::Engine("the duel ended before the prelude did".to_owned())),
+            }
+        }
+        for &code in &prelude.joining {
+            duel.deck_to_hand(code)?;
+        }
+        Ok(duel)
+    }
+
+    /// Moves a card of `code` from your Deck to your hand with nothing
+    /// happening (see [`Prelude::joining`]).
+    pub fn deck_to_hand(&mut self, code: u32) -> Result<(), Error> {
+        if let Some(shadow) = &mut self.shadow {
+            shadow.deck_to_hand(code)?;
+        }
+        let wanted = self.ctx.cards.canonical_code(code);
+        if unsafe { df_deck_to_hand(self.raw, 0, wanted) } == 0 {
+            return Err(Error::Data(format!("{} is not in the Deck", self.ctx.cards.name(code))));
+        }
+        Ok(())
+    }
+
     /// Like [`Duel::goldfish`], with the same Deck order and random numbers
     /// (so the same answers play the same turn), but the opponent has
     /// `opponent`'s cards and its decisions are asked like yours. The
@@ -441,7 +628,9 @@ impl Duel {
                 .chain(&hand_codes)
                 .chain(theirs)
                 .copied()
-                .chain(placed.iter().flat_map(|p| std::iter::once(p.code).chain(p.overlay.iter().copied())))
+                .chain(
+                    placed.iter().flat_map(|p| std::iter::once(p.code).chain(p.overlay.iter().copied()).chain(p.materials.iter().copied())),
+                )
                 .collect();
             if unsafe { df_duel_preload(duel.raw, codes.as_ptr(), codes.len()) } == 0 {
                 // A script did more than define its card when loaded: this
@@ -500,6 +689,16 @@ impl Duel {
                 let lua = format!("Debug.AddCard({material},0,0,{},{},{})", location::MZONE, p.sequence, position::FACEUP_ATTACK);
                 duel.run_lua_source("placement.lua", &lua);
             }
+        }
+        // Once every card is there: what a summon's materials and an Equip
+        // Card's target can be.
+        let materials = placement_materials(engine, placed);
+        if !materials.is_empty() {
+            duel.run_lua_source("placement.lua", &materials);
+        }
+        let equips = placement_equips(engine, placed);
+        if !equips.is_empty() {
+            duel.run_lua_source("placement.lua", &equips);
         }
         duel.start();
         Ok(duel)
