@@ -201,6 +201,71 @@ def report(out, boards, doc, seed):
 PARSED = {}
 
 
+def spearman(xs, ys):
+    """Rank correlation (average ranks for ties)."""
+    def ranks(v):
+        order = sorted(range(len(v)), key=lambda i: v[i])
+        r = [0.0] * len(v)
+        i = 0
+        while i < len(order):
+            j = i
+            while j + 1 < len(order) and v[order[j + 1]] == v[order[i]]:
+                j += 1
+            for k in range(i, j + 1):
+                r[order[k]] = (i + j) / 2
+            i = j + 1
+        return r
+    rx, ry = ranks(xs), ranks(ys)
+    n = len(xs)
+    if n < 3:
+        return float("nan")
+    mx, my = sum(rx) / n, sum(ry) / n
+    cov = sum((a - mx) * (b - my) for a, b in zip(rx, ry))
+    sx = sum((a - mx) ** 2 for a in rx) ** 0.5
+    sy = sum((b - my) ** 2 for b in ry) ** 0.5
+    return cov / (sx * sy) if sx and sy else float("nan")
+
+
+def summary(out, weights_field=(1.0, 0.9, 0.8, 0.6)):
+    """The truth per board (the share of the meta's moves stopped, weighted,
+    the doubtful pairs left out), how the generic measures follow it, and the
+    order of the pairs of boards of one deck."""
+    res = json.load(open(os.path.join(out, "results.json")))
+    by = {}
+    for r in res["rows"]:
+        if "left" not in r or r.get("made", 0) < 0.8:
+            continue
+        by.setdefault(r["board"], []).append(r)
+    boards = []
+    for b, rs in by.items():
+        w = sum(r["weight"] for r in rs)
+        g = rs[0]["generic"] or {}
+        score = sum(k * (g.get(m) or 0) for k, m in zip(weights_field, ("field", "hand", "floodgates", "resilience")))
+        boards.append(dict(board=b, deck=rs[0]["deck"], split=rs[0]["split"], rank=rs[0]["rank"], coverage=round(w, 3),
+                           truth=sum(r["weight"] * (1 - r["left"]) for r in rs) / w,
+                           l1=sum(r["weight"] * r["l1_resilience"] for r in rs if "l1_resilience" in r) / w,
+                           stopped=sum(r["weight"] * r.get("hand_trap_chance", 0) for r in rs) / w,
+                           score=score, field=g.get("field") or 0, resilience=g.get("resilience") or 0, countered=g.get("countered") or 0,
+                           floodgates=g.get("floodgates") or 0, hand=g.get("hand") or 0))
+    lines = ["| Gruppo | Board | " + " | ".join(f"ρ {k}" for k in ("score", "field", "resilience", "countered", "floodgates", "l1")) +
+             " | Coppie dello stesso deck: ordine giusto (score) |", "|---|---|" + "---|" * 7]
+    for group in ("taratura", "verifica"):
+        bs = [b for b in boards if b["split"] == group]
+        cells = [f"{spearman([b[k] for b in bs], [b['truth'] for b in bs]):.2f}" for k in ("score", "field", "resilience", "countered", "floodgates", "l1")]
+        right = total = 0
+        for d in {b["deck"] for b in bs}:
+            ds = [b for b in bs if b["deck"] == d]
+            for i, x in enumerate(ds):
+                for y in ds[i + 1:]:
+                    if abs(x["truth"] - y["truth"]) < 0.02:
+                        continue
+                    total += 1
+                    right += (x["score"] - y["score"]) * (x["truth"] - y["truth"]) > 0
+        lines.append(f"| {group} | {len(bs)} | " + " | ".join(cells) + f" | {right} su {total} |")
+    json.dump(boards, open(os.path.join(out, "truth.json"), "w"), indent=1)
+    return lines
+
+
 def main():
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("out")
@@ -227,6 +292,7 @@ def main():
         with cf.ThreadPoolExecutor(a.jobs) as ex:
             list(ex.map(lambda j: run_one(a.cli, a.decks, a.out, j[0], j[1], j[2], a.limit), jobs))
     report(a.out, boards, doc, a.split_seed)
+    print("\n".join(summary(a.out)))
 
 
 if __name__ == "__main__":
