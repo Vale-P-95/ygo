@@ -138,6 +138,18 @@ enum Cmd {
         /// (implies --probe).
         #[arg(long)]
         staged: bool,
+        /// With --staged: fields given the cheap measure.
+        #[arg(long, default_value_t = STAGED_CHEAP)]
+        staged_cheap: usize,
+        /// With --staged: of those, the best by it given the full measure.
+        #[arg(long, default_value_t = STAGED_FULL)]
+        staged_full: usize,
+        /// With --staged: windows each response is tried at in the cheap measure.
+        #[arg(long, default_value_t = STAGED_WINDOWS)]
+        staged_windows: usize,
+        /// With --staged: runs counting the uses of a response in the cheap measure.
+        #[arg(long, default_value_t = STAGED_ROUNDS)]
+        staged_rounds: usize,
     },
     /// Measure lines saved by `combos --save-lines` with the probe turn,
     /// without searching (the same boards before and after a change). The
@@ -342,6 +354,10 @@ fn main() -> Result<()> {
             no_breakers,
             quick_value,
             staged,
+            staged_cheap,
+            staged_full,
+            staged_windows,
+            staged_rounds,
         } => combos(
             &cli.data,
             &setup,
@@ -364,7 +380,11 @@ fn main() -> Result<()> {
                 save_lines,
                 no_breakers,
                 quick_value,
-                staged,
+                staged: staged.then_some(Staged {
+                    cheap: staged_cheap,
+                    full: staged_full,
+                    measure: ygo_solver::probe::Cheap { windows: staged_windows, use_rounds: staged_rounds },
+                }),
             },
         ),
         Cmd::ProbeLine { setup, lines, index, json, vs, stops, moves, protection } => {
@@ -409,7 +429,16 @@ struct CombosOptions {
     save_lines: Option<PathBuf>,
     no_breakers: bool,
     quick_value: bool,
-    staged: bool,
+    staged: Option<Staged>,
+}
+
+/// `combos --staged`: the cheap measure of the first `cheap` fields, then
+/// the full one of the best `full` by it.
+#[derive(Clone, Copy)]
+struct Staged {
+    cheap: usize,
+    full: usize,
+    measure: ygo_solver::probe::Cheap,
 }
 
 fn combos(dir: &Path, setup: &Setup, options: CombosOptions) -> Result<()> {
@@ -600,7 +629,7 @@ fn combos(dir: &Path, setup: &Setup, options: CombosOptions) -> Result<()> {
         item
     }
     let probe_started = std::time::Instant::now();
-    let mut boards: Vec<Listed> = if staged {
+    let mut boards: Vec<Listed> = if let Some(staged) = staged {
         // The cheap measure of the first fields in the search's order, then
         // the full one of the best of them by it; the others keep the cheap
         // one, and the fields past the first are not measured.
@@ -609,9 +638,9 @@ fn combos(dir: &Path, setup: &Setup, options: CombosOptions) -> Result<()> {
             .enumerate()
             .map(|(i, (_, group))| {
                 let mut item = measure(&mut prober, (false, false, false), group[0], group.len() - 1);
-                if i < STAGED_CHEAP {
+                if i < staged.cheap {
                     let started = std::time::Instant::now();
-                    item.measured = Some(prober.measure_cheap(&item.board.line));
+                    item.measured = Some(prober.measure_cheap(&item.board.line, staged.measure));
                     item.took = started.elapsed();
                     item.cheap = true;
                 }
@@ -621,7 +650,7 @@ fn combos(dir: &Path, setup: &Setup, options: CombosOptions) -> Result<()> {
         let cheap_value = |item: &Listed| item.measured.as_ref().and_then(|m| m.as_ref().ok()).map(cheap_composite);
         let mut order: Vec<usize> = (0..boards.len()).filter(|&i| cheap_value(&boards[i]).is_some()).collect();
         order.sort_by(|&a, &b| cheap_value(&boards[b]).unwrap_or(0.0).total_cmp(&cheap_value(&boards[a]).unwrap_or(0.0)).then(a.cmp(&b)));
-        for &i in order.iter().take(STAGED_FULL) {
+        for &i in order.iter().take(staged.full) {
             boards[i] = measure(&mut prober, how, groups[i].1[0], groups[i].1.len() - 1);
         }
         boards
@@ -772,7 +801,7 @@ fn combos(dir: &Path, setup: &Setup, options: CombosOptions) -> Result<()> {
             let measured = item.measured.as_ref().and_then(|m| m.as_ref().ok());
             let mut b = board_json(&engine, &config, item.board, i, item.variants, measured, item.took, item.exposure.as_ref());
             b["printed"] = serde_json::json!(rank_of[i]);
-            if staged {
+            if staged.is_some() {
                 b["stage"] = serde_json::json!(match (&item.measured, item.cheap) {
                     (None, _) => "none",
                     (Some(_), true) => "cheap",
@@ -1351,11 +1380,13 @@ fn loss_json(l: &ygo_solver::probe::ExpectedLoss, took: std::time::Duration) -> 
 const MEASURED_VARIANTS: usize = 3;
 const FIELDS_WITH_VARIANTS: usize = 3;
 
-/// `combos --staged`: fields given the cheap measure, and of those the
-/// best by it given the full one, as in the Combo Lab
-/// (`docs/plans/velocita-ricerca.md`, B14).
+/// `combos --staged` by default: fields given the cheap measure, and of
+/// those the best by it given the full one, as in the Combo Lab
+/// (`docs/plans/velocita-ricerca.md`, B14); what the cheap measure tries.
 const STAGED_CHEAP: usize = 40;
 const STAGED_FULL: usize = 15;
+const STAGED_WINDOWS: usize = 2;
+const STAGED_ROUNDS: usize = 0;
 
 /// The value of a cheap measure ([`ygo_solver::Prober::measure_cheap`]):
 /// [`composite`] without the parts it does not play.

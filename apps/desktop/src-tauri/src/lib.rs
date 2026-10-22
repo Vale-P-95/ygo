@@ -1899,6 +1899,8 @@ fn links_view(deck_id: i64, map: &ygo_solver::DeckLinks) -> DeckLinksView {
 /// "Card + rest" puts all the boards kept to the full measure.
 const CHEAP_BOARDS: usize = 40;
 const SCORED_BOARDS: usize = 15;
+/// What the cheap measure tries.
+const CHEAP_MEASURE: ygo_solver::probe::Cheap = ygo_solver::probe::Cheap { windows: 2, use_rounds: 0 };
 
 /// The value a cheap measure ranks the boards by: field, hand and floodgates
 /// as the page weighs them, with no breaker played.
@@ -2004,7 +2006,7 @@ fn combo_score(app: tauri::AppHandle, state: State<'_, AppState>, vs_deck_id: Op
             let missing: Vec<(usize, ygo_solver::Board)> =
                 candidates.iter().filter(|(h, b)| !known.contains_key(&(*h, b.key))).cloned().collect();
             cheap_scores = on_all_cores(&missing, &state.combo_cancel, new_prober, |prober, hand, board| {
-                let measured = prober.measure_cheap(&board.line).map_err(|e| e.to_string());
+                let measured = prober.measure_cheap(&board.line, CHEAP_MEASURE).map_err(|e| e.to_string());
                 let value = measured.as_ref().map_or(f64::NEG_INFINITY, cheap_value);
                 let mut view = score_view(&engine, hand, board, measured, None, None, &config.hand_traps, &roles);
                 view.cheap = true;

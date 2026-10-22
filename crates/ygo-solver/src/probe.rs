@@ -854,9 +854,18 @@ struct Parts {
 
 impl Parts {
     const ALL: Parts = Parts { together: true, breakers: true, windows: 16, use_rounds: 3 };
-    /// The cheap measure (B14): most of the time of a full one goes in
-    /// trying each response at every window and counting its uses.
-    const CHEAP: Parts = Parts { together: true, breakers: false, windows: 2, use_rounds: 0 };
+}
+
+/// How much a cheap measure ([`Prober::measure_cheap`]) tries: most of the
+/// time of a full one goes in trying each response at every window and
+/// counting its uses.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Cheap {
+    /// Windows each response is tried at (16 in a full measure).
+    pub windows: usize,
+    /// Runs counting the uses of a response (3 in a full measure; none
+    /// counts it used once).
+    pub use_rounds: usize,
 }
 
 /// The opponent's hand and GY, what the goals of a step look at (cheaper
@@ -1369,11 +1378,12 @@ impl<'a> Prober<'a> {
     }
 
     /// A cheap [`Prober::measure`] of the board `line` reaches, to choose
-    /// the boards worth a full one (B14): each response tried at its first
-    /// two windows only, used once, no breakers nor answer to it (about an
-    /// eighth of the time, and it orders the boards much as the full one).
-    pub fn measure_cheap(&mut self, line: &Line) -> Result<Measure, Error> {
-        self.measure_from(Prelude::Line(line), Parts::CHEAP)
+    /// the boards worth a full one (B14): each response tried at fewer
+    /// windows and its uses counted in fewer runs, as `cheap` says; no
+    /// breakers nor answer to it.
+    pub fn measure_cheap(&mut self, line: &Line, cheap: Cheap) -> Result<Measure, Error> {
+        let parts = Parts { together: true, breakers: false, windows: cheap.windows, use_rounds: cheap.use_rounds };
+        self.measure_from(Prelude::Line(line), parts)
     }
 
     /// [`Prober::measure_placed`] without the board breakers: no
