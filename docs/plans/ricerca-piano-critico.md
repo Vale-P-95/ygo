@@ -159,6 +159,31 @@ File: `crates/ygo-solver/src/roles.rs` e i suoi test.
   La correzione deve valere per ogni deck.
 - **Controllo:** `duelforge-cli roles` prima e dopo su almeno 10 deck di Master Duel Meta, con l'elenco delle carte che cambiano ruolo, ognuna verificata sul testo.
 
+### Ruoli: fatto (corsia 6, 22/10, branch `claude/roles-fix`)
+- **Board breaker dal testo.** Una frase che usa i mostri dell'avversario come materiale, come Tributo o per una Fusione («from/on either field», «monster(s) your opponent controls») rende la carta board breaker. Le frasi si dividono anche ai due punti: «se è mandata al Cimitero come materiale: distruggi 1 mostro che controlla l'avversario» toglie un mostro con un effetto, non lo usa (Dracotail Mululu e Kewl Tune Mix restano fuori). Lo stacco di un materiale Xyz non conta.
+- **Starter ed estensore insieme.** Ogni carta si prova come estensore sulla linea dello starter migliore; lo starter migliore sulla linea del secondo.
+- **Invocation - "Chalice"** («Grail» in Master Duel). Il budget non c'entra: con 3000 nodi il risultato è lo stesso. Le altre due cause c'entrano:
+  - la Fusione bandisce un tuo mostro e uno dal Deck. All'ultimo momento libero della linea di Magical Meltdown resta solo la board: "Chalice" bandisce S:P Little Knight per Evocare Oceanus, e la stima sale solo di 0,83;
+  - nella lista Invoked della fixture, all'ultimo momento non si usa affatto. Un passo prima (quando Aleister ha già fatto il suo lavoro) vale +5,3.
+- **La correzione è in due parti.**
+  - La carta si prova negli ultimi 2 momenti liberi della linea, non solo nell'ultimo.
+  - Basta un guadagno di 0,75 se la carta porta sul campo una carta del deck che la board senza di lei non ha, diversa da sé stessa.
+  - La soglia di 1,5 resta per il resto: una carta solo coperta (+1,0) o usata per sé stessa (Crossout Designator +0,6) non porta niente.
+- **Controllo:** `duelforge-cli roles` prima e dopo sui 41 deck di Master Duel Meta. Ruoli cambiati per 94 carte; ognuna è stata letta sul testo.
+
+  | Cambio | Carte |
+  |---|---|
+  | + board breaker | 12: Super Polymerization (7 deck), Fallen of Albaz (2), Eternal Favorite, Megalith Anastasis e Megalith Notrah Plura («Tribute 1 monster your opponent controls»; era mattone) |
+  | starter → starter ed estensore | 41 |
+  | + estensore | 36, più 5 mattoni che diventano estensori (DoomZ XII Zero - Drastea, Super Express Bullet Train, Junoldo, Noh-P.U.N.K. Deer Note, Diabellstar Vengeance) |
+
+  - Estensori in tutto: da 67 a 149; board breaker da 140 a 152. Nessun ruolo perso.
+  - Su Invoked diventano estensori Invocation, "Sword", "Chalice", Aleister the Reminiscent; Aleister, Aiwass e Magical Meltdown diventano starter ed estensori; Super Polymerization diventa board breaker.
+  - **Dubbi**, dal testo: Fydraulis Harmonia (handtrap), Rainbow Bridge of Salvation e Sinful Spoils of Betrayal - Silvera estendono poco o niente. Restano perché superano la soglia nella stima.
+  - **Già prima:** le Trappole coperte risultano starter o estensori (Solemn Judgment, Solemn Accusation, Forbidden Crown), perché la stima rapida conta ogni interruzione coperta. Ora le Solemn di odion e primite sono «starter ed estensore»: è la stessa regola, non un difetto nuovo.
+- **Tempo:** da 330 a 609 s sui 41 deck, cioè da 8,0 a 14,8 s a deck. La linea in più e il secondo momento costano; il secondo momento si prova solo se il primo non basta.
+- Test: `crates/ygo-solver/tests/roles.rs` (Invoked: "Chalice" estensore e board breaker, Super Polymerization board breaker) e un test unitario sulle frasi.
+
 ## Chi fa cosa
 I file caldi (`search.rs`, `probe.rs`, `value.rs`, `lib.rs`, `api.ts`) li tocca un agente alla volta. I moduli nuovi (`relax.rs`, la history, l'arena in `ygo-engine`) si scrivono in parallelo; si serializza solo l'aggancio.
 - **Corsia 2 (velocità):** in quest'ordine, una correzione per PR.

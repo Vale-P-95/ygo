@@ -64,6 +64,21 @@
   --role-custom-2: #6c9a35;
   --role-custom-3: #8a7d73;
   --lab-second: #9a72d4;
+
+  /* Yu-Gi-Oh card frames (contrast >= 3:1 on forge dark surface, distinct from roles). */
+  --frame-normal: #d8b46e;
+  --frame-effect: #cf7a43;
+  --frame-fusion: #a05cd4;
+  --frame-synchro: #e8e8ea;
+  --frame-xyz: #706e78;
+  --frame-link: #2f78d6;
+  --frame-ritual: #4b90e6;
+  --frame-spell: #14aa78;
+  --frame-trap: #cc3b88;
+  --frame-token: #908c88;
+  --frame-skill: #3a8bd8;
+  --stats-starter-num: #4ee0d5;
+  --stats-key-num: #ffd27a;
 }
 [data-theme="light"] {
   --role-starter: #0a8d82;
@@ -75,6 +90,21 @@
   --role-custom-2: #4f7d1c;
   --role-custom-3: #8c7a68;
   --lab-second: #7445b8;
+
+  /* Yu-Gi-Oh card frames (contrast >= 3:1 on light pergamena surface, distinct from roles). */
+  --frame-normal: #8c6214;
+  --frame-effect: #b8581e;
+  --frame-fusion: #7a3cb2;
+  --frame-synchro: #555660;
+  --frame-xyz: #1e1b24;
+  --frame-link: #1a5ca8;
+  --frame-ritual: #2465b8;
+  --frame-spell: #0b7f58;
+  --frame-trap: #9e1d62;
+  --frame-token: #605c56;
+  --frame-skill: #2566ab;
+  --stats-starter-num: #086b63;
+  --stats-key-num: #7a4e00;
 }
 
 :root {

@@ -13,6 +13,8 @@ export interface FilterChipProps extends Omit<ButtonHTMLAttributes<HTMLButtonEle
   color?: string;
   /** If true and count is 0, the chip is not rendered at all. */
   hideWhenZero?: boolean;
+  /** If true (default), the chip is disabled when count is 0 and not active. Set to false for reset chips. */
+  disableWhenZero?: boolean;
   /** Optional tooltip explaining what the filter selects. */
   tooltip?: string;
   /** Size variant: default (compact) or lg. */
@@ -30,6 +32,7 @@ export function FilterChip({
   active = false,
   color,
   hideWhenZero = false,
+  disableWhenZero = true,
   tooltip,
   size = "md",
   disabled = false,
@@ -44,6 +47,7 @@ export function FilterChip({
   }
 
   const isZero = numCount === 0;
+  const shouldDisable = disabled || (disableWhenZero && isZero && !active);
   const paddingClass = size === "sm" ? "px-2 py-0.5 text-small gap-1.5" : "px-2.5 py-1 text-small gap-2";
 
   return (
@@ -51,11 +55,11 @@ export function FilterChip({
       type={type}
       data-tip={tooltip}
       aria-pressed={active}
-      disabled={disabled || (isZero && !active)}
+      disabled={shouldDisable}
       onClick={onClick}
       className={`chip group cursor-pointer transition select-none disabled:pointer-events-none disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gold/70 active:scale-97 ${paddingClass} ${
         active ? "chip-active font-medium" : "hover:border-border-strong hover:bg-surface-3"
-      } ${isZero && !active ? "opacity-60 text-faint" : ""} ${className}`}
+      } ${isZero && !active && disableWhenZero ? "opacity-60 text-faint" : ""} ${className}`}
       {...rest}
     >
       {color && (

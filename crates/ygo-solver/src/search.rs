@@ -44,7 +44,7 @@ use ygo_engine::{
 };
 
 use crate::coverage::{self, Audit, Coverage, Links, Mechanic};
-use crate::probe::{Kit, Prober};
+use crate::probe::{taken_weight, Kit, Prober};
 use crate::value::{CardValues, InHand, Spot};
 
 #[derive(Debug, Clone)]
@@ -646,7 +646,10 @@ impl Shared<'_> {
         Board {
             key: board_key(&state),
             cards_used: cards_used(&self.config.hand, &state),
-            quick_score: self.values.read().map_or(0.0, |v| quick_score(self.engine, &state, &self.config.hand_traps, &v)),
+            quick_score: self
+                .values
+                .read()
+                .map_or(0.0, |v| quick_score(self.engine, &state, &self.config.hand_traps, &v, self.config.opponent.as_ref())),
             goal_hits: self.config.goal.hits(self.engine, &state),
             exact,
             line,
@@ -892,7 +895,7 @@ fn card_hash(state: &DuelState, kind: (usize, bool), c: &ygo_engine::FieldCard) 
 /// replaces it at the end with the real score): monsters on the field,
 /// more for Extra Deck monsters, set cards, cards kept in hand, more for
 /// `hand_traps`, and what the cards on the field stop alone (`values`).
-pub fn quick_score(engine: &Engine, state: &DuelState, hand_traps: &[u32], values: &CardValues) -> f64 {
+pub fn quick_score(engine: &Engine, state: &DuelState, hand_traps: &[u32], values: &CardValues, opponent: Option<&Opponent>) -> f64 {
     let me = &state.players[0];
     let mut score = 0.0;
     for (z, c) in me.monsters.iter().enumerate() {
@@ -949,7 +952,19 @@ pub fn quick_score(engine: &Engine, state: &DuelState, hand_traps: &[u32], value
             InHand::Unknown => 0.3,
         })
         .sum::<f64>();
-    score + VALUE_WEIGHT * values.of_field(engine, state)
+    score + VALUE_WEIGHT * (values.of_field(engine, state) + opponent.map_or(0.0, |o| taken_from(o, state)))
+}
+
+/// What your turn took from the opponent (B5a): its cards when the turn
+/// began (`opponent`) against those it still has, pile by pile, at the
+/// weights of the probe turn's [`crate::probe::attrition`]. Its Extra Deck
+/// banished by Hyperinvoked Aeon is worth something to the search too.
+fn taken_from(opponent: &Opponent, state: &DuelState) -> f64 {
+    let them = &state.players[1];
+    let gone = |before: usize, now: usize| before.saturating_sub(now) as f64;
+    gone(opponent.extra.len(), them.extra.len()) * taken_weight(location::EXTRA)
+        + gone(opponent.hand.len(), them.hand.len()) * taken_weight(location::HAND)
+        + gone(opponent.deck.len(), them.deck.len()) * taken_weight(location::DECK)
 }
 
 /// What a face-up monster whose value was measured adds to the estimate
@@ -1851,7 +1866,7 @@ fn learn_round(shared: &Shared, count: usize) {
     if raised {
         let (Ok(values), Ok(mut boards)) = (shared.values.read(), shared.boards.lock()) else { return };
         for b in boards.values_mut() {
-            b.quick_score = quick_score(shared.engine, &b.state, &config.hand_traps, &values);
+            b.quick_score = quick_score(shared.engine, &b.state, &config.hand_traps, &values, config.opponent.as_ref());
         }
     }
 }
