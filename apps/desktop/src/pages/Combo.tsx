@@ -215,7 +215,10 @@ export function Combo({ artReady, onGoForge }: { artReady: boolean; onGoForge: (
   const [paretoOnly, setParetoOnly] = useState(false);
   const [choicesVersion, setChoicesVersion] = useState(0);
   const [recordedPairChoices, setRecordedPairChoices] = useState<Map<string, string>>(new Map());
-  const metaReqIdRef = useRef(0);
+  const deckRef = useRef(deck);
+  useEffect(() => {
+    deckRef.current = deck;
+  }, [deck]);
 
   useEffect(() => {
     void api.listDecks().then(setAllDecks);
@@ -245,7 +248,6 @@ export function Combo({ artReady, onGoForge }: { artReady: boolean; onGoForge: (
       rememberDeck(id);
       setDeck(d);
       clearMetaError();
-      metaReqIdRef.current++;
       const saved = load(`duelforge.combo.${id}`, NO_SETUP);
       setSetupState({ ...saved, goal: goalCards(saved.goal) });
       setPicker(null);
@@ -451,7 +453,6 @@ export function Combo({ artReady, onGoForge }: { artReady: boolean; onGoForge: (
     setRecordedPairChoices(new Map());
     explained.current.clear();
     clearMetaError();
-    metaReqIdRef.current++;
     const done = await startCombo({
       deckId: deck.id,
       hand: byHand ? setup.hand : [],
@@ -475,7 +476,6 @@ export function Combo({ artReady, onGoForge }: { artReady: boolean; onGoForge: (
     sound.play("open");
     explained.current.clear();
     clearMetaError();
-    metaReqIdRef.current++;
     const done = await continueCombo(options.seconds);
     if (done.error) {
       sound.play("error");
@@ -486,7 +486,6 @@ export function Combo({ artReady, onGoForge }: { artReady: boolean; onGoForge: (
   const handleCompareMeta = async () => {
     if (!deck || deck.id == null || run.running || run.scoring || run.metaLoading) return;
     sound.play("select");
-    const reqId = ++metaReqIdRef.current;
     const currentDeckId = deck.id;
     const measuredBoards = boards.filter((b) => {
       const s = run.scores[boardId(b)];
@@ -498,17 +497,15 @@ export function Combo({ artReady, onGoForge }: { artReady: boolean; onGoForge: (
         : measuredBoards.slice(0, 4).map((b) => ({ hand: b.hand, key: b.key }));
 
     try {
-      const count = await compareMeta(targetBoards, currentDeckId, reqId);
-      if (reqId !== metaReqIdRef.current || deck?.id !== currentDeckId) return;
+      const count = await compareMeta(targetBoards, currentDeckId);
+      if (deckRef.current?.id !== currentDeckId) return;
       if (count > 0) {
         sound.play("glass");
         toast(`Confronto con il meta completato per ${plural(count, "board", "board")}`, "info");
       }
-    } catch (e) {
-      if (reqId !== metaReqIdRef.current || deck?.id !== currentDeckId) return;
+    } catch {
+      if (deckRef.current?.id !== currentDeckId) return;
       sound.play("error");
-      const msg = e instanceof Error ? e.message : String(e);
-      toast(`Errore nel confronto con il meta: ${msg}`, "error");
     }
   };
 

@@ -145,11 +145,9 @@ export async function scoreBoards(vsDeckId?: number | null) {
 export async function compareMeta(
   boards?: { hand: number; key: string }[],
   deckId?: number | null,
-  requestId?: number,
 ): Promise<number> {
   if (run.scoring || run.running || run.metaLoading) return 0;
-  const reqId = requestId ?? ++metaRequestId;
-  metaRequestId = reqId;
+  const reqId = ++metaRequestId;
   const targetDeckId = deckId ?? run.request?.deckId;
   set({ metaLoading: true, metaError: null });
 

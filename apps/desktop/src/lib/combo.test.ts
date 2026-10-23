@@ -36,7 +36,7 @@ describe("combo lib - compareMeta", () => {
       { hand: 0, key: "abc" },
       { hand: 1, key: "def" },
     ];
-    const count = await compareMeta(boards, 42, 1);
+    const count = await compareMeta(boards, 42);
     expect(count).toBe(2);
     expect(metaSpy).toHaveBeenCalledWith(boards);
 
@@ -48,7 +48,7 @@ describe("combo lib - compareMeta", () => {
     const metaSpy = vi.spyOn(api, "comboMeta").mockRejectedValueOnce(new Error("Network failure"));
     const scoreListenerSpy = vi.spyOn(api, "onComboScore").mockResolvedValueOnce(() => {});
 
-    await expect(compareMeta(undefined, 42, 2)).rejects.toThrow("Network failure");
+    await expect(compareMeta(undefined, 42)).rejects.toThrow("Network failure");
     clearMetaError();
 
     metaSpy.mockRestore();
