@@ -57,7 +57,11 @@ Corsie di lavoro in parallelo del 22/10/2026 (piano in `docs/plans/piano-prossim
     - inv-r5 contro Elfnote: «left» dal 93% al 21%.
     - `moves_report` (invoked, branded, Kewl Tune contro 12 deck, 36 coppie): 10 più basse, 26 uguali, nessuna più alta; media dal 52,1% al 48,3%; invoked dal 54% al 42%. Tempo del livello 2 +12%.
     - `paired_test.py` (90 mani): 90 pari, ACCEPTED. Senza `--moves` il codice cambiato non gira.
-  - [ ] In corso (PR a parte, dopo la #93): la stessa regola nella run «insieme» della misura. File: in `crates/ygo-solver/src/probe.rs` solo la parte `together` di `measure_from`. Numeri: banco, `combo_hunt`, `paired_test.py`, controllo B14 della #1 su 82/82.
+  - [x] Pronto (PR a parte, dopo la #93): la stessa regola nella run «insieme» della misura. File: in `crates/ygo-solver/src/probe.rs` solo la parte `together` di `measure_from`. Quando tutte insieme tengono già tutto il loro valore non si gira niente di più.
+    - Banco `--nodes 4000`: 18,26 / 18,26, identico. `combo_hunt` (41 mani): 41 ok, 0 problemi, 41 pari, la #1 identica in 41 su 41.
+    - `paired_test.py` (90 mani): 4 meglio (ryu_ge-1 +3,4%, snake_eye-1 +14,6%, tearlaments-1 +26,9%, warrior_combo-0 +53%), 0 peggio, 86 pari, ACCEPTED.
+    - B14, `combo_hunt --seed 7`: la #1 identica in 80 su 82; le altre 2 (ryu_ge-1, tearlaments-1) hanno ora una #1 che vale di più.
+    - Tempo della run «insieme»: da 75,0 s a 76,9 s sulle 90 mani (+2,5%). Test completi verdi.
 - [ ] **Corsia 4, sesto task** (correzione unita il 22/10, PR #86; resta il seguito qui sotto). Difetti del livello 2 dal banco oggettivo (corsia 3) e dalla corsia 7: contro il deck scelto la tua linea si sfasava (Elfnote Kewl Tune su una catena vuota, Tearlaments e Earth Machine con 0 linee, railway contro Snake-Eye). La linea si rigioca per identità.
 
   Agente: claude-code, sessione della corsia 4. Branch: `claude/placed-cards`. File: in `crates/ygo-solver/src/probe.rs` `Prelude::Own` e il suo ramo in `run_with`; `follow.rs` (`Script::up_to`); in `matchup.rs` `replay` (ramo per identità, recupero di `Rejected`, picks), `rival_breakers`, `against_moves`, `draw_trade_off`; la stampa di `print_moves` in `crates/ygo-cli/src/main.rs`.
