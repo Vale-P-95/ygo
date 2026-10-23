@@ -852,10 +852,13 @@ struct Parts {
     windows: usize,
     /// Runs with a response used whenever offered, to count its uses.
     use_rounds: usize,
+    /// Without the breakers: the run with no answer plays on to your next
+    /// Main Phase, for [`Measure::follow_up`] with no breaker.
+    next_turn: bool,
 }
 
 impl Parts {
-    const ALL: Parts = Parts { together: true, breakers: true, windows: 16, use_rounds: 3 };
+    const ALL: Parts = Parts { together: true, breakers: true, windows: 16, use_rounds: 3, next_turn: false };
 }
 
 /// How much a cheap measure ([`Prober::measure_cheap`]) tries: most of the
@@ -1333,7 +1336,8 @@ pub struct Measure {
     /// with this board: the Mulcharmy only while you control no cards).
     pub offered: Vec<(u32, u8)>,
     /// What you have for your next turn after the breaker that takes away
-    /// the most (none if the run could not get there).
+    /// the most (none if the run could not get there); in a cheap measure,
+    /// with no breaker.
     pub follow_up: Option<FollowUp>,
     /// Share of what all your effects stop together that they still stop
     /// when the opponent answers the first of them it can (none if it could
@@ -1427,7 +1431,7 @@ impl<'a> Prober<'a> {
     /// breakers nor answer to it. With what it played, for
     /// [`Prober::measure_resumed`].
     pub fn measure_cheap(&mut self, line: &Line, cheap: Cheap) -> Result<(Measure, Partial), Error> {
-        let parts = Parts { together: true, breakers: false, windows: cheap.windows, use_rounds: cheap.use_rounds };
+        let parts = Parts { together: true, breakers: false, windows: cheap.windows, use_rounds: cheap.use_rounds, next_turn: true };
         let (measure, partial) = self.measure_partial(Prelude::Line(line), parts, None, true)?;
         Ok((measure, partial.expect("kept")))
     }
@@ -1468,6 +1472,14 @@ impl<'a> Prober<'a> {
         let base = self.baseline.clone().expect("baseline");
         let (all, done) = match resume {
             Some(p) => (p.all, p.responses),
+            // Your next turn costs no run of its own: the same run plays on.
+            None if parts.next_turn => {
+                let context = Context { turn_three: true, ..Context::default() };
+                match self.run_with(prelude, &all_steps, Policy::Pass, context) {
+                    Ok(trace) => (trace, Vec::new()),
+                    Err(_) => (self.run(prelude, &all_steps, Policy::Pass)?, Vec::new()),
+                }
+            }
             None => (self.run(prelude, &all_steps, Policy::Pass)?, Vec::new()),
         };
         let mut played = Vec::new();
@@ -1670,7 +1682,13 @@ impl<'a> Prober<'a> {
         let follow_up_started = std::time::Instant::now();
         let weights: f64 = breakers.iter().map(|b| b.weight).sum();
         let resilience = if weights > 0.0 { breakers.iter().map(|b| b.weight * b.remaining).sum::<f64>() / weights } else { total };
-        let follow_up = if parts.breakers { self.follow_up(prelude, &interruptions, &breakers) } else { None };
+        let follow_up = if parts.breakers {
+            self.follow_up(prelude, &interruptions, &breakers)
+        } else if parts.next_turn {
+            all.follow_up
+        } else {
+            None
+        };
         seconds.follow_up = follow_up_started.elapsed().as_secs_f64();
 
         let hand_value = interruptions.iter().filter(|i| i.location == location::HAND).map(|i| i.value).sum::<f64>() + 0.0;

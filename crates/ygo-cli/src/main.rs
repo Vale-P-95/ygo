@@ -630,6 +630,8 @@ fn combos(dir: &Path, setup: &Setup, options: CombosOptions) -> Result<()> {
         item
     }
     let probe_started = std::time::Instant::now();
+    // The value of each field's cheap measure (`--staged`), for scripts.
+    let mut cheap_values: Vec<Option<f64>> = Vec::new();
     let mut boards: Vec<Listed> = if let Some(staged) = staged {
         // The cheap measure of the first fields in the search's order, then
         // the full one of the best of them by it; the others keep the cheap
@@ -657,6 +659,7 @@ fn combos(dir: &Path, setup: &Setup, options: CombosOptions) -> Result<()> {
             })
             .collect();
         let cheap_value = |item: &Listed| item.measured.as_ref().and_then(|m| m.as_ref().ok()).map(cheap_composite);
+        cheap_values = boards.iter().map(cheap_value).collect();
         let mut order: Vec<usize> = (0..boards.len()).filter(|&i| cheap_value(&boards[i]).is_some()).collect();
         order.sort_by(|&a, &b| cheap_value(&boards[b]).unwrap_or(0.0).total_cmp(&cheap_value(&boards[a]).unwrap_or(0.0)).then(a.cmp(&b)));
         for &i in order.iter().take(staged.full) {
@@ -829,6 +832,7 @@ fn combos(dir: &Path, setup: &Setup, options: CombosOptions) -> Result<()> {
                     (Some(_), true) => "cheap",
                     (Some(_), false) => "full",
                 });
+                b["cheap_value"] = serde_json::json!(cheap_values.get(i).copied().flatten());
             }
             if let Some((l, took)) = &item.loss {
                 b["expected_loss"] = loss_json(l, *took);
@@ -1416,13 +1420,15 @@ const FIELDS_WITH_VARIANTS: usize = 3;
 /// (`docs/plans/velocita-ricerca.md`, B14); what the cheap measure tries.
 const STAGED_CHEAP: usize = 30;
 const STAGED_FULL: usize = 15;
-const STAGED_WINDOWS: usize = 16;
-const STAGED_ROUNDS: usize = 3;
+const STAGED_WINDOWS: usize = 8;
+const STAGED_ROUNDS: usize = 1;
 
 /// The value of a cheap measure ([`ygo_solver::Prober::measure_cheap`]):
-/// [`composite`] without the parts it does not play.
+/// [`composite`] without the resilience, and with your next turn when the
+/// opponent breaks nothing.
 fn cheap_composite(m: &ygo_solver::Measure) -> f64 {
-    m.field_value + 0.9 * m.hand_value + 0.8 * m.floodgate_value
+    let rebuild = m.follow_up.map_or(0.0, |f| f.rebuild as f64);
+    m.field_value + 0.9 * m.hand_value + 0.8 * m.floodgate_value + 0.4 * 0.3 * rebuild
 }
 
 /// The measured value of a board with the "Bilanciato" profile of the app:
