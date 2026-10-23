@@ -1891,11 +1891,23 @@ impl<'a> Prober<'a> {
         interruptions.sort_by(|a, b| b.value.total_cmp(&a.value));
         // All of them together, the strongest first: what is left of the
         // opponent's moves (two answers that stop the same move count once).
-        let order: Vec<ResponderId> = interruptions.iter().map(|i| i.responder).collect();
-        let left = match self.run_with(prelude, &steps, Policy::UseAll(&order), follow) {
-            Ok(run) if reference > 0.0 && !order.is_empty() => (made_weight(&run) / reference).min(1.0),
-            _ => 1.0,
-        };
+        // Each is added only if the opponent then makes less: one used at
+        // its first chance can take a stronger one as its cost or material
+        // (Super Polymerization fusing your Baronne de Fleur), and then you
+        // would keep it for later.
+        let mut used: Vec<ResponderId> = Vec::new();
+        let mut made_together = reference;
+        for i in &interruptions {
+            let mut tried = used.clone();
+            tried.push(i.responder);
+            let Ok(run) = self.run_with(prelude, &steps, Policy::UseAll(&tried), follow) else { continue };
+            let made = made_weight(&run);
+            if made < made_together - 1e-9 {
+                made_together = made;
+                used = tried;
+            }
+        }
+        let left = if reference > 0.0 && !interruptions.is_empty() { (made_together / reference).min(1.0) } else { 1.0 };
         Ok(MovesMeasure {
             left,
             possible: (0..steps.len()).map(|i| made(&base, i)).collect(),
