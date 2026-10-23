@@ -1,22 +1,118 @@
-# Caccia ai bug e alle inefficienze del motore delle combo (bozza)
+# Caccia ai bug e alle inefficienze del motore delle combo
 
-*Corsia 9, 23/10/2026, branch `claude/engine-bughunt` da `main` 9cc3005. Lettura del codice di `crates/ygo-solver`, `crates/ygo-engine` e della parte `combos` di `crates/ygo-cli`, più riproduzioni con la CLI (build release, dati del 22/10, liste MDM del 22/10). Nessuna modifica al codice. **Bozza in corso:** le voci sotto sono quelle già verificate; l'ordine per gravità e il resto arrivano nelle prossime spinte.*
+*Corsia 9, 23/10/2026, branch `claude/engine-bughunt` da `main` 9cc3005 (dopo le PR #80-#99: copie del duello B13, misura a gradini B14, rigioco del livello 2, «risposte insieme», oracolo `--staged`). Lettura del codice di `crates/ygo-solver`, `crates/ygo-engine` e della parte `combos` di `crates/ygo-cli`; riproduzioni con la CLI (build release, dati del 22/10, liste MDM del 22/10, deck Invoked della fixture `invoked-siracusa-md.ydk`, un thread). Nessuna modifica al codice. Ogni voce ha file e funzione, lo scenario o la riproduzione, la gravità, la correzione proposta e il controllo. Le ipotesi controllate e scartate sono in fondo: valgono quanto le voci, perché dicono cosa non serve cercare.*
 
-## Verificate finora
+**Gravità.** *Alta*: cambia quale board l'utente vede, o fa perdere board forti. *Media*: perde ordine o tempo in modo misurabile, o rende il risultato dipendente da budget e thread. *Bassa*: percentuali di tempo o memoria, senza effetto sulle board.
 
-### 1. La tabella delle trasposizioni chiude un nodo alla prima visita, con priorità che dipendono dal cammino (gravità media; già assegnata alla corsia 2)
-- `search.rs`, `Shared::first_visit` e il suo uso in `play` (dopo il calcolo di `node_key`): il primo cammino che arriva a un nodo lo chiude; i figli entrano in coda con `discrepancies = edge.discrepancies + 1` di quel cammino (`work`). Un cammino con meno deviazioni che arriva dopo finisce come `End::Duplicate` e non riaccoda nulla.
-- **Scenario:** nodo N raggiunto prima da una linea a 3 deviazioni → i suoi fratelli in coda a penalità 4 × 0,6 = 2,4. La linea principale (0 deviazioni) arriva a N più tardi e viene scartata: i fratelli restano a 2,4 invece di 0,6. A budget finito è una perdita di ordine, cioè di board.
-- **Correzione:** la voce della tabella tiene la penalità minima vista; un arrivo con penalità minore riaccoda i figli (B3). **Controllo:** contare in `DUELFORGE_SEARCH_STATS` i nodi raggiunti una seconda volta con `discrepancies` minore (oggi ignoto); poi `best` del banco non scende e il tempo alla board migliore cala.
+## In breve
+1. **(Alta) La board che rappresenta un campo cambia con il budget.** `combos` raggruppa per `field_key` e misura il primo del gruppo nell'ordine della ricerca; l'app fa lo stesso per `look_key`. Con più nodi il primo cambia: su sky_striker-1, 6 campi su 22 comuni cambiano rappresentante tra 1000 e 20 000 nodi. È una causa misurata della non monotonia dell'oracolo (28 mani su 88 che scendono con il budget), insieme alle fasi finali a dimensione fissa (`confirm_top` 40, `zone_top` 20, i 300 campi di `oracle.py --staged`).
+2. **(Media, già assegnata alla corsia 2) La tabella delle trasposizioni chiude un nodo alla prima visita** mentre le priorità dipendono dal cammino: il cammino migliore che arriva dopo è scartato e i figli restano alla penalità del peggiore.
+3. **(Media) Tre potature imparate durante la ricerca valgono per tutto il resto della ricerca e per tutti i thread** (`idle_hand_traps` dopo 3 colpi, `own_negators`, i bersagli nascosti tolti dai fratelli): cosa si pota dipende da quali linee si sono viste prima, quindi dal budget e dal numero di thread.
+4. **(Media) Lavoro per nodo che non serve alla ricerca:** le etichette in italiano di ogni risposta e di ogni fratello, l'elenco delle azioni costruito due o tre volte, la linea clonata a ogni nodo, lo stato del duello clonato per confrontarlo. Con l'arena il motore costa meno e questa parte pesa di più. Numeri dal profilo in §4.
+5. **(Media) Nel rigioco del livello 1 contro un deck una risposta rifiutata dal motore viene sostituita in silenzio** fino a 20 volte, anche senza handtrap in mezzo: una linea che è cambiata può essere misurata come se avesse giocato.
+6. **(Bassa) Memoria e lavoro che crescono con le board trovate:** ogni board tiene uno stato intero del duello e le etichette della linea; la classifica si riordina tutta quattro volte al secondo sotto il lock; le fasi finali e i giri di apprendimento rigiocano le linee dal principio anche con l'arena a disposizione.
 
-### 2. La board che rappresenta un campo cambia con il budget: una fonte misurata della non monotonia (gravità alta per l'oracolo e per la classifica)
-- `crates/ygo-cli/src/main.rs`, `combos`: le board si raggruppano per `field_key` (solo le carte sul campo: mano, zone, Cimitero, Extra Deck ignorati). Il rappresentante del gruppo è la **prima board nell'ordine della ricerca** (stima rapida, poi carte usate, poi lunghezza); la misura, economica o intera, si fa sul rappresentante. Le altre varianti si misurano solo per i primi 3 campi, e solo 2 per campo (`FIELDS_WITH_VARIANTS`, `MEASURED_VARIANTS`).
-- Con più nodi un campo accumula varianti e il rappresentante cambia. **Riproduzione** (lista Sky Striker MDM del 22/10, mano della fixture `hunt-sky_striker-1`, seme 7, 1 thread, `--top 5000`): a 1000 nodi 41 campi, a 20 000 nodi 76; dei 22 campi comuni, **6 cambiano rappresentante** (mano diversa) tra i due budget. Esempio: il campo «Zero [EMZ] + Widow Anchor» ha a 1000 nodi la mano (Raye, Ash, Ash), a 20 000 nodi (Raye, Ash, Raye, Ash, Engage) con 105 varianti. La misura vede una board diversa a ogni budget, e una variante che misura meglio può non essere mai misurata.
-- La lista Sky Striker di oggi non è quella delle fixture (hash diverso: nelle mani di oggi Maxx "C" non c'è), quindi il caso esatto del piano non si rigioca qui; il meccanismo sì.
-- Altre tre scelte a dimensione fissa che dipendono dal budget nello stesso modo: `confirm_top` 40 e `zone_top` 20 in `resume` (`confirm_best`, `zone_variants`), e il taglio a 300 campi di `oracle.py --staged`.
-- **Correzione:** il rappresentante di un campo si sceglie con la misura economica tra le sue varianti (o la misura economica si fa per `look_key`, campo + mano, e si raggruppa dopo); le fasi dopo la ricerca si dimensionano in proporzione alle board trovate. **Controllo:** sulle 91 mani dell'oracolo, mani con valore in calo di oltre l'1% a budget crescente da 28 a meno di 5.
+Nessuna gara tra thread trovata nel codice letto; la dipendenza dal numero di thread viene dalle potature e dai valori imparati condivisi (punto 3 e B10), non da accessi non protetti.
 
-### Ipotesi controllate e scartate
-- `ygo_engine::arena_duels` è thread-local (`ARENAS.with`): nessuna gara tra worker nella creazione del duello in arena.
-- `max_choices` 60 non limita le linee di Snake-Eye: mano della fixture `hunt-snake_eye-0`, 3000 nodi, linea più lunga 45 scelte.
-- `df_lua_alloc`: il ramo «stessa classe di dimensione» viene dopo il caso `nsize == 0`, quindi non perde le liberazioni.
+---
+
+## 1. (Alta) Il rappresentante di un campo cambia con il budget
+**Dove.** `crates/ygo-cli/src/main.rs`, `combos`: le board della ricerca si raggruppano per `ygo_solver::search::field_key` (solo le carte sul tuo campo, zone comprese nella stessa chiave; mano, Cimitero, bandite ed Extra Deck ignorati). Il rappresentante è `group[0]`, cioè la **prima board nell'ordine della ricerca** (`rank`: stima rapida, poi meno carte usate, poi linea più corta). La misura economica e quella intera si fanno sul rappresentante; le altre varianti si misurano solo per i primi 3 campi stampati, 2 per campo (`FIELDS_WITH_VARIANTS`, `MEASURED_VARIANTS`). Nell'app (`apps/desktop/src-tauri/src/lib.rs`, righe 1975-2000) la chiave è `look_key` (campo e mano), il rappresentante è di nuovo il primo nell'ordine della ricerca, e le varianti per Cimitero, bandite e zone principali non si misurano mai.
+
+**Perché è un bug.** La stima rapida non vede Cimitero, bandite, materiali né l'avversario, quindi tra le varianti di un campo sceglie quasi a caso rispetto alla misura. Con più nodi un campo accumula varianti e il primo cambia. Il valore misurato di quel campo cambia con il budget senza che la ricerca abbia trovato niente di meglio o di peggio.
+
+**Riproduzione** (lista Sky Striker MDM del 22/10, mano della fixture `hunt-sky_striker-1`, seme 7, un thread):
+```
+duelforge-cli combos --deck <mdm>/sky_striker.ydk --hand "14558127;26077387;63166095;14558127;26077387" --seed 7 --nodes 1000  --threads 1 --top 5000
+duelforge-cli combos --deck <mdm>/sky_striker.ydk --hand "14558127;26077387;63166095;14558127;26077387" --seed 7 --nodes 20000 --threads 1 --top 5000
+```
+| | 1000 nodi | 20 000 nodi |
+|---|---|---|
+| campi distinti | 41 | 76 |
+| campi comuni ai due budget | 22 | |
+| **campi comuni con un rappresentante diverso** (altra mano) | **6** | |
+
+Esempio: il campo «Sky Striker Ace = Zero [EMZ] + Widow Anchor coperta» ha a 1000 nodi la mano (Raye, Ash, Ash) e 0 varianti; a 20 000 nodi la mano (Raye, Ash, Raye, Ash, Engage) e 105 varianti. La lista di oggi non è quella della fixture (l'hash è diverso: Maxx "C" non c'è), quindi il caso esatto del piano non si rigioca qui; il meccanismo sì.
+
+**Le stesse scelte a dimensione fissa, che cambiano con il budget nello stesso modo:**
+- `search.rs`, `resume`: `confirm_best` gioca la End Phase alle prime `confirm_top` (40) board provvisorie per `rank`; `zone_variants` prova le altre zone per le prime `zone_top` (20) board esatte. A 1000 nodi (295 board) la board giusta è quasi sempre tra le 40; a 200 000 nodi (20 000 board) no. Una board provvisoria oltre la 40ª resta senza End Phase e senza varianti di zona.
+- `scripts/oracle.py --staged 300,30`: i primi 300 campi per la stima, poi i 30 migliori per la misura economica. A1 registra già warrior_combo-1 fuori dai 300.
+
+**Correzione.** Il rappresentante di un campo (o di un aspetto) si sceglie con la **misura economica tra le sue varianti**, non con la stima: si misura economica ogni variante distinta per `board_key` dei primi N campi (le varianti di uno stesso campo differiscono in mano, Cimitero, bandite e zone, che la misura vede), oppure si raggruppa *dopo* la misura economica. Le fasi finali si dimensionano in proporzione alle board trovate (per esempio il 2% delle provvisorie, con un minimo di 40), o meglio per stabilità: finché la top K misurata cambia. Nessun nome di carta.
+
+**Controllo.** Sulle 91 mani dell'oracolo, mani con il valore in calo di oltre l'1% passando a un budget maggiore: da 28 a meno di 5. Sulle 82 mani di `combo_hunt --seed 7`, il #1 misurato con il nuovo criterio non è mai sotto quello di oggi (test appaiato).
+
+## 2. (Media) La tabella delle trasposizioni chiude un nodo alla prima visita
+*Già nella revisione (`revisione-motore.md` §1.3 e §3.2) e assegnata alla corsia 2; qui solo per completezza della classifica, con le righe.*
+
+**Dove.** `search.rs`, `Shared::first_visit` (un `HashSet<u64>` a 64 shard) e il suo uso in `play`, subito dopo `node_key`: un nodo già visto termina la discesa con `End::Duplicate`. In `work`, le risposte lasciate da una discesa entrano in coda con `discrepancies = edge.discrepancies + 1` e `priority = value − 0,6 · discrepancies`.
+
+**Scenario.** Il nodo N è raggiunto prima da una linea con 3 deviazioni: i suoi fratelli entrano in coda a −2,4. La linea principale (0 deviazioni) arriva a N dopo e viene scartata: nessuno riaccoda i fratelli a −0,6. A budget finito è una perdita di ordine, e l'ordine è ciò che decide quali board si trovano.
+
+**Correzione.** La voce della tabella tiene la penalità minima vista per il nodo; un arrivo con penalità minore riaccoda i figli con la nuova penalità (le voci già in coda possono restare: escono dopo). **Controllo.** Prima, contare in `DUELFORGE_SEARCH_STATS` i nodi raggiunti una seconda volta con `discrepancies` minore della registrata (oggi non si conta). Dopo, `best` del banco non scende e il tempo alla board migliore cala; test appaiato su taratura e freschi.
+
+## 3. (Media) Potature imparate durante la ricerca, globali e dipendenti dall'ordine
+**Dove.** `search.rs`, `Shared`: `idle_hand_traps` (RwLock<HashSet<u32>>), `own_negators` (RwLock<HashSet<Mechanic>>), `idle_strikes`; in `play`:
+- una handtrap attivata al momento libero che non dà niente di nuovo da fare prende un colpo (`shared.strike`); al terzo (`IDLE_STRIKES`) entra in `idle_hand_traps` e **non viene più attivata dalla mano in nessuna linea per il resto della ricerca**, anche in quelle già in coda (`actions.retain(...)` prima di `dive_order`, e il taglio `End::IdleHandTrap` per gli archi già accodati);
+- una tua carta che nega un tuo anello finisce in `own_negators` e non si concatena più alla tua catena per il resto della ricerca;
+- un bersaglio o un nome dichiarato che non cambia nulla di visibile fa togliere dai fratelli **tutte** le altre risposte dello stesso tipo a quella profondità (`hidden`, `dive.left.retain`): le alternative dello stesso effetto non si esplorano (è il limite noto del PIANO §30.8).
+
+**Perché conta.** I tre insiemi si riempiono con le prime linee esplorate. Quali siano dipende dal budget (un giro corto non arriva ai 3 colpi), dal numero di thread (un altro worker li riempie prima) e dall'ordine della coda. Una handtrap inutile nelle prime 3 linee e utile in una dopo (Labrynth Cooclock prima e dopo un Set: il codice lo sa, `useful_hand_traps`, ma solo se la linea utile arriva prima del terzo colpo) resta in mano per tutta la ricerca. Lo stesso per una carta che in una linea nega la tua catena per errore e in un'altra è una risposta dalla mano legittima: dopo la prima è esclusa ovunque. Sono potature, non ordini: il verdetto «impossibile» della modalità obiettivo le eredita.
+
+**Correzione.** I tre insiemi diventano **ordine, non taglio**: una risposta «colpita» va per ultima tra i fratelli (penalità in `dive_order` e in coda), e il taglio resta solo in `--exact` disattivabile (è la struttura `Pruning` proposta nella revisione, §3.2). Per i bersagli nascosti: le alternative tolte si rimettono in coda alla penalità massima (lo stesso esperimento del PIANO §30.8, che migliorava il banco e oscillava sulla caccia: va ripetuto con il gate su taratura e freschi).
+
+**Controllo.** Contatore di quante risposte vengono tolte da ciascun insieme per ricerca (oggi ignoto); audit a budget fisso con e senza ogni insieme su 20 mani: valore perso per insieme sotto lo 0,5%; stesse board con 1 e con 4 thread (oggi non è garantito).
+
+## 4. (Media) Lavoro per nodo che la ricerca non usa
+**Dove**, in `play` (`search.rs`) per ogni nodo:
+- `duel.actions(&decision)` costruisce `Vec<Action>` con un'etichetta `String` per ogni azione (`actions.rs`, `Action::label`), e viene chiamata **due o tre volte per nodo**: in `advance_auto_seen` (per ogni decisione, anche quelle risposte in automatico), poi in `hand_trap_trial` per la risposta dell'arco (riga ~1570) e per la prima risposta del nodo (riga ~1912);
+- `italian::choice` (17 `String::replace` e un `format!`) per **ogni fratello** lasciato in coda (riga ~1904) e **due volte** per la prima risposta (righe ~1916 e ~1935), anche se nessuno leggerà mai quelle etichette: servono solo alla linea mostrata all'utente;
+- `Arc::new(line.clone())` per nodo (riga ~1872): `Line` è `Vec<Vec<u8>>` più `Vec<String>` delle etichette, quindi O(profondità) allocazioni per nodo e O(profondità²) per discesa;
+- `shown_state(&state)` clona l'intero `DuelState` e ricalcola l'impronta canonica (righe ~1719 e ~1922), oltre a `canonical_fingerprint(&state)` alla riga ~1733: due o tre impronte per nodo;
+- `duel.state()` (14 interrogazioni FFI del motore) per nodo, più una in `distinct_zones` a ogni `SelectPlace`.
+
+**Quanto pesa.** Profilo callgrind di `combos` su inv-r6, 400 nodi, un thread: [da completare con le quote di `italian::choice`, `actions_with`, `DuelState::clone`/`shown_state`, `canonical_fingerprint`, `Line::clone`, contro `OCG_DuelProcess`]. Con il replay dal principio il lato Rust era «pochi punti percentuali» (`velocita-ricerca.md`); con le copie dell'arena (B13, ricerca −32%) la stessa quantità di lavoro è una quota maggiore.
+
+**Correzione.** `Action` senza etichetta (tipo, risposta, carta, descrizione) e l'etichetta calcolata a richiesta da `italian::choice` solo per la linea che si mostra; `Line.choices` sostituito dagli indici delle risposte (le etichette si rifanno rigiocando, come fa già `explain.rs`); `shown_state` come impronta con maschera, senza clonare; `hand_trap_trial` che riusa le `actions` già costruite. Uscite identiche per costruzione.
+
+**Controllo.** Istruzioni del lato Rust nel profilo −50%; banco con uscite identiche (`combos --json --save-lines`, come per la PR #33); nodi al secondo sul banco +5% o più.
+
+## 5. (Media) Nel rigioco contro un deck una risposta rifiutata si sostituisce in silenzio
+**Dove.** `matchup.rs`, `replay`: `Err(Error::Rejected(_)) if rejected < 20 => { ...; duel.respond(&passive_answer(...)); continue }`. Fino alla PR #91 valeva solo dopo una handtrap (`used`); ora sempre, perché «le carte dell'avversario sono di un altro deck e un effetto casuale sulla sua mano può cambiare le domande prima di qualunque handtrap» (commento alla riga ~775).
+
+**Perché conta.** Un rifiuto del motore è il segno che la linea non calza più. La sostituzione con una risposta passiva fa proseguire il rigioco: la board finale e le `windows` (dove le handtrap si provano) possono essere di una linea diversa da quella misurata, senza che `diverged` lo dica. Venti rifiuti sono molti per una linea di 30-60 risposte. Al livello 2 il controllo delle «mosse fatte su campo vuoto» (`made`) intercetta le divergenze grosse; al livello 1 (`matchup`, handtrap per punto) non c'è un controllo analogo.
+
+**Correzione.** Contare i rifiuti in `Replay` e segnare `diverged` oltre una soglia piccola (2-3), o quando il rifiuto cade dopo che la linea ha già dato la sua prima risposta reale; riportare il conteggio nel JSON di `probe-line` e nel banco oggettivo.
+
+**Controllo.** Sul banco oggettivo (205 board × 19 avversari) la quota di rigiochi con almeno un rifiuto, e quante di quelle righe cambiano verdetto quando si segnano come divergenti; nessun cambiamento sulle righe senza rifiuti.
+
+## 6. (Bassa) Memoria e lavoro che crescono con le board
+- **Ogni `Board` tiene un `DuelState` intero** (`shared.board`, `search.rs`) più la `Line` con le etichette. A 40 000 nodi su Sky Striker (6382 board) il picco di memoria del processo è [da completare: VmHWM]. A 200 000 nodi l'oracolo tiene 20 000-37 000 board. In `resume`, alla fine, `boards.values().cloned().collect()` ne fa una seconda copia, e `confirm_best` clona tutte le provvisorie per ordinarle.
+- **`Shared::progress`** (chiamata 4 volte al secondo dal thread che segue la ricerca) raccoglie **tutte** le board, le ordina con `rank` e clona le prime 10, tenendo il lock di `boards` che `record` vuole a ogni board nuova. A 37 000 board sono decine di migliaia di confronti ogni 250 ms.
+- **Replay dal principio dove una copia basterebbe.** `confirm_best`, `zone_variants_of` e `learn_round` (tramite `Prober`) rigiocano ogni linea con `new_duel`, senza le copie dei worker (`work(shared, edge, None)`): 40 + 20 × varianti + 4 replay interi a fine ricerca, più i replay del turno di prova. Con l'arena già nel worker, il ripristino della copia più lunga costerebbe 0,2 ms invece di 4-5.
+- **`Copies::reach`** clona il `Track` (due tabelle hash) a ogni arco e `Store::keep` clona risposte e `Track` per ogni copia; `prefix_hashes` alloca un `Vec` per arco. Piccolo.
+
+**Correzione.** `Board` con lo stato in `Arc` o ridotto a ciò che serve (chiave, campo, mano, Cimitero per le chiavi) e lo stato intero rigiocato a richiesta; `progress` che tiene una top K incrementale; le fasi finali che passano per `Copies`. **Controllo.** VmHWM a 200 000 nodi −50%; tempo delle fasi dopo la ricerca −30% sul banco; uscite identiche.
+
+## 7. Contesto verificato, senza difetto nuovo
+- **Le copie del duello sono fedeli.** `DUELFORGE_COPY_CHECK=1` (ogni linea partita da una copia è rigiocata anche dal principio e confrontata) su inv-r6 della fixture e su `hunt-snake_eye-0`, 1500 nodi: nessuna differenza, 0 linee interrotte.
+- **La misura economica costa ancora quasi tutta nel ciclo delle risposte.** `combos --staged --staged-cheap 40 --staged-full 0 --json` su inv-r6, 4000 nodi: 40 board in 18,8 s (0,47 s a board); `seconds_by_part`: risposte 17,4 s, «insieme» 1,4 s. La correzione «risposte insieme» (#93, #94) pesa il 7%: non è lei il costo. Resta vero che l'arena nel turno di prova è la leva.
+- **L'oracolo non si rigioca con le liste di oggi.** Le fixture registrano `deck_hash`; sky_striker-1 oggi non contiene Maxx "C". Chi riproduce i casi di A1 deve usare le liste del 22/10 salvate dal proprietario, non `mdm_decks.py` di oggi.
+
+## 8. Ipotesi controllate e scartate
+- **Gara tra worker su `arena_duels`:** no, il flag è thread-local (`ARENAS.with`, `duel.rs`).
+- **`max_choices` 60 taglia le linee lunghe:** non su Snake-Eye: mano della fixture `hunt-snake_eye-0`, 3000 nodi, 300 campi, linea più lunga 45 scelte.
+- **`df_lua_alloc`, ramo «stessa classe di dimensione» (`arena.cpp`):** viene dopo il caso `nsize == 0`, quindi le liberazioni non si perdono; `class_at` si legge solo per blocchi dell'arena.
+- **`Duel::save_in` con `set_len`:** `df_arena_save` scrive esattamente `df_arena_used` byte; corretto.
+- **Ordine dei lock:** `learn_round` prende `boards` poi `measured`, e alla fine `values` (lettura) poi `boards`; `record` solo `boards`; `board()` solo `values`. Nessuna inversione, nessuno stallo possibile.
+- **`Stop::Exhausted` mentre un giro di apprendimento è in corso:** `run_workers` aspetta tutti i thread (`thread::scope`), quindi il giro finisce prima delle fasi finali.
+- **`measure_resumed` riusa la run senza risposte della misura economica** (che prosegue nel tuo turno 3): `windows` e `taken` si raccolgono prima, quindi la misura intera ripresa coincide con quella diretta (la corsia 7 lo ha verificato su `probe-line`; qui non rimisurato).
+- **Le linee dei rivali nell'app sono in cache** (`rival_lines: Mutex<HashMap<..>>` in `lib.rs`); solo `probe-line --vs` le ricalcola a ogni invocazione.
+
+## 9. Ordine consigliato
+1. Punto 1 (rappresentante per misura economica, fasi finali proporzionali): è ciò che l'utente vede.
+2. Punto 2 (tabella): piccolo, già assegnato.
+3. Punto 3 (potature imparate come ordine): toglie una dipendenza da thread e budget.
+4. Punto 4 (etichette e cloni): una PR meccanica con uscite identiche.
+5. Punto 5 (rifiuti nel rigioco): pochi giorni, migliora la fiducia nel banco oggettivo.
+6. Punto 6: quando l'arena entra nel turno di prova.
