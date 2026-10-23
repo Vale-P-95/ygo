@@ -3,9 +3,9 @@
 *Data: 21/10/2026 — Agente: Antigravity / Gemini — Branch: `gemini/matchup-turn`*
 
 Riferimenti:
-- Specifiche backend e numeri: [`docs/plans/turno-di-prova-matchup.md`](turno-di-prova-matchup.md)
-- Contratti API: [`apps/desktop/src/lib/api.ts`](../../apps/desktop/src/lib/api.ts) (`ComboMatchup`, `ComboRivalBreaker`, `ComboRivalHandTrap`, `comboScore(vsDeckId?)`)
-- Task list: [`docs/TASKS.md`](../TASKS.md)
+- Specifiche backend e numeri: [`docs/plans/turno-di-prova-matchup.md`](../turno-di-prova-matchup.md)
+- Contratti API: [`apps/desktop/src/lib/api.ts`](../../../apps/desktop/src/lib/api.ts) (`ComboMatchup`, `ComboRivalBreaker`, `ComboRivalHandTrap`, `comboScore(vsDeckId?)`)
+- Task list: [`docs/TASKS.md`](../../TASKS.md)
 
 ---
 
@@ -42,12 +42,12 @@ Riferimenti:
 ---
 
 ## 2. File interessati
-- [`apps/desktop/src/lib/combo.ts`](../../apps/desktop/src/lib/combo.ts): supporto per `vsDeckId` in `scoreBoards` e salvataggio nello stato di `ComboRun`.
-- [`apps/desktop/src/pages/Combo.tsx`](../../apps/desktop/src/pages/Combo.tsx): selettore deck rivale, ordinamento e trigger rimisurazione.
-- [`apps/desktop/src/components/combo/Score.tsx`](../../apps/desktop/src/components/combo/Score.tsx): visualizzazione breaker e handtrap rivali.
-- [`apps/desktop/src/components/combo/BoardDetail.tsx`](../../apps/desktop/src/components/combo/BoardDetail.tsx): fix refuso Tailwind `py-0.2` -> `py-0.5`.
-- [`apps/desktop/src/lib/mock.ts`](../../apps/desktop/src/lib/mock.ts): mockup realistico del matchup.
-- [`docs/TASKS.md`](../TASKS.md): aggiornamento bacheca lavori e lock.
+- [`apps/desktop/src/lib/combo.ts`](../../../apps/desktop/src/lib/combo.ts): supporto per `vsDeckId` in `scoreBoards` e salvataggio nello stato di `ComboRun`.
+- [`apps/desktop/src/pages/Combo.tsx`](../../../apps/desktop/src/pages/Combo.tsx): selettore deck rivale, ordinamento e trigger rimisurazione.
+- [`apps/desktop/src/components/combo/Score.tsx`](../../../apps/desktop/src/components/combo/Score.tsx): visualizzazione breaker e handtrap rivali.
+- [`apps/desktop/src/components/combo/BoardDetail.tsx`](../../../apps/desktop/src/components/combo/BoardDetail.tsx): fix refuso Tailwind `py-0.2` -> `py-0.5`.
+- [`apps/desktop/src/lib/mock.ts`](../../../apps/desktop/src/lib/mock.ts): mockup realistico del matchup.
+- [`docs/TASKS.md`](../../TASKS.md): aggiornamento bacheca lavori e lock.
 
 ---
 

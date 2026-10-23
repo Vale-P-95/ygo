@@ -1,7 +1,7 @@
 # Piano: Visore Carta interattivo (`CardViewer`)
 
 ## Obiettivo
-Rendere il Visore Carta ([`CardViewer.tsx`](../../apps/desktop/src/components/CardViewer.tsx)) una postazione attiva di costruzione e classificazione del deck, consentendo all'utente di aggiungere/rimuovere copie e assegnare ruoli senza dover chiudere il visore e cercare nuovamente la carta nella griglia o nella lista.
+Rendere il Visore Carta ([`CardViewer.tsx`](../../../apps/desktop/src/components/CardViewer.tsx)) una postazione attiva di costruzione e classificazione del deck, consentendo all'utente di aggiungere/rimuovere copie e assegnare ruoli senza dover chiudere il visore e cercare nuovamente la carta nella griglia o nella lista.
 
 ## Regole e vincoli stabiliti
 1. **Limiti di copie legati al formato del deck**:
