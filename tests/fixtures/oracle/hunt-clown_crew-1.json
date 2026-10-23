@@ -15,6 +15,94 @@
  "boards_found": 20584,
  "boards": [
   {
+   "value": 2.2888078431372545,
+   "look_key": "93fcac52c0398815",
+   "field": [
+    {
+     "code": 44654994,
+     "name": "Artmage Impasto -Recapture-",
+     "set": true
+    },
+    {
+     "code": 83232904,
+     "name": "Clown Crew Malabarisme",
+     "set": true
+    },
+    {
+     "code": 57847269,
+     "name": "Clown Crew Matinee Operatics"
+    },
+    {
+     "code": 70058649,
+     "name": "Clown Crew Soiree Operations",
+     "set": true
+    },
+    {
+     "code": 53589300,
+     "name": "Nerva the Power Patron of Creation"
+    }
+   ],
+   "hand": [
+    23434538,
+    97268402,
+    42759961,
+    14558127,
+    82159583
+   ],
+   "measure": {
+    "field": 0.8633333333333333,
+    "hand": 0.8657777777777778,
+    "floodgates": 0.0,
+    "resilience": 0.677124183006536,
+    "follow_up": {
+     "gained": 1,
+     "rebuild": 2
+    }
+   }
+  },
+  {
+   "value": 2.2888078431372545,
+   "look_key": "cc5453995d83bc8c",
+   "field": [
+    {
+     "code": 44654994,
+     "name": "Artmage Impasto -Recapture-",
+     "set": true
+    },
+    {
+     "code": 57847269,
+     "name": "Clown Crew Matinee Operatics"
+    },
+    {
+     "code": 70058649,
+     "name": "Clown Crew Soiree Operations",
+     "set": true
+    },
+    {
+     "code": 53589300,
+     "name": "Nerva the Power Patron of Creation"
+    }
+   ],
+   "hand": [
+    23434538,
+    97268402,
+    42759961,
+    14558127,
+    82159583,
+    83232904
+   ],
+   "measure": {
+    "field": 0.8633333333333333,
+    "hand": 0.8657777777777778,
+    "floodgates": 0.0,
+    "resilience": 0.677124183006536,
+    "follow_up": {
+     "gained": 2,
+     "rebuild": 2
+    }
+   }
+  },
+  {
    "value": 2.168807843137255,
    "look_key": "f44df0abef9914d9",
    "field": [
@@ -62,8 +150,8 @@
    }
   },
   {
-   "value": 1.9104026143790849,
-   "look_key": "8d191e58ba30bb49",
+   "value": 2.0438692810457515,
+   "look_key": "b179e269f2c6a9c5",
    "field": [
     {
      "code": 44654994,
@@ -75,44 +163,43 @@
      "name": "Clown Crew Biancaviso"
     },
     {
-     "code": 19491080,
-     "name": "Clown Crew Cappello",
-     "zone": "emz"
+     "code": 83232904,
+     "name": "Clown Crew Malabarisme",
+     "set": true
     },
     {
      "code": 57847269,
      "name": "Clown Crew Matinee Operatics"
     },
     {
-     "code": 70058649,
-     "name": "Clown Crew Soiree Operations",
-     "set": true
-    },
-    {
      "code": 53589300,
      "name": "Nerva the Power Patron of Creation"
+    },
+    {
+     "code": 17473466,
+     "name": "Nervedo the Shadebeast Power Patron"
     }
    ],
    "hand": [
-    97268402,
-    14558127,
+    70488851,
     23434538,
-    42759961
+    94145021,
+    14558127
    ],
    "measure": {
     "field": 0.6688888888888889,
-    "hand": 0.8657777777777778,
+    "hand": 0.8807407407407406,
     "floodgates": 0.0,
     "resilience": 0.5705228758169935,
     "follow_up": {
-     "gained": 0,
-     "rebuild": 1
+     "gained": 1,
+     "rebuild": 2
     }
    }
   },
   {
-   "value": 1.9104026143790849,
-   "look_key": "da127802146a39b3",
+   "value": 2.0438692810457515,
+   "look_key": "884db215d6daee33",
    "field": [
     {
      "code": 44654994,
@@ -120,138 +207,42 @@
      "set": true
     },
     {
-     "code": 19491080,
-     "name": "Clown Crew Cappello"
+     "code": 30109445,
+     "name": "Clown Crew Dristy",
+     "zone": "emz"
     },
     {
-     "code": 19491080,
-     "name": "Clown Crew Cappello",
-     "zone": "emz"
+     "code": 83232904,
+     "name": "Clown Crew Malabarisme",
+     "set": true
     },
     {
      "code": 57847269,
      "name": "Clown Crew Matinee Operatics"
-    },
-    {
-     "code": 70058649,
-     "name": "Clown Crew Soiree Operations",
-     "set": true
     },
     {
      "code": 53589300,
      "name": "Nerva the Power Patron of Creation"
+    },
+    {
+     "code": 17473466,
+     "name": "Nervedo the Shadebeast Power Patron"
     }
    ],
    "hand": [
-    97268402,
-    14558127,
+    70488851,
     23434538,
-    42759961
+    94145021,
+    14558127
    ],
    "measure": {
     "field": 0.6688888888888889,
-    "hand": 0.8657777777777778,
+    "hand": 0.8807407407407406,
     "floodgates": 0.0,
     "resilience": 0.5705228758169935,
     "follow_up": {
-     "gained": 0,
-     "rebuild": 1
-    }
-   }
-  },
-  {
-   "value": 1.9104026143790849,
-   "look_key": "f0f95d01ca5bb852",
-   "field": [
-    {
-     "code": 44654994,
-     "name": "Artmage Impasto -Recapture-",
-     "set": true
-    },
-    {
-     "code": 19491080,
-     "name": "Clown Crew Cappello",
-     "zone": "emz"
-    },
-    {
-     "code": 57847269,
-     "name": "Clown Crew Matinee Operatics"
-    },
-    {
-     "code": 93172951,
-     "name": "Clown Crew Meteor"
-    },
-    {
-     "code": 70058649,
-     "name": "Clown Crew Soiree Operations",
-     "set": true
-    },
-    {
-     "code": 53589300,
-     "name": "Nerva the Power Patron of Creation"
-    }
-   ],
-   "hand": [
-    97268402,
-    14558127,
-    23434538,
-    42759961
-   ],
-   "measure": {
-    "field": 0.6688888888888889,
-    "hand": 0.8657777777777778,
-    "floodgates": 0.0,
-    "resilience": 0.5705228758169935,
-    "follow_up": {
-     "gained": 0,
-     "rebuild": 1
-    }
-   }
-  },
-  {
-   "value": 1.1851477124183005,
-   "look_key": "3cc9fe422f219273",
-   "field": [
-    {
-     "code": 44654994,
-     "name": "Artmage Impasto -Recapture-",
-     "set": true
-    },
-    {
-     "code": 57847269,
-     "name": "Clown Crew Matinee Operatics"
-    },
-    {
-     "code": 6547248,
-     "name": "Clown Crew New Face",
-     "set": true
-    },
-    {
-     "code": 70058649,
-     "name": "Clown Crew Soiree Operations",
-     "set": true
-    },
-    {
-     "code": 53589300,
-     "name": "Nerva the Power Patron of Creation",
-     "set": true
-    }
-   ],
-   "hand": [
-    23434538,
-    97268402,
-    14558127,
-    82159583,
-    83232904
-   ],
-   "measure": {
-    "field": 0.19444444444444445,
-    "hand": 0.8657777777777778,
-    "floodgates": 0.0,
-    "resilience": 0.1525054466230937,
-    "follow_up": {
-     "gained": 2,
-     "rebuild": 1
+     "gained": 1,
+     "rebuild": 2
     }
    }
   }
@@ -893,7 +884,7 @@
     0,
     0,
     0,
-    0,
+    7,
     0,
     0,
     0
@@ -911,6 +902,95 @@
     0,
     0,
     0
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    5,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    8,
+    2
+   ],
+   [
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    1,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
    ],
    [
     255,
@@ -986,7 +1066,7 @@
     0,
     0,
     0,
-    7,
+    11,
     0,
     0,
     0
@@ -1053,89 +1133,6 @@
    [
     0,
     4,
-    5
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    1,
-    0,
-    0,
-    0
-   ],
-   [
-    1,
-    0,
-    0,
-    0
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    0,
-    0,
-    0,
-    0,
-    1,
-    0,
-    0,
-    0,
-    3,
-    0,
-    0,
-    0
-   ],
-   [
-    0,
-    8,
-    3
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    5,
-    0,
-    0,
-    0
-   ],
-   [
-    1,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
     0
    ],
    [
@@ -1154,26 +1151,12 @@
     1,
     0,
     0,
-    0,
-    5,
-    0,
-    0,
     0
    ],
    [
     1,
     0,
     0,
-    0,
-    0,
-    0,
-    0,
-    0
-   ],
-   [
-    0,
-    0,
-    0,
     0
    ],
    [
@@ -1189,7 +1172,15 @@
     255
    ],
    [
-    4,
+    0,
+    0,
+    0,
+    0,
+    1,
+    0,
+    0,
+    0,
+    0,
     0,
     0,
     0

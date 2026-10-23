@@ -16,7 +16,218 @@
  "boards": [
   {
    "value": 1.7022082788671025,
-   "look_key": "84c92c0103b336cc",
+   "look_key": "b81e87f91e24ff44",
+   "field": [
+    {
+     "code": 95515789,
+     "name": "Blazing Cartesia, the Virtuous"
+    },
+    {
+     "code": 17751597,
+     "name": "Branded Retribution",
+     "set": true
+    },
+    {
+     "code": 19271881,
+     "name": "Brightest, Blazing, Branded King",
+     "set": true
+    },
+    {
+     "code": 60303688,
+     "name": "Dogmatika Ecclesia, the Virtuous"
+    },
+    {
+     "code": 78397661,
+     "name": "Ecclesia and the Dark Dragon"
+    },
+    {
+     "code": 73819701,
+     "name": "Fallen of the White Dragon"
+    },
+    {
+     "code": 45883110,
+     "name": "Guiding Quem, the Virtuous"
+    },
+    {
+     "code": 30271097,
+     "name": "The Fallen & The Virtuous",
+     "set": true
+    }
+   ],
+   "hand": [
+    55273560,
+    27204311
+   ],
+   "measure": {
+    "field": 1.1397037037037037,
+    "hand": 0.08814814814814813,
+    "floodgates": 0.0,
+    "resilience": 0.605285403050109,
+    "follow_up": {
+     "gained": 4,
+     "rebuild": 1
+    }
+   }
+  },
+  {
+   "value": 1.6779521786492375,
+   "look_key": "063b6438d321581a",
+   "field": [
+    {
+     "code": 95515789,
+     "name": "Blazing Cartesia, the Virtuous"
+    },
+    {
+     "code": 17751597,
+     "name": "Branded Retribution",
+     "set": true
+    },
+    {
+     "code": 78397661,
+     "name": "Ecclesia and the Dark Dragon"
+    },
+    {
+     "code": 45883110,
+     "name": "Guiding Quem, the Virtuous"
+    },
+    {
+     "code": 30271097,
+     "name": "The Fallen & The Virtuous",
+     "set": true
+    },
+    {
+     "code": 74405783,
+     "name": "The Three Champions of Swordsoul",
+     "zone": "emz"
+    }
+   ],
+   "hand": [
+    27204311,
+    19271881,
+    55273560,
+    95515789
+   ],
+   "measure": {
+    "field": 0.9806111111111111,
+    "hand": 0.08814814814814813,
+    "floodgates": 0.0,
+    "resilience": 0.6300128903413218,
+    "follow_up": {
+     "gained": 6,
+     "rebuild": 2
+    }
+   }
+  },
+  {
+   "value": 1.6412267973856207,
+   "look_key": "8389f7140a1a5bdf",
+   "field": [
+    {
+     "code": 95515789,
+     "name": "Blazing Cartesia, the Virtuous"
+    },
+    {
+     "code": 17751597,
+     "name": "Branded Retribution",
+     "set": true
+    },
+    {
+     "code": 60303688,
+     "name": "Dogmatika Ecclesia, the Virtuous"
+    },
+    {
+     "code": 78397661,
+     "name": "Ecclesia and the Dark Dragon"
+    },
+    {
+     "code": 73819701,
+     "name": "Fallen of the White Dragon"
+    },
+    {
+     "code": 45883110,
+     "name": "Guiding Quem, the Virtuous"
+    },
+    {
+     "code": 30271097,
+     "name": "The Fallen & The Virtuous",
+     "set": true
+    }
+   ],
+   "hand": [
+    19271881,
+    27204311,
+    55273560
+   ],
+   "measure": {
+    "field": 1.0836666666666666,
+    "hand": 0.08814814814814813,
+    "floodgates": 0.0,
+    "resilience": 0.5970446623093683,
+    "follow_up": {
+     "gained": 4,
+     "rebuild": 1
+    }
+   }
+  },
+  {
+   "value": 1.632541612200436,
+   "look_key": "35a0684670791e97",
+   "field": [
+    {
+     "code": 95515789,
+     "name": "Blazing Cartesia, the Virtuous"
+    },
+    {
+     "code": 17751597,
+     "name": "Branded Retribution",
+     "set": true
+    },
+    {
+     "code": 19271881,
+     "name": "Brightest, Blazing, Branded King",
+     "set": true
+    },
+    {
+     "code": 78397661,
+     "name": "Ecclesia and the Dark Dragon"
+    },
+    {
+     "code": 73819701,
+     "name": "Fallen of the White Dragon"
+    },
+    {
+     "code": 45883110,
+     "name": "Guiding Quem, the Virtuous"
+    },
+    {
+     "code": 30271097,
+     "name": "The Fallen & The Virtuous",
+     "set": true
+    },
+    {
+     "code": 74405783,
+     "name": "The Three Champions of Swordsoul",
+     "zone": "emz"
+    }
+   ],
+   "hand": [
+    55273560,
+    27204311
+   ],
+   "measure": {
+    "field": 1.083037037037037,
+    "hand": 0.08814814814814813,
+    "floodgates": 0.0,
+    "resilience": 0.5836187363834424,
+    "follow_up": {
+     "gained": 5,
+     "rebuild": 1
+    }
+   }
+  },
+  {
+   "value": 1.5822082788671024,
+   "look_key": "f0fd9f7a2607bf1e",
    "field": [
     {
      "code": 95515789,
@@ -60,6 +271,7 @@
     }
    ],
    "hand": [
+    55273560,
     27204311
    ],
    "measure": {
@@ -69,224 +281,7 @@
     "resilience": 0.605285403050109,
     "follow_up": {
      "gained": 4,
-     "rebuild": 1
-    }
-   }
-  },
-  {
-   "value": 1.5682540305010892,
-   "look_key": "e7f3a61dd9b0161a",
-   "field": [
-    {
-     "code": 95515789,
-     "name": "Blazing Cartesia, the Virtuous"
-    },
-    {
-     "code": 17751597,
-     "name": "Branded Retribution",
-     "set": true
-    },
-    {
-     "code": 19271881,
-     "name": "Brightest, Blazing, Branded King",
-     "set": true
-    },
-    {
-     "code": 60303688,
-     "name": "Dogmatika Ecclesia, the Virtuous"
-    },
-    {
-     "code": 78397661,
-     "name": "Ecclesia and the Dark Dragon"
-    },
-    {
-     "code": 45883110,
-     "name": "Guiding Quem, the Virtuous"
-    },
-    {
-     "code": 55273560,
-     "name": "Incredible Ecclesia, the Virtuous"
-    },
-    {
-     "code": 30271097,
-     "name": "The Fallen & The Virtuous",
-     "set": true
-    },
-    {
-     "code": 74405783,
-     "name": "The Three Champions of Swordsoul",
-     "zone": "emz"
-    }
-   ],
-   "hand": [
-    27204311
-   ],
-   "measure": {
-    "field": 0.9928888888888889,
-    "hand": 0.08814814814814813,
-    "floodgates": 0.0,
-    "resilience": 0.6267196804647787,
-    "follow_up": {
-     "gained": 5,
-     "rebuild": 1
-    }
-   }
-  },
-  {
-   "value": 1.5682540305010892,
-   "look_key": "9d1f6743afd21156",
-   "field": [
-    {
-     "code": 95515789,
-     "name": "Blazing Cartesia, the Virtuous"
-    },
-    {
-     "code": 17751597,
-     "name": "Branded Retribution",
-     "set": true
-    },
-    {
-     "code": 19271881,
-     "name": "Brightest, Blazing, Branded King",
-     "set": true
-    },
-    {
-     "code": 60303688,
-     "name": "Dogmatika Ecclesia, the Virtuous"
-    },
-    {
-     "code": 78397661,
-     "name": "Ecclesia and the Dark Dragon"
-    },
-    {
-     "code": 45883110,
-     "name": "Guiding Quem, the Virtuous"
-    },
-    {
-     "code": 55273560,
-     "name": "Incredible Ecclesia, the Virtuous"
-    },
-    {
-     "code": 30271097,
-     "name": "The Fallen & The Virtuous",
-     "set": true
-    }
-   ],
-   "hand": [
-    27204311
-   ],
-   "measure": {
-    "field": 0.9928888888888889,
-    "hand": 0.08814814814814813,
-    "floodgates": 0.0,
-    "resilience": 0.6267196804647787,
-    "follow_up": {
-     "gained": 5,
-     "rebuild": 1
-    }
-   }
-  },
-  {
-   "value": 1.5682540305010892,
-   "look_key": "c164557ba0b925f2",
-   "field": [
-    {
-     "code": 95515789,
-     "name": "Blazing Cartesia, the Virtuous"
-    },
-    {
-     "code": 17751597,
-     "name": "Branded Retribution",
-     "set": true
-    },
-    {
-     "code": 60303688,
-     "name": "Dogmatika Ecclesia, the Virtuous"
-    },
-    {
-     "code": 78397661,
-     "name": "Ecclesia and the Dark Dragon"
-    },
-    {
-     "code": 45883110,
-     "name": "Guiding Quem, the Virtuous"
-    },
-    {
-     "code": 55273560,
-     "name": "Incredible Ecclesia, the Virtuous"
-    },
-    {
-     "code": 30271097,
-     "name": "The Fallen & The Virtuous",
-     "set": true
-    }
-   ],
-   "hand": [
-    27204311,
-    19271881
-   ],
-   "measure": {
-    "field": 0.9928888888888889,
-    "hand": 0.08814814814814813,
-    "floodgates": 0.0,
-    "resilience": 0.6267196804647787,
-    "follow_up": {
-     "gained": 5,
-     "rebuild": 1
-    }
-   }
-  },
-  {
-   "value": 1.547619825708061,
-   "look_key": "d47735891ac62c08",
-   "field": [
-    {
-     "code": 62962630,
-     "name": "Aluber the Jester of Despia"
-    },
-    {
-     "code": 95515789,
-     "name": "Blazing Cartesia, the Virtuous"
-    },
-    {
-     "code": 17751597,
-     "name": "Branded Retribution",
-     "set": true
-    },
-    {
-     "code": 19271881,
-     "name": "Brightest, Blazing, Branded King",
-     "set": true
-    },
-    {
-     "code": 60303688,
-     "name": "Dogmatika Ecclesia, the Virtuous"
-    },
-    {
-     "code": 78397661,
-     "name": "Ecclesia and the Dark Dragon"
-    },
-    {
-     "code": 55273560,
-     "name": "Incredible Ecclesia, the Virtuous"
-    },
-    {
-     "code": 30271097,
-     "name": "The Fallen & The Virtuous",
-     "set": true
-    }
-   ],
-   "hand": [
-    27204311
-   ],
-   "measure": {
-    "field": 0.9027777777777778,
-    "hand": 0.08814814814814813,
-    "floodgates": 0.0,
-    "resilience": 0.5425145243282499,
-    "follow_up": {
-     "gained": 4,
-     "rebuild": 2
+     "rebuild": 0
     }
    }
   }
@@ -781,141 +776,6 @@
    [
     0,
     4,
-    5
-   ],
-   [
-    1,
-    0,
-    0,
-    0
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    1,
-    0,
-    0,
-    0
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    0,
-    0,
-    0,
-    0,
-    1,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    5,
-    0,
-    1,
-    0
-   ],
-   [
-    0,
-    0,
-    0,
-    0,
-    1,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    0,
-    0,
-    0,
-    0
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    5,
-    0,
-    0,
-    0
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    0,
-    4,
     0
    ],
    [
@@ -923,6 +783,18 @@
     0,
     0,
     0
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
    ],
    [
     1,
@@ -990,6 +862,129 @@
     0,
     4,
     1
+   ],
+   [
+    1,
+    0,
+    0,
+    0
+   ],
+   [
+    1,
+    0,
+    0,
+    0
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    0,
+    0,
+    0,
+    0,
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    5,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    0,
+    0,
+    0,
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    1,
+    0,
+    0,
+    0
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    5,
+    0,
+    0,
+    0
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    0,
+    4,
+    0
    ],
    [
     1,
@@ -1068,7 +1063,39 @@
     255
    ],
    [
+    1,
     0,
+    0,
+    0
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    0,
+    0,
+    0,
+    0,
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    1,
     0,
     0,
     0
@@ -1077,6 +1104,81 @@
     0,
     4,
     2
+   ],
+   [
+    1,
+    0,
+    0,
+    0
+   ],
+   [
+    1,
+    0,
+    0,
+    0
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    0,
+    0,
+    0,
+    0,
+    1,
+    0,
+    0,
+    0,
+    3,
+    0,
+    0,
+    0
+   ],
+   [
+    1,
+    0,
+    0,
+    0
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    0,
+    0,
+    0,
+    0,
+    1,
+    0,
+    0,
+    0,
+    3,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    4,
+    3
    ],
    [
     255,
@@ -1146,55 +1248,6 @@
     255
    ],
    [
-    0,
-    0,
-    0,
-    0
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    0,
-    0,
-    0,
-    0,
-    1,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0
-   ],
-   [
-    1,
-    0,
-    0,
-    0
-   ],
-   [
-    0,
-    4,
-    3
-   ],
-   [
-    1,
-    0,
-    0,
-    0
-   ],
-   [
     1,
     0,
     0,
@@ -1213,26 +1266,6 @@
     255
    ],
    [
-    0,
-    0,
-    0,
-    0,
-    1,
-    0,
-    0,
-    0,
-    3,
-    0,
-    0,
-    0
-   ],
-   [
-    1,
-    0,
-    0,
-    0
-   ],
-   [
     255,
     255,
     255,
@@ -1243,20 +1276,6 @@
     255,
     255,
     255
-   ],
-   [
-    0,
-    0,
-    0,
-    0,
-    1,
-    0,
-    0,
-    0,
-    2,
-    0,
-    0,
-    0
    ],
    [
     0,
@@ -1274,12 +1293,6 @@
     255,
     255,
     255
-   ],
-   [
-    0,
-    0,
-    0,
-    0
    ],
    [
     255,

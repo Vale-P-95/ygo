@@ -15,25 +15,21 @@
  "boards_found": 35949,
  "boards": [
   {
-   "value": 2.5894705882352937,
-   "look_key": "bd1f89b4398a5d4d",
+   "value": 2.908033769063181,
+   "look_key": "e008bec384180a52",
    "field": [
     {
      "code": 38811586,
      "name": "Albion the Sanctifire Dragon"
     },
     {
-     "code": 95515789,
-     "name": "Blazing Cartesia, the Virtuous"
-    },
-    {
-     "code": 17751597,
-     "name": "Branded Retribution",
+     "code": 29948294,
+     "name": "Branded in High Spirits",
      "set": true
     },
     {
-     "code": 29948294,
-     "name": "Branded in High Spirits",
+     "code": 19271881,
+     "name": "Brightest, Blazing, Branded King",
      "set": true
     },
     {
@@ -45,9 +41,8 @@
      "name": "Ecclesia and the Dark Dragon"
     },
     {
-     "code": 74405783,
-     "name": "The Three Champions of Swordsoul",
-     "zone": "emz"
+     "code": 55273560,
+     "name": "Incredible Ecclesia, the Virtuous"
     }
    ],
    "hand": [
@@ -56,12 +51,152 @@
     14558127
    ],
    "measure": {
-    "field": 1.4125925925925924,
+    "field": 1.720185185185185,
     "hand": 0.5333333333333333,
     "floodgates": 0.0,
-    "resilience": 0.9614633260711691,
+    "resilience": 1.1797476397966595,
     "follow_up": {
-     "gained": 3,
+     "gained": 4,
+     "rebuild": 0
+    }
+   }
+  },
+  {
+   "value": 2.877251633986928,
+   "look_key": "576120d3ea7a89df",
+   "field": [
+    {
+     "code": 38811586,
+     "name": "Albion the Sanctifire Dragon",
+     "zone": "emz"
+    },
+    {
+     "code": 95515789,
+     "name": "Blazing Cartesia, the Virtuous"
+    },
+    {
+     "code": 29948294,
+     "name": "Branded in High Spirits",
+     "set": true
+    },
+    {
+     "code": 19271881,
+     "name": "Brightest, Blazing, Branded King",
+     "set": true
+    },
+    {
+     "code": 78397661,
+     "name": "Ecclesia and the Dark Dragon"
+    },
+    {
+     "code": 55273560,
+     "name": "Incredible Ecclesia, the Virtuous"
+    }
+   ],
+   "hand": [
+    14558127,
+    14558127
+   ],
+   "measure": {
+    "field": 1.720185185185185,
+    "hand": 0.5333333333333333,
+    "floodgates": 0.0,
+    "resilience": 0.9284440813362383,
+    "follow_up": {
+     "gained": 2,
+     "rebuild": 1
+    }
+   }
+  },
+  {
+   "value": 2.771371459694989,
+   "look_key": "a6e1663bc4563b96",
+   "field": [
+    {
+     "code": 38811586,
+     "name": "Albion the Sanctifire Dragon"
+    },
+    {
+     "code": 95515789,
+     "name": "Blazing Cartesia, the Virtuous"
+    },
+    {
+     "code": 29948294,
+     "name": "Branded in High Spirits",
+     "set": true
+    },
+    {
+     "code": 19271881,
+     "name": "Brightest, Blazing, Branded King",
+     "set": true
+    },
+    {
+     "code": 60303688,
+     "name": "Dogmatika Ecclesia, the Virtuous"
+    },
+    {
+     "code": 78397661,
+     "name": "Ecclesia and the Dark Dragon"
+    }
+   ],
+   "hand": [
+    14558127,
+    44362883,
+    14558127
+   ],
+   "measure": {
+    "field": 1.645,
+    "hand": 0.5333333333333333,
+    "floodgates": 0.0,
+    "resilience": 0.8772857661583152,
+    "follow_up": {
+     "gained": 1,
+     "rebuild": 1
+    }
+   }
+  },
+  {
+   "value": 2.6258344226579524,
+   "look_key": "293171e9b6e4f02a",
+   "field": [
+    {
+     "code": 38811586,
+     "name": "Albion the Sanctifire Dragon"
+    },
+    {
+     "code": 95515789,
+     "name": "Blazing Cartesia, the Virtuous"
+    },
+    {
+     "code": 29948294,
+     "name": "Branded in High Spirits",
+     "set": true
+    },
+    {
+     "code": 19271881,
+     "name": "Brightest, Blazing, Branded King",
+     "set": true
+    },
+    {
+     "code": 60303688,
+     "name": "Dogmatika Ecclesia, the Virtuous"
+    },
+    {
+     "code": 55273560,
+     "name": "Incredible Ecclesia, the Virtuous"
+    }
+   ],
+   "hand": [
+    14558127,
+    14558127
+   ],
+   "measure": {
+    "field": 1.515925925925926,
+    "hand": 0.5333333333333333,
+    "floodgates": 0.0,
+    "resilience": 0.849847494553377,
+    "follow_up": {
+     "gained": 2,
      "rebuild": 1
     }
    }
@@ -112,151 +247,6 @@
     "hand": 0.5333333333333333,
     "floodgates": 0.0,
     "resilience": 0.7573819898329702,
-    "follow_up": {
-     "gained": 2,
-     "rebuild": 1
-    }
-   }
-  },
-  {
-   "value": 2.432392156862745,
-   "look_key": "1e511dab9bdf25c2",
-   "field": [
-    {
-     "code": 38811586,
-     "name": "Albion the Sanctifire Dragon",
-     "zone": "emz"
-    },
-    {
-     "code": 95515789,
-     "name": "Blazing Cartesia, the Virtuous"
-    },
-    {
-     "code": 17751597,
-     "name": "Branded Retribution",
-     "set": true
-    },
-    {
-     "code": 29948294,
-     "name": "Branded in High Spirits",
-     "set": true
-    },
-    {
-     "code": 78397661,
-     "name": "Ecclesia and the Dark Dragon"
-    },
-    {
-     "code": 55273560,
-     "name": "Incredible Ecclesia, the Virtuous"
-    }
-   ],
-   "hand": [
-    14558127,
-    14558127
-   ],
-   "measure": {
-    "field": 1.4125925925925924,
-    "hand": 0.5333333333333333,
-    "floodgates": 0.0,
-    "resilience": 0.6996659404502542,
-    "follow_up": {
-     "gained": 2,
-     "rebuild": 1
-    }
-   }
-  },
-  {
-   "value": 2.4058191721132896,
-   "look_key": "7f2ac862f15339c5",
-   "field": [
-    {
-     "code": 38811586,
-     "name": "Albion the Sanctifire Dragon"
-    },
-    {
-     "code": 95515789,
-     "name": "Blazing Cartesia, the Virtuous"
-    },
-    {
-     "code": 17751597,
-     "name": "Branded Retribution",
-     "set": true
-    },
-    {
-     "code": 29948294,
-     "name": "Branded in High Spirits",
-     "set": true
-    },
-    {
-     "code": 60303688,
-     "name": "Dogmatika Ecclesia, the Virtuous"
-    },
-    {
-     "code": 78397661,
-     "name": "Ecclesia and the Dark Dragon"
-    }
-   ],
-   "hand": [
-    14558127,
-    55273560,
-    14558127
-   ],
-   "measure": {
-    "field": 1.2911111111111109,
-    "hand": 0.5333333333333333,
-    "floodgates": 0.0,
-    "resilience": 0.8578467683369643,
-    "follow_up": {
-     "gained": 3,
-     "rebuild": 1
-    }
-   }
-  },
-  {
-   "value": 2.3503825708061004,
-   "look_key": "c4a743421d26c861",
-   "field": [
-    {
-     "code": 38811586,
-     "name": "Albion the Sanctifire Dragon"
-    },
-    {
-     "code": 95515789,
-     "name": "Blazing Cartesia, the Virtuous"
-    },
-    {
-     "code": 29948294,
-     "name": "Branded in High Spirits",
-     "set": true
-    },
-    {
-     "code": 19271881,
-     "name": "Brightest, Blazing, Branded King",
-     "set": true
-    },
-    {
-     "code": 60303688,
-     "name": "Dogmatika Ecclesia, the Virtuous"
-    },
-    {
-     "code": 78397661,
-     "name": "Ecclesia and the Dark Dragon"
-    },
-    {
-     "code": 55273560,
-     "name": "Incredible Ecclesia, the Virtuous"
-    }
-   ],
-   "hand": [
-    14558127,
-    44362883,
-    14558127
-   ],
-   "measure": {
-    "field": 1.3257777777777777,
-    "hand": 0.5333333333333333,
-    "floodgates": 0.0,
-    "resilience": 0.7076746550472043,
     "follow_up": {
      "gained": 2,
      "rebuild": 1
@@ -717,7 +707,7 @@
    [
     0,
     4,
-    5
+    0
    ],
    [
     1,
@@ -910,7 +900,7 @@
     0,
     0,
     0,
-    3,
+    1,
     0,
     0,
     0
@@ -953,6 +943,29 @@
     0,
     0,
     0
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    4,
+    3
+   ],
+   [
+    255,
+    255,
+    255,
+    255
    ],
    [
     255,
@@ -1042,19 +1055,7 @@
     0
    ],
    [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    1,
+    0,
     0,
     0,
     0
@@ -1123,6 +1124,50 @@
     255
    ],
    [
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    0,
+    0,
+    0,
+    0,
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
     1,
     0,
     0,
@@ -1149,51 +1194,7 @@
     0,
     0,
     0,
-    0,
-    0,
-    0,
-    0
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
     1,
-    0,
-    0,
-    0
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    0,
-    0,
-    0,
-    0,
-    1,
-    0,
-    0,
-    0,
-    4,
     0,
     0,
     0
@@ -1208,23 +1209,6 @@
     0,
     8,
     2
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    0,
-    4,
-    0
    ],
    [
     255,

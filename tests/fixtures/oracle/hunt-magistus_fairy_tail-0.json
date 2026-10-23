@@ -15,7 +15,7 @@
  "boards_found": 32936,
  "boards": [
   {
-   "value": 3.0993999999999997,
+   "value": 3.2194,
    "look_key": "800555632cee0354",
    "field": [
     {
@@ -56,12 +56,12 @@
     "resilience": 1.1535987654320987,
     "follow_up": {
      "gained": 0,
-     "rebuild": 3
+     "rebuild": 4
     }
    }
   },
   {
-   "value": 3.0993999999999997,
+   "value": 3.2194,
    "look_key": "102c7e484488c5d1",
    "field": [
     {
@@ -102,7 +102,7 @@
     "resilience": 1.1535987654320987,
     "follow_up": {
      "gained": 0,
-     "rebuild": 3
+     "rebuild": 4
     }
    }
   },
@@ -1266,7 +1266,7 @@
     0,
     0,
     0,
-    2,
+    0,
     0,
     0,
     0

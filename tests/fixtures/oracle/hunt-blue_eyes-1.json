@@ -54,6 +54,138 @@
    }
   },
   {
+   "value": 2.556282788671024,
+   "look_key": "e5c851c8f4cae4d3",
+   "field": [
+    {
+     "code": 84815190,
+     "name": "Baronne de Fleur",
+     "zone": "emz"
+    },
+    {
+     "code": 43219114,
+     "name": "Majesty of the White Dragons",
+     "set": true
+    },
+    {
+     "code": 24382602,
+     "name": "Mausoleum of White"
+    },
+    {
+     "code": 8240199,
+     "name": "Sage with Eyes of Blue"
+    },
+    {
+     "code": 62089826,
+     "name": "True Light"
+    }
+   ],
+   "hand": [
+    14558127,
+    14558127,
+    97268402,
+    73642296
+   ],
+   "measure": {
+    "field": 1.3803703703703705,
+    "hand": 0.9876296296296296,
+    "floodgates": 0.0,
+    "resilience": 0.4784095860566449,
+    "follow_up": {
+     "gained": 0,
+     "rebuild": 0
+    }
+   }
+  },
+  {
+   "value": 2.556282788671024,
+   "look_key": "2571e3112eabc1a7",
+   "field": [
+    {
+     "code": 84815190,
+     "name": "Baronne de Fleur",
+     "zone": "emz"
+    },
+    {
+     "code": 17947697,
+     "name": "Maiden of White"
+    },
+    {
+     "code": 43219114,
+     "name": "Majesty of the White Dragons",
+     "set": true
+    },
+    {
+     "code": 24382602,
+     "name": "Mausoleum of White"
+    },
+    {
+     "code": 62089826,
+     "name": "True Light"
+    }
+   ],
+   "hand": [
+    14558127,
+    14558127,
+    97268402,
+    73642296
+   ],
+   "measure": {
+    "field": 1.3803703703703705,
+    "hand": 0.9876296296296296,
+    "floodgates": 0.0,
+    "resilience": 0.4784095860566449,
+    "follow_up": {
+     "gained": 0,
+     "rebuild": 0
+    }
+   }
+  },
+  {
+   "value": 2.556282788671024,
+   "look_key": "61e2cbdcc877211e",
+   "field": [
+    {
+     "code": 84815190,
+     "name": "Baronne de Fleur"
+    },
+    {
+     "code": 43219114,
+     "name": "Majesty of the White Dragons",
+     "set": true
+    },
+    {
+     "code": 24382602,
+     "name": "Mausoleum of White"
+    },
+    {
+     "code": 42097666,
+     "name": "Spirit with Eyes of Blue",
+     "zone": "emz"
+    },
+    {
+     "code": 62089826,
+     "name": "True Light"
+    }
+   ],
+   "hand": [
+    14558127,
+    14558127,
+    97268402,
+    73642296
+   ],
+   "measure": {
+    "field": 1.3803703703703705,
+    "hand": 0.9876296296296296,
+    "floodgates": 0.0,
+    "resilience": 0.4784095860566449,
+    "follow_up": {
+     "gained": 0,
+     "rebuild": 0
+    }
+   }
+  },
+  {
    "value": 2.480112854030501,
    "look_key": "16207a931be25dbc",
    "field": [
@@ -93,136 +225,6 @@
     "follow_up": {
      "gained": 0,
      "rebuild": 0
-    }
-   }
-  },
-  {
-   "value": 2.1173176470588237,
-   "look_key": "bf15c5deadda3f47",
-   "field": [
-    {
-     "code": 59822133,
-     "name": "Blue-Eyes Spirit Dragon"
-    },
-    {
-     "code": 59822133,
-     "name": "Blue-Eyes Spirit Dragon"
-    },
-    {
-     "code": 21123811,
-     "name": "Cosmic Blazar Dragon"
-    },
-    {
-     "code": 24382602,
-     "name": "Mausoleum of White"
-    },
-    {
-     "code": 62089826,
-     "name": "True Light"
-    }
-   ],
-   "hand": [
-    14558127,
-    14558127,
-    97268402,
-    73642296
-   ],
-   "measure": {
-    "field": 1.1366666666666667,
-    "hand": 0.9876296296296296,
-    "floodgates": 0.0,
-    "resilience": 0.15297385620915033,
-    "follow_up": {
-     "gained": 0,
-     "rebuild": 0
-    }
-   }
-  },
-  {
-   "value": 1.9408187363834424,
-   "look_key": "0ba42669817e2fb3",
-   "field": [
-    {
-     "code": 59822133,
-     "name": "Blue-Eyes Spirit Dragon"
-    },
-    {
-     "code": 59822133,
-     "name": "Blue-Eyes Spirit Dragon",
-     "zone": "emz"
-    },
-    {
-     "code": 43219114,
-     "name": "Majesty of the White Dragons",
-     "set": true
-    },
-    {
-     "code": 24382602,
-     "name": "Mausoleum of White"
-    },
-    {
-     "code": 62089826,
-     "name": "True Light"
-    }
-   ],
-   "hand": [
-    14558127,
-    14558127,
-    97268402,
-    73642296
-   ],
-   "measure": {
-    "field": 0.7970370370370371,
-    "hand": 0.9876296296296296,
-    "floodgates": 0.0,
-    "resilience": 0.4248583877995643,
-    "follow_up": {
-     "gained": 0,
-     "rebuild": 0
-    }
-   }
-  },
-  {
-   "value": 1.8980278867102398,
-   "look_key": "e66ebaa396b15ed8",
-   "field": [
-    {
-     "code": 89604813,
-     "name": "Blue-Eyes Ultimate Spirit Dragon"
-    },
-    {
-     "code": 89604813,
-     "name": "Blue-Eyes Ultimate Spirit Dragon",
-     "zone": "emz"
-    },
-    {
-     "code": 43219114,
-     "name": "Majesty of the White Dragons",
-     "set": true
-    },
-    {
-     "code": 24382602,
-     "name": "Mausoleum of White"
-    },
-    {
-     "code": 62089826,
-     "name": "True Light"
-    }
-   ],
-   "hand": [
-    14558127,
-    14558127,
-    97268402,
-    73642296
-   ],
-   "measure": {
-    "field": 0.8937037037037038,
-    "hand": 0.7776296296296297,
-    "floodgates": 0.0,
-    "resilience": 0.3074291938997822,
-    "follow_up": {
-     "gained": 3,
-     "rebuild": 1
     }
    }
   }

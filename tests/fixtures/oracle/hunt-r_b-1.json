@@ -15,8 +15,8 @@
  "boards_found": 49397,
  "boards": [
   {
-   "value": 1.5241990950226245,
-   "look_key": "91d5cf101db3b62e",
+   "value": 1.7990283224400874,
+   "look_key": "d4e60581c82f76f1",
    "field": [
     {
      "code": 65681983,
@@ -37,17 +37,9 @@
      "name": "R.B. Ga10 Cutter"
     },
     {
-     "code": 81794107,
-     "name": "R.B. Lambda Cannon"
-    },
-    {
      "code": 79859067,
      "name": "R.B. Next Phase",
      "set": true
-    },
-    {
-     "code": 6821579,
-     "name": "R.B. VALCan Booster"
     },
     {
      "code": 63288573,
@@ -59,183 +51,19 @@
     94145021
    ],
    "measure": {
-    "field": 0.39153846153846156,
-    "hand": 0.08974358974358974,
-    "floodgates": 1.05,
-    "resilience": 0.3531523378582202,
+    "field": 0.9562962962962964,
+    "hand": 0.25925925925925924,
+    "floodgates": 0.0,
+    "resilience": 0.8156644880174293,
     "follow_up": {
      "gained": 0,
-     "rebuild": 0
+     "rebuild": 1
     }
    }
   },
   {
-   "value": 1.1659618441971382,
-   "look_key": "f9ed714767c6a5f4",
-   "field": [
-    {
-     "code": 65681983,
-     "name": "Crossout Designator",
-     "set": true
-    },
-    {
-     "code": 24299458,
-     "name": "Forbidden Droplet",
-     "set": true
-    },
-    {
-     "code": 78710386,
-     "name": "R.B. Funk Dock"
-    },
-    {
-     "code": 33438265,
-     "name": "R.B. Ga10 Cutter"
-    },
-    {
-     "code": 81794107,
-     "name": "R.B. Lambda Cannon"
-    },
-    {
-     "code": 79859067,
-     "name": "R.B. Next Phase",
-     "set": true
-    },
-    {
-     "code": 6821579,
-     "name": "R.B. VALCan Booster",
-     "zone": "emz"
-    }
-   ],
-   "hand": [
-    37351133,
-    94145021
-   ],
-   "measure": {
-    "field": 0.07783783783783786,
-    "hand": 0.14,
-    "floodgates": 1.15,
-    "resilience": 0.07020667726550081,
-    "follow_up": {
-     "gained": 0,
-     "rebuild": 0
-    }
-   }
-  },
-  {
-   "value": 1.034579185520362,
-   "look_key": "9ef6b6d65b36a92a",
-   "field": [
-    {
-     "code": 65681983,
-     "name": "Crossout Designator",
-     "set": true
-    },
-    {
-     "code": 24299458,
-     "name": "Forbidden Droplet",
-     "set": true
-    },
-    {
-     "code": 78710386,
-     "name": "R.B. Funk Dock"
-    },
-    {
-     "code": 33438265,
-     "name": "R.B. Ga10 Cutter"
-    },
-    {
-     "code": 44573911,
-     "name": "R.B. Ga10 Pile Bunker"
-    },
-    {
-     "code": 43450363,
-     "name": "R.B. Last Stand",
-     "set": true
-    },
-    {
-     "code": 79859067,
-     "name": "R.B. Next Phase",
-     "set": true
-    },
-    {
-     "code": 32216688,
-     "name": "R.B. The Brute Blues",
-     "zone": "emz"
-    }
-   ],
-   "hand": [
-    94145021
-   ],
-   "measure": {
-    "field": 0.07384615384615385,
-    "hand": 0.08974358974358974,
-    "floodgates": 1.05,
-    "resilience": 0.06660633484162898,
-    "follow_up": {
-     "gained": 0,
-     "rebuild": 0
-    }
-   }
-  },
-  {
-   "value": 1.034579185520362,
-   "look_key": "2c66eb6846ec6da1",
-   "field": [
-    {
-     "code": 65681983,
-     "name": "Crossout Designator",
-     "set": true
-    },
-    {
-     "code": 24299458,
-     "name": "Forbidden Droplet",
-     "set": true
-    },
-    {
-     "code": 78710386,
-     "name": "R.B. Funk Dock"
-    },
-    {
-     "code": 33438265,
-     "name": "R.B. Ga10 Cutter"
-    },
-    {
-     "code": 17188206,
-     "name": "R.B. Lambda Blade"
-    },
-    {
-     "code": 43450363,
-     "name": "R.B. Last Stand",
-     "set": true
-    },
-    {
-     "code": 79859067,
-     "name": "R.B. Next Phase",
-     "set": true
-    },
-    {
-     "code": 32216688,
-     "name": "R.B. The Brute Blues",
-     "zone": "emz"
-    }
-   ],
-   "hand": [
-    94145021
-   ],
-   "measure": {
-    "field": 0.07384615384615385,
-    "hand": 0.08974358974358974,
-    "floodgates": 1.05,
-    "resilience": 0.06660633484162898,
-    "follow_up": {
-     "gained": 0,
-     "rebuild": 0
-    }
-   }
-  },
-  {
-   "value": 1.034579185520362,
-   "look_key": "405193e0b81767fa",
+   "value": 1.6790283224400873,
+   "look_key": "c34d4507801d80b3",
    "field": [
     {
      "code": 65681983,
@@ -266,8 +94,166 @@
      "set": true
     },
     {
-     "code": 32216688,
-     "name": "R.B. The Brute Blues",
+     "code": 80071619,
+     "name": "R.B. Shepherd's Crook",
+     "zone": "emz"
+    },
+    {
+     "code": 63288573,
+     "name": "Sky Striker Ace - Kagari"
+    }
+   ],
+   "hand": [
+    94145021
+   ],
+   "measure": {
+    "field": 0.9562962962962964,
+    "hand": 0.25925925925925924,
+    "floodgates": 0.0,
+    "resilience": 0.8156644880174293,
+    "follow_up": {
+     "gained": 0,
+     "rebuild": 0
+    }
+   }
+  },
+  {
+   "value": 1.6790283224400873,
+   "look_key": "d1a8b4767bdaad2f",
+   "field": [
+    {
+     "code": 65681983,
+     "name": "Crossout Designator",
+     "set": true
+    },
+    {
+     "code": 24299458,
+     "name": "Forbidden Droplet",
+     "set": true
+    },
+    {
+     "code": 78710386,
+     "name": "R.B. Funk Dock"
+    },
+    {
+     "code": 33438265,
+     "name": "R.B. Ga10 Cutter"
+    },
+    {
+     "code": 79859067,
+     "name": "R.B. Next Phase",
+     "set": true
+    },
+    {
+     "code": 63288573,
+     "name": "Sky Striker Ace - Kagari",
+     "zone": "emz"
+    },
+    {
+     "code": 52340445,
+     "name": "Sky Striker Ace Token"
+    }
+   ],
+   "hand": [
+    94145021
+   ],
+   "measure": {
+    "field": 0.9562962962962964,
+    "hand": 0.25925925925925924,
+    "floodgates": 0.0,
+    "resilience": 0.8156644880174293,
+    "follow_up": {
+     "gained": 0,
+     "rebuild": 0
+    }
+   }
+  },
+  {
+   "value": 1.6790283224400873,
+   "look_key": "3ed7e5a8531c6642",
+   "field": [
+    {
+     "code": 65681983,
+     "name": "Crossout Designator",
+     "set": true
+    },
+    {
+     "code": 24299458,
+     "name": "Forbidden Droplet",
+     "set": true
+    },
+    {
+     "code": 25072579,
+     "name": "Prototype Sky Striker Ace - Amatsu",
+     "zone": "emz"
+    },
+    {
+     "code": 78710386,
+     "name": "R.B. Funk Dock"
+    },
+    {
+     "code": 33438265,
+     "name": "R.B. Ga10 Cutter"
+    },
+    {
+     "code": 79859067,
+     "name": "R.B. Next Phase",
+     "set": true
+    },
+    {
+     "code": 52340445,
+     "name": "Sky Striker Ace Token"
+    }
+   ],
+   "hand": [
+    94145021
+   ],
+   "measure": {
+    "field": 0.9562962962962964,
+    "hand": 0.25925925925925924,
+    "floodgates": 0.0,
+    "resilience": 0.8156644880174293,
+    "follow_up": {
+     "gained": 0,
+     "rebuild": 0
+    }
+   }
+  },
+  {
+   "value": 1.6790283224400873,
+   "look_key": "c66e8fdb4240039c",
+   "field": [
+    {
+     "code": 65681983,
+     "name": "Crossout Designator",
+     "set": true
+    },
+    {
+     "code": 24299458,
+     "name": "Forbidden Droplet",
+     "set": true
+    },
+    {
+     "code": 78710386,
+     "name": "R.B. Funk Dock"
+    },
+    {
+     "code": 33438265,
+     "name": "R.B. Ga10 Cutter"
+    },
+    {
+     "code": 43450363,
+     "name": "R.B. Last Stand",
+     "set": true
+    },
+    {
+     "code": 79859067,
+     "name": "R.B. Next Phase",
+     "set": true
+    },
+    {
+     "code": 63288573,
+     "name": "Sky Striker Ace - Kagari",
      "zone": "emz"
     }
    ],
@@ -275,10 +261,10 @@
     94145021
    ],
    "measure": {
-    "field": 0.07384615384615385,
-    "hand": 0.08974358974358974,
-    "floodgates": 1.05,
-    "resilience": 0.06660633484162898,
+    "field": 0.9562962962962964,
+    "hand": 0.25925925925925924,
+    "floodgates": 0.0,
+    "resilience": 0.8156644880174293,
     "follow_up": {
      "gained": 0,
      "rebuild": 0
@@ -647,237 +633,6 @@
     255
    ],
    [
-    5,
-    0,
-    0,
-    0
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    0,
-    0,
-    0,
-    0,
-    1,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0
-   ],
-   [
-    1,
-    0,
-    0,
-    0
-   ],
-   [
-    0,
-    4,
-    0
-   ],
-   [
-    1,
-    0,
-    0,
-    0
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    5,
-    0,
-    0,
-    0
-   ],
-   [
-    0,
-    8,
-    3
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    0,
-    0,
-    0,
-    0,
-    1,
-    0,
-    0,
-    0,
-    1,
-    0,
-    0,
-    0
-   ],
-   [
-    0,
-    4,
-    1
-   ],
-   [
-    1,
-    0,
-    0,
-    0
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    5,
-    0,
-    0,
-    0
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    0,
-    0,
-    0,
-    0
-   ],
-   [
-    1,
-    0,
-    0,
-    0
-   ],
-   [
-    0,
-    0,
-    0,
-    0,
-    1,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0
-   ],
-   [
-    1,
-    4,
-    0
-   ],
-   [
-    1,
-    0,
-    0,
-    0
-   ],
-   [
-    1,
-    0,
-    0,
-    0
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    0,
-    0,
-    0,
-    0,
-    1,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0
-   ],
-   [
-    0,
-    4,
-    1
-   ],
-   [
-    1,
-    0,
-    0,
-    0
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
     4,
     0,
     0,
@@ -903,7 +658,99 @@
    [
     5,
     0,
+    1,
+    0
+   ],
+   [
     0,
+    8,
+    0
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    0,
+    0,
+    0,
+    0,
+    1,
+    0,
+    0,
+    0,
+    5,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    4,
+    0
+   ],
+   [
+    1,
+    0,
+    0,
+    0
+   ],
+   [
+    1,
+    0,
+    0,
+    0
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    0,
+    0,
+    0,
+    0,
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    5,
+    0,
+    1,
     0
    ],
    [
@@ -946,7 +793,62 @@
    [
     0,
     4,
-    3
+    1
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    1,
+    0,
+    4,
+    0
+   ],
+   [
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    4,
+    5
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
    ],
    [
     255,
@@ -1010,18 +912,6 @@
     0,
     0,
     0
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    255,
-    255,
-    255,
-    255
    ]
   ]
  }

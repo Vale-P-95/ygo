@@ -15,6 +15,49 @@
  "boards_found": 23367,
  "boards": [
   {
+   "value": 3.1453877995642707,
+   "look_key": "fb177466c09e3105",
+   "field": [
+    {
+     "code": 19899073,
+     "name": "Ame no Murakumo no Mitsurugi"
+    },
+    {
+     "code": 10045474,
+     "name": "Infinite Impermanence",
+     "set": true
+    },
+    {
+     "code": 17954937,
+     "name": "Mitsurugi Great Purification",
+     "set": true
+    },
+    {
+     "code": 27381364,
+     "name": "Spright Elf",
+     "zone": "emz"
+    },
+    {
+     "code": 66975205,
+     "name": "Yummyusment\u2606Mignon"
+    }
+   ],
+   "hand": [
+    14558127,
+    14558127
+   ],
+   "measure": {
+    "field": 1.7499074074074077,
+    "hand": 0.5333333333333333,
+    "floodgates": 0.0,
+    "resilience": 1.3258006535947717,
+    "follow_up": {
+     "gained": 3,
+     "rebuild": 1
+    }
+   }
+  },
+  {
    "value": 3.0994595860566454,
    "look_key": "c9bdeb6ff7bb1115",
    "field": [
@@ -192,49 +235,6 @@
     "resilience": 1.1241819172113292,
     "follow_up": {
      "gained": 2,
-     "rebuild": 1
-    }
-   }
-  },
-  {
-   "value": 2.689658278867103,
-   "look_key": "b3434eff6dc32cf7",
-   "field": [
-    {
-     "code": 13332685,
-     "name": "Ame no Habakiri no Mitsurugi"
-    },
-    {
-     "code": 19899073,
-     "name": "Ame no Murakumo no Mitsurugi"
-    },
-    {
-     "code": 65741786,
-     "name": "I:P Masquerena",
-     "zone": "emz"
-    },
-    {
-     "code": 17954937,
-     "name": "Mitsurugi Great Purification",
-     "set": true
-    },
-    {
-     "code": 66975205,
-     "name": "Yummyusment\u2606Mignon"
-    }
-   ],
-   "hand": [
-    14558127,
-    14558127,
-    10966439
-   ],
-   "measure": {
-    "field": 1.4796851851851853,
-    "hand": 0.5333333333333333,
-    "floodgates": 0.0,
-    "resilience": 1.0166218228031956,
-    "follow_up": {
-     "gained": 6,
      "rebuild": 1
     }
    }
@@ -1352,6 +1352,61 @@
     0,
     0,
     0
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    1,
+    0,
+    0,
+    0
+   ],
+   [
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    4,
+    5
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
    ],
    [
     255,

@@ -61,8 +61,90 @@
    }
   },
   {
-   "value": 2.586661437908497,
-   "look_key": "517a9da08c622d83",
+   "value": 2.720481045751634,
+   "look_key": "a4a82c8c5631c334",
+   "field": [
+    {
+     "code": 44654994,
+     "name": "Artmage Impasto -Recapture-",
+     "set": true
+    },
+    {
+     "code": 74631897,
+     "name": "Artmage Non-Finito"
+    },
+    {
+     "code": 92812851,
+     "name": "Exceed the Pendulum",
+     "zone": "emz"
+    },
+    {
+     "code": 43871165,
+     "name": "Jupredo the Shademachine Power Patron"
+    },
+    {
+     "code": 48130397,
+     "name": "Super Polymerization",
+     "set": true
+    }
+   ],
+   "hand": [
+    43871165,
+    25661743
+   ],
+   "measure": {
+    "field": 1.8838518518518519,
+    "hand": 0.0,
+    "floodgates": 0.0,
+    "resilience": 1.1943819898329704,
+    "follow_up": {
+     "gained": 1,
+     "rebuild": 1
+    }
+   }
+  },
+  {
+   "value": 2.618549019607843,
+   "look_key": "8b81d99a5c4242db",
+   "field": [
+    {
+     "code": 44654994,
+     "name": "Artmage Impasto -Recapture-",
+     "set": true
+    },
+    {
+     "code": 74631897,
+     "name": "Artmage Non-Finito"
+    },
+    {
+     "code": 11765832,
+     "name": "Garura, Wings of Resonant Life",
+     "zone": "emz"
+    },
+    {
+     "code": 43871165,
+     "name": "Jupredo the Shademachine Power Patron"
+    },
+    {
+     "code": 70636044,
+     "name": "Varudras, the Final Bringer of the End Times"
+    }
+   ],
+   "hand": [],
+   "measure": {
+    "field": 2.071851851851852,
+    "hand": 0.0,
+    "floodgates": 0.0,
+    "resilience": 0.9111619462599855,
+    "follow_up": {
+     "gained": 0,
+     "rebuild": 0
+    }
+   }
+  },
+  {
+   "value": 2.541061437908497,
+   "look_key": "48a6d2ccd12e141f",
    "field": [
     {
      "code": 44654994,
@@ -96,14 +178,12 @@
      "name": "Varudras, the Final Bringer of the End Times"
     }
    ],
-   "hand": [
-    70488851
-   ],
+   "hand": [],
    "measure": {
     "field": 1.8728888888888888,
     "hand": 0.0,
     "floodgates": 0.0,
-    "resilience": 0.9896209150326798,
+    "resilience": 0.9136209150326798,
     "follow_up": {
      "gained": 0,
      "rebuild": 1
@@ -111,8 +191,8 @@
    }
   },
   {
-   "value": 2.527837908496732,
-   "look_key": "c1099086db700a38",
+   "value": 2.541061437908497,
+   "look_key": "8765d6aad55989c3",
    "field": [
     {
      "code": 44654994,
@@ -124,67 +204,17 @@
      "name": "Artmage Non-Finito"
     },
     {
-     "code": 22125101,
-     "name": "Beyond the Pendulum",
+     "code": 43871165,
+     "name": "Jupredo the Shademachine Power Patron"
+    },
+    {
+     "code": 97556336,
+     "name": "Medius the Pure"
+    },
+    {
+     "code": 77157846,
+     "name": "Shade the Obscure",
      "zone": "emz"
-    },
-    {
-     "code": 43871165,
-     "name": "Jupredo the Shademachine Power Patron"
-    },
-    {
-     "code": 48130397,
-     "name": "Super Polymerization",
-     "set": true
-    },
-    {
-     "code": 70636044,
-     "name": "Varudras, the Final Bringer of the End Times"
-    },
-    {
-     "code": 70488851,
-     "name": "Vidolium the Unstable Power Patron of Unity"
-    }
-   ],
-   "hand": [
-    43871165
-   ],
-   "measure": {
-    "field": 1.8728888888888888,
-    "hand": 0.0,
-    "floodgates": 0.0,
-    "resilience": 0.8915816993464053,
-    "follow_up": {
-     "gained": 0,
-     "rebuild": 1
-    }
-   }
-  },
-  {
-   "value": 2.527837908496732,
-   "look_key": "f7f58ea81d4a1098",
-   "field": [
-    {
-     "code": 44654994,
-     "name": "Artmage Impasto -Recapture-",
-     "set": true
-    },
-    {
-     "code": 74631897,
-     "name": "Artmage Non-Finito"
-    },
-    {
-     "code": 22125101,
-     "name": "Beyond the Pendulum",
-     "zone": "emz"
-    },
-    {
-     "code": 43871165,
-     "name": "Jupredo the Shademachine Power Patron"
-    },
-    {
-     "code": 43871165,
-     "name": "Jupredo the Shademachine Power Patron"
     },
     {
      "code": 48130397,
@@ -196,64 +226,12 @@
      "name": "Varudras, the Final Bringer of the End Times"
     }
    ],
-   "hand": [
-    70488851
-   ],
+   "hand": [],
    "measure": {
     "field": 1.8728888888888888,
     "hand": 0.0,
     "floodgates": 0.0,
-    "resilience": 0.8915816993464053,
-    "follow_up": {
-     "gained": 0,
-     "rebuild": 1
-    }
-   }
-  },
-  {
-   "value": 2.527837908496732,
-   "look_key": "c286fe1ad97303d7",
-   "field": [
-    {
-     "code": 44654994,
-     "name": "Artmage Impasto -Recapture-",
-     "set": true
-    },
-    {
-     "code": 74631897,
-     "name": "Artmage Non-Finito"
-    },
-    {
-     "code": 22125101,
-     "name": "Beyond the Pendulum",
-     "zone": "emz"
-    },
-    {
-     "code": 43871165,
-     "name": "Jupredo the Shademachine Power Patron"
-    },
-    {
-     "code": 17473466,
-     "name": "Nervedo the Shadebeast Power Patron"
-    },
-    {
-     "code": 48130397,
-     "name": "Super Polymerization",
-     "set": true
-    },
-    {
-     "code": 70636044,
-     "name": "Varudras, the Final Bringer of the End Times"
-    }
-   ],
-   "hand": [
-    43871165
-   ],
-   "measure": {
-    "field": 1.8728888888888888,
-    "hand": 0.0,
-    "floodgates": 0.0,
-    "resilience": 0.8915816993464053,
+    "resilience": 0.9136209150326798,
     "follow_up": {
      "gained": 0,
      "rebuild": 1

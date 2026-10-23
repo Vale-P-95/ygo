@@ -15,7 +15,7 @@
  "boards_found": 40152,
  "boards": [
   {
-   "value": 2.883279193899782,
+   "value": 3.126465250544662,
    "look_key": "e854be8276343bf5",
    "field": [
     {
@@ -52,10 +52,10 @@
    ],
    "hand": [],
    "measure": {
-    "field": 2.1922037037037034,
+    "field": 2.3600555555555554,
     "hand": 0.0,
     "floodgates": 0.0,
-    "resilience": 1.1517924836601308,
+    "resilience": 1.2773494916485113,
     "follow_up": {
      "gained": 2,
      "rebuild": 0
@@ -63,7 +63,7 @@
    }
   },
   {
-   "value": 2.883279193899782,
+   "value": 3.126465250544662,
    "look_key": "c55d4eb5431d81be",
    "field": [
     {
@@ -100,10 +100,10 @@
    ],
    "hand": [],
    "measure": {
-    "field": 2.1922037037037034,
+    "field": 2.3600555555555554,
     "hand": 0.0,
     "floodgates": 0.0,
-    "resilience": 1.1517924836601308,
+    "resilience": 1.2773494916485113,
     "follow_up": {
      "gained": 2,
      "rebuild": 0
@@ -111,57 +111,7 @@
    }
   },
   {
-   "value": 2.757396405228758,
-   "look_key": "7b9d2da402a395ba",
-   "field": [
-    {
-     "code": 84815190,
-     "name": "Baronne de Fleur"
-    },
-    {
-     "code": 97077563,
-     "name": "Call of the Haunted",
-     "set": true
-    },
-    {
-     "code": 50277355,
-     "name": "Cross-Sheep"
-    },
-    {
-     "code": 65741786,
-     "name": "I:P Masquerena",
-     "zone": "emz"
-    },
-    {
-     "code": 38436986,
-     "name": "Tearlaments Metanoise",
-     "set": true
-    },
-    {
-     "code": 84330567,
-     "name": "Tearlaments Rulkallos"
-    },
-    {
-     "code": 4064256,
-     "name": "Zombie World"
-    }
-   ],
-   "hand": [
-    18078153
-   ],
-   "measure": {
-    "field": 2.0537407407407406,
-    "hand": 0.0,
-    "floodgates": 0.0,
-    "resilience": 1.1727594408133626,
-    "follow_up": {
-     "gained": 2,
-     "rebuild": 0
-    }
-   }
-  },
-  {
-   "value": 2.7270995642701528,
+   "value": 2.970285620915033,
    "look_key": "cde63b4462281def",
    "field": [
     {
@@ -198,10 +148,10 @@
    ],
    "hand": [],
    "measure": {
-    "field": 2.0824907407407407,
+    "field": 2.2503425925925926,
     "hand": 0.0,
     "floodgates": 0.0,
-    "resilience": 1.0743480392156866,
+    "resilience": 1.199905047204067,
     "follow_up": {
      "gained": 2,
      "rebuild": 0
@@ -209,7 +159,7 @@
    }
   },
   {
-   "value": 2.7270995642701528,
+   "value": 2.970285620915033,
    "look_key": "171c717cd8e351a5",
    "field": [
     {
@@ -246,10 +196,58 @@
    ],
    "hand": [],
    "measure": {
-    "field": 2.0824907407407407,
+    "field": 2.2503425925925926,
     "hand": 0.0,
     "floodgates": 0.0,
-    "resilience": 1.0743480392156866,
+    "resilience": 1.199905047204067,
+    "follow_up": {
+     "gained": 2,
+     "rebuild": 0
+    }
+   }
+  },
+  {
+   "value": 2.827075925925926,
+   "look_key": "40323c960fc6358e",
+   "field": [
+    {
+     "code": 84815190,
+     "name": "Baronne de Fleur"
+    },
+    {
+     "code": 97077563,
+     "name": "Call of the Haunted",
+     "set": true
+    },
+    {
+     "code": 50277355,
+     "name": "Cross-Sheep"
+    },
+    {
+     "code": 65741786,
+     "name": "I:P Masquerena",
+     "zone": "emz"
+    },
+    {
+     "code": 76213610,
+     "name": "Officiator of Doom Samuel"
+    },
+    {
+     "code": 38436986,
+     "name": "Tearlaments Metanoise",
+     "set": true
+    },
+    {
+     "code": 84330567,
+     "name": "Tearlaments Rulkallos"
+    }
+   ],
+   "hand": [],
+   "measure": {
+    "field": 2.1497407407407407,
+    "hand": 0.0,
+    "floodgates": 0.0,
+    "resilience": 1.1288919753086424,
     "follow_up": {
      "gained": 2,
      "rebuild": 0
