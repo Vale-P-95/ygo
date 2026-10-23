@@ -61,6 +61,98 @@
    }
   },
   {
+   "value": 3.9425882352941177,
+   "look_key": "a5066ecb63a7d189",
+   "field": [
+    {
+     "code": 84815190,
+     "name": "Baronne de Fleur",
+     "zone": "emz"
+    },
+    {
+     "code": 13597785,
+     "name": "Elfnote Lucina"
+    },
+    {
+     "code": 59581480,
+     "name": "Elfnote Tinia"
+    },
+    {
+     "code": 24092792,
+     "name": "Elfnotes: Rhapsodia of Madness"
+    },
+    {
+     "code": 64491754,
+     "name": "Elfnotes: Welcome Home"
+    },
+    {
+     "code": 5914858,
+     "name": "Junora the Power Patron of Tuning"
+    },
+    {
+     "code": 97556336,
+     "name": "Medius the Pure"
+    }
+   ],
+   "hand": [
+    14558127
+   ],
+   "measure": {
+    "field": 2.532962962962963,
+    "hand": 0.5333333333333333,
+    "floodgates": 0.0,
+    "resilience": 1.5493754538852578,
+    "follow_up": {
+     "gained": 3,
+     "rebuild": 0
+    }
+   }
+  },
+  {
+   "value": 3.9425882352941177,
+   "look_key": "b1b0fde0a175aa63",
+   "field": [
+    {
+     "code": 84815190,
+     "name": "Baronne de Fleur",
+     "zone": "emz"
+    },
+    {
+     "code": 13597785,
+     "name": "Elfnote Lucina"
+    },
+    {
+     "code": 59581480,
+     "name": "Elfnote Tinia"
+    },
+    {
+     "code": 24092792,
+     "name": "Elfnotes: Rhapsodia of Madness"
+    },
+    {
+     "code": 5914858,
+     "name": "Junora the Power Patron of Tuning"
+    },
+    {
+     "code": 97556336,
+     "name": "Medius the Pure"
+    }
+   ],
+   "hand": [
+    14558127
+   ],
+   "measure": {
+    "field": 2.532962962962963,
+    "hand": 0.5333333333333333,
+    "floodgates": 0.0,
+    "resilience": 1.5493754538852578,
+    "follow_up": {
+     "gained": 2,
+     "rebuild": 0
+    }
+   }
+  },
+  {
    "value": 3.869228758169935,
    "look_key": "495eeea1d8d3c6de",
    "field": [
@@ -101,12 +193,12 @@
    }
   },
   {
-   "value": 3.7349063180827886,
-   "look_key": "d48399aaba772eea",
+   "value": 3.674483660130719,
+   "look_key": "dbcbab798b472cb6",
    "field": [
     {
-     "code": 50954680,
-     "name": "Crystal Wing Synchro Dragon"
+     "code": 84815190,
+     "name": "Baronne de Fleur"
     },
     {
      "code": 13597785,
@@ -125,124 +217,25 @@
      "name": "Elfnotes: Welcome Home"
     },
     {
-     "code": 33158448,
-     "name": "F.A. Dawn Dragster",
-     "zone": "emz"
-    },
-    {
      "code": 97556336,
      "name": "Medius the Pure"
+    },
+    {
+     "code": 70488851,
+     "name": "Vidolium the Unstable Power Patron of Unity"
     }
    ],
    "hand": [
-    14558127,
-    12375297,
-    94145021
-   ],
-   "measure": {
-    "field": 2.0735185185185183,
-    "hand": 0.7925925925925925,
-    "floodgates": 0.0,
-    "resilience": 1.5800907770515615,
-    "follow_up": {
-     "gained": 3,
-     "rebuild": 0
-    }
-   }
-  },
-  {
-   "value": 3.3995729847494554,
-   "look_key": "2a7978c69826543c",
-   "field": [
-    {
-     "code": 50954680,
-     "name": "Crystal Wing Synchro Dragon"
-    },
-    {
-     "code": 59581480,
-     "name": "Elfnote Tinia"
-    },
-    {
-     "code": 24092792,
-     "name": "Elfnotes: Rhapsodia of Madness"
-    },
-    {
-     "code": 64491754,
-     "name": "Elfnotes: Welcome Home"
-    },
-    {
-     "code": 33158448,
-     "name": "F.A. Dawn Dragster",
-     "zone": "emz"
-    },
-    {
-     "code": 97556336,
-     "name": "Medius the Pure"
-    }
-   ],
-   "hand": [
-    94145021,
-    94145021,
-    14558127,
-    59581480
-   ],
-   "measure": {
-    "field": 1.8405555555555557,
-    "hand": 0.7925925925925925,
-    "floodgates": 0.0,
-    "resilience": 1.4094734931009443,
-    "follow_up": {
-     "gained": 4,
-     "rebuild": 0
-    }
-   }
-  },
-  {
-   "value": 3.3588888888888886,
-   "look_key": "ce34a5e8220e7a77",
-   "field": [
-    {
-     "code": 50954680,
-     "name": "Crystal Wing Synchro Dragon"
-    },
-    {
-     "code": 85976588,
-     "name": "Elfnote Fortuna"
-    },
-    {
-     "code": 59581480,
-     "name": "Elfnote Tinia"
-    },
-    {
-     "code": 24092792,
-     "name": "Elfnotes: Rhapsodia of Madness"
-    },
-    {
-     "code": 64491754,
-     "name": "Elfnotes: Welcome Home"
-    },
-    {
-     "code": 33158448,
-     "name": "F.A. Dawn Dragster",
-     "zone": "emz"
-    },
-    {
-     "code": 97556336,
-     "name": "Medius the Pure"
-    }
-   ],
-   "hand": [
-    94145021,
     94145021,
     14558127
    ],
    "measure": {
-    "field": 1.834259259259259,
+    "field": 2.1885185185185185,
     "hand": 0.7925925925925925,
     "floodgates": 0.0,
-    "resilience": 1.3521604938271605,
+    "resilience": 1.2877196804647786,
     "follow_up": {
-     "gained": 4,
+     "gained": 5,
      "rebuild": 0
     }
    }

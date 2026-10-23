@@ -119,78 +119,75 @@
    }
   },
   {
-   "value": 2.7789925925925925,
-   "look_key": "36ddd71016d9dfec",
+   "value": 3.61231917211329,
+   "look_key": "9d45212e928eb719",
    "field": [
     {
      "code": 84815190,
-     "name": "Baronne de Fleur",
-     "zone": "emz"
+     "name": "Baronne de Fleur"
     },
     {
-     "code": 23151193,
-     "name": "Diabellstar Vengeance"
-    },
-    {
-     "code": 79415624,
-     "name": "Snake-Eyes Vengeance Dragon"
-    },
-    {
-     "code": 22283204,
-     "name": "The Gaze of Timaeus",
-     "set": true
-    },
-    {
-     "code": 4398189,
-     "name": "Witch of the White Forest"
-    }
-   ],
-   "hand": [
-    23434538,
-    38648860
-   ],
-   "measure": {
-    "field": 2.055296296296296,
-    "hand": 0.04740740740740742,
-    "floodgates": 0.0,
-    "resilience": 1.1350493827160495,
-    "follow_up": {
-     "gained": 1,
-     "rebuild": 0
-    }
-   }
-  },
-  {
-   "value": 2.7494117647058824,
-   "look_key": "54fdfcefe701e6e8",
-   "field": [
-    {
-     "code": 84815190,
-     "name": "Baronne de Fleur",
-     "zone": "emz"
+     "code": 61980241,
+     "name": "Elzette of the White Forest"
     },
     {
      "code": 37818794,
      "name": "Red-Eyes Dark Dragoon"
     },
     {
-     "code": 80845034,
-     "name": "WANTED: Seeker of Sinful Spoils",
-     "set": true
+     "code": 79415624,
+     "name": "Snake-Eyes Vengeance Dragon",
+     "zone": "emz"
     }
    ],
    "hand": [
-    94845588,
-    23434538
+    38648860
    ],
    "measure": {
-    "field": 2.0,
+    "field": 2.49087962962963,
     "hand": 0.0,
     "floodgates": 0.0,
-    "resilience": 1.0490196078431373,
+    "resilience": 1.4690659041394338,
     "follow_up": {
-     "gained": 2,
-     "rebuild": 1
+     "gained": 0,
+     "rebuild": 2
+    }
+   }
+  },
+  {
+   "value": 3.4893525054466235,
+   "look_key": "bb087dcb2fd673ea",
+   "field": [
+    {
+     "code": 84815190,
+     "name": "Baronne de Fleur"
+    },
+    {
+     "code": 61980241,
+     "name": "Elzette of the White Forest"
+    },
+    {
+     "code": 5800323,
+     "name": "Poplar of the White Forest",
+     "zone": "emz"
+    },
+    {
+     "code": 37818794,
+     "name": "Red-Eyes Dark Dragoon"
+    }
+   ],
+   "hand": [
+    38648860,
+    78293584
+   ],
+   "measure": {
+    "field": 2.407925925925926,
+    "hand": 0.0,
+    "floodgates": 0.0,
+    "resilience": 1.4023776325344954,
+    "follow_up": {
+     "gained": 1,
+     "rebuild": 2
     }
    }
   }

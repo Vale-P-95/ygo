@@ -123,6 +123,25 @@
 - **Unica mano peggiorata:** sky_striker-1 scende da 1,09 a 0,93. La misura economica mette fuori dalle 30 la board che con le prime 10 era la migliore.
 - **Proposta:** rifare le 91 fixture con `--staged 300,30`, circa 6 ore e mezza nel cloud invece di 4 e mezza. Con 2000/60 l'oracolo costa ancora di più: elfnote-1 passa da 638 a 1730 s.
 
+#### A1: il giro con la misura a gradini (corsia 6, 23/10, branch `claude/oracle-staged`)
+- **Oracolo:** le 91 mani a 200 000 nodi, solo con il seme della mano, con `--staged 300,30`. warrior_combo-1 è fatta con `--staged 2000,60`, perché la sua board migliore era oltre le prime 300. Il codice è quello di `main` dopo #93 e #94, che cambiano la misura. In media 8,6 minuti per mano, con 4 lavori. Le fixture di `tests/fixtures/oracle` sono queste e prendono il posto di quelle del giro vero.
+- **Ricerche per obiettivo:** le board che raggiungono l'obiettivo vengono prima nella lista, quindi la misura completa va alle prime 30, non alle 30 migliori per la misura economica. Altrimenti restavano tutte con la sola misura economica, e la fixture veniva vuota.
+- **La ricerca normale contro l'oracolo nuovo**, su 88 mani. Restano fuori le 2 mani kaiju, dove nessuna board vale qualcosa, e l'obiettivo Invoked:
+
+  | nodi | quota mediana | quota media (fino al 100%) | mani al 95% o più | mani sopra l'oracolo (oltre l'1%) | secondi (mediana) |
+  |---|---|---|---|---|---|
+  | 1000 | 57% | 62% | 16 | 1 | 3,1 |
+  | 2000 | 62% | 67% | 17 | 1 | 5,0 |
+  | 4000 | 73% | 71% | 19 | 1 | 7,5 |
+  | 8000 | 79% | 74% | 23 | 1 | 12,7 |
+  | 16 000 | 83% | 76% | 25 | 1 | 21,6 |
+
+  - **L'oracolo ora è quasi un tetto.** La ricerca normale lo supera di oltre l'1% solo in 2 mani a qualche budget: sky_striker-1 (127%, la ricerca a 200 000 nodi non arriva allo stato che a 1000 nodi trova: alla corsia 2) ed elfnote-1 (102%, varianti di zona della stessa board).
+  - **Rispetto al giro vero** l'oracolo sale di oltre l'1% in 50 mani su 88 e scende in 2. Quindi la ricerca normale ne è più lontana di quanto sembrava: a 4000 nodi la quota mediana passa dall'87% al 73%, a 16 000 dal 95% all'83%.
+  - Una board da almeno il 99% è fra le prime 3 in 24 mani su 91; la board stessa dell'oracolo in 18.
+  - In 27 mani su 88 il valore misurato scende ancora di oltre l'1% passando a un budget più grande: la ricerca normale misura per intero solo le prime 10 board.
+  - **Obiettivo Invoked:** l'oracolo lo raggiunge con valore 1,25 (Oceanus nella Zona Mostri Extra, S:P, Baybarron, Virakam, "Sword", Meltdown). La ricerca normale non lo raggiunge nemmeno a 16 000 nodi.
+
 ### A1b. Oltre i limiti dell'oracolo (corsia 6, dopo il giro vero; il livello 2 con la corsia 3)
 L'oracolo è uno strumento di sviluppo, non una parte dell'app.
 - Serve a controllare che il motore trovi da solo le linee più forti di **qualunque** deck, anche uno appena montato con carte appena uscite.

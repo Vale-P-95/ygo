@@ -15,16 +15,16 @@
  "boards_found": 28893,
  "boards": [
   {
-   "value": 3.266150326797386,
-   "look_key": "c60d89e2b168599c",
+   "value": 3.8122091503267974,
+   "look_key": "c23a8a0ecf2d526d",
    "field": [
     {
      "code": 19899073,
      "name": "Ame no Murakumo no Mitsurugi"
     },
     {
-     "code": 19899073,
-     "name": "Ame no Murakumo no Mitsurugi"
+     "code": 32530043,
+     "name": "Gallant Granite"
     },
     {
      "code": 29876299,
@@ -45,15 +45,15 @@
     }
    ],
    "hand": [
-    25726386,
+    44293356,
     13332685,
-    13332685
+    25726386
    ],
    "measure": {
-    "field": 2.3618518518518523,
-    "hand": 0.0,
+    "field": 2.120740740740741,
+    "hand": 0.9518518518518518,
     "floodgates": 0.0,
-    "resilience": 1.5071641249092234,
+    "resilience": 1.3913362381989833,
     "follow_up": {
      "gained": 2,
      "rebuild": 0
@@ -61,8 +61,101 @@
    }
   },
   {
-   "value": 3.266150326797386,
-   "look_key": "9ac623b3cf1456a5",
+   "value": 3.5595860566448803,
+   "look_key": "a77815f3d2257e91",
+   "field": [
+    {
+     "code": 19899073,
+     "name": "Ame no Murakumo no Mitsurugi"
+    },
+    {
+     "code": 29876299,
+     "name": "Megalith Anastasis"
+    },
+    {
+     "code": 78990927,
+     "name": "Megalith Phul"
+    },
+    {
+     "code": 17954937,
+     "name": "Mitsurugi Great Purification",
+     "set": true
+    },
+    {
+     "code": 82782870,
+     "name": "Mitsurugi no Mikoto, Kusanagi"
+    }
+   ],
+   "hand": [
+    25726386,
+    49721684,
+    13332685,
+    44293356
+   ],
+   "measure": {
+    "field": 1.9518518518518517,
+    "hand": 1.0,
+    "floodgates": 0.0,
+    "resilience": 1.1795570079883806,
+    "follow_up": {
+     "gained": 3,
+     "rebuild": 0
+    }
+   }
+  },
+  {
+   "value": 3.441803921568628,
+   "look_key": "76c503ab332ec16a",
+   "field": [
+    {
+     "code": 13332685,
+     "name": "Ame no Habakiri no Mitsurugi"
+    },
+    {
+     "code": 19899073,
+     "name": "Ame no Murakumo no Mitsurugi"
+    },
+    {
+     "code": 73898890,
+     "name": "Dyna Mondo",
+     "zone": "emz"
+    },
+    {
+     "code": 29876299,
+     "name": "Megalith Anastasis"
+    },
+    {
+     "code": 78990927,
+     "name": "Megalith Phul"
+    },
+    {
+     "code": 17954937,
+     "name": "Mitsurugi Great Purification",
+     "set": true
+    },
+    {
+     "code": 45171524,
+     "name": "Mitsurugi Prayers",
+     "set": true
+    }
+   ],
+   "hand": [
+    25726386
+   ],
+   "measure": {
+    "field": 2.5703703703703704,
+    "hand": 0.0,
+    "floodgates": 0.0,
+    "resilience": 1.4523892519970953,
+    "follow_up": {
+     "gained": 4,
+     "rebuild": 0
+    }
+   }
+  },
+  {
+   "value": 3.387860566448802,
+   "look_key": "290db0edf92e2a1e",
    "field": [
     {
      "code": 19899073,
@@ -71,6 +164,57 @@
     {
      "code": 19899073,
      "name": "Ame no Murakumo no Mitsurugi"
+    },
+    {
+     "code": 73898890,
+     "name": "Dyna Mondo",
+     "zone": "emz"
+    },
+    {
+     "code": 29876299,
+     "name": "Megalith Anastasis"
+    },
+    {
+     "code": 78990927,
+     "name": "Megalith Phul"
+    },
+    {
+     "code": 17954937,
+     "name": "Mitsurugi Great Purification",
+     "set": true
+    },
+    {
+     "code": 45171524,
+     "name": "Mitsurugi Prayers",
+     "set": true
+    }
+   ],
+   "hand": [
+    25726386
+   ],
+   "measure": {
+    "field": 2.5703703703703704,
+    "hand": 0.0,
+    "floodgates": 0.0,
+    "resilience": 1.362483660130719,
+    "follow_up": {
+     "gained": 4,
+     "rebuild": 0
+    }
+   }
+  },
+  {
+   "value": 3.380039215686274,
+   "look_key": "8688ecc03df72d5c",
+   "field": [
+    {
+     "code": 19899073,
+     "name": "Ame no Murakumo no Mitsurugi"
+    },
+    {
+     "code": 73898890,
+     "name": "Dyna Mondo",
+     "zone": "emz"
     },
     {
      "code": 55397172,
@@ -85,106 +229,6 @@
      "name": "Megalith Phul"
     },
     {
-     "code": 78990927,
-     "name": "Megalith Phul"
-    },
-    {
-     "code": 17954937,
-     "name": "Mitsurugi Great Purification",
-     "set": true
-    }
-   ],
-   "hand": [
-    25726386
-   ],
-   "measure": {
-    "field": 2.3618518518518523,
-    "hand": 0.0,
-    "floodgates": 0.0,
-    "resilience": 1.5071641249092234,
-    "follow_up": {
-     "gained": 2,
-     "rebuild": 0
-    }
-   }
-  },
-  {
-   "value": 3.0290196078431375,
-   "look_key": "7ae351fe5c73d1c9",
-   "field": [
-    {
-     "code": 19899073,
-     "name": "Ame no Murakumo no Mitsurugi"
-    },
-    {
-     "code": 19899073,
-     "name": "Ame no Murakumo no Mitsurugi"
-    },
-    {
-     "code": 29876299,
-     "name": "Megalith Anastasis"
-    },
-    {
-     "code": 78990927,
-     "name": "Megalith Phul"
-    },
-    {
-     "code": 78990927,
-     "name": "Megalith Phul"
-    },
-    {
-     "code": 17954937,
-     "name": "Mitsurugi Great Purification",
-     "set": true
-    },
-    {
-     "code": 40543231,
-     "name": "Mitsurugi no Mikoto, Aramasa"
-    }
-   ],
-   "hand": [
-    25726386
-   ],
-   "measure": {
-    "field": 2.177777777777778,
-    "hand": 0.0,
-    "floodgates": 0.0,
-    "resilience": 1.4187363834422657,
-    "follow_up": {
-     "gained": 2,
-     "rebuild": 0
-    }
-   }
-  },
-  {
-   "value": 2.955542483660131,
-   "look_key": "3e49e9eb4b491de2",
-   "field": [
-    {
-     "code": 19899073,
-     "name": "Ame no Murakumo no Mitsurugi"
-    },
-    {
-     "code": 19899073,
-     "name": "Ame no Murakumo no Mitsurugi"
-    },
-    {
-     "code": 11398059,
-     "name": "King of the Feral Imps"
-    },
-    {
-     "code": 29876299,
-     "name": "Megalith Anastasis"
-    },
-    {
-     "code": 78990927,
-     "name": "Megalith Phul"
-    },
-    {
-     "code": 78990927,
-     "name": "Megalith Phul"
-    },
-    {
      "code": 17954937,
      "name": "Mitsurugi Great Purification",
      "set": true
@@ -196,70 +240,15 @@
     }
    ],
    "hand": [
-    13332685,
     25726386
    ],
    "measure": {
-    "field": 2.120740740740741,
+    "field": 2.5237037037037036,
     "hand": 0.0,
     "floodgates": 0.0,
-    "resilience": 1.3913362381989833,
+    "resilience": 1.4272258533042848,
     "follow_up": {
-     "gained": 5,
-     "rebuild": 0
-    }
-   }
-  },
-  {
-   "value": 2.955542483660131,
-   "look_key": "17ef7accc0414898",
-   "field": [
-    {
-     "code": 19899073,
-     "name": "Ame no Murakumo no Mitsurugi"
-    },
-    {
-     "code": 19899073,
-     "name": "Ame no Murakumo no Mitsurugi"
-    },
-    {
-     "code": 29876299,
-     "name": "Megalith Anastasis"
-    },
-    {
-     "code": 78990927,
-     "name": "Megalith Phul"
-    },
-    {
-     "code": 78990927,
-     "name": "Megalith Phul"
-    },
-    {
-     "code": 17954937,
-     "name": "Mitsurugi Great Purification",
-     "set": true
-    },
-    {
-     "code": 45171524,
-     "name": "Mitsurugi Prayers",
-     "set": true
-    },
-    {
-     "code": 18176525,
-     "name": "Mitsurugi no Mikoto, Saji"
-    }
-   ],
-   "hand": [
-    13332685,
-    25726386
-   ],
-   "measure": {
-    "field": 2.120740740740741,
-    "hand": 0.0,
-    "floodgates": 0.0,
-    "resilience": 1.3913362381989833,
-    "follow_up": {
-     "gained": 5,
+     "gained": 4,
      "rebuild": 0
     }
    }
@@ -1131,10 +1120,137 @@
     0,
     0,
     0,
+    2,
+    0,
+    0,
+    0
+   ],
+   [
     0,
     0,
     0,
     0
+   ],
+   [
+    0,
+    8,
+    3
+   ],
+   [
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    1,
+    0,
+    0,
+    0
+   ],
+   [
+    1,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    0,
+    0,
+    0,
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    4,
+    0
+   ],
+   [
+    1,
+    0,
+    0,
+    0
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    1,
+    0,
+    0,
+    0
+   ],
+   [
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    4,
+    0
+   ],
+   [
+    1,
+    0,
+    0,
+    0
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
    ],
    [
     255,
@@ -1156,29 +1272,6 @@
    ],
    [
     0,
-    8,
-    3
-   ],
-   [
-    0,
-    0,
-    0,
-    0
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    0,
     0,
     0,
     0,
@@ -1186,31 +1279,6 @@
     0,
     0,
     0,
-    0,
-    0,
-    0,
-    0
-   ],
-   [
-    0,
-    0,
-    0,
-    0,
-    1,
-    0,
-    0,
-    0,
-    1,
-    0,
-    0,
-    0
-   ],
-   [
-    0,
-    4,
-    0
-   ],
-   [
     1,
     0,
     0,
@@ -1233,88 +1301,6 @@
     255,
     255,
     255
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    0,
-    0,
-    0,
-    0,
-    1,
-    0,
-    0,
-    0,
-    3,
-    0,
-    0,
-    0
-   ],
-   [
-    1,
-    0,
-    0,
-    0
-   ],
-   [
-    0,
-    4,
-    3
-   ],
-   [
-    1,
-    0,
-    0,
-    0
-   ],
-   [
-    0,
-    0,
-    0,
-    0
-   ],
-   [
-    0,
-    8,
-    3
-   ],
-   [
-    1,
-    0,
-    0,
-    0
-   ],
-   [
-    1,
-    0,
-    0,
-    0,
-    3,
-    0,
-    0,
-    0
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    0,
-    0,
-    0,
-    0
    ],
    [
     0,

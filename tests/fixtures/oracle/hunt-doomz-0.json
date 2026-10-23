@@ -57,8 +57,89 @@
    }
   },
   {
-   "value": 2.1391285403050113,
-   "look_key": "381d9f3fc7782c64",
+   "value": 2.3202675381263616,
+   "look_key": "81ce8bc8f429e1cf",
+   "field": [
+    {
+     "code": 80320877,
+     "name": "DoomZ Destruction",
+     "set": true
+    },
+    {
+     "code": 32442017,
+     "name": "DoomZ Raiders"
+    },
+    {
+     "code": 95626382,
+     "name": "DoomZ XII End - Drastrius"
+    },
+    {
+     "code": 11132674,
+     "name": "Gigantic \"Champion\" Sargas",
+     "zone": "emz"
+    },
+    {
+     "code": 68231287,
+     "name": "Jupiter the Power Patron of Destruction"
+    },
+    {
+     "code": 10604644,
+     "name": "Therion \"King\" Regulus"
+    }
+   ],
+   "hand": [],
+   "measure": {
+    "field": 1.7008518518518518,
+    "hand": 0.0,
+    "floodgates": 0.0,
+    "resilience": 0.8323594771241831,
+    "follow_up": {
+     "gained": 0,
+     "rebuild": 1
+    }
+   }
+  },
+  {
+   "value": 2.1691938997821354,
+   "look_key": "a3d81c779da63d38",
+   "field": [
+    {
+     "code": 80320877,
+     "name": "DoomZ Destruction",
+     "set": true
+    },
+    {
+     "code": 95626382,
+     "name": "DoomZ XII End - Drastrius"
+    },
+    {
+     "code": 68231287,
+     "name": "Jupiter the Power Patron of Destruction",
+     "equipped_to": 95626382
+    },
+    {
+     "code": 10604644,
+     "name": "Therion \"King\" Regulus"
+    }
+   ],
+   "hand": [
+    38007649,
+    38007649
+   ],
+   "measure": {
+    "field": 1.5703703703703704,
+    "hand": 0.0,
+    "floodgates": 0.0,
+    "resilience": 0.7980392156862747,
+    "follow_up": {
+     "gained": 0,
+     "rebuild": 1
+    }
+   }
+  },
+  {
+   "value": 2.1691938997821354,
+   "look_key": "3e76decde522c452",
    "field": [
     {
      "code": 80320877,
@@ -76,10 +157,6 @@
      "equipped_to": 95626382
     },
     {
-     "code": 68231287,
-     "name": "Jupiter the Power Patron of Destruction"
-    },
-    {
      "code": 10604644,
      "name": "Therion \"King\" Regulus"
     }
@@ -92,7 +169,7 @@
     "field": 1.5703703703703704,
     "hand": 0.0,
     "floodgates": 0.0,
-    "resilience": 0.747930283224401,
+    "resilience": 0.7980392156862747,
     "follow_up": {
      "gained": 0,
      "rebuild": 1
@@ -100,8 +177,8 @@
    }
   },
   {
-   "value": 2.1391285403050113,
-   "look_key": "a74b14adf1571293",
+   "value": 2.1691938997821354,
+   "look_key": "0b6ea1cccbd2878c",
    "field": [
     {
      "code": 80320877,
@@ -116,97 +193,6 @@
      "code": 11132674,
      "name": "Gigantic \"Champion\" Sargas",
      "equipped_to": 95626382
-    },
-    {
-     "code": 68231287,
-     "name": "Jupiter the Power Patron of Destruction",
-     "zone": "emz"
-    },
-    {
-     "code": 10604644,
-     "name": "Therion \"King\" Regulus"
-    }
-   ],
-   "hand": [
-    38007649,
-    38007649
-   ],
-   "measure": {
-    "field": 1.5703703703703704,
-    "hand": 0.0,
-    "floodgates": 0.0,
-    "resilience": 0.747930283224401,
-    "follow_up": {
-     "gained": 0,
-     "rebuild": 1
-    }
-   }
-  },
-  {
-   "value": 2.1391285403050113,
-   "look_key": "a14da9eb05f71ce1",
-   "field": [
-    {
-     "code": 80320877,
-     "name": "DoomZ Destruction",
-     "set": true
-    },
-    {
-     "code": 95626382,
-     "name": "DoomZ XII End - Drastrius"
-    },
-    {
-     "code": 11132674,
-     "name": "Gigantic \"Champion\" Sargas",
-     "equipped_to": 95626382
-    },
-    {
-     "code": 68231287,
-     "name": "Jupiter the Power Patron of Destruction",
-     "zone": "emz"
-    },
-    {
-     "code": 10604644,
-     "name": "Therion \"King\" Regulus"
-    }
-   ],
-   "hand": [
-    38007649,
-    38007649
-   ],
-   "measure": {
-    "field": 1.5703703703703704,
-    "hand": 0.0,
-    "floodgates": 0.0,
-    "resilience": 0.747930283224401,
-    "follow_up": {
-     "gained": 0,
-     "rebuild": 1
-    }
-   }
-  },
-  {
-   "value": 2.1391285403050113,
-   "look_key": "33f15091a7ec487f",
-   "field": [
-    {
-     "code": 80320877,
-     "name": "DoomZ Destruction",
-     "set": true
-    },
-    {
-     "code": 95626382,
-     "name": "DoomZ XII End - Drastrius",
-     "zone": "emz"
-    },
-    {
-     "code": 11132674,
-     "name": "Gigantic \"Champion\" Sargas",
-     "equipped_to": 95626382
-    },
-    {
-     "code": 68231287,
-     "name": "Jupiter the Power Patron of Destruction"
     },
     {
      "code": 51669847,
@@ -222,7 +208,7 @@
     "field": 1.5703703703703704,
     "hand": 0.0,
     "floodgates": 0.0,
-    "resilience": 0.747930283224401,
+    "resilience": 0.7980392156862747,
     "follow_up": {
      "gained": 0,
      "rebuild": 1

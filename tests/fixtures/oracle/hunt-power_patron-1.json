@@ -119,8 +119,8 @@
    }
   },
   {
-   "value": 2.9973610566448805,
-   "look_key": "684b4fdd8ba6f30f",
+   "value": 3.044184586056645,
+   "look_key": "f9a8db76979ba82b",
    "field": [
     {
      "code": 44654994,
@@ -132,26 +132,22 @@
      "name": "Artmage Non-Finito"
     },
     {
+     "code": 22125101,
+     "name": "Beyond the Pendulum",
+     "zone": "emz"
+    },
+    {
      "code": 6325660,
      "name": "Dominus Spark",
      "set": true
     },
     {
-     "code": 92812851,
-     "name": "Exceed the Pendulum",
-     "zone": "emz"
+     "code": 53589300,
+     "name": "Nerva the Power Patron of Creation"
     },
     {
      "code": 17473466,
      "name": "Nervedo the Shadebeast Power Patron"
-    },
-    {
-     "code": 17473466,
-     "name": "Nervedo the Shadebeast Power Patron"
-    },
-    {
-     "code": 51669847,
-     "name": "Plundered Power Patron Plane - Vidolia"
     },
     {
      "code": 70636044,
@@ -167,7 +163,7 @@
     "field": 2.2930092592592595,
     "hand": 0.0,
     "floodgates": 0.0,
-    "resilience": 1.1739196623093684,
+    "resilience": 1.2519588779956428,
     "follow_up": {
      "gained": 0,
      "rebuild": 0
@@ -175,8 +171,8 @@
    }
   },
   {
-   "value": 2.9973610566448805,
-   "look_key": "6e12f3f1a4ce709d",
+   "value": 3.044184586056645,
+   "look_key": "857d79be1c41edc8",
    "field": [
     {
      "code": 44654994,
@@ -188,52 +184,9 @@
      "name": "Artmage Non-Finito"
     },
     {
-     "code": 6325660,
-     "name": "Dominus Spark",
-     "set": true
-    },
-    {
-     "code": 17473466,
-     "name": "Nervedo the Shadebeast Power Patron"
-    },
-    {
-     "code": 51669847,
-     "name": "Plundered Power Patron Plane - Vidolia"
-    },
-    {
-     "code": 29301450,
-     "name": "S:P Little Knight",
+     "code": 22125101,
+     "name": "Beyond the Pendulum",
      "zone": "emz"
-    },
-    {
-     "code": 70636044,
-     "name": "Varudras, the Final Bringer of the End Times"
-    }
-   ],
-   "hand": [],
-   "measure": {
-    "field": 2.2930092592592595,
-    "hand": 0.0,
-    "floodgates": 0.0,
-    "resilience": 1.1739196623093684,
-    "follow_up": {
-     "gained": 0,
-     "rebuild": 0
-    }
-   }
-  },
-  {
-   "value": 2.9973610566448805,
-   "look_key": "a3faa55a11bf2e90",
-   "field": [
-    {
-     "code": 44654994,
-     "name": "Artmage Impasto -Recapture-",
-     "set": true
-    },
-    {
-     "code": 74631897,
-     "name": "Artmage Non-Finito"
     },
     {
      "code": 6325660,
@@ -245,13 +198,12 @@
      "name": "Junoldo the Shadespirit Power Patron"
     },
     {
-     "code": 17473466,
-     "name": "Nervedo the Shadebeast Power Patron"
+     "code": 53589300,
+     "name": "Nerva the Power Patron of Creation"
     },
     {
-     "code": 29301450,
-     "name": "S:P Little Knight",
-     "zone": "emz"
+     "code": 17473466,
+     "name": "Nervedo the Shadebeast Power Patron"
     },
     {
      "code": 70636044,
@@ -263,7 +215,59 @@
     "field": 2.2930092592592595,
     "hand": 0.0,
     "floodgates": 0.0,
-    "resilience": 1.1739196623093684,
+    "resilience": 1.2519588779956428,
+    "follow_up": {
+     "gained": 0,
+     "rebuild": 0
+    }
+   }
+  },
+  {
+   "value": 3.044184586056645,
+   "look_key": "c2702eca30d7a7a5",
+   "field": [
+    {
+     "code": 44654994,
+     "name": "Artmage Impasto -Recapture-",
+     "set": true
+    },
+    {
+     "code": 74631897,
+     "name": "Artmage Non-Finito"
+    },
+    {
+     "code": 22125101,
+     "name": "Beyond the Pendulum",
+     "zone": "emz"
+    },
+    {
+     "code": 6325660,
+     "name": "Dominus Spark",
+     "set": true
+    },
+    {
+     "code": 43871165,
+     "name": "Jupredo the Shademachine Power Patron"
+    },
+    {
+     "code": 53589300,
+     "name": "Nerva the Power Patron of Creation"
+    },
+    {
+     "code": 17473466,
+     "name": "Nervedo the Shadebeast Power Patron"
+    },
+    {
+     "code": 70636044,
+     "name": "Varudras, the Final Bringer of the End Times"
+    }
+   ],
+   "hand": [],
+   "measure": {
+    "field": 2.2930092592592595,
+    "hand": 0.0,
+    "floodgates": 0.0,
+    "resilience": 1.2519588779956428,
     "follow_up": {
      "gained": 0,
      "rebuild": 0

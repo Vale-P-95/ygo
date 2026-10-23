@@ -52,49 +52,21 @@
    }
   },
   {
-   "value": 1.2937016197783462,
-   "look_key": "413a60549dd08f91",
+   "value": 1.413701619778346,
+   "look_key": "7181f31071568916",
    "field": [
     {
-     "code": 4064925,
-     "name": "Ancient Gear Advance"
-    },
-    {
-     "code": 44052075,
-     "name": "Ancient Gear Token"
-    },
-    {
-     "code": 92359409,
-     "name": "Superdreadnought Rail Cannon Gustav Rocket",
+     "code": 10547580,
+     "name": "Ancient Gear Ballista",
      "zone": "emz"
-    }
-   ],
-   "hand": [
-    14532163,
-    35269904
-   ],
-   "measure": {
-    "field": 0.4492753623188406,
-    "hand": 0.0,
-    "floodgates": 0.9299999999999999,
-    "resilience": 0.1673770957658426,
-    "follow_up": {
-     "gained": 0,
-     "rebuild": 0
-    }
-   }
-  },
-  {
-   "value": 1.2937016197783462,
-   "look_key": "48d794353a9e4a5f",
-   "field": [
-    {
-     "code": 4064925,
-     "name": "Ancient Gear Advance"
     },
     {
-     "code": 44052075,
-     "name": "Ancient Gear Token"
+     "code": 53541822,
+     "name": "Ancient Gear Duel"
+    },
+    {
+     "code": 41739381,
+     "name": "Clockwork Knight"
     },
     {
      "code": 92359409,
@@ -102,8 +74,8 @@
     }
    ],
    "hand": [
-    14532163,
-    35269904
+    35269904,
+    14532163
    ],
    "measure": {
     "field": 0.4492753623188406,
@@ -112,18 +84,14 @@
     "resilience": 0.1673770957658426,
     "follow_up": {
      "gained": 0,
-     "rebuild": 0
+     "rebuild": 1
     }
    }
   },
   {
-   "value": 1.2937016197783462,
-   "look_key": "d4112d979b248bf2",
+   "value": 1.413701619778346,
+   "look_key": "1ca9cb63df6ddb1b",
    "field": [
-    {
-     "code": 4064925,
-     "name": "Ancient Gear Advance"
-    },
     {
      "code": 10547580,
      "name": "Ancient Gear Ballista",
@@ -139,8 +107,8 @@
     }
    ],
    "hand": [
-    14532163,
-    35269904
+    35269904,
+    14532163
    ],
    "measure": {
     "field": 0.4492753623188406,
@@ -149,31 +117,30 @@
     "resilience": 0.1673770957658426,
     "follow_up": {
      "gained": 0,
-     "rebuild": 0
+     "rebuild": 1
     }
    }
   },
   {
-   "value": 1.2937016197783462,
-   "look_key": "e8db6ffa736e7d4e",
+   "value": 1.413701619778346,
+   "look_key": "4d48f1a8bff629cb",
    "field": [
     {
-     "code": 44052075,
-     "name": "Ancient Gear Token"
+     "code": 53541822,
+     "name": "Ancient Gear Duel"
     },
     {
-     "code": 70369116,
-     "name": "Predaplant Verte Anaconda"
+     "code": 91098230,
+     "name": "Ancient Gear Tanker"
     },
     {
      "code": 92359409,
-     "name": "Superdreadnought Rail Cannon Gustav Rocket",
-     "zone": "emz"
+     "name": "Superdreadnought Rail Cannon Gustav Rocket"
     }
    ],
    "hand": [
-    14532163,
-    35269904
+    35269904,
+    14532163
    ],
    "measure": {
     "field": 0.4492753623188406,
@@ -182,7 +149,44 @@
     "resilience": 0.1673770957658426,
     "follow_up": {
      "gained": 0,
-     "rebuild": 0
+     "rebuild": 1
+    }
+   }
+  },
+  {
+   "value": 1.413701619778346,
+   "look_key": "3c07d2c1f6822395",
+   "field": [
+    {
+     "code": 10547580,
+     "name": "Ancient Gear Ballista",
+     "zone": "emz"
+    },
+    {
+     "code": 53541822,
+     "name": "Ancient Gear Duel"
+    },
+    {
+     "code": 41739381,
+     "name": "Clockwork Knight"
+    },
+    {
+     "code": 92359409,
+     "name": "Superdreadnought Rail Cannon Gustav Rocket"
+    }
+   ],
+   "hand": [
+    84192580,
+    14532163
+   ],
+   "measure": {
+    "field": 0.4492753623188406,
+    "hand": 0.0,
+    "floodgates": 0.9299999999999999,
+    "resilience": 0.1673770957658426,
+    "follow_up": {
+     "gained": 0,
+     "rebuild": 1
     }
    }
   }

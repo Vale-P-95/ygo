@@ -15,12 +15,96 @@
  "boards_found": 18237,
  "boards": [
   {
-   "value": 3.337625272331155,
-   "look_key": "91a1434f19bc8bc2",
+   "value": 3.7493224400871457,
+   "look_key": "7aa2d78800b647e0",
    "field": [
+    {
+     "code": 44376395,
+     "name": "ASHLAN U1000",
+     "zone": "emz"
+    },
+    {
+     "code": 19899073,
+     "name": "Ame no Murakumo no Mitsurugi"
+    },
     {
      "code": 78990927,
      "name": "Megalith Phul"
+    },
+    {
+     "code": 69003792,
+     "name": "Megalith Unformed",
+     "set": true
+    },
+    {
+     "code": 17954937,
+     "name": "Mitsurugi Great Purification",
+     "set": true
+    }
+   ],
+   "hand": [
+    25726386
+   ],
+   "measure": {
+    "field": 2.718888888888889,
+    "hand": 0.0,
+    "floodgates": 0.0,
+    "resilience": 1.717389251997095,
+    "follow_up": {
+     "gained": 2,
+     "rebuild": 0
+    }
+   }
+  },
+  {
+   "value": 3.45541394335512,
+   "look_key": "c1a145cfd0423097",
+   "field": [
+    {
+     "code": 44376395,
+     "name": "ASHLAN U1000",
+     "zone": "emz"
+    },
+    {
+     "code": 13332685,
+     "name": "Ame no Habakiri no Mitsurugi"
+    },
+    {
+     "code": 78990927,
+     "name": "Megalith Phul"
+    },
+    {
+     "code": 69003792,
+     "name": "Megalith Unformed",
+     "set": true
+    },
+    {
+     "code": 17954937,
+     "name": "Mitsurugi Great Purification",
+     "set": true
+    }
+   ],
+   "hand": [
+    25726386
+   ],
+   "measure": {
+    "field": 2.490740740740741,
+    "hand": 0.0,
+    "floodgates": 0.0,
+    "resilience": 1.6077886710239648,
+    "follow_up": {
+     "gained": 2,
+     "rebuild": 0
+    }
+   }
+  },
+  {
+   "value": 3.3604139433551197,
+   "look_key": "4e48839254168a6c",
+   "field": [
+    {
+     "code": 90444325,
+     "name": "Megalith Hagith"
     },
     {
      "code": 78990927,
@@ -47,10 +131,10 @@
     55397172
    ],
    "measure": {
-    "field": 2.5333333333333337,
+    "field": 2.5925925925925926,
     "hand": 0.0,
     "floodgates": 0.0,
-    "resilience": 1.340486564996369,
+    "resilience": 1.2797022512708789,
     "follow_up": {
      "gained": 2,
      "rebuild": 0
@@ -58,8 +142,8 @@
    }
   },
   {
-   "value": 2.5873572984749456,
-   "look_key": "1c24286d3441d8fc",
+   "value": 3.2810021786492376,
+   "look_key": "b61ca873baccfcaf",
    "field": [
     {
      "code": 44376395,
@@ -67,12 +151,8 @@
      "zone": "emz"
     },
     {
-     "code": 19899073,
-     "name": "Ame no Murakumo no Mitsurugi"
-    },
-    {
-     "code": 78990927,
-     "name": "Megalith Phul"
+     "code": 65741786,
+     "name": "I:P Masquerena"
     },
     {
      "code": 78990927,
@@ -90,76 +170,31 @@
     }
    ],
    "hand": [
-    81560239
+    25726386,
+    55397172
    ],
    "measure": {
-    "field": 1.809074074074074,
+    "field": 2.490740740740741,
     "hand": 0.0,
     "floodgates": 0.0,
-    "resilience": 1.2971387073347858,
+    "resilience": 1.3171023965141613,
     "follow_up": {
-     "gained": 4,
+     "gained": 2,
      "rebuild": 0
     }
    }
   },
   {
-   "value": 2.5540424836601305,
-   "look_key": "391262bc7c74ea72",
+   "value": 3.24457788671024,
+   "look_key": "13ff2d16920863c3",
    "field": [
     {
-     "code": 44376395,
-     "name": "ASHLAN U1000",
-     "zone": "emz"
+     "code": 13332685,
+     "name": "Ame no Habakiri no Mitsurugi"
     },
     {
      "code": 19899073,
      "name": "Ame no Murakumo no Mitsurugi"
-    },
-    {
-     "code": 78990927,
-     "name": "Megalith Phul"
-    },
-    {
-     "code": 78990927,
-     "name": "Megalith Phul"
-    },
-    {
-     "code": 69003792,
-     "name": "Megalith Unformed",
-     "set": true
-    },
-    {
-     "code": 17954937,
-     "name": "Mitsurugi Great Purification",
-     "set": true
-    }
-   ],
-   "hand": [
-    45171524
-   ],
-   "measure": {
-    "field": 1.809074074074074,
-    "hand": 0.0,
-    "floodgates": 0.0,
-    "resilience": 1.241614015976761,
-    "follow_up": {
-     "gained": 7,
-     "rebuild": 0
-    }
-   }
-  },
-  {
-   "value": 2.2756889978213515,
-   "look_key": "c1c72dbf084cee27",
-   "field": [
-    {
-     "code": 78990927,
-     "name": "Megalith Phul"
-    },
-    {
-     "code": 78990927,
-     "name": "Megalith Phul"
     },
     {
      "code": 69003792,
@@ -179,62 +214,15 @@
    ],
    "hand": [
     25726386,
-    55397172
+    23434538
    ],
    "measure": {
-    "field": 1.6243148148148152,
-    "hand": 0.0,
+    "field": 2.0169074074074076,
+    "hand": 0.3592592592592593,
     "floodgates": 0.0,
-    "resilience": 1.0856236383442268,
+    "resilience": 1.507228576615832,
     "follow_up": {
-     "gained": 2,
-     "rebuild": 0
-    }
-   }
-  },
-  {
-   "value": 2.0442418300653595,
-   "look_key": "fe555ac621d707ca",
-   "field": [
-    {
-     "code": 44376395,
-     "name": "ASHLAN U1000",
-     "zone": "emz"
-    },
-    {
-     "code": 90444325,
-     "name": "Megalith Hagith"
-    },
-    {
-     "code": 78990927,
-     "name": "Megalith Phul"
-    },
-    {
-     "code": 78990927,
-     "name": "Megalith Phul"
-    },
-    {
-     "code": 69003792,
-     "name": "Megalith Unformed",
-     "set": true
-    },
-    {
-     "code": 17954937,
-     "name": "Mitsurugi Great Purification",
-     "set": true
-    }
-   ],
-   "hand": [
-    25726386,
-    55397172
-   ],
-   "measure": {
-    "field": 1.449814814814815,
-    "hand": 0.0,
-    "floodgates": 0.0,
-    "resilience": 0.9907116920842413,
-    "follow_up": {
-     "gained": 2,
+     "gained": 3,
      "rebuild": 0
     }
    }
@@ -979,10 +967,36 @@
     0
    ],
    [
+    1,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    0,
+    0,
+    0,
+    1,
+    0,
+    0,
+    0,
     0,
     0,
     0,
     0
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
    ],
    [
     0,
@@ -1011,7 +1025,7 @@
     0,
     0,
     0,
-    5,
+    2,
     0,
     0,
     0
@@ -1025,7 +1039,7 @@
     0,
     0,
     0,
-    0,
+    1,
     0,
     0,
     0
@@ -1074,7 +1088,7 @@
     0,
     0,
     0,
-    3,
+    0,
     0,
     0,
     0
@@ -1088,24 +1102,25 @@
     0,
     0,
     0,
-    0,
-    0,
-    0,
-    0
-   ],
-   [
-    0,
+    5,
     0,
     0,
     0
    ],
    [
-    0,
-    8,
-    3
+    255,
+    255,
+    255,
+    255
    ],
    [
-    0,
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    5,
     0,
     0,
     0
@@ -1137,10 +1152,16 @@
     0
    ],
    [
+    1,
     0,
     0,
     0,
     0,
+    0,
+    0,
+    0
+   ],
+   [
     1,
     0,
     0,
@@ -1153,120 +1174,13 @@
    [
     0,
     4,
-    3
-   ],
-   [
-    0,
-    0,
-    0,
-    0
-   ],
-   [
-    0,
-    0,
-    0,
-    0,
-    1,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0
-   ],
-   [
-    0,
-    0,
-    0,
-    0
-   ],
-   [
-    0,
-    0,
-    0,
-    0,
-    1,
-    0,
-    0,
-    0,
-    1,
-    0,
-    0,
-    0
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    1,
-    0,
-    2,
-    0
+    1
    ],
    [
     1,
     0,
     0,
-    0,
-    3,
-    0,
-    0,
     0
-   ],
-   [
-    1,
-    0,
-    0,
-    0,
-    1,
-    0,
-    0,
-    0
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    0,
-    4,
-    5
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    255,
-    255,
-    255,
-    255
    ],
    [
     255,
@@ -1285,18 +1199,6 @@
     0,
     0,
     0
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    255,
-    255,
-    255,
-    255
    ]
   ]
  }
