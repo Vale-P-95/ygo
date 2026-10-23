@@ -37,10 +37,16 @@
 
 **File caldi** (uno alla volta): `search.rs` (corsia 2), `probe.rs` (corsia 4), `value.rs`, `apps/desktop/src-tauri/src/lib.rs` e `apps/desktop/src/lib/api.ts` (chi li prende avvisa prima).
 
-## PR aperte al passaggio
-- **#103** (corsia 7, §6c righe 5-9, solo documenti e script): CI rilanciata sulla testa db50e20. Merge se verde.
-- **#105** (corsia 8, opzione (a), L2-3 come ultimo gradino): CI all'apertura. Merge se verde. Dopo il merge va in `docs/TASKS.md` la richiesta per Gemini, che lo ha già in coda.
-- **#106** (corsia 9, rapporto della caccia ai bug, solo documento): merge se verde.
+## PR al passaggio
+- Unite il 23/10:
+  - #100 (Gemini, ricerca del catalogo);
+  - #102 (corsia 4);
+  - #103 (corsia 7, §6c);
+  - #104 (corsia 2, copie nelle fasi dopo la ricerca);
+  - #105 (corsia 8, opzione (a); la richiesta per Gemini è in `docs/TASKS.md`);
+  - #106 (corsia 9, caccia ai bug).
+- Aperta solo #107, questo file.
+- Va detto a Gemini, con un commento sulla sua prossima PR o sulla #100, che #105 è su `main`.
 
 ## Gemini (Antigravity)
 - Lavora su `apps/desktop/src/` con branch `gemini/*`. Il proprietario lo avvia a mano; si comunica con i commenti sulle sue PR.
