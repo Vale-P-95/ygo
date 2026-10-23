@@ -47,7 +47,7 @@ Corsie di lavoro in parallelo del 22/10/2026 (piano in `docs/plans/piano-prossim
     - [x] il giro completo (dopo la #53): 817 invocazioni, nessun timeout, 200 board con la verità;
     - [x] il documento con metodo, pesi del meta, tempi, coppie dubbie e primi numeri;
     - [x] le 90 board delle coppie del proprietario nel banco (77 trovate, 76 con la verità) e la tabella per coppia.
-    - [ ] la nuova base su `main` 5b00370 (dopo B5a, B14 e le correzioni del livello 2 #86 e #91): le stesse 205 board e le stesse 78 delle coppie del proprietario, i numeri nuovi e il confronto con la base vecchia in `docs/plans/banco-oggettivo.md` (in corso dal 23/10, 00:25 UTC).
+    - [x] la nuova base su `main` 1af365d (dopo B5a, B14 e le correzioni del livello 2 #86, #91 e #93; misure generiche con la #94): le stesse board (Elfnote Kewl Tune mano 0 da una ricerca nuova) e le 77 delle coppie del proprietario, numeri e confronto in `docs/plans/banco-oggettivo.md`.
 
   Agente: claude-code, sessione sorella del collaudo. Branch: `claude/tools-qa`. File: script nuovi in `scripts/` (`objective_bench.py`), `docs/plans/collaudo-strumenti.md`, `docs/plans/banco-oggettivo.md`, `tests/fixtures/boards/`.
 - [ ] **Corsia 4, settimo task.** «Risposte insieme» dal passo 1 di A1b della corsia 7 (`ricerca-esperimenti.md` §6): su inv-r5 (board dell'oracolo: Baronne nella EMZ, Aeon, Gamma, Super Polymerization) contro Elfnote ogni risposta da sola ferma molto, tutte insieme lasciano il 93% delle mosse. Causa: nella run con tutte le risposte, Super Polymerization usata alla prima occasione prende come materiali la tua Baronne de Fleur e Hyperinvoked Aeon. Correzione generale: insieme, ogni risposta si aggiunge (la più forte prima) solo se l'avversario fa meno.
