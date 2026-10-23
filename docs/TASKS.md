@@ -49,6 +49,11 @@ Corsie di lavoro in parallelo del 22/10/2026 (piano in `docs/plans/piano-prossim
     - [x] le 90 board delle coppie del proprietario nel banco (77 trovate, 76 con la verità) e la tabella per coppia.
 
   Agente: claude-code, sessione sorella del collaudo. Branch: `claude/tools-qa`. File: script nuovi in `scripts/` (`objective_bench.py`), `docs/plans/collaudo-strumenti.md`, `docs/plans/banco-oggettivo.md`, `tests/fixtures/boards/`.
+- [ ] **Corsia 4, settimo task.** «Risposte insieme» dal passo 1 di A1b della corsia 7 (`ricerca-esperimenti.md` §6): su inv-r5 (board dell'oracolo: Baronne nella EMZ, Aeon, Gamma, Super Polymerization) contro Elfnote ogni risposta da sola ferma molto, tutte insieme lasciano il 93% delle mosse. Causa: nella run con tutte le risposte, Super Polymerization usata alla prima occasione prende come materiali la tua Baronne de Fleur e Hyperinvoked Aeon. Correzione generale: insieme, ogni risposta si aggiunge (la più forte prima) solo se l'avversario fa meno.
+
+  Agente: claude-code, sessione della corsia 4. Branch: `claude/placed-cards`. File: in `crates/ygo-solver/src/probe.rs` solo `Prober::against_moves` (la run «tutte insieme»).
+  - [x] La causa, tracciata.
+  - [ ] La correzione e i numeri prima e dopo (`moves_report`, banco, `combo_hunt`, `paired_test.py`).
 - [ ] **Corsia 4, sesto task** (correzione unita il 22/10, PR #86; resta il seguito qui sotto). Difetti del livello 2 dal banco oggettivo (corsia 3) e dalla corsia 7: contro il deck scelto la tua linea si sfasava (Elfnote Kewl Tune su una catena vuota, Tearlaments e Earth Machine con 0 linee, railway contro Snake-Eye). La linea si rigioca per identità.
 
   Agente: claude-code, sessione della corsia 4. Branch: `claude/placed-cards`. File: in `crates/ygo-solver/src/probe.rs` `Prelude::Own` e il suo ramo in `run_with`; `follow.rs` (`Script::up_to`); in `matchup.rs` `replay` (ramo per identità, recupero di `Rejected`, picks), `rival_breakers`, `against_moves`, `draw_trade_off`; la stampa di `print_moves` in `crates/ygo-cli/src/main.rs`.
