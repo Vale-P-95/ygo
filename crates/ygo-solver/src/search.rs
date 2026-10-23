@@ -74,9 +74,12 @@ pub struct SearchConfig {
     pub opponent: Option<Opponent>,
     /// Best boards included in each progress report.
     pub live_top: usize,
-    /// Provisional boards played to the end of the turn when the search stops.
+    /// Provisional boards played to the end of the turn when the search
+    /// stops, in a search of up to [`PHASE_BOARDS`] such boards; more in
+    /// proportion past them ([`scaled`]).
     pub confirm_top: usize,
-    /// Best boards whose zone choices are tried the other ways at the end.
+    /// Best boards whose zone choices are tried the other ways at the end,
+    /// scaled the same way by the exact boards.
     pub zone_top: usize,
     /// What the cards are worth alone on the field ([`crate::card_values`]):
     /// the estimate counts them, so the search goes after boards that stop
@@ -2138,16 +2141,29 @@ fn learn_round(shared: &Shared, count: usize) {
     }
 }
 
+/// Boards up to which the phases after the search take their configured
+/// number of boards ([`SearchConfig::confirm_top`], `zone_top`).
+pub const PHASE_BOARDS: usize = 2000;
+
+/// The boards a phase after the search takes, out of `found`: `top` up to
+/// [`PHASE_BOARDS`] boards found, the same share past them. A fixed number
+/// would be a smaller share the longer the search: a board that a short
+/// search plays to the end would be left out by a long one.
+fn scaled(top: usize, found: usize) -> usize {
+    top.max(found.saturating_mul(top) / PHASE_BOARDS)
+}
+
 /// Plays to the end of the turn the best provisional boards (and those
 /// that reach the goal), so their End Phase effects count.
 fn confirm_best(shared: &Shared) {
     let mut provisional: Vec<Board> = shared.boards.lock().map(|b| b.values().filter(|b| !b.exact).cloned().collect()).unwrap_or_default();
     provisional.sort_by(rank);
     let goal = &shared.config.goal;
+    let top = scaled(shared.config.confirm_top, provisional.len());
     let picked: Vec<Edge> = provisional
         .iter()
         .enumerate()
-        .filter(|(i, b)| *i < shared.config.confirm_top || goal.reached(b.goal_hits))
+        .filter(|(i, b)| *i < top || goal.reached(b.goal_hits))
         .filter_map(|(_, b)| {
             let (prefix, answer) = b.line.split_last()?;
             Some(Edge {
@@ -2199,7 +2215,7 @@ fn confirm_best(shared: &Shared) {
 fn zone_variants(shared: &Shared) {
     let mut best: Vec<Board> = shared.boards.lock().map(|b| b.values().filter(|b| b.exact).cloned().collect()).unwrap_or_default();
     best.sort_by(rank);
-    best.truncate(shared.config.zone_top);
+    best.truncate(scaled(shared.config.zone_top, best.len()));
     let next = AtomicU64::new(0);
     std::thread::scope(|s| {
         for _ in 0..shared.config.threads.max(1).min(best.len()) {
@@ -2626,6 +2642,15 @@ mod stats {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_phases_after_the_search_grow_with_the_boards() {
+        assert_eq!(scaled(40, 300), 40);
+        assert_eq!(scaled(40, PHASE_BOARDS), 40);
+        assert_eq!(scaled(40, 20_000), 400);
+        assert_eq!(scaled(20, 20_000), 200);
+        assert_eq!(scaled(0, 20_000), 0);
+    }
 
     #[test]
     fn split_last_takes_off_the_last_choice() {
