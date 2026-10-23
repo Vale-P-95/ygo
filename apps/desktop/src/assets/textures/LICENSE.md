@@ -7,20 +7,20 @@ Source: [ambientCG](https://ambientcg.com) by Lennart Demes.
 ## Assets Included
 
 1. **Leather (`leather.webp`)**
-   - Source: ambientCG - Leather037
-   - URL: https://ambientcg.com/view?id=Leather037
+   - Source: ambientCG - Leather003
+   - URL: https://ambientcg.com/view?id=Leather003
    - License: CC0 1.0 Universal (Public Domain Dedication)
    - Creator: Lennart Demes (ambientCG.com)
 
 2. **Plastic / Matte (`matte.webp`)**
-   - Source: ambientCG - Plastic010
-   - URL: https://ambientcg.com/view?id=Plastic010
+   - Source: ambientCG - Plastic001
+   - URL: https://ambientcg.com/view?id=Plastic001
    - License: CC0 1.0 Universal (Public Domain Dedication)
    - Creator: Lennart Demes (ambientCG.com)
 
 3. **Metal (`metal.webp`)**
-   - Source: ambientCG - Metal009
-   - URL: https://ambientcg.com/view?id=Metal009
+   - Source: ambientCG - Metal001
+   - URL: https://ambientcg.com/view?id=Metal001
    - License: CC0 1.0 Universal (Public Domain Dedication)
    - Creator: Lennart Demes (ambientCG.com)
 

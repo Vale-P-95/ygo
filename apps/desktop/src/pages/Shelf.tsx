@@ -42,14 +42,21 @@ export function Shelf({ artReady, onOpenDeck, onOpenLab, onOpenCombo, onNewDeck 
   const [width, setWidth] = useState(0);
   const areaRef = useRef<HTMLDivElement>(null);
   const saveTimers = useRef(new Map<string, number>());
+  const pendingActions = useRef(new Map<string, () => Promise<unknown>>());
 
   useEffect(() => {
     const timers = saveTimers.current;
+    const actions = pendingActions.current;
     return () => {
+      // Clear timers and immediately execute any pending saves
       for (const t of timers.values()) {
         window.clearTimeout(t);
       }
       timers.clear();
+      for (const run of actions.values()) {
+        run().catch((e) => toast(`Modifica non salvata: ${e}`, "error"));
+      }
+      actions.clear();
     };
   }, []);
 
@@ -74,9 +81,12 @@ export function Shelf({ artReady, onOpenDeck, onOpenLab, onOpenCombo, onNewDeck 
   // Saves shortly after the last change, one timer per deck and kind of change.
   const later = (key: string, run: () => Promise<unknown>) => {
     window.clearTimeout(saveTimers.current.get(key));
+    pendingActions.current.set(key, run);
     saveTimers.current.set(
       key,
       window.setTimeout(() => {
+        saveTimers.current.delete(key);
+        pendingActions.current.delete(key);
         run().catch((e) => toast(`Modifica non salvata: ${e}`, "error"));
       }, 350),
     );
@@ -200,7 +210,6 @@ export function Shelf({ artReady, onOpenDeck, onOpenLab, onOpenCombo, onNewDeck 
         <div
           ref={areaRef}
           className="shelf-wall relative min-w-0 flex-1 overflow-y-auto pt-8"
-
           onClick={(e) => e.target === e.currentTarget && setSelected(null)}
         >
           {decks && decks.length === 0 && (

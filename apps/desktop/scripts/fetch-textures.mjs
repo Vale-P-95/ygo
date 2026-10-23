@@ -12,11 +12,11 @@ const outDir = path.resolve(__dirname, "../src/assets/textures");
 const TEXTURES = [
   {
     name: "leather.webp",
-    url: "https://f003.backblazeb2.com/file/ambientCG-Web/media/surface-preview/Leather037/Leather037_SQ_Color.jpg",
+    url: "https://f003.backblazeb2.com/file/ambientCG-Web/media/surface-preview/Leather003/Leather003_SQ_Color.jpg",
   },
   {
     name: "metal.webp",
-    url: "https://f003.backblazeb2.com/file/ambientCG-Web/media/surface-preview/Metal009/Metal009_SQ_Color.jpg",
+    url: "https://f003.backblazeb2.com/file/ambientCG-Web/media/surface-preview/Metal001/Metal001_SQ_Color.jpg",
   },
   {
     name: "wood.webp",
@@ -24,7 +24,7 @@ const TEXTURES = [
   },
   {
     name: "matte.webp",
-    url: "https://f003.backblazeb2.com/file/ambientCG-Web/media/surface-preview/Plastic010/Plastic010_SQ_Color.jpg",
+    url: "https://f003.backblazeb2.com/file/ambientCG-Web/media/surface-preview/Plastic001/Plastic001_SQ_Color.jpg",
   },
   {
     name: "cardboard.webp",
