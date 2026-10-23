@@ -306,7 +306,10 @@ Corsie di lavoro in parallelo del 22/10/2026 (piano in `docs/plans/piano-prossim
 - [ ] B8, obiettivi ricchi: mockup in Claude Design, poi contratto e interfaccia (vedi B8 sopra).
 - [ ] Caccia ai bug del motore: punti 3, 5 e 6, e l'arena nel turno di prova (`docs/plans/caccia-bug-motore.md`).
 - [ ] Caso Vendread, il tetto Lua (500 000 ingressi) che scatta nello sweep di robustezza (`docs/plans/robustezza.md`).
-- [ ] Fixture registrate (`duelforge-cli record-fixtures`) e anteprima Artifact dell'app.
+- [ ] Fixture registrate e anteprima Artifact dell'app (branch `claude/project-thread-g8204p`, PR in revisione).
+  - [x] `duelforge-cli record-fixtures --deck <deck>` scrive `apps/desktop/src/lib/fixtures/recorded.json` (ricerche, faccette, cambi della banlist, composizione del deck; mai testi delle carte); `mock.ts` lo serve se c'è (ricerche solo per le carte che il catalogo finto sa mostrare).
+  - [x] Prima anteprima Artifact (`VITE_MOCK=1 vite build --base ./`, a più file, 1,7 MB): https://claude.ai/artifact/DY3eamcB7ZU4AT2shZdL9p.
+  - [ ] Registrare davvero `recorded.json`: serve `data/cards.db`, e qui `db.ygoprodeck.com` è bloccata. Da fare dove `update-cards` funziona. Poi: punteggi, legalità e probabilità del deck (richiedono i comandi di `lib.rs`).
 - [ ] Sistema di design con `/design-sync` e pagina `/galleria`.
 - [x] Script di avvio dell'ambiente cloud (PR in revisione): `scripts/cloud-setup.sh` (sottomodulo, WebKitGTK e Xvfb, `pnpm install`, `cargo fetch`, `--data` per `fetch-data`; variabili in `.cloud-env`) e `scripts/cloud-app.sh` (l'app vera sotto Xvfb con screenshot). Prova di WebKitGTK riuscita (§6.5 del piano).
 - [ ] CI: screenshot e test di fumo con Playwright.

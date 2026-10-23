@@ -234,7 +234,7 @@ Resta la memoria operativa nei giorni con coordinatrice; altrimenti si aggiorna 
 2. **Regole** (§9.1-9.5) in una PR di documenti e configurazione: mezza giornata di una sessione Sonnet.
 3. ~~**Ambiente cloud**~~ fatto il 23/10: `scripts/cloud-setup.sh`, variabili in `.cloud-env`, prova di WebKitGTK sotto Xvfb riuscita (§6.5). Da impostare nell'ambiente su claude.ai: come setup script `scripts/cloud-setup.sh`.
 4. **Progetto Claude**: conoscenza, istruzioni, collegamento con Code; Remote Control sul computer.
-5. **Fixture registrate e anteprima**: il comando `record-fixtures`, `mock.ts` che le serve, la prima anteprima Artifact (Sonnet, una sessione).
+5. **Fixture registrate e anteprima**: ~~il comando `record-fixtures`, `mock.ts` che le serve, la prima anteprima Artifact~~ fatto il 23/10 nella struttura: `record-fixtures` scrive `fixtures/recorded.json` (ricerche, faccette, banlist, deck; niente testi), `mock.ts` lo serve se presente, anteprima pubblicata con `vite build --base ./` (percorsi relativi, serve per l'Artifact). Resta da registrare i dati veri dove `update-cards` funziona (nel cloud ygoprodeck è bloccata), e da aggiungere punteggi e probabilità.
 6. **Sistema di design**: la galleria `/galleria`, le anteprime in `apps/desktop/design/`, `/design-sync` (Opus la prima volta).
 7. **Passo 5 di Gemini**: revisione con screenshot e merge; poi Gemini si ferma e i branch si puliscono.
 8. **Primo compito con la filiera completa**: il passo 6 (effetti e suoni, ognuno spegnibile): mockup delle Impostazioni in Claude Design, sessione Sonnet, screenshot, anteprima, prova sul computer. Serve a collaudare la filiera su un compito piccolo prima di quelli grandi.
