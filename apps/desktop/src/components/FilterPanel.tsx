@@ -142,7 +142,7 @@ export function FilterPanel({ query, onChange, facets }: { query: string; onChan
                 key={a}
                 type="button"
                 onClick={() => apply(toggleToken(query, token))}
-                className="flex items-center gap-1.5 rounded-lg border px-2 py-1 text-[10px] font-bold tracking-wide transition-all hover:brightness-125"
+                className="flex items-center gap-1.5 rounded-lg border px-2 py-1 text-caption font-bold tracking-wide transition-all hover:brightness-125"
                 style={{
                   borderColor: active ? ATTRIBUTE_COLORS[a] : "var(--df-border)",
                   background: active ? `color-mix(in oklab, ${ATTRIBUTE_COLORS[a]} 22%, var(--df-surface-2))` : "var(--df-bg-2)",

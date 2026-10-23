@@ -1,4 +1,20 @@
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import {
+  Bookmark,
+  Check,
+  ChevronDown,
+  Grid2X2,
+  Grid3X3,
+  Hammer,
+  LayoutGrid,
+  List,
+  Search,
+  ShieldAlert,
+  SlidersHorizontal,
+  Sparkles,
+  Star,
+  X,
+} from "lucide-react";
 import { api, type Card, type Facets, type SavedSearch, type SearchResult } from "../lib/api";
 import type { Deck } from "../lib/api";
 import { copiesInDeck, copyLimit } from "../lib/deck";
@@ -15,6 +31,7 @@ import { EmblemIcon } from "./Emblems";
 import { FilterPanel } from "./FilterPanel";
 import { Popover, useOutsideClose } from "./Popover";
 import { HelpPopover } from "./ui/HelpPopover";
+import { IconButton } from "./ui/IconButton";
 
 interface Props {
   deck: Deck;
@@ -34,25 +51,91 @@ interface Props {
 /** Smallest tile width per grid size: about 3, 4 or 5 cards per row at the default width. */
 const TILE: Record<Exclude<CatalogView, "list">, number> = { l: 100, m: 78, s: 58 };
 
-const VIEWS: { view: CatalogView; label: string; icon: string }[] = [
-  { view: "l", label: "Carte grandi", icon: "M1 2h4v12H1zM6 2h4v12H6zM11 2h4v12h-4z" },
-  { view: "m", label: "Carte medie", icon: "M1 2h4v5H1zM6 2h4v5H6zM11 2h4v5h-4zM1 9h4v5H1zM6 9h4v5H6zM11 9h4v5h-4z" },
-  { view: "s", label: "Carte piccole", icon: "M1 1h3v4H1zM5 1h3v4H5zM9 1h3v4H9zM13 1h2v4h-2zM1 6h3v4H1zM5 6h3v4H5zM9 6h3v4H9zM13 6h2v4h-2zM1 11h3v4H1zM5 11h3v4H5zM9 11h3v4H9zM13 11h2v4h-2z" },
-  { view: "list", label: "Elenco", icon: "M1 2h3v3H1zM6 3h9v1H6zM1 7h3v3H1zM6 8h9v1H6zM1 12h3v3H1zM6 13h9v1H6z" },
+interface ViewOption {
+  view: CatalogView;
+  label: string;
+  icon: typeof LayoutGrid;
+}
+
+const VIEW_OPTIONS: ViewOption[] = [
+  { view: "l", label: "Carte grandi", icon: LayoutGrid },
+  { view: "m", label: "Carte medie", icon: Grid2X2 },
+  { view: "s", label: "Carte piccole", icon: Grid3X3 },
+  { view: "list", label: "Elenco", icon: List },
 ];
 
-/** Quick filters: hand-picked groups (crates/ygo-data/src/tags.rs) and favourites. */
-const QUICK: { token: string; label: string }[] = [
-  { token: "tag:handtrap", label: "Handtrap" },
-  { token: "tag:staple", label: "Staple" },
-  { token: "tag:breaker", label: "Board breaker" },
-  { token: "tag:fav", label: "★ Preferite" },
-];
+/**
+ * Dropdown menu for selecting the catalog view mode (large, medium, small, list).
+ */
+function CatalogViewMenu({ view, onViewChange }: { view: CatalogView; onViewChange: (v: CatalogView) => void }) {
+  const [open, setOpen] = useState(false);
+  const ref = useOutsideClose(open, () => setOpen(false));
+  const current = VIEW_OPTIONS.find((v) => v.view === view) ?? VIEW_OPTIONS[1];
+  const CurrentIcon = current.icon;
 
-const isQuick = (token: string) => QUICK.some((q) => q.token === token.toLowerCase());
+  return (
+    <div ref={ref} className="relative shrink-0">
+      <button
+        type="button"
+        className={`inline-flex items-center gap-1 h-7 px-2 rounded-lg text-xs font-medium transition cursor-pointer select-none border ${
+          open
+            ? "border-gold/70 bg-surface-3 text-text"
+            : "border-border bg-surface-2 text-muted hover:border-border-strong hover:bg-surface-3 hover:text-text"
+        }`}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-label={`Vista catalogo: ${current.label}`}
+        data-tip={`Vista: ${current.label}`}
+        onClick={() => {
+          sound.play(open ? "close" : "open");
+          setOpen((v) => !v);
+        }}
+      >
+        <CurrentIcon className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+        <ChevronDown className="h-3 w-3 shrink-0 text-muted" aria-hidden="true" />
+      </button>
 
-/** Saved searches: apply, save the current one, delete. */
-function SavedSearches({ query, onQuery }: { query: string; onQuery: (q: string) => void }) {
+      <Popover open={open} align="right" width={180}>
+        <div className="p-1 flex flex-col gap-0.5" role="menu" aria-label="Opzioni vista catalogo">
+          <div className="px-2 py-1 text-xs font-semibold text-muted uppercase tracking-wider">
+            Vista catalogo
+          </div>
+          {VIEW_OPTIONS.map((opt) => {
+            const Icon = opt.icon;
+            const isSelected = opt.view === view;
+            return (
+              <button
+                key={opt.view}
+                type="button"
+                role="menuitemradio"
+                aria-checked={isSelected}
+                className={`flex items-center gap-2 w-full px-2 py-1.5 rounded-md text-xs text-left transition-colors cursor-pointer ${
+                  isSelected
+                    ? "bg-sec/15 text-text font-semibold"
+                    : "text-text hover:bg-surface-3"
+                }`}
+                onClick={() => {
+                  sound.play("toggle");
+                  onViewChange(opt.view);
+                  setOpen(false);
+                }}
+              >
+                <Icon className="h-3.5 w-3.5 shrink-0 text-muted" aria-hidden="true" />
+                <span className="flex-1 truncate">{opt.label}</span>
+                {isSelected && <Check className="h-3.5 w-3.5 shrink-0 text-sec" aria-hidden="true" />}
+              </button>
+            );
+          })}
+        </div>
+      </Popover>
+    </div>
+  );
+}
+
+/**
+ * Saved searches dropdown menu embedded inside the search field.
+ */
+function SavedSearchesDropdown({ query, onQuery }: { query: string; onQuery: (q: string) => void }) {
   const [open, setOpen] = useState(false);
   const [saved, setSaved] = useState<SavedSearch[]>([]);
   const [name, setName] = useState("");
@@ -74,21 +157,21 @@ function SavedSearches({ query, onQuery }: { query: string; onQuery: (q: string)
   };
 
   return (
-    <div ref={ref} className="relative shrink-0">
+    <div ref={ref} className="relative flex items-center pr-1 shrink-0">
       <button
         type="button"
-        className={`btn h-full !px-2.5 ${open ? "btn-molten" : "btn-ghost"}`}
+        className={`p-1 rounded-md text-muted hover:text-text transition-colors cursor-pointer ${
+          open ? "bg-surface-3 text-gold" : ""
+        }`}
         aria-expanded={open}
-        title="Ricerche salvate"
+        data-tip="Ricerche salvate"
         aria-label="Ricerche salvate"
         onClick={() => {
           sound.play(open ? "close" : "open");
           setOpen((v) => !v);
         }}
       >
-        <svg viewBox="0 0 16 16" className="h-4 w-4" fill="currentColor" aria-hidden="true">
-          <path d="M3.5 1.5h9a1 1 0 0 1 1 1v12.2a.4.4 0 0 1-.64.32L8 11.6l-4.86 3.42a.4.4 0 0 1-.64-.32V2.5a1 1 0 0 1 1-1z" />
-        </svg>
+        <Bookmark className="h-3.5 w-3.5" aria-hidden="true" />
       </button>
       <Popover open={open} align="right" width={320}>
         <form
@@ -98,30 +181,43 @@ function SavedSearches({ query, onQuery }: { query: string; onQuery: (q: string)
             void save();
           }}
         >
-          <input className="field !py-1 text-xs" placeholder="Nome della ricerca attuale" value={name} onChange={(e) => setName(e.target.value)} />
-          <button type="submit" className="btn btn-molten shrink-0 !px-2.5 !py-1 text-xs" disabled={!name.trim() || !query.trim()}>
+          <input
+            className="field !py-1 text-xs"
+            placeholder="Nome per salvare la ricerca…"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+          />
+          <button
+            type="submit"
+            className="btn btn-molten shrink-0 !px-2.5 !py-1 text-xs cursor-pointer"
+            disabled={!name.trim() || !query.trim()}
+          >
             Salva
           </button>
         </form>
-        {saved.length === 0 && <p className="px-2 py-2 text-xs text-faint">Nessuna ricerca salvata: scrivi una ricerca, dalle un nome e premi Salva.</p>}
+        {saved.length === 0 && (
+          <p className="px-2 py-2 text-xs text-muted">
+            Nessuna ricerca salvata: scrivi una ricerca, dalle un nome e premi Salva.
+          </p>
+        )}
         {saved.length > 0 && <div className="my-1.5 border-t border-border" />}
         {saved.map((s) => (
           <div key={s.name} className="group flex items-center gap-1 rounded-lg hover:bg-surface-3">
             <button
               type="button"
-              className="min-w-0 flex-1 px-2 py-1.5 text-left"
+              className="min-w-0 flex-1 px-2 py-1.5 text-left cursor-pointer"
               onClick={() => {
                 sound.play("page");
                 onQuery(s.query);
                 setOpen(false);
               }}
             >
-              <span className="block truncate text-sm font-medium">{s.name}</span>
-              <span className="block truncate font-mono text-[10px] text-faint">{s.query}</span>
+              <span className="block truncate text-sm font-medium text-text">{s.name}</span>
+              <span className="block truncate font-mono text-xs text-muted">{s.query}</span>
             </button>
             <button
               type="button"
-              className="px-2 text-faint opacity-0 group-hover:opacity-100 hover:text-danger"
+              className="px-2 text-muted opacity-0 group-hover:opacity-100 focus-visible:opacity-100 hover:text-danger transition-opacity cursor-pointer"
               title="Elimina"
               aria-label={`Elimina ${s.name}`}
               onClick={async () => {
@@ -170,7 +266,20 @@ function startResize(e: ReactPointerEvent<HTMLDivElement>, width: number) {
  * The card catalog column of the deck editor. Dropping deck cards here
  * removes them from the deck.
  */
-export function Catalog({ deck, getCard, requestCards, version, onAdd, onOpen, onHover, onHoverEnd, query, onQuery, selectedId, onSelect }: Props) {
+export function Catalog({
+  deck,
+  getCard,
+  requestCards,
+  version,
+  onAdd,
+  onOpen,
+  onHover,
+  onHoverEnd,
+  query,
+  onQuery,
+  selectedId,
+  onSelect,
+}: Props) {
   const [result, setResult] = useState<SearchResult>({ ids: [], chips: [], errors: [] });
   const [searching, setSearching] = useState(false);
   const [facets, setFacets] = useState<Facets | null>(null);
@@ -224,11 +333,19 @@ export function Catalog({ deck, getCard, requestCards, version, onAdd, onOpen, o
     return () => removeEventListener("keydown", key);
   }, []);
 
+  const activeFilterCount = result.chips.length;
+  const hasRemovableChips = result.chips.length > 0 || result.errors.length > 0;
+
   return (
     <aside
       data-dropzone="catalog"
       className="relative flex min-h-0 flex-col border-l border-border bg-surface/70 transition-colors"
-      style={{ background: drag?.over === "catalog" && removing ? "color-mix(in oklab, var(--df-danger) 12%, var(--df-surface))" : undefined }}
+      style={{
+        background:
+          drag?.over === "catalog" && removing
+            ? "color-mix(in oklab, var(--df-danger) 12%, var(--df-surface))"
+            : undefined,
+      }}
     >
       <div
         className="group absolute inset-y-0 -left-[5px] z-20 w-[9px] cursor-col-resize"
@@ -238,116 +355,193 @@ export function Catalog({ deck, getCard, requestCards, version, onAdd, onOpen, o
       >
         <span className="absolute inset-y-0 left-1 w-px bg-transparent transition-colors group-hover:bg-sec" />
       </div>
+
+      {/* Header and Toolbar area */}
       <div className="flex flex-col gap-2 px-3 pt-3 pb-2">
+        {/* Title row with discrete counter and single-button view menu */}
         <div className="flex items-center gap-2">
           <p className="display text-sm font-bold tracking-[0.12em] uppercase">Catalogo</p>
           <HelpPopover title="Guida al catalogo e scorciatoie" tooltip="Guida del catalogo" align="left">
             <div className="flex flex-col gap-2 text-xs text-text/90">
               <p className="font-semibold text-text">Azioni rapide sulle carte</p>
               <ul className="list-disc pl-4 space-y-1 text-muted">
-                <li><strong>Clic singolo:</strong> fissa la carta nell'Ispettore.</li>
-                <li><strong>Doppio clic:</strong> visore a schermo intero.</li>
-                <li><strong>Clic destro:</strong> aggiungi 1 copia al Main (o Extra) Deck.</li>
-                <li><strong>Maiusc + clic destro:</strong> aggiungi 1 copia al Side Deck.</li>
-                <li><strong>Trascina:</strong> sposta la carta nella zona del deck desiderata.</li>
+                <li>
+                  <strong>Clic singolo:</strong> fissa la carta nell'Ispettore.
+                </li>
+                <li>
+                  <strong>Doppio clic:</strong> visore a schermo intero.
+                </li>
+                <li>
+                  <strong>Clic destro:</strong> aggiungi 1 copia al Main (o Extra) Deck.
+                </li>
+                <li>
+                  <strong>Maiusc + clic destro:</strong> aggiungi 1 copia al Side Deck.
+                </li>
+                <li>
+                  <strong>Trascina:</strong> sposta la carta nella zona del deck desiderata.
+                </li>
               </ul>
               <div className="border-t border-border/60 pt-1 text-muted">
                 <p>Trascina le carte del deck qui sopra per toglierle dal deck.</p>
               </div>
             </div>
           </HelpPopover>
-          <span className="flex items-center gap-1.5 text-xs text-muted tabular-nums">
-            {searching && <EmblemIcon emblem="gear" className="h-3 w-3 animate-[spin-slow_1.6s_linear_infinite]" />}
-            {result.ids.length.toLocaleString("it-IT")} carte
+
+          {/* Discrete card counter with WCAG AA compliant contrast */}
+          <span className="flex items-center gap-1 text-xs text-muted tabular-nums">
+            {searching && <EmblemIcon emblem="gear" className="h-3 w-3 animate-[spin-slow_1.6s_linear_infinite] text-gold" />}
+            <span>
+              {result.ids.length.toLocaleString("it-IT")} carte
+            </span>
           </span>
-          <div className="ml-auto flex gap-0.5 rounded-lg border border-border bg-bg-2 p-0.5" role="radiogroup" aria-label="Vista del catalogo">
-            {VIEWS.map((v) => (
-              <button
-                key={v.view}
-                type="button"
-                role="radio"
-                aria-checked={view === v.view}
-                title={v.label}
-                aria-label={v.label}
-                onClick={() => {
-                  sound.play("toggle");
-                  updateSettings({ catalogView: v.view });
-                }}
-                className={`grid h-6 w-7 place-items-center rounded-md ${view === v.view ? "bg-sec text-bg" : "text-muted hover:text-text"}`}
-              >
-                <svg viewBox="0 0 16 16" className="h-3.5 w-3.5" fill="currentColor" aria-hidden="true">
-                  <path d={v.icon} />
-                </svg>
-              </button>
-            ))}
+
+          {/* Catalog view selector as a single menu button */}
+          <div className="ml-auto">
+            <CatalogViewMenu
+              view={view}
+              onViewChange={(v) => updateSettings({ catalogView: v })}
+            />
           </div>
         </div>
-        <div className="flex gap-2">
-          <label className="relative block flex-1">
-            <span className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-faint">⌕</span>
+
+        {/* Row 1: wide search input with embedded saved searches and Filtri button */}
+        <div className="flex items-center gap-2">
+          {/* Wide search input taking remaining width */}
+          <div className="relative flex min-w-0 flex-1 items-center rounded-lg border border-border bg-bg-2 focus-within:border-gold/70 focus-within:ring-1 focus-within:ring-gold/70 transition-colors">
+            <Search className="pointer-events-none ml-2.5 h-3.5 w-3.5 shrink-0 text-muted" aria-hidden="true" />
             <input
               ref={inputRef}
-              className="field !rounded-lg !pl-8"
-              placeholder="Cerca o filtra…"
+              className="w-full min-w-0 bg-transparent px-2 py-1.5 text-xs text-text placeholder:text-muted/70 focus:outline-none"
+              placeholder="Cerca o filtra… (Ctrl+F)"
               value={query}
               spellCheck={false}
               onChange={(e) => onQuery(e.target.value)}
             />
-          </label>
-          <SavedSearches query={query} onQuery={onQuery} />
+            {query && (
+              <button
+                type="button"
+                className="mr-0.5 p-1 text-muted hover:text-text rounded transition-colors cursor-pointer"
+                onClick={() => {
+                  onQuery("");
+                  inputRef.current?.focus();
+                }}
+                title="Cancella ricerca"
+                aria-label="Cancella ricerca"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            )}
+            <SavedSearchesDropdown query={query} onQuery={onQuery} />
+          </div>
+
+          {/* Filtri button with active filter count badge with >4.5:1 contrast */}
           <button
             type="button"
-            className={`btn shrink-0 !px-3 ${filters ? "btn-molten" : "btn-ghost"}`}
+            className={`inline-flex items-center gap-1.5 h-7 px-2.5 rounded-lg text-xs font-medium shrink-0 transition-colors cursor-pointer select-none border ${
+              filters
+                ? "btn-molten border-gold/60 text-text"
+                : activeFilterCount > 0
+                  ? "border-sec/80 bg-sec/10 text-text hover:bg-sec/20"
+                  : "border-border bg-surface-2 text-muted hover:border-border-strong hover:bg-surface-3 hover:text-text"
+            }`}
             onClick={() => {
               sound.play(filters ? "close" : "open");
               setFilters((v) => !v);
             }}
             aria-expanded={filters}
+            title="Pannello filtri avanzati"
           >
-            Filtri{result.chips.length > 0 && <span className="rounded-full bg-black/25 px-1.5 text-[11px]">{result.chips.length}</span>}
+            <SlidersHorizontal className={`h-3.5 w-3.5 shrink-0 ${activeFilterCount > 0 ? "text-sec" : ""}`} aria-hidden="true" />
+            <span>Filtri</span>
+            {activeFilterCount > 0 && (
+              <span className="rounded-full bg-surface-3 text-text border border-border px-1.5 py-0.2 text-[10px] font-bold tabular-nums">
+                {activeFilterCount}
+              </span>
+            )}
           </button>
         </div>
-        <div className="flex flex-wrap items-center gap-1">
-          {QUICK.map((q) => {
-            const on = hasToken(query, q.token);
-            return (
-              <button
-                key={q.token}
-                type="button"
-                aria-pressed={on}
-                className={`chip !px-2 !py-0.5 !text-[11px] ${on ? "chip-active" : ""}`}
-                onClick={() => {
-                  sound.play("toggle");
-                  onQuery(toggleToken(query, q.token));
-                }}
-              >
-                {q.label}
-              </button>
-            );
-          })}
-        </div>
-        {(result.chips.some((c) => !isQuick(c.token)) || result.errors.length > 0) && (
-          <div className="flex flex-wrap gap-1">
-            {result.chips.filter((c) => !isQuick(c.token)).map((chip) => (
-              <button
-                key={chip.token}
-                type="button"
-                className="chip chip-active !px-2 !py-0.5 !text-[11px]"
-                onClick={() => {
-                  sound.play("toggle");
-                  onQuery(removeToken(query, chip.token));
-                }}
-              >
-                {chip.label} <span className="text-muted">✕</span>
-              </button>
-            ))}
-            {result.errors.map((e) => (
-              <span key={e} className="chip !px-2 !py-0.5 !text-[11px] text-danger">
-                ? {e}
-              </span>
-            ))}
+
+        {/* Row 2: Quick filter icon toggle buttons and active removable filter pills */}
+        <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+          {/* Quick filter icon toggles */}
+          <div className="flex items-center gap-0.5 shrink-0 mr-1" role="group" aria-label="Filtri rapidi">
+            <IconButton
+              size="sm"
+              variant="ghost"
+              active={hasToken(query, "tag:handtrap")}
+              icon={<ShieldAlert className="h-3.5 w-3.5" />}
+              tooltip="Handtrap (tag:handtrap)"
+              ariaLabel="Filtra Handtrap"
+              onClick={() => {
+                sound.play("toggle");
+                onQuery(toggleToken(query, "tag:handtrap"));
+              }}
+            />
+            <IconButton
+              size="sm"
+              variant="ghost"
+              active={hasToken(query, "tag:staple")}
+              icon={<Sparkles className="h-3.5 w-3.5" />}
+              tooltip="Staple (tag:staple)"
+              ariaLabel="Filtra Staple"
+              onClick={() => {
+                sound.play("toggle");
+                onQuery(toggleToken(query, "tag:staple"));
+              }}
+            />
+            <IconButton
+              size="sm"
+              variant="ghost"
+              active={hasToken(query, "tag:breaker")}
+              icon={<Hammer className="h-3.5 w-3.5" />}
+              tooltip="Board breaker (tag:breaker)"
+              ariaLabel="Filtra Board breaker"
+              onClick={() => {
+                sound.play("toggle");
+                onQuery(toggleToken(query, "tag:breaker"));
+              }}
+            />
+            <IconButton
+              size="sm"
+              variant="ghost"
+              active={hasToken(query, "tag:fav")}
+              icon={<Star className="h-3.5 w-3.5" />}
+              tooltip="Preferite (tag:fav)"
+              ariaLabel="Filtra Preferite"
+              onClick={() => {
+                sound.play("toggle");
+                onQuery(toggleToken(query, "tag:fav"));
+              }}
+            />
           </div>
-        )}
+
+          {/* Active filter removable pills - rendered ONLY when filters or errors exist */}
+          {hasRemovableChips && (
+            <>
+              {result.chips.map((chip) => (
+                <button
+                  key={chip.token}
+                  type="button"
+                  className="chip chip-active inline-flex items-center gap-1.5 !px-2.5 !py-0.5 text-xs group cursor-pointer"
+                  onClick={() => {
+                    sound.play("toggle");
+                    onQuery(removeToken(query, chip.token));
+                  }}
+                  title={`Rimuovi filtro: ${chip.label}`}
+                  aria-label={`Rimuovi filtro ${chip.label}`}
+                >
+                  <span>{chip.label}</span>
+                  <X className="h-3 w-3 text-muted group-hover:text-danger transition-colors" />
+                </button>
+              ))}
+              {result.errors.map((e) => (
+                <span key={e} className="chip !px-2.5 !py-0.5 text-xs text-danger border-danger/40 bg-danger/10">
+                  ? {e}
+                </span>
+              ))}
+            </>
+          )}
+        </div>
       </div>
 
       <div className="relative min-h-0 flex-1">

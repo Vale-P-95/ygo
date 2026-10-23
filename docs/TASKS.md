@@ -4,6 +4,7 @@ Regole in `AGENTS.md`. Per prendere un task, spostalo in "In corso" con agente, 
 
 ## In corso
 Corsie di lavoro in parallelo del 22/10/2026 (piano in `docs/plans/piano-prossimi-passi.md`): ogni corsia tocca solo i suoi file.
+- [x] **Revisione dell'interfaccia, passo 3: Ricerca e filtri del catalogo** (Gemini, PR aperta il 23/10): barra monoriga compatta nel catalogo (campo largo con ricerche salvate a tendina integrata, interruttori a icona per filtri rapidi, pillole attive rimovibili sotto, vista catalogo a menu singolo, pulsante Filtri con badge conteggio, 7 test Vitest). Lock tolto.
 - [x] **Scheda del punteggio** (Gemini, PR #54, unita il 22/10): testi di follow-up, risorse e costo in `scoring.ts`, «Con una risposta alla tua prima interruzione…» (`ComboScore.countered`) e il pannello «Protezione dei pezzi» (`api.boardProtection`, `PieceProtection.tsx`). Provata con il backend finto, `typecheck`, `lint` e `build`; da provare nell'app vera. Lock tolto.
 - [x] **Il Banditore v2** (Gemini, PR #55, unita il 22/10): ricerca con lista OCG (`formato:ocg`) nel `Promise.all` iniziale e in `mock.ts`, vista «Cosa è cambiato con l'ultima lista» (`api.banChanges`), raggruppamento per data/formato, apertura Visore Carta, messaggio esplicito per storico iniziale vuoto. Lock tolto.
 - [x] **Test automatici dell'interfaccia** (Gemini, PR #57, unita il 22/10): unit test con Vitest per le funzioni pure in `lib/` (`probability`, `query`, `conditions`, `deck`, `scoring`) e `Banditore.tsx`, script "test" e step nella CI. 75 test passati. Lock tolto.
@@ -204,7 +205,7 @@ Corsie di lavoro in parallelo del 22/10/2026 (piano in `docs/plans/piano-prossim
   - [x] Passo 0, fondamenta: scala tipografica e spaziature, set di icone unico, componenti di base (`Toolbar`, `FilterChip`, `IconButton`, `SidePanel`, `HelpPopover`), script di screenshot.
   - [x] Passo 1, Collegamenti: cerchio a tutta larghezza, nodi con l'immagine della carta, barra dei filtri su una riga, pannello utile senza selezione, probabilità come stima (PR #66 unita il 22/10).
   - [x] Passo 2, Fucina: ispettore della carta a sinistra (passaggio del mouse, un clic per fissarla, doppio clic come oggi).
-  - [ ] Passo 3, ricerca e filtri del catalogo su una riga.
+  - [x] Passo 3, ricerca e filtri del catalogo su una riga.
   - [ ] Passo 4, passata su tutte le sezioni: scritte piccole, testi fissi, barre affollate.
   - [ ] Passo 5, Bottega: scatole smussate con materiali veri, mensole di legno.
   - [ ] Passo 6, effetti visivi e suoni nuovi, ognuno con il suo interruttore nelle Impostazioni.
