@@ -286,11 +286,11 @@ export function CardViewer({
                   <span className="truncate text-xs font-semibold text-fg" title={deck.name || "Nuovo deck"}>
                     {deck.name || "Nuovo deck"}
                   </span>
-                  <span className="shrink-0 text-[10px] text-faint">
+                  <span className="shrink-0 text-xs text-faint">
                     ({FORMAT_LABELS[deck.format]})
                   </span>
                   <span
-                    className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                    className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${
                       limit === 0
                         ? "border border-danger/40 bg-danger/15 text-danger"
                         : limit < 3
@@ -307,7 +307,7 @@ export function CardViewer({
                           : "Max 3 copie"}
                   </span>
                   {limit > 0 && (
-                    <span className="text-[11px] text-muted tabular-nums">
+                    <span className="text-xs text-muted tabular-nums">
                       Nel deck: <b className={totalInDeck > limit ? "text-danger" : totalInDeck === limit && limit < 3 ? "text-warn" : "text-fg"}>{totalInDeck}</b>/{limit}
                     </span>
                   )}
@@ -339,9 +339,9 @@ export function CardViewer({
                       key={zone}
                       className="flex flex-col items-center justify-between rounded-lg border border-border/70 bg-surface/70 px-2 py-1.5"
                     >
-                      <div className="flex w-full items-center justify-between text-[11px] text-muted">
+                      <div className="flex w-full items-center justify-between text-xs text-muted">
                         <span className="truncate font-medium">{label}</span>
-                        <span className="text-[10px] text-faint tabular-nums" title={`Capacità: ${deck[zone].length}/${max}`}>
+                        <span className="text-xs text-faint tabular-nums" title={`Capacità: ${deck[zone].length}/${max}`}>
                           {deck[zone].length}/{max}
                         </span>
                       </div>
@@ -392,7 +392,7 @@ export function CardViewer({
 
               {onToggleRole && (
                 <div className="flex flex-wrap items-center gap-1.5 border-t border-border/50 pt-2">
-                  <span className="mr-0.5 text-[10px] font-semibold tracking-wider text-faint uppercase">Ruoli:</span>
+                  <span className="mr-0.5 text-xs font-semibold tracking-wider text-faint uppercase">Ruoli:</span>
                   {roleDefs(deck.roles ?? {}).map((d) => {
                     const on = deck.roles?.[d.key]?.includes(card.id) ?? false;
                     return (
@@ -402,7 +402,7 @@ export function CardViewer({
                         onClick={() => onToggleRole(d.key)}
                         aria-pressed={on}
                         title={`${d.label}: ${d.hint}${on ? " (assegnato)" : ""}`}
-                        className={`chip cursor-pointer !gap-1.5 !px-2 !py-0.5 !text-[11px] transition ${
+                        className={`chip cursor-pointer !gap-1.5 !px-2.5 !py-0.5 text-xs transition ${
                           on ? "chip-active font-medium" : "opacity-75 hover:opacity-100"
                         }`}
                       >
@@ -425,7 +425,7 @@ export function CardViewer({
           <div className="min-h-0 overflow-y-auto pr-2">
             <CardDetails card={card} onSearch={onSearch} />
           </div>
-          <p className="mt-3 text-[11px] text-faint">Rotella o +/− per lo zoom · trascina per spostarti · doppio clic · L per la lente · ←/→ · Esc</p>
+          <p className="mt-3 text-xs text-faint">Rotella o +/− per lo zoom · trascina per spostarti · doppio clic · L per la lente · ←/→ · Esc</p>
         </div>
       </div>
     </div>,

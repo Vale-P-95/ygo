@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ArrowLeftRight, Boxes, History, Scale, Search, X } from "lucide-react";
 import { CardViewer } from "../components/CardViewer";
 import { SectionHeader } from "../components/SectionHeader";
 import { api, cardImage, formatDate, type BanChange, type Card, type DataStatus, type Deck, type DeckFormat } from "../lib/api";
@@ -449,7 +450,8 @@ export function Banditore({ artReady = true, onOpenDeckInForge }: Props) {
                 : "border border-transparent text-muted hover:border-border hover:bg-surface-2 hover:text-text"
             }`}
           >
-            <span>⚖ Confronto Formati</span>
+            <Scale size={16} />
+            <span>Confronto Formati</span>
             <span className="rounded-full bg-surface-3 px-2 py-0.5 text-xs text-muted">
               {cardsLoading ? "..." : cards.length}
             </span>
@@ -464,7 +466,8 @@ export function Banditore({ artReady = true, onOpenDeckInForge }: Props) {
                 : "border border-transparent text-muted hover:border-border hover:bg-surface-2 hover:text-text"
             }`}
           >
-            <span>📜 Cosa è cambiato</span>
+            <History size={16} />
+            <span>Cosa è cambiato</span>
             {changes.length > 0 && (
               <span className="rounded-full bg-surface-3 px-2 py-0.5 text-xs text-muted">
                 {changes.length}
@@ -481,7 +484,8 @@ export function Banditore({ artReady = true, onOpenDeckInForge }: Props) {
                 : "border border-transparent text-muted hover:border-border hover:bg-surface-2 hover:text-text"
             }`}
           >
-            <span>📦 Impatto sui Tuoi Deck</span>
+            <Boxes size={16} />
+            <span>Impatto sui tuoi deck</span>
             {decks.length > 0 && (
               <span className="rounded-full bg-surface-3 px-2 py-0.5 text-xs text-muted">
                 {decks.length}
@@ -519,15 +523,16 @@ export function Banditore({ artReady = true, onOpenDeckInForge }: Props) {
                   placeholder="Cerca carta per nome..."
                   className="w-full rounded-lg border border-border bg-surface-2 px-3.5 py-2 pl-9 text-sm text-text placeholder:text-muted focus:border-sec focus:outline-none focus:ring-1 focus:ring-sec"
                 />
-                <span className="pointer-events-none absolute left-3 top-2.5 text-muted">🔍</span>
+                <Search size={16} className="pointer-events-none absolute left-3 top-2.5 text-muted" />
                 {searchQuery && (
                   <button
                     type="button"
                     onClick={() => setSearchQuery("")}
                     className="absolute right-3 top-2.5 text-xs text-muted hover:text-text"
                     title="Cancella ricerca"
+                    aria-label="Cancella ricerca"
                   >
-                    ✕
+                    <X size={15} />
                   </button>
                 )}
               </div>
@@ -542,10 +547,10 @@ export function Banditore({ artReady = true, onOpenDeckInForge }: Props) {
                     : "border-border bg-surface-2 text-muted hover:border-border-strong hover:text-text"
                 }`}
               >
-                <span>⇄</span>
+                <ArrowLeftRight size={14} />
                 <span>Solo divergenze tra formati</span>
                 {divergenceCount > 0 && (
-                  <span className="rounded-full bg-sec/20 px-1.5 py-0.5 text-[10px] font-semibold text-sec">
+                  <span className="rounded-full bg-sec/20 px-2 py-0.5 text-xs font-semibold text-sec">
                     {divergenceCount}
                   </span>
                 )}
@@ -680,7 +685,7 @@ export function Banditore({ artReady = true, onOpenDeckInForge }: Props) {
                               </h3>
                               {isDivergent && (
                                 <span
-                                  className="shrink-0 rounded border border-sec/40 bg-sec/10 px-1.5 py-0.5 text-[10px] font-semibold text-sec"
+                                  className="shrink-0 rounded border border-sec/40 bg-sec/10 px-1.5 py-0.5 text-xs font-semibold text-sec"
                                   title="Stato differente tra i formati"
                                 >
                                   ⇄ Divergenza
@@ -688,13 +693,13 @@ export function Banditore({ artReady = true, onOpenDeckInForge }: Props) {
                               )}
                             </div>
 
-                            <p className="mt-0.5 truncate text-[11px] text-muted">
+                            <p className="mt-0.5 truncate text-xs text-muted">
                               {card.humanType}
                               {card.archetype ? ` • ${card.archetype}` : ""}
                             </p>
 
                             {card.kind === "monster" && (
-                              <p className="mt-0.5 text-[10px] text-faint">
+                              <p className="mt-0.5 text-xs text-faint">
                                 {card.level != null ? `Liv. ${card.level}` : card.linkRating != null ? `Link-${card.linkRating}` : ""}
                                 {card.atk != null ? ` • ATK ${card.atk}` : ""}
                                 {card.def != null ? ` / DEF ${card.def}` : ""}
@@ -816,7 +821,7 @@ export function Banditore({ artReady = true, onOpenDeckInForge }: Props) {
                           {formatDate(group.date)}
                         </span>
                         {group.isLatestForFormat && (
-                          <span className="rounded-full border border-ok/40 bg-ok/10 px-2 py-0.5 text-[10px] font-bold text-ok tracking-wide">
+                          <span className="rounded-full border border-ok/40 bg-ok/10 px-2 py-0.5 text-xs font-bold text-ok tracking-wide">
                             ★ Ultima lista
                           </span>
                         )}
@@ -853,14 +858,14 @@ export function Banditore({ artReady = true, onOpenDeckInForge }: Props) {
                               <span className="truncate text-xs font-semibold text-text group-hover:text-sec transition-colors">
                                 {cName}
                               </span>
-                              <div className="flex items-center gap-1.5 text-[11px] text-muted">
+                              <div className="flex items-center gap-1.5 text-xs text-muted">
                                 <span className="line-through text-faint">{beforeLabel}</span>
                                 <span>➔</span>
                                 <span className="font-semibold text-text">{afterLabel}</span>
                               </div>
                               <div className="flex items-center gap-1 mt-0.5">
                                 <span
-                                  className={`rounded px-1.5 py-0.5 text-[10px] font-medium border ${
+                                  className={`rounded px-1.5 py-0.5 text-xs font-medium border ${
                                     changeInfo.kind === "restriction"
                                       ? "border-danger/30 bg-danger/10 text-danger"
                                       : changeInfo.kind === "loosening"
@@ -1061,7 +1066,7 @@ export function Banditore({ artReady = true, onOpenDeckInForge }: Props) {
                                         <p className="truncate text-xs font-semibold text-text group-hover:text-sec">
                                           {card.name}
                                         </p>
-                                        <p className="text-[11px] text-muted">
+                                        <p className="text-xs text-muted">
                                           {limit === 0
                                             ? "Proibita (limite: 0)"
                                             : limit === 1
@@ -1072,10 +1077,10 @@ export function Banditore({ artReady = true, onOpenDeckInForge }: Props) {
                                     </div>
 
                                     <div className="text-right shrink-0">
-                                      <span className="rounded bg-danger/15 px-2 py-0.5 text-[11px] font-bold text-danger">
+                                      <span className="rounded bg-danger/15 px-2 py-0.5 text-xs font-bold text-danger">
                                         {copies} in lista
                                       </span>
-                                      <p className="mt-0.5 text-[10px] font-medium text-danger">
+                                      <p className="mt-0.5 text-xs font-medium text-danger">
                                         - {excess} {excess === 1 ? "copia" : "copie"}
                                       </p>
                                     </div>
@@ -1132,11 +1137,11 @@ function FormatBadge({ format, status }: { format: "MD" | "TCG" | "OCG"; status:
 
   return (
     <div className={`flex flex-col items-center justify-center rounded-lg border p-1.5 text-center ${badgeClasses}`}>
-      <span className="text-[10px] font-bold tracking-wider">{format}</span>
-      <span className="mt-0.5 text-[11px] font-medium">
+      <span className="text-xs font-bold tracking-wider">{format}</span>
+      <span className="mt-0.5 text-xs font-medium">
         {icon} {status === "Unlimited" ? "3" : status === "Forbidden" ? "0" : status === "Limited" ? "1" : "2"}
       </span>
-      <span className="text-[9px] text-muted truncate w-full">
+      <span className="text-xs text-muted truncate w-full">
         {status === "Unlimited" ? "Legale" : status}
       </span>
     </div>

@@ -30,7 +30,7 @@ export function Sidebar({
         </span>
         <div className={compact ? "hidden" : ""}>
           <p className="display text-lg leading-none font-bold">DuelForge</p>
-          <p className="mt-1 text-[9px] tracking-[0.14em] whitespace-nowrap text-faint uppercase">Officina dei duellanti</p>
+          <p className="mt-1 text-xs tracking-[0.14em] whitespace-nowrap text-faint uppercase">Officina dei duellanti</p>
         </div>
       </div>
       <ul className="flex flex-col gap-1">
@@ -62,7 +62,7 @@ export function Sidebar({
                   <EmblemIcon emblem={s.emblem} />
                 </span>
                 {!compact && s.label}
-                {!compact && s.phase > 2 && <span className="ml-auto text-[10px] text-faint">F{s.phase}</span>}
+                {!compact && s.phase > 2 && <span className="ml-auto text-xs text-faint">F{s.phase}</span>}
               </button>
             </li>
           );
@@ -84,13 +84,13 @@ export function Sidebar({
               compact ? "justify-center px-0" : "px-3"
             }`}
           >
-            <span className="grid h-5 w-5 shrink-0 place-items-center rounded-md border border-border-strong bg-bg-2 font-mono text-[10px] font-bold text-gold group-hover:border-gold/60">
+            <span className="grid h-5 w-5 shrink-0 place-items-center rounded-md border border-border-strong bg-bg-2 font-mono text-xs font-bold text-gold group-hover:border-gold/60">
               ⌘
             </span>
             {!compact && (
               <>
                 <span className="truncate">Comandi</span>
-                <kbd className="ml-auto rounded border border-border-strong bg-bg-2 px-1.5 py-0.5 font-mono text-[10px] text-faint">
+                <kbd className="ml-auto rounded border border-border-strong bg-bg-2 px-1.5 py-0.5 font-mono text-xs text-faint">
                   Ctrl+K
                 </kbd>
               </>
@@ -111,20 +111,20 @@ export function Sidebar({
               compact ? "justify-center px-0" : "px-3"
             }`}
           >
-            <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full border border-border-strong bg-bg-2 text-[11px] font-bold text-gold group-hover:border-gold/60">
+            <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full border border-border-strong bg-bg-2 text-xs font-bold text-gold group-hover:border-gold/60">
               ?
             </span>
             {!compact && (
               <>
                 <span className="truncate">Guida rapida</span>
-                <kbd className="ml-auto rounded border border-border-strong bg-bg-2 px-1.5 py-0.5 font-mono text-[10px] text-faint">
+                <kbd className="ml-auto rounded border border-border-strong bg-bg-2 px-1.5 py-0.5 font-mono text-xs text-faint">
                   ?
                 </kbd>
               </>
             )}
           </button>
         )}
-        {!compact && <p className="px-2 text-[10px] leading-relaxed text-faint">DuelForge 0.1 · progetto non ufficiale, non affiliato a Konami</p>}
+        {!compact && <p className="px-2 text-xs leading-relaxed text-faint">DuelForge 0.1 · progetto non ufficiale, non affiliato a Konami</p>}
       </div>
     </nav>
   );
