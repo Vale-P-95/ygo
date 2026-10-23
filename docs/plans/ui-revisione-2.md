@@ -1,6 +1,6 @@
 # Revisione dell'interfaccia, seconda parte: spazi, carte, filtri, Bottega, effetti
 
-*Piano scritto il 22/10/2026 dal coordinatore (Claude Code), dalle prove dell'app vera fatte dal proprietario. Lo esegue Gemini, un passo per PR. La prima revisione (schermi 1280×800 e tema chiaro) è in `docs/plans/ui-review.md`: questa non la ripete, la continua.*
+*Piano scritto il 22/10/2026 dal coordinatore (Claude Code), dalle prove dell'app vera fatte dal proprietario. I passi da 0 a 5 li esegue Gemini, un passo per PR (il 5 è la sua ultima PR, #118); dal 6 in poi li fa Claude Code, prima il mockup in Claude Design e poi una sessione Code (`docs/plans/piano-ambiente-e-risorse.md`, §3). La prima revisione (schermi 1280×800 e tema chiaro) è in `docs/plans/archivio/ui-review.md`: questa non la ripete, la continua.*
 
 ## Cosa ha visto il proprietario
 1. **Collegamenti (Laboratorio).**
@@ -136,6 +136,8 @@ File: `src/components/Catalog.tsx`, `FilterPanel.tsx`.
 - *Completato il 23/10/2026 (Gemini):* piano per-pagina con tabelle in `docs/plans/ui-polish.md`; normalizzata la scala tipografica (nessun testo sotto 12 px, badge minimi a 11 px); rimossi testi d'aiuto fissi e prolissi in favore di tooltip e popover; riorganizzate le barre con icone Lucide (Undo, Redo, Dices, Search, Plus, Scale, History, Boxes, ArrowLeftRight, Play, Sparkles); didascalia «Ispirato a...» reattiva (`hidden xl:block`); schede del Laboratorio arricchite con icone esplicative e menu a tendina «Altro ▾» per schermi compatti.
 
 ### Passo 5. Bottega: scatole e mensole (`gemini/ui-shelf`)
+Chi: Gemini, PR #118 in revisione (5 correzioni chieste): è la sua ultima PR.
+
 File: `src/components/DeckBox3D.tsx`, `src/pages/Shelf.tsx`, `src/lib/boxes.ts`, texture nuove in `src/assets/textures/`.
 - **Scatole meno spigolose.** Restano in CSS 3D, che è leggero e già funziona:
   - spigoli smussati, con facce intermedie sugli angoli oppure `border-radius` sulle facce e uno smusso ai bordi;
@@ -152,7 +154,9 @@ File: `src/components/DeckBox3D.tsx`, `src/pages/Shelf.tsx`, `src/lib/boxes.ts`,
 - **Peso.** La pagina della Bottega si carica a parte (`React.lazy`), perché texture e 3D non pesano sull'avvio.
 - **Alternativa non consigliata per ora:** three.js con `@react-three/fiber`. È più realistica, ma aggiunge circa 600 KB e complessità. Da riconsiderare solo se il CSS 3D non basta.
 
-### Passo 6. Effetti visivi e suoni, ognuno spegnibile (`gemini/ui-effects`)
+### Passo 6. Effetti visivi e suoni, ognuno spegnibile (`claude/ui-effects`)
+Chi: Claude, non più Gemini. Prima il mockup in Claude Design sul sistema di design DuelForge, poi una sessione Code.
+
 File: `src/lib/settings.ts`, `src/lib/sound.ts`, `src/lib/sparks.ts`, `src/pages/Settings.tsx`, e i punti dove gli effetti si usano.
 - **Impostazioni.** Ogni voce ha un interruttore e i valori predefiniti sono sobri.
   - *Effetti visivi:*
