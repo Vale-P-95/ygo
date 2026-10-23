@@ -613,3 +613,9 @@ Nessun codice nella ricerca: misure e stime, per decidere.
   - la scala di B14 prima costa 11-88 s.
 - Quindi l'ultimo gradino costa circa 4-5 volte il resto della valutazione. Nell'app le linee e le board vanno su tutti i core, e le linee si leggono una volta per sessione e seme.
 - `paired_test.py` su queste 8 mani, prima e dopo: 8 pari, accettato (il riordino non cambia le misure). `search_regression` verde: la ricerca non cambia.
+
+### Tabella delle trasposizioni con la penalità minima (23/10/2026, corsia 2: misurata, non tenuta)
+- **L'idea** (revisione del motore §1.3, caccia ai bug punto 2): la tabella chiude un nodo alla prima visita, mentre la priorità dei suoi fratelli dipende dal cammino. Se una linea con 3 deviazioni arriva prima, i fratelli entrano in coda con la penalità di 4; la linea principale, se arriva dopo, viene scartata come duplicato.
+- **La prova:** la tabella tiene per ogni nodo il numero minimo di deviazioni visto; un arrivo con meno deviazioni riparte da lì e rimette in coda i fratelli con la penalità più bassa (le voci vecchie restano in coda). Durante `confirm_best` resta come prima.
+- **Quanto spesso:** 15-159 arrivi «più vicini» per ricerca a 3000 nodi (blue_eyes 49, branded_tearlaments 15, voiceless_voice 159).
+- **Esito** (`paired_test.py`, 179 mani, contro `main` con #104): 3 migliori, 5 peggiori, 171 pari (p = 0,73), la peggiore −23,5% (branded_tearlaments-0); secondi di ricerca da 1506 a 1516. Respinta: rimescola l'ordine senza un guadagno netto, e la nuova discesa rispende nodi su sottoalberi già visti. Il branch locale `tt-min` resta come riferimento.
