@@ -1642,7 +1642,52 @@ impl<'a> Prober<'a> {
                 *w = w.max(i.alone);
             }
             let context = Context { worth: Some(&worth), ..Context::default() };
-            if let Ok(run) = self.run_with(prelude, &all_steps, Policy::UseAll(&order), context) {
+            // What your answers keep of their value when used together (an
+            // answer used less often than alone keeps that share).
+            let kept = |run: &RunTrace| -> f64 {
+                interruptions
+                    .iter()
+                    .map(|i| {
+                        let used = run.uses.iter().filter(|u| u.responder == i.responder).count() as u32;
+                        i.alone * used.min(i.uses) as f64 / i.uses.max(1) as f64
+                    })
+                    .sum()
+            };
+            let together = |ids: &[ResponderId]| self.run_with(prelude, &all_steps, Policy::UseAll(ids), context).ok();
+            let mut best = together(&order).map(|run| (kept(&run), order.clone(), run));
+            // One used at its first chance can take a stronger one as its cost
+            // or material (Super Polymerization fusing your Baronne de Fleur):
+            // then you would keep it. As at level 2 ([`Prober::against_moves`]),
+            // two tries, the one that keeps the most counts: from all of them,
+            // each left out (the weakest first) when the rest then keep more;
+            // from none, each added (the strongest first) when it keeps more.
+            let full: f64 = interruptions.iter().map(|i| i.alone).sum();
+            if interruptions.len() > 1 && best.as_ref().is_some_and(|(k, _, _)| *k < full - 1e-9) {
+                let mut removed = best.take();
+                for id in order.iter().rev() {
+                    let Some((k, ids, _)) = removed.as_ref() else { break };
+                    let without: Vec<ResponderId> = ids.iter().copied().filter(|o| o != id).collect();
+                    if without.is_empty() {
+                        break;
+                    }
+                    if let Some(run) = together(&without).filter(|r| kept(r) > k + 1e-9) {
+                        removed = Some((kept(&run), without, run));
+                    }
+                }
+                let mut added: Option<(f64, Vec<ResponderId>, RunTrace)> = None;
+                for &id in &order {
+                    let with: Vec<ResponderId> =
+                        added.as_ref().map_or_else(Vec::new, |(_, ids, _)| ids.clone()).into_iter().chain([id]).collect();
+                    if let Some(run) = together(&with).filter(|r| added.as_ref().is_none_or(|(k, _, _)| kept(r) > k + 1e-9)) {
+                        added = Some((kept(&run), with, run));
+                    }
+                }
+                best = match (removed, added) {
+                    (Some(r), Some(a)) => Some(if a.0 > r.0 + 1e-9 { a } else { r }),
+                    (r, a) => r.or(a),
+                };
+            }
+            if let Some((_, order, run)) = best {
                 if interruptions.len() > 1 {
                     for i in &mut interruptions {
                         let used = run.uses.iter().filter(|u| u.responder == i.responder).count() as u32;
