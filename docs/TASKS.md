@@ -49,6 +49,11 @@ Corsie di lavoro in parallelo del 22/10/2026 (piano in `docs/plans/piano-prossim
     - [x] le 90 board delle coppie del proprietario nel banco (77 trovate, 76 con la verità) e la tabella per coppia.
 
   Agente: claude-code, sessione sorella del collaudo. Branch: `claude/tools-qa`. File: script nuovi in `scripts/` (`objective_bench.py`), `docs/plans/collaudo-strumenti.md`, `docs/plans/banco-oggettivo.md`, `tests/fixtures/boards/`.
+- [ ] **Corsia 4, ottavo task.** L'Extra Deck dell'avversario del kit, la classe più grande dei disaccordi di A1b (19 su 57, `ricerca-esperimenti.md` §6): le linee vere evocano dall'Extra Deck circa 3 volte (`kit-mix`: 573 evocazioni in 203 linee di 41 deck), il kit una. Il kit ne fa 3, con mostri senza effetti e materiali esatti; ognuna pesa un terzo di 1,0, la loro quota sulla scala delle attivazioni.
+
+  Agente: claude-code, sessione della corsia 4. Branch: `claude/placed-cards`. File: in `crates/ygo-solver/src/probe.rs` `Probe` e `Kit::standard`; `kit-mix` in `crates/ygo-cli/src/main.rs`.
+  - [x] Il prototipo.
+  - [ ] Disaccordi A1b della classe rimisurati (fixture della corsia 7), `paired_test.py`, banco, controllo B14.
 - [ ] **Corsia 4, settimo task.** «Risposte insieme» dal passo 1 di A1b della corsia 7 (`ricerca-esperimenti.md` §6): su inv-r5 (board dell'oracolo: Baronne nella EMZ, Aeon, Gamma, Super Polymerization) contro Elfnote ogni risposta da sola ferma molto, tutte insieme lasciano il 93% delle mosse. Causa: nella run con tutte le risposte, Super Polymerization usata alla prima occasione prende come materiali la tua Baronne de Fleur e Hyperinvoked Aeon. Correzione generale: insieme, ogni risposta si aggiunge (la più forte prima) solo se l'avversario fa meno.
 
   Agente: claude-code, sessione della corsia 4. Branch: `claude/placed-cards`. File: in `crates/ygo-solver/src/probe.rs` solo `Prober::against_moves` (la run «tutte insieme»).
