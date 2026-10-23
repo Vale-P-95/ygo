@@ -47,6 +47,7 @@ Corsie di lavoro in parallelo del 22/10/2026 (piano in `docs/plans/piano-prossim
     - [x] il giro completo (dopo la #53): 817 invocazioni, nessun timeout, 200 board con la verità;
     - [x] il documento con metodo, pesi del meta, tempi, coppie dubbie e primi numeri;
     - [x] le 90 board delle coppie del proprietario nel banco (77 trovate, 76 con la verità) e la tabella per coppia.
+    - [ ] la nuova base su `main` 5b00370 (dopo B5a, B14 e le correzioni del livello 2 #86 e #91): le stesse 205 board e le stesse 78 delle coppie del proprietario, i numeri nuovi e il confronto con la base vecchia in `docs/plans/banco-oggettivo.md` (in corso dal 23/10, 00:25 UTC).
 
   Agente: claude-code, sessione sorella del collaudo. Branch: `claude/tools-qa`. File: script nuovi in `scripts/` (`objective_bench.py`), `docs/plans/collaudo-strumenti.md`, `docs/plans/banco-oggettivo.md`, `tests/fixtures/boards/`.
 - [ ] **Corsia 4, sesto task** (correzione unita il 22/10, PR #86; resta il seguito qui sotto). Difetti del livello 2 dal banco oggettivo (corsia 3) e dalla corsia 7: contro il deck scelto la tua linea si sfasava (Elfnote Kewl Tune su una catena vuota, Tearlaments e Earth Machine con 0 linee, railway contro Snake-Eye). La linea si rigioca per identità.
