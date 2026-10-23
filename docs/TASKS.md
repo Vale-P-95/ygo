@@ -90,6 +90,13 @@ Corsie di lavoro in parallelo del 22/10/2026 (piano in `docs/plans/piano-prossim
   - [x] Il termine in `quick_score` (test `tests/attrition.rs`).
   - [x] L'etichetta italiana «Look at your dell'avversario, Extra Deck».
   - [x] Banco, `combo_hunt` e `search_regression` prima e dopo, appaiati per mano (numeri in `docs/plans/attrito-avversario.md`).
+- [ ] **Corsia 8, L2-3 come ultimo gradino** (opzione a, approvata dal proprietario; prove in `ricerca-esperimenti.md` §6b). Dopo la scala di B14, le migliori 3-5 board per misura completa si rigiocano al livello 2 contro i 3 deck del meta con il `popRank` più alto, scelti dai pesi e mai per nome. Le linee dei deck si calcolano dal vivo, mai salvate tra una sessione e l'altra, e le board si riordinano per L2-3 (1 − `left`, pesato con il meta).
+
+  Agente: claude-code, sessione della corsia 8. Branch: `claude/staged-measure` (ripartito da `main` 9cc3005). File: nuovi `crates/ygo-solver/src/meta.rs` (punteggio L2-3 sopra `rival_lines` e `against_moves`) e `crates/ygo-data/src/meta.rs` (deck del meta da Master Duel Meta, con i pesi); in `crates/ygo-solver/src/lib.rs` e `crates/ygo-data/src/lib.rs` solo l'export; `apps/desktop/src-tauri/src/lib.rs` (un comando nuovo e `ScoreView.meta`) e `apps/desktop/src/lib/api.ts` (solo il tipo); la parte `combos` di `crates/ygo-cli/src/main.rs` (`--meta-final`); script nuovi in `scripts/`. `probe.rs` non si tocca.
+  - [ ] Punteggio L2-3 e deck del meta.
+  - [ ] App: comando e contratto, richiesta per Gemini.
+  - [ ] CLI: `combos --staged --meta-final N`.
+  - [ ] Misure: cambi del #1 su `combo_hunt --seed 7` e sulle fixture A1b, verità contro gli altri 16 avversari, tempo; `paired_test`, `search_regression`.
 - [ ] **Corsia 8.** B14, valutazione delle board a gradini (`docs/plans/ricerca-piano-critico.md`, `ricerca-esperimenti.md` §1 sul branch `claude/research-lab`): stima → prime 40 → misura economica (2 finestre per risposta, niente ciclo degli usi, breaker e `countered`) → prime 15 → misura completa. Controllo: nessuna mano con un #1 peggiore oltre l'1%, tempo della valutazione almeno −25%.
 
   Agente: claude-code, sessione della corsia 8. Branch: `claude/staged-measure`. File: in `crates/ygo-solver/src/probe.rs` solo l'aggiunta del modo economico (`Parts`, `Prober::measure_cheap`), senza le parti della corsia 4; `apps/desktop/src-tauri/src/lib.rs` (`combo_score`); `apps/desktop/src/lib/api.ts` (solo il tipo `ScoreView`, se serve); la parte `combos --probe` di `crates/ygo-cli/src/main.rs`; la sezione «B14» di `docs/plans/velocita-ricerca.md`.
