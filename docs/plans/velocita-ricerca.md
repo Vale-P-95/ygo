@@ -535,6 +535,12 @@ Nessun codice nella ricerca: misure e stime, per decidere.
 - Sulle 41 mani: 71% del tempo, #1 uguale o migliore in 41/41.
 - Sulle 82 mani, misurate dalla corsia 7, si perde il #1 in 5 mani, fino al 33,7% (Branded-1): lì le risposte fermano qualcosa solo dopo la seconda finestra.
 
+### B13, PR 3: le fasi dopo la ricerca dalle copie (23/10/2026, corsia 2)
+- I duelli dei thread e le loro copie restano dopo la ricerca, in un insieme comune: `confirm_best` parte dalle copie della ricerca, e `zone_variants` gioca ogni altra zona da una copia del duello fatta alla scelta della zona, non più tutta la linea dall'inizio.
+- I giri di apprendimento misurano con il turno di prova (`probe.rs`): restano col replay fino al passo del turno di prova.
+- Due mani Invoked a 4000 nodi: `zone_variants` da 0,9-1,2 s a 0,2-0,4 s, `confirm_best` da 0,3-0,5 s a 0,1-0,3 s.
+- Banco (37 deck, 4000 nodi, due giri alternati): ricerca 122,2 e 115,2 s su `main`, 111,9 e 107,8 s con le copie (−7%); board e linee identiche (differenze solo nell'ultima cifra dei decimali, le stesse tra due giri di `main`). `combo_hunt --seed 7`: 82 mani identiche. `paired_test.py` su 179 mani: 179 pari, accettato; secondi di ricerca 1672 → 1449 (−13%).
+
 ### B14, seguito: 8 finestre, 1 giro degli usi e il turno dopo (22-23/10/2026, corsia 8)
 **Cosa cambia rispetto alla scala sicura.**
 - **Gradino più corto.** Il gradino prova ogni risposta alle prime 8 finestre e conta gli usi in 1 giro, invece di 16 e 3. La misura completa riprende dalle finestre 9-16 e dagli altri giri, senza rigiocare quelli fatti.
