@@ -97,7 +97,7 @@ function CatalogViewMenu({ view, onViewChange }: { view: CatalogView; onViewChan
 
       <Popover open={open} align="right" width={180}>
         <div className="p-1 flex flex-col gap-0.5" role="menu" aria-label="Opzioni vista catalogo">
-          <div className="px-2 py-1 text-[11px] font-semibold text-faint uppercase tracking-wider">
+          <div className="px-2 py-1 text-xs font-semibold text-muted uppercase tracking-wider">
             Vista catalogo
           </div>
           {VIEW_OPTIONS.map((opt) => {
@@ -111,7 +111,7 @@ function CatalogViewMenu({ view, onViewChange }: { view: CatalogView; onViewChan
                 aria-checked={isSelected}
                 className={`flex items-center gap-2 w-full px-2 py-1.5 rounded-md text-xs text-left transition-colors cursor-pointer ${
                   isSelected
-                    ? "bg-sec/15 text-sec font-medium"
+                    ? "bg-sec/15 text-text font-semibold"
                     : "text-text hover:bg-surface-3"
                 }`}
                 onClick={() => {
@@ -196,7 +196,7 @@ function SavedSearchesDropdown({ query, onQuery }: { query: string; onQuery: (q:
           </button>
         </form>
         {saved.length === 0 && (
-          <p className="px-2 py-2 text-xs text-faint">
+          <p className="px-2 py-2 text-xs text-muted">
             Nessuna ricerca salvata: scrivi una ricerca, dalle un nome e premi Salva.
           </p>
         )}
@@ -212,12 +212,12 @@ function SavedSearchesDropdown({ query, onQuery }: { query: string; onQuery: (q:
                 setOpen(false);
               }}
             >
-              <span className="block truncate text-sm font-medium">{s.name}</span>
-              <span className="block truncate font-mono text-[10px] text-faint">{s.query}</span>
+              <span className="block truncate text-sm font-medium text-text">{s.name}</span>
+              <span className="block truncate font-mono text-xs text-muted">{s.query}</span>
             </button>
             <button
               type="button"
-              className="px-2 text-faint opacity-0 group-hover:opacity-100 hover:text-danger cursor-pointer"
+              className="px-2 text-muted opacity-0 group-hover:opacity-100 focus-visible:opacity-100 hover:text-danger transition-opacity cursor-pointer"
               title="Elimina"
               aria-label={`Elimina ${s.name}`}
               onClick={async () => {
@@ -387,11 +387,11 @@ export function Catalog({
             </div>
           </HelpPopover>
 
-          {/* Discrete card counter */}
+          {/* Discrete card counter with WCAG AA compliant contrast */}
           <span className="flex items-center gap-1 text-xs text-muted tabular-nums">
             {searching && <EmblemIcon emblem="gear" className="h-3 w-3 animate-[spin-slow_1.6s_linear_infinite] text-gold" />}
             <span>
-              {result.ids.length.toLocaleString("it-IT")} <span className="text-faint">carte</span>
+              {result.ids.length.toLocaleString("it-IT")} carte
             </span>
           </span>
 
@@ -404,14 +404,14 @@ export function Catalog({
           </div>
         </div>
 
-        {/* Single row: search field with embedded saved searches, quick filter icon toggles, and filters button */}
-        <div className="flex items-center gap-1.5">
-          {/* Wide search input with embedded saved searches dropdown */}
+        {/* Row 1: wide search input with embedded saved searches and Filtri button */}
+        <div className="flex items-center gap-2">
+          {/* Wide search input taking remaining width */}
           <div className="relative flex min-w-0 flex-1 items-center rounded-lg border border-border bg-bg-2 focus-within:border-gold/70 focus-within:ring-1 focus-within:ring-gold/70 transition-colors">
             <Search className="pointer-events-none ml-2.5 h-3.5 w-3.5 shrink-0 text-muted" aria-hidden="true" />
             <input
               ref={inputRef}
-              className="w-full min-w-0 bg-transparent px-2 py-1.5 text-xs text-text placeholder:text-faint focus:outline-none"
+              className="w-full min-w-0 bg-transparent px-2 py-1.5 text-xs text-text placeholder:text-muted/70 focus:outline-none"
               placeholder="Cerca o filtra… (Ctrl+F)"
               value={query}
               spellCheck={false}
@@ -428,14 +428,43 @@ export function Catalog({
                 title="Cancella ricerca"
                 aria-label="Cancella ricerca"
               >
-                <X className="h-3 w-3" />
+                <X className="h-3.5 w-3.5" />
               </button>
             )}
             <SavedSearchesDropdown query={query} onQuery={onQuery} />
           </div>
 
-          {/* Quick filter icon toggle buttons */}
-          <div className="flex items-center gap-0.5 shrink-0" role="group" aria-label="Filtri rapidi">
+          {/* Filtri button with active filter count badge with >4.5:1 contrast */}
+          <button
+            type="button"
+            className={`inline-flex items-center gap-1.5 h-7 px-2.5 rounded-lg text-xs font-medium shrink-0 transition-colors cursor-pointer select-none border ${
+              filters
+                ? "btn-molten border-gold/60 text-text"
+                : activeFilterCount > 0
+                  ? "border-sec/80 bg-sec/10 text-text hover:bg-sec/20"
+                  : "border-border bg-surface-2 text-muted hover:border-border-strong hover:bg-surface-3 hover:text-text"
+            }`}
+            onClick={() => {
+              sound.play(filters ? "close" : "open");
+              setFilters((v) => !v);
+            }}
+            aria-expanded={filters}
+            title="Pannello filtri avanzati"
+          >
+            <SlidersHorizontal className={`h-3.5 w-3.5 shrink-0 ${activeFilterCount > 0 ? "text-sec" : ""}`} aria-hidden="true" />
+            <span>Filtri</span>
+            {activeFilterCount > 0 && (
+              <span className="rounded-full bg-surface-3 text-text border border-border px-1.5 py-0.2 text-[10px] font-bold tabular-nums">
+                {activeFilterCount}
+              </span>
+            )}
+          </button>
+        </div>
+
+        {/* Row 2: Quick filter icon toggle buttons and active removable filter pills */}
+        <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+          {/* Quick filter icon toggles */}
+          <div className="flex items-center gap-0.5 shrink-0 mr-1" role="group" aria-label="Filtri rapidi">
             <IconButton
               size="sm"
               variant="ghost"
@@ -486,59 +515,33 @@ export function Catalog({
             />
           </div>
 
-          {/* Filtri button with active filter count badge */}
-          <button
-            type="button"
-            className={`inline-flex items-center gap-1.5 h-7 px-2.5 rounded-lg text-xs font-medium shrink-0 transition-colors cursor-pointer select-none border ${
-              filters
-                ? "btn-molten border-gold/60 text-text"
-                : activeFilterCount > 0
-                  ? "border-sec/80 bg-sec/15 text-sec hover:bg-sec/25"
-                  : "border-border bg-surface-2 text-muted hover:border-border-strong hover:bg-surface-3 hover:text-text"
-            }`}
-            onClick={() => {
-              sound.play(filters ? "close" : "open");
-              setFilters((v) => !v);
-            }}
-            aria-expanded={filters}
-            title="Pannello filtri avanzati"
-          >
-            <SlidersHorizontal className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-            <span>Filtri</span>
-            {activeFilterCount > 0 && (
-              <span className="rounded-full bg-sec/30 text-sec px-1.5 py-0.2 text-[10px] font-bold tabular-nums">
-                {activeFilterCount}
-              </span>
-            )}
-          </button>
+          {/* Active filter removable pills - rendered ONLY when filters or errors exist */}
+          {hasRemovableChips && (
+            <>
+              {result.chips.map((chip) => (
+                <button
+                  key={chip.token}
+                  type="button"
+                  className="chip chip-active inline-flex items-center gap-1.5 !px-2.5 !py-0.5 text-xs group cursor-pointer"
+                  onClick={() => {
+                    sound.play("toggle");
+                    onQuery(removeToken(query, chip.token));
+                  }}
+                  title={`Rimuovi filtro: ${chip.label}`}
+                  aria-label={`Rimuovi filtro ${chip.label}`}
+                >
+                  <span>{chip.label}</span>
+                  <X className="h-3 w-3 text-muted group-hover:text-danger transition-colors" />
+                </button>
+              ))}
+              {result.errors.map((e) => (
+                <span key={e} className="chip !px-2.5 !py-0.5 text-xs text-danger border-danger/40 bg-danger/10">
+                  ? {e}
+                </span>
+              ))}
+            </>
+          )}
         </div>
-
-        {/* Active filter removable pills - rendered ONLY when filters or errors exist */}
-        {hasRemovableChips && (
-          <div className="flex flex-wrap items-center gap-1 pt-0.5 anim-fade">
-            {result.chips.map((chip) => (
-              <button
-                key={chip.token}
-                type="button"
-                className="chip chip-active inline-flex items-center gap-1 !px-2 !py-0.5 !text-[11px] group cursor-pointer"
-                onClick={() => {
-                  sound.play("toggle");
-                  onQuery(removeToken(query, chip.token));
-                }}
-                title={`Rimuovi filtro: ${chip.label}`}
-                aria-label={`Rimuovi filtro ${chip.label}`}
-              >
-                <span>{chip.label}</span>
-                <X className="h-3 w-3 text-muted group-hover:text-danger transition-colors" />
-              </button>
-            ))}
-            {result.errors.map((e) => (
-              <span key={e} className="chip !px-2 !py-0.5 !text-[11px] text-danger border-danger/40 bg-danger/10">
-                ? {e}
-              </span>
-            ))}
-          </div>
-        )}
       </div>
 
       <div className="relative min-h-0 flex-1">
