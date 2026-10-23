@@ -1,4 +1,4 @@
-import { useRef, type CSSProperties, type PointerEvent } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type PointerEvent } from "react";
 import { cardImage, type DeckFormat } from "../lib/api";
 import { SIZES, type Look } from "../lib/boxes";
 import { FORMAT_LABELS } from "../lib/deck";
@@ -24,13 +24,38 @@ interface Props {
 
 /**
  * A deck box drawn with CSS 3D transforms: five walls (the top is open),
- * a lid leaning back and the showcase cards standing inside. Color,
- * material and shape come from the deck's `box` settings.
+ * a lid leaning back, visible metallic hinge and showcase cards standing inside.
+ * Dynamic lighting tracks cursor coordinates for specular highlights and shadows.
  */
 export function DeckBox3D({ look, name, format, legal, errors, cards, scale = 1, interactive, selected, sway, onClick, onHover }: Props) {
   const ref = useRef<HTMLDivElement>(null);
+  const extractingTimer = useRef<number | null>(null);
+  const [extracting, setExtracting] = useState(false);
   const size = SIZES[look.shape];
   const shown = cards.slice(0, 3);
+
+  useEffect(() => {
+    return () => {
+      if (extractingTimer.current != null) {
+        window.clearTimeout(extractingTimer.current);
+      }
+    };
+  }, []);
+
+  const handleClick = () => {
+    if (!onClick) return;
+    if (extracting) return;
+    const reduced = typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reduced) {
+      onClick();
+      return;
+    }
+    setExtracting(true);
+    extractingTimer.current = window.setTimeout(() => {
+      setExtracting(false);
+      onClick();
+    }, 200);
+  };
 
   const move = (e: PointerEvent<HTMLDivElement>) => {
     const el = ref.current;
@@ -40,10 +65,19 @@ export function DeckBox3D({ look, name, format, legal, errors, cards, scale = 1,
     const py = (e.clientY - r.top) / r.height - 0.5;
     el.style.setProperty("--tilt-y", `${px * 26}deg`);
     el.style.setProperty("--tilt-x", `${-py * 12}deg`);
+    el.style.setProperty("--light-x", `${Math.round((px + 0.5) * 100)}%`);
+    el.style.setProperty("--light-y", `${Math.round((py + 0.5) * 100)}%`);
+    el.style.setProperty("--spec-op", "0.55");
   };
+
   const leave = () => {
-    ref.current?.style.setProperty("--tilt-y", "0deg");
-    ref.current?.style.setProperty("--tilt-x", "0deg");
+    const el = ref.current;
+    if (!el) return;
+    el.style.setProperty("--tilt-y", "0deg");
+    el.style.setProperty("--tilt-x", "0deg");
+    el.style.setProperty("--light-x", "50%");
+    el.style.setProperty("--light-y", "30%");
+    el.style.setProperty("--spec-op", "0.22");
   };
 
   const style = {
@@ -60,13 +94,14 @@ export function DeckBox3D({ look, name, format, legal, errors, cards, scale = 1,
     <div
       role={onClick ? "button" : undefined}
       tabIndex={onClick ? 0 : undefined}
-      onKeyDown={onClick ? (e) => (e.key === "Enter" || e.key === " ") && onClick() : undefined}
+      onKeyDown={onClick ? (e) => (e.key === "Enter" || e.key === " ") && (e.preventDefault(), handleClick()) : undefined}
       className="dbox-stage"
       data-interactive={interactive || undefined}
       data-selected={selected || undefined}
+      data-extracting={extracting || undefined}
       data-sway={sway || undefined}
       style={style}
-      onClick={onClick}
+      onClick={onClick ? handleClick : undefined}
       onPointerEnter={onHover}
       onPointerMove={move}
       onPointerLeave={leave}
@@ -87,12 +122,22 @@ export function DeckBox3D({ look, name, format, legal, errors, cards, scale = 1,
             />
           ))}
         </div>
-        <div className="dbox-face dbox-back" />
-        <div className="dbox-face dbox-left" />
-        <div className="dbox-face dbox-right" />
+        <div className="dbox-face dbox-back">
+          <div className="dbox-specular" />
+        </div>
+        <div className="dbox-face dbox-left">
+          <div className="dbox-specular" />
+        </div>
+        <div className="dbox-face dbox-right">
+          <div className="dbox-specular" />
+        </div>
         <div className="dbox-face dbox-bottom" />
-        <div className="dbox-face dbox-lid" />
+        <div className="dbox-face dbox-lid">
+          <div className="dbox-specular" />
+        </div>
+        <div className="dbox-hinge" aria-hidden="true" />
         <div className="dbox-face dbox-front">
+          <div className="dbox-specular" />
           {look.shape === "chest" && <span className="dbox-clasp" />}
           <div className="dbox-plate">
             <span className="dbox-name" data-long={name.length > 30 ? "2" : name.length > 18 ? "1" : undefined}>

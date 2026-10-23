@@ -1,7 +1,7 @@
 /** Deck box looks for the shelf (La Bottega). */
 import type { DeckBox } from "./api";
 
-export type Material = "leather" | "metal" | "wood" | "holo" | "matte";
+export type Material = "leather" | "metal" | "wood" | "holo" | "matte" | "cardboard";
 export type Shape = "box" | "tin" | "chest";
 
 export const PALETTE: { color: string; name: string }[] = [
@@ -25,6 +25,7 @@ export const MATERIALS: { id: Material; name: string }[] = [
   { id: "wood", name: "Legno" },
   { id: "holo", name: "Olografico" },
   { id: "matte", name: "Opaco" },
+  { id: "cardboard", name: "Cartoncino" },
 ];
 
 export const SHAPES: { id: Shape; name: string; hint: string }[] = [
