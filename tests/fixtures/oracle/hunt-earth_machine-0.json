@@ -15,17 +15,12 @@
  "boards_found": 42185,
  "boards": [
   {
-   "value": 1.9200000000000002,
-   "look_key": "b5755b3c1da62fa2",
+   "value": 2.04,
+   "look_key": "8772ebe009856a28",
    "field": [
     {
      "code": 60953949,
      "name": "Ancient Gear Box"
-    },
-    {
-     "code": 146746,
-     "name": "Double Headed Anger Knuckle",
-     "zone": "emz"
     },
     {
      "code": 88875132,
@@ -35,6 +30,14 @@
     {
      "code": 34721681,
      "name": "Heavy Forward"
+    },
+    {
+     "code": 76830505,
+     "name": "Infinitrack Brutal Dozer"
+    },
+    {
+     "code": 97316367,
+     "name": "Infinitrack Tunneller"
     },
     {
      "code": 76136345,
@@ -49,9 +52,7 @@
      "name": "Therion \"King\" Regulus"
     }
    ],
-   "hand": [
-    84797028
-   ],
+   "hand": [],
    "measure": {
     "field": 1.4370370370370371,
     "hand": 0.0,
@@ -59,22 +60,17 @@
     "resilience": 0.4049382716049383,
     "follow_up": {
      "gained": 0,
-     "rebuild": 2
+     "rebuild": 3
     }
    }
   },
   {
-   "value": 1.893769063180828,
-   "look_key": "1ffe77f8d7726608",
+   "value": 2.04,
+   "look_key": "59403d5af013c999",
    "field": [
     {
      "code": 60953949,
      "name": "Ancient Gear Box"
-    },
-    {
-     "code": 146746,
-     "name": "Double Headed Anger Knuckle",
-     "zone": "emz"
     },
     {
      "code": 88875132,
@@ -84,6 +80,14 @@
     {
      "code": 34721681,
      "name": "Heavy Forward"
+    },
+    {
+     "code": 76830505,
+     "name": "Infinitrack Brutal Dozer"
+    },
+    {
+     "code": 61912252,
+     "name": "Infinitrack Trencher"
     },
     {
      "code": 76136345,
@@ -98,36 +102,37 @@
      "name": "Therion \"King\" Regulus"
     }
    ],
-   "hand": [
-    84797028
-   ],
+   "hand": [],
    "measure": {
     "field": 1.4370370370370371,
     "hand": 0.0,
     "floodgates": 0.0,
-    "resilience": 0.36122004357298476,
+    "resilience": 0.4049382716049383,
     "follow_up": {
      "gained": 0,
-     "rebuild": 2
+     "rebuild": 3
     }
    }
   },
   {
-   "value": 1.893769063180828,
-   "look_key": "2624d640128760d3",
+   "value": 2.04,
+   "look_key": "31dca2dae2986674",
    "field": [
     {
      "code": 60953949,
      "name": "Ancient Gear Box"
     },
     {
-     "code": 146746,
-     "name": "Double Headed Anger Knuckle",
-     "zone": "emz"
-    },
-    {
      "code": 34721681,
      "name": "Heavy Forward"
+    },
+    {
+     "code": 76830505,
+     "name": "Infinitrack Brutal Dozer"
+    },
+    {
+     "code": 61912252,
+     "name": "Infinitrack Trencher"
     },
     {
      "code": 76136345,
@@ -147,36 +152,37 @@
      "name": "Therion \"King\" Regulus"
     }
    ],
-   "hand": [
-    84797028
-   ],
+   "hand": [],
    "measure": {
     "field": 1.4370370370370371,
     "hand": 0.0,
     "floodgates": 0.0,
-    "resilience": 0.36122004357298476,
+    "resilience": 0.4049382716049383,
     "follow_up": {
      "gained": 0,
-     "rebuild": 2
+     "rebuild": 3
     }
    }
   },
   {
-   "value": 1.893769063180828,
-   "look_key": "9051bf6a5c8a44d0",
+   "value": 2.04,
+   "look_key": "ff999f2b216ec303",
    "field": [
     {
      "code": 60953949,
      "name": "Ancient Gear Box"
     },
     {
-     "code": 146746,
-     "name": "Double Headed Anger Knuckle",
-     "zone": "emz"
-    },
-    {
      "code": 34721681,
      "name": "Heavy Forward"
+    },
+    {
+     "code": 76830505,
+     "name": "Infinitrack Brutal Dozer"
+    },
+    {
+     "code": 97316367,
+     "name": "Infinitrack Tunneller"
     },
     {
      "code": 76136345,
@@ -196,32 +202,25 @@
      "name": "Therion \"King\" Regulus"
     }
    ],
-   "hand": [
-    97316367
-   ],
+   "hand": [],
    "measure": {
     "field": 1.4370370370370371,
     "hand": 0.0,
     "floodgates": 0.0,
-    "resilience": 0.36122004357298476,
+    "resilience": 0.4049382716049383,
     "follow_up": {
      "gained": 0,
-     "rebuild": 2
+     "rebuild": 3
     }
    }
   },
   {
-   "value": 1.893769063180828,
-   "look_key": "072dbc658775410c",
+   "value": 2.04,
+   "look_key": "aec4f9c9d4cb5d28",
    "field": [
     {
      "code": 60953949,
      "name": "Ancient Gear Box"
-    },
-    {
-     "code": 146746,
-     "name": "Double Headed Anger Knuckle",
-     "zone": "emz"
     },
     {
      "code": 88875132,
@@ -231,6 +230,10 @@
     {
      "code": 34721681,
      "name": "Heavy Forward"
+    },
+    {
+     "code": 97316367,
+     "name": "Infinitrack Tunneller"
     },
     {
      "code": 76136345,
@@ -245,17 +248,15 @@
      "name": "Therion \"King\" Regulus"
     }
    ],
-   "hand": [
-    76830505
-   ],
+   "hand": [],
    "measure": {
     "field": 1.4370370370370371,
     "hand": 0.0,
     "floodgates": 0.0,
-    "resilience": 0.36122004357298476,
+    "resilience": 0.4049382716049383,
     "follow_up": {
      "gained": 0,
-     "rebuild": 2
+     "rebuild": 3
     }
    }
   }
@@ -875,7 +876,7 @@
     0,
     0,
     0,
-    1,
+    2,
     0,
     0,
     0
@@ -1164,50 +1165,6 @@
     255
    ],
    [
-    5,
-    0,
-    2,
-    0
-   ],
-   [
-    0,
-    0,
-    0,
-    0,
-    1,
-    0,
-    0,
-    0,
-    1,
-    0,
-    0,
-    0
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
     1,
     0,
     0,
@@ -1232,7 +1189,7 @@
     0,
     0,
     0,
-    1,
+    0,
     0,
     0,
     0
@@ -1323,7 +1280,17 @@
     255
    ],
    [
-    7,
+    5,
+    0,
+    0,
+    0
+   ],
+   [
+    1,
+    0,
+    0,
+    0,
+    3,
     0,
     0,
     0
@@ -1335,7 +1302,18 @@
     255
    ],
    [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
     0,
+    4,
+    2
+   ],
+   [
+    1,
     0,
     0,
     0
@@ -1351,12 +1329,6 @@
     255,
     255,
     255
-   ],
-   [
-    0,
-    0,
-    0,
-    0
    ],
    [
     0,
@@ -1367,12 +1339,17 @@
     0,
     0,
     0,
-    0,
+    3,
     0,
     0,
     0
    ],
    [
+    0,
+    4,
+    4
+   ],
+   [
     255,
     255,
     255,
@@ -1383,6 +1360,12 @@
     255,
     255,
     255
+   ],
+   [
+    7,
+    0,
+    0,
+    0
    ]
   ]
  }

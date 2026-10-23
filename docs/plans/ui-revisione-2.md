@@ -133,6 +133,7 @@ File: `src/components/Catalog.tsx`, `FilterPanel.tsx`.
   - Barre con più di 6-7 comandi visibili.
 - **Le didascalie decorative** («Ispirato a…») restano solo dove non rubano spazio.
 - **Le schede del Laboratorio** si possono raggruppare con icone; quelle meno usate vanno in un menu «Altro» se non ci stanno.
+- *Completato il 23/10/2026 (Gemini):* piano per-pagina con tabelle in `docs/plans/ui-polish.md`; normalizzata la scala tipografica (nessun testo sotto 12 px, badge minimi a 11 px); rimossi testi d'aiuto fissi e prolissi in favore di tooltip e popover; riorganizzate le barre con icone Lucide (Undo, Redo, Dices, Search, Plus, Scale, History, Boxes, ArrowLeftRight, Play, Sparkles); didascalia «Ispirato a...» reattiva (`hidden xl:block`); schede del Laboratorio arricchite con icone esplicative e menu a tendina «Altro ▾» per schermi compatti.
 
 ### Passo 5. Bottega: scatole e mensole (`gemini/ui-shelf`)
 Chi: Gemini, PR #118 in revisione (5 correzioni chieste): è la sua ultima PR.

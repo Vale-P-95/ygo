@@ -85,7 +85,7 @@ export function DeckInsightsBar({
   return (
     <div className="flex flex-col gap-2">
       <div className="flex flex-wrap items-center gap-1.5 rounded-xl border border-border bg-surface/75 px-3 py-2 backdrop-blur">
-        <span className="eyebrow mr-1 text-[10px]">Ruoli</span>
+        <span className="eyebrow mr-1 text-xs">Ruoli</span>
         {defs.map((d) => {
           const n = roleCounts[d.key] ?? 0;
           const active = activeRole === d.key;
@@ -99,7 +99,7 @@ export function DeckInsightsBar({
               }}
               aria-pressed={active}
               title={`${d.label}: ${d.hint}. Clicca per evidenziare le carte sul banco.`}
-              className={`chip !gap-1.5 !px-2 !py-0.5 !text-[11px] transition ${
+              className={`chip !gap-1.5 !px-2.5 !py-0.5 text-xs transition ${
                 active ? "border-sec bg-sec/20 text-text shadow-sm" : "hover:border-border-strong"
               }`}
             >
@@ -119,7 +119,7 @@ export function DeckInsightsBar({
               sound.play("close");
               onSelectRole(null);
             }}
-            className="text-[11px] text-muted underline hover:text-text"
+            className="text-xs text-muted underline hover:text-text"
           >
             Mostra tutte
           </button>
@@ -167,7 +167,7 @@ export function DeckInsightsBar({
         <div className="panel grid grid-cols-3 gap-4 p-3.5 text-xs anim-fade">
           {/* 1. Monster Level Curve */}
           <div className="flex flex-col gap-2">
-            <p className="eyebrow text-[10px]">Curva livelli mostri (Main Deck)</p>
+            <p className="eyebrow text-xs">Curva livelli mostri (Main Deck)</p>
             {dist.levelEntries.length === 0 ? (
               <p className="text-faint">Nessun mostro nel Main Deck.</p>
             ) : (
@@ -176,11 +176,11 @@ export function DeckInsightsBar({
                   const pct = Math.max(12, Math.round((count / dist.maxLevelCount) * 100));
                   return (
                     <div key={lvl} className="flex flex-1 flex-col items-center gap-1">
-                      <span className="text-[10px] font-semibold tabular-nums text-text">{count}</span>
+                      <span className="text-xs font-semibold tabular-nums text-text">{count}</span>
                       <div className="flex h-11 w-full items-end rounded bg-bg-2 p-0.5">
                         <div className="w-full rounded-sm bg-gold transition-all" style={{ height: `${pct}%` }} />
                       </div>
-                      <span className="text-[10px] text-muted tabular-nums">★{lvl}</span>
+                      <span className="text-xs text-muted tabular-nums">★{lvl}</span>
                     </div>
                   );
                 })}
@@ -190,21 +190,21 @@ export function DeckInsightsBar({
 
           {/* 2. Spells & Traps Subtypes */}
           <div className="flex flex-col gap-2 border-l border-border pl-4">
-            <p className="eyebrow text-[10px]">Sottotipi Magie e Trappole</p>
+            <p className="eyebrow text-xs">Sottotipi Magie e Trappole</p>
             <div className="flex flex-col gap-1.5">
               <div className="flex flex-wrap items-center gap-1">
-                <span className="w-14 shrink-0 text-[11px] font-semibold text-[#1d9e74]">Magie</span>
+                <span className="w-14 shrink-0 text-xs font-semibold text-[#1d9e74]">Magie</span>
                 {SPELL_RACES.filter((r) => (dist.spells.get(r.key) ?? 0) > 0).map((r) => (
-                  <span key={r.key} className="chip !px-2 !py-0 !text-[10px]">
+                  <span key={r.key} className="chip !px-2 !py-0 text-xs">
                     {r.label} <b className="tabular-nums">{dist.spells.get(r.key)}</b>
                   </span>
                 ))}
                 {[...dist.spells.values()].reduce((a, b) => a + b, 0) === 0 && <span className="text-faint">—</span>}
               </div>
               <div className="flex flex-wrap items-center gap-1">
-                <span className="w-14 shrink-0 text-[11px] font-semibold text-[#b8457f]">Trappole</span>
+                <span className="w-14 shrink-0 text-xs font-semibold text-[#b8457f]">Trappole</span>
                 {TRAP_RACES.filter((r) => (dist.traps.get(r.key) ?? 0) > 0).map((r) => (
-                  <span key={r.key} className="chip !px-2 !py-0 !text-[10px]">
+                  <span key={r.key} className="chip !px-2 !py-0 text-xs">
                     {r.label} <b className="tabular-nums">{dist.traps.get(r.key)}</b>
                   </span>
                 ))}
@@ -215,7 +215,7 @@ export function DeckInsightsBar({
 
           {/* 3. Extra Deck breakdown */}
           <div className="flex flex-col gap-2 border-l border-border pl-4">
-            <p className="eyebrow text-[10px]">Curva Extra Deck (Link / Livelli / Ranghi)</p>
+            <p className="eyebrow text-xs">Curva Extra Deck (Link / Livelli / Ranghi)</p>
             {deck.extra.length === 0 ? (
               <p className="text-faint">Extra Deck vuoto.</p>
             ) : (
@@ -223,14 +223,14 @@ export function DeckInsightsBar({
                 {[...dist.extraLinks.entries()]
                   .sort((a, b) => a[0] - b[0])
                   .map(([link, n]) => (
-                    <span key={`L${link}`} className="chip !px-2 !py-0.5 !text-[10px]">
+                    <span key={`L${link}`} className="chip !px-2 !py-0.5 text-xs">
                       Link-{link} <b className="tabular-nums">{n}</b>
                     </span>
                   ))}
                 {[...dist.extraLevels.entries()]
                   .sort((a, b) => a[0] - b[0])
                   .map(([lvl, n]) => (
-                    <span key={`R${lvl}`} className="chip !px-2 !py-0.5 !text-[10px]">
+                    <span key={`R${lvl}`} className="chip !px-2 !py-0.5 text-xs">
                       ★/R{lvl} <b className="tabular-nums">{n}</b>
                     </span>
                   ))}

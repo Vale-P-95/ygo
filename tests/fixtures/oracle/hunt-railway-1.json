@@ -15,21 +15,17 @@
  "boards_found": 52556,
  "boards": [
   {
-   "value": 1.413701619778346,
-   "look_key": "df285e8a345800c5",
+   "value": 1.6537016197783463,
+   "look_key": "7757d4f7ad89b621",
    "field": [
     {
-     "code": 41739381,
-     "name": "Clockwork Knight",
+     "code": 146746,
+     "name": "Double Headed Anger Knuckle",
      "zone": "emz"
     },
     {
-     "code": 4334811,
-     "name": "Scrap Recycler"
-    },
-    {
-     "code": 4334811,
-     "name": "Scrap Recycler"
+     "code": 76136345,
+     "name": "Revolving Switchyard"
     },
     {
      "code": 92359409,
@@ -42,8 +38,7 @@
     }
    ],
    "hand": [
-    98476659,
-    18144507
+    98476659
    ],
    "measure": {
     "field": 0.4492753623188406,
@@ -52,142 +47,14 @@
     "resilience": 0.1673770957658426,
     "follow_up": {
      "gained": 0,
-     "rebuild": 1
+     "rebuild": 3
     }
    }
   },
   {
-   "value": 1.413701619778346,
-   "look_key": "ccdb1296c872de73",
+   "value": 1.6537016197783463,
+   "look_key": "a783f62b68f4df8c",
    "field": [
-    {
-     "code": 41739381,
-     "name": "Clockwork Knight",
-     "zone": "emz"
-    },
-    {
-     "code": 76136345,
-     "name": "Revolving Switchyard"
-    },
-    {
-     "code": 4334811,
-     "name": "Scrap Recycler"
-    },
-    {
-     "code": 4334811,
-     "name": "Scrap Recycler"
-    },
-    {
-     "code": 92359409,
-     "name": "Superdreadnought Rail Cannon Gustav Rocket"
-    }
-   ],
-   "hand": [
-    98476659,
-    18144507
-   ],
-   "measure": {
-    "field": 0.4492753623188406,
-    "hand": 0.0,
-    "floodgates": 0.9299999999999999,
-    "resilience": 0.1673770957658426,
-    "follow_up": {
-     "gained": 0,
-     "rebuild": 1
-    }
-   }
-  },
-  {
-   "value": 1.413701619778346,
-   "look_key": "e9bca5e743166725",
-   "field": [
-    {
-     "code": 41739381,
-     "name": "Clockwork Knight",
-     "zone": "emz"
-    },
-    {
-     "code": 76136345,
-     "name": "Revolving Switchyard"
-    },
-    {
-     "code": 4334811,
-     "name": "Scrap Recycler"
-    },
-    {
-     "code": 92359409,
-     "name": "Superdreadnought Rail Cannon Gustav Rocket"
-    },
-    {
-     "code": 25274141,
-     "name": "Urgent Schedule",
-     "set": true
-    }
-   ],
-   "hand": [
-    18144507
-   ],
-   "measure": {
-    "field": 0.4492753623188406,
-    "hand": 0.0,
-    "floodgates": 0.9299999999999999,
-    "resilience": 0.1673770957658426,
-    "follow_up": {
-     "gained": 0,
-     "rebuild": 1
-    }
-   }
-  },
-  {
-   "value": 1.413701619778346,
-   "look_key": "26185f0e9cab629f",
-   "field": [
-    {
-     "code": 41739381,
-     "name": "Clockwork Knight",
-     "zone": "emz"
-    },
-    {
-     "code": 76136345,
-     "name": "Revolving Switchyard"
-    },
-    {
-     "code": 4334811,
-     "name": "Scrap Recycler"
-    },
-    {
-     "code": 92359409,
-     "name": "Superdreadnought Rail Cannon Gustav Rocket"
-    },
-    {
-     "code": 25274141,
-     "name": "Urgent Schedule",
-     "set": true
-    }
-   ],
-   "hand": [
-    81101309
-   ],
-   "measure": {
-    "field": 0.4492753623188406,
-    "hand": 0.0,
-    "floodgates": 0.9299999999999999,
-    "resilience": 0.1673770957658426,
-    "follow_up": {
-     "gained": 0,
-     "rebuild": 1
-    }
-   }
-  },
-  {
-   "value": 1.413701619778346,
-   "look_key": "95572fa3de4643cb",
-   "field": [
-    {
-     "code": 41739381,
-     "name": "Clockwork Knight",
-     "zone": "emz"
-    },
     {
      "code": 76136345,
      "name": "Revolving Switchyard"
@@ -216,7 +83,121 @@
     "resilience": 0.1673770957658426,
     "follow_up": {
      "gained": 0,
-     "rebuild": 1
+     "rebuild": 3
+    }
+   }
+  },
+  {
+   "value": 1.6537016197783463,
+   "look_key": "fc592665fdb78520",
+   "field": [
+    {
+     "code": 146746,
+     "name": "Double Headed Anger Knuckle",
+     "zone": "emz"
+    },
+    {
+     "code": 23434538,
+     "name": "Maxx \"C\""
+    },
+    {
+     "code": 76136345,
+     "name": "Revolving Switchyard"
+    },
+    {
+     "code": 92359409,
+     "name": "Superdreadnought Rail Cannon Gustav Rocket"
+    },
+    {
+     "code": 25274141,
+     "name": "Urgent Schedule",
+     "set": true
+    }
+   ],
+   "hand": [],
+   "measure": {
+    "field": 0.4492753623188406,
+    "hand": 0.0,
+    "floodgates": 0.9299999999999999,
+    "resilience": 0.1673770957658426,
+    "follow_up": {
+     "gained": 0,
+     "rebuild": 3
+    }
+   }
+  },
+  {
+   "value": 1.6537016197783463,
+   "look_key": "5d52526d58a4c9e7",
+   "field": [
+    {
+     "code": 23434538,
+     "name": "Maxx \"C\""
+    },
+    {
+     "code": 76136345,
+     "name": "Revolving Switchyard"
+    },
+    {
+     "code": 4334811,
+     "name": "Scrap Recycler"
+    },
+    {
+     "code": 92359409,
+     "name": "Superdreadnought Rail Cannon Gustav Rocket"
+    },
+    {
+     "code": 25274141,
+     "name": "Urgent Schedule",
+     "set": true
+    }
+   ],
+   "hand": [],
+   "measure": {
+    "field": 0.4492753623188406,
+    "hand": 0.0,
+    "floodgates": 0.9299999999999999,
+    "resilience": 0.1673770957658426,
+    "follow_up": {
+     "gained": 0,
+     "rebuild": 3
+    }
+   }
+  },
+  {
+   "value": 1.6537016197783463,
+   "look_key": "01c24c2816201f3a",
+   "field": [
+    {
+     "code": 146746,
+     "name": "Double Headed Anger Knuckle",
+     "zone": "emz"
+    },
+    {
+     "code": 23434538,
+     "name": "Maxx \"C\""
+    },
+    {
+     "code": 92359409,
+     "name": "Superdreadnought Rail Cannon Gustav Rocket"
+    },
+    {
+     "code": 25274141,
+     "name": "Urgent Schedule",
+     "set": true
+    }
+   ],
+   "hand": [
+    18144507
+   ],
+   "measure": {
+    "field": 0.4492753623188406,
+    "hand": 0.0,
+    "floodgates": 0.9299999999999999,
+    "resilience": 0.1673770957658426,
+    "follow_up": {
+     "gained": 0,
+     "rebuild": 3
     }
    }
   }
@@ -551,206 +532,20 @@
    [
     1,
     0,
-    3,
-    0
-   ],
-   [
-    1,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0
-   ],
-   [
-    1,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0
-   ],
-   [
-    0,
-    4,
-    0
-   ],
-   [
-    1,
-    0,
-    0,
-    0
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    1,
-    0,
-    0,
-    0
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    0,
-    0,
-    0,
-    0,
-    1,
-    0,
-    0,
-    0,
-    2,
-    0,
-    0,
-    0
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    0,
-    0,
-    0,
-    0
-   ],
-   [
-    0,
-    0,
-    0,
-    0
-   ],
-   [
-    0,
-    4,
-    2
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    1,
-    0,
-    0,
-    0
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    0,
-    0,
-    0,
-    0,
-    1,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
     5,
-    0,
-    2,
     0
    ],
    [
-    0,
+    1,
     0,
     0,
     0,
     1,
     0,
     0,
-    0,
-    0,
-    0,
-    0,
     0
    ],
    [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    0,
-    0,
-    0,
-    0,
     1,
     0,
     0,
@@ -763,60 +558,7 @@
    [
     0,
     4,
-    0
-   ],
-   [
-    1,
-    0,
-    0,
-    0
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    1,
-    0,
-    3,
-    0
-   ],
-   [
-    0,
-    0,
-    0,
-    0,
-    2,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    1,
-    0,
-    0,
-    0
-   ],
-   [
-    0,
-    4,
-    3
-   ],
-   [
-    1,
-    0,
-    0,
-    0
+    5
    ],
    [
     255,
@@ -971,7 +713,7 @@
    [
     4,
     0,
-    0,
+    1,
     0
    ],
    [
@@ -992,72 +734,40 @@
     255
    ],
    [
+    5,
+    0,
+    1,
+    0
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
     7,
     0,
     0,
     0
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    0,
-    0,
-    0,
-    0
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    0,
-    0,
-    0,
-    0
-   ],
-   [
-    0,
-    0,
-    0,
-    0,
-    1,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    255,
-    255,
-    255,
-    255
    ]
   ]
  }

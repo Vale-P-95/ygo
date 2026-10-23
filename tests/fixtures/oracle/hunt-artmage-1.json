@@ -15,6 +15,105 @@
  "boards_found": 15323,
  "boards": [
   {
+   "value": 3.0687564270152508,
+   "look_key": "8b0bd21a72c74827",
+   "field": [
+    {
+     "code": 74733322,
+     "name": "Artmage Academic Arcane Arts Acropolis"
+    },
+    {
+     "code": 34541940,
+     "name": "Artmage Finmel"
+    },
+    {
+     "code": 44654994,
+     "name": "Artmage Impasto -Recapture-",
+     "set": true
+    },
+    {
+     "code": 10045474,
+     "name": "Infinite Impermanence",
+     "set": true
+    },
+    {
+     "code": 66532962,
+     "name": "Magistus Chorozo"
+    },
+    {
+     "code": 70636044,
+     "name": "Varudras, the Final Bringer of the End Times"
+    },
+    {
+     "code": 70488851,
+     "name": "Vidolium the Unstable Power Patron of Unity"
+    }
+   ],
+   "hand": [
+    14558127
+   ],
+   "measure": {
+    "field": 1.9131851851851853,
+    "hand": 0.5333333333333333,
+    "floodgates": 0.0,
+    "resilience": 0.9259520697167757,
+    "follow_up": {
+     "gained": 0,
+     "rebuild": 1
+    }
+   }
+  },
+  {
+   "value": 2.5561708061002184,
+   "look_key": "203dd0e834118824",
+   "field": [
+    {
+     "code": 74733322,
+     "name": "Artmage Academic Arcane Arts Acropolis"
+    },
+    {
+     "code": 34541940,
+     "name": "Artmage Finmel"
+    },
+    {
+     "code": 22125101,
+     "name": "Beyond the Pendulum",
+     "zone": "emz"
+    },
+    {
+     "code": 10045474,
+     "name": "Infinite Impermanence",
+     "set": true
+    },
+    {
+     "code": 31822037,
+     "name": "Purification Power Patron"
+    },
+    {
+     "code": 70636044,
+     "name": "Varudras, the Final Bringer of the End Times"
+    },
+    {
+     "code": 70488851,
+     "name": "Vidolium the Unstable Power Patron of Unity"
+    }
+   ],
+   "hand": [
+    14558127,
+    17473466
+   ],
+   "measure": {
+    "field": 1.531703703703704,
+    "hand": 0.5333333333333333,
+    "floodgates": 0.0,
+    "resilience": 0.507445170660857,
+    "follow_up": {
+     "gained": 0,
+     "rebuild": 2
+    }
+   }
+  },
+  {
    "value": 2.5424165577342053,
    "look_key": "bece85aef736487e",
    "field": [
@@ -77,8 +176,8 @@
    }
   },
   {
-   "value": 2.4835930283224408,
-   "look_key": "a9cec3b2f0ddddf2",
+   "value": 2.5424165577342053,
+   "look_key": "c312d17bcc81e238",
    "field": [
     {
      "code": 74733322,
@@ -130,7 +229,7 @@
     "field": 1.531703703703704,
     "hand": 0.5333333333333333,
     "floodgates": 0.0,
-    "resilience": 0.5864822076978942,
+    "resilience": 0.6845214233841687,
     "follow_up": {
      "gained": 0,
      "rebuild": 1
@@ -138,8 +237,8 @@
    }
   },
   {
-   "value": 2.4835930283224408,
-   "look_key": "f25b1b0b4a9ba8b9",
+   "value": 2.5424165577342053,
+   "look_key": "e5efd28c831d9d66",
    "field": [
     {
      "code": 74733322,
@@ -191,119 +290,7 @@
     "field": 1.531703703703704,
     "hand": 0.5333333333333333,
     "floodgates": 0.0,
-    "resilience": 0.5864822076978942,
-    "follow_up": {
-     "gained": 0,
-     "rebuild": 1
-    }
-   }
-  },
-  {
-   "value": 2.4835930283224408,
-   "look_key": "58d5356e21cf7f08",
-   "field": [
-    {
-     "code": 74733322,
-     "name": "Artmage Academic Arcane Arts Acropolis"
-    },
-    {
-     "code": 34541940,
-     "name": "Artmage Finmel"
-    },
-    {
-     "code": 60946049,
-     "name": "Artmage Graflare"
-    },
-    {
-     "code": 1122030,
-     "name": "Artmage Vandalism -Assault-"
-    },
-    {
-     "code": 22125101,
-     "name": "Beyond the Pendulum",
-     "zone": "emz"
-    },
-    {
-     "code": 10045474,
-     "name": "Infinite Impermanence",
-     "set": true
-    },
-    {
-     "code": 97556336,
-     "name": "Medius the Pure"
-    },
-    {
-     "code": 70636044,
-     "name": "Varudras, the Final Bringer of the End Times"
-    },
-    {
-     "code": 70488851,
-     "name": "Vidolium the Unstable Power Patron of Unity"
-    }
-   ],
-   "hand": [
-    14558127,
-    17473466
-   ],
-   "measure": {
-    "field": 1.531703703703704,
-    "hand": 0.5333333333333333,
-    "floodgates": 0.0,
-    "resilience": 0.5864822076978942,
-    "follow_up": {
-     "gained": 0,
-     "rebuild": 1
-    }
-   }
-  },
-  {
-   "value": 2.4361708061002183,
-   "look_key": "c2c851970972364a",
-   "field": [
-    {
-     "code": 74733322,
-     "name": "Artmage Academic Arcane Arts Acropolis"
-    },
-    {
-     "code": 34541940,
-     "name": "Artmage Finmel"
-    },
-    {
-     "code": 34541940,
-     "name": "Artmage Finmel"
-    },
-    {
-     "code": 97434754,
-     "name": "Artmage Litera"
-    },
-    {
-     "code": 22125101,
-     "name": "Beyond the Pendulum",
-     "zone": "emz"
-    },
-    {
-     "code": 10045474,
-     "name": "Infinite Impermanence",
-     "set": true
-    },
-    {
-     "code": 70636044,
-     "name": "Varudras, the Final Bringer of the End Times"
-    },
-    {
-     "code": 70488851,
-     "name": "Vidolium the Unstable Power Patron of Unity"
-    }
-   ],
-   "hand": [
-    14558127,
-    42141493
-   ],
-   "measure": {
-    "field": 1.531703703703704,
-    "hand": 0.5333333333333333,
-    "floodgates": 0.0,
-    "resilience": 0.507445170660857,
+    "resilience": 0.6845214233841687,
     "follow_up": {
      "gained": 0,
      "rebuild": 1
@@ -1372,7 +1359,7 @@
    [
     0,
     4,
-    2
+    3
    ],
    [
     1,
@@ -1444,7 +1431,7 @@
     0,
     0,
     0,
-    0,
+    6,
     0,
     0,
     0
@@ -1462,50 +1449,7 @@
     255
    ],
    [
-    5,
-    0,
-    1,
-    0
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    0,
     4,
-    3
-   ],
-   [
-    1,
-    0,
-    0,
-    0
-   ],
-   [
-    1,
-    0,
-    0,
-    0
-   ],
-   [
-    0,
-    0,
-    0,
-    0,
-    1,
-    0,
-    0,
-    0,
-    0,
     0,
     0,
     0
@@ -1528,57 +1472,27 @@
     255
    ],
    [
-    5,
-    0,
-    0,
-    0
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
     1,
     0,
     0,
     0
    ],
    [
-    0,
-    0,
-    0,
-    0,
     1,
     0,
     0,
     0,
-    0,
+    2,
     0,
     0,
     0
    ],
    [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
+    1,
     0,
+    0,
+    0,
+    1,
     0,
     0,
     0
@@ -1586,19 +1500,7 @@
    [
     0,
     4,
-    4
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    255,
-    255,
-    255,
-    255
+    2
    ],
    [
     1,
@@ -1617,26 +1519,6 @@
     255,
     255,
     255
-   ],
-   [
-    0,
-    0,
-    0,
-    0,
-    1,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0
-   ],
-   [
-    0,
-    0,
-    0,
-    0
    ],
    [
     255,
@@ -1655,18 +1537,6 @@
     0,
     0,
     0
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    255,
-    255,
-    255,
-    255
    ]
   ]
  }

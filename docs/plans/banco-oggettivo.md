@@ -53,8 +53,52 @@ La forza di una board si misura con quanto ferma il turno vero degli avversari d
 - **Verità per board:** 1 − `left`, media pesata sugli avversari, senza le coppie dubbie. È la parte delle mosse del meta che la board ferma.
 - **Divisione:** per deck (le board di un deck restano insieme), 70% taratura e 30% verifica, con il seme 47.
 
-## Risultati
-- I risultati parziali sono in `tests/fixtures/boards/objective-bench.json`: solo nomi, codici e numeri. Lo stato del giro è in `objective-bench.status`. Si aggiornano ogni 45 minuti durante il giro.
+## Nuova base (23/10, main 1af365d)
+Questa è la base da usare ora: `tests/fixtures/boards/objective-bench.json` e `owner-bench.json` contengono questi numeri. Quelli della prima base, più sotto, restano per il confronto.
+
+### Cosa è cambiato nel codice
+- B5a: il kit dell'avversario ha un Extra Deck.
+- #86 e #91: nel livello 2, l'Extra Deck dell'avversario si rigioca e le opzioni si scelgono per descrizione.
+- #93: le tue risposte valgono insieme.
+- La verità (livello 2) viene dai giri su `main` 1af365d. Le misure generiche vengono da `main` baf1d82, cioè con la #94 (la regola "insieme" nella misura), rimisurate senza `--vs`. La #94 cambia il punteggio solo di 6 board su 205: Warrior Combo ×3 (+0,06), Tearlaments ×2 (+0,14), Yubel-0#3 (+0,42). Il ρ e l'ordine delle coppie non cambiano alla seconda cifra.
+
+### Il giro
+- Stesse board, avversari e pesi della prima base. Fa eccezione Elfnote Kewl Tune mano 0: le sue 5 linee vecchie non si rigiocano più neanche da sole dopo B5a (rc 1, "SelectChain { chains: [] } answered [0, 0, 0, 0]"). Le ho sostituite con le prime 5 board di una ricerca nuova sulla stessa mano (`combo_hunt.py --hands 2 --top 8 --seed 1` su `main`), con id `elfnote_kewl_tune-0new#k`.
+- 817 invocazioni, 4 alla volta, mediana 82 s contro 41 s della prima base. Mentre girava, la macchina faceva anche altro (le misure senza `--vs` e la preparazione delle coppie), quindi non so quanta parte del raddoppio venga dalla #93.
+- 8 invocazioni oltre il limite di 300 s: Elfnote mano 0 contro 5 avversari, Dracotail mano 0 contro 3. Le loro board hanno la verità su una parte del meta: 60% e 86% del peso.
+- Righe senza misura: 40 contro 159 della prima base. Sono solo le 8 invocazioni oltre il limite: Tearlaments, Earth Machine e Railway ora si misurano tutti. Mosse dell'avversario fatte su campo vuoto: 96,3% (era 94,7%). Nessuna coppia dubbia.
+
+### Cosa si è mosso
+- La verità sale un poco: +0,018 in media sulle 200 board in comune, mediana di |Δ| 0,013. L'ordine resta quasi lo stesso: ρ tra vecchia e nuova 0,974. Mediana 0,643 (era 0,633).
+- Rispetto al giro intermedio su 5b00370 (prima della #93): +0,013 in media, mediana di |Δ| 0,004. Quindi buona parte del cambio viene dalla #93 (le risposte insieme).
+- Per avversario, la parte di mosse fermate (media sulle board) sale di più contro Phantom Knights (0,55 → 0,62), Vanquish Soul K9 (0,54 → 0,58), Sky Striker (0,57 → 0,60) ed Elfnote Kewl Tune (0,60 → 0,63). Scende solo contro Tearlaments (0,58 → 0,53), che prima aveva righe senza misura.
+- Per deck: salgono di più Power Patron (+0,07), Odion (+0,06) e Branded (+0,05); scende solo Tearlaments (−0,015).
+- Le board nuove di Elfnote Kewl Tune hanno verità 0,35–0,39 e punteggio 0,53–0,80: il punteggio le sopravvaluta.
+
+### Come le misure generiche seguono la verità
+| Gruppo | Board | ρ score | ρ campo | ρ resilienza | ρ countered | ρ floodgate | ρ l1 | Coppie dello stesso deck nell'ordine giusto |
+|---|---|---|---|---|---|---|---|---|
+| taratura | 145 | 0,87 | 0,72 | 0,74 | 0,40 | 0,00 | 0,74 | 113 su 135 |
+| verifica | 60 | 0,63 | 0,52 | 0,63 | 0,28 | −0,33 | 0,59 | 48 su 50 |
+
+- Sulle stesse 200 board della prima base: ρ score 0,86 in taratura (era 0,84) e 0,63 in verifica (era 0,64). Coppie nell'ordine giusto: 108 su 130 e 48 su 50.
+- Il quadro non cambia: il punteggio composto segue la verità meglio di ogni misura singola, e il floodgate non aiuta.
+
+### Le coppie del proprietario
+- 77 board, 532 invocazioni, 30 oltre il limite:
+  - O1a contro tutti i 19 avversari, che quindi resta senza verità;
+  - Blue-Eyes mano 0 contro 7: O12–O14 hanno la verità sul 42% del peso;
+  - Synchrons contro 3: O29 e O30 al 65%;
+  - Dracotail mano 1 contro 1: O35 e O36 al 92%.
+- O1b non si rigioca, come prima.
+- Sulle 76 board con la verità, la misura generica di oggi la segue con ρ 0,85: taratura 0,85, verifica 0,76. Coppie dello stesso deck nell'ordine giusto: 51 su 60 e 26 su 27.
+- Accordo col proprietario:
+  - verità del banco: 9 su 38, stesso verso 11 su 32;
+  - misura generica di oggi: 11 su 38, stesso verso 8 su 32.
+- Le coppie dove la verità decide (|Δ| ≥ 0,02) sono le stesse 7 della prima base, con lo stesso segno: d'accordo col proprietario O10, O33 e O34; non d'accordo O16, O17, O18 e O23. La lettura della prima base resta valida.
+
+## Prima base (22/10, main 5df8595)
+- Il file di questa base è nella storia di `tests/fixtures/boards/objective-bench.json` (PR #76).
 - Il giro è finito il 22/10 alle 16:51 UTC.
   - 817 invocazioni su 817, nessuna oltre il limite. Tempo totale 11,1 ore di invocazioni (3 alla volta), mediana 41 s. Il container è stato reclamato due volte quando la sessione era ferma; il giro è ripartito da dove era.
   - 3895 righe board-avversario. Mosse dell'avversario fatte su campo vuoto: 94,7% in media.
@@ -92,7 +136,7 @@ Correlazione di rango (Spearman) con la verità, per gruppo. `score` è il punte
 - Il livello 1 (resilienza contro i breaker del meta) non aggiunge ordine rispetto al punteggio: ρ 0,73 contro 0,84 sulla taratura.
 - I dati per tarare i pesi sono in `tests/fixtures/boards/objective-bench.json`.
 
-## Le coppie del proprietario nel banco
+## Prima base: le coppie del proprietario nel banco
 - **Script:** `scripts/owner_bench.py`. Ritrova le 90 board di `tests/fixtures/boards/owner-pairs.json` per firma senza zone, con lo stesso cimitero e le stesse bandite, nelle cartelle di `combo_hunt.py --json`. Le rimisura con `main` una alla volta e le mette nel banco con gli stessi avversari e pesi (Lunalight saltato).
   ```
   python3 scripts/owner_bench.py $S/owner --own $S/mdm2 --meta-decks $S/mdm6 --meta $S/bench/meta.json --hunt $S/h7m $S/h7bm $S/o1h $S/op_make

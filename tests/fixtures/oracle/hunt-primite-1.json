@@ -115,6 +115,99 @@
    }
   },
   {
+   "value": 3.702203081232493,
+   "look_key": "4e9682237b88e2c6",
+   "field": [
+    {
+     "code": 97045737,
+     "name": "Dominus Purge",
+     "set": true
+    },
+    {
+     "code": 13529466,
+     "name": "Invoked Caliga"
+    },
+    {
+     "code": 62514770,
+     "name": "Labradorite Dragon"
+    },
+    {
+     "code": 29095457,
+     "name": "Primite Drillbeam",
+     "set": true
+    },
+    {
+     "code": 56506740,
+     "name": "Primite Lordly Lode"
+    },
+    {
+     "code": 40605147,
+     "name": "Solemn Strike",
+     "set": true
+    }
+   ],
+   "hand": [
+    58053438
+   ],
+   "measure": {
+    "field": 1.6869047619047621,
+    "hand": 0.0,
+    "floodgates": 1.44,
+    "resilience": 1.4388305322128851,
+    "follow_up": {
+     "gained": 0,
+     "rebuild": 0
+    }
+   }
+  },
+  {
+   "value": 3.702203081232493,
+   "look_key": "9d7e893101c7690e",
+   "field": [
+    {
+     "code": 87979586,
+     "name": "Angel Trumpeter"
+    },
+    {
+     "code": 97045737,
+     "name": "Dominus Purge",
+     "set": true
+    },
+    {
+     "code": 13529466,
+     "name": "Invoked Caliga",
+     "zone": "emz"
+    },
+    {
+     "code": 29095457,
+     "name": "Primite Drillbeam",
+     "set": true
+    },
+    {
+     "code": 56506740,
+     "name": "Primite Lordly Lode"
+    },
+    {
+     "code": 40605147,
+     "name": "Solemn Strike",
+     "set": true
+    }
+   ],
+   "hand": [
+    58053438
+   ],
+   "measure": {
+    "field": 1.6869047619047621,
+    "hand": 0.0,
+    "floodgates": 1.44,
+    "resilience": 1.4388305322128851,
+    "follow_up": {
+     "gained": 0,
+     "rebuild": 0
+    }
+   }
+  },
+  {
    "value": 3.684601307189543,
    "look_key": "43dbda0ebda2c0aa",
    "field": [
@@ -158,99 +251,6 @@
     "resilience": 1.7391503267973862,
     "follow_up": {
      "gained": 2,
-     "rebuild": 0
-    }
-   }
-  },
-  {
-   "value": 3.439420634920635,
-   "look_key": "8d1d99d701d83d63",
-   "field": [
-    {
-     "code": 13529466,
-     "name": "Invoked Caliga",
-     "zone": "emz"
-    },
-    {
-     "code": 62514770,
-     "name": "Labradorite Dragon"
-    },
-    {
-     "code": 29095457,
-     "name": "Primite Drillbeam",
-     "set": true
-    },
-    {
-     "code": 56506740,
-     "name": "Primite Lordly Lode"
-    },
-    {
-     "code": 40605147,
-     "name": "Solemn Strike",
-     "set": true
-    },
-    {
-     "code": 58053438,
-     "name": "Songs of the Dominators",
-     "set": true
-    }
-   ],
-   "hand": [
-    97045737
-   ],
-   "measure": {
-    "field": 1.3694444444444445,
-    "hand": 0.2412698412698413,
-    "floodgates": 1.44,
-    "resilience": 1.1680555555555556,
-    "follow_up": {
-     "gained": 0,
-     "rebuild": 0
-    }
-   }
-  },
-  {
-   "value": 3.439420634920635,
-   "look_key": "1a7b2870b928a594",
-   "field": [
-    {
-     "code": 87979586,
-     "name": "Angel Trumpeter"
-    },
-    {
-     "code": 13529466,
-     "name": "Invoked Caliga"
-    },
-    {
-     "code": 29095457,
-     "name": "Primite Drillbeam",
-     "set": true
-    },
-    {
-     "code": 56506740,
-     "name": "Primite Lordly Lode"
-    },
-    {
-     "code": 40605147,
-     "name": "Solemn Strike",
-     "set": true
-    },
-    {
-     "code": 58053438,
-     "name": "Songs of the Dominators",
-     "set": true
-    }
-   ],
-   "hand": [
-    97045737
-   ],
-   "measure": {
-    "field": 1.3694444444444445,
-    "hand": 0.2412698412698413,
-    "floodgates": 1.44,
-    "resilience": 1.1680555555555556,
-    "follow_up": {
-     "gained": 0,
      "rebuild": 0
     }
    }

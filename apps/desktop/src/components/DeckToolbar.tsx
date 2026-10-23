@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { cardImage, formatDate, isDesktop, type Deck, type DeckFormat, type DeckSummary, type Legality } from "../lib/api";
 import { FORMAT_LABELS } from "../lib/deck";
 import { sound } from "../lib/sound";
-import { Eye } from "lucide-react";
+import { Dices, Eye, Redo2, Undo2 } from "lucide-react";
 import { EmblemIcon } from "./Emblems";
 import { Popover, useOutsideClose } from "./Popover";
 import { HelpPopover } from "./ui/HelpPopover";
@@ -101,7 +101,7 @@ export function DeckToolbar(p: Props) {
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm font-medium">{d.name}</span>
-                  <span className="text-[11px] text-faint">
+                  <span className="text-xs text-faint">
                     {FORMAT_LABELS[d.format]} · {d.mainCount}/{d.extraCount}/{d.sideCount}
                   </span>
                 </span>
@@ -118,16 +118,17 @@ export function DeckToolbar(p: Props) {
             aria-label="Nome del deck"
           />
         </div>
-        <span className="w-20 text-right text-[11px] text-faint">{p.saveState === "saving" ? "Salvataggio…" : p.saveState === "saved" ? "Salvato ✓" : ""}</span>
+        <span className="w-20 text-right text-xs text-faint">{p.saveState === "saving" ? "Salvataggio…" : p.saveState === "saved" ? "Salvato ✓" : ""}</span>
         <div className="flex items-center gap-1">
           <button type="button" className="btn btn-ghost !px-2.5 !py-1.5" disabled={!p.canUndo} onClick={p.onUndo} title="Annulla (Ctrl+Z)" aria-label="Annulla">
-            ↶
+            <Undo2 size={16} />
           </button>
           <button type="button" className="btn btn-ghost !px-2.5 !py-1.5" disabled={!p.canRedo} onClick={p.onRedo} title="Ripeti (Ctrl+Y)" aria-label="Ripeti">
-            ↷
+            <Redo2 size={16} />
           </button>
-          <button type="button" className="btn btn-ghost !py-1.5" onClick={p.onTestHand} disabled={p.deck.main.length === 0} title="Pesca mani di prova dal Main Deck">
-            Mano di prova
+          <button type="button" className="btn btn-ghost !py-1.5 flex items-center gap-1.5" onClick={p.onTestHand} disabled={p.deck.main.length === 0} title="Pesca mani di prova dal Main Deck">
+            <Dices size={15} />
+            <span>Mano di prova</span>
           </button>
           <div ref={exportRef} className="relative">
             <button
@@ -211,7 +212,7 @@ export function DeckToolbar(p: Props) {
             {p.legality == null ? "…" : errors.length ? `✕ ${errors.length} ${errors.length === 1 ? "problema" : "problemi"}` : `✓ Legale in ${FORMAT_LABELS[p.deck.format]}`}
           </button>
           <Popover open={issuesOpen} width={420}>
-            {p.legality?.banlist && <p className="px-2 pt-1 pb-2 text-[11px] text-faint">Banlist {FORMAT_LABELS[p.deck.format]} in vigore dal {formatDate(p.legality.banlist)}</p>}
+            {p.legality?.banlist && <p className="px-2 pt-1 pb-2 text-xs text-faint">Banlist {FORMAT_LABELS[p.deck.format]} in vigore dal {formatDate(p.legality.banlist)}</p>}
             {errors.length === 0 && <p className="px-2 py-1.5 text-sm text-ok">Il deck rispetta le regole di {FORMAT_LABELS[p.deck.format]}.</p>}
             {[...errors, ...warnings].map((issue, i) => (
               <button
@@ -269,9 +270,9 @@ export function DeckToolbar(p: Props) {
               <div className="border-t border-border/60 pt-2">
                 <p className="font-semibold text-text">Scorciatoie da tastiera</p>
                 <ul className="mt-1 list-disc pl-4 space-y-1 text-muted">
-                  <li><kbd className="rounded bg-surface-3 px-1 py-0.5 font-mono text-[11px]">Esc</kbd>: sblocca la carta fissata nell'Ispettore.</li>
-                  <li><kbd className="rounded bg-surface-3 px-1 py-0.5 font-mono text-[11px]">Ctrl+Z</kbd> / <kbd className="rounded bg-surface-3 px-1 py-0.5 font-mono text-[11px]">Ctrl+Y</kbd>: annulla / ripeti modifica.</li>
-                  <li><kbd className="rounded bg-surface-3 px-1 py-0.5 font-mono text-[11px]">Ctrl+F</kbd>: ricerca nel catalogo.</li>
+                  <li><kbd className="rounded bg-surface-3 px-1 py-0.5 font-mono text-xs">Esc</kbd>: sblocca la carta fissata nell'Ispettore.</li>
+                  <li><kbd className="rounded bg-surface-3 px-1 py-0.5 font-mono text-xs">Ctrl+Z</kbd> / <kbd className="rounded bg-surface-3 px-1 py-0.5 font-mono text-xs">Ctrl+Y</kbd>: annulla / ripeti modifica.</li>
+                  <li><kbd className="rounded bg-surface-3 px-1 py-0.5 font-mono text-xs">Ctrl+F</kbd>: ricerca nel catalogo.</li>
                 </ul>
               </div>
             </div>

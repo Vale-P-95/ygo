@@ -155,6 +155,49 @@
    }
   },
   {
+   "value": 1.6465883986928107,
+   "look_key": "b1e56c45d7f7fa0f",
+   "field": [
+    {
+     "code": 10045474,
+     "name": "Infinite Impermanence",
+     "set": true
+    },
+    {
+     "code": 43219114,
+     "name": "Majesty of the White Dragons",
+     "set": true
+    },
+    {
+     "code": 63198739,
+     "name": "Primite Dragon Ether Beryl"
+    },
+    {
+     "code": 29095457,
+     "name": "Primite Drillbeam",
+     "set": true
+    },
+    {
+     "code": 56506740,
+     "name": "Primite Lordly Lode"
+    }
+   ],
+   "hand": [
+    89631139,
+    25311006
+   ],
+   "measure": {
+    "field": 1.0098055555555556,
+    "hand": 0.0,
+    "floodgates": 0.0,
+    "resilience": 0.8613047385620916,
+    "follow_up": {
+     "gained": 0,
+     "rebuild": 1
+    }
+   }
+  },
+  {
    "value": 1.5265883986928106,
    "look_key": "6f8f2a34d6cc0eb0",
    "field": [
@@ -193,55 +236,6 @@
    ],
    "hand": [
     25311006,
-    89631139
-   ],
-   "measure": {
-    "field": 1.0098055555555556,
-    "hand": 0.0,
-    "floodgates": 0.0,
-    "resilience": 0.8613047385620916,
-    "follow_up": {
-     "gained": 1,
-     "rebuild": 0
-    }
-   }
-  },
-  {
-   "value": 1.5265883986928106,
-   "look_key": "d794a2ffcf2eb687",
-   "field": [
-    {
-     "code": 89631133,
-     "name": "Blue-Eyes White Dragon"
-    },
-    {
-     "code": 10045474,
-     "name": "Infinite Impermanence",
-     "set": true
-    },
-    {
-     "code": 43219114,
-     "name": "Majesty of the White Dragons",
-     "set": true
-    },
-    {
-     "code": 29095457,
-     "name": "Primite Drillbeam",
-     "set": true
-    },
-    {
-     "code": 56506740,
-     "name": "Primite Lordly Lode"
-    },
-    {
-     "code": 42097666,
-     "name": "Spirit with Eyes of Blue",
-     "zone": "emz"
-    }
-   ],
-   "hand": [
-    25311006,
-    24382602,
     89631139
    ],
    "measure": {

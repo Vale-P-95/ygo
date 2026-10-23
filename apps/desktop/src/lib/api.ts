@@ -924,6 +924,8 @@ const tauriApi = {
   comboMoves: (hand: number, key: string, vsDeckId: number) => invoke<ComboMoves>("combo_moves", { hand, key, vsDeckId }),
   /** What each card of a board that interrupts holds against (destroy, banish, face-down, negate): a few seconds, for the board open. */
   boardProtection: (hand: number, key: string) => invoke<ComboPiece[]>("board_protection", { hand, key }),
+  /** Level 2 against the meta's most played decks (L2-3): takes about a minute the first time, then ~20s a board. */
+  comboMeta: (boards?: { hand: number; key: string }[]) => invoke<number>("combo_meta", { boards: boards ?? null }),
   onComboProgress: (handler: (p: ComboProgress) => void): Promise<UnlistenFn> => listen<ComboProgress>("combo-progress", (e) => handler(e.payload)),
   /** Laboratorio, "Collegamenti": the map of a deck, read by the engine (about half a minute the first time, then kept until its cards change). */
   deckLinks: (deckId: number) => invoke<DeckLinks>("deck_links", { deckId }),

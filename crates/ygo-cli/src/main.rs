@@ -321,6 +321,20 @@ enum Cmd {
         #[arg(long)]
         script_errors: bool,
     },
+    /// Write decks of random archetypes of the card pool as .ydk, for the
+    /// robustness sweep of the search and the probe turn
+    /// (scripts/robustness.py).
+    RandomDecks {
+        #[arg(long, default_value_t = 100)]
+        count: usize,
+        /// Main Deck cards an archetype needs.
+        #[arg(long, default_value_t = 10)]
+        min_cards: usize,
+        #[arg(long, default_value_t = 1)]
+        seed: u64,
+        #[arg(long)]
+        out: PathBuf,
+    },
 }
 
 #[derive(clap::Args)]
@@ -423,7 +437,29 @@ fn main() -> Result<()> {
             let threads = threads.unwrap_or_else(|| std::thread::available_parallelism().map_or(4, |n| n.get()));
             sweep(&cli.data, &SweepConfig { duels, max_decisions, max_turns, seed, threads }, script_errors)
         }
+        Cmd::RandomDecks { count, min_cards, seed, out } => random_decks(&cli.data, count, min_cards, seed, &out),
     }
+}
+
+fn random_decks(dir: &Path, count: usize, min_cards: usize, seed: u64, out: &Path) -> Result<()> {
+    let engine = load_engine(dir)?;
+    let pool = ygo_engine::sweep::CardPool::new(&engine);
+    std::fs::create_dir_all(out)?;
+    let decks = pool.archetype_decks(count, min_cards, seed);
+    for (k, (setcode, deck)) in decks.iter().enumerate() {
+        // Named by the archetype's set code and its first card, for reading.
+        let first = deck.main.first().map(|&c| engine.cards().name(c)).unwrap_or_default();
+        let slug: String = first.to_lowercase().chars().map(|c| if c.is_ascii_alphanumeric() { c } else { '_' }).collect();
+        let name = format!("{k:03}-{setcode:03x}-{}", slug.trim_matches('_'));
+        let text = format!(
+            "#main\n{}\n#extra\n{}\n!side\n",
+            deck.main.iter().map(u32::to_string).collect::<Vec<_>>().join("\n"),
+            deck.extra.iter().map(u32::to_string).collect::<Vec<_>>().join("\n")
+        );
+        std::fs::write(out.join(format!("{name}.ydk")), text)?;
+    }
+    println!("{} decks of {} archetypes with {min_cards}+ Main Deck cards in {}", decks.len(), pool.archetypes(), out.display());
+    Ok(())
 }
 
 struct CombosOptions {

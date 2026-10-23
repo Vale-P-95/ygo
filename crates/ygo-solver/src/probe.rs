@@ -2179,6 +2179,14 @@ impl<'a> Prober<'a> {
 
     /// [`Prober::run`], knowing more (see [`Context`]).
     fn run_with(&self, prelude: Prelude, steps: &[&KitStep], policy: Policy, context: Context) -> Result<RunTrace, Error> {
+        // The actions' labels are read only by the engine log of a debug run.
+        if std::env::var("DUELFORGE_DEBUG_PROBE").is_ok_and(|v| v == "2") {
+            return self.run_labelled(prelude, steps, policy, context);
+        }
+        ygo_engine::without_labels(|| self.run_labelled(prelude, steps, policy, context))
+    }
+
+    fn run_labelled(&self, prelude: Prelude, steps: &[&KitStep], policy: Policy, context: Context) -> Result<RunTrace, Error> {
         let engine = self.engine;
         let opponent = context.opponent.unwrap_or(&self.kit.opponent);
         let mut duel = match prelude {

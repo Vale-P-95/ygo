@@ -119,8 +119,8 @@
    }
   },
   {
-   "value": 1.5705359477124181,
-   "look_key": "e1ebae676864d3c3",
+   "value": 1.595602614379085,
+   "look_key": "df59f70f4c00cf34",
    "field": [
     {
      "code": 44654994,
@@ -128,25 +128,37 @@
      "set": true
     },
     {
-     "code": 19491080,
-     "name": "Clown Crew Cappello"
+     "code": 82159583,
+     "name": "Clown Crew Biancaviso"
+    },
+    {
+     "code": 82159583,
+     "name": "Clown Crew Biancaviso"
+    },
+    {
+     "code": 83232904,
+     "name": "Clown Crew Malabarisme",
+     "set": true
     },
     {
      "code": 57847269,
      "name": "Clown Crew Matinee Operatics"
     },
     {
-     "code": 6547248,
-     "name": "Clown Crew New Face"
-    },
-    {
-     "code": 70058649,
-     "name": "Clown Crew Soiree Operations",
-     "set": true
+     "code": 97556336,
+     "name": "Medius the Pure"
     },
     {
      "code": 53589300,
-     "name": "Nerva the Power Patron of Creation",
+     "name": "Nerva the Power Patron of Creation"
+    },
+    {
+     "code": 17473466,
+     "name": "Nervedo the Shadebeast Power Patron"
+    },
+    {
+     "code": 77157846,
+     "name": "Shade the Obscure",
      "zone": "emz"
     },
     {
@@ -155,26 +167,24 @@
     }
    ],
    "hand": [
-    57847269,
-    97556336,
-    82159583,
-    14558127,
-    23434538
+    27204311,
+    23434538,
+    94145021
    ],
    "measure": {
     "field": 0.6688888888888889,
-    "hand": 0.6214814814814814,
+    "hand": 0.38266666666666665,
     "floodgates": 0.0,
     "resilience": 0.5705228758169935,
     "follow_up": {
      "gained": 2,
-     "rebuild": 0
+     "rebuild": 2
     }
    }
   },
   {
-   "value": 1.4912026143790849,
-   "look_key": "cea66209b767ec72",
+   "value": 1.595602614379085,
+   "look_key": "fe8403397f6cd492",
    "field": [
     {
      "code": 44654994,
@@ -182,13 +192,21 @@
      "set": true
     },
     {
-     "code": 57847269,
-     "name": "Clown Crew Matinee Operatics"
+     "code": 82159583,
+     "name": "Clown Crew Biancaviso"
     },
     {
-     "code": 70058649,
-     "name": "Clown Crew Soiree Operations",
+     "code": 82159583,
+     "name": "Clown Crew Biancaviso"
+    },
+    {
+     "code": 83232904,
+     "name": "Clown Crew Malabarisme",
      "set": true
+    },
+    {
+     "code": 57847269,
+     "name": "Clown Crew Matinee Operatics"
     },
     {
      "code": 97556336,
@@ -200,8 +218,8 @@
      "zone": "emz"
     },
     {
-     "code": 51669847,
-     "name": "Plundered Power Patron Plane - Vidolia"
+     "code": 17473466,
+     "name": "Nervedo the Shadebeast Power Patron"
     },
     {
      "code": 70488851,
@@ -209,29 +227,33 @@
     }
    ],
    "hand": [
-    82159583,
-    14558127,
-    57847269
+    27204311,
+    23434538,
+    94145021
    ],
    "measure": {
     "field": 0.6688888888888889,
-    "hand": 0.5333333333333333,
+    "hand": 0.38266666666666665,
     "floodgates": 0.0,
     "resilience": 0.5705228758169935,
     "follow_up": {
-     "gained": 1,
-     "rebuild": 0
+     "gained": 2,
+     "rebuild": 2
     }
    }
   },
   {
-   "value": 1.1861925925925925,
-   "look_key": "0ee0b11bb61e1cab",
+   "value": 1.595602614379085,
+   "look_key": "19e1a7e2ddeea189",
    "field": [
     {
      "code": 44654994,
      "name": "Artmage Impasto -Recapture-",
      "set": true
+    },
+    {
+     "code": 82159583,
+     "name": "Clown Crew Biancaviso"
     },
     {
      "code": 30109445,
@@ -248,9 +270,16 @@
      "name": "Clown Crew Matinee Operatics"
     },
     {
-     "code": 70058649,
-     "name": "Clown Crew Soiree Operations",
-     "set": true
+     "code": 97556336,
+     "name": "Medius the Pure"
+    },
+    {
+     "code": 53589300,
+     "name": "Nerva the Power Patron of Creation"
+    },
+    {
+     "code": 17473466,
+     "name": "Nervedo the Shadebeast Power Patron"
     },
     {
      "code": 70488851,
@@ -258,19 +287,18 @@
     }
    ],
    "hand": [
+    27204311,
     23434538,
-    97556336,
-    82159583,
-    14558127
+    94145021
    ],
    "measure": {
-    "field": 0.3431481481481481,
-    "hand": 0.6082592592592593,
+    "field": 0.6688888888888889,
+    "hand": 0.38266666666666665,
     "floodgates": 0.0,
-    "resilience": 0.2926851851851852,
+    "resilience": 0.5705228758169935,
     "follow_up": {
-     "gained": 1,
-     "rebuild": 1
+     "gained": 2,
+     "rebuild": 2
     }
    }
   }

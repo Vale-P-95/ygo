@@ -263,7 +263,7 @@ export function CommandPalette({
               Pulisci
             </button>
           )}
-          <kbd className="rounded border border-border-strong bg-bg-2 px-1.5 py-0.5 font-mono text-[10px] text-faint">Esc</kbd>
+          <kbd className="rounded border border-border-strong bg-bg-2 px-1.5 py-0.5 font-mono text-xs text-faint">Esc</kbd>
         </div>
 
         {/* Results list */}
@@ -307,12 +307,12 @@ export function CommandPalette({
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center gap-2">
                               <span className="truncate text-xs font-semibold text-text">{item.title}</span>
-                              {item.active && <span className="chip chip-active !px-2 !py-0 !text-[10px]">Aperta</span>}
+                              {item.active && <span className="chip chip-active !px-2 !py-0 text-xs">Aperta</span>}
                             </div>
-                            <p className="truncate text-[11px] text-muted">{item.subtitle}</p>
+                            <p className="truncate text-xs text-muted">{item.subtitle}</p>
                           </div>
                           {item.shortcut && (
-                            <kbd className="shrink-0 rounded border border-border-strong bg-bg-2 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-gold">
+                            <kbd className="shrink-0 rounded border border-border-strong bg-bg-2 px-1.5 py-0.5 font-mono text-xs font-semibold text-gold">
                               {item.shortcut}
                             </kbd>
                           )}
@@ -327,21 +327,21 @@ export function CommandPalette({
         </div>
 
         {/* Footer hints */}
-        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border bg-surface-2/60 px-4 py-2 text-[11px] text-muted">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border bg-surface-2/60 px-4 py-2 text-xs text-muted">
           <div className="flex items-center gap-3">
             <span>
-              <kbd className="rounded border border-border-strong bg-bg-2 px-1.5 py-0.5 font-mono text-[10px] text-gold">↑</kbd>{" "}
-              <kbd className="rounded border border-border-strong bg-bg-2 px-1.5 py-0.5 font-mono text-[10px] text-gold">↓</kbd> Scorri
+              <kbd className="rounded border border-border-strong bg-bg-2 px-1.5 py-0.5 font-mono text-xs text-gold">↑</kbd>{" "}
+              <kbd className="rounded border border-border-strong bg-bg-2 px-1.5 py-0.5 font-mono text-xs text-gold">↓</kbd> Scorri
             </span>
             <span>
-              <kbd className="rounded border border-border-strong bg-bg-2 px-1.5 py-0.5 font-mono text-[10px] text-gold">Invio</kbd> Esegui
+              <kbd className="rounded border border-border-strong bg-bg-2 px-1.5 py-0.5 font-mono text-xs text-gold">Invio</kbd> Esegui
             </span>
             <span>
-              <kbd className="rounded border border-border-strong bg-bg-2 px-1.5 py-0.5 font-mono text-[10px] text-gold">Ctrl+1..7</kbd> Sezioni
+              <kbd className="rounded border border-border-strong bg-bg-2 px-1.5 py-0.5 font-mono text-xs text-gold">Ctrl+1..7</kbd> Sezioni
             </span>
           </div>
           <span>
-            <kbd className="rounded border border-border-strong bg-bg-2 px-1.5 py-0.5 font-mono text-[10px] text-gold">?</kbd> Guida rapida
+            <kbd className="rounded border border-border-strong bg-bg-2 px-1.5 py-0.5 font-mono text-xs text-gold">?</kbd> Guida rapida
           </span>
         </div>
       </div>

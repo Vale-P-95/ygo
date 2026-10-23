@@ -65,8 +65,8 @@
    }
   },
   {
-   "value": 1.7270674291938999,
-   "look_key": "9a4a1dc8e284847e",
+   "value": 1.8829072984749455,
+   "look_key": "2c12f8e393483af6",
    "field": [
     {
      "code": 28143384,
@@ -90,17 +90,13 @@
      "name": "Phantom of Yubel"
     },
     {
-     "code": 80453041,
-     "name": "Phantom of Yubel"
-    },
-    {
-     "code": 29301450,
-     "name": "S:P Little Knight",
-     "zone": "emz"
-    },
-    {
      "code": 62318994,
      "name": "Samsara D Lotus"
+    },
+    {
+     "code": 67680512,
+     "name": "Unchained Soul of Rage",
+     "zone": "emz"
     }
    ],
    "hand": [
@@ -108,10 +104,10 @@
     44886582
    ],
    "measure": {
-    "field": 1.2271296296296297,
+    "field": 1.3876851851851852,
     "hand": 0.0,
     "floodgates": 0.0,
-    "resilience": 0.6332296659404503,
+    "resilience": 0.6253701888162673,
     "follow_up": {
      "gained": 0,
      "rebuild": 1
@@ -119,63 +115,9 @@
    }
   },
   {
-   "value": 1.7270674291938999,
-   "look_key": "20b54a560fbc876e",
+   "value": 1.8829072984749455,
+   "look_key": "1d23b12273482d3b",
    "field": [
-    {
-     "code": 28143384,
-     "name": "Aerial Eater"
-    },
-    {
-     "code": 10045474,
-     "name": "Infinite Impermanence",
-     "set": true
-    },
-    {
-     "code": 93729896,
-     "name": "Nightmare Throne"
-    },
-    {
-     "code": 80453041,
-     "name": "Phantom of Yubel"
-    },
-    {
-     "code": 80453041,
-     "name": "Phantom of Yubel"
-    },
-    {
-     "code": 29301450,
-     "name": "S:P Little Knight",
-     "zone": "emz"
-    },
-    {
-     "code": 62318994,
-     "name": "Samsara D Lotus"
-    }
-   ],
-   "hand": [
-    93729896,
-    44886582
-   ],
-   "measure": {
-    "field": 1.2271296296296297,
-    "hand": 0.0,
-    "floodgates": 0.0,
-    "resilience": 0.6332296659404503,
-    "follow_up": {
-     "gained": 0,
-     "rebuild": 1
-    }
-   }
-  },
-  {
-   "value": 1.7270674291938999,
-   "look_key": "e5f1f2b0b794f1a9",
-   "field": [
-    {
-     "code": 28143384,
-     "name": "Aerial Eater"
-    },
     {
      "code": 10045474,
      "name": "Infinite Impermanence",
@@ -186,21 +128,25 @@
      "name": "Nightmare Pain"
     },
     {
-     "code": 80453041,
-     "name": "Phantom of Yubel"
+     "code": 93729896,
+     "name": "Nightmare Throne"
     },
     {
      "code": 80453041,
      "name": "Phantom of Yubel"
-    },
-    {
-     "code": 29301450,
-     "name": "S:P Little Knight",
-     "zone": "emz"
     },
     {
      "code": 62318994,
      "name": "Samsara D Lotus"
+    },
+    {
+     "code": 24269961,
+     "name": "Unchained Soul Lord of Yama",
+     "zone": "emz"
+    },
+    {
+     "code": 67680512,
+     "name": "Unchained Soul of Rage"
     }
    ],
    "hand": [
@@ -208,10 +154,10 @@
     44886582
    ],
    "measure": {
-    "field": 1.2271296296296297,
+    "field": 1.3876851851851852,
     "hand": 0.0,
     "floodgates": 0.0,
-    "resilience": 0.6332296659404503,
+    "resilience": 0.6253701888162673,
     "follow_up": {
      "gained": 0,
      "rebuild": 1
@@ -219,12 +165,58 @@
    }
   },
   {
-   "value": 1.6382335511982573,
-   "look_key": "c5e561d958aa9823",
+   "value": 1.8829072984749455,
+   "look_key": "7e5d4873f30d8187",
    "field": [
     {
-     "code": 28143384,
-     "name": "Aerial Eater"
+     "code": 10045474,
+     "name": "Infinite Impermanence",
+     "set": true
+    },
+    {
+     "code": 65261141,
+     "name": "Nightmare Pain"
+    },
+    {
+     "code": 93729896,
+     "name": "Nightmare Throne"
+    },
+    {
+     "code": 80453041,
+     "name": "Phantom of Yubel"
+    },
+    {
+     "code": 62318994,
+     "name": "Samsara D Lotus"
+    },
+    {
+     "code": 67680512,
+     "name": "Unchained Soul of Rage",
+     "zone": "emz"
+    }
+   ],
+   "hand": [
+    93729896,
+    44886582
+   ],
+   "measure": {
+    "field": 1.3876851851851852,
+    "hand": 0.0,
+    "floodgates": 0.0,
+    "resilience": 0.6253701888162673,
+    "follow_up": {
+     "gained": 0,
+     "rebuild": 1
+    }
+   }
+  },
+  {
+   "value": 1.7580119352088661,
+   "look_key": "9018f2b4e04eb6de",
+   "field": [
+    {
+     "code": 27439792,
+     "name": "Chaos Summoning Beast"
     },
     {
      "code": 10045474,
@@ -244,16 +236,13 @@
      "name": "Phantom of Yubel"
     },
     {
-     "code": 80453041,
-     "name": "Phantom of Yubel"
-    },
-    {
      "code": 62318994,
      "name": "Samsara D Lotus"
     },
     {
-     "code": 41165831,
-     "name": "Unchained Soul of Sharvara"
+     "code": 61665245,
+     "name": "Summon Sorceress",
+     "zone": "emz"
     }
    ],
    "hand": [
@@ -261,10 +250,10 @@
     44886582
    ],
    "measure": {
-    "field": 1.1361481481481481,
+    "field": 0.6881159420289855,
     "hand": 0.0,
-    "floodgates": 0.0,
-    "resilience": 0.636809005083515,
+    "floodgates": 0.9299999999999999,
+    "resilience": 0.34315998863313446,
     "follow_up": {
      "gained": 0,
      "rebuild": 1

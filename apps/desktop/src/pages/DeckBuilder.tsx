@@ -708,7 +708,7 @@ function DeckEditor({ onGoCombo }: { onGoCombo?: () => void }) {
               invalid={NONE}
               dashed
               onOpen={(id) => setViewer({ id, list: deck.maybe })}
-              info={<span>Carte in prova: non contano nel deck e non si esportano</span>}
+              info={<span className="text-xs text-faint" title="Carte in prova: non contano nel deck e non si esportano">In prova · non esportate</span>}
               emptyHint={<p className="max-w-md text-xs text-faint">Trascina qui le carte che stai valutando.</p>}
             />
           </div>

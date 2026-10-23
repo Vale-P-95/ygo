@@ -15,14 +15,107 @@
  "boards_found": 8460,
  "boards": [
   {
-   "value": 2.9322636165577345,
-   "look_key": "7bde7e5ca48746ae",
+   "value": 3.1598358387799568,
+   "look_key": "91f093f25f6e8d7b",
    "field": [
     {
      "code": 95561146,
-     "name": "Apophis the Serpent",
+     "name": "Apophis the Serpent"
+    },
+    {
+     "code": 85888377,
+     "name": "Apophis the Swamp Deity",
      "set": true
     },
+    {
+     "code": 40366667,
+     "name": "Dominus Impulse",
+     "set": true
+    },
+    {
+     "code": 29301450,
+     "name": "S:P Little Knight",
+     "zone": "emz"
+    },
+    {
+     "code": 41420027,
+     "name": "Solemn Judgment",
+     "set": true
+    },
+    {
+     "code": 69299029,
+     "name": "Treasures of the Kings"
+    }
+   ],
+   "hand": [
+    40366667
+   ],
+   "measure": {
+    "field": 2.0306111111111114,
+    "hand": 0.0,
+    "floodgates": 0.0,
+    "resilience": 1.6820412127814093,
+    "follow_up": {
+     "gained": 0,
+     "rebuild": 1
+    }
+   }
+  },
+  {
+   "value": 3.0398358387799567,
+   "look_key": "9ce8d5339de34b37",
+   "field": [
+    {
+     "code": 95561146,
+     "name": "Apophis the Serpent"
+    },
+    {
+     "code": 85888377,
+     "name": "Apophis the Swamp Deity",
+     "set": true
+    },
+    {
+     "code": 40366667,
+     "name": "Dominus Impulse",
+     "set": true
+    },
+    {
+     "code": 29301450,
+     "name": "S:P Little Knight",
+     "zone": "emz"
+    },
+    {
+     "code": 41420027,
+     "name": "Solemn Judgment",
+     "set": true
+    },
+    {
+     "code": 29762407,
+     "name": "Temple of the Kings"
+    },
+    {
+     "code": 69299029,
+     "name": "Treasures of the Kings"
+    }
+   ],
+   "hand": [
+    40366667
+   ],
+   "measure": {
+    "field": 2.0306111111111114,
+    "hand": 0.0,
+    "floodgates": 0.0,
+    "resilience": 1.6820412127814093,
+    "follow_up": {
+     "gained": 0,
+     "rebuild": 0
+    }
+   }
+  },
+  {
+   "value": 3.0398358387799567,
+   "look_key": "2e936941e8a7e578",
+   "field": [
     {
      "code": 85888377,
      "name": "Apophis the Swamp Deity"
@@ -38,8 +131,8 @@
      "set": true
     },
     {
-     "code": 1528054,
-     "name": "Silhouhatte Rabbit",
+     "code": 29301450,
+     "name": "S:P Little Knight",
      "zone": "emz"
     },
     {
@@ -60,10 +153,10 @@
     40366667
    ],
    "measure": {
-    "field": 1.9396296296296298,
+    "field": 2.0306111111111114,
     "hand": 0.0,
     "floodgates": 0.0,
-    "resilience": 1.6543899782135079,
+    "resilience": 1.6820412127814093,
     "follow_up": {
      "gained": 0,
      "rebuild": 0
@@ -71,19 +164,14 @@
    }
   },
   {
-   "value": 2.9322636165577345,
-   "look_key": "e196c3e7e2e33bed",
+   "value": 3.0398358387799567,
+   "look_key": "6357230ed4c3a385",
    "field": [
     {
      "code": 95561146,
      "name": "Apophis the Serpent"
     },
     {
-     "code": 95561146,
-     "name": "Apophis the Serpent",
-     "set": true
-    },
-    {
      "code": 85888377,
      "name": "Apophis the Swamp Deity",
      "set": true
@@ -94,8 +182,8 @@
      "set": true
     },
     {
-     "code": 1528054,
-     "name": "Silhouhatte Rabbit",
+     "code": 29301450,
+     "name": "S:P Little Knight",
      "zone": "emz"
     },
     {
@@ -106,20 +194,16 @@
     {
      "code": 29762407,
      "name": "Temple of the Kings"
-    },
-    {
-     "code": 69299029,
-     "name": "Treasures of the Kings"
     }
    ],
    "hand": [
     40366667
    ],
    "measure": {
-    "field": 1.9396296296296298,
+    "field": 2.0306111111111114,
     "hand": 0.0,
     "floodgates": 0.0,
-    "resilience": 1.6543899782135079,
+    "resilience": 1.6820412127814093,
     "follow_up": {
      "gained": 0,
      "rebuild": 0
@@ -127,13 +211,12 @@
    }
   },
   {
-   "value": 2.7179956427015255,
-   "look_key": "f9a4192970e3172d",
+   "value": 3.0398358387799567,
+   "look_key": "d650cd0a76164ae3",
    "field": [
     {
-     "code": 95561146,
-     "name": "Apophis the Serpent",
-     "set": true
+     "code": 85888377,
+     "name": "Apophis the Swamp Deity"
     },
     {
      "code": 85888377,
@@ -146,132 +229,28 @@
      "set": true
     },
     {
+     "code": 29301450,
+     "name": "S:P Little Knight",
+     "zone": "emz"
+    },
+    {
      "code": 41420027,
      "name": "Solemn Judgment",
      "set": true
     },
     {
-     "code": 97522863,
-     "name": "The Man with the Mark"
-    },
-    {
-     "code": 69299029,
-     "name": "Treasures of the Kings"
-    },
-    {
-     "code": 59576447,
-     "name": "Verdict of Anubis",
-     "set": true
+     "code": 29762407,
+     "name": "Temple of the Kings"
     }
    ],
    "hand": [
     40366667
    ],
    "measure": {
-    "field": 1.7185185185185188,
+    "field": 2.0306111111111114,
     "hand": 0.0,
     "floodgates": 0.0,
-    "resilience": 1.4657952069716775,
-    "follow_up": {
-     "gained": 0,
-     "rebuild": 1
-    }
-   }
-  },
-  {
-   "value": 2.5979956427015254,
-   "look_key": "a8704c2fd9a4ad99",
-   "field": [
-    {
-     "code": 85888377,
-     "name": "Apophis the Swamp Deity",
-     "set": true
-    },
-    {
-     "code": 40366667,
-     "name": "Dominus Impulse",
-     "set": true
-    },
-    {
-     "code": 41420027,
-     "name": "Solemn Judgment",
-     "set": true
-    },
-    {
-     "code": 97522863,
-     "name": "The Man with the Mark"
-    },
-    {
-     "code": 69299029,
-     "name": "Treasures of the Kings"
-    },
-    {
-     "code": 59576447,
-     "name": "Verdict of Anubis",
-     "set": true
-    }
-   ],
-   "hand": [
-    40366667,
-    85888377
-   ],
-   "measure": {
-    "field": 1.7185185185185188,
-    "hand": 0.0,
-    "floodgates": 0.0,
-    "resilience": 1.4657952069716775,
-    "follow_up": {
-     "gained": 0,
-     "rebuild": 0
-    }
-   }
-  },
-  {
-   "value": 2.5979956427015254,
-   "look_key": "d22690192440e108",
-   "field": [
-    {
-     "code": 85888377,
-     "name": "Apophis the Swamp Deity",
-     "set": true
-    },
-    {
-     "code": 85888377,
-     "name": "Apophis the Swamp Deity",
-     "set": true
-    },
-    {
-     "code": 40366667,
-     "name": "Dominus Impulse",
-     "set": true
-    },
-    {
-     "code": 41420027,
-     "name": "Solemn Judgment",
-     "set": true
-    },
-    {
-     "code": 97522863,
-     "name": "The Man with the Mark"
-    },
-    {
-     "code": 69299029,
-     "name": "Treasures of the Kings"
-    },
-    {
-     "code": 59576447,
-     "name": "Verdict of Anubis",
-     "set": true
-    }
-   ],
-   "hand": [
-    40366667
-   ],
-   "measure": {
-    "field": 1.7185185185185188,
-    "hand": 0.0,
-    "floodgates": 0.0,
-    "resilience": 1.4657952069716775,
+    "resilience": 1.6820412127814093,
     "follow_up": {
      "gained": 0,
      "rebuild": 0
@@ -283,7 +262,39 @@
  "line": {
   "answers": [
    [
-    4,
+    5,
+    0,
+    0,
+    0
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    1,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    0,
+    0,
+    0,
+    1,
+    0,
+    0,
+    0,
+    0,
     0,
     0,
     0
@@ -306,39 +317,7 @@
     255
    ],
    [
-    5,
-    0,
-    0,
-    0
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    1,
-    0,
-    0,
-    0
-   ],
-   [
-    0,
-    0,
-    0,
-    0,
-    1,
-    0,
-    0,
-    0,
-    0,
+    4,
     0,
     0,
     0
@@ -347,50 +326,6 @@
     0,
     8,
     2
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    5,
-    0,
-    0,
-    0
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    0,
-    0,
-    0,
-    0,
-    1,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0
    ],
    [
     255,
@@ -428,6 +363,94 @@
     255
    ],
    [
+    5,
+    0,
+    0,
+    0
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    0,
+    0,
+    0,
+    0,
+    1,
+    0,
+    0,
+    0,
+    1,
+    0,
+    0,
+    0
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    5,
+    0,
+    0,
+    0
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    0,
+    0,
+    0,
+    0,
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
     0,
     0,
     0,
@@ -501,6 +524,29 @@
     255
    ],
    [
+    4,
+    0,
+    2,
+    0
+   ],
+   [
+    0,
+    8,
+    0
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
     5,
     0,
     0,
@@ -509,7 +555,7 @@
    [
     0,
     8,
-    0
+    4
    ],
    [
     255,
@@ -575,7 +621,7 @@
    [
     0,
     8,
-    2
+    1
    ],
    [
     0,
@@ -605,29 +651,6 @@
     0,
     0,
     0
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    4,
-    0,
-    1,
-    0
-   ],
-   [
-    0,
-    8,
-    2
    ],
    [
     255,
@@ -652,7 +675,7 @@
     0,
     0,
     0,
-    0,
+    1,
     0,
     0,
     0
@@ -736,18 +759,6 @@
     0
    ],
    [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
     0,
     0,
     0,
@@ -756,15 +767,22 @@
     0,
     0,
     0,
-    0,
+    5,
     0,
     0,
     0
    ],
    [
-    0,
-    8,
-    4
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
    ],
    [
     255,
@@ -783,12 +801,6 @@
     0,
     0,
     0
-   ],
-   [
-    255,
-    255,
-    255,
-    255
    ]
   ]
  }

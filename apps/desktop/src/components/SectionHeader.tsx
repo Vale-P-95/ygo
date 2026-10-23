@@ -50,7 +50,7 @@ export function SectionHeader({ section, children, artReady = true }: { section:
         </div>
         <div className="flex flex-col items-end gap-2">
           {children}
-          {art && <p className="text-[10px] text-faint">Ispirato a «{section.themeCard!.name}»</p>}
+          {art && <p className="hidden xl:block text-xs text-faint">Ispirato a «{section.themeCard!.name}»</p>}
         </div>
       </div>
     </header>

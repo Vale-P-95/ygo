@@ -15,6 +15,56 @@
  "boards_found": 36187,
  "boards": [
   {
+   "value": 2.5661855670103098,
+   "look_key": "4a64bbc4a5020fbb",
+   "field": [
+    {
+     "code": 79606837,
+     "name": "Herald of the Arc Light"
+    },
+    {
+     "code": 82661630,
+     "name": "Ryu-Ge Realm - Dino Domains"
+    },
+    {
+     "code": 81549048,
+     "name": "Ryu-Ge Rivalry",
+     "set": true
+    },
+    {
+     "code": 55276522,
+     "name": "Ryu-Ge War Zone"
+    },
+    {
+     "code": 30271097,
+     "name": "The Fallen & The Virtuous",
+     "set": true
+    },
+    {
+     "code": 70636044,
+     "name": "Varudras, the Final Bringer of the End Times"
+    },
+    {
+     "code": 70636044,
+     "name": "Varudras, the Final Bringer of the End Times",
+     "zone": "emz"
+    }
+   ],
+   "hand": [
+    102380
+   ],
+   "measure": {
+    "field": 0.5888659793814435,
+    "hand": 0.0,
+    "floodgates": 2.0300000000000002,
+    "resilience": 0.5888659793814436,
+    "follow_up": {
+     "gained": 1,
+     "rebuild": 0
+    }
+   }
+  },
+  {
    "value": 2.553567010309279,
    "look_key": "8cf4b3d959094cdb",
    "field": [
@@ -183,55 +233,6 @@
     {
      "code": 92487128,
      "name": "Sosei Ryu-Ge Mistva"
-    },
-    {
-     "code": 30271097,
-     "name": "The Fallen & The Virtuous",
-     "set": true
-    },
-    {
-     "code": 70636044,
-     "name": "Varudras, the Final Bringer of the End Times"
-    },
-    {
-     "code": 70636044,
-     "name": "Varudras, the Final Bringer of the End Times",
-     "zone": "emz"
-    }
-   ],
-   "hand": [
-    102380
-   ],
-   "measure": {
-    "field": 0.5809793814432991,
-    "hand": 0.0,
-    "floodgates": 2.0300000000000002,
-    "resilience": 0.5809793814432992,
-    "follow_up": {
-     "gained": 0,
-     "rebuild": 0
-    }
-   }
-  },
-  {
-   "value": 2.553567010309279,
-   "look_key": "6fdc1b9826bf07f8",
-   "field": [
-    {
-     "code": 79606837,
-     "name": "Herald of the Arc Light"
-    },
-    {
-     "code": 82661630,
-     "name": "Ryu-Ge Realm - Dino Domains"
-    },
-    {
-     "code": 55154344,
-     "name": "Ryu-Ge Realm - Wyrm Winds"
-    },
-    {
-     "code": 79415624,
-     "name": "Snake-Eyes Vengeance Dragon"
     },
     {
      "code": 30271097,
@@ -1244,7 +1245,7 @@
     0,
     0,
     0,
-    0,
+    1,
     0,
     0,
     0
@@ -1290,10 +1291,51 @@
     0,
     0,
     0,
-    3,
+    0,
     0,
     0,
     0
+   ],
+   [
+    1,
+    0,
+    0,
+    0,
+    5,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    0,
+    0,
+    0,
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    8,
+    3
+   ],
+   [
+    1,
+    0,
+    0,
+    0
+   ],
+   [
+    255,
+    255,
+    255,
+    255
    ],
    [
     255,
@@ -1318,39 +1360,7 @@
    [
     0,
     8,
-    0
-   ],
-   [
-    1,
-    0,
-    0,
-    0
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    0,
-    0,
-    0,
-    0,
-    1,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0
+    4
    ],
    [
     255,
@@ -1385,7 +1395,7 @@
    [
     0,
     4,
-    2
+    0
    ],
    [
     1,
@@ -1408,15 +1418,15 @@
    [
     5,
     0,
+    0,
+    0
+   ],
+   [
+    0,
+    0,
+    0,
+    0,
     1,
-    0
-   ],
-   [
-    0,
-    0,
-    0,
-    0,
-    1,
     0,
     0,
     0,
@@ -1424,41 +1434,6 @@
     0,
     0,
     0
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    5,
-    0,
-    0,
-    0
-   ],
-   [
-    0,
-    8,
-    4
    ],
    [
     255,

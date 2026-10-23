@@ -15,8 +15,8 @@
  "boards_found": 10184,
  "boards": [
   {
-   "value": 1.8560642701525054,
-   "look_key": "f5ea9f5196857c0e",
+   "value": 1.9790980392156865,
+   "look_key": "41f6c70e972830db",
    "field": [
     {
      "code": 44822037,
@@ -24,22 +24,13 @@
      "set": true
     },
     {
-     "code": 32991300,
-     "name": "Fiendsmith's Agnumday",
-     "equipped_to": 82135803
+     "code": 23617756,
+     "name": "Exxod Fires of Rage",
+     "set": true
     },
     {
-     "code": 82135803,
-     "name": "Fiendsmith's Desirae"
-    },
-    {
-     "code": 49867899,
-     "name": "Fiendsmith's Sequence",
-     "equipped_to": 82135803
-    },
-    {
-     "code": 1528054,
-     "name": "Silhouhatte Rabbit"
+     "code": 83257450,
+     "name": "The Unstoppable Exodia Incarnate"
     },
     {
      "code": 63017368,
@@ -47,24 +38,24 @@
     }
    ],
    "hand": [
+    38775407,
     4145852,
-    44519536,
-    37613663
+    44519536
    ],
    "measure": {
-    "field": 1.1724074074074073,
+    "field": 1.165,
     "hand": 0.0,
     "floodgates": 0.0,
-    "resilience": 0.7394281045751633,
+    "resilience": 0.9568300653594773,
     "follow_up": {
-     "gained": 0,
+     "gained": 3,
      "rebuild": 2
     }
    }
   },
   {
-   "value": 1.7360642701525055,
-   "look_key": "72c0cd912a7bda7a",
+   "value": 1.9790980392156865,
+   "look_key": "c0d41633b82fcf3c",
    "field": [
     {
      "code": 44822037,
@@ -72,128 +63,17 @@
      "set": true
     },
     {
-     "code": 32991300,
-     "name": "Fiendsmith's Agnumday",
-     "equipped_to": 82135803
-    },
-    {
-     "code": 82135803,
-     "name": "Fiendsmith's Desirae"
-    },
-    {
-     "code": 49867899,
-     "name": "Fiendsmith's Sequence",
-     "equipped_to": 82135803
-    },
-    {
-     "code": 84192580,
-     "name": "Mulcharmy Purulia"
-    },
-    {
-     "code": 63017368,
-     "name": "Wedju Temple"
-    }
-   ],
-   "hand": [
-    4145852,
-    44519536,
-    37613663
-   ],
-   "measure": {
-    "field": 1.1724074074074073,
-    "hand": 0.0,
-    "floodgates": 0.0,
-    "resilience": 0.7394281045751633,
-    "follow_up": {
-     "gained": 0,
-     "rebuild": 1
-    }
-   }
-  },
-  {
-   "value": 1.70207734204793,
-   "look_key": "e691e819973c475f",
-   "field": [
-    {
-     "code": 44822037,
-     "name": "Angel Statue - Azurune",
+     "code": 23617756,
+     "name": "Exxod Fires of Rage",
      "set": true
-    },
-    {
-     "code": 32991300,
-     "name": "Fiendsmith's Agnumday",
-     "equipped_to": 82135803
-    },
-    {
-     "code": 82135803,
-     "name": "Fiendsmith's Desirae"
-    },
-    {
-     "code": 49867899,
-     "name": "Fiendsmith's Sequence",
-     "equipped_to": 82135803
-    },
-    {
-     "code": 84192580,
-     "name": "Mulcharmy Purulia"
-    },
-    {
-     "code": 1528054,
-     "name": "Silhouhatte Rabbit",
-     "zone": "emz"
-    },
-    {
-     "code": 63017368,
-     "name": "Wedju Temple"
-    }
-   ],
-   "hand": [
-    4145852,
-    44519536,
-    37613663
-   ],
-   "measure": {
-    "field": 1.1724074074074073,
-    "hand": 0.0,
-    "floodgates": 0.0,
-    "resilience": 0.6827832244008714,
-    "follow_up": {
-     "gained": 0,
-     "rebuild": 1
-    }
-   }
-  },
-  {
-   "value": 1.70207734204793,
-   "look_key": "42ad68e0d6cfb4e2",
-   "field": [
-    {
-     "code": 44822037,
-     "name": "Angel Statue - Azurune",
-     "set": true
-    },
-    {
-     "code": 32991300,
-     "name": "Fiendsmith's Agnumday",
-     "equipped_to": 82135803
-    },
-    {
-     "code": 82135803,
-     "name": "Fiendsmith's Desirae"
-    },
-    {
-     "code": 49867899,
-     "name": "Fiendsmith's Sequence",
-     "equipped_to": 82135803
     },
     {
      "code": 1164211,
      "name": "Shield of the Millennium Dynasty"
     },
     {
-     "code": 1528054,
-     "name": "Silhouhatte Rabbit",
-     "zone": "emz"
+     "code": 83257450,
+     "name": "The Unstoppable Exodia Incarnate"
     },
     {
      "code": 63017368,
@@ -202,23 +82,22 @@
    ],
    "hand": [
     4145852,
-    44519536,
-    37613663
+    44519536
    ],
    "measure": {
-    "field": 1.1724074074074073,
+    "field": 1.165,
     "hand": 0.0,
     "floodgates": 0.0,
-    "resilience": 0.6827832244008714,
+    "resilience": 0.9568300653594773,
     "follow_up": {
-     "gained": 0,
-     "rebuild": 1
+     "gained": 3,
+     "rebuild": 2
     }
    }
   },
   {
-   "value": 1.70207734204793,
-   "look_key": "b85b5ce9d212abfd",
+   "value": 1.8590980392156866,
+   "look_key": "30c93549bc43f2dc",
    "field": [
     {
      "code": 44822037,
@@ -226,27 +105,57 @@
      "set": true
     },
     {
-     "code": 32991300,
-     "name": "Fiendsmith's Agnumday",
-     "equipped_to": 82135803
+     "code": 23617756,
+     "name": "Exxod Fires of Rage",
+     "set": true
     },
     {
-     "code": 82135803,
-     "name": "Fiendsmith's Desirae"
+     "code": 83257450,
+     "name": "The Unstoppable Exodia Incarnate"
+    }
+   ],
+   "hand": [
+    4145852,
+    38775407,
+    44519536,
+    84192580
+   ],
+   "measure": {
+    "field": 1.165,
+    "hand": 0.0,
+    "floodgates": 0.0,
+    "resilience": 0.9568300653594773,
+    "follow_up": {
+     "gained": 1,
+     "rebuild": 1
+    }
+   }
+  },
+  {
+   "value": 1.7390980392156865,
+   "look_key": "5742792c273f1a33",
+   "field": [
+    {
+     "code": 44822037,
+     "name": "Angel Statue - Azurune",
+     "set": true
     },
     {
-     "code": 49867899,
-     "name": "Fiendsmith's Sequence",
-     "equipped_to": 82135803
+     "code": 23617756,
+     "name": "Exxod Fires of Rage",
+     "set": true
     },
     {
-     "code": 1528054,
-     "name": "Silhouhatte Rabbit",
-     "zone": "emz"
+     "code": 74169516,
+     "name": "Golem that Guards the Millennium Treasures"
     },
     {
-     "code": 58071334,
-     "name": "Snake-Eyes Doomed Dragon"
+     "code": 1164211,
+     "name": "Shield of the Millennium Dynasty"
+    },
+    {
+     "code": 83257450,
+     "name": "The Unstoppable Exodia Incarnate"
     },
     {
      "code": 63017368,
@@ -255,17 +164,58 @@
    ],
    "hand": [
     4145852,
-    44519536,
-    37613663
+    44519536
    ],
    "measure": {
-    "field": 1.1724074074074073,
+    "field": 1.165,
     "hand": 0.0,
     "floodgates": 0.0,
-    "resilience": 0.6827832244008714,
+    "resilience": 0.9568300653594773,
     "follow_up": {
-     "gained": 0,
-     "rebuild": 1
+     "gained": 1,
+     "rebuild": 0
+    }
+   }
+  },
+  {
+   "value": 1.7390980392156865,
+   "look_key": "2c2ea620852f22f9",
+   "field": [
+    {
+     "code": 44822037,
+     "name": "Angel Statue - Azurune",
+     "set": true
+    },
+    {
+     "code": 23617756,
+     "name": "Exxod Fires of Rage",
+     "set": true
+    },
+    {
+     "code": 1164211,
+     "name": "Shield of the Millennium Dynasty"
+    },
+    {
+     "code": 83257450,
+     "name": "The Unstoppable Exodia Incarnate"
+    },
+    {
+     "code": 63017368,
+     "name": "Wedju Temple"
+    }
+   ],
+   "hand": [
+    4145852,
+    44519536
+   ],
+   "measure": {
+    "field": 1.165,
+    "hand": 0.0,
+    "floodgates": 0.0,
+    "resilience": 0.9568300653594773,
+    "follow_up": {
+     "gained": 1,
+     "rebuild": 0
     }
    }
   }
@@ -988,7 +938,7 @@
     255
    ],
    [
-    1,
+    5,
     0,
     1,
     0
@@ -998,18 +948,26 @@
     0,
     0,
     0,
-    2,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
     1,
     0,
     0,
+    0,
+    0,
+    0,
+    0,
     0
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
    ],
    [
     0,
@@ -1041,15 +999,32 @@
     0
    ],
    [
+    1,
     0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    1,
     0,
     0,
     0,
     1,
     0,
     0,
+    0
+   ],
+   [
     0,
-    2,
+    4,
+    0
+   ],
+   [
+    1,
     0,
     0,
     0
@@ -1065,11 +1040,6 @@
     255,
     255,
     255
-   ],
-   [
-    0,
-    8,
-    2
    ],
    [
     255,
@@ -1112,7 +1082,13 @@
    [
     0,
     4,
-    5
+    0
+   ],
+   [
+    1,
+    0,
+    0,
+    0
    ],
    [
     255,
@@ -1141,20 +1117,8 @@
    [
     5,
     0,
-    2,
+    1,
     0
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    255,
-    255,
-    255,
-    255
    ],
    [
     0,
@@ -1171,42 +1135,15 @@
     0
    ],
    [
+    0,
+    0,
+    0,
+    0,
     1,
     0,
     0,
     0,
-    0,
-    0,
-    0,
-    0
-   ],
-   [
-    1,
-    0,
-    0,
-    0,
-    2,
-    0,
-    0,
-    0
-   ],
-   [
-    1,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0
-   ],
-   [
-    0,
-    4,
-    0
-   ],
-   [
-    1,
+    7,
     0,
     0,
     0
@@ -1224,37 +1161,6 @@
     255
    ],
    [
-    1,
-    0,
-    0,
-    0
-   ],
-   [
-    1,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0
-   ],
-   [
-    1,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0
-   ],
-   [
-    0,
-    4,
-    5
-   ],
-   [
     255,
     255,
     255,
@@ -1267,50 +1173,7 @@
     255
    ],
    [
-    0,
-    0,
-    0,
-    0
-   ],
-   [
-    0,
-    0,
-    0,
-    0
-   ],
-   [
-    0,
-    0,
-    0,
-    0,
-    1,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    0,
-    4,
-    0
-   ],
-   [
-    1,
+    5,
     0,
     0,
     0
@@ -1321,12 +1184,6 @@
     3
    ],
    [
-    0,
-    0,
-    0,
-    0
-   ],
-   [
     255,
     255,
     255,
@@ -1353,52 +1210,14 @@
     0
    ],
    [
-    255,
-    255,
-    255,
-    255
+    0,
+    4,
+    1
    ],
    [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    5,
-    0,
-    1,
-    0
-   ],
-   [
-    0,
-    0,
-    0,
-    0,
     1,
     0,
     0,
-    0,
-    0,
-    0,
-    0,
-    0
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    0,
-    8,
     0
    ],
    [
@@ -1418,6 +1237,55 @@
     0,
     0,
     0
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    1,
+    0,
+    0,
+    0
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    0,
+    0,
+    0,
+    0,
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    8,
+    2
+   ],
+   [
+    255,
+    255,
+    255,
+    255
    ],
    [
     255,
