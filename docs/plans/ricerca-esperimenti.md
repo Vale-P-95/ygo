@@ -485,3 +485,48 @@ In tutto 209 invocazioni, poco più di un'ora.
 3. **Magie e Trappole, mostri: in Dracotail e Clown Crew.** La misura dà a certe risposte sul campo (Blazing Cartesia, Dracotail Sting) più di quanto fermano contro le linee vere, e a certe carte coperte (Dracotail Flame e Horn, Finale) meno. Va guardato con la protezione dei pezzi e con le finestre del §1.
 4. **Cimitero e trappole in mano: nessun caso** in queste board, con 19 avversari.
 5. **Il rapporto si rifà** con `a1b_report.py` dopo ogni correzione di B5, sulle stesse board (fixture `tests/fixtures/research/a1b`, 24 file di linee, uno per mano con disaccordi). Le liste MDM usate sono quelle del 22/10 mattina: con liste diverse le linee non si rigiocano (`deck_hash` nel file).
+
+Analisi dei disaccordi «Extra Deck» della corsia 4: `docs/plans/extra-deck-a1b.md`.
+
+## 6b. L2-3: il livello 2 contro i soli tre deck più giocati, la prova onesta
+
+**Domanda della coordinatrice.** La corsia 4 (`extra-deck-a1b.md`) ha provato L2-3: il livello 2 pesato con il meta, ma solo contro le aperture dei tre deck con il `popRank` più alto (Elfnote, Dracotail, Invoked). Sul campione dei disaccordi A1b ordinava giusto l'84% delle coppie, contro il 16% della misura. Quel campione però era scelto proprio dove la misura sbaglia. Qual è il risultato su tutte le board, senza giudicare L2-3 con se stesso?
+
+### Metodo
+`scripts/research/a1b_l23.py`, sui run già fatti del giro A1b del §6. Nessuna invocazione nuova; CLI di `main` 0d747f1.
+- **L2-3:** 1 − `left` contro Elfnote, Dracotail e Invoked, pesato con il loro `popRank`.
+- **Verità:** 1 − `left` contro tutti gli **altri** avversari misurati, pesata con il meta. Sono 16 (Lunalight saltato), mediana 16 per board. Così L2-3 non si giudica con i suoi stessi deck.
+  - Per prudenza ho rifatto il conto anche senza i «parenti» stretti dei tre deck nella verità: Elfnote Kewl Tune e Magistus Fairy Tail, che restano 14.
+- **Misura:** il punteggio del banco (interruzioni, handtrap, floodgate e resilienza con i pesi di oggi), e il composito con il turno dopo.
+- **Coppie:** due board dello stesso deck la cui verità differisce di almeno 0,02, come nel banco oggettivo. Taratura e verifica sono la divisione del banco, per deck, seme 47.
+- **Comando.**
+  ```
+  python3 scripts/research/a1b_l23.py <w>/a1b [--top 3] [--exclude elfnote_kewl_tune,magistus_fairy_tail]
+  ```
+
+### Risultati (406 board, 1219 coppie)
+
+| ordinamento | coppie giuste, taratura | coppie giuste, verifica | tutte | Spearman taratura | Spearman verifica |
+|---|---:|---:|---:|---:|---:|
+| misura (punteggio del banco) | 673/857 (79%) | 305/362 (84%) | 978/1219 (80%) | 0,78 | 0,73 |
+| misura con il turno dopo | 676/857 (79%) | 303/362 (84%) | 979/1219 (80%) | 0,78 | 0,70 |
+| **L2-3** | **819/857 (96%)** | **329/362 (91%)** | **1148/1219 (94%)** | **0,97** | **0,95** |
+| misura + 1·L2-3 | 757/857 (88%) | 330/362 (91%) | 1087/1219 (89%) | 0,83 | 0,78 |
+| misura + 2·L2-3 | 778/857 (91%) | 334/362 (92%) | 1112/1219 (91%) | 0,87 | 0,81 |
+| misura + 4·L2-3 | 802/857 (94%) | 337/362 (93%) | 1139/1219 (93%) | 0,91 | 0,85 |
+
+- **Senza i parenti nella verità** (14 avversari, 1213 coppie) il quadro non cambia. L2-3 ordina giusto il 93% (95% in taratura, 90% in verifica, Spearman 0,97 e 0,94); la misura l'80%; misura + 4·L2-3 il 93%.
+- **Quanti deck servono:**
+  - **L2-1** (solo Elfnote, 8,1 s a board): 82% delle coppie (84% in taratura, 77% in verifica), poco sopra la misura.
+  - **L2-3** (22,5 s a board in mediana, 48 s al 90° percentile): 94%.
+  - **L2-5** (32,5 s): 93%.
+
+  I tre deck sono il punto giusto.
+- **Costo.** Il livello 2 contro tre deck costa circa 50 volte la misura completa (0,47 s), più la lettura delle linee dei tre deck, una volta per sessione (10-25 s l'una).
+
+### Conclusione
+- **L2-3 segue la verità del meta molto meglio della misura** (94% contro 80% delle coppie, Spearman 0,95 contro 0,73 in verifica). Non è un effetto del campione: qui ci sono tutte le board, giudicate su avversari diversi.
+- **Limite della prova.** La «verità» è sempre il livello 2, contro altri deck. L2-3 e la verità condividono il meccanismo, quindi anche le sue cecità: l'avversario rigioca le sue linee migliori, non risponde in modo nuovo. La prova dice che tre deck bastano a stimare il livello 2 contro il meta. Non dice che il livello 2 sia la verità del gioco.
+- **Proposta per B14.** L2-3 come ultimo gradino, sulle 3-5 board che restano dopo la misura completa: circa 70-110 s in tutto, più la lettura delle linee. Con il §1 il #1 della misura è già quasi sempre tra le prime 15. L2-3 decide l'ordine finale fra le migliori, dove la misura sbaglia una coppia su cinque.
+  - Nell'app ha senso a richiesta, o in sottofondo dopo la prima classifica.
+- **Misura + k·L2-3** non batte L2-3 da solo. La misura serve a scegliere quali board mandare al livello 2, non a correggerlo.
