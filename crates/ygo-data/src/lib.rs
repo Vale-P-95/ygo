@@ -6,6 +6,7 @@ pub mod deck;
 pub mod images;
 pub mod import;
 pub mod matchlog;
+pub mod meta;
 pub mod model;
 pub mod query;
 pub mod store;
