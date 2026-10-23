@@ -49,6 +49,7 @@
   - #106 (corsia 9, caccia ai bug).
 - #107 (questo file) unita il 23/10.
 - #108 (corsia 6, oracolo a gradini) e #109 (corsia 10, bibliografia, seconda passata) unite il 23/10. La corsia 10 è ferma. La corsia 6 prepara l'A1b; il passo 1 lo fa con la corsia 3 dopo la sua baseline.
+- #110 (corsia 4: turno di prova senza etichette, −12% di tempo, (d) non tenuta) e #111 (corsia 8: banco di generalità, scarto tuning/fresh −0,4 punti, 63/63 liste ricostruite) unite il 23/10. La corsia 4 è ferma; la corsia 8 passa al punto 3 (sweep di robustezza).
 - Gemini sa già che #105 è su `main` (commento sulla #100). Il prompt con «Confronta con il meta» (`gemini/combo-meta`) e poi il passo 4 è stato dato al proprietario il 23/10.
 
 ## Gemini (Antigravity)
