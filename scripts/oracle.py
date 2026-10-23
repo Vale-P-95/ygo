@@ -136,6 +136,10 @@ def run(cli, case, nodes, out_json, out_lines=None, threads=1, top=TOP, staged=N
     `staged` (cheap, full): the cheap measure of the first `cheap` fields by
     the estimate, then the full one of the best `full` by it (B14)."""
     _, deck, hand, seed, goal = case
+    if staged and goal:
+        # The boards reaching the goal are listed first: the full measure of
+        # the first FULL, not of the best by the cheap measure among all.
+        top, staged = staged[1], None
     if staged:
         top = staged[0]
     command = [cli, "--data", os.path.join(ROOT, "data"), "combos", "--deck", deck, "--hand", hand, "--nodes", str(nodes),
