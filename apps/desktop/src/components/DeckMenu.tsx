@@ -42,7 +42,7 @@ export function DeckMenu({ decks, current, onPick }: { decks: DeckSummary[] | nu
             <span className="h-7 w-5 shrink-0 rounded-[3px] shadow-[inset_0_0_0_1px_rgb(255_255_255/0.25)]" style={{ background: resolveLook(d.box, d.id).color }} />
             <span className="min-w-0 flex-1">
               <span className="block truncate text-sm font-medium">{d.name}</span>
-              <span className="text-[11px] text-faint">
+              <span className="text-xs text-faint">
                 {FORMAT_LABELS[d.format]} · {d.mainCount}/{d.extraCount}/{d.sideCount}
               </span>
             </span>

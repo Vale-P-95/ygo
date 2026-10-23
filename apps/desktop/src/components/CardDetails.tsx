@@ -60,7 +60,7 @@ function EffectText({ text, onSearch }: { text: string; onSearch?: (query: strin
 function Stat({ label, value }: { label: string; value: ReactNode }) {
   return (
     <div className="min-w-0 rounded-lg border border-border bg-bg-2 px-3 py-1.5">
-      <p className="eyebrow !text-[9px]">{label}</p>
+      <p className="eyebrow !text-xs">{label}</p>
       <p className="truncate font-semibold tabular-nums" title={typeof value === "string" ? value : undefined}>
         {value}
       </p>

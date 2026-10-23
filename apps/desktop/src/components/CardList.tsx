@@ -99,13 +99,13 @@ export function CardList({ ids, getCard, requestCards, version, onAdd, onOpen, o
                   )}
                 </span>
                 {card && (
-                  <span className="truncate text-[11px] text-muted">
+                  <span className="truncate text-xs text-muted">
                     {card.attribute && <span style={{ color: ATTRIBUTE_COLORS[card.attribute] }}>{card.attribute} · </span>}
                     {subtitle(card)}
                   </span>
                 )}
                 {card?.kind === "monster" && (
-                  <span className="text-[11px] font-semibold text-text/80 tabular-nums">
+                  <span className="text-xs font-semibold text-text/80 tabular-nums">
                     ATK {card.atk ?? "?"}
                     {card.linkRating == null && ` / DEF ${card.def ?? "?"}`}
                   </span>

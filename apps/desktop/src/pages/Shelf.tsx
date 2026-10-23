@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Plus, Search } from "lucide-react";
 import { BoxEditor } from "../components/BoxEditor";
 import { DeckBox3D } from "../components/DeckBox3D";
 import { SectionHeader } from "../components/SectionHeader";
@@ -142,8 +143,8 @@ export function Shelf({ artReady, onOpenDeck, onOpenLab, onOpenCombo, onNewDeck 
       <SectionHeader section={section} artReady={artReady} />
       <div className="flex flex-wrap items-center gap-3 border-b border-border bg-surface/60 px-8 py-3">
         <label className="relative block w-64">
-          <span className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-faint">⌕</span>
-          <input className="field !rounded-lg !py-1.5 !pl-8" placeholder="Cerca un deck…" value={query} onChange={(e) => setQuery(e.target.value)} />
+          <Search size={16} className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-faint" />
+          <input className="field !rounded-lg !py-1.5 !pl-9" placeholder="Cerca un deck…" value={query} onChange={(e) => setQuery(e.target.value)} />
         </label>
         <div className="flex gap-1 rounded-xl border border-border bg-bg-2 p-1">
           {[null, "md", "tcg", "ocg"].map((f) => (
@@ -170,7 +171,7 @@ export function Shelf({ artReady, onOpenDeck, onOpenLab, onOpenCombo, onNewDeck 
                 sound.play("toggle");
                 setSort(s.id);
               }}
-              className={`chip !px-2 !py-0.5 !text-[11px] ${sort === s.id ? "chip-active" : ""}`}
+              className={`chip !px-2.5 !py-0.5 text-xs ${sort === s.id ? "chip-active" : ""}`}
             >
               {s.label}
             </button>
@@ -179,8 +180,9 @@ export function Shelf({ artReady, onOpenDeck, onOpenLab, onOpenCombo, onNewDeck 
         <span className="ml-auto text-xs text-faint tabular-nums">
           {decks ? `${shown.length} deck` : ""}
         </span>
-        <button type="button" className="btn btn-molten !py-1.5" onClick={onNewDeck}>
-          ＋ Nuovo deck
+        <button type="button" className="btn btn-molten !py-1.5 flex items-center gap-1.5" onClick={onNewDeck}>
+          <Plus size={16} />
+          <span>Nuovo deck</span>
         </button>
       </div>
 
