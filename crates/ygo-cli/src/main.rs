@@ -151,6 +151,17 @@ enum Cmd {
         /// With --staged: runs counting the uses of a response in the cheap measure.
         #[arg(long, default_value_t = STAGED_ROUNDS)]
         staged_rounds: usize,
+        /// Measure the best N boards again at level 2 against the 3 most
+        /// played decks of the meta, and list them by it (L2-3).
+        #[arg(long, default_value_t = 0)]
+        meta_final: usize,
+        /// The meta for --meta-final from a file (`objective_bench.py`'s
+        /// meta.json: opponents with deck and weight) instead of Master Duel
+        /// Meta now; the lists are <deck>.ydk in --meta-decks.
+        #[arg(long)]
+        meta_file: Option<PathBuf>,
+        #[arg(long)]
+        meta_decks: Option<PathBuf>,
     },
     /// Measure lines saved by `combos --save-lines` with the probe turn,
     /// without searching (the same boards before and after a change). The
@@ -359,6 +370,9 @@ fn main() -> Result<()> {
             staged_full,
             staged_windows,
             staged_rounds,
+            meta_final,
+            meta_file,
+            meta_decks,
         } => combos(
             &cli.data,
             &setup,
@@ -386,6 +400,7 @@ fn main() -> Result<()> {
                     full: staged_full,
                     measure: ygo_solver::probe::Cheap { windows: staged_windows, use_rounds: staged_rounds },
                 }),
+                meta: (meta_final > 0).then_some(MetaFinal { boards: meta_final, file: meta_file, decks: meta_decks }),
             },
         ),
         Cmd::ProbeLine { setup, lines, index, json, vs, stops, moves, protection } => {
@@ -431,6 +446,41 @@ struct CombosOptions {
     no_breakers: bool,
     quick_value: bool,
     staged: Option<Staged>,
+    meta: Option<MetaFinal>,
+}
+
+/// `combos --meta-final`: the best `boards` measured again against the
+/// meta, read from `file` (lists in `decks`) or from Master Duel Meta.
+struct MetaFinal {
+    boards: usize,
+    file: Option<PathBuf>,
+    decks: Option<PathBuf>,
+}
+
+/// Decks of the meta the last step measures the boards against.
+const META_DECKS: usize = 3;
+
+/// The meta for `combos --meta-final`.
+fn load_meta(dir: &Path, meta: &MetaFinal) -> Result<Vec<ygo_solver::MetaDeck>> {
+    if let Some(file) = &meta.file {
+        let doc: serde_json::Value = serde_json::from_str(&std::fs::read_to_string(file)?)?;
+        let decks = meta.decks.as_ref().context("--meta-file needs --meta-decks")?;
+        let mut out = Vec::new();
+        for o in doc["opponents"].as_array().context("no opponents in the meta file")? {
+            let deck = o["deck"].as_str().context("an opponent with no deck")?;
+            let path = decks.join(format!("{deck}.ydk"));
+            let list = DeckList::from_ydk(&std::fs::read_to_string(&path).with_context(|| format!("cannot read {}", path.display()))?)?;
+            out.push(ygo_solver::MetaDeck { name: deck.to_owned(), weight: o["weight"].as_f64().unwrap_or(0.0), list });
+        }
+        return Ok(out);
+    }
+    let store = CardStore::open(&dir.join("cards.db"))?;
+    let runtime = tokio::runtime::Runtime::new()?;
+    let (types, decks) = runtime.block_on(async { ygo_data::meta::fetch(&ygo_data::sync::http_client()?).await })?;
+    Ok(ygo_data::meta::meta_lists(&types, &decks, &store)?
+        .into_iter()
+        .map(|m| ygo_solver::MetaDeck { name: m.name, weight: m.weight, list: DeckList { main: m.main, extra: m.extra, side: Vec::new() } })
+        .collect())
 }
 
 /// `combos --staged`: the cheap measure of the first `cheap` fields, then
@@ -463,6 +513,7 @@ fn combos(dir: &Path, setup: &Setup, options: CombosOptions) -> Result<()> {
         no_breakers,
         quick_value,
         staged,
+        meta,
     } = options;
     let (engine, deck, hand) = start(dir, setup)?;
     let mut config = ygo_solver::SearchConfig::new(deck, hand);
@@ -733,6 +784,39 @@ fn combos(dir: &Path, setup: &Setup, options: CombosOptions) -> Result<()> {
             .then(cb.unwrap_or(f64::NEG_INFINITY).total_cmp(&ca.unwrap_or(f64::NEG_INFINITY)))
             .then(a.cmp(&b))
     });
+    // The last step: the best boards by the measure against the meta's
+    // most played decks, listed first by it.
+    let mut by_measure = vec![0; boards.len()];
+    for (rank, &i) in printed.iter().enumerate() {
+        by_measure[i] = rank;
+    }
+    let mut metas: Vec<Option<ygo_solver::MetaScore>> = vec![None; boards.len()];
+    // The time to read the meta decks' lines, and to measure the boards.
+    let mut meta_seconds: Option<(f64, f64)> = None;
+    if let Some(meta) = meta.as_ref().filter(|_| probe) {
+        let started = std::time::Instant::now();
+        let decks = ygo_solver::most_played(&load_meta(dir, meta)?, META_DECKS);
+        let rivals = ygo_solver::meta_rivals(&engine, &decks, config.seed, config.threads);
+        let lines_took = started.elapsed();
+        let started = std::time::Instant::now();
+        let head: Vec<usize> = printed.iter().copied().filter(|&i| measured_value(&boards[i]).is_some()).take(meta.boards).collect();
+        for &i in &head {
+            metas[i] = ygo_solver::meta_score(&engine, &config.deck, &config.hand, config.seed, &boards[i].board.line, &rivals, &kit).ok();
+        }
+        let value = |i: usize| metas[i].as_ref().and_then(|m| m.value).unwrap_or(f64::NEG_INFINITY);
+        let mut first = head.clone();
+        first.sort_by(|&a, &b| value(b).total_cmp(&value(a)).then(by_measure[a].cmp(&by_measure[b])));
+        printed.retain(|i| !head.contains(i));
+        printed.splice(0..0, first);
+        meta_seconds = Some((lines_took.as_secs_f64(), started.elapsed().as_secs_f64()));
+        println!(
+            "meta final: {} boards against {} (lines {:.1} s, boards {:.1} s)",
+            head.len(),
+            decks.iter().map(|d| format!("{} {:.2}", d.name, d.weight)).collect::<Vec<_>>().join(", "),
+            lines_took.as_secs_f64(),
+            started.elapsed().as_secs_f64()
+        );
+    }
     let mut rank_of = vec![0; boards.len()];
     for (rank, &i) in printed.iter().enumerate() {
         rank_of[i] = rank;
@@ -807,6 +891,18 @@ fn combos(dir: &Path, setup: &Setup, options: CombosOptions) -> Result<()> {
         if let Some((v, took)) = quick {
             println!("   quick value ({:.1} s): {v:.2}", took.as_secs_f64());
         }
+        if let Some(m) = &metas[i] {
+            let decks: Vec<String> = m
+                .decks
+                .iter()
+                .map(|d| match d.left {
+                    Some(left) => format!("{} {:.0}% left", d.name, left * 100.0),
+                    None => format!("{} not measured ({} lines, {:.0}% made)", d.name, d.lines, d.made * 100.0),
+                })
+                .collect();
+            let value = m.value.map_or("-".to_owned(), |v| format!("{v:.2}"));
+            println!("   meta (L2-3): {value} · {} · by the measure #{}", decks.join(" · "), by_measure[i] + 1);
+        }
         if show_lines {
             let (_, steps) = ygo_solver::explain(&engine, &config.deck, &config.hand, config.seed, config.opponent.as_ref(), &board.line)?;
             for (k, step) in steps.iter().enumerate() {
@@ -834,6 +930,16 @@ fn combos(dir: &Path, setup: &Setup, options: CombosOptions) -> Result<()> {
                 });
                 b["cheap_value"] = serde_json::json!(cheap_values.get(i).copied().flatten());
             }
+            if let Some(m) = &metas[i] {
+                b["printed_by_measure"] = serde_json::json!(by_measure[i]);
+                b["meta"] = serde_json::json!({
+                    "value": m.value,
+                    "left": m.left,
+                    "decks": m.decks.iter().map(|d| serde_json::json!({
+                        "name": d.name, "weight": d.weight, "lines": d.lines, "made": d.made, "left": d.left,
+                    })).collect::<Vec<_>>(),
+                });
+            }
             if let Some((l, took)) = &item.loss {
                 b["expected_loss"] = loss_json(l, *took);
             }
@@ -854,6 +960,7 @@ fn combos(dir: &Path, setup: &Setup, options: CombosOptions) -> Result<()> {
             "nodes": result.progress.nodes,
             "boards_found": result.progress.boards,
             "probe_seconds": probe_seconds,
+            "meta_seconds": meta_seconds.map(|(lines, boards)| serde_json::json!({ "lines": lines, "boards": boards })),
             "items": items,
         })
     };

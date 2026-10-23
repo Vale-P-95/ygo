@@ -35,6 +35,16 @@ struct AppState {
     links: Mutex<HashMap<i64, LinksCache>>,
     /// The best lines of each rival deck, read for level 2 of the probe turn.
     rival_lines: Mutex<HashMap<i64, RivalLinesCache>>,
+    /// The meta read from Master Duel Meta for [`combo_meta`], and its
+    /// decks' lines: kept for this session only.
+    meta: Mutex<Option<MetaCache>>,
+}
+
+/// The decks of the meta and, once read, the most played ones with their
+/// lines for a seed.
+struct MetaCache {
+    decks: Vec<ygo_solver::MetaDeck>,
+    rivals: Option<(u64, std::sync::Arc<Vec<ygo_solver::MetaRival>>)>,
 }
 
 /// The best lines of a rival deck (level 2 of the probe turn against a
@@ -636,6 +646,9 @@ struct ComboJob {
     cheap: HashMap<(usize, u64), (f64, ScoreView)>,
     /// The deck they were also measured against.
     vs: Option<i64>,
+    /// Each board measured against the meta ([`combo_meta`]), by `(hand,
+    /// key)`: the same whatever deck the scores are against.
+    metas: HashMap<(usize, u64), MetaView>,
 }
 
 #[derive(Serialize, Clone)]
@@ -704,6 +717,48 @@ struct ScoreView {
     /// ranks after the boards with the full measure. Not sent yet
     /// ([`SEND_CHEAP_SCORES`]).
     cheap: bool,
+    /// Level 2 against the meta's most played decks ([`combo_meta`]): the
+    /// best boards are ranked by it, ahead of the measure.
+    meta: Option<MetaView>,
+}
+
+/// A board against the 3 decks of the meta played the most (L2-3,
+/// [`ygo_solver::MetaScore`]).
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct MetaView {
+    /// Σ weight · (1 − left) over the decks measured, weighed among them
+    /// (0-1, higher is better); none when no deck could be measured.
+    value: Option<f64>,
+    /// The same weighed share of the decks' moves still made.
+    left: Option<f64>,
+    per_deck: Vec<MetaDeckView>,
+}
+
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct MetaDeckView {
+    name: String,
+    /// Its `popRank` on Master Duel Meta (share of the ranked top decks, %).
+    weight: f64,
+    lines: usize,
+    /// Share of its moves made on an empty board: under 0.8 its lines did
+    /// not play as they were found, and the deck is not counted.
+    made: f64,
+    /// Share of its moves still made with all your answers; none when not counted.
+    left: Option<f64>,
+}
+
+fn meta_view(m: &ygo_solver::MetaScore) -> MetaView {
+    MetaView {
+        value: m.value,
+        left: m.left,
+        per_deck: m
+            .decks
+            .iter()
+            .map(|d| MetaDeckView { name: d.name.clone(), weight: d.weight, lines: d.lines, made: d.made, left: d.left })
+            .collect(),
+    }
 }
 
 /// The board and its line against a deck of the Bottega
@@ -1314,6 +1369,7 @@ fn score_view(
         countered: None,
         error: None,
         cheap: false,
+        meta: None,
     };
     match measured {
         Ok(m) => {
@@ -1652,6 +1708,7 @@ fn combo_search(app: tauri::AppHandle, state: State<'_, AppState>, request: Comb
         losses: HashMap::new(),
         cheap: HashMap::new(),
         vs: None,
+        metas: HashMap::new(),
     };
     if let Ok(mut slot) = state.combo.lock() {
         *slot = None;
@@ -2102,7 +2159,12 @@ fn combo_score(app: tauri::AppHandle, state: State<'_, AppState>, vs_deck_id: Op
     for (key, entry) in cheap_scores {
         job.cheap.insert(key, entry);
     }
-    for (key, view, loss) in results {
+    for (key, mut view, loss) in results {
+        // A board already measured against the meta keeps it (sent again with it).
+        if let Some(meta) = job.metas.get(&key) {
+            view.meta = Some(meta.clone());
+            let _ = app.emit("combo-score", view.clone());
+        }
         job.scores.insert(key, view);
         job.losses.insert(key, loss);
     }
@@ -2118,6 +2180,148 @@ fn combo_score(app: tauri::AppHandle, state: State<'_, AppState>, vs_deck_id: Op
         }
     }
     Ok(job.scores.len())
+}
+
+/// Boards of the last search measured against the meta when none are named.
+const META_BOARDS: usize = 4;
+/// Decks of the meta they are measured against: the most played.
+const META_DECKS: usize = 3;
+
+/// A board of the last search.
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct BoardRef {
+    hand: usize,
+    key: String,
+}
+
+/// The value of a score with the "Bilanciato" profile of the page.
+fn balanced(v: &ScoreView) -> f64 {
+    v.interruptions + 0.9 * v.hand_traps + 0.8 * v.floodgates + 0.6 * v.resilience + 0.4 * v.followup + 0.1 * v.resources
+        - 0.1 * v.cost
+        - 0.5 * v.exposure
+}
+
+/// The last step of the ranking (L2-3): the boards named, or the best
+/// [`META_BOARDS`] with the full measure by the "Bilanciato" profile, played
+/// at level 2 against the [`META_DECKS`] decks of the meta played the most
+/// (read from Master Duel Meta, chosen by how much they are played), on all
+/// cores. Each score is sent again as a `combo-score` event with its
+/// [`ScoreView::meta`]. The meta and its decks' lines are read once per
+/// session (the lines take 10-25 s a deck), then about 20 s a board.
+/// Returns how many boards have it.
+#[tauri::command]
+async fn combo_meta(app: tauri::AppHandle, state: State<'_, AppState>, boards: Option<Vec<BoardRef>>) -> Result<usize, String> {
+    let known = state.meta.lock().map_err(|e| e.to_string())?.as_ref().map(|m| m.decks.clone());
+    let decks = match known {
+        Some(decks) => decks,
+        None => {
+            let (types, lists) =
+                ygo_data::meta::fetch(&state.client).await.map_err(|e| format!("Impossibile leggere il meta da Master Duel Meta: {e}"))?;
+            let lists = state.with_store(|s| ygo_data::meta::meta_lists(&types, &lists, s))?;
+            let decks: Vec<ygo_solver::MetaDeck> = lists
+                .into_iter()
+                .map(|m| ygo_solver::MetaDeck {
+                    name: m.name,
+                    weight: m.weight,
+                    list: ygo_engine::DeckList { main: m.main, extra: m.extra, side: Vec::new() },
+                })
+                .collect();
+            if decks.is_empty() {
+                return Err("Master Duel Meta non ha dato nessun deck del meta".into());
+            }
+            *state.meta.lock().map_err(|e| e.to_string())? = Some(MetaCache { decks: decks.clone(), rivals: None });
+            decks
+        }
+    };
+    let app2 = app.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let state = app2.state::<AppState>();
+        meta_final(&app2, &state, &decks, boards)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+fn meta_final(
+    app: &tauri::AppHandle,
+    state: &AppState,
+    decks: &[ygo_solver::MetaDeck],
+    boards: Option<Vec<BoardRef>>,
+) -> Result<usize, String> {
+    let engine = state.engine()?;
+    let (config, hands, todo) = {
+        let job = state.combo.lock().map_err(|e| e.to_string())?;
+        let job = job.as_ref().ok_or("Nessuna ricerca da valutare")?;
+        let wanted: Vec<(usize, u64)> = match boards {
+            Some(named) => named.iter().filter_map(|b| u64::from_str_radix(&b.key, 16).ok().map(|k| (b.hand, k))).collect(),
+            None => {
+                let mut full: Vec<(&(usize, u64), &ScoreView)> = job.scores.iter().filter(|(_, v)| !v.cheap && v.error.is_none()).collect();
+                full.sort_by(|a, b| balanced(b.1).total_cmp(&balanced(a.1)));
+                full.into_iter().take(META_BOARDS).map(|(k, _)| *k).collect()
+            }
+        };
+        let todo: Vec<(usize, ygo_solver::Board)> = wanted
+            .into_iter()
+            .filter(|k| !job.metas.contains_key(k))
+            .filter_map(|(h, k)| job.boards.iter().find(|(bh, b)| *bh == h && b.key == k).cloned())
+            .collect();
+        (job.config.clone(), job.hands.iter().map(|(h, _, _)| h.clone()).collect::<Vec<_>>(), todo)
+    };
+    state.combo_cancel.store(false, Ordering::Relaxed);
+    let threads = std::thread::available_parallelism().map_or(4, |n| n.get());
+    let kit = ygo_solver::Kit::standard(&engine);
+    if !todo.is_empty() {
+        let known = state.meta.lock().map_err(|e| e.to_string())?.as_ref().and_then(|m| m.rivals.clone());
+        let rivals = match known.filter(|(seed, _)| *seed == config.seed) {
+            Some((_, rivals)) => rivals,
+            None => {
+                let rivals = std::sync::Arc::new(ygo_solver::meta_rivals(
+                    &engine,
+                    &ygo_solver::most_played(decks, META_DECKS),
+                    config.seed,
+                    threads,
+                ));
+                if let Some(m) = state.meta.lock().map_err(|e| e.to_string())?.as_mut() {
+                    m.rivals = Some((config.seed, rivals.clone()));
+                }
+                rivals
+            }
+        };
+        let next = std::sync::atomic::AtomicUsize::new(0);
+        let results = Mutex::new(Vec::new());
+        std::thread::scope(|s| {
+            for _ in 0..threads.min(todo.len()) {
+                s.spawn(|| loop {
+                    let i = next.fetch_add(1, Ordering::Relaxed);
+                    let Some((hand, board)) = todo.get(i) else { break };
+                    if state.combo_cancel.load(Ordering::Relaxed) {
+                        break;
+                    }
+                    let m = ygo_solver::meta_score(&engine, &config.deck, &hands[*hand], config.seed, &board.line, &rivals, &kit);
+                    if let (Ok(m), Ok(mut out)) = (m, results.lock()) {
+                        out.push(((*hand, board.key), meta_view(&m)));
+                    }
+                });
+            }
+        });
+        let mut job = state.combo.lock().map_err(|e| e.to_string())?;
+        let job = job.as_mut().ok_or("La ricerca è cambiata")?;
+        for (key, view) in results.into_inner().unwrap_or_default() {
+            job.metas.insert(key, view);
+        }
+    }
+    // Every score with a meta measure gets it, and is sent again.
+    let mut job = state.combo.lock().map_err(|e| e.to_string())?;
+    let job = job.as_mut().ok_or("La ricerca è cambiata")?;
+    let metas = job.metas.clone();
+    for (key, meta) in &metas {
+        if let Some(view) = job.scores.get_mut(key) {
+            view.meta = Some(meta.clone());
+            let _ = app.emit("combo-score", view.clone());
+        }
+    }
+    Ok(job.scores.values().filter(|v| v.meta.is_some()).count())
 }
 
 /// The scores already measured for the last search.
@@ -2435,6 +2639,7 @@ pub fn run() {
                 combo_cancel: AtomicBool::new(false),
                 links: Mutex::new(HashMap::new()),
                 rival_lines: Mutex::new(HashMap::new()),
+                meta: Mutex::new(None),
             };
             state.open_store();
             app.manage(state);
@@ -2498,6 +2703,7 @@ pub fn run() {
             combo_continue,
             combo_score,
             combo_scores,
+            combo_meta,
             deck_links,
             deck_links_compare,
             combo_cancel,

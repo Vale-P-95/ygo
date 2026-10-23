@@ -444,6 +444,12 @@ impl CardStore {
         Ok(self.conn.query_row(sql, [id], |r| r.get(0)).optional()?)
     }
 
+    /// The card with this English name, ignoring case (decklists from other
+    /// sites give names, not passcodes).
+    pub fn id_by_name(&self, name: &str) -> Result<Option<u32>, Error> {
+        Ok(self.conn.query_row("SELECT id FROM cards WHERE lower(name) = lower(?1) LIMIT 1", [name], |r| r.get(0)).optional()?)
+    }
+
     /// Values offered by the filter menus.
     pub fn facets(&self) -> Result<Facets, Error> {
         let list = |sql: &str| -> Result<Vec<String>, Error> {
