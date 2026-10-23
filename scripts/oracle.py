@@ -131,11 +131,17 @@ def value(measure):
     return sum(w * v for w, v in zip(WEIGHTS, parts)) + follow_up_value(measure)
 
 
-def run(cli, case, nodes, out_json, out_lines=None, threads=1, top=TOP):
-    """One `combos` run; the search seconds, or None when it failed."""
+def run(cli, case, nodes, out_json, out_lines=None, threads=1, top=TOP, staged=None):
+    """One `combos` run; the search seconds, or None when it failed. With
+    `staged` (cheap, full): the cheap measure of the first `cheap` fields by
+    the estimate, then the full one of the best `full` by it (B14)."""
     _, deck, hand, seed, goal = case
+    if staged:
+        top = staged[0]
     command = [cli, "--data", os.path.join(ROOT, "data"), "combos", "--deck", deck, "--hand", hand, "--nodes", str(nodes),
                "--seconds", "86400", "--threads", str(threads), "--top", str(top), "--seed", str(seed), "--json", out_json]
+    if staged:
+        command += ["--staged", "--staged-cheap", str(staged[0]), "--staged-full", str(staged[1])]
     if out_lines:
         command += ["--save-lines", out_lines]
     if goal:
@@ -171,6 +177,16 @@ def boards_of(path, goal=""):
     return sorted(out, key=lambda b: -b[0])
 
 
+def staged(a):
+    """`--staged` as (cheap, full), or None."""
+    return tuple(int(x) for x in a.staged.split(",")) if getattr(a, "staged", None) else None
+
+
+def matches(only, hid):
+    """`hid` is one of the hands `--only` names (any of its comma-separated parts)."""
+    return any(part in hid for part in only.split(","))
+
+
 def cmd_hands(a):
     for case in hands(a.decks):
         print("\t".join(map(str, case)))
@@ -182,7 +198,7 @@ def cmd_build(a):
     seeds = [int(s) for s in a.seeds.split(",")]
     todo = []
     for case in hands(a.decks, auto_goals(a)):
-        if a.only not in case[0]:
+        if not matches(a.only, case[0]):
             continue
         # The hand's own seed first, then the other deck orders.
         for seed in dict.fromkeys([case[3]] + ([] if a.own_seed_only else seeds)):
@@ -196,7 +212,7 @@ def cmd_build(a):
     def one(item):
         case, json_path = item
         started = time.time()
-        secs = run(a.cli, case, NODES * a.mult, json_path + ".part", json_path[:-5] + ".lines.json")
+        secs = run(a.cli, case, NODES * a.mult, json_path + ".part", json_path[:-5] + ".lines.json", staged=staged(a))
         if secs is not None:
             os.replace(json_path + ".part", json_path)
         print(f"{case[0]} seed {case[3]}: {time.time() - started:.0f} s", flush=True)
@@ -300,7 +316,7 @@ def cmd_measure(a):
     os.makedirs(a.out, exist_ok=True)
     budgets = [int(b) for b in a.budgets.split(",")]
     fixtures = [json.load(open(os.path.join(a.oracle, f))) for f in sorted(os.listdir(a.oracle)) if f.endswith(".json")]
-    fixtures = [f for f in fixtures if a.only in f["id"] and f["boards"]]
+    fixtures = [f for f in fixtures if matches(a.only, f["id"]) and f["boards"]]
 
     def one(fx):
         deck = os.path.join(ROOT, fx["deck"]) if os.path.exists(os.path.join(ROOT, fx["deck"])) else os.path.join(a.decks, fx["deck"])
@@ -371,7 +387,9 @@ def main():
     b.add_argument("--own-seed-only", action="store_true", help="only the hand's own seed")
     b.add_argument("--auto-goals", type=int, default=0, help="goal searches from this many combo_hunt hands (after a first build)")
     b.add_argument("--jobs", type=int, default=4)
-    b.add_argument("--only", default="")
+    b.add_argument("--only", default="", help="only the hands whose id holds this; several, comma-separated")
+    b.add_argument("--staged", help="CHEAP,FULL: the cheap measure of the first CHEAP fields, the full one of the best FULL by it "
+                                    f"(default: the full measure of the first {TOP})")
     b.add_argument("--cli", default=os.path.join(ROOT, "target", "release", "duelforge-cli"))
     f = sub.add_parser("fixtures", help="write tests/fixtures/oracle from a build")
     f.add_argument("oracle")
