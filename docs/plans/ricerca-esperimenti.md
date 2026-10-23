@@ -573,6 +573,16 @@ python3 scripts/research/a1b_fair_measure.py <w>/a1b base=<w>/remeasure/base per
 | PERUSE + CASCADE + CHAIN | no | 77% | 76% | 77% | 0,75 | 0,60 |
 | PERUSE + CASCADE + CHAIN | sì | 78% | 77% | 77% | 0,75 | 0,60 |
 
+Combinazioni senza PERUSE, cioè con la copertura di oggi (richiesta successiva della corsia 4):
+
+| misura | turno dopo | coppie giuste, taratura | coppie giuste, verifica | tutte | Spearman taratura | Spearman verifica |
+|---|---|---:|---:|---:|---:|---:|
+| CASCADE | no | 79% | 82% | 80% (958) | 0,78 | 0,72 |
+| CHAIN | no | 78% | 76% | 78% | 0,74 | 0,60 |
+| CASCADE + CHAIN | no | 78% | 76% | 78% | 0,74 | 0,60 |
+
+CASCADE da solo è neutro: 958 coppie giuste contro 955, ρ 0,72 contro 0,73. CHAIN peggiora, e con CHAIN acceso CASCADE non cambia niente.
+
 Con la verità senza i tre deck più giocati (1219 coppie) l'ordine è lo stesso:
 
 | configurazione | coppie giuste | Spearman in verifica |
@@ -581,9 +591,12 @@ Con la verità senza i tre deck più giocati (1219 coppie) l'ordine è lo stesso
 | PERUSE | 74% | 0,43 |
 | PERUSE + CASCADE | 76% | 0,54 |
 | tutte e tre | 79% | 0,63 |
+| CASCADE | 80% | 0,72 |
+| CHAIN | 79% | 0,63 |
+| CASCADE + CHAIN | 79% | 0,63 |
 
 ### Conclusione
-- **Su tutte le board nessuno dei tre interruttori migliora la misura: la peggiorano tutti.**
+- **Su tutte le board nessuno degli interruttori migliora la misura, in nessuna delle 7 combinazioni.** CASCADE da solo è neutro; le altre la peggiorano.
   - PERUSE da solo fa il danno più grande: 79% → 73% delle coppie, Spearman in verifica 0,73 → 0,42.
   - CASCADE e CHAIN recuperano in parte, ma restano sotto la base: 77% e 0,60.
 - Sul campione dei disaccordi il quadro era opposto: 16% → 42%. È l'effetto della scelta del campione: correggere dove la misura sbaglia costa di più dove oggi va bene.
