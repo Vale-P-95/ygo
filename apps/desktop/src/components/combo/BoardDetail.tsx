@@ -216,6 +216,12 @@ export function BoardDetail({ board, score, scoring, weights, hand, steps, steps
         <h3 className="text-sm font-semibold">Il punteggio</h3>
         {score ? (
           <>
+            {score.cheap && (
+              <p className="rounded-md border border-border bg-surface-2 px-3 py-2 text-xs text-muted">
+                Valutata in breve: nessun breaker, follow-up, esposizione o confronto con il deck scelto. I numeri qui sotto non si
+                confrontano con quelli delle board misurate per intero.
+              </p>
+            )}
             <ScoreBreakdown s={score} weights={weights} getCard={getCard} onHover={onHover} onHoverEnd={onHoverEnd} board={board} />
             {score.matchup && !score.matchup.error && (
               <RivalMoves

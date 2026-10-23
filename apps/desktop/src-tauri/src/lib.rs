@@ -714,8 +714,7 @@ struct ScoreView {
     /// Only the cheap measure ([`ygo_solver::Prober::measure_cheap`]): the
     /// board was not among the best by it, so it has no breakers (its
     /// `resilience` is all its field), follow-up, exposure nor matchup, and
-    /// ranks after the boards with the full measure. Not sent yet
-    /// ([`SEND_CHEAP_SCORES`]).
+    /// is ranked by the page after the boards with the full measure.
     cheap: bool,
     /// Level 2 against the meta's most played decks ([`combo_meta`]): the
     /// best boards are ranked by it, ahead of the measure.
@@ -1960,12 +1959,6 @@ fn links_view(deck_id: i64, map: &ygo_solver::DeckLinks) -> DeckLinksView {
 /// boards kept to the full measure.
 const CHEAP_BOARDS: usize = 30;
 const SCORED_BOARDS: usize = 15;
-/// The page ranks every score it gets by its weights, and a cheap score has
-/// no breaker nor exposure to lose: it would rank above a full one of the
-/// same field. Until the page puts the [`ScoreView::cheap`] ones after the
-/// others, they are kept here and not sent: those boards look unmeasured,
-/// ranked by the search's estimate, as the boards past the first 30.
-const SEND_CHEAP_SCORES: bool = false;
 /// What the cheap measure tries.
 const CHEAP_MEASURE: ygo_solver::probe::Cheap = ygo_solver::probe::Cheap { windows: 8, use_rounds: 1 };
 
@@ -2015,7 +2008,7 @@ fn on_all_cores<'a, R: Send>(
 /// are not measured again. A precise hand goes in steps: the cheap measure
 /// of the first [`CHEAP_BOARDS`], then the full one of the best
 /// [`SCORED_BOARDS`] by it; the others keep the cheap score
-/// ([`ScoreView::cheap`]), not sent yet ([`SEND_CHEAP_SCORES`]). With `vs_deck_id` (a deck of the Bottega) each
+/// ([`ScoreView::cheap`]), which the page ranks after the full ones. With `vs_deck_id` (a deck of the Bottega) each
 /// board with the full measure is also measured against that deck's
 /// breakers and handtraps (another deck than last time measures all boards
 /// again). Returns how many boards have a score.
@@ -2086,9 +2079,7 @@ fn combo_score(app: tauri::AppHandle, state: State<'_, AppState>, vs_deck_id: Op
                 let value = measured.as_ref().map_or(f64::NEG_INFINITY, cheap_value);
                 let mut view = score_view(&engine, hand, board, measured, None, None, &config.hand_traps, &roles);
                 view.cheap = true;
-                if SEND_CHEAP_SCORES {
-                    let _ = app.emit("combo-score", view.clone());
-                }
+                let _ = app.emit("combo-score", view.clone());
                 ((hand, board.key), (value, view))
             });
             if state.combo_cancel.load(Ordering::Relaxed) {
@@ -2170,7 +2161,7 @@ fn combo_score(app: tauri::AppHandle, state: State<'_, AppState>, vs_deck_id: Op
     }
     // The candidates left out of the full measure keep the cheap score
     // (sent again after a change of deck, which clears the scores).
-    if SEND_CHEAP_SCORES && cheap.is_some() {
+    if cheap.is_some() {
         for (h, b) in &candidates {
             if let (None, Some((_, view))) = (job.scores.get(&(*h, b.key)), job.cheap.get(&(*h, b.key))) {
                 let view = view.clone();
