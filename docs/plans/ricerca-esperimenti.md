@@ -573,6 +573,28 @@ python3 scripts/research/a1b_fair_measure.py <w>/a1b base=<w>/remeasure/base per
 | PERUSE + CASCADE + CHAIN | no | 77% | 76% | 77% | 0,75 | 0,60 |
 | PERUSE + CASCADE + CHAIN | sì | 78% | 77% | 77% | 0,75 | 0,60 |
 
+Combinazioni senza PERUSE, cioè con la copertura di oggi (richiesta successiva della corsia 4):
+
+| misura | turno dopo | coppie giuste, taratura | coppie giuste, verifica | tutte | Spearman taratura | Spearman verifica |
+|---|---|---:|---:|---:|---:|---:|
+| CASCADE | no | 79% | 82% | 80% (958) | 0,78 | 0,72 |
+| CHAIN | no | 78% | 76% | 78% | 0,74 | 0,60 |
+| CASCADE + CHAIN | no | 78% | 76% | 78% | 0,74 | 0,60 |
+| **SUMMONS** | no | **81%** | **84%** | **82% (984)** | 0,77 | **0,74** |
+| SUMMONS | sì | 81% | 81% | 81% (977) | 0,77 | 0,73 |
+| SUMMONS + CASCADE + CHAIN | no | 78% | 73% | 76% | 0,72 | 0,57 |
+
+CASCADE da solo è neutro: 958 coppie giuste contro 955, ρ 0,72 contro 0,73. CHAIN peggiora, e con CHAIN acceso CASCADE non cambia niente.
+
+SUMMONS è l'opzione (d) della corsia 4, sulla CLI di 25d2994. Fuori dall'interruttore è identica a 017aff9, quindi la base resta la stessa. I pesi delle Evocazioni vengono dalla frequenza nelle linee vere (kit-mix): dalla mano 0,32, Normali 0,35, Extra Deck 0,99, invece di 0,3, 0,2 e 0,6.
+- È l'unica configurazione che batte la base: 984 coppie giuste contro 955, anche sui deck di verifica (84% contro 82%).
+- Contate coppia per coppia: 45 guadagnate e 16 perse, test del segno p = 0,0003.
+- Il guadagno però è concentrato: Sky Striker +15/−0 e Clown Crew +15/−1 fanno 30 delle 45.
+  - Le perdite sono sparse: Artmage −3, Phantom Knights +1/−4, Invoked, Psychics e Pumpking Zombies −2.
+- Lo Spearman quasi non si muove (0,77/0,74 contro 0,78/0,73): migliora l'ordine dentro ai deck, non la scala tra deck.
+- Con il turno dopo il guadagno in verifica sparisce (81% contro 82%).
+- Insieme a CASCADE e CHAIN torna sotto la base, come CHAIN da solo.
+
 Con la verità senza i tre deck più giocati (1219 coppie) l'ordine è lo stesso:
 
 | configurazione | coppie giuste | Spearman in verifica |
@@ -581,13 +603,19 @@ Con la verità senza i tre deck più giocati (1219 coppie) l'ordine è lo stesso
 | PERUSE | 74% | 0,43 |
 | PERUSE + CASCADE | 76% | 0,54 |
 | tutte e tre | 79% | 0,63 |
+| CASCADE | 80% | 0,72 |
+| CHAIN | 79% | 0,63 |
+| CASCADE + CHAIN | 79% | 0,63 |
+| SUMMONS | 82% | 0,73 |
+| SUMMONS + CASCADE + CHAIN | 78% | 0,59 |
 
 ### Conclusione
-- **Su tutte le board nessuno dei tre interruttori migliora la misura: la peggiorano tutti.**
+- **Del kit concatenato nessun interruttore migliora la misura, in nessuna delle 7 combinazioni.** CASCADE da solo è neutro; le altre la peggiorano.
+- **SUMMONS da solo (opzione d) è l'unico miglioramento: +29 coppie, 82% contro 79%, significativo (p = 0,0003).** Viene però per due terzi da due deck. Prima di accenderlo conviene ripeterlo sul banco obiettivo nuovo della corsia 3, e senza il turno dopo, che lo annulla in verifica.
   - PERUSE da solo fa il danno più grande: 79% → 73% delle coppie, Spearman in verifica 0,73 → 0,42.
   - CASCADE e CHAIN recuperano in parte, ma restano sotto la base: 77% e 0,60.
 - Sul campione dei disaccordi il quadro era opposto: 16% → 42%. È l'effetto della scelta del campione: correggere dove la misura sbaglia costa di più dove oggi va bene.
-- **Proposta:** non accendere nessuno dei tre interruttori. La strada che migliora l'ordine resta il livello 2 contro i tre deck più giocati (§6b, 94%).
+- **Proposta:** non accendere PERUSE, CASCADE e CHAIN. La strada che migliora l'ordine resta il livello 2 contro i tre deck più giocati (§6b, 94%).
 - **Regola per le prossime modifiche della misura:** si giudicano su tutte le board del giro A1b con `a1b_fair_measure.py`, non solo sulle coppie in disaccordo.
   - Costa pochi minuti: le linee e la verità ci sono già.
   - Con la verità che esclude i tre deck più giocati, il confronto con L2-3 resta onesto.
