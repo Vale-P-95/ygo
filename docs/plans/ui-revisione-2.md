@@ -123,6 +123,7 @@ File: `src/components/Catalog.tsx`, `FilterPanel.tsx`.
 - **I filtri attivi** compaiono come pillole rimovibili sotto la ricerca, solo quando ci sono.
 - **La scelta della vista** (carte grandi, medie, piccole, lista) diventa un solo pulsante con menu.
 - Il conteggio «14.388 carte» resta, più discreto.
+- *Completato il 23/10/2026 (Gemini):* barra monoriga compatta nel catalogo con campo di ricerca largo, ricerche salvate integrate come menu a tendina dentro il campo, interruttori a icona nella riga per i 4 filtri rapidi (Handtrap, Staple, Board breaker, Preferite) con stato `aria-pressed`, selettore vista a pulsante singolo con menu popover (carte grandi, medie, piccole, elenco), pulsante Filtri con badge conteggio filtri attivi, pillole rimovibili mostrate sotto solo quando ci sono filtri attivi o errori, conteggio carte discreto e 7 test Vitest in `Catalog.test.tsx`.
 
 ### Passo 4. Passata su tutte le sezioni (`gemini/ui-polish`)
 - **Per ogni pagina** (Fucina, Bottega, Laboratorio con tutte le schede, Circolo Arcano, Banditore, Impostazioni) una tabella nel piano: cosa si toglie, cosa si sposta, cosa diventa icona.
