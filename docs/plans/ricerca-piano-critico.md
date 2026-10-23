@@ -85,6 +85,25 @@
   - Un comando in background nel cloud si ferma dopo 2 ore. `build` riparte dalle corse già scritte, quindi si rilancia la stessa riga finché ha finito.
   - Dal pilota, una mano a 40 000 nodi prende da 5 s a 6,5 minuti; a 200 000 nodi va da qualche minuto a mezz'ora.
 
+#### A1: il giro vero (corsia 6, 23/10, branch `claude/oracle-run`)
+- **Oracolo:** 91 mani a 200 000 nodi (50 volte), solo con il seme della mano, in circa 4 ore e mezza nel cloud con 4 lavori. Una mano prende da pochi secondi a 15 minuti, in media 10. Le fixture di `tests/fixtures/oracle` sono queste e prendono il posto del pilota.
+- **La ricerca normale contro l'oracolo** (`oracle.py measure`, a 1000-16 000 nodi), su 88 mani. Restano fuori le 2 mani kaiju, dove nessuna board vale qualcosa, e l'obiettivo Invoked:
+
+  | nodi | quota mediana | quota media (fino al 100%) | mani al 95% o più | mani sopra l'oracolo | secondi (mediana) |
+  |---|---|---|---|---|---|
+  | 1000 | 69% | 71% | 27 | 8 | 2,9 |
+  | 2000 | 77% | 75% | 29 | 7 | 5,0 |
+  | 4000 | 87% | 80% | 31 | 9 | 8,4 |
+  | 8000 | 90% | 83% | 35 | 9 | 17,1 |
+  | 16 000 | 95% | 86% | 44 | 11 | 31,9 |
+
+  - L'obiettivo del piano (95% dell'oracolo entro 30 secondi in 9 mani su 10) è lontano: a 16 000 nodi, circa 32 s, ci arriva una mano su due.
+  - Con una board da almeno il 99% dell'oracolo fra le prime 3 sono 39 mani su 91; con la board stessa dell'oracolo 23 (obiettivo: 8 su 10).
+  - **Il valore misurato non cresce sempre con il budget:** in 28 mani su 88 scende di oltre l'1% passando a un budget più grande.
+  - **L'oracolo non è ancora un tetto.** In 14 mani la ricerca normale trova una board migliore di quella dell'oracolo (vanquish_soul_k9-0: 182%, phantom_knights-1: 141%). L'oracolo misura solo le 10 board migliori per la stima rapida, tra migliaia trovate. Così la board migliore può restare fuori dalla misura anche con 50 volte i nodi. Lo stesso limite spiega le discese. Per l'A1b: l'oracolo dovrebbe misurare molte più board (`--top` 50 o più), o misurarle tutte per ogni aspetto della board.
+  - **Obiettivo Invoked** (Oceanus nella Zona Mostri Extra + S:P, mano Aleister, "Grail", Meltdown, Ash, Fuwalos). A 200 000 nodi l'oracolo lo raggiunge (valore 1,74). La ricerca normale no, nemmeno a 16 000 nodi.
+- **Da fare:** i semi 2 e 3 (seconda passata) e l'A1b.
+
 ### A1b. Oltre i limiti dell'oracolo (corsia 6, dopo il giro vero; il livello 2 con la corsia 3)
 L'oracolo è uno strumento di sviluppo, non una parte dell'app.
 - Serve a controllare che il motore trovi da solo le linee più forti di **qualunque** deck, anche uno appena montato con carte appena uscite.

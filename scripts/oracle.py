@@ -313,7 +313,14 @@ def cmd_measure(a):
         steps = []
         for nodes in budgets:
             out = os.path.join(a.out, f"{fx['id']}.n{nodes}.json")
-            secs = run(a.cli, case, nodes, out)
+            timing = out[:-5] + ".time.json"
+            # Runs already written are kept: a measure cut short goes on.
+            if os.path.exists(out) and os.path.exists(timing):
+                secs = json.load(open(timing))["seconds"]
+            else:
+                secs = run(a.cli, case, nodes, out)
+                if secs is not None:
+                    json.dump({"seconds": secs}, open(timing, "w"))
             if secs is None:
                 steps.append({"nodes": nodes, "failed": True})
                 continue

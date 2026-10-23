@@ -1,0 +1,128 @@
+{
+ "id": "hunt-kaiju-1",
+ "deck": "kaiju.ydk",
+ "hand": [
+  2263869,
+  42141493,
+  48770333,
+  35269904,
+  58570206
+ ],
+ "deck_hash": "bfeacb4f8a301cdf",
+ "seed": 7,
+ "goal": "",
+ "nodes": 200000,
+ "boards_found": 3,
+ "boards": [
+  {
+   "value": 0.0,
+   "look_key": "b76ca6edd255eba3",
+   "field": [],
+   "hand": [
+    2263869,
+    42141493,
+    48770333,
+    35269904,
+    58570206
+   ],
+   "measure": {
+    "field": 0.0,
+    "hand": 0.0,
+    "floodgates": 0.0,
+    "resilience": 0.0,
+    "follow_up": {
+     "gained": 0,
+     "rebuild": 0
+    }
+   }
+  },
+  {
+   "value": 0.0,
+   "look_key": "1627f58165db1192",
+   "field": [
+    {
+     "code": 42141493,
+     "name": "Mulcharmy Fuwalos"
+    }
+   ],
+   "hand": [
+    2263869,
+    48770333,
+    35269904,
+    58570206
+   ],
+   "measure": {
+    "field": 0.0,
+    "hand": 0.0,
+    "floodgates": 0.0,
+    "resilience": 0.0,
+    "follow_up": {
+     "gained": 0,
+     "rebuild": 0
+    }
+   }
+  },
+  {
+   "value": 0.0,
+   "look_key": "ac30aecc7a78be64",
+   "field": [
+    {
+     "code": 42141493,
+     "name": "Mulcharmy Fuwalos",
+     "set": true
+    }
+   ],
+   "hand": [
+    2263869,
+    48770333,
+    35269904,
+    58570206
+   ],
+   "measure": {
+    "field": 0.0,
+    "hand": 0.0,
+    "floodgates": 0.0,
+    "resilience": 0.0,
+    "follow_up": {
+     "gained": 0,
+     "rebuild": 0
+    }
+   }
+  }
+ ],
+ "other_seeds": [],
+ "line": {
+  "answers": [
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    7,
+    0,
+    0,
+    0
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ]
+  ]
+ }
+}

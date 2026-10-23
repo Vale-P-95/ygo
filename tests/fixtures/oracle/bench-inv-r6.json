@@ -11,42 +11,9 @@
  "deck_hash": "29843c58e0f69d22",
  "seed": 1,
  "goal": "",
- "nodes": 40000,
- "boards_found": 7310,
+ "nodes": 200000,
+ "boards_found": 42092,
  "boards": [
-  {
-   "value": 2.691372549019608,
-   "look_key": "eb50a5dd39eed94f",
-   "field": [
-    {
-     "code": 84815190,
-     "name": "Baronne de Fleur",
-     "zone": "emz"
-    },
-    {
-     "code": 75286621,
-     "name": "Invoked Mechaba"
-    },
-    {
-     "code": 47679935,
-     "name": "Magical Meltdown"
-    }
-   ],
-   "hand": [
-    86120752,
-    14558127
-   ],
-   "measure": {
-    "field": 1.6370370370370368,
-    "hand": 0.5333333333333333,
-    "floodgates": 0.0,
-    "resilience": 0.7572258533042846,
-    "follow_up": {
-     "gained": 1,
-     "rebuild": 1
-    }
-   }
-  },
   {
    "value": 2.632862745098039,
    "look_key": "2b7c6845fb39c935",
@@ -85,121 +52,151 @@
    }
   },
   {
-   "value": 1.5697668845315902,
-   "look_key": "cd3906e4e547ff89",
+   "value": 2.334239651416122,
+   "look_key": "e32a009a0ed264c4",
    "field": [
     {
-     "code": 75286621,
-     "name": "Invoked Mechaba"
+     "code": 84815190,
+     "name": "Baronne de Fleur",
+     "zone": "emz"
     },
     {
-     "code": 43989315,
-     "name": "Invoked Sorath"
+     "code": 33166263,
+     "name": "Hyperinvoked Aeon"
+    },
+    {
+     "code": 37432075,
+     "name": "Invocation - \"Sword\"",
+     "set": true
     },
     {
      "code": 47679935,
      "name": "Magical Meltdown"
-    },
-    {
-     "code": 29301450,
-     "name": "S:P Little Knight",
-     "zone": "emz"
     }
    ],
    "hand": [
-    86120752,
-    14558127
+    14558127,
+    86120752
    ],
    "measure": {
-    "field": 0.9285555555555555,
+    "field": 1.0548148148148149,
     "hand": 0.5333333333333333,
-    "floodgates": 0.0,
-    "resilience": 0.2686855482933914,
+    "floodgates": 0.6,
+    "resilience": 0.33237472766884535,
     "follow_up": {
-     "gained": 0,
-     "rebuild": 0
+     "gained": 1,
+     "rebuild": 1
     }
    }
   },
   {
-   "value": 1.5655691721132896,
-   "look_key": "18da40143cffed20",
+   "value": 2.314429193899782,
+   "look_key": "b980157ab826dee6",
    "field": [
     {
-     "code": 875572,
-     "name": "Crowley, the Gifted Magistus",
-     "equipped_to": 20714553
+     "code": 84815190,
+     "name": "Baronne de Fleur",
+     "zone": "emz"
     },
     {
-     "code": 20714553,
-     "name": "Endymion, the Crescent Magistus",
-     "zone": "emz"
+     "code": 37432075,
+     "name": "Invocation - \"Sword\"",
+     "set": true
     },
     {
      "code": 75286621,
      "name": "Invoked Mechaba"
     },
     {
-     "code": 43989315,
-     "name": "Invoked Sorath"
-    },
-    {
      "code": 47679935,
      "name": "Magical Meltdown"
+    },
+    {
+     "code": 10673071,
+     "name": "Virakam, the Divine Spirit of Artifice"
     }
    ],
    "hand": [
-    86120752,
     14558127
    ],
    "measure": {
-    "field": 0.9242407407407407,
+    "field": 1.295925925925926,
     "hand": 0.5333333333333333,
     "floodgates": 0.0,
-    "resilience": 0.26888071895424837,
+    "resilience": 0.4975054466230938,
     "follow_up": {
-     "gained": 0,
-     "rebuild": 0
+     "gained": 1,
+     "rebuild": 2
     }
    }
   },
   {
-   "value": 1.5196002178649235,
-   "look_key": "0657e905699d02a0",
+   "value": 2.314429193899782,
+   "look_key": "f0b434c532cc1974",
    "field": [
     {
-     "code": 875572,
-     "name": "Crowley, the Gifted Magistus"
+     "code": 84815190,
+     "name": "Baronne de Fleur",
+     "zone": "emz"
+    },
+    {
+     "code": 37432075,
+     "name": "Invocation - \"Sword\"",
+     "set": true
     },
     {
      "code": 75286621,
      "name": "Invoked Mechaba"
     },
     {
-     "code": 43989315,
-     "name": "Invoked Sorath"
+     "code": 47679935,
+     "name": "Magical Meltdown"
+    }
+   ],
+   "hand": [
+    14558127
+   ],
+   "measure": {
+    "field": 1.295925925925926,
+    "hand": 0.5333333333333333,
+    "floodgates": 0.0,
+    "resilience": 0.4975054466230938,
+    "follow_up": {
+     "gained": 1,
+     "rebuild": 2
+    }
+   }
+  },
+  {
+   "value": 2.2695588235294117,
+   "look_key": "56bb9948ad4e7317",
+   "field": [
+    {
+     "code": 84815190,
+     "name": "Baronne de Fleur",
+     "zone": "emz"
+    },
+    {
+     "code": 37432075,
+     "name": "Invocation - \"Sword\"",
+     "set": true
     },
     {
      "code": 47679935,
      "name": "Magical Meltdown"
-    },
-    {
-     "code": 29301450,
-     "name": "S:P Little Knight",
-     "zone": "emz"
     }
    ],
    "hand": [
-    86120752,
-    14558127
+    14558127,
+    86120752
    ],
    "measure": {
-    "field": 0.8888888888888887,
+    "field": 1.425,
     "hand": 0.5333333333333333,
     "floodgates": 0.0,
-    "resilience": 0.25118554829339146,
+    "resilience": 0.6075980392156862,
     "follow_up": {
-     "gained": 0,
+     "gained": 2,
      "rebuild": 0
     }
    }
@@ -1198,6 +1195,77 @@
     255,
     255,
     255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    5,
+    0,
+    0,
+    0
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    0,
+    0,
+    0,
+    0,
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    4,
+    1
+   ],
+   [
+    1,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    0,
+    0,
+    0
    ],
    [
     255,

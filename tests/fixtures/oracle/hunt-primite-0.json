@@ -1,0 +1,317 @@
+{
+ "id": "hunt-primite-0",
+ "deck": "primite.ydk",
+ "hand": [
+  29095457,
+  58053438,
+  58053438,
+  10045474,
+  6325660
+ ],
+ "deck_hash": "ede35f0c346e791e",
+ "seed": 7,
+ "goal": "",
+ "nodes": 200000,
+ "boards_found": 24,
+ "boards": [
+  {
+   "value": 1.1636301742919393,
+   "look_key": "beab5446a706d222",
+   "field": [
+    {
+     "code": 6325660,
+     "name": "Dominus Spark",
+     "set": true
+    },
+    {
+     "code": 10045474,
+     "name": "Infinite Impermanence",
+     "set": true
+    },
+    {
+     "code": 29095457,
+     "name": "Primite Drillbeam",
+     "set": true
+    },
+    {
+     "code": 58053438,
+     "name": "Songs of the Dominators",
+     "set": true
+    }
+   ],
+   "hand": [
+    58053438
+   ],
+   "measure": {
+    "field": 0.7912685185185188,
+    "hand": 0.0,
+    "floodgates": 0.0,
+    "resilience": 0.6206027596223677,
+    "follow_up": {
+     "gained": 0,
+     "rebuild": 0
+    }
+   }
+  },
+  {
+   "value": 1.1636301742919393,
+   "look_key": "12cfe36cc3b301ff",
+   "field": [
+    {
+     "code": 6325660,
+     "name": "Dominus Spark",
+     "set": true
+    },
+    {
+     "code": 10045474,
+     "name": "Infinite Impermanence",
+     "set": true
+    },
+    {
+     "code": 29095457,
+     "name": "Primite Drillbeam",
+     "set": true
+    },
+    {
+     "code": 58053438,
+     "name": "Songs of the Dominators",
+     "set": true
+    },
+    {
+     "code": 58053438,
+     "name": "Songs of the Dominators",
+     "set": true
+    }
+   ],
+   "hand": [],
+   "measure": {
+    "field": 0.7912685185185188,
+    "hand": 0.0,
+    "floodgates": 0.0,
+    "resilience": 0.6206027596223677,
+    "follow_up": {
+     "gained": 0,
+     "rebuild": 0
+    }
+   }
+  },
+  {
+   "value": 1.1636301742919393,
+   "look_key": "c7b6a48299d00900",
+   "field": [
+    {
+     "code": 6325660,
+     "name": "Dominus Spark",
+     "set": true
+    },
+    {
+     "code": 10045474,
+     "name": "Infinite Impermanence",
+     "set": true
+    },
+    {
+     "code": 58053438,
+     "name": "Songs of the Dominators",
+     "set": true
+    },
+    {
+     "code": 58053438,
+     "name": "Songs of the Dominators",
+     "set": true
+    }
+   ],
+   "hand": [
+    29095457
+   ],
+   "measure": {
+    "field": 0.7912685185185188,
+    "hand": 0.0,
+    "floodgates": 0.0,
+    "resilience": 0.6206027596223677,
+    "follow_up": {
+     "gained": 0,
+     "rebuild": 0
+    }
+   }
+  },
+  {
+   "value": 1.1636301742919393,
+   "look_key": "4b053bb3d7eaa0e2",
+   "field": [
+    {
+     "code": 6325660,
+     "name": "Dominus Spark",
+     "set": true
+    },
+    {
+     "code": 10045474,
+     "name": "Infinite Impermanence",
+     "set": true
+    },
+    {
+     "code": 58053438,
+     "name": "Songs of the Dominators",
+     "set": true
+    }
+   ],
+   "hand": [
+    29095457,
+    58053438
+   ],
+   "measure": {
+    "field": 0.7912685185185188,
+    "hand": 0.0,
+    "floodgates": 0.0,
+    "resilience": 0.6206027596223677,
+    "follow_up": {
+     "gained": 0,
+     "rebuild": 0
+    }
+   }
+  },
+  {
+   "value": 1.0155255446623097,
+   "look_key": "931fbc2bf6b38f87",
+   "field": [
+    {
+     "code": 10045474,
+     "name": "Infinite Impermanence",
+     "set": true
+    },
+    {
+     "code": 29095457,
+     "name": "Primite Drillbeam",
+     "set": true
+    },
+    {
+     "code": 58053438,
+     "name": "Songs of the Dominators",
+     "set": true
+    }
+   ],
+   "hand": [
+    58053438,
+    6325660
+   ],
+   "measure": {
+    "field": 0.5317037037037039,
+    "hand": 0.25956481481481486,
+    "floodgates": 0.0,
+    "resilience": 0.41702251270878743,
+    "follow_up": {
+     "gained": 0,
+     "rebuild": 0
+    }
+   }
+  }
+ ],
+ "other_seeds": [],
+ "line": {
+  "answers": [
+   [
+    4,
+    0,
+    4,
+    0
+   ],
+   [
+    0,
+    8,
+    1
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    4,
+    0,
+    3,
+    0
+   ],
+   [
+    0,
+    8,
+    2
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    4,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    8,
+    3
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    4,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    8,
+    0
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    7,
+    0,
+    0,
+    0
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ]
+  ]
+ }
+}
