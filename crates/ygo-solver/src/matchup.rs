@@ -15,7 +15,7 @@ use ygo_engine::auto::passive_answer;
 use ygo_engine::consts::{location, position};
 use ygo_engine::{Action, ActionKind, CardRef, Decision, DeckList, Duel, Engine, Error, Event, Opponent, Placement, Step};
 
-use crate::follow::{declinable, find_again, own_answers, pick_again, Script, PASS};
+use crate::follow::{declinable, find_again, option_again, own_answers, pick_again, Script, PASS};
 use crate::probe::{
     end_turn, find_act, forward, hand_traps, window_answer, Act, Breaker, Effect, Kit, Measure, Prelude, Prober, ResponderId,
 };
@@ -109,10 +109,12 @@ impl Rival {
     /// kit's Deck the line was found against. Some of your effects look at
     /// the size of its Deck (That Grass Looks Greener sends cards until
     /// yours is no bigger): with another size the line's answers no longer
-    /// fit its questions.
+    /// fit its questions. Its Extra Deck is the kit's, for the same reason
+    /// (Kewl Tune Clip banishes from it: with none, its trigger is not asked).
     fn replay_opponent(&self) -> Opponent {
-        let size = self.standard.opponent().deck.len();
-        Opponent { hand: self.hand_traps.clone(), deck: self.main.iter().copied().cycle().take(size).collect(), extra: Vec::new() }
+        let standard = self.standard.opponent();
+        let deck = self.main.iter().copied().cycle().take(standard.deck.len()).collect();
+        Opponent { hand: self.hand_traps.clone(), deck, extra: standard.extra.clone() }
     }
 
     fn copies(&self, code: u32) -> u32 {
@@ -821,9 +823,15 @@ fn replay(
                 }
             }
             let Some(answer) = own.answers.get(next) else { break };
-            // After a handtrap, the cards the line picks are found again by
-            // what they are, not by their place in the list.
-            let again = own.picks.get(next).and_then(Option::as_ref).and_then(|p| pick_again(engine, &decision, p));
+            // After a handtrap, the cards the line picks and the options it
+            // chooses are found again by what they are, not by their place
+            // in the list.
+            let again = own
+                .picks
+                .get(next)
+                .and_then(Option::as_ref)
+                .and_then(|p| pick_again(engine, &decision, p))
+                .or_else(|| own.options.get(next).copied().flatten().and_then(|o| option_again(&decision, &actions, o)));
             duel.respond(again.as_ref().unwrap_or(answer));
             asked = Some(decision);
             next += 1;
