@@ -104,6 +104,25 @@
   - **Obiettivo Invoked** (Oceanus nella Zona Mostri Extra + S:P, mano Aleister, "Grail", Meltdown, Ash, Fuwalos). A 200 000 nodi l'oracolo lo raggiunge (valore 1,74). La ricerca normale no, nemmeno a 16 000 nodi.
 - **Da fare:** i semi 2 e 3 (seconda passata) e l'A1b.
 
+#### A1: l'oracolo con la misura a gradini (corsia 6, 23/10, branch `claude/oracle-top`)
+- **`oracle.py build --staged 300,30`:** sulle prime 300 board per la stima rapida la misura economica (B14), sulle 30 migliori per quella la misura completa. Prima si misuravano per intero solo le prime 10. `--only` accetta più mani, separate da virgole.
+- **Prova** a 200 000 nodi, solo con il seme della mano, su 29 mani: le 14 dove la ricerca normale batteva l'oracolo, più 15 prese a caso. Stesso eseguibile per tutto: l'oracolo con le prime 10 misurate dà gli stessi valori del giro vero.
+
+  | | prime 10 misurate | misura a gradini 300/30 |
+  |---|---|---|
+  | mani dove la ricerca normale (1000-16 000 nodi) supera l'oracolo di oltre l'1% | 14 | 3 |
+  | mani dove l'oracolo sale di oltre l'1% / scende | — | 15 / 1 |
+  | tempo per mano (mediana) | — | +123 s (×1,39); in tutto +42% |
+
+  - Gli aumenti più grandi: warrior_combo-0 da 0,38 a 1,78, vanquish_soul_k9-0 da 0,90 a 2,02, phantom_knights-1 da 1,16 a 2,24, artmage-0 da 2,79 a 4,02. Erano board che la stima rapida metteva fuori dalle prime 10.
+- **Le tre eccezioni rimaste:**
+  - **warrior_combo-1 (148%):** la board della ricerca normale è fuori dalle prime 300 per la stima. Con `--staged 2000,60` l'oracolo sale da 0,26 a 1,78 e la ricerca normale scende al 21%.
+  - **elfnote-1 (102%):** la board c'è, al posto 44, ma per la misura economica vale 2,22, sotto la soglia delle 30 (2,28). Misurata per intero vale 3,27. La ricerca normale arriva a 3,92 misurando anche le varianti di zona della stessa board. Con 2000/60 l'oracolo fa 3,78 e la ricerca normale resta al 104%.
+  - **sky_striker-1 (127%):** non è un limite della misura. Dopo 200 000 nodi l'oracolo ha 20 757 board ma solo 425 aspetti (campo e mano). La board migliore della ricerca a 1000 nodi non c'è: stesso campo (Sky Striker Ace = Zero nella Zona Mostri Extra, Widow Anchor coperta), ma con Maxx "C" ancora in mano. La ricerca lunga non passa per quello stato: la ricerca non è monotona nel budget. È un caso per la corsia 2.
+  - code_talker-0 resta al 101%, entro la soglia.
+- **Unica mano peggiorata:** sky_striker-1 scende da 1,09 a 0,93. La misura economica mette fuori dalle 30 la board che con le prime 10 era la migliore.
+- **Proposta:** rifare le 91 fixture con `--staged 300,30`, circa 6 ore e mezza nel cloud invece di 4 e mezza. Con 2000/60 l'oracolo costa ancora di più: elfnote-1 passa da 638 a 1730 s.
+
 ### A1b. Oltre i limiti dell'oracolo (corsia 6, dopo il giro vero; il livello 2 con la corsia 3)
 L'oracolo è uno strumento di sviluppo, non una parte dell'app.
 - Serve a controllare che il motore trovi da solo le linee più forti di **qualunque** deck, anche uno appena montato con carte appena uscite.
