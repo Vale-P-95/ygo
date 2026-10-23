@@ -209,10 +209,10 @@ Resta la carta del progetto: mappa, comandi, convenzioni, protocolli, cosa non f
 ### 9.2 `CLAUDE.md` (c'è, cinque righe)
 Solo per Claude Code: tabella dei modelli e livelli (§2.4); risvegli (§2.3); subagenti Haiku per le letture pesanti; `list_events` vietato; brief standard; passaggio di consegne; file caldi; «il merge lo fa l'utente dalla pagina, salvo delega».
 
-### 9.3 `.claude/settings.json` (da creare)
+### 9.3 `.claude/settings.json` (fatto)
 Permessi senza conferma: `cargo fmt/clippy/test/check`, `pnpm lint/typecheck/test/build/dev/screens`, `git add/commit/push` sul proprio branch, `python3 scripts/*.py`, `node scripts/screens.mjs`. Il 23/10 quattro blocchi su commit e push di documenti sono costati quattro turni e quattro messaggi. Vietati: `git push --force`, `git rebase` su branch altrui, scritture in `vendor/`.
 
-### 9.4 `.claude/skills/` (da creare)
+### 9.4 `.claude/skills/` (fatto)
 - **`brief`**: il modello del brief (compito, file, comandi, criterio, piano, mockup, modello).
 - **`pr-motore`**: il protocollo del motore con i comandi esatti (`mdm_decks.py`, `bench.py`, `paired_test.py`, `a1b_fair_measure.py`, `generality.py`) e la tabella numeri prima/dopo.
 - **`pr-interfaccia`**: la lista del protocollo dell'interfaccia, `VITE_MOCK=1 pnpm dev` più `screens.mjs`, come confrontare con il mockup, come pubblicare l'anteprima Artifact allo stesso URL, cosa scrivere nel template.
@@ -235,7 +235,7 @@ Resta la memoria operativa nei giorni con coordinatrice; altrimenti si aggiorna 
 3. ~~**Ambiente cloud**~~ fatto il 23/10: `scripts/cloud-setup.sh`, variabili in `.cloud-env`, prova di WebKitGTK sotto Xvfb riuscita (§6.5). Da impostare nell'ambiente su claude.ai: come setup script `scripts/cloud-setup.sh`.
 4. **Progetto Claude**: conoscenza, istruzioni, collegamento con Code; Remote Control sul computer.
 5. **Fixture registrate e anteprima**: il comando `record-fixtures`, `mock.ts` che le serve, la prima anteprima Artifact (Sonnet, una sessione).
-6. **Sistema di design**: la galleria `/galleria`, le anteprime in `apps/desktop/design/`, `/design-sync` (Opus la prima volta).
+6. **Sistema di design**: la galleria `/galleria`, le anteprime in `apps/desktop/design/`, `/design-sync` (Opus la prima volta). *24/10: galleria, anteprime e script `pnpm design` nella PR del thread «Costruire il sistema di design»; il primo `/design-sync` lo lancia l'utente (`docs/plans/sistema-di-design.md`). Il §9 è fatto, salvo gli screenshot in CI del §9.5, in coda in `TASKS.md`.*
 7. **Passo 5 di Gemini**: revisione con screenshot e merge; poi Gemini si ferma e i branch si puliscono.
 8. **Primo compito con la filiera completa**: il passo 6 (effetti e suoni, ognuno spegnibile): mockup delle Impostazioni in Claude Design, sessione Sonnet, screenshot, anteprima, prova sul computer. Serve a collaudare la filiera su un compito piccolo prima di quelli grandi.
 9. **Poi, uno per sessione, al massimo tre in parallelo**:

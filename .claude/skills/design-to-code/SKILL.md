@@ -26,5 +26,6 @@ Si segue `pr-interfaccia`: screenshot propri delle pagine toccate nei due temi, 
 
 ## Tenere allineato il sistema di design
 - Ogni anteprima in `apps/desktop/design/<gruppo>/<componente>.html` comincia con `<!-- @dsCard group="<gruppo>" -->` e mostra il componente nei due temi.
+- Le anteprime non si scrivono a mano: si aggiunge una scheda `DsCard` in `src/pages/Gallery.tsx` e si rigenera con `pnpm design -- --chromium /opt/pw-browsers/chromium` (nel container cloud). Lo script ricrea `design/`, `duelforge.css` e gli asset; con `--artifact <cartella>` prepara anche l'anteprima Artifact, con `--shots <cartella>` gli screenshot di ogni scheda. Il diff di `design/` va nella stessa PR del componente.
 - Quando cambiano i token o un componente base, si lancia `/design-sync` verso il progetto «Sistema di design DuelForge»: carica per differenza, un componente alla volta, mai una sostituzione in blocco. L'utente approva il piano dei file prima della scrittura.
 - I mockup nuovi si fanno sempre sul sistema di design aggiornato; un mockup fatto senza non si implementa.
