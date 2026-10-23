@@ -15,7 +15,7 @@ use ygo_engine::auto::passive_answer;
 use ygo_engine::consts::{location, position};
 use ygo_engine::{Action, ActionKind, CardRef, Decision, DeckList, Duel, Engine, Error, Event, Opponent, Placement, Step};
 
-use crate::follow::{declinable, find_again, own_answers, pick_again, Script, PASS};
+use crate::follow::{declinable, find_again, option_again, own_answers, pick_again, Script, PASS};
 use crate::probe::{
     end_turn, find_act, forward, hand_traps, window_answer, Act, Breaker, Effect, Kit, Measure, Prelude, Prober, ResponderId,
 };
@@ -109,10 +109,12 @@ impl Rival {
     /// kit's Deck the line was found against. Some of your effects look at
     /// the size of its Deck (That Grass Looks Greener sends cards until
     /// yours is no bigger): with another size the line's answers no longer
-    /// fit its questions.
+    /// fit its questions. Its Extra Deck is the kit's, for the same reason
+    /// (Kewl Tune Clip banishes from it: with none, its trigger is not asked).
     fn replay_opponent(&self) -> Opponent {
-        let size = self.standard.opponent().deck.len();
-        Opponent { hand: self.hand_traps.clone(), deck: self.main.iter().copied().cycle().take(size).collect(), extra: Vec::new() }
+        let standard = self.standard.opponent();
+        let deck = self.main.iter().copied().cycle().take(standard.deck.len()).collect();
+        Opponent { hand: self.hand_traps.clone(), deck, extra: standard.extra.clone() }
     }
 
     fn copies(&self, code: u32) -> u32 {
@@ -149,7 +151,7 @@ fn rival_breakers(
     hand: &[u32],
     seed: u64,
     rival: &Rival,
-    own: &[Vec<u8>],
+    own: &Script,
     measure: &Measure,
 ) -> Vec<RivalBreaker> {
     let prober = Prober::new(engine, deck, hand, seed, &rival.kit);
@@ -258,7 +260,7 @@ pub fn matchup(
     if out.standard_breakers {
         out.resilience = measure.resilience;
     } else {
-        out.breakers = rival_breakers(engine, deck, hand, seed, rival, &own.answers, measure);
+        out.breakers = rival_breakers(engine, deck, hand, seed, rival, &own, measure);
         (out.resilience, out.breaker_chance) = rival.against(&out.breakers, measure.field_value, ITS_TURN);
     }
 
@@ -356,7 +358,7 @@ pub fn draw_trade_off(
         let choices = part.choice_at.len();
         let measure = Prober::new(engine, deck, hand, seed, &rival.standard).measure(&part)?;
         let breakers =
-            if rival.cards.is_empty() { Vec::new() } else { rival_breakers(engine, deck, hand, seed, rival, &own.answers[..s], &measure) };
+            if rival.cards.is_empty() { Vec::new() } else { rival_breakers(engine, deck, hand, seed, rival, &own.up_to(s), &measure) };
         // Your last card played before the stop.
         let playing = (0..s).rev().find_map(|i| own.ids[i].map(|id| id.code)).map(|c| db.canonical_code(c));
         boards.push((s, choices, playing, measure, breakers));
@@ -605,7 +607,7 @@ pub fn against_moves(
     for (index, rival_line) in lines.iter().enumerate().filter(|(_, l)| !l.moves.is_empty()) {
         let kit = standard.with_line(engine, rival, rival_line, seed);
         let weights = vec![1.0; rival_line.moves.len()];
-        match Prober::new(engine, deck, hand, seed, &kit).against_moves(Prelude::Own(&own.answers), &weights) {
+        match Prober::new(engine, deck, hand, seed, &kit).against_moves(Prelude::Own(&own), &weights) {
             Ok(m) => measured.push((index, rival_line, m)),
             Err(e) if std::env::var_os("DUELFORGE_DEBUG_MATCHUP").is_some() => eprintln!("   a line of the rival not measured: {e}"),
             Err(_) => {}
@@ -717,7 +719,7 @@ fn replay(
             // After a handtrap your line may be asked something new, of the
             // same kind as its next answer, that does not fit it: you answer
             // it simply, and the line goes on.
-            Err(Error::Rejected(_)) if used && rejected < 20 => {
+            Err(Error::Rejected(_)) if rejected < 20 => {
                 rejected += 1;
                 let Some(decision) = asked.take() else { break };
                 next -= 1;
@@ -769,7 +771,10 @@ fn replay(
             continue;
         }
         if decision.player() != Some(1) {
-            if used {
+            // Found again by what they are from the start: the opponent's
+            // cards are another deck's, and a random effect on its hand
+            // (Elfnote Tinia) can change the questions before any handtrap.
+            {
                 let kind = std::mem::discriminant(&decision);
                 // Passes of the line the engine no longer asks for are left
                 // out first: the question after them is the line's own.
@@ -818,9 +823,15 @@ fn replay(
                 }
             }
             let Some(answer) = own.answers.get(next) else { break };
-            // After a handtrap, the cards the line picks are found again by
-            // what they are, not by their place in the list.
-            let again = own.picks.get(next).and_then(Option::as_ref).filter(|_| used).and_then(|p| pick_again(engine, &decision, p));
+            // After a handtrap, the cards the line picks and the options it
+            // chooses are found again by what they are, not by their place
+            // in the list.
+            let again = own
+                .picks
+                .get(next)
+                .and_then(Option::as_ref)
+                .and_then(|p| pick_again(engine, &decision, p))
+                .or_else(|| own.options.get(next).copied().flatten().and_then(|o| option_again(&decision, &actions, o)));
             duel.respond(again.as_ref().unwrap_or(answer));
             asked = Some(decision);
             next += 1;

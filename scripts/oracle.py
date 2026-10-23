@@ -164,7 +164,8 @@ def goal_reached(field, goal):
 def boards_of(path, goal=""):
     """The boards measured in a run: (value, item), the best first."""
     doc = json.load(open(path))
-    out = [(value(i["measure"]), i) for i in doc["items"] if i.get("measure")]
+    # A board with the cheap measure only (combos --staged) has no value to rank.
+    out = [(value(i["measure"]), i) for i in doc["items"] if i.get("measure") and i.get("stage") != "cheap"]
     if goal:
         out = [b for b in out if goal_reached(b[1]["field"], goal)]
     return sorted(out, key=lambda b: -b[0])

@@ -111,6 +111,7 @@ File: `src/pages/DeckBuilder.tsx`, un componente nuovo `src/components/CardInspe
 - **L'anteprima fluttuante di oggi** (`CardPreview`, impostazione «Anteprima») diventa un'opzione: con l'ispettore aperto non compare. Si propone di spegnerla per chi ha l'ispettore.
 - **Sotto i 1440 px** l'ispettore si apre sopra il deck come pannello sovrapposto, con un pulsante, invece di stringere il deck.
 - Le istruzioni fisse («Trascina le carte · clic destro…» in alto e in fondo al catalogo) vanno nel pulsante «?».
+- *Completato il 22/10/2026 (Gemini):* creato componente accessibile `CardInspector` (artwork grande, statistiche mostro, testo normale e pendulum, rarità MD, banlist nei 3 formati, ruoli, copie nel deck); integrato `SidePanel` richiudibile a sinistra (300 px, overlay reattivo < 1440 px con pulsante dedicato e auto-apertura al clic, soppressione anteprima fluttuante `CardPreview`); interazione con clic singolo (fissa carta, sblocco Esc) e passaggio mouse (anteprima); azioni rapide (+1 Main/Extra, +1 Side, preferita, visore zoom); istruzioni fisse sostituite da `HelpPopover`; 8 test Vitest unitari in `CardInspector.test.tsx`.
 
 ### Passo 3. Ricerca e filtri del catalogo (`gemini/ui-catalog-search`)
 File: `src/components/Catalog.tsx`, `FilterPanel.tsx`.

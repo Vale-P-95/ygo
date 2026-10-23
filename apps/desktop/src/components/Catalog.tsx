@@ -14,6 +14,7 @@ import type { TileBadge } from "./CardTile";
 import { EmblemIcon } from "./Emblems";
 import { FilterPanel } from "./FilterPanel";
 import { Popover, useOutsideClose } from "./Popover";
+import { HelpPopover } from "./ui/HelpPopover";
 
 interface Props {
   deck: Deck;
@@ -26,6 +27,8 @@ interface Props {
   onHoverEnd: () => void;
   query: string;
   onQuery: (q: string) => void;
+  selectedId?: number | null;
+  onSelect?: (id: number) => void;
 }
 
 /** Smallest tile width per grid size: about 3, 4 or 5 cards per row at the default width. */
@@ -167,7 +170,7 @@ function startResize(e: ReactPointerEvent<HTMLDivElement>, width: number) {
  * The card catalog column of the deck editor. Dropping deck cards here
  * removes them from the deck.
  */
-export function Catalog({ deck, getCard, requestCards, version, onAdd, onOpen, onHover, onHoverEnd, query, onQuery }: Props) {
+export function Catalog({ deck, getCard, requestCards, version, onAdd, onOpen, onHover, onHoverEnd, query, onQuery, selectedId, onSelect }: Props) {
   const [result, setResult] = useState<SearchResult>({ ids: [], chips: [], errors: [] });
   const [searching, setSearching] = useState(false);
   const [facets, setFacets] = useState<Facets | null>(null);
@@ -236,8 +239,23 @@ export function Catalog({ deck, getCard, requestCards, version, onAdd, onOpen, o
         <span className="absolute inset-y-0 left-1 w-px bg-transparent transition-colors group-hover:bg-sec" />
       </div>
       <div className="flex flex-col gap-2 px-3 pt-3 pb-2">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           <p className="display text-sm font-bold tracking-[0.12em] uppercase">Catalogo</p>
+          <HelpPopover title="Guida al catalogo e scorciatoie" tooltip="Guida del catalogo" align="left">
+            <div className="flex flex-col gap-2 text-xs text-text/90">
+              <p className="font-semibold text-text">Azioni rapide sulle carte</p>
+              <ul className="list-disc pl-4 space-y-1 text-muted">
+                <li><strong>Clic singolo:</strong> fissa la carta nell'Ispettore.</li>
+                <li><strong>Doppio clic:</strong> visore a schermo intero.</li>
+                <li><strong>Clic destro:</strong> aggiungi 1 copia al Main (o Extra) Deck.</li>
+                <li><strong>Maiusc + clic destro:</strong> aggiungi 1 copia al Side Deck.</li>
+                <li><strong>Trascina:</strong> sposta la carta nella zona del deck desiderata.</li>
+              </ul>
+              <div className="border-t border-border/60 pt-1 text-muted">
+                <p>Trascina le carte del deck qui sopra per toglierle dal deck.</p>
+              </div>
+            </div>
+          </HelpPopover>
           <span className="flex items-center gap-1.5 text-xs text-muted tabular-nums">
             {searching && <EmblemIcon emblem="gear" className="h-3 w-3 animate-[spin-slow_1.6s_linear_infinite]" />}
             {result.ids.length.toLocaleString("it-IT")} carte
@@ -347,6 +365,8 @@ export function Catalog({ deck, getCard, requestCards, version, onAdd, onOpen, o
             badgesFor={listBadges}
             favorites={favorites}
             onFavorite={toggleFavorite}
+            selectedId={selectedId}
+            onSelect={onSelect}
           />
         ) : (
           <CardGrid
@@ -354,8 +374,11 @@ export function Catalog({ deck, getCard, requestCards, version, onAdd, onOpen, o
             getCard={getCard}
             requestCards={requestCards}
             version={version}
-            selected={null}
-            onSelect={() => sound.play("select")}
+            selected={selectedId ?? null}
+            onSelect={(id) => {
+              sound.play("select");
+              onSelect?.(id);
+            }}
             onOpen={(id) => onOpen(id, result.ids)}
             onHover={onHover}
             onHoverEnd={onHoverEnd}
@@ -385,9 +408,6 @@ export function Catalog({ deck, getCard, requestCards, version, onAdd, onOpen, o
           </div>
         )}
       </div>
-      <p className="border-t border-border px-3 py-2 text-[10px] leading-relaxed text-faint">
-        Trascina nel deck · clic destro: aggiungi · Maiusc+clic destro: Side · doppio clic: lente
-      </p>
     </aside>
   );
 }

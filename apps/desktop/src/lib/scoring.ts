@@ -99,15 +99,13 @@ export const METRICS: Metric[] = [
   {
     key: "exposure",
     label: "Esposizione",
-    hint: "Punti della linea in cui una handtrap la ferma: effetti che Ash Blossom nega, effetti di mostri sul campo (Veiler, Impermanence), Nibiru dalla quinta Evocazione, Droll dalla seconda carta aggiunta dal Deck (peso negativo)",
+    hint: "Perdita attesa in interruzioni causata dalle handtrap più comuni mentre giochi la linea (peso negativo)",
     color: "var(--df-danger)",
     explain: [
-      "Quante volte l'avversario può fermare la linea mentre la giochi, con le handtrap più usate:",
-      "• ogni tuo effetto che aggiunge, evoca o manda carte dal Deck (Ash Blossom lo nega);",
-      "• ogni effetto di mostro attivato sul campo (Effect Veiler, Infinite Impermanence, Ghost Ogre);",
-      "• Nibiru, se arrivi a 5 Evocazioni;",
-      "• Droll & Lock Bird, se aggiungi più di una carta dal Deck.",
-      "Toglie punti: due linee che arrivano alla stessa board non valgono uguale se una si ferma alla prima Ash. Il profilo «Linee sicure» le pesa di più.",
+      "La perdita attesa in interruzioni che la linea subisce per mano delle handtrap più usate:",
+      "• per ogni tipo di handtrap (Ash Blossom, Effect Veiler / Infinite Impermanence, Nibiru, Droll & Lock Bird), quanto toglie nel momento peggiore per la probabilità che l'avversario ne abbia una;",
+      "• l'impatto di Maxx \"C\" e Mulcharmy in base alle Evocazioni Speciali concesse.",
+      "Toglie punti: due linee che arrivano alla stessa board non valgono uguale se una si espone a perdere le sue interruzioni. Il profilo «Linee sicure» la pesa di più.",
     ],
   },
 ];
@@ -124,15 +122,15 @@ export interface Profile {
 }
 
 export const PROFILES: Profile[] = [
-  { id: "balanced", label: "Bilanciato", weights: { interruptions: 1, handTraps: 0.9, floodgates: 0.8, resilience: 0.6, followup: 0.4, resources: 0.1, cost: -0.1, exposure: -0.04 } },
-  { id: "negates", label: "Più negazioni", weights: { interruptions: 1.5, handTraps: 1.2, floodgates: 0.5, resilience: 0.4, followup: 0.2, resources: 0.05, cost: -0.05, exposure: -0.03 } },
-  { id: "control", label: "Controllo e floodgate", weights: { interruptions: 0.8, handTraps: 0.7, floodgates: 1.6, resilience: 0.6, followup: 0.3, resources: 0.05, cost: -0.1, exposure: -0.04 } },
-  { id: "resilient", label: "A prova di board breaker", weights: { interruptions: 0.8, handTraps: 0.9, floodgates: 0.6, resilience: 1.5, followup: 0.5, resources: 0.1, cost: -0.1, exposure: -0.04 } },
-  { id: "grind", label: "Risorse e follow-up", weights: { interruptions: 0.7, handTraps: 0.7, floodgates: 0.5, resilience: 0.6, followup: 1.2, resources: 0.3, cost: -0.2, exposure: -0.03 } },
+  { id: "balanced", label: "Bilanciato", weights: { interruptions: 1, handTraps: 0.9, floodgates: 0.8, resilience: 0.6, followup: 0.4, resources: 0.1, cost: -0.1, exposure: -0.5 } },
+  { id: "negates", label: "Più negazioni", weights: { interruptions: 1.5, handTraps: 1.2, floodgates: 0.5, resilience: 0.4, followup: 0.2, resources: 0.05, cost: -0.05, exposure: -0.4 } },
+  { id: "control", label: "Controllo e floodgate", weights: { interruptions: 0.8, handTraps: 0.7, floodgates: 1.6, resilience: 0.6, followup: 0.3, resources: 0.05, cost: -0.1, exposure: -0.4 } },
+  { id: "resilient", label: "A prova di board breaker", weights: { interruptions: 0.8, handTraps: 0.9, floodgates: 0.6, resilience: 1.5, followup: 0.5, resources: 0.1, cost: -0.1, exposure: -0.6 } },
+  { id: "grind", label: "Risorse e follow-up", weights: { interruptions: 0.7, handTraps: 0.7, floodgates: 0.5, resilience: 0.6, followup: 1.2, resources: 0.3, cost: -0.2, exposure: -0.3 } },
   {
     id: "safe",
     label: "Linee sicure",
-    weights: { interruptions: 0.9, handTraps: 0.9, floodgates: 0.7, resilience: 0.6, followup: 0.4, resources: 0.1, cost: -0.15, exposure: -0.15 },
+    weights: { interruptions: 0.9, handTraps: 0.9, floodgates: 0.7, resilience: 0.6, followup: 0.4, resources: 0.1, cost: -0.15, exposure: -1.0 },
   },
 ];
 
@@ -194,49 +192,94 @@ export function dominates(a: ComboScore, b: ComboScore, includeMatchup: boolean 
 
 
 export interface Choice {
+  version?: number;
   profile: string;
   priorProfile: string;
   weights: Weights;
   priorWeights: Weights;
 }
 
+export const WEIGHTS_STORAGE_VERSION = 2;
 const KEY = "duelforge.combo.weights";
 
-function loadChoice(): Choice {
+/** Converts legacy exposure weights (|exposure| < 0.2) to the new scale (x12.5). */
+export function migrateLegacyWeights(weights: Weights): Weights {
+  if (weights.exposure !== undefined && Math.abs(weights.exposure) > 1e-6 && Math.abs(weights.exposure) < 0.2) {
+    return { ...weights, exposure: weights.exposure * 12.5 };
+  }
+  return weights;
+}
+
+export function loadChoice(storage: Pick<Storage, "getItem" | "setItem"> | null = typeof localStorage !== "undefined" ? localStorage : null): Choice {
   try {
-    const raw = localStorage.getItem(KEY);
+    const raw = storage?.getItem(KEY);
     if (raw) {
       const saved = JSON.parse(raw) as Partial<Choice>;
+      const isLegacy = (saved.version ?? 1) < 2;
       const baseProfile = PROFILES.find((p) => p.id === saved.priorProfile) ?? PROFILES[0];
-      const priorWeights = saved.priorWeights ?? baseProfile.weights;
+
+      let priorWeights = saved.priorWeights
+        ? { ...baseProfile.weights, ...saved.priorWeights }
+        : baseProfile.weights;
+      if (isLegacy) {
+        priorWeights = migrateLegacyWeights(priorWeights);
+      }
+
+      let profileResult: Choice;
+
       if (saved.profile === "learned") {
-        return {
+        let weights = { ...baseProfile.weights, ...saved.weights };
+        if (isLegacy) {
+          weights = migrateLegacyWeights(weights);
+        }
+        profileResult = {
+          version: WEIGHTS_STORAGE_VERSION,
           profile: "learned",
           priorProfile: saved.priorProfile ?? baseProfile.id,
-          weights: { ...baseProfile.weights, ...saved.weights },
+          weights,
           priorWeights,
         };
+      } else {
+        const profile = PROFILES.find((p) => p.id === saved.profile);
+        if (profile) {
+          profileResult = {
+            version: WEIGHTS_STORAGE_VERSION,
+            profile: profile.id,
+            priorProfile: profile.id,
+            weights: profile.weights,
+            priorWeights: profile.weights,
+          };
+        } else {
+          let weights = { ...PROFILES[0].weights, ...saved.weights };
+          if (isLegacy) {
+            weights = migrateLegacyWeights(weights);
+          }
+          profileResult = {
+            version: WEIGHTS_STORAGE_VERSION,
+            profile: saved.profile ?? "custom",
+            priorProfile: saved.priorProfile ?? "custom",
+            weights,
+            priorWeights,
+          };
+        }
       }
-      const profile = PROFILES.find((p) => p.id === saved.profile);
-      if (profile) {
-        return {
-          profile: profile.id,
-          priorProfile: profile.id,
-          weights: profile.weights,
-          priorWeights: profile.weights,
-        };
+
+      // If legacy data was migrated, persist immediately with version: 2
+      if (isLegacy && storage) {
+        try {
+          storage.setItem(KEY, JSON.stringify(profileResult));
+        } catch {
+          // ignore
+        }
       }
-      return {
-        profile: saved.profile ?? "custom",
-        priorProfile: saved.priorProfile ?? "custom",
-        weights: { ...PROFILES[0].weights, ...saved.weights },
-        priorWeights: saved.priorWeights ?? PROFILES[0].weights,
-      };
+
+      return profileResult;
     }
   } catch {
     // A missing or broken choice falls back to the default.
   }
   return {
+    version: WEIGHTS_STORAGE_VERSION,
     profile: PROFILES[0].id,
     priorProfile: PROFILES[0].id,
     weights: PROFILES[0].weights,
@@ -248,9 +291,9 @@ let choice = loadChoice();
 const listeners = new Set<() => void>();
 
 function set(next: Choice) {
-  choice = next;
+  choice = { ...next, version: WEIGHTS_STORAGE_VERSION };
   try {
-    localStorage.setItem(KEY, JSON.stringify(next));
+    localStorage.setItem(KEY, JSON.stringify(choice));
   } catch {
     // Only a convenience.
   }

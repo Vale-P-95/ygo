@@ -631,6 +631,9 @@ struct ComboJob {
     /// What the handtraps take away from each board's line, by `(hand,
     /// key)`: the same whatever deck the boards are measured against.
     losses: HashMap<(usize, u64), Option<ygo_solver::probe::ExpectedLoss>>,
+    /// The cheap measure of each board given it, by `(hand, key)`: its value
+    /// and its score (the same whatever deck).
+    cheap: HashMap<(usize, u64), (f64, ScoreView)>,
     /// The deck they were also measured against.
     vs: Option<i64>,
 }
@@ -695,6 +698,12 @@ struct ScoreView {
     countered: Option<f64>,
     /// The probe turn could not be played (the board is left out of the ranking).
     error: Option<String>,
+    /// Only the cheap measure ([`ygo_solver::Prober::measure_cheap`]): the
+    /// board was not among the best by it, so it has no breakers (its
+    /// `resilience` is all its field), follow-up, exposure nor matchup, and
+    /// ranks after the boards with the full measure. Not sent yet
+    /// ([`SEND_CHEAP_SCORES`]).
+    cheap: bool,
 }
 
 /// The board and its line against a deck of the Bottega
@@ -1304,6 +1313,7 @@ fn score_view(
         matchup: None,
         countered: None,
         error: None,
+        cheap: false,
     };
     match measured {
         Ok(m) => {
@@ -1640,6 +1650,7 @@ fn combo_search(app: tauri::AppHandle, state: State<'_, AppState>, request: Comb
         roles: deck.roles.clone(),
         scores: HashMap::new(),
         losses: HashMap::new(),
+        cheap: HashMap::new(),
         vs: None,
     };
     if let Ok(mut slot) = state.combo.lock() {
@@ -1882,46 +1893,172 @@ fn links_view(deck_id: i64, map: &ygo_solver::DeckLinks) -> DeckLinksView {
     }
 }
 
-/// Boards put to the probe turn after a search: the best of a precise hand,
-/// all those kept in "card + rest".
-const SCORED_BOARDS: usize = 30;
+/// Boards of a precise hand put to the cheap measure after a search, the
+/// first in the search's order, and of those the best by it put to the full
+/// one, which goes on from the cheap one (B14, `docs/plans/velocita-ricerca.md`):
+/// the same best board as measuring the 30 in full, in less time. The cheap
+/// measure tries each response at its first 8 windows and counts its uses
+/// once (with 2 it misses responses that stop something only later), and
+/// sees your next turn when nothing is broken. "Card + rest" puts all the
+/// boards kept to the full measure.
+const CHEAP_BOARDS: usize = 30;
+const SCORED_BOARDS: usize = 15;
+/// The page ranks every score it gets by its weights, and a cheap score has
+/// no breaker nor exposure to lose: it would rank above a full one of the
+/// same field. Until the page puts the [`ScoreView::cheap`] ones after the
+/// others, they are kept here and not sent: those boards look unmeasured,
+/// ranked by the search's estimate, as the boards past the first 30.
+const SEND_CHEAP_SCORES: bool = false;
+/// What the cheap measure tries.
+const CHEAP_MEASURE: ygo_solver::probe::Cheap = ygo_solver::probe::Cheap { windows: 8, use_rounds: 1 };
+
+/// The value a cheap measure ranks the boards by: field, hand, floodgates
+/// and the effects to rebuild with on your next turn, as the "Bilanciato"
+/// profile weighs them, with no breaker played.
+fn cheap_value(m: &ygo_solver::Measure) -> f64 {
+    let rebuild = m.follow_up.map_or(0.0, |f| f.rebuild as f64);
+    m.field_value + 0.9 * m.hand_value + 0.8 * m.floodgate_value + 0.4 * 0.3 * rebuild
+}
+
+/// `work` on each board, on all cores, until `cancel`; one prober per hand
+/// and thread (it keeps the empty board of that hand).
+fn on_all_cores<'a, R: Send>(
+    boards: &[(usize, ygo_solver::Board)],
+    cancel: &AtomicBool,
+    prober: impl Fn(usize) -> ygo_solver::Prober<'a> + Sync,
+    work: impl Fn(&mut ygo_solver::Prober<'a>, usize, &ygo_solver::Board) -> R + Sync,
+) -> Vec<R> {
+    let next = std::sync::atomic::AtomicUsize::new(0);
+    let results = Mutex::new(Vec::new());
+    let threads = std::thread::available_parallelism().map_or(4, |n| n.get());
+    std::thread::scope(|s| {
+        for _ in 0..threads {
+            s.spawn(|| {
+                let mut probers: HashMap<usize, ygo_solver::Prober> = HashMap::new();
+                loop {
+                    let i = next.fetch_add(1, Ordering::Relaxed);
+                    let Some((hand, board)) = boards.get(i) else { break };
+                    if cancel.load(Ordering::Relaxed) {
+                        break;
+                    }
+                    let prober = probers.entry(*hand).or_insert_with(|| prober(*hand));
+                    let r = work(prober, *hand, board);
+                    if let Ok(mut out) = results.lock() {
+                        out.push(r);
+                    }
+                }
+            });
+        }
+    });
+    results.into_inner().unwrap_or_default()
+}
 
 /// Puts the best boards of the last search to the probe turn, on all cores,
 /// sending each result as a `combo-score` event; boards already measured
-/// are not measured again. With `vs_deck_id` (a deck of the Bottega) each
-/// board is also measured against that deck's breakers and handtraps
-/// (another deck than last time measures all boards again). Returns how
-/// many boards have a score.
+/// are not measured again. A precise hand goes in steps: the cheap measure
+/// of the first [`CHEAP_BOARDS`], then the full one of the best
+/// [`SCORED_BOARDS`] by it; the others keep the cheap score
+/// ([`ScoreView::cheap`]), not sent yet ([`SEND_CHEAP_SCORES`]). With `vs_deck_id` (a deck of the Bottega) each
+/// board with the full measure is also measured against that deck's
+/// breakers and handtraps (another deck than last time measures all boards
+/// again). Returns how many boards have a score.
 #[tauri::command(async)]
 fn combo_score(app: tauri::AppHandle, state: State<'_, AppState>, vs_deck_id: Option<i64>) -> Result<usize, String> {
     let engine = state.engine()?;
     // What is needed, copied out so the search state stays free meanwhile.
-    let (config, hands, todo, roles, losses) = {
+    let (config, hands, mut candidates, cheap, roles, losses) = {
         let mut job = state.combo.lock().map_err(|e| e.to_string())?;
         let job = job.as_mut().ok_or("Nessuna ricerca da valutare")?;
         if job.vs != vs_deck_id {
             job.scores.clear();
             job.vs = vs_deck_id;
         }
-        let limit = if job.hands.len() == 1 { SCORED_BOARDS } else { usize::MAX };
+        let staged = job.hands.len() == 1;
         // One board per look: boards that differ only in the Graveyard or the banished cards score the same.
-        let mut looks: HashSet<(usize, u64)> = HashSet::new();
+        // A look already measured is that board.
+        let full = |h: usize, key: u64| job.scores.get(&(h, key)).is_some_and(|v| !v.cheap);
+        let mut measured: HashMap<(usize, u64), &ygo_solver::Board> = HashMap::new();
         for (h, b) in &job.boards {
-            if job.scores.contains_key(&(*h, b.key)) {
-                looks.insert((*h, ygo_solver::look_key(&b.state)));
+            if full(*h, b.key) {
+                measured.entry((*h, ygo_solver::look_key(&b.state))).or_insert(b);
             }
         }
-        let todo: Vec<(usize, ygo_solver::Board)> = job
+        let mut looks: HashSet<(usize, u64)> = HashSet::new();
+        let candidates: Vec<(usize, ygo_solver::Board)> = job
             .boards
             .iter()
-            .filter(|(h, b)| !job.scores.contains_key(&(*h, b.key)) && looks.insert((*h, ygo_solver::look_key(&b.state))))
-            .take(limit)
-            .cloned()
+            .filter_map(|(h, b)| {
+                let look = (*h, ygo_solver::look_key(&b.state));
+                // "Card + rest": only the looks not measured yet, as before.
+                if !looks.insert(look) || !staged && measured.contains_key(&look) {
+                    return None;
+                }
+                Some((*h, measured.get(&look).map_or(b, |m| *m).clone()))
+            })
+            .take(if staged { CHEAP_BOARDS } else { usize::MAX })
             .collect();
-        (job.config.clone(), job.hands.iter().map(|(h, _, _)| h.clone()).collect::<Vec<_>>(), todo, job.roles.clone(), job.losses.clone())
+        let cheap: Option<HashMap<(usize, u64), f64>> = staged.then(|| job.cheap.iter().map(|(k, (v, _))| (*k, *v)).collect());
+        (
+            job.config.clone(),
+            job.hands.iter().map(|(h, _, _)| h.clone()).collect::<Vec<_>>(),
+            candidates,
+            cheap,
+            job.roles.clone(),
+            job.losses.clone(),
+        )
     };
     state.combo_cancel.store(false, Ordering::Relaxed);
     let kit = ygo_solver::Kit::standard(&engine);
+    let new_prober = |hand: usize| ygo_solver::Prober::new(&engine, &config.deck, &hands[hand], config.seed, &kit);
+
+    // The cheap measure of the candidates without one, then the best by it.
+    let mut cheap_scores: Vec<((usize, u64), (f64, ScoreView))> = Vec::new();
+    // What each cheap measure played, for the full one to go on from it.
+    let partials: Mutex<HashMap<(usize, u64), ygo_solver::probe::Partial>> = Mutex::new(HashMap::new());
+    let todo: Vec<(usize, ygo_solver::Board)> = match &cheap {
+        Some(known) => {
+            let missing: Vec<(usize, ygo_solver::Board)> =
+                candidates.iter().filter(|(h, b)| !known.contains_key(&(*h, b.key))).cloned().collect();
+            cheap_scores = on_all_cores(&missing, &state.combo_cancel, new_prober, |prober, hand, board| {
+                let measured = prober.measure_cheap(&board.line, CHEAP_MEASURE).map_err(|e| e.to_string()).map(|(m, partial)| {
+                    if let Ok(mut p) = partials.lock() {
+                        p.insert((hand, board.key), partial);
+                    }
+                    m
+                });
+                let value = measured.as_ref().map_or(f64::NEG_INFINITY, cheap_value);
+                let mut view = score_view(&engine, hand, board, measured, None, None, &config.hand_traps, &roles);
+                view.cheap = true;
+                if SEND_CHEAP_SCORES {
+                    let _ = app.emit("combo-score", view.clone());
+                }
+                ((hand, board.key), (value, view))
+            });
+            if state.combo_cancel.load(Ordering::Relaxed) {
+                // A ranking with boards missing would put the wrong ones to the full measure.
+                Vec::new()
+            } else {
+                let value = |h: usize, key: u64| {
+                    known.get(&(h, key)).or_else(|| cheap_scores.iter().find(|(k, _)| *k == (h, key)).map(|(_, (v, _))| v)).copied()
+                };
+                let mut ranked: Vec<&(usize, ygo_solver::Board)> = candidates.iter().collect();
+                // Stable: at equal value the search's order.
+                ranked.sort_by(|(ha, a), (hb, b)| {
+                    value(*hb, b.key).unwrap_or(f64::NEG_INFINITY).total_cmp(&value(*ha, a.key).unwrap_or(f64::NEG_INFINITY))
+                });
+                ranked.into_iter().take(SCORED_BOARDS).cloned().collect()
+            }
+        }
+        // Not needed after: "card + rest" keeps no cheap scores.
+        None => std::mem::take(&mut candidates),
+    };
+    // Boards with the full measure already are not measured again.
+    let todo: Vec<(usize, ygo_solver::Board)> = {
+        let job = state.combo.lock().map_err(|e| e.to_string())?;
+        let job = job.as_ref().ok_or("La ricerca è cambiata")?;
+        todo.into_iter().filter(|(h, b)| !job.scores.get(&(*h, b.key)).is_some_and(|v| !v.cheap)).collect()
+    };
+
     let rival = match vs_deck_id {
         Some(id) => {
             let deck = state.with_user(|u| u.get(id))?.ok_or("Il deck avversario non esiste più")?;
@@ -1930,64 +2067,55 @@ fn combo_score(app: tauri::AppHandle, state: State<'_, AppState>, vs_deck_id: Op
         }
         None => None,
     };
-    let next = std::sync::atomic::AtomicUsize::new(0);
-    let results = Mutex::new(Vec::new());
-    let threads = std::thread::available_parallelism().map_or(4, |n| n.get());
-    std::thread::scope(|s| {
-        for _ in 0..threads {
-            s.spawn(|| {
-                // One prober per hand: it keeps the empty board of that hand.
-                let mut probers: HashMap<usize, ygo_solver::Prober> = HashMap::new();
-                loop {
-                    let i = next.fetch_add(1, Ordering::Relaxed);
-                    let Some((hand, board)) = todo.get(i) else { break };
-                    if state.combo_cancel.load(Ordering::Relaxed) {
-                        break;
-                    }
-                    let prober = probers
-                        .entry(*hand)
-                        .or_insert_with(|| ygo_solver::Prober::new(&engine, &config.deck, &hands[*hand], config.seed, &kit));
-                    let points = ygo_solver::explain::exposure_points(
-                        &engine,
-                        &config.deck,
-                        &hands[*hand],
-                        config.seed,
-                        config.opponent.as_ref(),
-                        &board.line,
-                    )
-                    .ok();
-                    let exposure = points.as_ref().map(|(x, _)| *x);
-                    // Every board ranked has it: one without would rank higher.
-                    let loss = match losses.get(&(*hand, board.key)) {
-                        Some(known) => known.clone(),
-                        None => points.as_ref().and_then(|(x, points)| {
-                            let rates = ygo_solver::probe::HandTrapRates::default();
-                            prober.expected_loss(&board.line, points, x.special_summons, &rates).ok()
-                        }),
-                    };
-                    let measured = prober.measure(&board.line).map_err(|e| e.to_string());
-                    let matchup = rival.as_ref().map(|(id, name, rival)| {
-                        let m = measured.as_ref().map_err(String::clone).and_then(|m| {
-                            ygo_solver::matchup(&engine, &config.deck, &hands[*hand], config.seed, &board.line, m, rival)
-                                .map_err(|e| e.to_string())
-                        });
-                        matchup_view(*id, name, m)
-                    });
-                    let mut view = score_view(&engine, *hand, board, measured, exposure, loss.as_ref(), &config.hand_traps, &roles);
-                    view.matchup = matchup;
-                    let _ = app.emit("combo-score", view.clone());
-                    if let Ok(mut r) = results.lock() {
-                        r.push(((*hand, board.key), view, loss));
-                    }
-                }
-            });
+    let results = on_all_cores(&todo, &state.combo_cancel, new_prober, |prober, hand, board| {
+        let points =
+            ygo_solver::explain::exposure_points(&engine, &config.deck, &hands[hand], config.seed, config.opponent.as_ref(), &board.line)
+                .ok();
+        let exposure = points.as_ref().map(|(x, _)| *x);
+        // Every board ranked has it: one without would rank higher.
+        let loss = match losses.get(&(hand, board.key)) {
+            Some(known) => known.clone(),
+            None => points.as_ref().and_then(|(x, points)| {
+                let rates = ygo_solver::probe::HandTrapRates::default();
+                prober.expected_loss(&board.line, points, x.special_summons, &rates).ok()
+            }),
+        };
+        let partial = partials.lock().ok().and_then(|mut p| p.remove(&(hand, board.key)));
+        let measured = match partial {
+            Some(partial) => prober.measure_resumed(&board.line, partial),
+            None => prober.measure(&board.line),
         }
+        .map_err(|e| e.to_string());
+        let matchup = rival.as_ref().map(|(id, name, rival)| {
+            let m = measured.as_ref().map_err(String::clone).and_then(|m| {
+                ygo_solver::matchup(&engine, &config.deck, &hands[hand], config.seed, &board.line, m, rival).map_err(|e| e.to_string())
+            });
+            matchup_view(*id, name, m)
+        });
+        let mut view = score_view(&engine, hand, board, measured, exposure, loss.as_ref(), &config.hand_traps, &roles);
+        view.matchup = matchup;
+        let _ = app.emit("combo-score", view.clone());
+        ((hand, board.key), view, loss)
     });
     let mut job = state.combo.lock().map_err(|e| e.to_string())?;
     let job = job.as_mut().ok_or("La ricerca è cambiata")?;
-    for (key, view, loss) in results.into_inner().unwrap_or_default() {
+    for (key, entry) in cheap_scores {
+        job.cheap.insert(key, entry);
+    }
+    for (key, view, loss) in results {
         job.scores.insert(key, view);
         job.losses.insert(key, loss);
+    }
+    // The candidates left out of the full measure keep the cheap score
+    // (sent again after a change of deck, which clears the scores).
+    if SEND_CHEAP_SCORES && cheap.is_some() {
+        for (h, b) in &candidates {
+            if let (None, Some((_, view))) = (job.scores.get(&(*h, b.key)), job.cheap.get(&(*h, b.key))) {
+                let view = view.clone();
+                let _ = app.emit("combo-score", view.clone());
+                job.scores.insert((*h, b.key), view);
+            }
+        }
     }
     Ok(job.scores.len())
 }

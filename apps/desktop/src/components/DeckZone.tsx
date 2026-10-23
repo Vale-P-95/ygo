@@ -27,6 +27,8 @@ interface Props {
   dashed?: boolean;
   /** When non-null, cards in this set are highlighted and all others are dimmed. */
   highlighted?: Set<number> | null;
+  selectedId?: number | null;
+  onSelect?: (id: number, el: HTMLElement) => void;
 }
 
 function banBadge(card: Card | undefined, format: DeckFormat): TileBadge | undefined {
@@ -39,7 +41,7 @@ function banBadge(card: Card | undefined, format: DeckFormat): TileBadge | undef
 
 /** One deck section: a drop target with one tile per copy and empty slots. */
 export function DeckZone(props: Props) {
-  const { zone, title, ids, columns, slots, max, format, getCard, invalid, fresh, info, onRemove, onOpen, onHover, onHoverEnd, emptyHint, dashed, highlighted } = props;
+  const { zone, title, ids, columns, slots, max, format, getCard, invalid, fresh, info, onRemove, onOpen, onHover, onHoverEnd, emptyHint, dashed, highlighted, selectedId, onSelect } = props;
   const drag = useDrag();
   const over = drag?.over === zone;
   const target = drag && drag.source.from !== zone;
@@ -97,6 +99,8 @@ export function DeckZone(props: Props) {
                 fresh={fresh?.zone === zone && fresh.index === index}
                 badge={banBadge(getCard(id), format)}
                 dragSource={{ id, from: zone, index }}
+                selected={selectedId === id}
+                onSelect={onSelect}
                 onContext={() => onRemove(zone, index)}
                 onOpen={onOpen}
                 onHover={onHover}

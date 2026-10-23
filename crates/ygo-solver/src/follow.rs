@@ -30,10 +30,30 @@ pub(crate) struct Script {
     /// a handtrap the list can hold them in another order (a card back in
     /// the Extra Deck moves the others).
     pub(crate) picks: Vec<Option<Vec<Picked>>>,
+    /// The option each answer chooses, by its description: a handtrap can
+    /// add another option before it (Maxx "C" in the opponent's GY, a target
+    /// for one more effect of the card).
+    pub(crate) options: Vec<Option<u64>>,
     /// Where each answer is in the line, and whether it answers a free
     /// moment of your Main Phase (where the line can stop).
     pub(crate) at_line: Vec<usize>,
     pub(crate) idle: Vec<bool>,
+}
+
+impl Script {
+    /// The script's first `n` answers (a line stopped there).
+    pub(crate) fn up_to(&self, n: usize) -> Script {
+        let n = n.min(self.answers.len());
+        Script {
+            answers: self.answers[..n].to_vec(),
+            kinds: self.kinds[..n].to_vec(),
+            ids: self.ids[..n].to_vec(),
+            picks: self.picks[..n].to_vec(),
+            options: self.options[..n].to_vec(),
+            at_line: self.at_line[..n].to_vec(),
+            idle: self.idle[..n].to_vec(),
+        }
+    }
 }
 
 /// A card picked in a selection: what it is, where, and whether it is the
@@ -148,8 +168,7 @@ pub(crate) fn own_answers(
 ) -> Result<Script, Error> {
     let db = engine.cards();
     let mut duel = Duel::goldfish_against(engine, deck, hand, seed, Some(opponent))?;
-    let mut own =
-        Script { answers: Vec::new(), kinds: Vec::new(), ids: Vec::new(), picks: Vec::new(), at_line: Vec::new(), idle: Vec::new() };
+    let mut own = Script::default();
     for (i, answer) in line.answers.iter().enumerate() {
         let Step::Decision { decision, .. } = duel.advance()? else { break };
         if decision.player() != Some(1) {
@@ -175,6 +194,10 @@ pub(crate) fn own_answers(
                 _ => None,
             };
             own.picks.push(picked(engine, &decision, answer));
+            own.options.push(match decision {
+                Decision::Option { .. } => duel.actions(&decision).iter().find(|a| &a.response == answer).map(|a| a.description),
+                _ => None,
+            });
             own.at_line.push(i);
             own.idle.push(matches!(decision, Decision::IdleCmd { .. }));
             own.answers.push(answer.clone());
@@ -184,6 +207,13 @@ pub(crate) fn own_answers(
         duel.respond(answer);
     }
     Ok(own)
+}
+
+/// The answer that chooses the option described by `description` again,
+/// wherever it is listed.
+pub(crate) fn option_again(decision: &Decision, actions: &[Action], description: u64) -> Option<Vec<u8>> {
+    matches!(decision, Decision::Option { .. }).then_some(())?;
+    actions.iter().find(|a| a.description == description).map(|a| a.response.clone())
 }
 
 /// The answer to `decision` that plays the action `id`, if it is offered.
@@ -289,7 +319,10 @@ impl<'a> Follower<'a> {
             // by what they are; an answer that does not fit any more gives way
             // to a plain one.
             let raw = &s.answers[self.next];
-            let again = s.picks[self.next].as_ref().and_then(|p| pick_again(engine, decision, p));
+            let again = s.picks[self.next]
+                .as_ref()
+                .and_then(|p| pick_again(engine, decision, p))
+                .or_else(|| s.options[self.next].and_then(|o| option_again(decision, actions, o)));
             let fits = actions.iter().any(|a| a.response == *raw);
             self.next += 1;
             let answer = again.or_else(|| fits.then(|| raw.clone())).unwrap_or_else(|| fallback(decision, actions));
