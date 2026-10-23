@@ -53,6 +53,7 @@ Corsie di lavoro in parallelo del 22/10/2026 (piano in `docs/plans/piano-prossim
     - [x] il giro completo (dopo la #53): 817 invocazioni, nessun timeout, 200 board con la verità;
     - [x] il documento con metodo, pesi del meta, tempi, coppie dubbie e primi numeri;
     - [x] le 90 board delle coppie del proprietario nel banco (77 trovate, 76 con la verità) e la tabella per coppia.
+    - [x] la nuova base su `main` 1af365d (dopo B5a, B14 e le correzioni del livello 2 #86, #91 e #93; misure generiche con la #94): le stesse board (Elfnote Kewl Tune mano 0 da una ricerca nuova) e le 77 delle coppie del proprietario, numeri e confronto in `docs/plans/banco-oggettivo.md`.
 
   Agente: claude-code, sessione sorella del collaudo. Branch: `claude/tools-qa`. File: script nuovi in `scripts/` (`objective_bench.py`), `docs/plans/collaudo-strumenti.md`, `docs/plans/banco-oggettivo.md`, `tests/fixtures/boards/`.
 - [x] **Corsia 4, nono task, chiuso il 23/10 come «non conferma».** Il kit concatenato (opzione c): nessuna delle 7 configurazioni (cascata, copertura per uso, catena del kit) batte la misura di oggi nella prova equa della corsia 7 (79% delle coppie giuste su 1203, ρ 0,73). Dettagli in `docs/plans/extra-deck-a1b.md`. Resta `paired_test.py --measure-cli`. `probe.rs` è libero.
