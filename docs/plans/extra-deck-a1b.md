@@ -78,3 +78,15 @@ Senza la verità dei tre deck più giocati l'ordine non cambia.
 - La catena fissa del kit dà a ogni risposta presto nel turno il valore di tutto ciò che viene dopo, anche dove le linee vere hanno rami indipendenti.
 
 Gli interruttori restano fuori da `main` (branch locale `chain-exp`). Resta `paired_test.py --measure-cli`: confronta le due ricerche rimisurando la loro #1 con la stessa misura, perché un cambio della misura ne sposta la scala. La regola, d'ora in poi: ogni cambio della misura si giudica prima con la prova equa su tutte le board.
+
+## L'opzione (d): migliora l'ordine, peggiora la ricerca (non unita)
+I pesi delle Evocazioni dalle frequenze di `kit-mix`, sulla scala delle attivazioni (le prime 5 board di 41 deck, 23/10: 187 Evocazioni Speciali dalla mano, 200 Normali, 573 dall'Extra Deck contro 1559 attivazioni): dalla mano da 0,3 a 0,32, Normale da 0,2 a 0,35, dall'Extra Deck da 0,6 a 0,99.
+- **Prova equa** (corsia 7, `ricerca-esperimenti.md` §6c): coppie giuste 82% contro 79% (45 guadagnate, 16 perse, p = 0,0003), ρ invariato. Il guadagno è concentrato su Sky Striker e Clown Crew e sparisce contando il turno dopo.
+- **Ricerca** (`paired_test.py --measure-cli`, 90 mani, le #1 di prima e dopo misurate con la misura nuova): respinta. 9 mani meglio, 5 peggio, 76 pari.
+  - La peggiore è hunt-dracotail-0, −41%: la ricerca nuova non trova più la board con Dracotail Flame, Horn e Sting coperte (3,22 con la misura nuova, contro 1,90 della sua #1).
+  - In calo anche bench-inv-r1 −5,4%, exodia-0 −5,1%, psychics-0 −8,3%.
+- **B14** (`combo_hunt --seed 7`): la #1 identica in 64 su 82.
+
+**Perché.** I pesi cambiano anche i valori delle carte che guidano la ricerca (`card_values` misura le carte con lo stesso kit), e la ricerca va altrove.
+
+**Decisione.** Non si unisce. Si decide nella ritaratura §7 della corsia 7, che rivede insieme i pesi delle Evocazioni e quello del turno dopo, e lì va valutata anche la ricerca, non solo l'ordine. I tre pesi sopra bastano per rifarla: il commit 4cbb5f3 resta sul branch locale `option-d` della corsia 4.
