@@ -51,6 +51,14 @@ from bench import HANDS, WEIGHTS, follow_up_value  # noqa: E402
 NODES = 4000
 # Boards measured by the probe turn in each run.
 TOP = 10
+# The other kinds of boards a fixture keeps: the best by interruptions on
+# the field, by protection against the breakers, by what is left to rebuild
+# with in the next turn.
+KINDS = [
+    ("field", lambda m: m["field"]),
+    ("resilience", lambda m: m["resilience"]),
+    ("follow_up", lambda m: (m.get("follow_up") or {}).get("rebuild", 0)),
+]
 # Goal searches named by hand: the owner's Invoked case (Invoked Oceanus in
 # the Extra Monster Zone and S:P Little Knight), on the committed Invoked list.
 GOALS = [
@@ -277,17 +285,30 @@ def cmd_fixtures(a):
         path = os.path.join(a.oracle, "runs", f"{hid}.s{case[3]}.json") if case else ""
         if not case or not os.path.exists(path):
             continue
-        boards = boards_of(path, case[4])[: a.keep]
+        found = boards_of(path, case[4])
+        boards = [(v, i, []) for v, i in found[: a.keep]]
+        # Boards of other kinds stay among the references too, the best by
+        # each part of the measure: a kind the measure undervalues is kept.
+        for why, part in KINDS:
+            best = max(found, key=lambda b: part(b[1]["measure"]), default=None)
+            if best is None or part(best[1]["measure"]) <= 0:
+                continue
+            same = next((b for b in boards if b[1]["look_key"] == best[1]["look_key"]), None)
+            if same:
+                same[2].append(why)
+            else:
+                boards.append((best[0], best[1], [why]))
         lines = json.load(open(path[:-5] + ".lines.json"))["items"]
         doc = json.load(open(path))
-        names = {place(f)[0] for _, i in boards for f in i["field"]} | {place(f)[3] for _, i in boards for f in i["field"]}
+        names = {place(f)[0] for _, i, _ in boards for f in i["field"]} | {place(f)[3] for _, i, _ in boards for f in i["field"]}
         codes = code_of(n for n in names if n)
         others = []
         for seed in meta["seeds"]:
             other = os.path.join(a.oracle, "runs", f"{hid}.s{seed}.json")
             if seed != case[3] and os.path.exists(other):
-                found = boards_of(other, case[4])
-                others.append({"seed": seed, "value": found[0][0] if found else None})
+                found_other = boards_of(other, case[4])
+                others.append({"seed": seed, "value": found_other[0][0] if found_other else None})
+        previous = os.path.join(a.dest, f"{hid}.json")
         fixture = {
             "id": hid,
             "deck": os.path.relpath(case[1], ROOT) if case[1].startswith(ROOT) else os.path.basename(case[1]),
@@ -300,17 +321,22 @@ def cmd_fixtures(a):
             "boards": [{
                 "value": v,
                 "look_key": i["look_key"],
+                **({"kept_for": why} if why else {}),
                 "field": [{"code": codes.get(n), "name": n, **({"zone": z} if z else {}), **({"set": True} if s else {}),
                            **({"equipped_to": codes.get(t)} if t else {})} for n, z, s, t in map(place, i["field"])],
                 "hand": i["hand"],
                 "measure": {k: i["measure"][k] for k in ("field", "hand", "floodgates", "resilience", "follow_up")},
-            } for v, i in boards],
+                # The answers of its line, one hex string each (no card text): `oracle.py lines` writes them for probe-line.
+                "line": [bytes(x).hex() for x in lines[i["index"]]["answers"]],
+            } for v, i, why in boards],
             # The best value found with the other deck orders: how far this seed is from them.
             "other_seeds": others,
         }
-        if boards:
-            # The line of the best board, to play it again (the answers only: no card text).
-            fixture["line"] = {"answers": lines[boards[0][1]["index"]]["answers"]}
+        # The convergence check of an earlier fixture of the same hand and budget stays (`converge`).
+        if os.path.exists(previous):
+            old = json.load(open(previous))
+            if old.get("convergence") and old.get("nodes") == fixture["nodes"]:
+                fixture["convergence"] = old["convergence"]
         json.dump(fixture, open(os.path.join(a.dest, f"{hid}.json"), "w"), indent=1)
         written += 1
     print(f"{written} fixtures in {a.dest}")
@@ -356,7 +382,9 @@ def cmd_measure(a):
         for frac in (0.9, 0.95, 1.0):
             hit = next((s for s in steps if not s.get("failed") and s["best"] >= frac * oracle_value * (1 - 1e-9)), None)
             reach[str(frac)] = {"nodes": hit["nodes"], "seconds": hit["seconds"]} if hit else None
-        return {"id": fx["id"], "oracle": oracle_value, "goal": fx["goal"], "steps": steps, "reach": reach}
+        stable = (fx.get("convergence") or {}).get("stable")
+        return {"id": fx["id"], "deck": deck_name(fx), "oracle": oracle_value, "goal": fx["goal"], "steps": steps, "reach": reach,
+                "stable": stable}
 
     with cf.ThreadPoolExecutor(a.jobs) as ex:
         results = list(ex.map(one, fixtures))
@@ -376,6 +404,91 @@ def cmd_measure(a):
         good3 = sum(1 for r in results if r["steps"] and (r["steps"][-1].get("as_good_rank") or 99) <= 3)
         print(f"\n{at95}/{n} hands reach 95% of the oracle within {last} nodes; in the top 3 at {last} nodes: "
               f"the oracle's board in {top3}/{n}, a board as good (99%) in {good3}/{n}")
+        report_groups(results, budgets)
+
+
+def share(r, i):
+    """The normal search's share of the oracle's value at budget `i` (up to 100%), or None."""
+    s = r["steps"][i] if i < len(r["steps"]) else {}
+    return min(s["best"] / r["oracle"], 1.0) if r["oracle"] > 0 and not s.get("failed") and "best" in s else None
+
+
+def report_groups(results, budgets):
+    """The mean share by group: the decks to tune on and those kept apart (70/30 by deck, seed 47, as the
+    objective bench), and the hands whose oracle is stable or provisional (`converge`)."""
+    plain = [r for r in results if not r["goal"] and r["oracle"] > 0]
+    parts = split({r["deck"] for r in plain})
+    groups = [("tuning", lambda r: parts[r["deck"]] == "taratura"), ("check", lambda r: parts[r["deck"]] == "verifica"),
+              ("stable", lambda r: r.get("stable") is True), ("provisional", lambda r: r.get("stable") is False)]
+    print(f"\n{'mean share':12} {'hands':>5} " + " ".join(f"{b:>7}" for b in budgets))
+    means = {}
+    for name, keep in groups:
+        rows = [r for r in plain if keep(r)]
+        if not rows:
+            continue
+        cells = []
+        for i in range(len(budgets)):
+            vals = [v for v in (share(r, i) for r in rows) if v is not None]
+            means[(name, i)] = sum(vals) / len(vals) if vals else None
+            cells.append(f"{means[(name, i)]:>7.1%}" if vals else f"{'-':>7}")
+        print(f"{name:12} {len(rows):>5} " + " ".join(cells))
+    i = len(budgets) - 1
+    tune, check = means.get(("tuning", i)), means.get(("check", i))
+    if tune is not None and check is not None:
+        gap = tune - check
+        print(f"decks kept apart: {gap * 100:+.1f} points below the tuning decks at {budgets[i]} nodes "
+              f"({'over 5: fitted to the bench, not general' if gap > 0.05 else 'within 5'})")
+
+
+def deck_name(fx):
+    """The deck of a fixture, by its file's name."""
+    return os.path.splitext(os.path.basename(fx["deck"]))[0]
+
+
+def split(decks, seed=47, share=0.7):
+    """Tuning and check, by deck, as `objective_bench.py` splits them."""
+    order = sorted(decks)
+    random.Random(seed).shuffle(order)
+    cut = round(len(order) * share)
+    return {d: ("taratura" if i < cut else "verifica") for i, d in enumerate(order)}
+
+
+def cmd_converge(a):
+    """Marks each fixture stable when its value does not rise from the
+    fixture's budget to the larger builds (over 1%), else provisional."""
+    written = 0
+    for file in sorted(os.listdir(a.fixtures)):
+        if not file.endswith(".json"):
+            continue
+        path = os.path.join(a.fixtures, file)
+        fx = json.load(open(path))
+        if not fx["boards"]:
+            continue
+        values = {fx["nodes"]: fx["boards"][0]["value"]}
+        for build in a.builds:
+            meta = json.load(open(os.path.join(build, "oracle.json")))
+            run_path = os.path.join(build, "runs", f"{fx['id']}.s{fx['seed']}.json")
+            if os.path.exists(run_path):
+                found = boards_of(run_path, fx["goal"])
+                values[meta["nodes"]] = found[0][0] if found else 0.0
+        if len(values) < 2:
+            continue
+        top = max(values.values())
+        fx["convergence"] = {"values": {str(k): v for k, v in sorted(values.items())},
+                             "stable": top <= fx["boards"][0]["value"] * 1.01}
+        json.dump(fx, open(path, "w"), indent=1)
+        written += 1
+        print(f"{fx['id']:34} " + " ".join(f"{k}: {v:.3f}" for k, v in sorted(values.items())) +
+              f"  {'stable' if fx['convergence']['stable'] else 'provisional'}")
+    print(f"{written} fixtures checked")
+
+
+def cmd_lines(a):
+    """The lines of a fixture's boards as `combos --save-lines` writes them, for `probe-line`."""
+    fx = json.load(open(a.fixture))
+    items = [{"answers": [list(bytes.fromhex(x)) for x in b["line"]]} for b in fx["boards"]]
+    json.dump({"kind": "lines", "deck": fx["deck"], "hand": fx["hand"], "seed": fx["seed"], "items": items}, open(a.out, "w"))
+    print(f"{len(items)} lines in {a.out}")
 
 
 def main():
@@ -401,6 +514,12 @@ def main():
     f.add_argument("--decks", required=True)
     f.add_argument("--keep", type=int, default=5, help="boards kept per hand")
     f.add_argument("--auto-goals", type=int, default=0)
+    c = sub.add_parser("converge", help="mark the fixtures stable or provisional from larger builds")
+    c.add_argument("fixtures")
+    c.add_argument("builds", nargs="+", help="build folders with a larger --mult")
+    ln = sub.add_parser("lines", help="a fixture's lines for probe-line")
+    ln.add_argument("fixture")
+    ln.add_argument("out")
     m = sub.add_parser("measure", help="the normal search against the oracle")
     m.add_argument("oracle", help="folder of fixtures")
     m.add_argument("out")
@@ -410,7 +529,8 @@ def main():
     m.add_argument("--only", default="")
     m.add_argument("--cli", default=os.path.join(ROOT, "target", "release", "duelforge-cli"))
     a = p.parse_args()
-    {"hands": cmd_hands, "build": cmd_build, "fixtures": cmd_fixtures, "measure": cmd_measure}[a.cmd](a)
+    {"hands": cmd_hands, "build": cmd_build, "fixtures": cmd_fixtures, "measure": cmd_measure, "converge": cmd_converge,
+     "lines": cmd_lines}[a.cmd](a)
 
 
 if __name__ == "__main__":
