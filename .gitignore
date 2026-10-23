@@ -15,3 +15,5 @@ __pycache__/
 
 # Worktrees of Claude Code subagents
 .claude/worktrees/
+.cloud-env
+out/
