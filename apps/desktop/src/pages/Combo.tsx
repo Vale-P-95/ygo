@@ -11,7 +11,7 @@ import { SectionHeader } from "../components/SectionHeader";
 import { api, type ComboBoard, type ComboGoal, type ComboHand, type ComboScore, type ComboStep, type GoalCard, type GoalZone, type Deck, type DeckSummary, type ZoneCard } from "../lib/api";
 import { useCardCache } from "../lib/cards";
 import { clearMetaError, compareMeta, continueCombo, scoreBoards, startCombo, stopCombo, useCombo } from "../lib/combo";
-import { dominates, score, useWeights } from "../lib/scoring";
+import { dominates, isCheap, score, useWeights } from "../lib/scoring";
 import { lastDeck, rememberDeck } from "../lib/deck";
 import { sound } from "../lib/sound";
 import { toast } from "../lib/toast";
@@ -301,7 +301,7 @@ export function Combo({ artReady, onGoForge }: { artReady: boolean; onGoForge: (
     for (const b of handFilteredBoards) {
       const id = boardId(b);
       const s = run.scores[id];
-      if (s && !s.error) {
+      if (s && !s.error && !isCheap(s)) {
         measuredList.push({ id, score: s });
       }
     }
@@ -321,7 +321,17 @@ export function Combo({ artReady, onGoForge }: { artReady: boolean; onGoForge: (
     let count = 0;
     for (const b of handFilteredBoards) {
       const s = run.scores[boardId(b)];
-      if (s && !s.error) count++;
+      if (s && !s.error && !isCheap(s)) count++;
+    }
+    return count;
+  }, [handFilteredBoards, run.scores]);
+
+  // Boards with the cheap measure only: ranked after the others, never compared with them.
+  const cheapCount = useMemo(() => {
+    let count = 0;
+    for (const b of handFilteredBoards) {
+      const s = run.scores[boardId(b)];
+      if (s && !s.error && isCheap(s)) count++;
     }
     return count;
   }, [handFilteredBoards, run.scores]);
@@ -331,7 +341,7 @@ export function Combo({ artReady, onGoForge }: { artReady: boolean; onGoForge: (
     for (const b of handFilteredBoards) {
       const id = boardId(b);
       const s = run.scores[id];
-      if (s && !s.error && !dominatedBoardIds.has(id)) count++;
+      if (s && !s.error && !isCheap(s) && !dominatedBoardIds.has(id)) count++;
     }
     return count;
   }, [handFilteredBoards, run.scores, dominatedBoardIds]);
@@ -350,9 +360,15 @@ export function Combo({ artReady, onGoForge }: { artReady: boolean; onGoForge: (
       }
       return s && !s.error ? score(s, weights) : null;
     };
+    // Meta first, then the full measure, the cheap one, and the boards not measured at all (when some are cheap).
+    const tier = (b: ComboBoard): number => {
+      const s = run.scores[boardId(b)];
+      if (s && !s.error) return isCheap(s) ? 2 : 1;
+      return cheapCount > 0 ? 3 : 1;
+    };
     return handFilteredBoards
       .filter((b) => !paretoOnly || !dominatedBoardIds.has(boardId(b)))
-      .map((b) => ({ b, v: value(b), mv: metaValue(b) }))
+      .map((b) => ({ b, v: value(b), mv: metaValue(b), t: tier(b) }))
       .sort((x, y) => {
         const xHasMeta = x.mv != null;
         const yHasMeta = y.mv != null;
@@ -362,10 +378,10 @@ export function Combo({ artReady, onGoForge }: { artReady: boolean; onGoForge: (
           const diff = y.mv! - x.mv!;
           if (Math.abs(diff) > 1e-6) return diff;
         }
-        return y.b.goalHits - x.b.goalHits || (y.v ?? -1e9) - (x.v ?? -1e9) || byRank(x.b, y.b);
+        return x.t - y.t || y.b.goalHits - x.b.goalHits || (y.v ?? -1e9) - (x.v ?? -1e9) || byRank(x.b, y.b);
       })
       .map((x) => x.b);
-  }, [ours, handFilteredBoards, run.scores, weights, sortByMatchup, paretoOnly, dominatedBoardIds]);
+  }, [ours, handFilteredBoards, run.scores, weights, sortByMatchup, paretoOnly, dominatedBoardIds, cheapCount]);
   // Boards that look the same (they differ only in the Graveyard, the banished cards or the zones) are one entry.
   const groups = useMemo(() => {
     const out: { board: ComboBoard; variants: number }[] = [];
@@ -383,9 +399,14 @@ export function Combo({ artReady, onGoForge }: { artReady: boolean; onGoForge: (
   const hands = useMemo(() => {
     return (ours && (run.outcome?.hands ?? run.progress?.hands)) || [];
   }, [ours, run.outcome?.hands, run.progress?.hands]);
+  // The full score only: a cheap one has no bar and no weighted number, see `cheapOf`.
   const scoreOf = (b: ComboBoard) => {
     const s = run.scores[boardId(b)];
-    return s && !s.error ? s : null;
+    return s && !s.error && !isCheap(s) ? s : null;
+  };
+  const cheapOf = (b: ComboBoard) => {
+    const s = run.scores[boardId(b)];
+    return s && !s.error && isCheap(s) ? s : null;
   };
   const scale = Math.max(0.01, ...groups.map(({ board }) => scoreOf(board)).filter((s) => s != null).map((s) => score(s!, weights)));
   const measured = totalMeasuredCount;
@@ -488,10 +509,7 @@ export function Combo({ artReady, onGoForge }: { artReady: boolean; onGoForge: (
     if (!deck || deck.id == null || run.running || run.scoring || run.metaLoading) return;
     sound.play("select");
     const currentDeckId = deck.id;
-    const measuredBoards = boards.filter((b) => {
-      const s = run.scores[boardId(b)];
-      return s && !s.error;
-    });
+    const measuredBoards = boards.filter((b) => scoreOf(b) != null);
     const targetBoards =
       profile === "balanced"
         ? undefined
@@ -984,7 +1002,7 @@ export function Combo({ artReady, onGoForge }: { artReady: boolean; onGoForge: (
                           : run.metaLoading
                             ? "confronto con il meta in corso…"
                             : measured
-                            ? "punteggio misurato con il turno di prova"
+                            ? `punteggio misurato con il turno di prova${cheapCount ? `; altre ${cheapCount} valutate in breve, in fondo` : ""}`
                             : "stima provvisoria"}
                     </span>
                   </div>
@@ -1176,6 +1194,13 @@ export function Combo({ artReady, onGoForge }: { artReady: boolean; onGoForge: (
                           <b className="text-sm text-text" title="Punteggio misurato">
                             {score(scoreOf(b)!, weights).toFixed(2)}
                           </b>
+                        ) : cheapOf(b) ? (
+                          <span
+                            className="chip !px-1.5 !py-0 text-[10px] text-faint font-semibold"
+                            title="Valutata in breve: senza breaker, follow-up ed esposizione, il suo punteggio non si confronta con quello delle altre board. Non era tra le migliori per la misura economica."
+                          >
+                            valutata in breve
+                          </span>
                         ) : (
                           <span title="Stima provvisoria (mostri, magie e trappole, carte in mano)">
                             <b className="text-sm text-faint">{b.quickScore.toFixed(1)}</b> <span className="text-[10px]">stima</span>

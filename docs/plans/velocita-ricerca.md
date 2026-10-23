@@ -502,7 +502,7 @@ Nessun codice nella ricerca: misure e stime, per decidere.
   - `Parts` ha due campi in più, le finestre e i giri degli usi; la misura completa resta a 16 e 3.
 - **App** (`combo_score`, mano precisa): la scala qui sopra, con l'esposizione e il confronto con il deck scelto solo per le 15.
   - Le altre hanno un punteggio senza breaker, segnato da `ScoreView.cheap` (`cheap?: boolean` in `api.ts`).
-  - **Per ora l'app non lo manda alla pagina** (`SEND_CHEAP_SCORES = false`). La pagina ordina ogni punteggio con i suoi pesi, e uno senza breaker né esposizione starebbe sopra quello completo dello stesso campo. Così quelle board restano «non misurate», ordinate dalla stima, come oggi le board oltre la 30ª. Si accende quando la scheda di Gemini mette le board `cheap` dopo le altre.
+  - **Ora l'app lo manda alla pagina** (l'interruttore `SEND_CHEAP_SCORES` è stato tolto con la scheda che le mette dopo le complete). Prima non lo mandava (`SEND_CHEAP_SCORES = false`). La pagina ordina ogni punteggio con i suoi pesi, e uno senza breaker né esposizione starebbe sopra quello completo dello stesso campo. Così quelle board restano «non misurate», ordinate dalla stima, come oggi le board oltre la 30ª. Si accende quando la scheda di Gemini mette le board `cheap` dopo le altre.
   - Queste misure non dipendono dal deck avversario, quindi restano valide quando lo si cambia.
   - In «carta + resto» non cambia niente.
 - **CLI:**
@@ -566,7 +566,7 @@ Nessun codice nella ricerca: misure e stime, per decidere.
   Le altre mani dove la migliore sta oltre l'8ª: D/D/D-0 10ª, Dracotail-0 9ª, Dracotail-1 11ª, Phantom Knights-1 11ª.
 - `paired_test.py` sulle 82 mani: 82 pari, accettato. Banco a 4000 nodi identico (best 11,56, first 11,55, 12 mani su 16), `paired_test.py` accettato.
 - Verdi anche `search_regression`, i test, fmt, clippy (anche `src-tauri`) e `pnpm typecheck`. Nell'app vera non è stata provata.
-- **Nell'app** le board che hanno solo il gradino economico non si mandano ancora alla pagina (`SEND_CHEAP_SCORES = false`, come nella PR #89).
+- **Nell'app** le board che hanno solo il gradino economico ora arrivano alla pagina, che le mette dopo le complete con «valutata in breve» (prima `SEND_CHEAP_SCORES = false`, come nella PR #89).
 
 ### L2-3 come ultimo gradino (23/10/2026, corsia 8)
 **Cosa fa.** Dopo la scala di B14, le migliori board per misura completa si rigiocano al livello 2 contro i 3 deck del meta con il `popRank` più alto (`ricerca-esperimenti.md` §6b), e quelle board si riordinano per L2-3.

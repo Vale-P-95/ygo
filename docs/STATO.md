@@ -55,5 +55,5 @@ Il piano con le priorità e il lavoro in parallelo è in `docs/plans/piano-pross
 1. Classificazione delle board: D12 (corsia 4), poi D11 e D16; i pesi (D17, #43) con i giudizi del proprietario.
 2. Deck lenti: tetto di istruzioni Lua per richiesta (corsia 2).
 3. Collaudo del livello 2 dopo le correzioni (corsia 3).
-4. Interfaccia: primo `/design-sync` del sistema di design (lo lancia l'utente), poi dal passo 6 in poi con Claude Code (mockup in Claude Design, poi una sessione Code); board `cheap: true` e B8.
+4. Interfaccia: primo `/design-sync` del sistema di design (lo lancia l'utente), poi dal passo 6 in poi con Claude Code (mockup in Claude Design, poi una sessione Code); B8 (le board `cheap: true` sono nella scheda del punteggio).
 5. Mappa dei collegamenti (probabilità sature), simulatore (#36), valutatore imparato.

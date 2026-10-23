@@ -240,7 +240,7 @@ Resta la memoria operativa nei giorni con coordinatrice; altrimenti si aggiorna 
 8. **Primo compito con la filiera completa**: il passo 6 (effetti e suoni, ognuno spegnibile): mockup delle Impostazioni in Claude Design, sessione Sonnet, screenshot, anteprima, prova sul computer. Serve a collaudare la filiera su un compito piccolo prima di quelli grandi.
 9. **Poi, uno per sessione, al massimo tre in parallelo**:
    - i due pesi del punteggio proposti dalla §7 (resilienza 0,6 → 0, floodgate 0,8 → 0,4): conferma sul banco di generalità, poi una PR che cambia `bench.py`, CLI, `lib.rs`, `scoring.ts` insieme;
-   - le board `cheap: true`: scheda e interruttore `SEND_CHEAP_SCORES` nella stessa PR;
+   - [fatto] le board `cheap: true`: scheda e interruttore `SEND_CHEAP_SCORES` nella stessa PR;
    - B8, obiettivi ricchi: mockup, poi contratto e interfaccia (Opus);
    - i punti 3, 5 e 6 della caccia ai bug, l'arena nel turno di prova, il caso Vendread (Opus);
    - il simulatore (#36): mockup prima.

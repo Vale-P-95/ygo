@@ -2874,12 +2874,15 @@ export const mockApi: Api = {
 
   comboScore: async (vsDeckId?: number | null): Promise<number> => {
     lastVsDeckId = vsDeckId ?? null;
-    for (const b of lastScoredBoards) {
+    // Like the backend: the best 15 in full, the rest (up to 30) with the cheap measure only. The mock has few boards: half.
+    const fullCount = Math.min(15, Math.ceil(lastScoredBoards.length / 2));
+    for (const [i, b] of lastScoredBoards.slice(0, 30).entries()) {
       await delay(45);
-      const s = buildMockScoreForBoard(b, lastVsDeckId);
+      const full = buildMockScoreForBoard(b, lastVsDeckId);
+      const s = i < fullCount ? full : { ...full, cheap: true, followup: 0, exposure: 0, matchup: null };
       comboScoreListeners.forEach((fn) => fn(s));
     }
-    return lastScoredBoards.length;
+    return Math.min(lastScoredBoards.length, 30);
   },
 
   comboScores: async (): Promise<ComboScore[]> => lastScoredBoards.map((b) => buildMockScoreForBoard(b, lastVsDeckId)),
