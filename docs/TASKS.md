@@ -49,6 +49,8 @@ Corsie di lavoro in parallelo del 22/10/2026 (piano in `docs/plans/piano-prossim
     - [x] le 90 board delle coppie del proprietario nel banco (77 trovate, 76 con la verità) e la tabella per coppia.
 
   Agente: claude-code, sessione sorella del collaudo. Branch: `claude/tools-qa`. File: script nuovi in `scripts/` (`objective_bench.py`), `docs/plans/collaudo-strumenti.md`, `docs/plans/banco-oggettivo.md`, `tests/fixtures/boards/`.
+- [x] **Corsia 4, nono task, chiuso il 23/10 come «non conferma».** Il kit concatenato (opzione c): nessuna delle 7 configurazioni (cascata, copertura per uso, catena del kit) batte la misura di oggi nella prova equa della corsia 7 (79% delle coppie giuste su 1203, ρ 0,73). Dettagli in `docs/plans/extra-deck-a1b.md`. Resta `paired_test.py --measure-cli`. `probe.rs` è libero.
+  - [ ] Opzione (d), i pesi delle Evocazioni dalle frequenze di `kit-mix`: in prova equa dalla corsia 7.
 - [ ] **Corsia 4, ottavo task.** L'Extra Deck dell'avversario del kit, la classe più grande dei disaccordi di A1b (19 su 57, `ricerca-esperimenti.md` §6): le linee vere evocano dall'Extra Deck circa 3 volte (`kit-mix`: 573 evocazioni in 203 linee di 41 deck), il kit una. Il kit ne fa 3, con mostri senza effetti e materiali esatti; ognuna pesa un terzo di 1,0, la loro quota sulla scala delle attivazioni.
 
   Agente: claude-code, sessione della corsia 4. Branch: `claude/placed-cards`. File: `kit-mix` in `crates/ygo-cli/src/main.rs`, `scripts/research/a1b_remeasure.py`; per la correzione, in `crates/ygo-solver/src/probe.rs` `Kit::standard` (da concordare).
