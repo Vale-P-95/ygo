@@ -307,8 +307,10 @@ pub struct Board {
     pub key: u64,
     pub line: Line,
     /// The duel when the opponent's turn begins; for a provisional board,
-    /// when the turn was ended (End Phase effects not played yet).
-    pub state: DuelState,
+    /// when the turn was ended (End Phase effects not played yet). Shared:
+    /// the boards are copied for the progress, the phases after the search
+    /// and the result, and a state is most of a board's memory.
+    pub state: Arc<DuelState>,
     pub exact: bool,
     /// Cards of the starting hand no longer in the hand.
     pub cards_used: usize,
@@ -394,6 +396,7 @@ struct NewEdge {
     confirms: Option<u64>,
     value: f64,
     discrepancies: u32,
+    struck: bool,
 }
 
 /// A choice left for later: the line to its node and the answer to try.
@@ -410,6 +413,8 @@ struct Edge {
     /// Answers of the line, this one included, that are not the one the
     /// dive would have given.
     discrepancies: u32,
+    /// Its answer was learned to only lose and is tried last ([`STRUCK`]).
+    struck: bool,
 }
 
 impl PartialEq for Edge {
@@ -518,6 +523,12 @@ struct Shared<'a> {
     /// The times each handtrap did nothing at your idle moment: one is not
     /// enough to leave it in the hand (Labrynth Cooclock before a Trap is Set).
     idle_strikes: Mutex<HashMap<u32, u32>>,
+    /// Priority taken off the answers learned to only lose ([`STRUCK`]);
+    /// `None`: they are cut.
+    struck: Option<f64>,
+    /// The other targets of an answer that changed nothing shown are tried
+    /// last, not cut.
+    hidden_struck: bool,
     /// Where the work goes (`DUELFORGE_SEARCH_STATS`): `None` otherwise.
     stats: Option<stats::Stats>,
 }
@@ -616,6 +627,7 @@ impl Shared<'_> {
                     confirms: e.confirms,
                     value: e.value,
                     discrepancies: e.discrepancies,
+                    struck: e.struck,
                 });
             }
         }
@@ -685,9 +697,16 @@ impl Shared<'_> {
             .boards
             .lock()
             .map(|b| {
+                // Only the best few sorted: this runs four times a second
+                // under the lock that every new board waits for.
                 let mut top: Vec<&Board> = b.values().collect();
+                let k = self.config.live_top.min(top.len());
+                if k > 0 && k < top.len() {
+                    top.select_nth_unstable_by(k - 1, |x, y| rank(x, y));
+                }
+                top.truncate(k);
                 top.sort_by(|x, y| rank(x, y));
-                let top = top.into_iter().take(self.config.live_top).cloned().collect();
+                let top = top.into_iter().cloned().collect();
                 (b.len(), b.values().map(|b| b.quick_score).fold(0.0, f64::max), top)
             })
             .unwrap_or_default();
@@ -714,7 +733,7 @@ impl Shared<'_> {
             goal_hits: self.config.goal.hits(self.engine, &state),
             exact,
             line,
-            state,
+            state: Arc::new(state),
             found_after: self.elapsed(),
         }
     }
@@ -1133,6 +1152,13 @@ const PHASE_END: u16 = 0x200;
 /// the hand for the rest of the search.
 const IDLE_STRIKES: u32 = 3;
 
+/// Priority taken off an answer that another line taught to only lose (a
+/// handtrap that did nothing, one of your effects that negated your own
+/// chain): it is tried after the others instead of being cut, since what
+/// the first lines teach depends on the budget, the threads and the order
+/// of the queue, and need not hold in every line.
+const STRUCK: f64 = END_PHASE_LAST;
+
 fn new_duel(shared: &Shared) -> Result<Duel, Error> {
     let config = shared.config;
     Duel::goldfish_against_from(
@@ -1484,13 +1510,15 @@ fn work(shared: &Shared, edge: Edge, copies: Option<&mut Copies>) -> Result<(), 
                 _ => 0.0,
             };
             let last = if left.last_zone { END_PHASE_LAST } else { 0.0 };
+            let struck = if left.struck { shared.struck.unwrap_or(0.0) } else { 0.0 };
             NewEdge {
                 prefix: left.prefix,
                 answer: Some(left.answer),
-                priority: value - DISCREPANCY * discrepancies as f64 + bonus - last,
+                priority: value - DISCREPANCY * discrepancies as f64 + bonus - last - struck,
                 confirms: None,
                 value,
                 discrepancies,
+                struck: left.struck,
             }
         })
         .collect();
@@ -1521,6 +1549,8 @@ struct LeftAnswer {
     kind: ActionKind,
     /// Another zone for the monster of the line's last choice (see `play`).
     last_zone: bool,
+    /// Learned to only lose elsewhere in the search: tried last ([`STRUCK`]).
+    struck: bool,
 }
 
 fn play(shared: &Shared, edge: &Edge, dive: &mut Dive, copies: Option<&mut Copies>) -> Result<(), Error> {
@@ -1577,15 +1607,32 @@ fn play(shared: &Shared, edge: &Edge, dive: &mut Dive, copies: Option<&mut Copie
             for e in &events {
                 let _ = links.follow(db, e);
             }
-            // Queued before the handtrap was learned to do nothing here.
-            if shared.idle_hand_traps.read().is_ok_and(|idle| {
-                !idle.is_empty()
-                    && duel.actions(&decision).iter().any(|a| {
-                        a.response == answer
-                            && a.kind == ActionKind::Activate
-                            && a.card.is_some_and(|c| c.location == location::HAND && idle.contains(&db.canonical_code(c.code)))
-                    })
-            }) {
+            // Queued before the handtrap was learned to do nothing here: it
+            // goes back in the queue, last ([`STRUCK`]).
+            if !edge.struck
+                && shared.idle_hand_traps.read().is_ok_and(|idle| {
+                    !idle.is_empty()
+                        && duel.actions(&decision).iter().any(|a| {
+                            a.response == answer
+                                && a.kind == ActionKind::Activate
+                                && a.card.is_some_and(|c| c.location == location::HAND && idle.contains(&db.canonical_code(c.code)))
+                        })
+                })
+            {
+                if let Some(penalty) = shared.struck {
+                    shared.push(vec![NewEdge {
+                        prefix: edge.prefix.clone(),
+                        answer: edge.answer.clone(),
+                        priority: edge.priority - penalty,
+                        confirms: edge.confirms,
+                        value: edge.value,
+                        discrepancies: edge.discrepancies,
+                        struck: true,
+                    }]);
+                }
+                if let Some(stats) = &shared.stats {
+                    stats.struck(stats::Struck::IdleHandTrap, 1);
+                }
                 shared.duplicates.fetch_add(1, Ordering::Relaxed);
                 dive.end = stats::End::IdleHandTrap;
                 return Ok(());
@@ -1631,6 +1678,7 @@ fn play(shared: &Shared, edge: &Edge, dive: &mut Dive, copies: Option<&mut Copie
                     confirms: edge.confirms,
                     value: edge.value,
                     discrepancies: edge.discrepancies,
+                    struck: edge.struck,
                 }]),
             }
             dive.end = stats::End::Halted;
@@ -1744,7 +1792,15 @@ fn play(shared: &Shared, edge: &Edge, dive: &mut Dive, copies: Option<&mut Copie
         // kind there lead to this same key: a replay each to find a duplicate.
         if let Some((depth, kind, before)) = hidden.take() {
             if (freed || is_free(&decision)) && !resolved && shown_state(&state) == before {
-                dive.left.retain(|l| l.depth != depth || l.kind != kind);
+                let same = |l: &LeftAnswer| l.depth == depth && l.kind == kind;
+                if let Some(stats) = &shared.stats {
+                    stats.struck(stats::Struck::Hidden, dive.left.iter().filter(|l| same(l)).count() as u64);
+                }
+                if shared.hidden_struck {
+                    dive.left.iter_mut().filter(|l| same(l)).for_each(|l| l.struck = true);
+                } else {
+                    dive.left.retain(|l| !same(l));
+                }
             }
         }
         shared.nodes.fetch_add(1, Ordering::Relaxed);
@@ -1779,25 +1835,48 @@ fn play(shared: &Shared, edge: &Edge, dive: &mut Dive, copies: Option<&mut Copie
         if let Some(stats) = &shared.stats {
             stats.first(key, &line);
         }
-        // Your effects known to negate your own chain links are not chained
-        // to it (they are left out like the answer policy's).
+        // What another line taught to only lose: your effects known to
+        // negate your own chain links, chained to it, and handtraps known to
+        // do nothing on your turn, activated from the hand. Tried last.
+        let mut struck: HashSet<Vec<u8>> = HashSet::new();
         if matches!(decision, Decision::SelectChain { .. }) && duel.open_chain() > 0 {
             if let Ok(negators) = shared.own_negators.read() {
                 if !negators.is_empty() {
-                    actions.retain(|a| {
-                        a.kind != ActionKind::Activate || !coverage::mechanic(db, &decision, a).is_some_and(|(m, _)| negators.contains(&m))
-                    });
+                    let before = struck.len();
+                    struck.extend(
+                        actions
+                            .iter()
+                            .filter(|a| {
+                                a.kind == ActionKind::Activate
+                                    && coverage::mechanic(db, &decision, a).is_some_and(|(m, _)| negators.contains(&m))
+                            })
+                            .map(|a| a.response.clone()),
+                    );
+                    if let Some(stats) = &shared.stats {
+                        stats.struck(stats::Struck::OwnNegator, (struck.len() - before) as u64);
+                    }
                 }
             }
         }
-        // Handtraps known to do nothing on your turn stay in the hand.
         if let Ok(idle) = shared.idle_hand_traps.read() {
             if !idle.is_empty() {
-                actions.retain(|a| {
-                    a.kind != ActionKind::Activate
-                        || !a.card.is_some_and(|c| c.location == location::HAND && idle.contains(&db.canonical_code(c.code)))
-                });
+                let before = struck.len();
+                struck.extend(
+                    actions
+                        .iter()
+                        .filter(|a| {
+                            a.kind == ActionKind::Activate
+                                && a.card.is_some_and(|c| c.location == location::HAND && idle.contains(&db.canonical_code(c.code)))
+                        })
+                        .map(|a| a.response.clone()),
+                );
+                if let Some(stats) = &shared.stats {
+                    stats.struck(stats::Struck::IdleHandTrap, (struck.len() - before) as u64);
+                }
             }
+        }
+        if shared.struck.is_none() && !struck.is_empty() {
+            actions.retain(|a| !struck.contains(&a.response));
         }
         // The cards to keep in the hand are not played or paid from it
         // while no other copy is left there (a line that spends them
@@ -1877,6 +1956,9 @@ fn play(shared: &Shared, edge: &Edge, dive: &mut Dive, copies: Option<&mut Copie
             (quick && c.location & (location::HAND | location::SZONE) != 0).then_some(1)
         };
         dive_order(&mut actions, responding, goal, held);
+        if !struck.is_empty() {
+            actions.sort_by_key(|a| struck.contains(&a.response));
+        }
         // A goal card wanted in a kind of zone goes there; while one wants
         // an Extra Monster Zone, other monsters leave it free when they can
         // (holding back the other Extra Deck summons instead would also hold
@@ -1920,6 +2002,7 @@ fn play(shared: &Shared, edge: &Edge, dive: &mut Dive, copies: Option<&mut Copie
                         confirms: Some(key),
                         value,
                         discrepancies: edge.discrepancies,
+                        struck: false,
                     }]);
                 }
             }
@@ -1933,6 +2016,7 @@ fn play(shared: &Shared, edge: &Edge, dive: &mut Dive, copies: Option<&mut Copie
             goal: goal(a),
             kind: a.kind,
             last_zone: false,
+            struck: struck.contains(&a.response),
         }));
         let first = &actions[0];
         if matches!(decision, Decision::IdleCmd { .. }) && first.kind == ActionKind::Activate {
@@ -1945,6 +2029,7 @@ fn play(shared: &Shared, edge: &Edge, dive: &mut Dive, copies: Option<&mut Copie
             goal: goal(first),
             kind: first.kind,
             last_zone: false,
+            struck: struck.contains(&first.response),
         });
         hidden = (!free).then(|| (depth, first.kind, shown_state(&state)));
         if let Some((_, kind)) = last_shown.as_mut() {
@@ -2174,6 +2259,7 @@ fn confirm_best(shared: &Shared) {
                 confirms: Some(b.key),
                 value: b.quick_score,
                 discrepancies: 0,
+                struck: false,
             })
         })
         .collect();
@@ -2363,6 +2449,12 @@ pub fn resume(
         useful_hand_traps: RwLock::default(),
         copies: Mutex::default(),
         idle_strikes: Mutex::default(),
+        struck: match std::env::var("DUELFORGE_STRUCK").ok().as_deref() {
+            Some("cut") => None,
+            Some(v) => v.parse().ok().or(Some(STRUCK)),
+            None => Some(STRUCK),
+        },
+        hidden_struck: std::env::var_os("DUELFORGE_STRUCK_HIDDEN").is_some(),
         stats: std::env::var_os("DUELFORGE_SEARCH_STATS").map(|_| stats::Stats::default()),
     };
     if !started {
@@ -2373,6 +2465,7 @@ pub fn resume(
             confirms: None,
             value: 0.0,
             discrepancies: 0,
+            struck: false,
         }]);
     }
     shared.check_limits();
@@ -2511,6 +2604,16 @@ mod stats {
         /// Answers after which nothing shown changed, by kind.
         no_change: Mutex<HashMap<String, u64>>,
         learning: Mutex<Duration>,
+        /// Answers tried last (or cut) for what another line taught, by why.
+        struck: Mutex<[u64; 3]>,
+    }
+
+    /// Why an answer was tried last (see `STRUCK`).
+    #[derive(Debug, Clone, Copy)]
+    pub enum Struck {
+        IdleHandTrap,
+        OwnNegator,
+        Hidden,
     }
 
     fn choices_key(line: &Line) -> u64 {
@@ -2576,6 +2679,12 @@ mod stats {
         }
 
         /// Prints the stats: `best` is the best board and `top` its estimate.
+        pub(super) fn struck(&self, why: Struck, n: u64) {
+            if let (true, Ok(mut s)) = (n > 0, self.struck.lock()) {
+                s[why as usize] += n;
+            }
+        }
+
         pub(super) fn report(&self, best: Option<&Board>, top: f64, elapsed: Duration) {
             let Ok(dives) = self.dives.lock() else { return };
             let mut by_end: HashMap<End, Dives> = HashMap::new();
@@ -2624,8 +2733,9 @@ mod stats {
             unchanged.sort();
             let replayed: u64 = dives.iter().map(|d| d.replayed).sum();
             let after_free: u64 = dives.iter().map(|d| d.after_free).sum();
+            let [idle, negators, hidden] = self.struck.lock().map_or([0; 3], |s| *s);
             eprintln!(
-                "search-stats {{\"replayed\":{replayed},\"after_free\":{after_free},\"elapsed_s\":{:.3},\"learning_s\":{:.3},\"best\":{top:.4},\"ends\":{{{}}},\"boards\":{{\"none\":{},\"weak\":{},\"near\":{}}},\"no_change\":{{{}}},\"best_line_ranks\":[{}]}}",
+                "search-stats {{\"replayed\":{replayed},\"after_free\":{after_free},\"struck\":{{\"idle_hand_traps\":{idle},\"own_negators\":{negators},\"hidden\":{hidden}}},\"elapsed_s\":{:.3},\"learning_s\":{:.3},\"best\":{top:.4},\"ends\":{{{}}},\"boards\":{{\"none\":{},\"weak\":{},\"near\":{}}},\"no_change\":{{{}}},\"best_line_ranks\":[{}]}}",
                 elapsed.as_secs_f64(),
                 self.learning.lock().map_or(0.0, |l| l.as_secs_f64()),
                 ends.join(","),

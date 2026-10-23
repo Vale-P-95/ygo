@@ -21,6 +21,7 @@ Le regole di `AGENTS.md` valgono per tutti. Queste riguardano solo come una sess
 - Una sessione, un compito; oltre i 200k token si passa la mano (`AGENTS.md`, «Coordinamento tra sessioni»).
 - Le letture pesanti (molti file, log, confronti) le fa un subagente Haiku che restituisce la conclusione; il contesto principale resta corto.
 - `Read` con `offset`/`limit`; `grep` prima di `cat`; mai `docs/PIANO.md` per intero. L'output dei comandi lunghi va in un file e si legge con `tail`.
+- **Avviso sui token.** Se la sessione consuma più in fretta del previsto, lo dice subito all'utente in una riga, senza aspettare la fine: cosa consuma, quanto (contesto, ore di calcolo, costo stimato) e una proposta (ridurre il compito, abbassare `/effort`, cambiare modello, passare la mano). Segnali: contesto oltre i 150k prima di metà compito, più di tre giri prova-correggi sullo stesso errore, lo stesso file letto per intero più volte, un calcolo lungo rilanciato, un costo stimato oltre i 30 $ per PR.
 - Screenshot: solo le pagine toccate, nei due temi; non l'intera galleria a ogni modifica.
 - `list_events` sulle altre sessioni è vietato, salvo per diagnosticare una sessione bloccata. `list_sessions` solo quando l'utente chiede stato o costi, al massimo una volta per turno.
 
