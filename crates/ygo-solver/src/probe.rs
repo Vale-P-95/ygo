@@ -46,9 +46,6 @@ pub enum Probe {
     GraveEffect,
     NormalSummon,
     ExtraSummon,
-    /// The second and third summons from the Extra Deck of the turn.
-    ExtraSummonSecond,
-    ExtraSummonThird,
     /// The effect of a monster already on the field (not a trigger of its summon).
     FieldIgnition,
     DeckSummon,
@@ -59,7 +56,7 @@ pub enum Probe {
 }
 
 impl Probe {
-    pub const ALL: [Probe; 15] = [
+    pub const ALL: [Probe; 13] = [
         Probe::Spell,
         Probe::Search,
         Probe::HandEffect,
@@ -69,8 +66,6 @@ impl Probe {
         Probe::GraveEffect,
         Probe::NormalSummon,
         Probe::ExtraSummon,
-        Probe::ExtraSummonSecond,
-        Probe::ExtraSummonThird,
         Probe::FieldIgnition,
         Probe::DeckSummon,
         Probe::SpellNoDeck,
@@ -88,8 +83,6 @@ impl Probe {
             Probe::GraveEffect => "attivare un effetto dal Cimitero",
             Probe::NormalSummon => "Evocare Normalmente",
             Probe::ExtraSummon => "Evocare dall'Extra Deck",
-            Probe::ExtraSummonSecond => "Evocare dall'Extra Deck una seconda volta",
-            Probe::ExtraSummonThird => "Evocare dall'Extra Deck una terza volta",
             Probe::FieldIgnition => "attivare l'effetto di un mostro già sul campo",
             Probe::DeckSummon => "Evocare Specialmente dal Deck",
             Probe::SpellNoDeck => "attivare una Magia senza toccare il Deck",
@@ -119,26 +112,16 @@ impl Probe {
             Probe::HandNoDeck => 0.22,
             Probe::SpecialFromHand => 0.3,
             Probe::NormalSummon => 0.2,
-            Probe::ExtraSummon | Probe::ExtraSummonSecond | Probe::ExtraSummonThird => EXTRA_SUMMON_WEIGHT,
+            Probe::ExtraSummon => 0.6,
         }
     }
 
     /// An activation (the reference of coverage: an effect that can stop
     /// every activation covers 100%).
     fn is_activation(self) -> bool {
-        !matches!(
-            self,
-            Probe::SpecialFromHand | Probe::NormalSummon | Probe::ExtraSummon | Probe::ExtraSummonSecond | Probe::ExtraSummonThird
-        )
+        !matches!(self, Probe::SpecialFromHand | Probe::NormalSummon | Probe::ExtraSummon)
     }
 }
-
-/// Summons from the Extra Deck in real lines (`duelforge-cli kit-mix`,
-/// the best 5 boards of 41 decks, 23/10/2026): 573 in 203 lines, about 3 a
-/// line, as many as the kit makes. On the activations' scale (1559 of them
-/// weigh 2.7) they weigh 1.0 together, a third each: an effect that stops
-/// one of them stops a third of what the opponent summons from there.
-const EXTRA_SUMMON_WEIGHT: f64 = 0.33;
 
 /// Sum of the weights of the activation probes.
 fn activation_weight() -> f64 {
@@ -394,7 +377,6 @@ impl Kit {
         let filler = code("Alexandrite Dragon");
         let bystial = code("Bystial Magnamhut");
         let dian = code("Dian Keto the Cure Master");
-        let archfiend = code("Scrap Archfiend");
 
         let step = |act: Act, picks: Vec<u32>, goals: Vec<(Probe, Want)>, needs: Option<Probe>| KitStep {
             act,
@@ -506,27 +488,6 @@ impl Kit {
                         vec![filler],
                         vec![(Probe::FieldIgnition, want(Some(filler), location::MZONE, 1))],
                         Some(Probe::ExtraSummon),
-                    ));
-                    // Two more summons from the Extra Deck, as many as real
-                    // lines make, each with exactly the materials it needs: a
-                    // Synchro Monster with no effect from the monsters of the
-                    // effects before (Glow-Up Bulb and Bystial), then a second
-                    // Link Spider from that Normal Monster.
-                    if let (Some(archfiend), Some(bystial), Some(bulb)) = (archfiend, bystial, bulb) {
-                        extra.push(archfiend);
-                        steps.push(step(
-                            Act::SpecialSummon(archfiend),
-                            vec![bulb, bystial],
-                            vec![(Probe::ExtraSummonSecond, want(Some(archfiend), location::MZONE, 1))],
-                            Some(Probe::GraveEffect),
-                        ));
-                    }
-                    extra.push(spider);
-                    steps.push(step(
-                        Act::SpecialSummon(spider),
-                        vec![filler],
-                        vec![(Probe::ExtraSummonThird, want(Some(spider), location::MZONE, 1))],
-                        Some(Probe::FieldIgnition),
                     ));
                 }
             }
