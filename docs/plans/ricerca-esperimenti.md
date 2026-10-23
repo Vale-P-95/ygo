@@ -619,3 +619,101 @@ Con la verità senza i tre deck più giocati (1219 coppie) l'ordine è lo stesso
 - **Regola per le prossime modifiche della misura:** si giudicano su tutte le board del giro A1b con `a1b_fair_measure.py`, non solo sulle coppie in disaccordo.
   - Costa pochi minuti: le linee e la verità ci sono già.
   - Con la verità che esclude i tre deck più giocati, il confronto con L2-3 resta onesto.
+
+## 7. Ritaratura dei pesi del punteggio, con il turno dopo e l'opzione (d)
+
+*23/10. Nuova base del banco oggettivo della corsia 3 (`claude/tools-qa` 6dce326: verità da `main` 1af365d, misure generiche da baf1d82). Ricerca con `main` 1fdde1f.*
+
+**Domanda.** I pesi del profilo «Bilanciato» (interruzioni 1, handtrap 0,9, floodgate 0,8, resilienza 0,6, più il turno dopo 0,4·0,3·rebuild) vanno cambiati? Va acceso il peso del turno dopo? E l'opzione (d) della corsia 4 (pesi delle Evocazioni 0,32/0,35/0,99, `extra-deck-a1b.md`) regge sulla ricerca?
+
+### Dati e comandi
+- **Banco oggettivo nuovo:** 205 board di 41 deck, 145 di taratura e 60 di verifica (divisione per deck di `objective_bench.py`, seme 47). 185 coppie dello stesso deck con verità diverse di almeno 0,02 (135 e 50).
+- **Giro A1b** (§6): 406 board, 1203 coppie (856 e 347), misurate con la base di 017aff9 e con l'opzione (d) (§6c). È un secondo insieme, più grande, con la stessa verità (livello 2 contro il meta) ma board diverse: le prime 5 di ogni mano della caccia.
+- **Script:** `scripts/research/tune_follow_up.py`. È `tune_weights.py` con un quinto peso, che moltiplica il turno dopo di `bench.follow_up_value` (1 = oggi). Fa due controlli fuori campione:
+  - la divisione del banco (taratura/verifica);
+  - 50 divisioni 70/30 a caso per deck: ogni volta taro sul 70% e giudico sul 30%, contro i pesi di oggi sullo stesso 30%.
+  - Con `--try` giudica pesi fissi su tutte le coppie, con il test del segno contro oggi.
+  ```
+  python3 scripts/research/tune_follow_up.py tests/fixtures/boards/objective-bench.json --splits 50 --step 0.05
+  python3 scripts/research/tune_follow_up.py <results.json> --try 1,0.9,0.4,0,0 --try 1,0.9,0.8,0,0.7 ...
+  python3 scripts/paired_test.py <out> --decks <mdm> --old <cli main> --new <cli con (d)> --measure-cli <cli con (d)>
+  ```
+- **L'opzione (d) sulla ricerca:** due build locali di 1fdde1f, mai committate.
+  - (d) dappertutto, com'era la prova della corsia 4.
+  - (d) solo nella misura: i valori delle carte (`card_values`), che guidano la ricerca, restano quelli di oggi.
+  - `paired_test.py --measure-cli` su 90 mani, 4000 nodi, un thread. Le #1 dei due lati sono rimisurate con la misura (d).
+
+### Taratura libera: non regge fuori campione
+Sul banco nuovo, con la griglia a passo 0,05:
+
+| pesi (interruzioni, handtrap, floodgate, resilienza, turno dopo) | taratura | verifica | ρ taratura | ρ verifica |
+|---|---:|---:|---:|---:|
+| oggi, senza turno dopo (1; 0,9; 0,8; 0,6; 0) | 84,4% | 96,0% | 0,87 | 0,63 |
+| oggi, con turno dopo (…; 1) | 84,4% | 96,0% | 0,85 | 0,58 |
+| tarati senza turno dopo (1; 0,9; 0,8; 0,1; 0) | 87,4% | 96,0% | 0,90 | 0,63 |
+| tarati con turno dopo (1; 1; 0,8; 0; 0,7) | 89,3% | 92,0% | 0,90 | 0,63 |
+
+- **Il massimo è piatto:** 5166 combinazioni stanno a una coppia dal migliore.
+- **Sulle 50 divisioni a caso i pesi tarati non battono quelli di oggi.**
+  - Senza turno dopo: meglio in 0 divisioni, peggio in 11.
+  - Con turno dopo: meglio in 5, peggio in 19.
+  - 135 coppie di taratura sono poche per cinque pesi: la taratura insegue il rumore.
+- **Sul giro A1b**, quattro volte più grande, la stessa prova va meglio: i pesi tarati battono quelli di oggi in 35 divisioni su 50, +1,5-2,0% di coppie in media.
+
+### Pesi fissi: resilienza a 0, floodgate a 0,4
+Le tarature dei due insiemi concordano su una sola cosa: la resilienza va a 0 (0, 0,1 e 0,15 nelle diverse tarature) e il floodgate scende (0,2-0,4). La resilienza segue la verità quasi quanto il punteggio intero (ρ 0,74 da sola in taratura), ma è già contenuta nelle interruzioni: pesata di nuovo, conta due volte le stesse risposte. I pesi fissi, giudicati su tutte le coppie contro oggi:
+
+| pesi | banco nuovo (185 coppie) | A1b, misura di oggi (1203) | A1b, misura (d) (1203) |
+|---|---|---|---|
+| oggi (1; 0,9; 0,8; 0,6; 0) | 87,6% | 80,4% | 82,8% |
+| **1; 0,9; 0,4; 0; 0** | **90,0%: +6/−2, p = 0,29** | **83,7%: +63/−33, p = 0,003** | **85,2%: +39/−21, p = 0,027** |
+| 1; 0,9; 0,8; 0; 0 | 90,0%: +6/−2 | 82,8%: +53/−35, p = 0,07 | 84,2%: +30/−23 |
+| 1; 0,9; 0,8; 0,3; 0 | 86,5%: +0/−2 | 81,4%: +28/−16 | 82,7%: +8/−9 |
+| 1; 0,9; 0,4; 0; 0,7 | 88,9%: +4/−2 | 84,9%: +72/−25 | 85,0%: +49/−29 |
+| oggi con turno dopo (…; 1) | 87,6%: +3/−3 | 80,6%: +10/−6 | 82,1%: +13/−20 |
+
+- **Fuori campione, sui deck di verifica, (1; 0,9; 0,4; 0) tiene le coppie e alza il ρ:**
+
+  | insieme | coppie oggi | coppie (1; 0,9; 0,4; 0) | ρ oggi | ρ (1; 0,9; 0,4; 0) |
+  |---|---:|---:|---:|---:|
+  | banco nuovo | 96,0% | 96,0% | 0,63 | 0,70 |
+  | A1b, misura di oggi | 81,8% | 83,0% | 0,73 | 0,80 |
+  | A1b, misura (d) | 84,4% | 87,3% | 0,74 | 0,81 |
+
+- **Dove guadagna:** nel giro A1b soprattutto Sky Striker +15/−0 e White Forest Azamina +10/−0, gli stessi deck dove guadagnava l'opzione (d). Perde su Resonators −5. Nel banco nuovo: Psychics +6, Snake-Eye −2.
+- **Cautela:** i pesi sono nati dalla taratura su A1b, quindi lì il risultato è in parte nel campione. Il controllo indipendente è il banco nuovo: va nello stesso verso (+6/−2, ρ in verifica 0,63 → 0,70), ma con poche coppie non è significativo.
+- **Effetto sulle #1:** sulle 90 mani della prova appaiata, ordinando le board trovate da `main` con i pesi nuovi, la #1 cambia in 9 mani. La #1 nuova vale al più 0,05 meno con i pesi di oggi (0,20 per Elfnote mano 0). La ricerca non usa questi pesi (`search.rs` non li legge): cambia solo l'ordine finale.
+- **Verdetti del proprietario:** non decidono. Su 32 coppie con una preferenza sono d'accordo i pesi di oggi in 6, quelli nuovi in 4 e la verità del banco in 1.
+
+### Il peso del turno dopo
+- La verità è solo il turno dell'avversario: il turno dopo si può controllare contro di essa, non tarare.
+- Il risultato è incerto e cambia con l'insieme:
+  - sul banco nuovo non aiuta (ρ in verifica 0,63 → 0,58 con i pesi di oggi);
+  - su A1b con la misura di oggi aiuta un poco (+72/−25 contro +63/−33);
+  - su A1b con la misura (d) costa 12 coppie su Paleozoic.
+- **Proposta:** il peso del turno dopo resta quello di oggi (0,4). È una scelta di prodotto («quanto conta poter ripartire»), non un dato del banco.
+
+### L'opzione (d) sulla ricerca
+
+| prova appaiata (90 mani) | meglio | peggio | pari | p | peggiore | secondi di ricerca |
+|---|---:|---:|---:|---:|---|---|
+| (d) dappertutto | 11 | 8 | 71 | 0,65 | Magistus Fairy Tail-0 −16,3%, bench-dracotail −16,0% | 926 → 668 |
+| (d) solo nella misura | 10 | 5 | 75 | 0,30 | Vampire-1 −31,5%, Psychics-0 −8,3% | 926 → 678 |
+
+- **Entrambe respinte:** una mano perde più del 5%. Con la corsia 4 (−41% su hunt-dracotail-0 con le sue liste) sono tre prove su tre.
+- **Tenere i valori delle carte di oggi non basta.** La ricerca misura le board anche mentre cerca, e quelle misure la guidano: con la misura (d) trova board diverse. In hunt-vampire-1 le 10 board elencate non hanno nessuna firma in comune con quelle di `main`. Ho controllato che non sia rumore: `main` rifatto sulle stesse mani ridà le stesse board (10 su 10, 8 su 8).
+- **Il guadagno di (d) sull'ordine viene in gran parte dagli stessi deck** (Sky Striker, White Forest Azamina) **che guadagnano con la resilienza a 0.** I pesi nuovi con la misura di oggi danno 83,7% delle coppie, contro 82,8% della sola (d), senza toccare la ricerca.
+
+### Conclusione
+- **(d): non si unisce.** Peggiora la ricerca in tutte e tre le prove, anche confinata alla misura, e il suo guadagno sull'ordine si ottiene in altro modo.
+- **Pesi del punteggio: proposta resilienza 0,6 → 0 e floodgate 0,8 → 0,4**, il resto invariato, turno dopo compreso.
+  - Va nello stesso verso su tre insiemi.
+  - È significativo sul più grande (p = 0,003).
+  - Alza il ρ sui deck di verifica (0,63 → 0,70 e 0,73 → 0,80).
+  - Non tocca la ricerca, quindi la prova appaiata non serve. Cambia solo l'ordine finale: la #1 in 9 mani su 90, di poco.
+- **Prima di accenderla**, una conferma sul banco di generalità della corsia 8 (deck fissati con `deck_hash`) sarebbe il controllo davvero indipendente.
+- I pesi stanno in quattro posti da cambiare insieme. Sono codice di altre corsie, quindi non li tocco:
+  - `scripts/bench.py` (`WEIGHTS`);
+  - `composite` in `crates/ygo-cli/src/main.rs`;
+  - `balanced` in `apps/desktop/src-tauri/src/lib.rs`;
+  - il profilo «Bilanciato» in `apps/desktop/src/lib/scoring.ts`.
