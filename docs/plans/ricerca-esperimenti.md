@@ -378,3 +378,110 @@ Con «30 → 13» (circa 65%) le mani che perdono sono 3, con perdita media 0,33
   2. **Il dato che manca alla sonda economica è il turno dopo.** Se la misura economica registrasse anche le carte guadagnate nella Fase Finale e nel turno dopo della run in cui l'avversario passa (senza breaker), Sky Striker non sarebbe più un caso. Va chiesto a chi scrive la misura: è un contatore, non una run in più.
   3. **Le quasi-parità** (Primite, 1,6%) andrebbero trattate come parità nel confronto tra scale: con il 2% di tolleranza il K non cambia, ma il criterio diventa più onesto.
 - **Da rifare senza la patch** quando `probe.rs` esporrà le finestre per risposta (corsia 8).
+
+## 6. A1b, passo 1: dove la misura e il livello 2 non sono d'accordo
+
+*Prototipo del passo 1 di A1b (`ricerca-piano-critico.md`), 22-23/10. Giro completo con la CLI di `main` 0d747f1; il prima e dopo della PR #93 è in fondo.*
+
+**Domanda.** Su board già trovate, quando la misura del turno di prova e il livello 2 contro il meta ordinano due board al contrario, e perché?
+
+### Dati e comandi
+- **Board della caccia.** Le 82 mani del §1 (41 deck MDM, due mani di `combo_hunt --seed 7`), con le prime 5 board di ogni mano per misura completa e campi diversi (le zone non contano): 410 board.
+- **Board dell'oracolo.** Le fixture di `tests/fixtures/oracle` con la lista del deck ancora uguale (`deck_hash`): Branded e quattro mani Invoked (inv-r1, r2, r5, r6).
+  - Dracotail, Maliss e Tearlaments hanno liste cambiate. L'obiettivo Invoked non ha una linea salvata.
+  - Una fixture ha la linea della sola board migliore. Per confrontarla, la stessa mano è cercata con il budget normale (seme della fixture, 4000 nodi), e la board dell'oracolo si aggiunge alle prime 4 della ricerca normale.
+- **Livello 2 e verità.** `scripts/objective_bench.py`, cioè lo stesso banco oggettivo di `banco-oggettivo.md`:
+  - `probe-line --vs <avversario> --moves` contro i deck del meta con `popRank` di Master Duel Meta (letto il 22/10 sera), con Lunalight saltato;
+  - verità = 1 − `left`, media pesata con il meta, senza le coppie con meno dell'80% di mosse fatte su campo vuoto o senza linee.
+  - La misura si legge dagli stessi run, con lo stesso codice: la CLI di `main` 0d747f1.
+- **Disaccordo:** due board della stessa mano la cui verità differisce di almeno 0,05, mentre la misura (il composito di `bench.py`) mette prima l'altra.
+- **Comandi.**
+  ```
+  python3 scripts/research/a1b_setup.py <w>/a1b --hunt <w>/all82 --decks <mdm> --oracle tests/fixtures/oracle
+  python3 scripts/objective_bench.py <w>/a1b --decks <mdm> --hunt - --skip lunalight --jobs 4
+  python3 scripts/research/a1b_report.py <w>/a1b --json <w>/a1b_pairs.json --fixture tests/fixtures/research/a1b
+  ```
+  Per le mani dell'oracolo: `combos --seed <seme> --nodes 4000 --top 8 --json <h>/<deck>-<fixture>.json --save-lines …`, poi `a1b_setup.py <w>/a1bo --hunt <h> --per-hand 4 --oracle tests/fixtures/oracle`.
+
+### Come si classifica un disaccordo
+Per la coppia A (preferita dalla misura) e B (migliore al livello 2), `a1b_report.py` controlla, in quest'ordine:
+
+1. **turno dopo:** senza il valore del turno dopo (`follow_up`) la misura ordinerebbe bene;
+2. **trappole in mano:** la misura conta come interruzione una Trappola nella mano di A;
+3. **Extra Deck:** B ferma una quota delle Evocazioni dall'Extra Deck dell'avversario più alta di quella delle sue altre mosse, di almeno 0,1 più di A. Il kit della misura ha un solo mostro nell'Extra Deck;
+4. **risposte insieme:** al livello 2 le risposte di A valgono di più una per una, ma insieme fermano meno di quelle di B;
+5. **un posto** (Cimitero e bandite, mano, mostri, Magie e Trappole): quello che valgono al livello 2 le risposte da quel posto, B meno A, supera di almeno 0,1 quello che dà la misura;
+6. **altro.**
+
+Una coppia può avere più cause; la prima è la principale.
+
+### Risultati
+**Giro.** 1653 invocazioni (87 file di linee × 19 avversari), circa 9 ore su 4 core, ripartito due volte dopo i riavvii del container.
+- Board con verità e misura: 406 su 415, in 86 mani.
+  - Mancano le board di `elfnote_kewl_tune-0` e `tearlaments-1`: il livello 2 vi fallisce (risposta rifiutata dal motore, o «0 lines»).
+  - Altri fallimenti parziali: Elfnote Kewl Tune mano 1 (19 avversari), Railway mano 0 (13). Sono i difetti dello strumento già passati alla corsia 4.
+- Accordo generale tra misura e verità (Spearman, divisione per deck del banco): 0,78 sulla taratura e 0,73 sulla verifica.
+- Nelle coppie dello stesso deck l'ordine è giusto 673 volte su 856 e 283 su 347.
+
+**Disaccordi.** Sulle 800 coppie della stessa mano ce ne sono **59 (7,4%) in 20 mani su 86**.
+
+| causa | principale | presente |
+|---|---:|---:|
+| Extra Deck | 19 | 24 |
+| turno dopo | 10 | 10 |
+| risposte insieme | 8 | 14 |
+| Magie e Trappole | 4 | 19 |
+| mostri | 5 | 21 |
+| mano | 3 | 5 |
+| Cimitero | 0 | 0 |
+| trappole in mano | 0 | 0 |
+| altro | 10 | 10 |
+
+Per deck: Clown Crew 8, Dracotail 8, Snake-Eye 4, Paleozoic 4, White Forest Azamina 4, Megalith 4, Invoked 3, Phantom Knights 3, Warrior Combo 3, Sky Striker 3, poi 1-2 negli altri.
+
+**Esempi, con la linea da rigiocare** (`tests/fixtures/research/a1b/<mano>.lines.json`, indici nel file):
+- **Extra Deck, Clown Crew mano 1.**
+  - La misura preferisce «Biancaviso, Flair, Soiree Operations coperta» a «Biancaviso, Clown Crew Finale coperta» (verità +0,30 per la seconda, misura −0,22).
+  - Finale, che distrugge, ferma 3 delle 17 Evocazioni dall'Extra Deck di Elfnote. La misura le dà 0,21, il livello 2 0,36.
+  - Il kit della misura ha un solo mostro nell'Extra Deck: una carta che colpisce le Evocazioni dall'Extra Deck vale poco nel kit.
+- **Magie e Trappole e mostri, Dracotail mani 0 e 1.**
+  - Le board con Dracotail Flame o Horn coperte battono quelle con Blazing Cartesia (verità +0,15-0,26).
+  - La misura dà a Blazing Cartesia e a Dracotail Sting più di quanto fermano contro le linee vere (Sting 0,26 nella misura, 0,13-0,17 al livello 2).
+- **Turno dopo, Paleozoic mano 0.** La board con due Paleozoic Dinomischus coperte batte quattro board con Clown Crew sul campo (verità +0,15). La misura le separa solo per il turno dopo (`follow_up`), che premia le altre.
+- **Risposte insieme.** Snake-Eye mano 1, Clown Crew mano 1, Phantom Knights mano 1, Megalith mano 1, White Forest Azamina mano 0, Mitsurugi Yummy mano 0: la board peggiore ha risposte che valgono di più una per una, ma insieme fermano meno.
+
+**Mani dell'oracolo** (5 mani, 25 board, 19 avversari): **13 disaccordi su 50 coppie**, 8 per «risposte insieme».
+- In inv-r5 la board dell'oracolo (Baronne de Fleur nella Zona Extra, Hyperinvoked Aeon, Gamma Summon e Super Polymerization coperte) ha la misura più alta di tutte, con 1,30 sopra la seconda. La sua verità però è 0,47, contro 0,66 della board «Baronne de Fleur, Super Polymerization coperta» della ricerca normale.
+- È peggio contro 17 avversari su 19 (Elfnote: `left` 0,71 contro 0,33).
+- Ogni sua risposta da sola copre il 75% delle mosse di Elfnote, ma tutte insieme ne lasciano passare il 71%.
+- L'ipotesi era che Super Polymerization, usata come risposta, prendesse come materiale la tua Baronne. La corsia 4 l'ha confermata e corretta (PR #93).
+- In Branded la board dell'oracolo ha verità 0,57, contro 0,66 di una board della ricerca normale.
+
+**Cosa dice per l'oracolo.** Con la CLI di 0d747f1, in 2 delle 5 mani (Branded e inv-r5) la board migliore dell'oracolo non è la migliore al livello 2. L'oracolo eredita le cecità della misura, come temeva il piano. Dopo la PR #93 lo è in tutte e 5 (sotto), ma vale la regola: i riferimenti dell'oracolo vanno letti con il livello 2 accanto, e una fixture dovrebbe tenere anche le board migliori al livello 2.
+
+### Prima e dopo la PR #93 («risposte insieme»)
+La corsia 4 ha confermato l'ipotesi del caso inv-r5 e l'ha corretta nel livello 2 (PR #93, `main` 1af365d). Ho rigiocato con la CLI di 1af365d le mani toccate, con gli stessi avversari e pesi:
+- le 6 mani della caccia con la causa «risposte insieme»: Clown Crew mano 1, Megalith mano 1, Mitsurugi Yummy mano 0, Phantom Knights mano 1, Snake-Eye mano 1, White Forest Azamina mano 0. Sono 30 board;
+- le 5 mani dell'oracolo, 25 board.
+
+In tutto 209 invocazioni, poco più di un'ora.
+
+| insieme di mani | disaccordi prima | dopo | spariti / nuovi | «risposte insieme» prima → dopo |
+|---|---:|---:|---:|---:|
+| 6 mani della caccia (60 coppie) | 23 | 14 | 9 / 0 | 14 → 5 |
+| 5 mani dell'oracolo (50 coppie) | 13 | 5 | 8 / 0 | 8 → 0 |
+
+- **La misura non cambia** (stessi punteggi): cambia solo la verità del livello 2. Sale in 8 board su 30 della caccia (da +0,05 a +0,13: tutte le board di Phantom Knights, la #0 di Clown Crew, Snake-Eye, Azamina, Megalith) e in 10 su 25 delle mani dell'oracolo.
+- **Oracolo.** La board dell'oracolo di inv-r5 passa da 0,47 a 0,74 e quella di Branded da 0,57 a 0,71. Ora la board migliore dell'oracolo è la migliore anche al livello 2 in tutte e 5 le mani.
+- **Sul giro intero** i disaccordi passerebbero da 59 a circa 50. Le altre 80 mani non sono state rigiocate: hanno solo disaccordi senza «risposte insieme», ma anche la loro verità può essere cambiata un po'.
+- **Restano**, nelle mani rigiocate:
+  - Extra Deck: 8 come causa principale, presente in 10;
+  - turno dopo: 2;
+  - «risposte insieme»: 1 (5 come causa secondaria), da guardare uno per uno.
+
+### Conclusione e proposte per B5
+1. **Extra Deck: la cecità più frequente** (19 disaccordi su 59 come causa principale, e 8 su 14 dopo la #93). È il punto B5a del piano: un Extra Deck dell'avversario realistico nel kit. I deck dove pesa di più sono Snake-Eye 4, Clown Crew 3, Invoked 3, Warrior Combo 3, Resonators 2 e Megalith 2. Le risposte che colpiscono le Evocazioni dall'Extra Deck (come Clown Crew Finale) valgono poco nel kit, che ha un solo mostro nell'Extra Deck.
+2. **Turno dopo: 10.** La misura premia il turno dopo (`follow_up`) di board che contro il meta fermano meno: Paleozoic 4, Psychics 2, Live Twin, Phantom Knights, Clown Crew e Mitsurugi Yummy 1. Il peso di `follow_up` nel composito va tarato con il banco oggettivo (D17), non alzato.
+3. **Magie e Trappole, mostri: in Dracotail e Clown Crew.** La misura dà a certe risposte sul campo (Blazing Cartesia, Dracotail Sting) più di quanto fermano contro le linee vere, e a certe carte coperte (Dracotail Flame e Horn, Finale) meno. Va guardato con la protezione dei pezzi e con le finestre del §1.
+4. **Cimitero e trappole in mano: nessun caso** in queste board, con 19 avversari.
+5. **Il rapporto si rifà** con `a1b_report.py` dopo ogni correzione di B5, sulle stesse board (fixture `tests/fixtures/research/a1b`, 24 file di linee, uno per mano con disaccordi). Le liste MDM usate sono quelle del 22/10 mattina: con liste diverse le linee non si rigiocano (`deck_hash` nel file).
