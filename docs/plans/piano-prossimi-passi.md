@@ -15,7 +15,7 @@ Piano per i temi aperti dopo la notte del 21-22/10, con le priorità e il lavoro
   - il 38% delle mosse tipiche non si gioca nemmeno contro un campo vuoto;
   - le mosse cambiano molto con il seme (43% in comune).
 - **Classificazione delle board (#47):** 18 coppie sicure giuste su 29. Il difetto principale è la parità; mancano la protezione della board e le risorse per il turno dopo.
-- **In pausa o fermi:** Gemini è in pausa. La sessione sulla velocità ha finito. Quella del collaudo è ferma dal terzo giro, con tutte le sue correzioni applicate.
+- **In pausa o fermi:** Gemini finisce con la PR #118 (passo 5 dell'interfaccia); poi niente più lavoro di Gemini. La sessione sulla velocità ha finito. Quella del collaudo è ferma dal terzo giro, con tutte le sue correzioni applicate.
 
 ## Priorità
 In ordine. Per ognuna: cosa, perché serve, quanto costa.
@@ -51,7 +51,7 @@ Le cause sono in `docs/plans/turno-di-prova-matchup.md` («Livello 2: collaudo s
   - 4 secondi al massimo per board;
   - mosse in comune tra due semi almeno al 70% (oggi 43%).
 - **L5. Contratto per l'interfaccia:** `ComboMatchup.moves` in `lib.rs` e `api.ts`, calcolato a richiesta per la board aperta: costa 1-4 secondi.
-- **L6. Gemini:** interfaccia, accanto alla misura contro il deck.
+- **L6. Interfaccia** (Gemini, PR #40, unita): accanto alla misura contro il deck.
 
 **Rischi:**
 - La linea vera era stata trovata contro un campo vuoto: contro la tua board le domande cambiano prima, e il ritrovare per identità deve reggere. Il collaudo L4 lo misura.
@@ -66,7 +66,7 @@ Le cause sono in `docs/plans/turno-di-prova-matchup.md` («Livello 2: collaudo s
 - **Dati del proprietario.** Senza una classifica fatta da te su almeno 15 deck, i pesi (D17) non si toccano.
   - Il modo più economico: usare il confronto affiancato della #26 nell'app vera. Ogni scelta registrata è una coppia giudicata.
   - Così le prove nell'app della #26 servono due volte.
-- **D17:** pesi dei profili calibrati sulle coppie, con il 30% tenuto fuori come verifica. Poi i pesi vanno in TASKS per Gemini (`scoring.ts`).
+- **D17:** pesi dei profili calibrati sulle coppie, con il 30% tenuto fuori come verifica. Poi i pesi si cambiano in `scoring.ts` nella stessa PR del backend (sessione di Claude Code).
 
 **Perché dopo P1:** D10 e D13 toccano `probe.rs` come P1. Fatti in parallelo, due branch si scontrerebbero sullo stesso ciclo `run_with`.
 
@@ -80,7 +80,7 @@ Le cause sono in `docs/plans/turno-di-prova-matchup.md` («Livello 2: collaudo s
 
 **File:** `search.rs` (il lock passa alla sessione sorella), `scripts/`.
 
-### P4. Interfaccia (Gemini)
+### P4. Interfaccia (Gemini fino alla PR #118, poi sessioni di Claude Code)
 - **Il Banditore v1** (pagina «Novità»), senza backend nuovo. Ogni carta ha già il suo stato nei tre formati (`Card.banTcg`, `banOcg` e `banMd` in `api.ts`):
   - confronto tra Master Duel, TCG e OCG;
   - impatto sui deck salvati in Bottega: quali carte sono fuori legge, in quale formato e quante copie vanno tolte.
@@ -108,7 +108,7 @@ Le cause sono in `docs/plans/turno-di-prova-matchup.md` («Livello 2: collaudo s
 | 2 | sessione sorella della velocità | `claude/search-speed` | `search.rs`, `scripts/`; poi `ygo-data` | P3, poi il backend del Banditore v2 |
 | 3 | sessione sorella del collaudo | `claude/tools-qa` | `scripts/`, `docs/plans/collaudo-strumenti.md`, `tests/fixtures/boards/` | coppie di board da far giudicare al proprietario; poi il collaudo di P1 (L4) e di P3 sui suoi core |
 | 4 | sessione sorella nuova | `claude/placed-cards` | carte piazzate in `ygo-engine/src/duel.rs`, `roles.rs`, `value.rs` | carte piazzate e ruoli (PIANO §30.4) |
-| 5 | Gemini | `gemini/banditore` | `apps/desktop/src/` | P4: Il Banditore v1, poi il livello 2 |
+| 5 | Gemini (finisce con la #118) | `gemini/banditore` | `apps/desktop/src/` | P4: Il Banditore v1, poi il livello 2 |
 | — | proprietario | — | — | prove nell'app (#26, #30-#32); giudizi delle coppie di board |
 
 **Perché cinque e non di più:**

@@ -17,6 +17,10 @@
   {
    "value": 1.1478257080610024,
    "look_key": "390f772b3cf16700",
+   "kept_for": [
+    "field",
+    "resilience"
+   ],
    "field": [
     {
      "code": 24299458,
@@ -42,7 +46,24 @@
      "gained": 0,
      "rebuild": 0
     }
-   }
+   },
+   "line": [
+    "ffffffff",
+    "ffffffff",
+    "00000000",
+    "000400",
+    "ffffffff",
+    "ffffffff",
+    "ffffffff",
+    "ffffffff",
+    "04000100",
+    "000801",
+    "ffffffff",
+    "ffffffff",
+    "07000000",
+    "ffffffff",
+    "ffffffff"
+   ]
   },
   {
    "value": 1.1359912854030503,
@@ -73,7 +94,22 @@
      "gained": 0,
      "rebuild": 0
     }
-   }
+   },
+   "line": [
+    "ffffffff",
+    "ffffffff",
+    "03000000",
+    "000400",
+    "ffffffff",
+    "ffffffff",
+    "04000100",
+    "000801",
+    "ffffffff",
+    "ffffffff",
+    "07000000",
+    "ffffffff",
+    "ffffffff"
+   ]
   },
   {
    "value": 1.1359912854030503,
@@ -100,7 +136,18 @@
      "gained": 0,
      "rebuild": 0
     }
-   }
+   },
+   "line": [
+    "ffffffff",
+    "ffffffff",
+    "04000100",
+    "000801",
+    "ffffffff",
+    "ffffffff",
+    "07000000",
+    "ffffffff",
+    "ffffffff"
+   ]
   },
   {
    "value": 0.9955294117647059,
@@ -134,7 +181,27 @@
      "gained": 0,
      "rebuild": 0
     }
-   }
+   },
+   "line": [
+    "ffffffff",
+    "ffffffff",
+    "04000000",
+    "000801",
+    "ffffffff",
+    "ffffffff",
+    "00000000",
+    "000400",
+    "ffffffff",
+    "ffffffff",
+    "ffffffff",
+    "ffffffff",
+    "04000000",
+    "000802",
+    "ffffffff",
+    "ffffffff",
+    "07000000",
+    "ffffffff"
+   ]
   },
   {
    "value": 0.9955294117647059,
@@ -168,100 +235,34 @@
      "gained": 0,
      "rebuild": 0
     }
-   }
+   },
+   "line": [
+    "ffffffff",
+    "ffffffff",
+    "00000000",
+    "000400",
+    "ffffffff",
+    "ffffffff",
+    "00000000",
+    "000801",
+    "00000000",
+    "ffffffff",
+    "ffffffff",
+    "000000000100000000000000",
+    "ffffffff",
+    "ffffffff",
+    "04000100",
+    "000801",
+    "ffffffff",
+    "ffffffff",
+    "04000000",
+    "000802",
+    "ffffffff",
+    "ffffffff",
+    "07000000",
+    "ffffffff"
+   ]
   }
  ],
- "other_seeds": [],
- "line": {
-  "answers": [
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    0,
-    0,
-    0,
-    0
-   ],
-   [
-    0,
-    4,
-    0
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    4,
-    0,
-    1,
-    0
-   ],
-   [
-    0,
-    8,
-    1
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    7,
-    0,
-    0,
-    0
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ]
-  ]
- }
+ "other_seeds": []
 }

@@ -3,9 +3,9 @@
 *Data: 21/10/2026 — Agente: Antigravity / Gemini — Branch: `gemini/links-map`*
 
 Riferimenti:
-- Specifiche generali e backend: [`docs/plans/mappa-collegamenti.md`](mappa-collegamenti.md)
-- Contratti API: [`apps/desktop/src/lib/api.ts`](../../apps/desktop/src/lib/api.ts) (`DeckLinks`, `CardLink`, `LinkCard`, `CardLinkKind`, `CardLinkZone`, `api.deckLinks`, `api.onLinksProgress`)
-- Bacheca: [`docs/TASKS.md`](../TASKS.md)
+- Specifiche generali e backend: [`docs/plans/mappa-collegamenti.md`](../mappa-collegamenti.md)
+- Contratti API: [`apps/desktop/src/lib/api.ts`](../../../apps/desktop/src/lib/api.ts) (`DeckLinks`, `CardLink`, `LinkCard`, `CardLinkKind`, `CardLinkZone`, `api.deckLinks`, `api.onLinksProgress`)
+- Bacheca: [`docs/TASKS.md`](../../TASKS.md)
 
 ---
 

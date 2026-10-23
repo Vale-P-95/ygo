@@ -1,4 +1,4 @@
-# DuelForge: piano di progetto (v1.10)
+# DuelForge: piano di progetto (v1.11)
 
 > Nome provvisorio. Il documento è la proposta iniziale: una volta approvate le decisioni aperte (§14) diventa la roadmap di sviluppo.
 >
@@ -11,6 +11,8 @@
 > **v0.5 (18/10/2026)**: Fase 1 realizzata; risultati nella §17.
 >
 > **v0.6 (18/10/2026)**: Fase 2, prima parte: editor dei deck in stile Master Duel; risultati nella §18.
+>
+> **v1.11 (24/10/2026)**: fine del lavoro con due agenti; da qui in poi solo sessioni di Claude Code (§30.5, §32).
 >
 > **v1.10 (22/10/2026)**: cinque corsie di lavoro in parallelo (sessioni sorelle e Gemini). Turno di prova contro un deck al livello 2 con le linee vere dell'avversario; classificazione delle board con il kit pesato sulle linee vere, il turno dopo, i breaker giocati davvero e la board #1 sempre la migliore misurata; Il Banditore; deck lenti (§31).
 >
@@ -1268,6 +1270,8 @@ Piano e prompt per far lavorare Claude Code e Google Antigravity (Gemini) sullo 
 - `docs/TASKS.md` come bacheca con il lock dei file;
 - protocollo di misura obbligatorio per chi tocca il motore.
 
+**24/10/2026:** il lavoro con due agenti è finito. Gemini chiude con la PR #118; da qui in poi tutto il codice lo fanno sessioni di Claude Code (vedi §32 e `docs/plans/piano-ambiente-e-risorse.md`).
+
 ### 30.6 Caccia ai bug della ricerca (12 problemi confermati)
 Cinque agenti hanno cercato da angoli diversi (mosse inutili, lavoro sprecato, classifica, meccaniche, codice) e ogni problema è stato verificato da un secondo agente. Correzioni fatte:
 - **Set in un solo ordine.** La regola del §30.3 non scattava mai: ogni Set apre una finestra di catena, e passarla cancellava il Set ricordato. Su una mano Labrynth: gli stessi 95 board con 89 nodi invece di 539.
@@ -1404,3 +1408,9 @@ Pagina nuova dell'interfaccia (Gemini, PR #37): confronto delle liste Master Due
 - La scadenza vale anche per le varianti di zona e per la conferma delle board migliori (PR #44): una board non confermata resta stimata.
 - **Istruzioni Lua per richiesta del motore** (PR #49, solo misura con `DUELFORGE_LUA_COUNT`). Nei giri normali nessuna richiesta arriva a 3 milioni di istruzioni. Nella mano lenta invece due richieste da 18 e 104 milioni, ripagate a ogni replay, valgono 70 s su 77. Prossimo passo: un tetto di 10 milioni per richiesta (corsia 2).
 
+## 32. Fase con un solo agente (24/10/2026)
+- **Perché.** Il lavoro con due agenti costava più coordinamento che aiuto: contratti da concordare tra backend e interfaccia, revisioni incrociate, prompt da scrivere a mano e difetti scoperti solo nell'app vera.
+- **Cosa cambia.** Tutto il codice (motore, backend, interfaccia) lo fanno sessioni di Claude Code, una per compito. I mockup nascono in Claude Design sul sistema di design DuelForge; le decisioni e i brief stanno nel Progetto Claude; l'app vera si prova sul PC Windows dell'utente con Claude Code desktop o con Remote Control.
+- **Interfaccia.** Prima il mockup, poi una sessione Code per schermata; il contratto (`lib.rs`, `api.ts`, `mock.ts`) cambia nella stessa PR. L'ultima PR di Gemini è la #118 (passo 5 di `docs/plans/ui-revisione-2.md`).
+- **Dove sono le regole.** `AGENTS.md` (sezione «Coordinamento tra sessioni»), `docs/plans/piano-ambiente-e-risorse.md` (token, filiera del frontend, strumenti), `docs/TASKS.md` per i lock.
+- **Piani finiti.** I piani dell'interfaccia già uniti sono in `docs/plans/archivio/`.

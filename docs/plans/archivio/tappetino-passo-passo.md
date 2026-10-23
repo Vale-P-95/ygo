@@ -1,7 +1,7 @@
 # Piano: Tappetino del Circolo Arcano collegato al riproduttore passo-passo
 
 ## Obiettivo
-Collegare la visualizzazione del campo di gioco ([`Field.tsx`](../../apps/desktop/src/components/combo/Field.tsx)) al riproduttore passo-passo della linea ([`Steps.tsx`](../../apps/desktop/src/components/combo/Steps.tsx)) in [`BoardDetail.tsx`](../../apps/desktop/src/components/combo/BoardDetail.tsx).
+Collegare la visualizzazione del campo di gioco ([`Field.tsx`](../../../apps/desktop/src/components/combo/Field.tsx)) al riproduttore passo-passo della linea ([`Steps.tsx`](../../../apps/desktop/src/components/combo/Steps.tsx)) in [`BoardDetail.tsx`](../../../apps/desktop/src/components/combo/BoardDetail.tsx).
 Quando l'utente avvia il player o si sposta tra i passi della combo (`[` / `]`, controlli multimediali `⏮ ◀ ▶ ⏭`, scrub bar), il tappetino deve mostrare lo stato del campo e della mano al passo selezionato tramite `ComboStep.field`, con indicatore contestuale, tornando alla board finale quando il passo viene deselezionato.
 
 ## Regole e vincoli stabiliti
@@ -23,7 +23,7 @@ Quando l'utente avvia il player o si sposta tra i passi della combo (`[` / `]`, 
    - Scorciatoie da tastiera invariate (`[` e `]`).
 
 ## File interessati
-1. `docs/plans/tappetino-passo-passo.md`
+1. `docs/plans/archivio/tappetino-passo-passo.md`
 2. `docs/TASKS.md`
 3. `apps/desktop/src/components/combo/Field.tsx`
 4. `apps/desktop/src/components/combo/Steps.tsx`
