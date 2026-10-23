@@ -5,7 +5,8 @@ nobody tuned it on?
 
 Two sets of decks, frozen by their lists' hashes in
 tests/fixtures/generality/sets.json (the lists are downloaded, never
-committed):
+committed: `rebuild` downloads them again from their sources into
+data/generality and says which no longer come out the same):
 - tuning: the Master Duel Meta lists the engine has been tuned on;
 - fresh: decks no change was ever measured on. Tournament lists from
   YGOPRODeck (TCG and OCG, archetypes not yet in Master Duel too) and the
@@ -23,10 +24,11 @@ the time it is given. The number per set is its mean; the gap is tuning
 minus fresh, in points. The runs also count what breaks: runs that fail,
 probe turns that fail, interrupted lines.
 
-    python3 scripts/generality.py freeze $S/gen --tuning $S/mdm            # once: writes the lists and sets.json
-    python3 scripts/generality.py check $S/gen                             # the lists match sets.json
-    python3 scripts/generality.py run $S/gen/runs-main --sets $S/gen --cli <cli> --jobs 4
+    python3 scripts/generality.py rebuild                                  # the lists into data/generality, checked
+    python3 scripts/generality.py check data/generality                    # the lists match sets.json
+    python3 scripts/generality.py run $S/gen/runs-main --sets data/generality --cli <cli> --jobs 4
     python3 scripts/generality.py report $S/gen/runs-main [--against $S/gen/runs-branch]
+    python3 scripts/generality.py freeze $S/gen --tuning $S/tun            # new sets (rotation): the lists and sets.json
 """
 import argparse
 import collections
@@ -53,6 +55,10 @@ MANIFEST = os.path.join(ROOT, "tests", "fixtures", "generality", "sets.json")
 YGOPRODECK = "https://ygoprodeck.com/api/decks/getDecks.php?format={fmt}&offset={offset}"
 FORMATS = ("Tournament Meta Decks", "Tournament Meta Decks OCG")
 MDM = "https://www.masterduelmeta.com/api/v1/top-decks?sort=-created&limit=150"
+MDM_ID = "https://www.masterduelmeta.com/api/v1/top-decks?_id={id}"
+MDM_TYPES = "https://www.masterduelmeta.com/api/v1/deck-types?limit=100&page={page}"
+MDM_OF_TYPE = "https://www.masterduelmeta.com/api/v1/top-decks?deckType={type}&sort=-created&limit=100&page={page}"
+YGOPRODECK_PAGE = "https://ygoprodeck.com/deck/{url}"
 AGENT = {"User-Agent": "DuelForge deck tests"}
 # A card in this many tuning decks is a staple: it says nothing of the archetype.
 STAPLE = 6
@@ -102,8 +108,30 @@ def names_of(db, codes):
     return out
 
 
+def mdm_cards(d, lookup):
+    """A Master Duel Meta list as passcodes, its names resolved by `lookup`."""
+    main, extra = [], []
+    for part, cards in (("main", main), ("extra", extra)):
+        for e in d.get(part, []):
+            code = lookup(e["card"]["name"])
+            if code:
+                cards.extend([str(code)] * e["amount"])
+    return main, extra
+
+
+def cdb_lookup(db):
+    """Names to passcodes with the engine's database (as the fresh lists)."""
+    return lambda name: (db.execute("select id from texts where lower(name) = lower(?)", (name,)).fetchone() or [None])[0]
+
+
+def store_lookup():
+    """Names to passcodes with data/cards.db (as scripts/mdm_decks.py, the tuning lists)."""
+    store = sqlite3.connect(os.path.join(ROOT, "data", "cards.db"))
+    return lambda name: (store.execute("select id from cards where lower(name) = lower(?)", (name,)).fetchone() or [None])[0]
+
+
 def candidates(db):
-    """Fresh candidates, the newest first: (name, source, main, extra)."""
+    """Fresh candidates, the newest first: (name, source, ref, main, extra)."""
     out = []
     for fmt in FORMATS:
         for offset in range(0, 200, 20):
@@ -113,16 +141,14 @@ def candidates(db):
             for d in page:
                 main, extra = json.loads(d["main_deck"] or "[]"), json.loads(d["extra_deck"] or "[]")
                 source = f"ygoprodeck {fmt} {d.get('pretty_url')} ({d.get('tournamentName') or ''})"
-                out.append((d["deck_name"], source, [str(c) for c in main], [str(c) for c in extra]))
+                ref = dict(site="ygoprodeck", url=d.get("pretty_url"))
+                out.append((d["deck_name"], source, ref, [str(c) for c in main], [str(c) for c in extra]))
+    lookup = cdb_lookup(db)
     for d in get_json(MDM):
-        main, extra = [], []
-        for part, cards in (("main", main), ("extra", extra)):
-            for e in d.get(part, []):
-                row = db.execute("select id from texts where lower(name) = lower(?)", (e["card"]["name"],)).fetchone()
-                if row:
-                    cards.extend([str(row[0])] * e["amount"])
+        main, extra = mdm_cards(d, lookup)
         kind = (d.get("deckType") or {}).get("name") or "?"
-        out.append((kind, f"masterduelmeta {d.get('_id')} {d.get('created', '')[:10]}", main, extra))
+        ref = dict(site="masterduelmeta", id=d.get("_id"), names="cdb")
+        out.append((kind, f"masterduelmeta {d.get('_id')} {d.get('created', '')[:10]}", ref, main, extra))
     return out
 
 
@@ -143,7 +169,7 @@ def cmd_freeze(a):
     count = collections.Counter(n for names in tuning_names.values() for n in names)
     staples = {n for n, c in count.items() if c >= STAPLE}
     fresh, fresh_names = [], []
-    for name, source, main, extra in candidates(db):
+    for name, source, ref, main, extra in candidates(db):
         names = names_of(db, main + extra)
         if any(slug(name) == b or slug(name).startswith(b + "_") for b in bench):
             continue
@@ -156,19 +182,26 @@ def cmd_freeze(a):
         if share > OVERLAP or any(len(own & f) / len(own) > FRESH_SAME for f in fresh_names):
             continue
         fresh_names.append(own)
-        fresh.append(dict(deck=slug(name), name=name, source=source, main=main, extra=extra, tuning_share=round(share, 2)))
+        fresh.append(dict(deck=slug(name), name=name, source=source, ref=ref, main=main, extra=extra, tuning_share=round(share, 2)))
         if len(fresh) >= a.count:
             break
     seen = collections.Counter()
     sets = dict(made=time.strftime("%Y-%m-%d"), nodes=NODES, hands=HANDS, seed=SEED, staple=STAPLE, overlap=round(OVERLAP, 3),
                 tuning=[], fresh=[])
     for k, (main, extra) in tuning.items():
-        sets["tuning"].append(dict(deck=k, source="masterduelmeta (scripts/mdm_decks.py)", hash=deck_hash(main, extra)))
+        repo = os.path.join("tests", "fixtures", "decks", k + ".ydk")
+        if os.path.exists(os.path.join(ROOT, repo)):
+            ref = dict(site="repo", path=repo)
+        else:
+            ref = dict(site="masterduelmeta", type=k, names="cards.db")
+        sets["tuning"].append(dict(deck=k, source="masterduelmeta (scripts/mdm_decks.py)" if ref["site"] != "repo" else repo,
+                                   ref=ref, hash=deck_hash(main, extra)))
     for d in fresh:
         seen[d["deck"]] += 1
         deck = d["deck"] if seen[d["deck"]] == 1 else f"{d['deck']}_{seen[d['deck']]}"
         write_ydk(os.path.join(a.out, "fresh", deck + ".ydk"), d["main"], d["extra"])
-        sets["fresh"].append(dict(deck=deck, name=d["name"], source=d["source"], tuning_share=d["tuning_share"], hash=deck_hash(d["main"], d["extra"])))
+        sets["fresh"].append(dict(deck=deck, name=d["name"], source=d["source"], ref=d["ref"], tuning_share=d["tuning_share"],
+                                  hash=deck_hash(d["main"], d["extra"])))
     json.dump(sets, open(os.path.join(a.out, "sets.json"), "w"), indent=1)
     print(f"{len(sets['tuning'])} tuning decks, {len(sets['fresh'])} fresh ({len(staples)} staples); copy {a.out}/sets.json to {MANIFEST}")
 
@@ -183,6 +216,85 @@ def check(sets_dir, manifest):
             if not os.path.exists(path) or deck_hash(*ydk_cards(path)) != d["hash"]:
                 bad.append(f"{kind}/{d['deck']}")
     return sets, bad
+
+
+def rebuild_one(ref, lookups, types):
+    """A list again from its source: (main, extra, the Master Duel Meta id found) or None."""
+    if ref["site"] == "repo":
+        return (*ydk_cards(os.path.join(ROOT, ref["path"])), None)
+    if ref["site"] == "ygoprodeck":
+        with urllib.request.urlopen(urllib.request.Request(YGOPRODECK_PAGE.format(url=ref["url"]), headers=AGENT), timeout=60) as r:
+            page = r.read().decode("utf-8", "replace")
+        main, extra = (re.search(rf"{part}deckjs = '([^']*)'", page) for part in ("main", "extra"))
+        if not main:
+            return None
+        return [str(c) for c in json.loads(main[1])], [str(c) for c in json.loads(extra[1] if extra else "[]")], None
+    lookup = lookups[ref.get("names", "cdb")]()
+    if ref.get("id"):
+        found = get_json(MDM_ID.format(id=ref["id"]))
+        return (*mdm_cards(found[0], lookup), ref["id"]) if found else None
+    return None
+
+
+def cmd_rebuild(a):
+    """Every list again from its source, checked against the manifest; with
+    --record the Master Duel Meta ids found for the tuning lists are written
+    in it, so that next time they are fetched directly."""
+    sets = json.load(open(a.manifest))
+    db = sqlite3.connect(os.path.join(ROOT, "data", "cdb", "cards.cdb"))
+    cache = {}
+    lookups = {"cdb": lambda: cache.setdefault("cdb", cdb_lookup(db)), "cards.db": lambda: cache.setdefault("store", store_lookup())}
+    types = None
+    same, changed, gone = [], [], []
+    for kind in ("tuning", "fresh"):
+        os.makedirs(os.path.join(a.out, kind), exist_ok=True)
+        for d in sets[kind]:
+            ref = d["ref"]
+            got = None
+            try:
+                got = rebuild_one(ref, lookups, types)
+                if got is None and ref["site"] == "masterduelmeta" and ref.get("type"):
+                    # No id yet: the type's lists, matched by the hash.
+                    if types is None:
+                        types = {}
+                        for page in range(1, 30):
+                            got_page = get_json(MDM_TYPES.format(page=page))
+                            if not got_page:
+                                break
+                            types.update({slug(t["name"]): t["_id"] for t in got_page})
+                    lookup = lookups[ref.get("names", "cdb")]()
+                    for page in range(1, 6) if ref["type"] in types else []:
+                        listed = get_json(MDM_OF_TYPE.format(type=types[ref["type"]], page=page))
+                        for cand in listed:
+                            main, extra = mdm_cards(cand, lookup)
+                            if deck_hash(main, extra) == d["hash"]:
+                                got = (main, extra, cand["_id"])
+                                break
+                        if got or not listed:
+                            break
+            except Exception as e:  # a site down or changed: the deck is reported, not fatal
+                sys.stderr.write(f"{kind}/{d['deck']}: {e}\n")
+            name = f"{kind}/{d['deck']}"
+            if got is None:
+                gone.append(name)
+                continue
+            main, extra, found = got
+            write_ydk(os.path.join(a.out, kind, d["deck"] + ".ydk"), main, extra)
+            if deck_hash(main, extra) == d["hash"]:
+                same.append(name)
+                if found and a.record:
+                    ref["id"] = found
+            else:
+                changed.append(name)
+    total = len(same) + len(changed) + len(gone)
+    print(f"{len(same)} of {total} lists rebuilt the same")
+    if changed:
+        print(f"changed ({len(changed)}): " + ", ".join(changed))
+    if gone:
+        print(f"not found ({len(gone)}): " + ", ".join(gone))
+    if a.record:
+        json.dump(sets, open(a.manifest, "w"), indent=1)
+    return 1 if changed or gone else 0
 
 
 def cmd_check(a):
@@ -296,6 +408,10 @@ def main():
     f.add_argument("out")
     f.add_argument("--tuning", required=True, help="folder of the tuning .ydk (the Master Duel Meta lists used so far)")
     f.add_argument("--count", type=int, default=20, help="fresh decks to keep")
+    b = sub.add_parser("rebuild", help="the lists again from their sources, checked against the manifest")
+    b.add_argument("out", nargs="?", default=os.path.join(ROOT, "data", "generality"))
+    b.add_argument("--manifest", default=MANIFEST)
+    b.add_argument("--record", action="store_true", help="write the Master Duel Meta ids found in the manifest")
     c = sub.add_parser("check", help="the lists match the manifest")
     c.add_argument("sets")
     c.add_argument("--manifest", default=MANIFEST)
@@ -312,7 +428,7 @@ def main():
     s.add_argument("--against", help="another run's folder (after a change)")
     s.add_argument("--list", action="store_true")
     a = p.parse_args()
-    return {"freeze": cmd_freeze, "check": cmd_check, "run": cmd_run, "report": cmd_report}[a.cmd](a) or 0
+    return {"freeze": cmd_freeze, "rebuild": cmd_rebuild, "check": cmd_check, "run": cmd_run, "report": cmd_report}[a.cmd](a) or 0
 
 
 if __name__ == "__main__":
