@@ -1,0 +1,1498 @@
+{
+ "gap": 0.05,
+ "hands": 82,
+ "boards": 388,
+ "pairs": 48,
+ "best_by_measure_is_best_by_truth": 74,
+ "kinds_better_than_best": 6,
+ "disagreements": [
+  {
+   "hand": "dracotail-1",
+   "deck": "dracotail",
+   "fixture": "hunt-dracotail-1",
+   "gap": 0.443,
+   "first_by_measure": {
+    "board": 0,
+    "value": 2.576,
+    "truth": 0.358,
+    "field": [
+     "Blazing Cartesia, the Virtuous",
+     "Dracotail Horn (set)",
+     "Dracotail Sting (set)",
+     "Incredible Ecclesia, the Virtuous",
+     "Secreterion Dragon"
+    ]
+   },
+   "first_by_truth": {
+    "board": 4,
+    "value": 2.072,
+    "truth": 0.801,
+    "field": [
+     "Albion the Sanctifire Dragon",
+     "Dracotail Flame (set)",
+     "Dracotail Horn (set)",
+     "Ecclesia and the Dark Dragon",
+     "Fallen of the White Dragon",
+     "Predaplant Verte Anaconda [EMZ]",
+     "The Fallen & The Virtuous (set)"
+    ],
+    "kept_for": []
+   }
+  },
+  {
+   "hand": "primite-1",
+   "deck": "primite",
+   "fixture": "hunt-primite-1",
+   "gap": 0.298,
+   "first_by_measure": {
+    "board": 3,
+    "value": 3.702,
+    "truth": 0.571,
+    "field": [
+     "Angel Trumpeter",
+     "Dominus Purge (set)",
+     "Invoked Caliga [EMZ]",
+     "Primite Drillbeam (set)",
+     "Primite Lordly Lode",
+     "Solemn Strike (set)"
+    ]
+   },
+   "first_by_truth": {
+    "board": 4,
+    "value": 3.685,
+    "truth": 0.869,
+    "field": [
+     "Baronne de Fleur [EMZ]",
+     "Dominus Purge (set)",
+     "Primite Drillbeam (set)",
+     "Primite Lordly Lode",
+     "Solemn Strike (set)",
+     "Songs of the Dominators (set)"
+    ],
+    "kept_for": [
+     "field",
+     "resilience"
+    ]
+   }
+  },
+  {
+   "hand": "primite-1",
+   "deck": "primite",
+   "fixture": "hunt-primite-1",
+   "gap": 0.297,
+   "first_by_measure": {
+    "board": 2,
+    "value": 3.702,
+    "truth": 0.572,
+    "field": [
+     "Dominus Purge (set)",
+     "Invoked Caliga",
+     "Labradorite Dragon",
+     "Primite Drillbeam (set)",
+     "Primite Lordly Lode",
+     "Solemn Strike (set)"
+    ]
+   },
+   "first_by_truth": {
+    "board": 4,
+    "value": 3.685,
+    "truth": 0.869,
+    "field": [
+     "Baronne de Fleur [EMZ]",
+     "Dominus Purge (set)",
+     "Primite Drillbeam (set)",
+     "Primite Lordly Lode",
+     "Solemn Strike (set)",
+     "Songs of the Dominators (set)"
+    ],
+    "kept_for": [
+     "field",
+     "resilience"
+    ]
+   }
+  },
+  {
+   "hand": "primite-1",
+   "deck": "primite",
+   "fixture": "hunt-primite-1",
+   "gap": 0.276,
+   "first_by_measure": {
+    "board": 0,
+    "value": 3.702,
+    "truth": 0.593,
+    "field": [
+     "Angel Trumpeter",
+     "Dominus Purge (set)",
+     "Invoked Caliga [EMZ]",
+     "Primite Drillbeam (set)",
+     "Primite Lordly Lode",
+     "Solemn Strike (set)",
+     "Songs of the Dominators (set)"
+    ]
+   },
+   "first_by_truth": {
+    "board": 4,
+    "value": 3.685,
+    "truth": 0.869,
+    "field": [
+     "Baronne de Fleur [EMZ]",
+     "Dominus Purge (set)",
+     "Primite Drillbeam (set)",
+     "Primite Lordly Lode",
+     "Solemn Strike (set)",
+     "Songs of the Dominators (set)"
+    ],
+    "kept_for": [
+     "field",
+     "resilience"
+    ]
+   }
+  },
+  {
+   "hand": "primite-1",
+   "deck": "primite",
+   "fixture": "hunt-primite-1",
+   "gap": 0.275,
+   "first_by_measure": {
+    "board": 1,
+    "value": 3.702,
+    "truth": 0.594,
+    "field": [
+     "Dominus Purge (set)",
+     "Invoked Caliga [EMZ]",
+     "Labradorite Dragon",
+     "Primite Drillbeam (set)",
+     "Primite Lordly Lode",
+     "Solemn Strike (set)",
+     "Songs of the Dominators (set)"
+    ]
+   },
+   "first_by_truth": {
+    "board": 4,
+    "value": 3.685,
+    "truth": 0.869,
+    "field": [
+     "Baronne de Fleur [EMZ]",
+     "Dominus Purge (set)",
+     "Primite Drillbeam (set)",
+     "Primite Lordly Lode",
+     "Solemn Strike (set)",
+     "Songs of the Dominators (set)"
+    ],
+    "kept_for": [
+     "field",
+     "resilience"
+    ]
+   }
+  },
+  {
+   "hand": "dracotail-1",
+   "deck": "dracotail",
+   "fixture": "hunt-dracotail-1",
+   "gap": 0.255,
+   "first_by_measure": {
+    "board": 0,
+    "value": 2.576,
+    "truth": 0.358,
+    "field": [
+     "Blazing Cartesia, the Virtuous",
+     "Dracotail Horn (set)",
+     "Dracotail Sting (set)",
+     "Incredible Ecclesia, the Virtuous",
+     "Secreterion Dragon"
+    ]
+   },
+   "first_by_truth": {
+    "board": 1,
+    "value": 2.516,
+    "truth": 0.613,
+    "field": [
+     "Blazing Cartesia, the Virtuous",
+     "Dracotail Flame (set)",
+     "Dracotail Horn (set)",
+     "Incredible Ecclesia, the Virtuous",
+     "Secreterion Dragon"
+    ],
+    "kept_for": [
+     "resilience"
+    ]
+   }
+  },
+  {
+   "hand": "dracotail-1",
+   "deck": "dracotail",
+   "fixture": "hunt-dracotail-1",
+   "gap": 0.255,
+   "first_by_measure": {
+    "board": 0,
+    "value": 2.576,
+    "truth": 0.358,
+    "field": [
+     "Blazing Cartesia, the Virtuous",
+     "Dracotail Horn (set)",
+     "Dracotail Sting (set)",
+     "Incredible Ecclesia, the Virtuous",
+     "Secreterion Dragon"
+    ]
+   },
+   "first_by_truth": {
+    "board": 2,
+    "value": 2.18,
+    "truth": 0.613,
+    "field": [
+     "Albion the Sanctifire Dragon",
+     "Blazing Cartesia, the Virtuous",
+     "Dracotail Horn (set)",
+     "Ecclesia and the Dark Dragon"
+    ],
+    "kept_for": [
+     "follow_up"
+    ]
+   }
+  },
+  {
+   "hand": "dracotail-1",
+   "deck": "dracotail",
+   "fixture": "hunt-dracotail-1",
+   "gap": 0.245,
+   "first_by_measure": {
+    "board": 0,
+    "value": 2.576,
+    "truth": 0.358,
+    "field": [
+     "Blazing Cartesia, the Virtuous",
+     "Dracotail Horn (set)",
+     "Dracotail Sting (set)",
+     "Incredible Ecclesia, the Virtuous",
+     "Secreterion Dragon"
+    ]
+   },
+   "first_by_truth": {
+    "board": 3,
+    "value": 2.154,
+    "truth": 0.603,
+    "field": [
+     "Albion the Sanctifire Dragon",
+     "Blazing Cartesia, the Virtuous",
+     "Dracotail Horn (set)",
+     "Dracotail Sting (set)",
+     "Ecclesia and the Dark Dragon"
+    ],
+    "kept_for": []
+   }
+  },
+  {
+   "hand": "dracotail-1",
+   "deck": "dracotail",
+   "fixture": "hunt-dracotail-1",
+   "gap": 0.198,
+   "first_by_measure": {
+    "board": 3,
+    "value": 2.154,
+    "truth": 0.603,
+    "field": [
+     "Albion the Sanctifire Dragon",
+     "Blazing Cartesia, the Virtuous",
+     "Dracotail Horn (set)",
+     "Dracotail Sting (set)",
+     "Ecclesia and the Dark Dragon"
+    ]
+   },
+   "first_by_truth": {
+    "board": 4,
+    "value": 2.072,
+    "truth": 0.801,
+    "field": [
+     "Albion the Sanctifire Dragon",
+     "Dracotail Flame (set)",
+     "Dracotail Horn (set)",
+     "Ecclesia and the Dark Dragon",
+     "Fallen of the White Dragon",
+     "Predaplant Verte Anaconda [EMZ]",
+     "The Fallen & The Virtuous (set)"
+    ],
+    "kept_for": []
+   }
+  },
+  {
+   "hand": "dracotail-1",
+   "deck": "dracotail",
+   "fixture": "hunt-dracotail-1",
+   "gap": 0.189,
+   "first_by_measure": {
+    "board": 2,
+    "value": 2.18,
+    "truth": 0.613,
+    "field": [
+     "Albion the Sanctifire Dragon",
+     "Blazing Cartesia, the Virtuous",
+     "Dracotail Horn (set)",
+     "Ecclesia and the Dark Dragon"
+    ]
+   },
+   "first_by_truth": {
+    "board": 4,
+    "value": 2.072,
+    "truth": 0.801,
+    "field": [
+     "Albion the Sanctifire Dragon",
+     "Dracotail Flame (set)",
+     "Dracotail Horn (set)",
+     "Ecclesia and the Dark Dragon",
+     "Fallen of the White Dragon",
+     "Predaplant Verte Anaconda [EMZ]",
+     "The Fallen & The Virtuous (set)"
+    ],
+    "kept_for": []
+   }
+  },
+  {
+   "hand": "dracotail-1",
+   "deck": "dracotail",
+   "fixture": "hunt-dracotail-1",
+   "gap": 0.188,
+   "first_by_measure": {
+    "board": 1,
+    "value": 2.516,
+    "truth": 0.613,
+    "field": [
+     "Blazing Cartesia, the Virtuous",
+     "Dracotail Flame (set)",
+     "Dracotail Horn (set)",
+     "Incredible Ecclesia, the Virtuous",
+     "Secreterion Dragon"
+    ]
+   },
+   "first_by_truth": {
+    "board": 4,
+    "value": 2.072,
+    "truth": 0.801,
+    "field": [
+     "Albion the Sanctifire Dragon",
+     "Dracotail Flame (set)",
+     "Dracotail Horn (set)",
+     "Ecclesia and the Dark Dragon",
+     "Fallen of the White Dragon",
+     "Predaplant Verte Anaconda [EMZ]",
+     "The Fallen & The Virtuous (set)"
+    ],
+    "kept_for": []
+   }
+  },
+  {
+   "hand": "power_patron-0",
+   "deck": "power_patron",
+   "fixture": "hunt-power_patron-0",
+   "gap": 0.16,
+   "first_by_measure": {
+    "board": 1,
+    "value": 2.72,
+    "truth": 0.681,
+    "field": [
+     "Artmage Impasto -Recapture- (set)",
+     "Artmage Non-Finito",
+     "Exceed the Pendulum [EMZ]",
+     "Jupredo the Shademachine Power Patron",
+     "Super Polymerization (set)"
+    ]
+   },
+   "first_by_truth": {
+    "board": 2,
+    "value": 2.619,
+    "truth": 0.841,
+    "field": [
+     "Artmage Impasto -Recapture- (set)",
+     "Artmage Non-Finito",
+     "Garura, Wings of Resonant Life [EMZ]",
+     "Jupredo the Shademachine Power Patron",
+     "Varudras, the Final Bringer of the End Times"
+    ],
+    "kept_for": []
+   }
+  },
+  {
+   "hand": "yummy-1",
+   "deck": "yummy",
+   "fixture": "hunt-yummy-1",
+   "gap": 0.154,
+   "first_by_measure": {
+    "board": 0,
+    "value": 1.995,
+    "truth": 0.603,
+    "field": [
+     "Assist\u2605Yummy! (set)",
+     "Herald of the Arc Light",
+     "Spright Elf [EMZ]",
+     "Yummyusment\u2605Acroquey"
+    ]
+   },
+   "first_by_truth": {
+    "board": 2,
+    "value": 1.901,
+    "truth": 0.757,
+    "field": [
+     "Assist\u2605Yummy! (set)",
+     "Cooky\u2605Yummy Way",
+     "Lollipo\u2605Yummy Way",
+     "Lollipo\u2606Yummy",
+     "Yummyusment\u2606Mignon"
+    ],
+    "kept_for": []
+   }
+  },
+  {
+   "hand": "power_patron-0",
+   "deck": "power_patron",
+   "fixture": "hunt-power_patron-0",
+   "gap": 0.129,
+   "first_by_measure": {
+    "board": 1,
+    "value": 2.72,
+    "truth": 0.681,
+    "field": [
+     "Artmage Impasto -Recapture- (set)",
+     "Artmage Non-Finito",
+     "Exceed the Pendulum [EMZ]",
+     "Jupredo the Shademachine Power Patron",
+     "Super Polymerization (set)"
+    ]
+   },
+   "first_by_truth": {
+    "board": 3,
+    "value": 2.541,
+    "truth": 0.81,
+    "field": [
+     "Artmage Impasto -Recapture- (set)",
+     "Artmage Non-Finito",
+     "Jupredo the Shademachine Power Patron",
+     "Medius the Pure",
+     "Shade the Obscure [EMZ]",
+     "Super Polymerization (set)",
+     "Varudras, the Final Bringer of the End Times"
+    ],
+    "kept_for": []
+   }
+  },
+  {
+   "hand": "yummy-1",
+   "deck": "yummy",
+   "fixture": "hunt-yummy-1",
+   "gap": 0.126,
+   "first_by_measure": {
+    "board": 1,
+    "value": 1.961,
+    "truth": 0.631,
+    "field": [
+     "Assist\u2605Yummy! (set)",
+     "Herald of the Arc Light",
+     "I:P Masquerena",
+     "Linkuriboh [EMZ]",
+     "Yummyusment\u2606Mignon"
+    ]
+   },
+   "first_by_truth": {
+    "board": 2,
+    "value": 1.901,
+    "truth": 0.757,
+    "field": [
+     "Assist\u2605Yummy! (set)",
+     "Cooky\u2605Yummy Way",
+     "Lollipo\u2605Yummy Way",
+     "Lollipo\u2606Yummy",
+     "Yummyusment\u2606Mignon"
+    ],
+    "kept_for": []
+   }
+  },
+  {
+   "hand": "orcust-1",
+   "deck": "orcust",
+   "fixture": "hunt-orcust-1",
+   "gap": 0.121,
+   "first_by_measure": {
+    "board": 1,
+    "value": 3.036,
+    "truth": 0.555,
+    "field": [
+     "Girsu, the Orcust Mekk-Knight",
+     "I:P Masquerena [EMZ]",
+     "Orcust Crescendo (set)",
+     "Orcustrated Babel"
+    ]
+   },
+   "first_by_truth": {
+    "board": 4,
+    "value": 2.557,
+    "truth": 0.676,
+    "field": [
+     "Galatea, the Orcust Automaton",
+     "I:P Masquerena [EMZ]",
+     "Orcust Crescendo (set)",
+     "Orcustrated Babel"
+    ],
+    "kept_for": [
+     "follow_up"
+    ]
+   }
+  },
+  {
+   "hand": "orcust-1",
+   "deck": "orcust",
+   "fixture": "hunt-orcust-1",
+   "gap": 0.121,
+   "first_by_measure": {
+    "board": 3,
+    "value": 2.867,
+    "truth": 0.555,
+    "field": [
+     "I:P Masquerena [EMZ]",
+     "Orcust Crescendo (set)",
+     "Orcust Knightmare",
+     "Orcustrated Babel"
+    ]
+   },
+   "first_by_truth": {
+    "board": 4,
+    "value": 2.557,
+    "truth": 0.676,
+    "field": [
+     "Galatea, the Orcust Automaton",
+     "I:P Masquerena [EMZ]",
+     "Orcust Crescendo (set)",
+     "Orcustrated Babel"
+    ],
+    "kept_for": [
+     "follow_up"
+    ]
+   }
+  },
+  {
+   "hand": "yummy-1",
+   "deck": "yummy",
+   "fixture": "hunt-yummy-1",
+   "gap": 0.092,
+   "first_by_measure": {
+    "board": 0,
+    "value": 1.995,
+    "truth": 0.603,
+    "field": [
+     "Assist\u2605Yummy! (set)",
+     "Herald of the Arc Light",
+     "Spright Elf [EMZ]",
+     "Yummyusment\u2605Acroquey"
+    ]
+   },
+   "first_by_truth": {
+    "board": 3,
+    "value": 1.901,
+    "truth": 0.695,
+    "field": [
+     "Assist\u2605Yummy! (set)",
+     "Cupsy\u2605Yummy Way",
+     "Linkuriboh [EMZ]",
+     "Yummyusment\u2606Mignon",
+     "Yummy\u2605Snatchy"
+    ],
+    "kept_for": []
+   }
+  },
+  {
+   "hand": "warrior_combo-1",
+   "deck": "warrior_combo",
+   "fixture": "hunt-warrior_combo-1",
+   "gap": 0.085,
+   "first_by_measure": {
+    "board": 0,
+    "value": 1.784,
+    "truth": 0.0,
+    "field": [
+     "Burning Bamboo Sword",
+     "Dimensional Fissure",
+     "Fire Flint Lady",
+     "Promethean Princess, Bestower of Flames [EMZ]",
+     "Terminal World"
+    ]
+   },
+   "first_by_truth": {
+    "board": 2,
+    "value": 0.378,
+    "truth": 0.085,
+    "field": [
+     "Burning Bamboo Sword",
+     "Dimensional Fissure",
+     "Flame Swordsman",
+     "S:P Little Knight [EMZ]"
+    ],
+    "kept_for": [
+     "field",
+     "resilience"
+    ]
+   }
+  },
+  {
+   "hand": "warrior_combo-1",
+   "deck": "warrior_combo",
+   "fixture": "hunt-warrior_combo-1",
+   "gap": 0.085,
+   "first_by_measure": {
+    "board": 1,
+    "value": 1.784,
+    "truth": 0.0,
+    "field": [
+     "Burning Bamboo Sword",
+     "Dimensional Fissure",
+     "Promethean Princess, Bestower of Flames [EMZ]",
+     "Terminal World"
+    ]
+   },
+   "first_by_truth": {
+    "board": 2,
+    "value": 0.378,
+    "truth": 0.085,
+    "field": [
+     "Burning Bamboo Sword",
+     "Dimensional Fissure",
+     "Flame Swordsman",
+     "S:P Little Knight [EMZ]"
+    ],
+    "kept_for": [
+     "field",
+     "resilience"
+    ]
+   }
+  },
+  {
+   "hand": "warrior_combo-0",
+   "deck": "warrior_combo",
+   "fixture": "hunt-warrior_combo-0",
+   "gap": 0.084,
+   "first_by_measure": {
+    "board": 0,
+    "value": 1.784,
+    "truth": 0.003,
+    "field": [
+     "Burning Bamboo Sword",
+     "Cursed Bamboo Sword -> 47759571",
+     "Phoenix Gearblade -> 47759571",
+     "Pitknight Earlie [EMZ]",
+     "Terminal World",
+     "Trap Trick (set)"
+    ]
+   },
+   "first_by_truth": {
+    "board": 4,
+    "value": 0.378,
+    "truth": 0.088,
+    "field": [
+     "Burning Bamboo Sword",
+     "Dimensional Fissure",
+     "S:P Little Knight [EMZ]",
+     "Trap Trick (set)"
+    ],
+    "kept_for": []
+   }
+  },
+  {
+   "hand": "warrior_combo-0",
+   "deck": "warrior_combo",
+   "fixture": "hunt-warrior_combo-0",
+   "gap": 0.082,
+   "first_by_measure": {
+    "board": 0,
+    "value": 1.784,
+    "truth": 0.003,
+    "field": [
+     "Burning Bamboo Sword",
+     "Cursed Bamboo Sword -> 47759571",
+     "Phoenix Gearblade -> 47759571",
+     "Pitknight Earlie [EMZ]",
+     "Terminal World",
+     "Trap Trick (set)"
+    ]
+   },
+   "first_by_truth": {
+    "board": 3,
+    "value": 0.378,
+    "truth": 0.085,
+    "field": [
+     "Burning Bamboo Sword",
+     "Dimensional Fissure",
+     "S:P Little Knight [EMZ]",
+     "Terminal World",
+     "Trap Trick (set)"
+    ],
+    "kept_for": [
+     "field",
+     "resilience"
+    ]
+   }
+  },
+  {
+   "hand": "warrior_combo-1",
+   "deck": "warrior_combo",
+   "fixture": "hunt-warrior_combo-1",
+   "gap": 0.077,
+   "first_by_measure": {
+    "board": 0,
+    "value": 1.784,
+    "truth": 0.0,
+    "field": [
+     "Burning Bamboo Sword",
+     "Dimensional Fissure",
+     "Fire Flint Lady",
+     "Promethean Princess, Bestower of Flames [EMZ]",
+     "Terminal World"
+    ]
+   },
+   "first_by_truth": {
+    "board": 3,
+    "value": 0.378,
+    "truth": 0.077,
+    "field": [
+     "Burning Bamboo Sword",
+     "Dimensional Fissure",
+     "Infernoble Knight - Renaud",
+     "S:P Little Knight [EMZ]"
+    ],
+    "kept_for": []
+   }
+  },
+  {
+   "hand": "warrior_combo-1",
+   "deck": "warrior_combo",
+   "fixture": "hunt-warrior_combo-1",
+   "gap": 0.077,
+   "first_by_measure": {
+    "board": 0,
+    "value": 1.784,
+    "truth": 0.0,
+    "field": [
+     "Burning Bamboo Sword",
+     "Dimensional Fissure",
+     "Fire Flint Lady",
+     "Promethean Princess, Bestower of Flames [EMZ]",
+     "Terminal World"
+    ]
+   },
+   "first_by_truth": {
+    "board": 4,
+    "value": 0.378,
+    "truth": 0.077,
+    "field": [
+     "Burning Bamboo Sword",
+     "Dimensional Fissure",
+     "Fire Flint Lady",
+     "S:P Little Knight [EMZ]"
+    ],
+    "kept_for": []
+   }
+  },
+  {
+   "hand": "warrior_combo-1",
+   "deck": "warrior_combo",
+   "fixture": "hunt-warrior_combo-1",
+   "gap": 0.077,
+   "first_by_measure": {
+    "board": 1,
+    "value": 1.784,
+    "truth": 0.0,
+    "field": [
+     "Burning Bamboo Sword",
+     "Dimensional Fissure",
+     "Promethean Princess, Bestower of Flames [EMZ]",
+     "Terminal World"
+    ]
+   },
+   "first_by_truth": {
+    "board": 3,
+    "value": 0.378,
+    "truth": 0.077,
+    "field": [
+     "Burning Bamboo Sword",
+     "Dimensional Fissure",
+     "Infernoble Knight - Renaud",
+     "S:P Little Knight [EMZ]"
+    ],
+    "kept_for": []
+   }
+  },
+  {
+   "hand": "warrior_combo-1",
+   "deck": "warrior_combo",
+   "fixture": "hunt-warrior_combo-1",
+   "gap": 0.077,
+   "first_by_measure": {
+    "board": 1,
+    "value": 1.784,
+    "truth": 0.0,
+    "field": [
+     "Burning Bamboo Sword",
+     "Dimensional Fissure",
+     "Promethean Princess, Bestower of Flames [EMZ]",
+     "Terminal World"
+    ]
+   },
+   "first_by_truth": {
+    "board": 4,
+    "value": 0.378,
+    "truth": 0.077,
+    "field": [
+     "Burning Bamboo Sword",
+     "Dimensional Fissure",
+     "Fire Flint Lady",
+     "S:P Little Knight [EMZ]"
+    ],
+    "kept_for": []
+   }
+  },
+  {
+   "hand": "snake_eye-0",
+   "deck": "snake_eye",
+   "fixture": "hunt-snake_eye-0",
+   "gap": 0.071,
+   "first_by_measure": {
+    "board": 1,
+    "value": 3.57,
+    "truth": 0.767,
+    "field": [
+     "Baronne de Fleur",
+     "Elfnote Lucina",
+     "Elfnote Seraphim Strelitzia",
+     "Elfnotes: Rhapsodia of Madness (set)",
+     "Elfnotes: Welcome Home",
+     "Forbidden Droplet (set)"
+    ]
+   },
+   "first_by_truth": {
+    "board": 2,
+    "value": 3.419,
+    "truth": 0.838,
+    "field": [
+     "Baronne de Fleur",
+     "Crystal Wing Synchro Dragon",
+     "Elfnotes: Rhapsodia of Madness (set)",
+     "Forbidden Droplet (set)"
+    ],
+    "kept_for": []
+   }
+  },
+  {
+   "hand": "railway-0",
+   "deck": "railway",
+   "fixture": "hunt-railway-0",
+   "gap": 0.068,
+   "first_by_measure": {
+    "board": 2,
+    "value": 2.287,
+    "truth": 0.561,
+    "field": [
+     "Heavy Armored Knight Babeldecker",
+     "Revolving Switchyard",
+     "Varudras, the Final Bringer of the End Times [EMZ]"
+    ]
+   },
+   "first_by_truth": {
+    "board": 4,
+    "value": 2.167,
+    "truth": 0.629,
+    "field": [
+     "Revolving Switchyard",
+     "Scrap Recycler",
+     "Varudras, the Final Bringer of the End Times [EMZ]"
+    ],
+    "kept_for": []
+   }
+  },
+  {
+   "hand": "snake_eye-0",
+   "deck": "snake_eye",
+   "fixture": "hunt-snake_eye-0",
+   "gap": 0.068,
+   "first_by_measure": {
+    "board": 0,
+    "value": 3.749,
+    "truth": 0.77,
+    "field": [
+     "Baronne de Fleur [EMZ]",
+     "Elfnote Fortuna",
+     "Elfnote Seraphim Strelitzia",
+     "Elfnote Tinia",
+     "Elfnotes: Rhapsodia of Madness (set)",
+     "Forbidden Droplet (set)"
+    ]
+   },
+   "first_by_truth": {
+    "board": 2,
+    "value": 3.419,
+    "truth": 0.838,
+    "field": [
+     "Baronne de Fleur",
+     "Crystal Wing Synchro Dragon",
+     "Elfnotes: Rhapsodia of Madness (set)",
+     "Forbidden Droplet (set)"
+    ],
+    "kept_for": []
+   }
+  },
+  {
+   "hand": "orcust-1",
+   "deck": "orcust",
+   "fixture": "hunt-orcust-1",
+   "gap": 0.064,
+   "first_by_measure": {
+    "board": 1,
+    "value": 3.036,
+    "truth": 0.555,
+    "field": [
+     "Girsu, the Orcust Mekk-Knight",
+     "I:P Masquerena [EMZ]",
+     "Orcust Crescendo (set)",
+     "Orcustrated Babel"
+    ]
+   },
+   "first_by_truth": {
+    "board": 2,
+    "value": 2.896,
+    "truth": 0.619,
+    "field": [
+     "I:P Masquerena [EMZ]",
+     "Orcust Crescendo (set)",
+     "Orcust Cymbal Skeleton",
+     "Orcustrated Babel"
+    ],
+    "kept_for": []
+   }
+  },
+  {
+   "hand": "yummy-1",
+   "deck": "yummy",
+   "fixture": "hunt-yummy-1",
+   "gap": 0.064,
+   "first_by_measure": {
+    "board": 1,
+    "value": 1.961,
+    "truth": 0.631,
+    "field": [
+     "Assist\u2605Yummy! (set)",
+     "Herald of the Arc Light",
+     "I:P Masquerena",
+     "Linkuriboh [EMZ]",
+     "Yummyusment\u2606Mignon"
+    ]
+   },
+   "first_by_truth": {
+    "board": 3,
+    "value": 1.901,
+    "truth": 0.695,
+    "field": [
+     "Assist\u2605Yummy! (set)",
+     "Cupsy\u2605Yummy Way",
+     "Linkuriboh [EMZ]",
+     "Yummyusment\u2606Mignon",
+     "Yummy\u2605Snatchy"
+    ],
+    "kept_for": []
+   }
+  },
+  {
+   "hand": "maliss-1",
+   "deck": "maliss",
+   "fixture": "hunt-maliss-1",
+   "gap": 0.06,
+   "first_by_measure": {
+    "board": 0,
+    "value": 0.632,
+    "truth": 0.481,
+    "field": [
+     "Maliss in Underground",
+     "Number 75: Bamboozling Gossip Shadow [EMZ]",
+     "The Phantom Knights of Umbrage Veil (set)"
+    ]
+   },
+   "first_by_truth": {
+    "board": 2,
+    "value": 0.625,
+    "truth": 0.541,
+    "field": [
+     "Ghost Ogre & Snow Rabbit",
+     "Maliss in Underground",
+     "Number 75: Bamboozling Gossip Shadow"
+    ],
+    "kept_for": [
+     "field",
+     "resilience"
+    ]
+   }
+  },
+  {
+   "hand": "maliss-1",
+   "deck": "maliss",
+   "fixture": "hunt-maliss-1",
+   "gap": 0.06,
+   "first_by_measure": {
+    "board": 0,
+    "value": 0.632,
+    "truth": 0.481,
+    "field": [
+     "Maliss in Underground",
+     "Number 75: Bamboozling Gossip Shadow [EMZ]",
+     "The Phantom Knights of Umbrage Veil (set)"
+    ]
+   },
+   "first_by_truth": {
+    "board": 3,
+    "value": 0.609,
+    "truth": 0.541,
+    "field": [
+     "Ghost Ogre & Snow Rabbit",
+     "Number 75: Bamboozling Gossip Shadow"
+    ],
+    "kept_for": []
+   }
+  },
+  {
+   "hand": "maliss-1",
+   "deck": "maliss",
+   "fixture": "hunt-maliss-1",
+   "gap": 0.06,
+   "first_by_measure": {
+    "board": 0,
+    "value": 0.632,
+    "truth": 0.481,
+    "field": [
+     "Maliss in Underground",
+     "Number 75: Bamboozling Gossip Shadow [EMZ]",
+     "The Phantom Knights of Umbrage Veil (set)"
+    ]
+   },
+   "first_by_truth": {
+    "board": 4,
+    "value": 0.591,
+    "truth": 0.541,
+    "field": [
+     "Maliss in Underground",
+     "Number 75: Bamboozling Gossip Shadow [EMZ]"
+    ],
+    "kept_for": []
+   }
+  },
+  {
+   "hand": "maliss-1",
+   "deck": "maliss",
+   "fixture": "hunt-maliss-1",
+   "gap": 0.06,
+   "first_by_measure": {
+    "board": 1,
+    "value": 0.632,
+    "truth": 0.481,
+    "field": [
+     "Number 75: Bamboozling Gossip Shadow",
+     "The Phantom Knights of Umbrage Veil (set)"
+    ]
+   },
+   "first_by_truth": {
+    "board": 2,
+    "value": 0.625,
+    "truth": 0.541,
+    "field": [
+     "Ghost Ogre & Snow Rabbit",
+     "Maliss in Underground",
+     "Number 75: Bamboozling Gossip Shadow"
+    ],
+    "kept_for": [
+     "field",
+     "resilience"
+    ]
+   }
+  },
+  {
+   "hand": "maliss-1",
+   "deck": "maliss",
+   "fixture": "hunt-maliss-1",
+   "gap": 0.06,
+   "first_by_measure": {
+    "board": 1,
+    "value": 0.632,
+    "truth": 0.481,
+    "field": [
+     "Number 75: Bamboozling Gossip Shadow",
+     "The Phantom Knights of Umbrage Veil (set)"
+    ]
+   },
+   "first_by_truth": {
+    "board": 3,
+    "value": 0.609,
+    "truth": 0.541,
+    "field": [
+     "Ghost Ogre & Snow Rabbit",
+     "Number 75: Bamboozling Gossip Shadow"
+    ],
+    "kept_for": []
+   }
+  },
+  {
+   "hand": "maliss-1",
+   "deck": "maliss",
+   "fixture": "hunt-maliss-1",
+   "gap": 0.06,
+   "first_by_measure": {
+    "board": 1,
+    "value": 0.632,
+    "truth": 0.481,
+    "field": [
+     "Number 75: Bamboozling Gossip Shadow",
+     "The Phantom Knights of Umbrage Veil (set)"
+    ]
+   },
+   "first_by_truth": {
+    "board": 4,
+    "value": 0.591,
+    "truth": 0.541,
+    "field": [
+     "Maliss in Underground",
+     "Number 75: Bamboozling Gossip Shadow [EMZ]"
+    ],
+    "kept_for": []
+   }
+  },
+  {
+   "hand": "blue_eyes-1",
+   "deck": "blue_eyes",
+   "fixture": "hunt-blue_eyes-1",
+   "gap": 0.058,
+   "first_by_measure": {
+    "board": 1,
+    "value": 2.556,
+    "truth": 0.862,
+    "field": [
+     "Baronne de Fleur [EMZ]",
+     "Majesty of the White Dragons (set)",
+     "Mausoleum of White",
+     "Sage with Eyes of Blue",
+     "True Light"
+    ]
+   },
+   "first_by_truth": {
+    "board": 4,
+    "value": 2.48,
+    "truth": 0.921,
+    "field": [
+     "Blue-Eyes Spirit Dragon",
+     "Cosmic Blazar Dragon",
+     "Majesty of the White Dragons (set)",
+     "Mausoleum of White",
+     "True Light"
+    ],
+    "kept_for": []
+   }
+  },
+  {
+   "hand": "blue_eyes-1",
+   "deck": "blue_eyes",
+   "fixture": "hunt-blue_eyes-1",
+   "gap": 0.058,
+   "first_by_measure": {
+    "board": 2,
+    "value": 2.556,
+    "truth": 0.862,
+    "field": [
+     "Baronne de Fleur [EMZ]",
+     "Maiden of White",
+     "Majesty of the White Dragons (set)",
+     "Mausoleum of White",
+     "True Light"
+    ]
+   },
+   "first_by_truth": {
+    "board": 4,
+    "value": 2.48,
+    "truth": 0.921,
+    "field": [
+     "Blue-Eyes Spirit Dragon",
+     "Cosmic Blazar Dragon",
+     "Majesty of the White Dragons (set)",
+     "Mausoleum of White",
+     "True Light"
+    ],
+    "kept_for": []
+   }
+  },
+  {
+   "hand": "blue_eyes-1",
+   "deck": "blue_eyes",
+   "fixture": "hunt-blue_eyes-1",
+   "gap": 0.058,
+   "first_by_measure": {
+    "board": 3,
+    "value": 2.556,
+    "truth": 0.862,
+    "field": [
+     "Baronne de Fleur",
+     "Majesty of the White Dragons (set)",
+     "Mausoleum of White",
+     "Spirit with Eyes of Blue [EMZ]",
+     "True Light"
+    ]
+   },
+   "first_by_truth": {
+    "board": 4,
+    "value": 2.48,
+    "truth": 0.921,
+    "field": [
+     "Blue-Eyes Spirit Dragon",
+     "Cosmic Blazar Dragon",
+     "Majesty of the White Dragons (set)",
+     "Mausoleum of White",
+     "True Light"
+    ],
+    "kept_for": []
+   }
+  },
+  {
+   "hand": "sky_striker-1",
+   "deck": "sky_striker",
+   "fixture": "hunt-sky_striker-1",
+   "gap": 0.058,
+   "first_by_measure": {
+    "board": 1,
+    "value": 0.849,
+    "truth": 0.662,
+    "field": [
+     "Sky Striker Ace - Shizuku [EMZ]",
+     "Sky Striker Mecha - Widow Anchor (set)",
+     "Sky Striker Mobilize - Linkage! (set)"
+    ]
+   },
+   "first_by_truth": {
+    "board": 4,
+    "value": 0.768,
+    "truth": 0.72,
+    "field": [
+     "Sky Striker Ace - Shizuku",
+     "Sky Striker Ace = Zero [EMZ]",
+     "Sky Striker Ace Token",
+     "Sky Striker Mecha - Hornet Drones (set)"
+    ],
+    "kept_for": []
+   }
+  },
+  {
+   "hand": "sky_striker-1",
+   "deck": "sky_striker",
+   "fixture": "hunt-sky_striker-1",
+   "gap": 0.058,
+   "first_by_measure": {
+    "board": 2,
+    "value": 0.849,
+    "truth": 0.662,
+    "field": [
+     "Sky Striker Ace - Shizuku [EMZ]",
+     "Sky Striker Mecha - Hornet Drones (set)",
+     "Sky Striker Mecha - Widow Anchor (set)"
+    ]
+   },
+   "first_by_truth": {
+    "board": 4,
+    "value": 0.768,
+    "truth": 0.72,
+    "field": [
+     "Sky Striker Ace - Shizuku",
+     "Sky Striker Ace = Zero [EMZ]",
+     "Sky Striker Ace Token",
+     "Sky Striker Mecha - Hornet Drones (set)"
+    ],
+    "kept_for": []
+   }
+  },
+  {
+   "hand": "sky_striker-1",
+   "deck": "sky_striker",
+   "fixture": "hunt-sky_striker-1",
+   "gap": 0.058,
+   "first_by_measure": {
+    "board": 3,
+    "value": 0.849,
+    "truth": 0.662,
+    "field": [
+     "Sky Striker Ace - Shizuku [EMZ]",
+     "Sky Striker Mecha - Widow Anchor (set)",
+     "Sky Striker Special Maneuver - Lemnisgate! (set)"
+    ]
+   },
+   "first_by_truth": {
+    "board": 4,
+    "value": 0.768,
+    "truth": 0.72,
+    "field": [
+     "Sky Striker Ace - Shizuku",
+     "Sky Striker Ace = Zero [EMZ]",
+     "Sky Striker Ace Token",
+     "Sky Striker Mecha - Hornet Drones (set)"
+    ],
+    "kept_for": []
+   }
+  },
+  {
+   "hand": "orcust-1",
+   "deck": "orcust",
+   "fixture": "hunt-orcust-1",
+   "gap": 0.057,
+   "first_by_measure": {
+    "board": 2,
+    "value": 2.896,
+    "truth": 0.619,
+    "field": [
+     "I:P Masquerena [EMZ]",
+     "Orcust Crescendo (set)",
+     "Orcust Cymbal Skeleton",
+     "Orcustrated Babel"
+    ]
+   },
+   "first_by_truth": {
+    "board": 4,
+    "value": 2.557,
+    "truth": 0.676,
+    "field": [
+     "Galatea, the Orcust Automaton",
+     "I:P Masquerena [EMZ]",
+     "Orcust Crescendo (set)",
+     "Orcustrated Babel"
+    ],
+    "kept_for": [
+     "follow_up"
+    ]
+   }
+  },
+  {
+   "hand": "elfnote_kewl_tune-0",
+   "deck": "elfnote_kewl_tune",
+   "fixture": "hunt-elfnote_kewl_tune-0",
+   "gap": 0.054,
+   "first_by_measure": {
+    "board": 1,
+    "value": 3.549,
+    "truth": 0.778,
+    "field": [
+     "Baronne de Fleur",
+     "Elfnote Tinia",
+     "Elfnotes: Rhapsodia of Madness",
+     "Elfnotes: Welcome Home",
+     "JJ \"Kewl Tune\"",
+     "Kewl Tune Loudness War",
+     "Kewl Tune RS"
+    ]
+   },
+   "first_by_truth": {
+    "board": 2,
+    "value": 3.426,
+    "truth": 0.832,
+    "field": [
+     "Baronne de Fleur [EMZ]",
+     "Elfnote Lucina",
+     "Elfnote Tinia",
+     "Elfnotes: Rhapsodia of Madness (set)",
+     "Ghost Ogre & Snow Rabbit (set)",
+     "JJ \"Kewl Tune\"",
+     "Zalen the Shackled Dragon"
+    ],
+    "kept_for": []
+   }
+  },
+  {
+   "hand": "odion-0",
+   "deck": "odion",
+   "fixture": "hunt-odion-0",
+   "gap": 0.054,
+   "first_by_measure": {
+    "board": 1,
+    "value": 1.057,
+    "truth": 0.56,
+    "field": [
+     "Apophis the Serpent (set)",
+     "Infinite Impermanence (set)",
+     "Infinite Impermanence (set)",
+     "S:P Little Knight [EMZ]"
+    ]
+   },
+   "first_by_truth": {
+    "board": 3,
+    "value": 1.022,
+    "truth": 0.614,
+    "field": [
+     "Apophis the Serpent (set)",
+     "Infinite Impermanence (set)",
+     "Infinite Impermanence (set)",
+     "Kashtira Fenrir",
+     "Maxx \"C\""
+    ],
+    "kept_for": []
+   }
+  },
+  {
+   "hand": "blue_eyes-1",
+   "deck": "blue_eyes",
+   "fixture": "hunt-blue_eyes-1",
+   "gap": 0.053,
+   "first_by_measure": {
+    "board": 0,
+    "value": 2.911,
+    "truth": 0.868,
+    "field": [
+     "Baronne de Fleur [EMZ]",
+     "Blue-Eyes Spirit Dragon",
+     "Mausoleum of White",
+     "True Light"
+    ]
+   },
+   "first_by_truth": {
+    "board": 4,
+    "value": 2.48,
+    "truth": 0.921,
+    "field": [
+     "Blue-Eyes Spirit Dragon",
+     "Cosmic Blazar Dragon",
+     "Majesty of the White Dragons (set)",
+     "Mausoleum of White",
+     "True Light"
+    ],
+    "kept_for": []
+   }
+  },
+  {
+   "hand": "elfnote_kewl_tune-0",
+   "deck": "elfnote_kewl_tune",
+   "fixture": "hunt-elfnote_kewl_tune-0",
+   "gap": 0.052,
+   "first_by_measure": {
+    "board": 1,
+    "value": 3.549,
+    "truth": 0.778,
+    "field": [
+     "Baronne de Fleur",
+     "Elfnote Tinia",
+     "Elfnotes: Rhapsodia of Madness",
+     "Elfnotes: Welcome Home",
+     "JJ \"Kewl Tune\"",
+     "Kewl Tune Loudness War",
+     "Kewl Tune RS"
+    ]
+   },
+   "first_by_truth": {
+    "board": 3,
+    "value": 3.409,
+    "truth": 0.83,
+    "field": [
+     "Baronne de Fleur [EMZ]",
+     "Elfnote Seraphim Strelitzia",
+     "Elfnote Tinia",
+     "Elfnotes: Rhapsodia of Madness (set)",
+     "Elfnotes: Welcome Home",
+     "JJ \"Kewl Tune\"",
+     "Kewl Tune Loudness War"
+    ],
+    "kept_for": []
+   }
+  }
+ ],
+ "source": "objective_bench.py on the oracle fixtures (as-hunt), the first 6 opponents of the 22/10 meta"
+}

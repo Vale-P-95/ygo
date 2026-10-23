@@ -17,6 +17,10 @@
   {
    "value": 0.5842222222222222,
    "look_key": "85dd4bd3b66e3639",
+   "kept_for": [
+    "field",
+    "resilience"
+   ],
    "field": [
     {
      "code": 59438930,
@@ -42,7 +46,23 @@
      "gained": 0,
      "rebuild": 0
     }
-   }
+   },
+   "line": [
+    "ffffffff",
+    "ffffffff",
+    "04000100",
+    "000801",
+    "ffffffff",
+    "ffffffff",
+    "00000000",
+    "000400",
+    "ffffffff",
+    "ffffffff",
+    "ffffffff",
+    "ffffffff",
+    "07000000",
+    "ffffffff"
+   ]
   },
   {
    "value": 0.5816296296296296,
@@ -68,7 +88,19 @@
      "gained": 0,
      "rebuild": 0
     }
-   }
+   },
+   "line": [
+    "ffffffff",
+    "ffffffff",
+    "00000000",
+    "000400",
+    "ffffffff",
+    "ffffffff",
+    "ffffffff",
+    "ffffffff",
+    "07000000",
+    "ffffffff"
+   ]
   },
   {
    "value": 0.5593333333333332,
@@ -99,7 +131,21 @@
      "gained": 0,
      "rebuild": 0
     }
-   }
+   },
+   "line": [
+    "ffffffff",
+    "ffffffff",
+    "03000100",
+    "000400",
+    "ffffffff",
+    "ffffffff",
+    "04000100",
+    "000801",
+    "ffffffff",
+    "ffffffff",
+    "07000000",
+    "ffffffff"
+   ]
   },
   {
    "value": 0.5593333333333332,
@@ -129,7 +175,23 @@
      "gained": 0,
      "rebuild": 0
     }
-   }
+   },
+   "line": [
+    "ffffffff",
+    "ffffffff",
+    "00000100",
+    "000400",
+    "ffffffff",
+    "ffffffff",
+    "ffffffff",
+    "ffffffff",
+    "04000100",
+    "000801",
+    "ffffffff",
+    "ffffffff",
+    "07000000",
+    "ffffffff"
+   ]
   },
   {
    "value": 0.5593333333333332,
@@ -160,94 +222,31 @@
      "gained": 0,
      "rebuild": 0
     }
-   }
+   },
+   "line": [
+    "ffffffff",
+    "ffffffff",
+    "00000100",
+    "000400",
+    "ffffffff",
+    "ffffffff",
+    "ffffffff",
+    "ffffffff",
+    "01000000",
+    "0100000000000000",
+    "000405",
+    "ffffffff",
+    "ffffffff",
+    "ffffffff",
+    "ffffffff",
+    "04000100",
+    "000801",
+    "ffffffff",
+    "ffffffff",
+    "07000000",
+    "ffffffff"
+   ]
   }
  ],
- "other_seeds": [],
- "line": {
-  "answers": [
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    4,
-    0,
-    1,
-    0
-   ],
-   [
-    0,
-    8,
-    1
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    0,
-    0,
-    0,
-    0
-   ],
-   [
-    0,
-    4,
-    0
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    7,
-    0,
-    0,
-    0
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ]
-  ]
- }
+ "other_seeds": []
 }
