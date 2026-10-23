@@ -16,48 +16,6 @@
  "boards": [
   {
    "value": 2.2071928649237473,
-   "look_key": "03a8f265f9e33f3e",
-   "field": [
-    {
-     "code": 79559912,
-     "name": "D/D/D Wave High King Caesar"
-    },
-    {
-     "code": 97045737,
-     "name": "Dominus Purge",
-     "set": true
-    },
-    {
-     "code": 6325660,
-     "name": "Dominus Spark",
-     "set": true
-    },
-    {
-     "code": 46640168,
-     "name": "Fiendsmith's Lacrima"
-    },
-    {
-     "code": 2463794,
-     "name": "Fiendsmith's Requiem",
-     "equipped_to": 46640168
-    }
-   ],
-   "hand": [
-    97045737
-   ],
-   "measure": {
-    "field": 1.4734537037037039,
-    "hand": 0.0,
-    "floodgates": 0.0,
-    "resilience": 0.8228986020334058,
-    "follow_up": {
-     "gained": 0,
-     "rebuild": 2
-    }
-   }
-  },
-  {
-   "value": 2.2071928649237473,
    "look_key": "9a201adf376c3c36",
    "field": [
     {
@@ -99,12 +57,92 @@
    }
   },
   {
-   "value": 2.0871928649237472,
-   "look_key": "2935a96f228cbf81",
+   "value": 2.2071928649237473,
+   "look_key": "7569e6ffbb052813",
+   "field": [
+    {
+     "code": 79559912,
+     "name": "D/D/D Wave High King Caesar",
+     "zone": "emz"
+    },
+    {
+     "code": 97045737,
+     "name": "Dominus Purge",
+     "set": true
+    },
+    {
+     "code": 6325660,
+     "name": "Dominus Spark",
+     "set": true
+    },
+    {
+     "code": 46640168,
+     "name": "Fiendsmith's Lacrima"
+    }
+   ],
+   "hand": [
+    97045737
+   ],
+   "measure": {
+    "field": 1.4734537037037039,
+    "hand": 0.0,
+    "floodgates": 0.0,
+    "resilience": 0.8228986020334058,
+    "follow_up": {
+     "gained": 0,
+     "rebuild": 2
+    }
+   }
+  },
+  {
+   "value": 2.2071928649237473,
+   "look_key": "f3ee5b13554a8eba",
    "field": [
     {
      "code": 79559912,
      "name": "D/D/D Wave High King Caesar"
+    },
+    {
+     "code": 97045737,
+     "name": "Dominus Purge",
+     "set": true
+    },
+    {
+     "code": 6325660,
+     "name": "Dominus Spark",
+     "set": true
+    },
+    {
+     "code": 60764609,
+     "name": "Fiendsmith Engraver"
+    }
+   ],
+   "hand": [
+    97045737
+   ],
+   "measure": {
+    "field": 1.4734537037037039,
+    "hand": 0.0,
+    "floodgates": 0.0,
+    "resilience": 0.8228986020334058,
+    "follow_up": {
+     "gained": 0,
+     "rebuild": 2
+    }
+   }
+  },
+  {
+   "value": 2.0990098583877996,
+   "look_key": "e579dc8b2d9a1bf1",
+   "field": [
+    {
+     "code": 79559912,
+     "name": "D/D/D Wave High King Caesar"
+    },
+    {
+     "code": 97045737,
+     "name": "Dominus Purge",
+     "set": true
     },
     {
      "code": 97045737,
@@ -131,14 +169,12 @@
      "equipped_to": 97651498
     }
    ],
-   "hand": [
-    97045737
-   ],
+   "hand": [],
    "measure": {
     "field": 1.4734537037037039,
     "hand": 0.0,
     "floodgates": 0.0,
-    "resilience": 0.8228986020334058,
+    "resilience": 0.8425935911401596,
     "follow_up": {
      "gained": 0,
      "rebuild": 1
@@ -146,8 +182,8 @@
    }
   },
   {
-   "value": 2.0871928649237472,
-   "look_key": "1bf13c6c472b851f",
+   "value": 2.0990098583877996,
+   "look_key": "9253783b608a740b",
    "field": [
     {
      "code": 79559912,
@@ -159,70 +195,31 @@
      "set": true
     },
     {
+     "code": 97045737,
+     "name": "Dominus Purge",
+     "set": true
+    },
+    {
      "code": 6325660,
      "name": "Dominus Spark",
      "set": true
+    },
+    {
+     "code": 60764609,
+     "name": "Fiendsmith Engraver"
     },
     {
      "code": 2463794,
      "name": "Fiendsmith's Requiem",
-     "equipped_to": 28803166
-    },
-    {
-     "code": 28803166,
-     "name": "Lacrima the Crimson Tears"
+     "equipped_to": 60764609
     }
    ],
-   "hand": [
-    97045737
-   ],
+   "hand": [],
    "measure": {
     "field": 1.4734537037037039,
     "hand": 0.0,
     "floodgates": 0.0,
-    "resilience": 0.8228986020334058,
-    "follow_up": {
-     "gained": 0,
-     "rebuild": 1
-    }
-   }
-  },
-  {
-   "value": 2.0871928649237472,
-   "look_key": "78d1d984493ec017",
-   "field": [
-    {
-     "code": 79559912,
-     "name": "D/D/D Wave High King Caesar"
-    },
-    {
-     "code": 97045737,
-     "name": "Dominus Purge",
-     "set": true
-    },
-    {
-     "code": 6325660,
-     "name": "Dominus Spark",
-     "set": true
-    },
-    {
-     "code": 97651498,
-     "name": "Fabled Lurrie"
-    },
-    {
-     "code": 49867899,
-     "name": "Fiendsmith's Sequence",
-     "equipped_to": 97651498
-    }
-   ],
-   "hand": [
-    97045737
-   ],
-   "measure": {
-    "field": 1.4734537037037039,
-    "hand": 0.0,
-    "floodgates": 0.0,
-    "resilience": 0.8228986020334058,
+    "resilience": 0.8425935911401596,
     "follow_up": {
      "gained": 0,
      "rebuild": 1
@@ -648,55 +645,6 @@
    [
     5,
     0,
-    1,
-    0
-   ],
-   [
-    0,
-    0,
-    0,
-    0,
-    1,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    0,
-    8,
-    3
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    5,
-    0,
     0,
     0
    ],
@@ -709,7 +657,7 @@
     0,
     0,
     0,
-    0,
+    1,
     0,
     0,
     0
@@ -760,7 +708,7 @@
     0,
     0,
     0,
-    2,
+    0,
     0,
     0,
     0
@@ -770,7 +718,7 @@
     0,
     0,
     0,
-    1,
+    0,
     0,
     0,
     0
@@ -778,7 +726,7 @@
    [
     0,
     4,
-    1
+    0
    ],
    [
     1,
@@ -797,6 +745,55 @@
     255,
     255,
     255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    5,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    0,
+    0,
+    0,
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    0,
+    8,
+    3
    ],
    [
     255,

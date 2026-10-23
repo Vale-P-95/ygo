@@ -15,125 +15,13 @@
  "boards_found": 40452,
  "boards": [
   {
-   "value": 1.476492265795207,
-   "look_key": "e03c7c7cafc5b20b",
+   "value": 1.476579411764706,
+   "look_key": "5cd5fe1569a7ee22",
    "field": [
     {
      "code": 40366667,
      "name": "Dominus Impulse",
      "set": true
-    },
-    {
-     "code": 359563,
-     "name": "Evilswarm Nightmare"
-    },
-    {
-     "code": 57103969,
-     "name": "Fire Formation - Tenki"
-    },
-    {
-     "code": 2344618,
-     "name": "Lunalight Masquerade"
-    },
-    {
-     "code": 35763582,
-     "name": "Lunalight Silver Hound"
-    },
-    {
-     "code": 47705572,
-     "name": "Lunalight Wolf"
-    },
-    {
-     "code": 66011101,
-     "name": "Number 60: Dugares the Timeless"
-    },
-    {
-     "code": 29301450,
-     "name": "S:P Little Knight",
-     "zone": "emz"
-    }
-   ],
-   "hand": [
-    52038441,
-    14558127
-   ],
-   "measure": {
-    "field": 0.4732037037037037,
-    "hand": 0.7776296296296297,
-    "floodgates": 0.0,
-    "resilience": 0.3057031590413944,
-    "follow_up": {
-     "gained": 0,
-     "rebuild": 1
-    }
-   }
-  },
-  {
-   "value": 1.476492265795207,
-   "look_key": "26b936e94cb52857",
-   "field": [
-    {
-     "code": 40366667,
-     "name": "Dominus Impulse",
-     "set": true
-    },
-    {
-     "code": 359563,
-     "name": "Evilswarm Nightmare"
-    },
-    {
-     "code": 57103969,
-     "name": "Fire Formation - Tenki"
-    },
-    {
-     "code": 2344618,
-     "name": "Lunalight Masquerade"
-    },
-    {
-     "code": 35763582,
-     "name": "Lunalight Silver Hound"
-    },
-    {
-     "code": 83190280,
-     "name": "Lunalight Tiger"
-    },
-    {
-     "code": 66011101,
-     "name": "Number 60: Dugares the Timeless"
-    },
-    {
-     "code": 29301450,
-     "name": "S:P Little Knight",
-     "zone": "emz"
-    }
-   ],
-   "hand": [
-    52038441,
-    14558127
-   ],
-   "measure": {
-    "field": 0.4732037037037037,
-    "hand": 0.7776296296296297,
-    "floodgates": 0.0,
-    "resilience": 0.3057031590413944,
-    "follow_up": {
-     "gained": 0,
-     "rebuild": 1
-    }
-   }
-  },
-  {
-   "value": 1.476492265795207,
-   "look_key": "0c19017aefc1ffb8",
-   "field": [
-    {
-     "code": 40366667,
-     "name": "Dominus Impulse",
-     "set": true
-    },
-    {
-     "code": 359563,
-     "name": "Evilswarm Nightmare"
     },
     {
      "code": 57103969,
@@ -159,35 +47,36 @@
      "code": 29301450,
      "name": "S:P Little Knight",
      "zone": "emz"
+    },
+    {
+     "code": 85115440,
+     "name": "Zoodiac Broadbull"
     }
    ],
    "hand": [
     52038441,
+    87209160,
     14558127
    ],
    "measure": {
-    "field": 0.4732037037037037,
+    "field": 0.3783888888888889,
     "hand": 0.7776296296296297,
     "floodgates": 0.0,
-    "resilience": 0.3057031590413944,
+    "resilience": 0.26387309368191725,
     "follow_up": {
      "gained": 0,
-     "rebuild": 1
+     "rebuild": 2
     }
    }
   },
   {
-   "value": 1.476492265795207,
-   "look_key": "899d09d4c4a6d704",
+   "value": 1.476579411764706,
+   "look_key": "7500224853cf005c",
    "field": [
     {
      "code": 40366667,
      "name": "Dominus Impulse",
      "set": true
-    },
-    {
-     "code": 359563,
-     "name": "Evilswarm Nightmare"
     },
     {
      "code": 57103969,
@@ -198,12 +87,12 @@
      "name": "Lunalight Masquerade"
     },
     {
-     "code": 83190280,
-     "name": "Lunalight Tiger"
+     "code": 35763582,
+     "name": "Lunalight Silver Hound"
     },
     {
-     "code": 50546208,
-     "name": "Lunalight Yellow Marten"
+     "code": 47705572,
+     "name": "Lunalight Wolf"
     },
     {
      "code": 66011101,
@@ -213,26 +102,31 @@
      "code": 29301450,
      "name": "S:P Little Knight",
      "zone": "emz"
+    },
+    {
+     "code": 85115440,
+     "name": "Zoodiac Broadbull"
     }
    ],
    "hand": [
     52038441,
+    8379983,
     14558127
    ],
    "measure": {
-    "field": 0.4732037037037037,
+    "field": 0.3783888888888889,
     "hand": 0.7776296296296297,
     "floodgates": 0.0,
-    "resilience": 0.3057031590413944,
+    "resilience": 0.26387309368191725,
     "follow_up": {
      "gained": 0,
-     "rebuild": 1
+     "rebuild": 2
     }
    }
   },
   {
-   "value": 1.476492265795207,
-   "look_key": "e94f6fac9ea5a029",
+   "value": 1.476579411764706,
+   "look_key": "02baa0b682e41c38",
    "field": [
     {
      "code": 40366667,
@@ -240,12 +134,122 @@
      "set": true
     },
     {
-     "code": 359563,
-     "name": "Evilswarm Nightmare"
+     "code": 57103969,
+     "name": "Fire Formation - Tenki"
+    },
+    {
+     "code": 2344618,
+     "name": "Lunalight Masquerade"
+    },
+    {
+     "code": 35763582,
+     "name": "Lunalight Silver Hound"
+    },
+    {
+     "code": 83190280,
+     "name": "Lunalight Tiger"
+    },
+    {
+     "code": 66011101,
+     "name": "Number 60: Dugares the Timeless"
+    },
+    {
+     "code": 29301450,
+     "name": "S:P Little Knight",
+     "zone": "emz"
+    },
+    {
+     "code": 85115440,
+     "name": "Zoodiac Broadbull"
+    }
+   ],
+   "hand": [
+    52038441,
+    35618217,
+    14558127
+   ],
+   "measure": {
+    "field": 0.3783888888888889,
+    "hand": 0.7776296296296297,
+    "floodgates": 0.0,
+    "resilience": 0.26387309368191725,
+    "follow_up": {
+     "gained": 0,
+     "rebuild": 2
+    }
+   }
+  },
+  {
+   "value": 1.476579411764706,
+   "look_key": "ca9b4fea1eadd611",
+   "field": [
+    {
+     "code": 40366667,
+     "name": "Dominus Impulse",
+     "set": true
     },
     {
      "code": 57103969,
      "name": "Fire Formation - Tenki"
+    },
+    {
+     "code": 14152693,
+     "name": "Lunalight Emerald Bird"
+    },
+    {
+     "code": 2344618,
+     "name": "Lunalight Masquerade"
+    },
+    {
+     "code": 47705572,
+     "name": "Lunalight Wolf"
+    },
+    {
+     "code": 66011101,
+     "name": "Number 60: Dugares the Timeless"
+    },
+    {
+     "code": 29301450,
+     "name": "S:P Little Knight",
+     "zone": "emz"
+    },
+    {
+     "code": 85115440,
+     "name": "Zoodiac Broadbull"
+    }
+   ],
+   "hand": [
+    52038441,
+    14558127,
+    35763582
+   ],
+   "measure": {
+    "field": 0.3783888888888889,
+    "hand": 0.7776296296296297,
+    "floodgates": 0.0,
+    "resilience": 0.26387309368191725,
+    "follow_up": {
+     "gained": 0,
+     "rebuild": 2
+    }
+   }
+  },
+  {
+   "value": 1.476579411764706,
+   "look_key": "5cdab01ab4eb72c0",
+   "field": [
+    {
+     "code": 40366667,
+     "name": "Dominus Impulse",
+     "set": true
+    },
+    {
+     "code": 57103969,
+     "name": "Fire Formation - Tenki"
+    },
+    {
+     "code": 14152693,
+     "name": "Lunalight Emerald Bird"
     },
     {
      "code": 83190280,
@@ -256,10 +260,6 @@
      "name": "Lunalight Wolf"
     },
     {
-     "code": 50546208,
-     "name": "Lunalight Yellow Marten"
-    },
-    {
      "code": 66011101,
      "name": "Number 60: Dugares the Timeless"
     },
@@ -267,20 +267,25 @@
      "code": 29301450,
      "name": "S:P Little Knight",
      "zone": "emz"
+    },
+    {
+     "code": 85115440,
+     "name": "Zoodiac Broadbull"
     }
    ],
    "hand": [
     52038441,
-    14558127
+    14558127,
+    35618217
    ],
    "measure": {
-    "field": 0.4732037037037037,
+    "field": 0.3783888888888889,
     "hand": 0.7776296296296297,
     "floodgates": 0.0,
-    "resilience": 0.3057031590413944,
+    "resilience": 0.26387309368191725,
     "follow_up": {
      "gained": 0,
-     "rebuild": 1
+     "rebuild": 2
     }
    }
   }
@@ -1219,7 +1224,7 @@
     0,
     0,
     0,
-    3,
+    2,
     0,
     0,
     0
@@ -1262,7 +1267,7 @@
    [
     0,
     8,
-    4
+    3
    ],
    [
     0,
@@ -1348,7 +1353,7 @@
    [
     1,
     0,
-    0,
+    3,
     0
    ],
    [
@@ -1407,7 +1412,21 @@
     255
    ],
    [
-    7,
+    5,
+    0,
+    1,
+    0
+   ],
+   [
+    0,
+    0,
+    0,
+    0,
+    1,
+    0,
+    0,
+    0,
+    1,
     0,
     0,
     0
@@ -1423,6 +1442,38 @@
     255,
     255,
     255
+   ],
+   [
+    0,
+    0,
+    0,
+    0,
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    7,
+    0,
+    0,
+    0
    ]
   ]
  }

@@ -15,158 +15,8 @@
  "boards_found": 37413,
  "boards": [
   {
-   "value": 3.1403267973856215,
-   "look_key": "764da5dc45157880",
-   "field": [
-    {
-     "code": 84815190,
-     "name": "Baronne de Fleur",
-     "zone": "emz"
-    },
-    {
-     "code": 13597785,
-     "name": "Elfnote Lucina"
-    },
-    {
-     "code": 13597785,
-     "name": "Elfnote Lucina"
-    },
-    {
-     "code": 59581480,
-     "name": "Elfnote Tinia"
-    },
-    {
-     "code": 24092792,
-     "name": "Elfnotes: Rhapsodia of Madness",
-     "set": true
-    },
-    {
-     "code": 14442329,
-     "name": "JJ \"Kewl Tune\""
-    },
-    {
-     "code": 41069676,
-     "name": "Kewl Tune Loudness War"
-    }
-   ],
-   "hand": [
-    56651978,
-    89392810
-   ],
-   "measure": {
-    "field": 2.293518518518519,
-    "hand": 0.0,
-    "floodgates": 0.0,
-    "resilience": 1.411347131445171,
-    "follow_up": {
-     "gained": 4,
-     "rebuild": 0
-    }
-   }
-  },
-  {
-   "value": 3.1403267973856215,
-   "look_key": "7e3d7c5e375a2982",
-   "field": [
-    {
-     "code": 84815190,
-     "name": "Baronne de Fleur",
-     "zone": "emz"
-    },
-    {
-     "code": 13597785,
-     "name": "Elfnote Lucina"
-    },
-    {
-     "code": 59581480,
-     "name": "Elfnote Tinia"
-    },
-    {
-     "code": 59581480,
-     "name": "Elfnote Tinia"
-    },
-    {
-     "code": 24092792,
-     "name": "Elfnotes: Rhapsodia of Madness",
-     "set": true
-    },
-    {
-     "code": 14442329,
-     "name": "JJ \"Kewl Tune\""
-    },
-    {
-     "code": 41069676,
-     "name": "Kewl Tune Loudness War"
-    }
-   ],
-   "hand": [
-    56651978,
-    89392810
-   ],
-   "measure": {
-    "field": 2.293518518518519,
-    "hand": 0.0,
-    "floodgates": 0.0,
-    "resilience": 1.411347131445171,
-    "follow_up": {
-     "gained": 5,
-     "rebuild": 0
-    }
-   }
-  },
-  {
-   "value": 3.1403267973856215,
-   "look_key": "d5171785a732246d",
-   "field": [
-    {
-     "code": 84815190,
-     "name": "Baronne de Fleur",
-     "zone": "emz"
-    },
-    {
-     "code": 13597785,
-     "name": "Elfnote Lucina"
-    },
-    {
-     "code": 42302563,
-     "name": "Elfnote Seraphim Strelitzia"
-    },
-    {
-     "code": 59581480,
-     "name": "Elfnote Tinia"
-    },
-    {
-     "code": 24092792,
-     "name": "Elfnotes: Rhapsodia of Madness",
-     "set": true
-    },
-    {
-     "code": 14442329,
-     "name": "JJ \"Kewl Tune\""
-    },
-    {
-     "code": 41069676,
-     "name": "Kewl Tune Loudness War"
-    }
-   ],
-   "hand": [
-    56651978,
-    89392810
-   ],
-   "measure": {
-    "field": 2.293518518518519,
-    "hand": 0.0,
-    "floodgates": 0.0,
-    "resilience": 1.411347131445171,
-    "follow_up": {
-     "gained": 2,
-     "rebuild": 0
-    }
-   }
-  },
-  {
-   "value": 3.090309368191721,
-   "look_key": "2c8d41a4aca00787",
+   "value": 3.702474945533769,
+   "look_key": "c04d4c2e5f4e3d83",
    "field": [
     {
      "code": 84815190,
@@ -190,6 +40,10 @@
      "name": "Elfnotes: Rhapsodia of Madness"
     },
     {
+     "code": 64491754,
+     "name": "Elfnotes: Welcome Home"
+    },
+    {
      "code": 59438930,
      "name": "Ghost Ogre & Snow Rabbit",
      "set": true
@@ -204,23 +58,70 @@
     }
    ],
    "hand": [
-    56651978,
     56651978
    ],
    "measure": {
-    "field": 2.214814814814815,
+    "field": 2.631851851851852,
     "hand": 0.0,
     "floodgates": 0.0,
-    "resilience": 1.4591575889615107,
+    "resilience": 1.7843718228031955,
     "follow_up": {
-     "gained": 2,
+     "gained": 1,
      "rebuild": 0
     }
    }
   },
   {
-   "value": 3.070718954248366,
-   "look_key": "e8434e4fce77e6b8",
+   "value": 3.5485228758169933,
+   "look_key": "b36d42de24773f76",
+   "field": [
+    {
+     "code": 84815190,
+     "name": "Baronne de Fleur"
+    },
+    {
+     "code": 59581480,
+     "name": "Elfnote Tinia"
+    },
+    {
+     "code": 24092792,
+     "name": "Elfnotes: Rhapsodia of Madness"
+    },
+    {
+     "code": 64491754,
+     "name": "Elfnotes: Welcome Home"
+    },
+    {
+     "code": 14442329,
+     "name": "JJ \"Kewl Tune\""
+    },
+    {
+     "code": 41069676,
+     "name": "Kewl Tune Loudness War"
+    },
+    {
+     "code": 15665977,
+     "name": "Kewl Tune RS"
+    }
+   ],
+   "hand": [
+    56651978,
+    16387555
+   ],
+   "measure": {
+    "field": 2.508888888888889,
+    "hand": 0.0,
+    "floodgates": 0.0,
+    "resilience": 1.7327233115468408,
+    "follow_up": {
+     "gained": 3,
+     "rebuild": 0
+    }
+   }
+  },
+  {
+   "value": 3.426382352941177,
+   "look_key": "bd417d01d9b2c8a7",
    "field": [
     {
      "code": 84815190,
@@ -230,10 +131,6 @@
     {
      "code": 13597785,
      "name": "Elfnote Lucina"
-    },
-    {
-     "code": 59581480,
-     "name": "Elfnote Tinia"
     },
     {
      "code": 59581480,
@@ -254,20 +151,120 @@
      "name": "JJ \"Kewl Tune\""
     },
     {
-     "code": 41069676,
-     "name": "Kewl Tune Loudness War"
+     "code": 4891376,
+     "name": "Zalen the Shackled Dragon"
     }
    ],
    "hand": [
     56651978
    ],
    "measure": {
-    "field": 2.214814814814815,
+    "field": 2.2812962962962966,
+    "hand": 0.3337037037037037,
+    "floodgates": 0.0,
+    "resilience": 1.4079212055192452,
+    "follow_up": {
+     "gained": 6,
+     "rebuild": 0
+    }
+   }
+  },
+  {
+   "value": 3.4090849673202612,
+   "look_key": "53e8e13c880ba444",
+   "field": [
+    {
+     "code": 84815190,
+     "name": "Baronne de Fleur",
+     "zone": "emz"
+    },
+    {
+     "code": 42302563,
+     "name": "Elfnote Seraphim Strelitzia"
+    },
+    {
+     "code": 59581480,
+     "name": "Elfnote Tinia"
+    },
+    {
+     "code": 24092792,
+     "name": "Elfnotes: Rhapsodia of Madness",
+     "set": true
+    },
+    {
+     "code": 64491754,
+     "name": "Elfnotes: Welcome Home"
+    },
+    {
+     "code": 14442329,
+     "name": "JJ \"Kewl Tune\""
+    },
+    {
+     "code": 41069676,
+     "name": "Kewl Tune Loudness War"
+    }
+   ],
+   "hand": [
+    56651978,
+    89392810
+   ],
+   "measure": {
+    "field": 2.471296296296296,
     "hand": 0.0,
     "floodgates": 0.0,
-    "resilience": 1.4265068990559189,
+    "resilience": 1.5629811183732754,
     "follow_up": {
-     "gained": 7,
+     "gained": 2,
+     "rebuild": 0
+    }
+   }
+  },
+  {
+   "value": 3.3513464052287585,
+   "look_key": "98e9414dfc03095a",
+   "field": [
+    {
+     "code": 84815190,
+     "name": "Baronne de Fleur",
+     "zone": "emz"
+    },
+    {
+     "code": 59581480,
+     "name": "Elfnote Tinia"
+    },
+    {
+     "code": 24092792,
+     "name": "Elfnotes: Rhapsodia of Madness"
+    },
+    {
+     "code": 64491754,
+     "name": "Elfnotes: Welcome Home"
+    },
+    {
+     "code": 59438930,
+     "name": "Ghost Ogre & Snow Rabbit",
+     "set": true
+    },
+    {
+     "code": 14442329,
+     "name": "JJ \"Kewl Tune\""
+    },
+    {
+     "code": 15665977,
+     "name": "Kewl Tune RS"
+    }
+   ],
+   "hand": [
+    56651978,
+    16387555
+   ],
+   "measure": {
+    "field": 2.068888888888889,
+    "hand": 0.6044444444444446,
+    "floodgates": 0.0,
+    "resilience": 1.2307625272331155,
+    "follow_up": {
+     "gained": 2,
      "rebuild": 0
     }
    }
@@ -1026,9 +1023,21 @@
     0
    ],
    [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    5,
     0,
-    0,
-    0,
+    2,
     0
    ],
    [
@@ -1040,7 +1049,7 @@
     0,
     0,
     0,
-    1,
+    0,
     0,
     0,
     0
@@ -1103,7 +1112,7 @@
    [
     0,
     4,
-    4
+    3
    ],
    [
     1,
@@ -1239,7 +1248,7 @@
     0,
     0,
     0,
-    7,
+    2,
     0,
     0,
     0
@@ -1267,7 +1276,17 @@
     0,
     0,
     0,
-    4,
+    3,
+    0,
+    0,
+    0
+   ],
+   [
+    1,
+    0,
+    0,
+    0,
+    1,
     0,
     0,
     0
@@ -1296,6 +1315,17 @@
    [
     0,
     4,
+    3
+   ],
+   [
+    1,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    4,
     4
    ],
    [
@@ -1329,7 +1359,33 @@
     255
    ],
    [
-    4,
+    5,
+    0,
+    2,
+    0
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    0,
+    0,
+    0,
+    0,
+    1,
+    0,
+    0,
+    0,
+    0,
     0,
     0,
     0
@@ -1337,67 +1393,7 @@
    [
     0,
     8,
-    1
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    5,
-    0,
-    0,
-    0
-   ],
-   [
-    1,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    0,
-    0,
-    0,
-    0,
-    1,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0
-   ],
-   [
-    0,
-    0,
-    0,
-    0
+    2
    ],
    [
     255,
@@ -1416,6 +1412,12 @@
     0,
     0,
     0
+   ],
+   [
+    255,
+    255,
+    255,
+    255
    ],
    [
     255,

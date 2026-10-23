@@ -15,12 +15,70 @@
  "boards_found": 25357,
  "boards": [
   {
-   "value": 2.927111764705882,
-   "look_key": "549447077647dd53",
+   "value": 4.210493321966468,
+   "look_key": "c795bfd8ceb606f0",
    "field": [
     {
-     "code": 84815190,
-     "name": "Baronne de Fleur"
+     "code": 97077563,
+     "name": "Call of the Haunted",
+     "set": true
+    },
+    {
+     "code": 97077563,
+     "name": "Call of the Haunted",
+     "set": true
+    },
+    {
+     "code": 5560911,
+     "name": "Destrudo the Lost Dragon's Frisson"
+    },
+    {
+     "code": 95784714,
+     "name": "Flying Mary, the Wandering Ghost Ship"
+    },
+    {
+     "code": 65741786,
+     "name": "I:P Masquerena"
+    },
+    {
+     "code": 1329620,
+     "name": "Tearlaments Cryme",
+     "set": true
+    },
+    {
+     "code": 43355214,
+     "name": "The Undying Legion",
+     "zone": "emz"
+    },
+    {
+     "code": 4064256,
+     "name": "Zombie World"
+    }
+   ],
+   "hand": [
+    37961969,
+    68215963,
+    73956664
+   ],
+   "measure": {
+    "field": 2.559903381642512,
+    "hand": 0.28502415458937197,
+    "floodgates": 0.63,
+    "resilience": 1.2834470019892017,
+    "follow_up": {
+     "gained": 1,
+     "rebuild": 1
+    }
+   }
+  },
+  {
+   "value": 3.0594092782040354,
+   "look_key": "e657548f4cbb07d9",
+   "field": [
+    {
+     "code": 97077563,
+     "name": "Call of the Haunted",
+     "set": true
     },
     {
      "code": 97077563,
@@ -32,12 +90,17 @@
      "name": "Flying Mary, the Wandering Ghost Ship"
     },
     {
-     "code": 65741786,
-     "name": "I:P Masquerena"
+     "code": 1329620,
+     "name": "Tearlaments Cryme",
+     "set": true
     },
     {
-     "code": 76213610,
-     "name": "Officiator of Doom Samuel"
+     "code": 84330567,
+     "name": "Tearlaments Rulkallos"
+    },
+    {
+     "code": 43355214,
+     "name": "The Undying Legion"
     },
     {
      "code": 49959355,
@@ -49,28 +112,28 @@
     }
    ],
    "hand": [
-    73956664,
     68215963,
-    97077563
+    73956664
    ],
    "measure": {
-    "field": 2.2033888888888886,
+    "field": 1.7754951690821255,
     "hand": 0.0,
-    "floodgates": 0.0,
-    "resilience": 1.2062047930283224,
+    "floodgates": 0.63,
+    "resilience": 1.099856848536516,
     "follow_up": {
-     "gained": 2,
-     "rebuild": 0
+     "gained": 0,
+     "rebuild": 1
     }
    }
   },
   {
-   "value": 2.3809411764705883,
-   "look_key": "cd4be441088094b8",
+   "value": 3.0594092782040354,
+   "look_key": "1a76896ddb76b958",
    "field": [
     {
-     "code": 84815190,
-     "name": "Baronne de Fleur"
+     "code": 97077563,
+     "name": "Call of the Haunted",
+     "set": true
     },
     {
      "code": 97077563,
@@ -82,13 +145,21 @@
      "name": "Flying Mary, the Wandering Ghost Ship"
     },
     {
-     "code": 76213610,
-     "name": "Officiator of Doom Samuel"
+     "code": 1329620,
+     "name": "Tearlaments Cryme",
+     "set": true
     },
     {
      "code": 84330567,
-     "name": "Tearlaments Rulkallos",
-     "zone": "emz"
+     "name": "Tearlaments Rulkallos"
+    },
+    {
+     "code": 43355214,
+     "name": "The Undying Legion"
+    },
+    {
+     "code": 49959355,
+     "name": "Uni-Zombie"
     },
     {
      "code": 4064256,
@@ -96,29 +167,24 @@
     }
    ],
    "hand": [
-    73956664,
     68215963,
-    97077563
+    73956664
    ],
    "measure": {
-    "field": 1.6466666666666667,
+    "field": 1.7754951690821255,
     "hand": 0.0,
-    "floodgates": 0.0,
-    "resilience": 0.8237908496732027,
+    "floodgates": 0.63,
+    "resilience": 1.099856848536516,
     "follow_up": {
-     "gained": 3,
-     "rebuild": 2
+     "gained": 1,
+     "rebuild": 1
     }
    }
   },
   {
-   "value": 2.06078431372549,
-   "look_key": "b5fe551f4dc18bf7",
+   "value": 2.9408237425404944,
+   "look_key": "645e7f0a72c1eabc",
    "field": [
-    {
-     "code": 84815190,
-     "name": "Baronne de Fleur"
-    },
     {
      "code": 97077563,
      "name": "Call of the Haunted",
@@ -134,12 +200,21 @@
      "name": "Flying Mary, the Wandering Ghost Ship"
     },
     {
-     "code": 52467217,
-     "name": "Gozuki"
+     "code": 1329620,
+     "name": "Tearlaments Cryme",
+     "set": true
     },
     {
-     "code": 76213610,
-     "name": "Officiator of Doom Samuel"
+     "code": 4928565,
+     "name": "Tearlaments Kashtira"
+    },
+    {
+     "code": 84330567,
+     "name": "Tearlaments Rulkallos"
+    },
+    {
+     "code": 43355214,
+     "name": "The Undying Legion"
     },
     {
      "code": 4064256,
@@ -149,31 +224,27 @@
    "hand": [
     37961969,
     68215963,
-    73956664,
-    6767771
+    73956664
    ],
    "measure": {
-    "field": 1.5925925925925926,
+    "field": 1.7754951690821255,
     "hand": 0.0,
-    "floodgates": 0.0,
-    "resilience": 0.780319535221496,
+    "floodgates": 0.63,
+    "resilience": 1.1022142890972815,
     "follow_up": {
-     "gained": 4,
+     "gained": 1,
      "rebuild": 0
     }
    }
   },
   {
-   "value": 1.6083921568627453,
-   "look_key": "31dbd149e050fd49",
+   "value": 2.9408237425404944,
+   "look_key": "7fe6c9d9ed464465",
    "field": [
     {
-     "code": 14558127,
-     "name": "Ash Blossom & Joyous Spring"
-    },
-    {
-     "code": 84815190,
-     "name": "Baronne de Fleur"
+     "code": 97077563,
+     "name": "Call of the Haunted",
+     "set": true
     },
     {
      "code": 97077563,
@@ -185,56 +256,21 @@
      "name": "Flying Mary, the Wandering Ghost Ship"
     },
     {
-     "code": 76213610,
-     "name": "Officiator of Doom Samuel"
-    },
-    {
-     "code": 4064256,
-     "name": "Zombie World"
-    }
-   ],
-   "hand": [
-    73956664,
-    37961969,
-    68215963,
-    97077563
-   ],
-   "measure": {
-    "field": 1.2874074074074076,
-    "hand": 0.0,
-    "floodgates": 0.0,
-    "resilience": 0.534974582425563,
-    "follow_up": {
-     "gained": 3,
-     "rebuild": 0
-    }
-   }
-  },
-  {
-   "value": 1.6083921568627453,
-   "look_key": "ae3ccae7bee5b70b",
-   "field": [
-    {
-     "code": 84815190,
-     "name": "Baronne de Fleur",
-     "zone": "emz"
-    },
-    {
-     "code": 97077563,
-     "name": "Call of the Haunted",
+     "code": 1329620,
+     "name": "Tearlaments Cryme",
      "set": true
     },
     {
-     "code": 95784714,
-     "name": "Flying Mary, the Wandering Ghost Ship"
+     "code": 4928565,
+     "name": "Tearlaments Kashtira"
     },
     {
-     "code": 23434538,
-     "name": "Maxx \"C\""
+     "code": 84330567,
+     "name": "Tearlaments Rulkallos"
     },
     {
-     "code": 76213610,
-     "name": "Officiator of Doom Samuel"
+     "code": 43355214,
+     "name": "The Undying Legion"
     },
     {
      "code": 4064256,
@@ -242,18 +278,17 @@
     }
    ],
    "hand": [
-    73956664,
     37961969,
     68215963,
-    97077563
+    73956664
    ],
    "measure": {
-    "field": 1.2874074074074076,
+    "field": 1.7754951690821255,
     "hand": 0.0,
-    "floodgates": 0.0,
-    "resilience": 0.534974582425563,
+    "floodgates": 0.63,
+    "resilience": 1.1022142890972815,
     "follow_up": {
-     "gained": 4,
+     "gained": 0,
      "rebuild": 0
     }
    }
@@ -1006,127 +1041,9 @@
     255
    ],
    [
-    1,
-    0,
-    2,
-    0
-   ],
-   [
-    1,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0
-   ],
-   [
-    1,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0
-   ],
-   [
-    0,
-    4,
-    0
-   ],
-   [
-    1,
-    0,
-    0,
-    0
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    0,
-    0,
-    0,
-    0
-   ],
-   [
-    0,
-    0,
-    0,
-    0,
-    1,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0
-   ],
-   [
-    0,
-    0,
-    0,
-    0,
-    1,
-    0,
-    0,
-    0,
-    13,
-    0,
-    0,
-    0
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    0,
-    4,
-    1
-   ],
-   [
-    1,
-    0,
-    0,
-    0
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
     5,
     0,
-    2,
+    0,
     0
    ],
    [
@@ -1139,64 +1056,6 @@
     0,
     0,
     0,
-    0,
-    0,
-    0
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    0,
-    0,
-    0,
-    0,
-    1,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    5,
-    0,
-    2,
-    0
-   ],
-   [
-    0,
-    0,
-    0,
-    0,
-    1,
-    0,
-    0,
-    0,
-    2,
     0,
     0,
     0
@@ -1219,64 +1078,6 @@
     2
    ],
    [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    5,
-    0,
-    1,
-    0
-   ],
-   [
-    0,
-    0,
-    0,
-    0,
-    1,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    0,
-    0,
-    0,
-    0,
-    1,
-    0,
-    0,
-    0,
-    1,
-    0,
-    0,
-    0
-   ],
-   [
     1,
     0,
     0,
@@ -1295,15 +1096,7 @@
     255
    ],
    [
-    0,
-    0,
-    0,
-    0,
     1,
-    0,
-    0,
-    0,
-    0,
     0,
     0,
     0
@@ -1319,18 +1112,60 @@
     0
    ],
    [
-    255
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
    ],
    [
     0,
     4,
-    3
+    0
    ],
    [
     1,
     0,
     0,
     0
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    4,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    8,
+    3
    ],
    [
     255,
@@ -1378,13 +1213,57 @@
    ],
    [
     0,
+    0,
+    0,
+    0
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    0,
+    0,
+    0,
+    0,
+    1,
+    0,
+    0,
+    0,
+    2,
+    0,
+    0,
+    0
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
     4,
-    4
+    0,
+    0,
+    0
    ],
    [
-    1,
     0,
-    0,
+    8,
     0
    ],
    [
@@ -1406,16 +1285,10 @@
     0
    ],
    [
-    1,
     0,
     0,
     0,
     0,
-    0,
-    0,
-    0
-   ],
-   [
     1,
     0,
     0,
@@ -1428,7 +1301,7 @@
    [
     0,
     4,
-    3
+    5
    ],
    [
     1,
@@ -1447,6 +1320,55 @@
     255,
     255,
     255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    5,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    0,
+    0,
+    0,
+    1,
+    0,
+    0,
+    0,
+    4,
+    0,
+    0,
+    0
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    0,
+    4,
+    0
    ],
    [
     255,
@@ -1465,18 +1387,6 @@
     0,
     0,
     0
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    255,
-    255,
-    255,
-    255
    ]
   ]
  }

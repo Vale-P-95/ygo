@@ -74,8 +74,8 @@
    }
   },
   {
-   "value": 2.2806910675381262,
-   "look_key": "27a29cbbb621ca64",
+   "value": 2.314416557734204,
+   "look_key": "484be39fd15bf845",
    "field": [
     {
      "code": 27572350,
@@ -96,12 +96,65 @@
     },
     {
      "code": 9753964,
-     "name": "Hot Red Dragon Archfiend Abyss"
+     "name": "Hot Red Dragon Archfiend Abyss",
+     "zone": "emz"
     },
     {
-     "code": 92936364,
-     "name": "Red Dragon Archfiend's Chain",
+     "code": 87837090,
+     "name": "Kuibelt the Blade Dragon"
+    },
+    {
+     "code": 65541655,
+     "name": "Red Nova Dragon - Burning Soul"
+    },
+    {
+     "code": 66141736,
+     "name": "Red Rising Dragon"
+    }
+   ],
+   "hand": [
+    83445539,
+    40366667
+   ],
+   "measure": {
+    "field": 1.5961481481481479,
+    "hand": 0.0,
+    "floodgates": 0.0,
+    "resilience": 0.9971140159767607,
+    "follow_up": {
+     "gained": 0,
+     "rebuild": 1
+    }
+   }
+  },
+  {
+   "value": 2.314416557734204,
+   "look_key": "0d3118904f1c487e",
+   "field": [
+    {
+     "code": 27572350,
+     "name": "Bystial Dis Pater"
+    },
+    {
+     "code": 29053656,
+     "name": "Crimson Dragon Quetzacoatl"
+    },
+    {
+     "code": 98173209,
+     "name": "Crimson Gaia"
+    },
+    {
+     "code": 83445539,
+     "name": "Darkness Resonator"
+    },
+    {
+     "code": 40366667,
+     "name": "Dominus Impulse",
      "set": true
+    },
+    {
+     "code": 9753964,
+     "name": "Hot Red Dragon Archfiend Abyss"
     },
     {
      "code": 65541655,
@@ -109,8 +162,8 @@
      "zone": "emz"
     },
     {
-     "code": 67809530,
-     "name": "The Crimson King"
+     "code": 66141736,
+     "name": "Red Rising Dragon"
     }
    ],
    "hand": [
@@ -120,7 +173,7 @@
     "field": 1.5961481481481479,
     "hand": 0.0,
     "floodgates": 0.0,
-    "resilience": 0.9409048656499637,
+    "resilience": 0.9971140159767607,
     "follow_up": {
      "gained": 0,
      "rebuild": 1
@@ -128,114 +181,8 @@
    }
   },
   {
-   "value": 2.1584244008714597,
-   "look_key": "64f389146ad62edb",
-   "field": [
-    {
-     "code": 29053656,
-     "name": "Crimson Dragon Quetzacoatl"
-    },
-    {
-     "code": 98173209,
-     "name": "Crimson Gaia"
-    },
-    {
-     "code": 40366667,
-     "name": "Dominus Impulse",
-     "set": true
-    },
-    {
-     "code": 9753964,
-     "name": "Hot Red Dragon Archfiend Abyss"
-    },
-    {
-     "code": 92936364,
-     "name": "Red Dragon Archfiend's Chain",
-     "set": true
-    },
-    {
-     "code": 66141736,
-     "name": "Red Rising Dragon"
-    },
-    {
-     "code": 67809530,
-     "name": "The Crimson King"
-    }
-   ],
-   "hand": [
-    42141493,
-    40366667,
-    83445539
-   ],
-   "measure": {
-    "field": 1.5105185185185184,
-    "hand": 0.0,
-    "floodgates": 0.0,
-    "resilience": 0.8798431372549019,
-    "follow_up": {
-     "gained": 0,
-     "rebuild": 1
-    }
-   }
-  },
-  {
-   "value": 2.1069838779956425,
-   "look_key": "24d20a57262b14ba",
-   "field": [
-    {
-     "code": 29053656,
-     "name": "Crimson Dragon Quetzacoatl"
-    },
-    {
-     "code": 98173209,
-     "name": "Crimson Gaia"
-    },
-    {
-     "code": 40366667,
-     "name": "Dominus Impulse",
-     "set": true
-    },
-    {
-     "code": 9753964,
-     "name": "Hot Red Dragon Archfiend Abyss"
-    },
-    {
-     "code": 92936364,
-     "name": "Red Dragon Archfiend's Chain",
-     "set": true
-    },
-    {
-     "code": 65541655,
-     "name": "Red Nova Dragon - Burning Soul"
-    },
-    {
-     "code": 66141736,
-     "name": "Red Rising Dragon"
-    },
-    {
-     "code": 67809530,
-     "name": "The Crimson King",
-     "zone": "emz"
-    }
-   ],
-   "hand": [
-    25784595,
-    40366667
-   ],
-   "measure": {
-    "field": 1.5558518518518516,
-    "hand": 0.0,
-    "floodgates": 0.0,
-    "resilience": 0.9185533769063179,
-    "follow_up": {
-     "gained": 0,
-     "rebuild": 0
-    }
-   }
-  },
-  {
-   "value": 2.003105010893246,
-   "look_key": "57a43378e2a896d8",
+   "value": 2.314416557734204,
+   "look_key": "367df3407a05c957",
    "field": [
     {
      "code": 27572350,
@@ -243,8 +190,7 @@
     },
     {
      "code": 29053656,
-     "name": "Crimson Dragon Quetzacoatl",
-     "zone": "emz"
+     "name": "Crimson Dragon Quetzacoatl"
     },
     {
      "code": 98173209,
@@ -256,8 +202,18 @@
      "set": true
     },
     {
+     "code": 40366667,
+     "name": "Dominus Impulse",
+     "set": true
+    },
+    {
      "code": 9753964,
-     "name": "Hot Red Dragon Archfiend Abyss"
+     "name": "Hot Red Dragon Archfiend Abyss",
+     "zone": "emz"
+    },
+    {
+     "code": 87837090,
+     "name": "Kuibelt the Blade Dragon"
     },
     {
      "code": 65541655,
@@ -266,25 +222,73 @@
     {
      "code": 66141736,
      "name": "Red Rising Dragon"
-    },
-    {
-     "code": 94641726,
-     "name": "Storm-Bane Dragon Destorbim"
     }
    ],
    "hand": [
-    40366667,
-    83445539,
-    25784595
+    83445539
    ],
    "measure": {
-    "field": 1.3087407407407405,
-    "hand": 0.28740740740740744,
+    "field": 1.5961481481481479,
+    "hand": 0.0,
     "floodgates": 0.0,
-    "resilience": 0.7261626724763978,
+    "resilience": 0.9971140159767607,
     "follow_up": {
      "gained": 0,
-     "rebuild": 0
+     "rebuild": 1
+    }
+   }
+  },
+  {
+   "value": 2.314416557734204,
+   "look_key": "a74dc1bb27545eb8",
+   "field": [
+    {
+     "code": 27572350,
+     "name": "Bystial Dis Pater"
+    },
+    {
+     "code": 29053656,
+     "name": "Crimson Dragon Quetzacoatl"
+    },
+    {
+     "code": 40366667,
+     "name": "Dominus Impulse",
+     "set": true
+    },
+    {
+     "code": 40366667,
+     "name": "Dominus Impulse",
+     "set": true
+    },
+    {
+     "code": 9753964,
+     "name": "Hot Red Dragon Archfiend Abyss",
+     "zone": "emz"
+    },
+    {
+     "code": 87837090,
+     "name": "Kuibelt the Blade Dragon"
+    },
+    {
+     "code": 65541655,
+     "name": "Red Nova Dragon - Burning Soul"
+    },
+    {
+     "code": 66141736,
+     "name": "Red Rising Dragon"
+    }
+   ],
+   "hand": [
+    83445539
+   ],
+   "measure": {
+    "field": 1.5961481481481479,
+    "hand": 0.0,
+    "floodgates": 0.0,
+    "resilience": 0.9971140159767607,
+    "follow_up": {
+     "gained": 0,
+     "rebuild": 1
     }
    }
   }

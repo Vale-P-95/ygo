@@ -15,6 +15,97 @@
  "boards_found": 29047,
  "boards": [
   {
+   "value": 3.7493856209150334,
+   "look_key": "cf775d3aa2a0a8a2",
+   "field": [
+    {
+     "code": 84815190,
+     "name": "Baronne de Fleur",
+     "zone": "emz"
+    },
+    {
+     "code": 85976588,
+     "name": "Elfnote Fortuna"
+    },
+    {
+     "code": 42302563,
+     "name": "Elfnote Seraphim Strelitzia"
+    },
+    {
+     "code": 59581480,
+     "name": "Elfnote Tinia"
+    },
+    {
+     "code": 24092792,
+     "name": "Elfnotes: Rhapsodia of Madness",
+     "set": true
+    },
+    {
+     "code": 24299458,
+     "name": "Forbidden Droplet",
+     "set": true
+    }
+   ],
+   "hand": [
+    56651978
+   ],
+   "measure": {
+    "field": 2.740370370370371,
+    "hand": 0.0,
+    "floodgates": 0.0,
+    "resilience": 1.6816920842411043,
+    "follow_up": {
+     "gained": 5,
+     "rebuild": 0
+    }
+   }
+  },
+  {
+   "value": 3.5700315904139437,
+   "look_key": "b2ca2e6f56ed2676",
+   "field": [
+    {
+     "code": 84815190,
+     "name": "Baronne de Fleur"
+    },
+    {
+     "code": 13597785,
+     "name": "Elfnote Lucina"
+    },
+    {
+     "code": 42302563,
+     "name": "Elfnote Seraphim Strelitzia"
+    },
+    {
+     "code": 24092792,
+     "name": "Elfnotes: Rhapsodia of Madness",
+     "set": true
+    },
+    {
+     "code": 64491754,
+     "name": "Elfnotes: Welcome Home"
+    },
+    {
+     "code": 24299458,
+     "name": "Forbidden Droplet",
+     "set": true
+    }
+   ],
+   "hand": [
+    56651978
+   ],
+   "measure": {
+    "field": 2.595740740740741,
+    "hand": 0.0,
+    "floodgates": 0.0,
+    "resilience": 1.6238180827886715,
+    "follow_up": {
+     "gained": 3,
+     "rebuild": 0
+    }
+   }
+  },
+  {
    "value": 3.4194945533769054,
    "look_key": "c3a7bd8020d9c79a",
    "field": [
@@ -53,8 +144,8 @@
    }
   },
   {
-   "value": 3.4194945533769054,
-   "look_key": "c39ca47b4d938560",
+   "value": 3.1507363834422657,
+   "look_key": "87dd35b80653c60c",
    "field": [
     {
      "code": 84815190,
@@ -62,7 +153,8 @@
     },
     {
      "code": 50954680,
-     "name": "Crystal Wing Synchro Dragon"
+     "name": "Crystal Wing Synchro Dragon",
+     "zone": "emz"
     },
     {
      "code": 59581480,
@@ -83,76 +175,19 @@
     56651978
    ],
    "measure": {
-    "field": 2.579259259259259,
+    "field": 2.4014814814814813,
     "hand": 0.0,
     "floodgates": 0.0,
-    "resilience": 1.4003921568627447,
+    "resilience": 1.2487581699346406,
     "follow_up": {
-     "gained": 5,
+     "gained": 4,
      "rebuild": 0
     }
    }
   },
   {
-   "value": 2.6233464052287587,
-   "look_key": "88610ffdb98a419b",
-   "field": [
-    {
-     "code": 84815190,
-     "name": "Baronne de Fleur"
-    },
-    {
-     "code": 53639887,
-     "name": "Divine Temple of the Snake-Eye"
-    },
-    {
-     "code": 13597785,
-     "name": "Elfnote Lucina"
-    },
-    {
-     "code": 24092792,
-     "name": "Elfnotes: Rhapsodia of Madness",
-     "set": true
-    },
-    {
-     "code": 64491754,
-     "name": "Elfnotes: Welcome Home"
-    },
-    {
-     "code": 24299458,
-     "name": "Forbidden Droplet",
-     "set": true
-    },
-    {
-     "code": 9674034,
-     "name": "Snake-Eye Ash"
-    },
-    {
-     "code": 27260347,
-     "name": "Snake-Eyes Diabellstar"
-    },
-    {
-     "code": 90241276,
-     "name": "Snake-Eyes Poplar"
-    }
-   ],
-   "hand": [
-    59581480
-   ],
-   "measure": {
-    "field": 1.817777777777778,
-    "hand": 0.0,
-    "floodgates": 0.0,
-    "resilience": 0.9426143790849676,
-    "follow_up": {
-     "gained": 3,
-     "rebuild": 2
-    }
-   }
-  },
-  {
-   "value": 2.5033464052287586,
-   "look_key": "b42498d963c46ab0",
+   "value": 3.118348583877996,
+   "look_key": "c4209e79671d4426",
    "field": [
     {
      "code": 84815190,
@@ -160,12 +195,16 @@
      "zone": "emz"
     },
     {
-     "code": 53639887,
-     "name": "Divine Temple of the Snake-Eye"
-    },
-    {
      "code": 13597785,
      "name": "Elfnote Lucina"
+    },
+    {
+     "code": 42302563,
+     "name": "Elfnote Seraphim Strelitzia"
+    },
+    {
+     "code": 59581480,
+     "name": "Elfnote Tinia"
     },
     {
      "code": 24092792,
@@ -173,87 +212,21 @@
      "set": true
     },
     {
-     "code": 64491754,
-     "name": "Elfnotes: Welcome Home"
-    },
-    {
      "code": 24299458,
      "name": "Forbidden Droplet",
      "set": true
-    },
-    {
-     "code": 27260347,
-     "name": "Snake-Eyes Diabellstar"
-    },
-    {
-     "code": 90241276,
-     "name": "Snake-Eyes Poplar"
     }
    ],
    "hand": [
     56651978
    ],
    "measure": {
-    "field": 1.817777777777778,
+    "field": 2.3374074074074076,
     "hand": 0.0,
     "floodgates": 0.0,
-    "resilience": 0.9426143790849676,
+    "resilience": 1.3015686274509808,
     "follow_up": {
-     "gained": 2,
-     "rebuild": 1
-    }
-   }
-  },
-  {
-   "value": 2.4550152505446627,
-   "look_key": "dccd873b4abfd898",
-   "field": [
-    {
-     "code": 84815190,
-     "name": "Baronne de Fleur",
-     "zone": "emz"
-    },
-    {
-     "code": 53639887,
-     "name": "Divine Temple of the Snake-Eye"
-    },
-    {
-     "code": 13597785,
-     "name": "Elfnote Lucina"
-    },
-    {
-     "code": 24092792,
-     "name": "Elfnotes: Rhapsodia of Madness",
-     "set": true
-    },
-    {
-     "code": 64491754,
-     "name": "Elfnotes: Welcome Home"
-    },
-    {
-     "code": 24299458,
-     "name": "Forbidden Droplet",
-     "set": true
-    },
-    {
-     "code": 27260347,
-     "name": "Snake-Eyes Diabellstar"
-    },
-    {
-     "code": 90241276,
-     "name": "Snake-Eyes Poplar"
-    }
-   ],
-   "hand": [
-    56651978
-   ],
-   "measure": {
-    "field": 1.8651851851851855,
-    "hand": 0.0,
-    "floodgates": 0.0,
-    "resilience": 0.9830501089324621,
-    "follow_up": {
-     "gained": 3,
+     "gained": 6,
      "rebuild": 0
     }
    }
@@ -590,7 +563,7 @@
     0
    ],
    [
-    0,
+    1,
     0,
     0,
     0
@@ -619,10 +592,10 @@
     255
    ],
    [
-    255,
-    255,
-    255,
-    255
+    0,
+    0,
+    0,
+    0
    ],
    [
     0,
@@ -633,7 +606,39 @@
     0,
     0,
     0,
-    2,
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    0,
+    0,
+    0,
+    1,
+    0,
+    0,
+    0,
+    1,
     0,
     0,
     0
@@ -650,184 +655,6 @@
     0
    ],
    [
-    0,
-    0,
-    0,
-    0
-   ],
-   [
-    0,
-    0,
-    0,
-    0,
-    1,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    0,
-    0,
-    0,
-    0
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    1,
-    0,
-    0,
-    0
-   ],
-   [
-    1,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0
-   ],
-   [
-    1,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0
-   ],
-   [
-    0,
-    4,
-    0
-   ],
-   [
-    1,
-    0,
-    0,
-    0
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    1,
-    0,
-    0,
-    0
-   ],
-   [
-    1,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0
-   ],
-   [
-    1,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0
-   ],
-   [
-    0,
-    4,
-    1
-   ],
-   [
-    1,
-    0,
-    0,
-    0
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    1,
-    0,
-    0,
-    0
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
     255,
     255,
     255,
@@ -842,13 +669,133 @@
    [
     4,
     0,
-    0,
+    1,
     0
    ],
    [
     0,
     8,
     1
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    1,
+    0,
+    0,
+    0
+   ],
+   [
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    4,
+    5
+   ],
+   [
+    1,
+    0,
+    0,
+    0
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    1,
+    0,
+    0,
+    0
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    1,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    4,
+    2
+   ],
+   [
+    1,
+    0,
+    0,
+    0
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
    ],
    [
     255,

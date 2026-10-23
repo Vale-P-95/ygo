@@ -15,8 +15,84 @@
  "boards_found": 30830,
  "boards": [
   {
-   "value": 1.8895032679738561,
-   "look_key": "2449b012a45502a5",
+   "value": 2.665003267973856,
+   "look_key": "fc03bb938863bf9f",
+   "field": [
+    {
+     "code": 84815190,
+     "name": "Baronne de Fleur",
+     "zone": "emz"
+    },
+    {
+     "code": 72270339,
+     "name": "Diabellstar the Black Witch"
+    },
+    {
+     "code": 38511382,
+     "name": "Sinful Spoils of Betrayal - Silvera",
+     "set": true
+    },
+    {
+     "code": 79415624,
+     "name": "Snake-Eyes Vengeance Dragon"
+    }
+   ],
+   "hand": [
+    42141493,
+    42141493
+   ],
+   "measure": {
+    "field": 1.8523611111111111,
+    "hand": 0.0,
+    "floodgates": 0.0,
+    "resilience": 0.9544035947712419,
+    "follow_up": {
+     "gained": 1,
+     "rebuild": 2
+    }
+   }
+  },
+  {
+   "value": 2.4612366013071894,
+   "look_key": "f816a9ec08f5cebe",
+   "field": [
+    {
+     "code": 84815190,
+     "name": "Baronne de Fleur",
+     "zone": "emz"
+    },
+    {
+     "code": 23151193,
+     "name": "Diabellstar Vengeance"
+    },
+    {
+     "code": 72270339,
+     "name": "Diabellstar the Black Witch"
+    },
+    {
+     "code": 38511382,
+     "name": "Sinful Spoils of Betrayal - Silvera",
+     "set": true
+    }
+   ],
+   "hand": [
+    42141493,
+    42141493
+   ],
+   "measure": {
+    "field": 1.8084444444444443,
+    "hand": 0.0,
+    "floodgates": 0.0,
+    "resilience": 0.8879869281045752,
+    "follow_up": {
+     "gained": 1,
+     "rebuild": 1
+    }
+   }
+  },
+  {
+   "value": 2.3369106753812634,
+   "look_key": "6569cc686adfc635",
    "field": [
     {
      "code": 84815190,
@@ -27,41 +103,79 @@
      "name": "Diabellstar the Black Witch"
     },
     {
-     "code": 61980241,
-     "name": "Elzette of the White Forest"
+     "code": 41924516,
+     "name": "Silvera, Wolf Tamer of the White Forest",
+     "zone": "emz"
     },
     {
      "code": 38511382,
      "name": "Sinful Spoils of Betrayal - Silvera",
      "set": true
-    },
-    {
-     "code": 79415624,
-     "name": "Snake-Eyes Vengeance Dragon",
-     "zone": "emz"
     }
    ],
    "hand": [
     42141493
    ],
    "measure": {
-    "field": 1.491111111111111,
+    "field": 1.6207407407407406,
     "hand": 0.0,
     "floodgates": 0.0,
-    "resilience": 0.6639869281045753,
+    "resilience": 0.793616557734205,
     "follow_up": {
      "gained": 0,
-     "rebuild": 0
+     "rebuild": 2
     }
    }
   },
   {
-   "value": 1.8895032679738561,
-   "look_key": "3dee3b976171415c",
+   "value": 2.3369106753812634,
+   "look_key": "355c05292bf7f383",
    "field": [
     {
      "code": 84815190,
      "name": "Baronne de Fleur"
+    },
+    {
+     "code": 72270339,
+     "name": "Diabellstar the Black Witch"
+    },
+    {
+     "code": 77313225,
+     "name": "Rciela, Sinister Soul of the White Forest",
+     "zone": "emz"
+    },
+    {
+     "code": 38511382,
+     "name": "Sinful Spoils of Betrayal - Silvera",
+     "set": true
+    }
+   ],
+   "hand": [
+    42141493
+   ],
+   "measure": {
+    "field": 1.6207407407407406,
+    "hand": 0.0,
+    "floodgates": 0.0,
+    "resilience": 0.793616557734205,
+    "follow_up": {
+     "gained": 0,
+     "rebuild": 2
+    }
+   }
+  },
+  {
+   "value": 2.3043847494553376,
+   "look_key": "ba5b9bc58c4742d7",
+   "field": [
+    {
+     "code": 84815190,
+     "name": "Baronne de Fleur",
+     "zone": "emz"
+    },
+    {
+     "code": 23151193,
+     "name": "Diabellstar Vengeance"
     },
     {
      "code": 72270339,
@@ -75,147 +189,20 @@
      "code": 38511382,
      "name": "Sinful Spoils of Betrayal - Silvera",
      "set": true
-    },
-    {
-     "code": 79415624,
-     "name": "Snake-Eyes Vengeance Dragon",
-     "zone": "emz"
     }
    ],
    "hand": [
+    42141493,
     42141493
    ],
    "measure": {
-    "field": 1.491111111111111,
+    "field": 1.6982592592592591,
     "hand": 0.0,
     "floodgates": 0.0,
-    "resilience": 0.6639869281045753,
+    "resilience": 0.8102091503267974,
     "follow_up": {
-     "gained": 0,
-     "rebuild": 0
-    }
-   }
-  },
-  {
-   "value": 1.8895032679738561,
-   "look_key": "e2df001fefa49668",
-   "field": [
-    {
-     "code": 84815190,
-     "name": "Baronne de Fleur"
-    },
-    {
-     "code": 72270339,
-     "name": "Diabellstar the Black Witch"
-    },
-    {
-     "code": 60145298,
-     "name": "Diabellze the White Witch"
-    },
-    {
-     "code": 38511382,
-     "name": "Sinful Spoils of Betrayal - Silvera",
-     "set": true
-    },
-    {
-     "code": 79415624,
-     "name": "Snake-Eyes Vengeance Dragon",
-     "zone": "emz"
-    }
-   ],
-   "hand": [
-    42141493
-   ],
-   "measure": {
-    "field": 1.491111111111111,
-    "hand": 0.0,
-    "floodgates": 0.0,
-    "resilience": 0.6639869281045753,
-    "follow_up": {
-     "gained": 0,
-     "rebuild": 0
-    }
-   }
-  },
-  {
-   "value": 1.8895032679738561,
-   "look_key": "4b56535492e13de8",
-   "field": [
-    {
-     "code": 84815190,
-     "name": "Baronne de Fleur"
-    },
-    {
-     "code": 72270339,
-     "name": "Diabellstar the Black Witch"
-    },
-    {
-     "code": 38648860,
-     "name": "Elzette, Azamina of the White Forest"
-    },
-    {
-     "code": 38511382,
-     "name": "Sinful Spoils of Betrayal - Silvera",
-     "set": true
-    },
-    {
-     "code": 79415624,
-     "name": "Snake-Eyes Vengeance Dragon",
-     "zone": "emz"
-    }
-   ],
-   "hand": [
-    42141493
-   ],
-   "measure": {
-    "field": 1.491111111111111,
-    "hand": 0.0,
-    "floodgates": 0.0,
-    "resilience": 0.6639869281045753,
-    "follow_up": {
-     "gained": 0,
-     "rebuild": 0
-    }
-   }
-  },
-  {
-   "value": 1.8895032679738561,
-   "look_key": "719d8ec87133ad83",
-   "field": [
-    {
-     "code": 84815190,
-     "name": "Baronne de Fleur"
-    },
-    {
-     "code": 72270339,
-     "name": "Diabellstar the Black Witch"
-    },
-    {
-     "code": 42141493,
-     "name": "Mulcharmy Fuwalos"
-    },
-    {
-     "code": 38511382,
-     "name": "Sinful Spoils of Betrayal - Silvera",
-     "set": true
-    },
-    {
-     "code": 79415624,
-     "name": "Snake-Eyes Vengeance Dragon",
-     "zone": "emz"
-    }
-   ],
-   "hand": [
-    42141493
-   ],
-   "measure": {
-    "field": 1.491111111111111,
-    "hand": 0.0,
-    "floodgates": 0.0,
-    "resilience": 0.6639869281045753,
-    "follow_up": {
-     "gained": 0,
-     "rebuild": 0
+     "gained": 1,
+     "rebuild": 1
     }
    }
   }
@@ -844,7 +831,7 @@
    [
     1,
     0,
-    1,
+    0,
     0
    ],
    [
@@ -891,10 +878,22 @@
     255
    ],
    [
-    0,
+    1,
     0,
     0,
     0
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
    ],
    [
     0,
@@ -905,7 +904,44 @@
     0,
     0,
     0,
-    4,
+    1,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    8,
+    1
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    0,
+    0,
+    0,
+    0,
+    1,
+    0,
+    0,
+    0,
+    0,
     0,
     0,
     0
@@ -921,6 +957,77 @@
     255,
     255,
     255
+   ],
+   [
+    1,
+    0,
+    0,
+    0
+   ],
+   [
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    4,
+    1
+   ],
+   [
+    1,
+    0,
+    0,
+    0
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    1,
+    0,
+    0,
+    0
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    0,
+    0,
+    0,
+    0,
+    1,
+    0,
+    0,
+    0,
+    1,
+    0,
+    0,
+    0
    ],
    [
     0,
@@ -942,7 +1049,7 @@
    [
     5,
     0,
-    0,
+    1,
     0
    ],
    [
@@ -980,7 +1087,7 @@
    [
     0,
     4,
-    0
+    2
    ],
    [
     1,
@@ -1048,163 +1155,6 @@
     255,
     255,
     255
-   ],
-   [
-    1,
-    0,
-    0,
-    0
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    0,
-    0,
-    0,
-    0,
-    1,
-    0,
-    0,
-    0,
-    1,
-    0,
-    0,
-    0
-   ],
-   [
-    0,
-    0,
-    0,
-    0
-   ],
-   [
-    0,
-    8,
-    2
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    0,
-    0,
-    0,
-    0,
-    1,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    1,
-    0,
-    0,
-    0
-   ],
-   [
-    1,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0
-   ],
-   [
-    0,
-    4,
-    1
-   ],
-   [
-    1,
-    0,
-    0,
-    0
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    1,
-    0,
-    0,
-    0
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    0,
-    0,
-    0,
-    0,
-    1,
-    0,
-    0,
-    0,
-    1,
-    0,
-    0,
-    0
-   ],
-   [
-    0,
-    8,
-    2
    ],
    [
     255,
@@ -1223,18 +1173,6 @@
     0,
     0,
     0
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    255,
-    255,
-    255,
-    255
    ]
   ]
  }

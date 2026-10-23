@@ -15,9 +15,13 @@
  "boards_found": 30959,
  "boards": [
   {
-   "value": 1.1639882352941178,
-   "look_key": "f3d38d4a218931d8",
+   "value": 2.2365677559912855,
+   "look_key": "62e61aa72cc420b6",
    "field": [
+    {
+     "code": 16195942,
+     "name": "Dark Rebellion Xyz Dragon"
+    },
     {
      "code": 90091224,
      "name": "Dark Rebellion Xyz Dragon of the Four Heavenly Dragons"
@@ -31,14 +35,6 @@
      "code": 88504133,
      "name": "Phantom Knights' Rank-Up-Magic Force",
      "set": true
-    },
-    {
-     "code": 90432163,
-     "name": "The Phantom Knights of Ancient Cloak"
-    },
-    {
-     "code": 83566725,
-     "name": "The Phantom Knights of Doomed Soleret"
     },
     {
      "code": 26692769,
@@ -59,10 +55,10 @@
     25538345
    ],
    "measure": {
-    "field": 0.7406666666666667,
+    "field": 1.471037037037037,
     "hand": 0.0,
     "floodgates": 0.0,
-    "resilience": 0.3055359477124184,
+    "resilience": 0.8758845315904141,
     "follow_up": {
      "gained": 1,
      "rebuild": 2
@@ -70,9 +66,13 @@
    }
   },
   {
-   "value": 1.1639882352941178,
-   "look_key": "16afd0283d00ee40",
+   "value": 2.1165677559912854,
+   "look_key": "864ff9768bc53348",
    "field": [
+    {
+     "code": 16195942,
+     "name": "Dark Rebellion Xyz Dragon"
+    },
     {
      "code": 90091224,
      "name": "Dark Rebellion Xyz Dragon of the Four Heavenly Dragons"
@@ -88,12 +88,8 @@
      "set": true
     },
     {
-     "code": 90432163,
-     "name": "The Phantom Knights of Ancient Cloak"
-    },
-    {
-     "code": 83566725,
-     "name": "The Phantom Knights of Doomed Soleret"
+     "code": 62709239,
+     "name": "The Phantom Knights of Break Sword"
     },
     {
      "code": 26692769,
@@ -110,69 +106,12 @@
      "set": true
     }
    ],
-   "hand": [
-    25538345
-   ],
+   "hand": [],
    "measure": {
-    "field": 0.7406666666666667,
+    "field": 1.471037037037037,
     "hand": 0.0,
     "floodgates": 0.0,
-    "resilience": 0.3055359477124184,
-    "follow_up": {
-     "gained": 1,
-     "rebuild": 2
-    }
-   }
-  },
-  {
-   "value": 1.0439882352941177,
-   "look_key": "1e1383cf294ed9bf",
-   "field": [
-    {
-     "code": 90091224,
-     "name": "Dark Rebellion Xyz Dragon of the Four Heavenly Dragons"
-    },
-    {
-     "code": 25542642,
-     "name": "Phantom Knights' Fog Blade",
-     "set": true
-    },
-    {
-     "code": 88504133,
-     "name": "Phantom Knights' Rank-Up-Magic Force",
-     "set": true
-    },
-    {
-     "code": 83566725,
-     "name": "The Phantom Knights of Doomed Soleret"
-    },
-    {
-     "code": 26692769,
-     "name": "The Phantom Knights of Rusty Bardiche",
-     "zone": "emz"
-    },
-    {
-     "code": 36426778,
-     "name": "The Phantom Knights of Silent Boots"
-    },
-    {
-     "code": 85257384,
-     "name": "The Phantom Knights of Umbrage Veil"
-    },
-    {
-     "code": 80845034,
-     "name": "WANTED: Seeker of Sinful Spoils",
-     "set": true
-    }
-   ],
-   "hand": [
-    25538345
-   ],
-   "measure": {
-    "field": 0.7406666666666667,
-    "hand": 0.0,
-    "floodgates": 0.0,
-    "resilience": 0.3055359477124184,
+    "resilience": 0.8758845315904141,
     "follow_up": {
      "gained": 1,
      "rebuild": 1
@@ -180,9 +119,13 @@
    }
   },
   {
-   "value": 1.0439882352941177,
-   "look_key": "1868d8c4b33c91be",
+   "value": 2.1165677559912854,
+   "look_key": "17ad9b8682b33996",
    "field": [
+    {
+     "code": 16195942,
+     "name": "Dark Rebellion Xyz Dragon"
+    },
     {
      "code": 90091224,
      "name": "Dark Rebellion Xyz Dragon of the Four Heavenly Dragons"
@@ -196,10 +139,6 @@
      "code": 88504133,
      "name": "Phantom Knights' Rank-Up-Magic Force",
      "set": true
-    },
-    {
-     "code": 83566725,
-     "name": "The Phantom Knights of Doomed Soleret"
     },
     {
      "code": 26692769,
@@ -220,14 +159,12 @@
      "set": true
     }
    ],
-   "hand": [
-    25538345
-   ],
+   "hand": [],
    "measure": {
-    "field": 0.7406666666666667,
+    "field": 1.471037037037037,
     "hand": 0.0,
     "floodgates": 0.0,
-    "resilience": 0.3055359477124184,
+    "resilience": 0.8758845315904141,
     "follow_up": {
      "gained": 1,
      "rebuild": 1
@@ -235,9 +172,13 @@
    }
   },
   {
-   "value": 1.0439882352941177,
-   "look_key": "edd8f5623104da39",
+   "value": 2.1165677559912854,
+   "look_key": "603f0c82f2517490",
    "field": [
+    {
+     "code": 16195942,
+     "name": "Dark Rebellion Xyz Dragon"
+    },
     {
      "code": 90091224,
      "name": "Dark Rebellion Xyz Dragon of the Four Heavenly Dragons"
@@ -253,17 +194,9 @@
      "set": true
     },
     {
-     "code": 83566725,
-     "name": "The Phantom Knights of Doomed Soleret"
-    },
-    {
      "code": 26692769,
      "name": "The Phantom Knights of Rusty Bardiche",
      "zone": "emz"
-    },
-    {
-     "code": 36426778,
-     "name": "The Phantom Knights of Silent Boots"
     },
     {
      "code": 85257384,
@@ -279,10 +212,61 @@
     25538345
    ],
    "measure": {
-    "field": 0.7406666666666667,
+    "field": 1.471037037037037,
     "hand": 0.0,
     "floodgates": 0.0,
-    "resilience": 0.3055359477124184,
+    "resilience": 0.8758845315904141,
+    "follow_up": {
+     "gained": 1,
+     "rebuild": 1
+    }
+   }
+  },
+  {
+   "value": 2.1165677559912854,
+   "look_key": "9c10fb30f3cc13b5",
+   "field": [
+    {
+     "code": 16195942,
+     "name": "Dark Rebellion Xyz Dragon"
+    },
+    {
+     "code": 90091224,
+     "name": "Dark Rebellion Xyz Dragon of the Four Heavenly Dragons"
+    },
+    {
+     "code": 25542642,
+     "name": "Phantom Knights' Fog Blade",
+     "set": true
+    },
+    {
+     "code": 88504133,
+     "name": "Phantom Knights' Rank-Up-Magic Force",
+     "set": true
+    },
+    {
+     "code": 26692769,
+     "name": "The Phantom Knights of Rusty Bardiche",
+     "zone": "emz"
+    },
+    {
+     "code": 85257384,
+     "name": "The Phantom Knights of Umbrage Veil"
+    },
+    {
+     "code": 80845034,
+     "name": "WANTED: Seeker of Sinful Spoils",
+     "set": true
+    }
+   ],
+   "hand": [
+    25538345
+   ],
+   "measure": {
+    "field": 1.471037037037037,
+    "hand": 0.0,
+    "floodgates": 0.0,
+    "resilience": 0.8758845315904141,
     "follow_up": {
      "gained": 1,
      "rebuild": 1
@@ -568,6 +552,64 @@
     255
    ],
    [
+    5,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    0,
+    0,
+    0,
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    0,
+    0,
+    0,
+    0,
+    1,
+    0,
+    0,
+    0,
+    4,
+    0,
+    0,
+    0
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
     1,
     0,
     0,
@@ -658,12 +700,99 @@
     0,
     0,
     0,
+    0
+   ],
+   [
+    0,
+    0,
+    0,
     0,
     1,
     0,
     0,
     0,
-    2,
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    0,
+    4,
+    0
+   ],
+   [
+    1,
+    0,
+    0,
+    0
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    5,
+    0,
+    0,
+    0
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    0,
+    0,
+    0,
+    0,
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    0,
+    0,
+    0,
+    1,
+    0,
+    0,
+    0,
+    1,
     0,
     0,
     0
@@ -764,7 +893,7 @@
    [
     0,
     4,
-    0
+    1
    ],
    [
     1,
@@ -799,7 +928,7 @@
     0,
     0,
     0,
-    4,
+    0,
     0,
     0,
     0
@@ -818,6 +947,26 @@
    ],
    [
     1,
+    0,
+    2,
+    0
+   ],
+   [
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    1,
+    0,
+    0,
+    0,
+    0,
     0,
     0,
     0
@@ -858,7 +1007,90 @@
     255
    ],
    [
+    5,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    0,
+    0,
+    0,
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    0,
+    0,
+    0,
+    0,
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
     4,
+    0
+   ],
+   [
+    1,
+    0,
+    0,
+    0
+   ],
+   [
+    1,
+    0,
+    0,
+    0
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    0,
+    0,
+    0,
+    0,
+    1,
+    0,
+    0,
+    0,
+    0,
     0,
     0,
     0
@@ -869,6 +1101,32 @@
     0
    ],
    [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    5,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    0,
+    0,
+    0,
+    1,
+    0,
+    0,
+    0,
     0,
     0,
     0,
@@ -892,24 +1150,16 @@
     2
    ],
    [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
     1,
     0,
-    2,
+    0,
     0
    ],
    [
+    0,
+    0,
+    0,
+    0,
     1,
     0,
     0,
@@ -920,6 +1170,10 @@
     0
    ],
    [
+    0,
+    0,
+    0,
+    0,
     1,
     0,
     0,
@@ -953,28 +1207,12 @@
     255
    ],
    [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    5,
+    1,
     0,
     0,
     0
    ],
    [
-    0,
-    0,
-    0,
-    0,
     1,
     0,
     0,
@@ -985,27 +1223,11 @@
     0
    ],
    [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    0,
-    0,
-    0,
-    0,
     1,
     0,
     0,
     0,
-    2,
+    0,
     0,
     0,
     0
@@ -1022,7 +1244,79 @@
     0
    ],
    [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
     1,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    0,
+    0,
+    0,
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    1,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    0,
+    0,
+    0,
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    0,
+    0,
+    0,
+    1,
+    0,
+    0,
+    0,
+    0,
     0,
     0,
     0
@@ -1041,14 +1335,40 @@
    ],
    [
     0,
-    0,
-    0,
-    0,
+    4,
+    0
+   ],
+   [
     1,
     0,
     0,
+    0
+   ],
+   [
+    0,
+    4,
+    2
+   ],
+   [
+    1,
     0,
     0,
+    0
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    4,
     0,
     0,
     0
@@ -1059,33 +1379,7 @@
     0
    ],
    [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    5,
     0,
-    0,
-    0
-   ],
-   [
-    0,
-    0,
-    0,
-    0,
-    1,
-    0,
-    0,
-    0,
-    1,
     0,
     0,
     0
@@ -1108,16 +1402,24 @@
     3
    ],
    [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
     1,
     0,
     0,
     0
    ],
    [
-    0,
-    0,
-    0,
-    0,
     1,
     0,
     0,
@@ -1128,10 +1430,6 @@
     0
    ],
    [
-    0,
-    0,
-    0,
-    0,
     1,
     0,
     0,
@@ -1144,13 +1442,25 @@
    [
     0,
     4,
-    1
+    0
    ],
    [
     1,
     0,
     0,
     0
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
    ],
    [
     255,

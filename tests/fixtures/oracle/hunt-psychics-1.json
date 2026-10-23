@@ -78,6 +78,34 @@
    }
   },
   {
+   "value": 0.9592592592592594,
+   "look_key": "f30fef5c0f8ac8b9",
+   "field": [
+    {
+     "code": 43685562,
+     "name": "Joruri-P.U.N.K. Dangerous Gabu",
+     "set": true
+    },
+    {
+     "code": 49370016,
+     "name": "P.U.N.K. JAM Extreme Session"
+    }
+   ],
+   "hand": [
+    14558127
+   ],
+   "measure": {
+    "field": 0.24429629629629637,
+    "hand": 0.5333333333333333,
+    "floodgates": 0.0,
+    "resilience": 0.19160493827160505,
+    "follow_up": {
+     "gained": 0,
+     "rebuild": 1
+    }
+   }
+  },
+  {
    "value": 0.9568907407407408,
    "look_key": "fd7d25edca202ced",
    "field": [
@@ -142,40 +170,6 @@
     "hand": 0.5333333333333333,
     "floodgates": 0.0,
     "resilience": 0.23602160493827168,
-    "follow_up": {
-     "gained": 0,
-     "rebuild": 0
-    }
-   }
-  },
-  {
-   "value": 0.8493185185185186,
-   "look_key": "683270eeda80edfb",
-   "field": [
-    {
-     "code": 50642380,
-     "name": "Gagaku-P.U.N.K. Wa Gon"
-    },
-    {
-     "code": 43685562,
-     "name": "Joruri-P.U.N.K. Dangerous Gabu",
-     "set": true
-    },
-    {
-     "code": 49370016,
-     "name": "P.U.N.K. JAM Extreme Session"
-    }
-   ],
-   "hand": [
-    95091919,
-    84192580,
-    14558127
-   ],
-   "measure": {
-    "field": 0.24429629629629637,
-    "hand": 0.5333333333333333,
-    "floodgates": 0.0,
-    "resilience": 0.20837037037037046,
     "follow_up": {
      "gained": 0,
      "rebuild": 0

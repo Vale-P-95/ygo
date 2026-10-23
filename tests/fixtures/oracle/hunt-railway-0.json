@@ -83,9 +83,46 @@
    }
   },
   {
-   "value": 2.0472338732594486,
-   "look_key": "991996026642a60e",
+   "value": 2.287233873259449,
+   "look_key": "99a0bc0fdcb386ee",
    "field": [
+    {
+     "code": 45116390,
+     "name": "Heavy Armored Knight Babeldecker"
+    },
+    {
+     "code": 76136345,
+     "name": "Revolving Switchyard"
+    },
+    {
+     "code": 70636044,
+     "name": "Varudras, the Final Bringer of the End Times",
+     "zone": "emz"
+    }
+   ],
+   "hand": [
+    13567610
+   ],
+   "measure": {
+    "field": 0.9227053140096618,
+    "hand": 0.0,
+    "floodgates": 0.9299999999999999,
+    "resilience": 0.4342142654163114,
+    "follow_up": {
+     "gained": 0,
+     "rebuild": 3
+    }
+   }
+  },
+  {
+   "value": 2.1672338732594487,
+   "look_key": "599a3ba42fdf1377",
+   "field": [
+    {
+     "code": 41739381,
+     "name": "Clockwork Knight",
+     "zone": "emz"
+    },
     {
      "code": 76136345,
      "name": "Revolving Switchyard"
@@ -96,10 +133,7 @@
     }
    ],
    "hand": [
-    81101309,
-    52782439,
-    46033517,
-    13567610
+    52782439
    ],
    "measure": {
     "field": 0.9227053140096618,
@@ -108,22 +142,14 @@
     "resilience": 0.4342142654163114,
     "follow_up": {
      "gained": 0,
-     "rebuild": 1
+     "rebuild": 2
     }
    }
   },
   {
-   "value": 2.0472338732594486,
-   "look_key": "481fbe5906619e0f",
+   "value": 2.1672338732594487,
+   "look_key": "5124e116a687ca44",
    "field": [
-    {
-     "code": 146746,
-     "name": "Double Headed Anger Knuckle"
-    },
-    {
-     "code": 81101309,
-     "name": "Night Train Blue Traveler"
-    },
     {
      "code": 76136345,
      "name": "Revolving Switchyard"
@@ -148,47 +174,7 @@
     "resilience": 0.4342142654163114,
     "follow_up": {
      "gained": 0,
-     "rebuild": 1
-    }
-   }
-  },
-  {
-   "value": 2.0472338732594486,
-   "look_key": "940ffb5bbffd7a18",
-   "field": [
-    {
-     "code": 146746,
-     "name": "Double Headed Anger Knuckle"
-    },
-    {
-     "code": 81101309,
-     "name": "Night Train Blue Traveler"
-    },
-    {
-     "code": 76136345,
-     "name": "Revolving Switchyard"
-    },
-    {
-     "code": 4334811,
-     "name": "Scrap Recycler"
-    },
-    {
-     "code": 70636044,
-     "name": "Varudras, the Final Bringer of the End Times",
-     "zone": "emz"
-    }
-   ],
-   "hand": [
-    52782439
-   ],
-   "measure": {
-    "field": 0.9227053140096618,
-    "hand": 0.0,
-    "floodgates": 0.9299999999999999,
-    "resilience": 0.4342142654163114,
-    "follow_up": {
-     "gained": 0,
-     "rebuild": 1
+     "rebuild": 2
     }
    }
   }

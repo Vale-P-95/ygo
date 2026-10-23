@@ -15,25 +15,24 @@
  "boards_found": 24029,
  "boards": [
   {
-   "value": 1.7908017429193896,
-   "look_key": "470e02f3dfc106d8",
+   "value": 2.337388671023965,
+   "look_key": "eab639d1ed432cd5",
    "field": [
-    {
-     "code": 5318639,
-     "name": "Mystical Space Typhoon",
-     "set": true
-    },
     {
      "code": 26973555,
      "name": "Number F0: Utopic Draco Future"
     },
     {
-     "code": 16922142,
-     "name": "Radiant Typhoon Krosea"
+     "code": 85315450,
+     "name": "Radiant Typhoon Fonix, the Great Flame"
     },
     {
      "code": 53813120,
      "name": "Radiant Typhoon Mandate"
+    },
+    {
+     "code": 27755794,
+     "name": "Radiant Typhoon Meghala"
     },
     {
      "code": 39341885,
@@ -50,160 +49,13 @@
     14558127,
     4145852,
     23434538,
-    5318639
+    67115133
    ],
    "measure": {
-    "field": 0.8962962962962961,
+    "field": 1.2578518518518518,
     "hand": 0.58,
     "floodgates": 0.0,
-    "resilience": 0.6208424110384894,
-    "follow_up": {
-     "gained": 2,
-     "rebuild": 0
-    }
-   }
-  },
-  {
-   "value": 1.7908017429193896,
-   "look_key": "443ad557d69421f2",
-   "field": [
-    {
-     "code": 5318639,
-     "name": "Mystical Space Typhoon",
-     "set": true
-    },
-    {
-     "code": 26973555,
-     "name": "Number F0: Utopic Draco Future"
-    },
-    {
-     "code": 53813120,
-     "name": "Radiant Typhoon Mandate"
-    },
-    {
-     "code": 80538047,
-     "name": "Radiant Typhoon Swen"
-    },
-    {
-     "code": 39341885,
-     "name": "Radiant Typhoon Varuroon, the Marine Eidolon",
-     "zone": "emz"
-    },
-    {
-     "code": 20508881,
-     "name": "Radiant Typhoon Vision",
-     "set": true
-    }
-   ],
-   "hand": [
-    14558127,
-    4145852,
-    23434538,
-    5318639
-   ],
-   "measure": {
-    "field": 0.8962962962962961,
-    "hand": 0.58,
-    "floodgates": 0.0,
-    "resilience": 0.6208424110384894,
-    "follow_up": {
-     "gained": 2,
-     "rebuild": 0
-    }
-   }
-  },
-  {
-   "value": 1.7908017429193896,
-   "look_key": "7bfd99b78e3d9d25",
-   "field": [
-    {
-     "code": 5318639,
-     "name": "Mystical Space Typhoon",
-     "set": true
-    },
-    {
-     "code": 26973555,
-     "name": "Number F0: Utopic Draco Future"
-    },
-    {
-     "code": 54143349,
-     "name": "Radiant Typhoon Eldam"
-    },
-    {
-     "code": 53813120,
-     "name": "Radiant Typhoon Mandate"
-    },
-    {
-     "code": 39341885,
-     "name": "Radiant Typhoon Varuroon, the Marine Eidolon",
-     "zone": "emz"
-    },
-    {
-     "code": 20508881,
-     "name": "Radiant Typhoon Vision",
-     "set": true
-    }
-   ],
-   "hand": [
-    14558127,
-    4145852,
-    23434538,
-    5318639
-   ],
-   "measure": {
-    "field": 0.8962962962962961,
-    "hand": 0.58,
-    "floodgates": 0.0,
-    "resilience": 0.6208424110384894,
-    "follow_up": {
-     "gained": 2,
-     "rebuild": 0
-    }
-   }
-  },
-  {
-   "value": 1.398862745098039,
-   "look_key": "9769278a2a788462",
-   "field": [
-    {
-     "code": 5318639,
-     "name": "Mystical Space Typhoon",
-     "set": true
-    },
-    {
-     "code": 26973555,
-     "name": "Number F0: Utopic Draco Future"
-    },
-    {
-     "code": 53813120,
-     "name": "Radiant Typhoon Mandate"
-    },
-    {
-     "code": 80538047,
-     "name": "Radiant Typhoon Swen"
-    },
-    {
-     "code": 39341885,
-     "name": "Radiant Typhoon Varuroon, the Marine Eidolon",
-     "zone": "emz"
-    },
-    {
-     "code": 20508881,
-     "name": "Radiant Typhoon Vision",
-     "set": true
-    }
-   ],
-   "hand": [
-    14558127,
-    4145852,
-    23434538,
-    25940932
-   ],
-   "measure": {
-    "field": 0.637037037037037,
-    "hand": 0.58,
-    "floodgates": 0.0,
-    "resilience": 0.3997095134350036,
+    "resilience": 0.9292280319535221,
     "follow_up": {
      "gained": 0,
      "rebuild": 0
@@ -211,14 +63,57 @@
    }
   },
   {
-   "value": 1.398862745098039,
-   "look_key": "6a3f4f01d3be1471",
+   "value": 2.1693028322440084,
+   "look_key": "f8d6119f9b04b98e",
    "field": [
     {
-     "code": 5318639,
-     "name": "Mystical Space Typhoon",
-     "set": true
+     "code": 26973555,
+     "name": "Number F0: Utopic Draco Future"
     },
+    {
+     "code": 53813120,
+     "name": "Radiant Typhoon Mandate"
+    },
+    {
+     "code": 27755794,
+     "name": "Radiant Typhoon Meghala"
+    },
+    {
+     "code": 39341885,
+     "name": "Radiant Typhoon Varuroon, the Marine Eidolon",
+     "zone": "emz"
+    },
+    {
+     "code": 53927851,
+     "name": "Radiant Typhoon Varuroon, the Vibrant Vortex"
+    },
+    {
+     "code": 20508881,
+     "name": "Radiant Typhoon Vision",
+     "set": true
+    }
+   ],
+   "hand": [
+    14558127,
+    4145852,
+    23434538,
+    67115133
+   ],
+   "measure": {
+    "field": 1.1466666666666665,
+    "hand": 0.58,
+    "floodgates": 0.0,
+    "resilience": 0.8343936092955702,
+    "follow_up": {
+     "gained": 0,
+     "rebuild": 0
+    }
+   }
+  },
+  {
+   "value": 2.1273028322440086,
+   "look_key": "e94c8fbfc407fab5",
+   "field": [
     {
      "code": 26973555,
      "name": "Number F0: Utopic Draco Future"
@@ -232,9 +127,17 @@
      "name": "Radiant Typhoon Mandate"
     },
     {
+     "code": 27755794,
+     "name": "Radiant Typhoon Meghala"
+    },
+    {
      "code": 39341885,
      "name": "Radiant Typhoon Varuroon, the Marine Eidolon",
      "zone": "emz"
+    },
+    {
+     "code": 53927851,
+     "name": "Radiant Typhoon Varuroon, the Vibrant Vortex"
     },
     {
      "code": 20508881,
@@ -245,14 +148,109 @@
    "hand": [
     14558127,
     4145852,
-    23434538,
-    25940932
+    67115133
    ],
    "measure": {
-    "field": 0.637037037037037,
-    "hand": 0.58,
+    "field": 1.1466666666666665,
+    "hand": 0.5333333333333333,
     "floodgates": 0.0,
-    "resilience": 0.3997095134350036,
+    "resilience": 0.8343936092955702,
+    "follow_up": {
+     "gained": 2,
+     "rebuild": 0
+    }
+   }
+  },
+  {
+   "value": 2.1273028322440086,
+   "look_key": "311569a254a9e006",
+   "field": [
+    {
+     "code": 26973555,
+     "name": "Number F0: Utopic Draco Future"
+    },
+    {
+     "code": 53813120,
+     "name": "Radiant Typhoon Mandate"
+    },
+    {
+     "code": 27755794,
+     "name": "Radiant Typhoon Meghala"
+    },
+    {
+     "code": 80538047,
+     "name": "Radiant Typhoon Swen"
+    },
+    {
+     "code": 39341885,
+     "name": "Radiant Typhoon Varuroon, the Marine Eidolon",
+     "zone": "emz"
+    },
+    {
+     "code": 53927851,
+     "name": "Radiant Typhoon Varuroon, the Vibrant Vortex"
+    },
+    {
+     "code": 20508881,
+     "name": "Radiant Typhoon Vision",
+     "set": true
+    }
+   ],
+   "hand": [
+    14558127,
+    4145852,
+    67115133
+   ],
+   "measure": {
+    "field": 1.1466666666666665,
+    "hand": 0.5333333333333333,
+    "floodgates": 0.0,
+    "resilience": 0.8343936092955702,
+    "follow_up": {
+     "gained": 2,
+     "rebuild": 0
+    }
+   }
+  },
+  {
+   "value": 2.0719433551198256,
+   "look_key": "6315c0b992b63ad7",
+   "field": [
+    {
+     "code": 26973555,
+     "name": "Number F0: Utopic Draco Future"
+    },
+    {
+     "code": 16922142,
+     "name": "Radiant Typhoon Krosea"
+    },
+    {
+     "code": 27755794,
+     "name": "Radiant Typhoon Meghala"
+    },
+    {
+     "code": 80538047,
+     "name": "Radiant Typhoon Swen"
+    },
+    {
+     "code": 53927851,
+     "name": "Radiant Typhoon Varuroon, the Vibrant Vortex"
+    },
+    {
+     "code": 20508881,
+     "name": "Radiant Typhoon Vision",
+     "set": true
+    }
+   ],
+   "hand": [
+    4145852,
+    14558127
+   ],
+   "measure": {
+    "field": 1.1933333333333331,
+    "hand": 0.5333333333333333,
+    "floodgates": 0.0,
+    "resilience": 0.6643500363108207,
     "follow_up": {
      "gained": 0,
      "rebuild": 0
@@ -778,7 +776,7 @@
    [
     1,
     0,
-    2,
+    0,
     0
    ],
    [
@@ -1002,7 +1000,7 @@
     0,
     0,
     0,
-    0,
+    1,
     0,
     0,
     0
@@ -1045,10 +1043,28 @@
     0,
     0,
     0,
+    1,
+    0,
+    0,
+    0
+   ],
+   [
     0,
     0,
     0,
     0
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
    ],
    [
     0,
@@ -1062,6 +1078,86 @@
     0
    ],
    [
+    1,
+    0,
+    0,
+    0
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    1,
+    0,
+    0,
+    0,
+    4,
+    0,
+    0,
+    0
+   ],
+   [
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    8,
+    1
+   ],
+   [
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    1,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    8,
+    2
+   ],
+   [
+    0,
+    0,
+    0,
+    0,
+    1,
+    0,
+    0,
+    0,
     0,
     0,
     0,
@@ -1078,6 +1174,61 @@
     255,
     255,
     255
+   ],
+   [
+    0,
+    0,
+    0,
+    0,
+    1,
+    0,
+    0,
+    0,
+    1,
+    0,
+    0,
+    0
+   ],
+   [
+    1,
+    0,
+    0,
+    0
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    0,
+    8,
+    1
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    1,
+    0,
+    2,
+    0
    ],
    [
     0,
@@ -1091,12 +1242,6 @@
     0
    ],
    [
-    1,
-    0,
-    0,
-    0
-   ],
-   [
     255,
     255,
     255,
@@ -1107,26 +1252,6 @@
     255,
     255,
     255
-   ],
-   [
-    1,
-    0,
-    0,
-    0,
-    4,
-    0,
-    0,
-    0
-   ],
-   [
-    1,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0
    ],
    [
     255,
@@ -1210,33 +1335,10 @@
     0,
     0,
     0,
-    0,
-    0,
-    0,
-    0
-   ],
-   [
-    0,
+    2,
     0,
     0,
     0
-   ],
-   [
-    0,
-    8,
-    1
-   ],
-   [
-    0,
-    0,
-    0,
-    0
-   ],
-   [
-    255,
-    255,
-    255,
-    255
    ],
    [
     1,
@@ -1277,14 +1379,6 @@
    ],
    [
     0,
-    0,
-    0,
-    0,
-    1,
-    0,
-    0,
-    0,
-    1,
     0,
     0,
     0
@@ -1334,22 +1428,13 @@
    ],
    [
     0,
-    8,
-    2
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
+    0,
+    0,
+    0,
+    1,
+    0,
+    0,
+    0,
     4,
     0,
     0,
@@ -1357,56 +1442,8 @@
    ],
    [
     0,
-    8,
-    3
-   ],
-   [
-    1,
-    0,
-    0,
-    0
-   ],
-   [
-    1,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0
-   ],
-   [
-    1,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0
-   ],
-   [
-    1,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    255,
-    255,
-    255,
-    255
+    4,
+    1
    ],
    [
     1,
@@ -1417,31 +1454,15 @@
    [
     0,
     8,
+    2
+   ],
+   [
+    1,
+    0,
+    0,
     0
    ],
    [
-    0,
-    0,
-    0,
-    0
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    0,
-    0,
-    0,
-    0,
     1,
     0,
     0,
@@ -1450,6 +1471,38 @@
     0,
     0,
     0
+   ],
+   [
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
    ],
    [
     255,

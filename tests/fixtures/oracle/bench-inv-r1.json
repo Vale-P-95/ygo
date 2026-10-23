@@ -86,6 +86,70 @@
    }
   },
   {
+   "value": 2.434429193899782,
+   "look_key": "9119db4edcd40ffe",
+   "field": [
+    {
+     "code": 84815190,
+     "name": "Baronne de Fleur"
+    },
+    {
+     "code": 37432075,
+     "name": "Invocation - \"Sword\"",
+     "set": true
+    }
+   ],
+   "hand": [
+    875572,
+    14558127
+   ],
+   "measure": {
+    "field": 1.295925925925926,
+    "hand": 0.5333333333333333,
+    "floodgates": 0.0,
+    "resilience": 0.4975054466230938,
+    "follow_up": {
+     "gained": 1,
+     "rebuild": 3
+    }
+   }
+  },
+  {
+   "value": 2.1356056644880175,
+   "look_key": "e1933a90bab70b98",
+   "field": [
+    {
+     "code": 37432075,
+     "name": "Invocation - \"Sword\"",
+     "set": true
+    },
+    {
+     "code": 75286621,
+     "name": "Invoked Mechaba",
+     "zone": "emz"
+    },
+    {
+     "code": 10673071,
+     "name": "Virakam, the Divine Spirit of Artifice"
+    }
+   ],
+   "hand": [
+    14558127,
+    875572,
+    74063034
+   ],
+   "measure": {
+    "field": 1.295925925925926,
+    "hand": 0.5333333333333333,
+    "floodgates": 0.0,
+    "resilience": 0.39946623093681927,
+    "follow_up": {
+     "gained": 2,
+     "rebuild": 1
+    }
+   }
+  },
+  {
    "value": 2.117368736383442,
    "look_key": "ec18f6e77fb95813",
    "field": [
@@ -120,77 +184,6 @@
     "follow_up": {
      "gained": 1,
      "rebuild": 3
-    }
-   }
-  },
-  {
-   "value": 2.0256933551198255,
-   "look_key": "f5b4de8c09e9d332",
-   "field": [
-    {
-     "code": 37432075,
-     "name": "Invocation - \"Sword\"",
-     "set": true
-    },
-    {
-     "code": 75286621,
-     "name": "Invoked Mechaba"
-    },
-    {
-     "code": 29301450,
-     "name": "S:P Little Knight",
-     "zone": "emz"
-    }
-   ],
-   "hand": [
-    875572,
-    86120752,
-    14558127,
-    57294268
-   ],
-   "measure": {
-    "field": 1.0932037037037037,
-    "hand": 0.5333333333333333,
-    "floodgates": 0.0,
-    "resilience": 0.5541494190268701,
-    "follow_up": {
-     "gained": 1,
-     "rebuild": 1
-    }
-   }
-  },
-  {
-   "value": 1.8005729847494556,
-   "look_key": "51ac4dfa7d84259f",
-   "field": [
-    {
-     "code": 37432075,
-     "name": "Invocation - \"Sword\"",
-     "set": true
-    },
-    {
-     "code": null,
-     "name": "Invoked Dee Anima"
-    },
-    {
-     "code": 75286621,
-     "name": "Invoked Mechaba",
-     "zone": "emz"
-    }
-   ],
-   "hand": [
-    875572,
-    86120752,
-    14558127
-   ],
-   "measure": {
-    "field": 0.932962962962963,
-    "hand": 0.5333333333333333,
-    "floodgates": 0.0,
-    "resilience": 0.44601670297748736,
-    "follow_up": {
-     "gained": 2,
-     "rebuild": 1
     }
    }
   }
