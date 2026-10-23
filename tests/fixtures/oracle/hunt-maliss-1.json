@@ -1,0 +1,394 @@
+{
+ "id": "hunt-maliss-1",
+ "deck": "maliss.ydk",
+ "hand": [
+  59438930,
+  3723262,
+  83566725,
+  75500286,
+  68337209
+ ],
+ "deck_hash": "3100eb5f6c3027a6",
+ "seed": 7,
+ "goal": "",
+ "nodes": 200000,
+ "boards_found": 41090,
+ "boards": [
+  {
+   "value": 0.6315032679738561,
+   "look_key": "b0eb5e266880e762",
+   "field": [
+    {
+     "code": 68337209,
+     "name": "Maliss in Underground"
+    },
+    {
+     "code": 71166481,
+     "name": "Number 75: Bamboozling Gossip Shadow",
+     "zone": "emz"
+    },
+    {
+     "code": 85257384,
+     "name": "The Phantom Knights of Umbrage Veil",
+     "set": true
+    }
+   ],
+   "hand": [
+    3723262,
+    75500286
+   ],
+   "measure": {
+    "field": 0.44592592592592584,
+    "hand": 0.0,
+    "floodgates": 0.0,
+    "resilience": 0.1092955700798838,
+    "follow_up": {
+     "gained": 1,
+     "rebuild": 1
+    }
+   }
+  },
+  {
+   "value": 0.6315032679738561,
+   "look_key": "f715fe51aecd5f7a",
+   "field": [
+    {
+     "code": 71166481,
+     "name": "Number 75: Bamboozling Gossip Shadow"
+    },
+    {
+     "code": 85257384,
+     "name": "The Phantom Knights of Umbrage Veil",
+     "set": true
+    }
+   ],
+   "hand": [
+    3723262,
+    75500286,
+    68337209
+   ],
+   "measure": {
+    "field": 0.44592592592592584,
+    "hand": 0.0,
+    "floodgates": 0.0,
+    "resilience": 0.1092955700798838,
+    "follow_up": {
+     "gained": 1,
+     "rebuild": 1
+    }
+   }
+  },
+  {
+   "value": 0.6250588235294116,
+   "look_key": "394d23a4973fd214",
+   "field": [
+    {
+     "code": 59438930,
+     "name": "Ghost Ogre & Snow Rabbit"
+    },
+    {
+     "code": 68337209,
+     "name": "Maliss in Underground"
+    },
+    {
+     "code": 71166481,
+     "name": "Number 75: Bamboozling Gossip Shadow"
+    }
+   ],
+   "hand": [
+    3723262,
+    75500286
+   ],
+   "measure": {
+    "field": 0.5340740740740739,
+    "hand": 0.0,
+    "floodgates": 0.0,
+    "resilience": 0.15164124909222945,
+    "follow_up": {
+     "gained": 0,
+     "rebuild": 0
+    }
+   }
+  },
+  {
+   "value": 0.609350762527233,
+   "look_key": "7dabbd7d9b9b596b",
+   "field": [
+    {
+     "code": 59438930,
+     "name": "Ghost Ogre & Snow Rabbit"
+    },
+    {
+     "code": 71166481,
+     "name": "Number 75: Bamboozling Gossip Shadow"
+    }
+   ],
+   "hand": [
+    3723262,
+    75500286,
+    68337209
+   ],
+   "measure": {
+    "field": 0.5340740740740739,
+    "hand": 0.0,
+    "floodgates": 0.0,
+    "resilience": 0.1254611474219317,
+    "follow_up": {
+     "gained": 0,
+     "rebuild": 0
+    }
+   }
+  },
+  {
+   "value": 0.5908366013071894,
+   "look_key": "8fedd759f58f028c",
+   "field": [
+    {
+     "code": 68337209,
+     "name": "Maliss in Underground"
+    },
+    {
+     "code": 71166481,
+     "name": "Number 75: Bamboozling Gossip Shadow",
+     "zone": "emz"
+    }
+   ],
+   "hand": [
+    59438930,
+    3723262,
+    75500286
+   ],
+   "measure": {
+    "field": 0.44592592592592584,
+    "hand": 0.08814814814814813,
+    "floodgates": 0.0,
+    "resilience": 0.1092955700798838,
+    "follow_up": {
+     "gained": 0,
+     "rebuild": 0
+    }
+   }
+  }
+ ],
+ "other_seeds": [],
+ "line": {
+  "answers": [
+   [
+    1,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    4,
+    0
+   ],
+   [
+    1,
+    0,
+    0,
+    0
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    1,
+    0,
+    0,
+    0
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    0,
+    0,
+    0,
+    0,
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    8,
+    1
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    4,
+    1
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    1,
+    0,
+    0,
+    0
+   ],
+   [
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    4,
+    5
+   ],
+   [
+    1,
+    0,
+    0,
+    0
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    5,
+    0,
+    1,
+    0
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    7,
+    0,
+    0,
+    0
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ]
+  ]
+ }
+}

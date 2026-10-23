@@ -1,0 +1,346 @@
+{
+ "id": "hunt-orcust-0",
+ "deck": "orcust.ydk",
+ "hand": [
+  23434538,
+  10045474,
+  24299458,
+  10045474,
+  59438930
+ ],
+ "deck_hash": "03a39140255b233a",
+ "seed": 7,
+ "goal": "",
+ "nodes": 200000,
+ "boards_found": 30,
+ "boards": [
+  {
+   "value": 1.1646108932461876,
+   "look_key": "02b52a41a5dab908",
+   "field": [
+    {
+     "code": 24299458,
+     "name": "Forbidden Droplet",
+     "set": true
+    },
+    {
+     "code": 59438930,
+     "name": "Ghost Ogre & Snow Rabbit"
+    },
+    {
+     "code": 10045474,
+     "name": "Infinite Impermanence",
+     "set": true
+    },
+    {
+     "code": 10045474,
+     "name": "Infinite Impermanence",
+     "set": true
+    }
+   ],
+   "hand": [
+    23434538
+   ],
+   "measure": {
+    "field": 0.7634074074074075,
+    "hand": 0.04740740740740742,
+    "floodgates": 0.0,
+    "resilience": 0.5975613652868558,
+    "follow_up": {
+     "gained": 0,
+     "rebuild": 0
+    }
+   }
+  },
+  {
+   "value": 1.1150283224400874,
+   "look_key": "afeba8ced0cbd6d1",
+   "field": [
+    {
+     "code": 24299458,
+     "name": "Forbidden Droplet",
+     "set": true
+    },
+    {
+     "code": 10045474,
+     "name": "Infinite Impermanence",
+     "set": true
+    },
+    {
+     "code": 10045474,
+     "name": "Infinite Impermanence",
+     "set": true
+    }
+   ],
+   "hand": [
+    23434538,
+    59438930
+   ],
+   "measure": {
+    "field": 0.6752592592592594,
+    "hand": 0.13555555555555554,
+    "floodgates": 0.0,
+    "resilience": 0.52961510530138,
+    "follow_up": {
+     "gained": 0,
+     "rebuild": 0
+    }
+   }
+  },
+  {
+   "value": 1.100166448801743,
+   "look_key": "c9a3a5c17f5b3347",
+   "field": [
+    {
+     "code": 24299458,
+     "name": "Forbidden Droplet",
+     "set": true
+    },
+    {
+     "code": 10045474,
+     "name": "Infinite Impermanence",
+     "set": true
+    },
+    {
+     "code": 10045474,
+     "name": "Infinite Impermanence",
+     "set": true
+    },
+    {
+     "code": 23434538,
+     "name": "Maxx \"C\""
+    }
+   ],
+   "hand": [
+    59438930
+   ],
+   "measure": {
+    "field": 0.6752592592592594,
+    "hand": 0.08814814814814813,
+    "floodgates": 0.0,
+    "resilience": 0.5759564270152507,
+    "follow_up": {
+     "gained": 0,
+     "rebuild": 0
+    }
+   }
+  },
+  {
+   "value": 1.0723616557734208,
+   "look_key": "9b41758adc996627",
+   "field": [
+    {
+     "code": 24299458,
+     "name": "Forbidden Droplet",
+     "set": true
+    },
+    {
+     "code": 10045474,
+     "name": "Infinite Impermanence",
+     "set": true
+    },
+    {
+     "code": 10045474,
+     "name": "Infinite Impermanence",
+     "set": true
+    },
+    {
+     "code": 23434538,
+     "name": "Maxx \"C\"",
+     "set": true
+    }
+   ],
+   "hand": [
+    59438930
+   ],
+   "measure": {
+    "field": 0.6752592592592594,
+    "hand": 0.08814814814814813,
+    "floodgates": 0.0,
+    "resilience": 0.52961510530138,
+    "follow_up": {
+     "gained": 0,
+     "rebuild": 0
+    }
+   }
+  },
+  {
+   "value": 1.0356949891067542,
+   "look_key": "b31eb54c56a20e58",
+   "field": [
+    {
+     "code": 24299458,
+     "name": "Forbidden Droplet",
+     "set": true
+    },
+    {
+     "code": 59438930,
+     "name": "Ghost Ogre & Snow Rabbit",
+     "set": true
+    },
+    {
+     "code": 10045474,
+     "name": "Infinite Impermanence",
+     "set": true
+    },
+    {
+     "code": 10045474,
+     "name": "Infinite Impermanence",
+     "set": true
+    }
+   ],
+   "hand": [
+    23434538
+   ],
+   "measure": {
+    "field": 0.6752592592592594,
+    "hand": 0.04740740740740742,
+    "floodgates": 0.0,
+    "resilience": 0.52961510530138,
+    "follow_up": {
+     "gained": 0,
+     "rebuild": 0
+    }
+   }
+  }
+ ],
+ "other_seeds": [],
+ "line": {
+  "answers": [
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    0,
+    0,
+    1,
+    0
+   ],
+   [
+    0,
+    4,
+    0
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    4,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    8,
+    1
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    4,
+    0,
+    1,
+    0
+   ],
+   [
+    0,
+    8,
+    2
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    4,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    8,
+    3
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    7,
+    0,
+    0,
+    0
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ]
+  ]
+ }
+}

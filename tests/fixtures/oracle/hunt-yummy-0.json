@@ -1,0 +1,253 @@
+{
+ "id": "hunt-yummy-0",
+ "deck": "yummy.ydk",
+ "hand": [
+  25311006,
+  59438930,
+  42141493,
+  14558127,
+  29369059
+ ],
+ "deck_hash": "99f21fd1dd010524",
+ "seed": 7,
+ "goal": "",
+ "nodes": 200000,
+ "boards_found": 20,
+ "boards": [
+  {
+   "value": 0.5842222222222222,
+   "look_key": "85dd4bd3b66e3639",
+   "field": [
+    {
+     "code": 59438930,
+     "name": "Ghost Ogre & Snow Rabbit"
+    },
+    {
+     "code": 29369059,
+     "name": "Yummy\u2606Surprise",
+     "set": true
+    }
+   ],
+   "hand": [
+    25311006,
+    42141493,
+    14558127
+   ],
+   "measure": {
+    "field": 0.08814814814814813,
+    "hand": 0.5333333333333333,
+    "floodgates": 0.0,
+    "resilience": 0.02679012345679012,
+    "follow_up": {
+     "gained": 0,
+     "rebuild": 0
+    }
+   }
+  },
+  {
+   "value": 0.5816296296296296,
+   "look_key": "cd90e0f99dcd65a3",
+   "field": [
+    {
+     "code": 59438930,
+     "name": "Ghost Ogre & Snow Rabbit"
+    }
+   ],
+   "hand": [
+    25311006,
+    42141493,
+    14558127,
+    29369059
+   ],
+   "measure": {
+    "field": 0.08814814814814813,
+    "hand": 0.5333333333333333,
+    "floodgates": 0.0,
+    "resilience": 0.022469135802469134,
+    "follow_up": {
+     "gained": 0,
+     "rebuild": 0
+    }
+   }
+  },
+  {
+   "value": 0.5593333333333332,
+   "look_key": "2ba79f31b34d9f2e",
+   "field": [
+    {
+     "code": 42141493,
+     "name": "Mulcharmy Fuwalos",
+     "set": true
+    },
+    {
+     "code": 29369059,
+     "name": "Yummy\u2606Surprise",
+     "set": true
+    }
+   ],
+   "hand": [
+    25311006,
+    59438930,
+    14558127
+   ],
+   "measure": {
+    "field": 0.0,
+    "hand": 0.6214814814814814,
+    "floodgates": 0.0,
+    "resilience": 0.0,
+    "follow_up": {
+     "gained": 0,
+     "rebuild": 0
+    }
+   }
+  },
+  {
+   "value": 0.5593333333333332,
+   "look_key": "e0b8d9161372cf0c",
+   "field": [
+    {
+     "code": 42141493,
+     "name": "Mulcharmy Fuwalos"
+    },
+    {
+     "code": 29369059,
+     "name": "Yummy\u2606Surprise",
+     "set": true
+    }
+   ],
+   "hand": [
+    25311006,
+    59438930,
+    14558127
+   ],
+   "measure": {
+    "field": 0.0,
+    "hand": 0.6214814814814814,
+    "floodgates": 0.0,
+    "resilience": 0.0,
+    "follow_up": {
+     "gained": 0,
+     "rebuild": 0
+    }
+   }
+  },
+  {
+   "value": 0.5593333333333332,
+   "look_key": "3d393e65871d8222",
+   "field": [
+    {
+     "code": 60303245,
+     "name": "Salamangreat Almiraj",
+     "zone": "emz"
+    },
+    {
+     "code": 29369059,
+     "name": "Yummy\u2606Surprise",
+     "set": true
+    }
+   ],
+   "hand": [
+    25311006,
+    59438930,
+    14558127
+   ],
+   "measure": {
+    "field": 0.0,
+    "hand": 0.6214814814814814,
+    "floodgates": 0.0,
+    "resilience": 0.0,
+    "follow_up": {
+     "gained": 0,
+     "rebuild": 0
+    }
+   }
+  }
+ ],
+ "other_seeds": [],
+ "line": {
+  "answers": [
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    4,
+    0,
+    1,
+    0
+   ],
+   [
+    0,
+    8,
+    1
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    4,
+    0
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    7,
+    0,
+    0,
+    0
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ]
+  ]
+ }
+}

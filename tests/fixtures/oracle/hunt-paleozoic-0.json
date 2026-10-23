@@ -1,0 +1,405 @@
+{
+ "id": "hunt-paleozoic-0",
+ "deck": "paleozoic.ydk",
+ "hand": [
+  83232904,
+  7608148,
+  10000000,
+  38761908,
+  38761908
+ ],
+ "deck_hash": "4c59e883736f624e",
+ "seed": 7,
+ "goal": "",
+ "nodes": 200000,
+ "boards_found": 468,
+ "boards": [
+  {
+   "value": 0.18472592592592593,
+   "look_key": "973d497d30ce87b0",
+   "field": [
+    {
+     "code": 82159583,
+     "name": "Clown Crew Biancaviso"
+    },
+    {
+     "code": 19491080,
+     "name": "Clown Crew Cappello"
+    },
+    {
+     "code": 38761908,
+     "name": "Paleozoic Dinomischus",
+     "set": true
+    },
+    {
+     "code": 38761908,
+     "name": "Paleozoic Dinomischus",
+     "set": true
+    },
+    {
+     "code": 7608148,
+     "name": "Vivid Tail",
+     "set": true
+    }
+   ],
+   "hand": [
+    10000000
+   ],
+   "measure": {
+    "field": 0.04281481481481482,
+    "hand": 0.0,
+    "floodgates": 0.0,
+    "resilience": 0.03651851851851852,
+    "follow_up": {
+     "gained": 3,
+     "rebuild": 1
+    }
+   }
+  },
+  {
+   "value": 0.18472592592592593,
+   "look_key": "09fae119f963c716",
+   "field": [
+    {
+     "code": 82159583,
+     "name": "Clown Crew Biancaviso"
+    },
+    {
+     "code": 82159583,
+     "name": "Clown Crew Biancaviso"
+    },
+    {
+     "code": 38761908,
+     "name": "Paleozoic Dinomischus",
+     "set": true
+    },
+    {
+     "code": 38761908,
+     "name": "Paleozoic Dinomischus",
+     "set": true
+    },
+    {
+     "code": 7608148,
+     "name": "Vivid Tail",
+     "set": true
+    }
+   ],
+   "hand": [
+    10000000
+   ],
+   "measure": {
+    "field": 0.04281481481481482,
+    "hand": 0.0,
+    "floodgates": 0.0,
+    "resilience": 0.03651851851851852,
+    "follow_up": {
+     "gained": 3,
+     "rebuild": 1
+    }
+   }
+  },
+  {
+   "value": 0.18472592592592593,
+   "look_key": "b6acee90c2058dc2",
+   "field": [
+    {
+     "code": 82159583,
+     "name": "Clown Crew Biancaviso"
+    },
+    {
+     "code": 91237821,
+     "name": "Clown Crew Fiends",
+     "zone": "emz"
+    },
+    {
+     "code": 38761908,
+     "name": "Paleozoic Dinomischus",
+     "set": true
+    },
+    {
+     "code": 38761908,
+     "name": "Paleozoic Dinomischus",
+     "set": true
+    },
+    {
+     "code": 7608148,
+     "name": "Vivid Tail",
+     "set": true
+    }
+   ],
+   "hand": [
+    10000000
+   ],
+   "measure": {
+    "field": 0.04281481481481482,
+    "hand": 0.0,
+    "floodgates": 0.0,
+    "resilience": 0.03651851851851852,
+    "follow_up": {
+     "gained": 2,
+     "rebuild": 1
+    }
+   }
+  },
+  {
+   "value": 0.18472592592592593,
+   "look_key": "a73b08dcb0d5a8be",
+   "field": [
+    {
+     "code": 31533473,
+     "name": "Clown Crew Diabolo"
+    },
+    {
+     "code": 30109445,
+     "name": "Clown Crew Dristy",
+     "zone": "emz"
+    },
+    {
+     "code": 38761908,
+     "name": "Paleozoic Dinomischus",
+     "set": true
+    },
+    {
+     "code": 38761908,
+     "name": "Paleozoic Dinomischus",
+     "set": true
+    },
+    {
+     "code": 7608148,
+     "name": "Vivid Tail",
+     "set": true
+    }
+   ],
+   "hand": [
+    10000000
+   ],
+   "measure": {
+    "field": 0.04281481481481482,
+    "hand": 0.0,
+    "floodgates": 0.0,
+    "resilience": 0.03651851851851852,
+    "follow_up": {
+     "gained": 1,
+     "rebuild": 1
+    }
+   }
+  },
+  {
+   "value": 0.18472592592592593,
+   "look_key": "f83ef5f58fea4787",
+   "field": [
+    {
+     "code": 42759961,
+     "name": "Clown Crew Flair"
+    },
+    {
+     "code": 42759961,
+     "name": "Clown Crew Flair"
+    },
+    {
+     "code": 38761908,
+     "name": "Paleozoic Dinomischus",
+     "set": true
+    },
+    {
+     "code": 38761908,
+     "name": "Paleozoic Dinomischus",
+     "set": true
+    },
+    {
+     "code": 7608148,
+     "name": "Vivid Tail",
+     "set": true
+    }
+   ],
+   "hand": [
+    10000000
+   ],
+   "measure": {
+    "field": 0.04281481481481482,
+    "hand": 0.0,
+    "floodgates": 0.0,
+    "resilience": 0.03651851851851852,
+    "follow_up": {
+     "gained": 3,
+     "rebuild": 1
+    }
+   }
+  }
+ ],
+ "other_seeds": [],
+ "line": {
+  "answers": [
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    5,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    8,
+    1
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    1,
+    0,
+    0,
+    0,
+    2,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    4,
+    0
+   ],
+   [
+    1,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    4,
+    1
+   ],
+   [
+    1,
+    0,
+    0,
+    0
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    4,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    8,
+    1
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    4,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    8,
+    2
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    4,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    8,
+    3
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    7,
+    0,
+    0,
+    0
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ]
+  ]
+ }
+}

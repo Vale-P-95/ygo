@@ -1,0 +1,591 @@
+{
+ "id": "hunt-primite-1",
+ "deck": "primite.ydk",
+ "hand": [
+  40605147,
+  46411259,
+  56506740,
+  97045737,
+  58053438
+ ],
+ "deck_hash": "ede35f0c346e791e",
+ "seed": 7,
+ "goal": "",
+ "nodes": 200000,
+ "boards_found": 1312,
+ "boards": [
+  {
+   "value": 3.702203081232493,
+   "look_key": "d2d38a71b57356ad",
+   "field": [
+    {
+     "code": 87979586,
+     "name": "Angel Trumpeter"
+    },
+    {
+     "code": 97045737,
+     "name": "Dominus Purge",
+     "set": true
+    },
+    {
+     "code": 13529466,
+     "name": "Invoked Caliga",
+     "zone": "emz"
+    },
+    {
+     "code": 29095457,
+     "name": "Primite Drillbeam",
+     "set": true
+    },
+    {
+     "code": 56506740,
+     "name": "Primite Lordly Lode"
+    },
+    {
+     "code": 40605147,
+     "name": "Solemn Strike",
+     "set": true
+    },
+    {
+     "code": 58053438,
+     "name": "Songs of the Dominators",
+     "set": true
+    }
+   ],
+   "hand": [],
+   "measure": {
+    "field": 1.6869047619047621,
+    "hand": 0.0,
+    "floodgates": 1.44,
+    "resilience": 1.4388305322128851,
+    "follow_up": {
+     "gained": 0,
+     "rebuild": 0
+    }
+   }
+  },
+  {
+   "value": 3.702203081232493,
+   "look_key": "db82f4761cc39d5c",
+   "field": [
+    {
+     "code": 97045737,
+     "name": "Dominus Purge",
+     "set": true
+    },
+    {
+     "code": 13529466,
+     "name": "Invoked Caliga",
+     "zone": "emz"
+    },
+    {
+     "code": 62514770,
+     "name": "Labradorite Dragon"
+    },
+    {
+     "code": 29095457,
+     "name": "Primite Drillbeam",
+     "set": true
+    },
+    {
+     "code": 56506740,
+     "name": "Primite Lordly Lode"
+    },
+    {
+     "code": 40605147,
+     "name": "Solemn Strike",
+     "set": true
+    },
+    {
+     "code": 58053438,
+     "name": "Songs of the Dominators",
+     "set": true
+    }
+   ],
+   "hand": [],
+   "measure": {
+    "field": 1.6869047619047621,
+    "hand": 0.0,
+    "floodgates": 1.44,
+    "resilience": 1.4388305322128851,
+    "follow_up": {
+     "gained": 0,
+     "rebuild": 0
+    }
+   }
+  },
+  {
+   "value": 3.684601307189543,
+   "look_key": "43dbda0ebda2c0aa",
+   "field": [
+    {
+     "code": 84815190,
+     "name": "Baronne de Fleur",
+     "zone": "emz"
+    },
+    {
+     "code": 97045737,
+     "name": "Dominus Purge",
+     "set": true
+    },
+    {
+     "code": 29095457,
+     "name": "Primite Drillbeam",
+     "set": true
+    },
+    {
+     "code": 56506740,
+     "name": "Primite Lordly Lode"
+    },
+    {
+     "code": 40605147,
+     "name": "Solemn Strike",
+     "set": true
+    },
+    {
+     "code": 58053438,
+     "name": "Songs of the Dominators",
+     "set": true
+    }
+   ],
+   "hand": [
+    46411259
+   ],
+   "measure": {
+    "field": 2.6411111111111114,
+    "hand": 0.0,
+    "floodgates": 0.0,
+    "resilience": 1.7391503267973862,
+    "follow_up": {
+     "gained": 2,
+     "rebuild": 0
+    }
+   }
+  },
+  {
+   "value": 3.439420634920635,
+   "look_key": "8d1d99d701d83d63",
+   "field": [
+    {
+     "code": 13529466,
+     "name": "Invoked Caliga",
+     "zone": "emz"
+    },
+    {
+     "code": 62514770,
+     "name": "Labradorite Dragon"
+    },
+    {
+     "code": 29095457,
+     "name": "Primite Drillbeam",
+     "set": true
+    },
+    {
+     "code": 56506740,
+     "name": "Primite Lordly Lode"
+    },
+    {
+     "code": 40605147,
+     "name": "Solemn Strike",
+     "set": true
+    },
+    {
+     "code": 58053438,
+     "name": "Songs of the Dominators",
+     "set": true
+    }
+   ],
+   "hand": [
+    97045737
+   ],
+   "measure": {
+    "field": 1.3694444444444445,
+    "hand": 0.2412698412698413,
+    "floodgates": 1.44,
+    "resilience": 1.1680555555555556,
+    "follow_up": {
+     "gained": 0,
+     "rebuild": 0
+    }
+   }
+  },
+  {
+   "value": 3.439420634920635,
+   "look_key": "1a7b2870b928a594",
+   "field": [
+    {
+     "code": 87979586,
+     "name": "Angel Trumpeter"
+    },
+    {
+     "code": 13529466,
+     "name": "Invoked Caliga"
+    },
+    {
+     "code": 29095457,
+     "name": "Primite Drillbeam",
+     "set": true
+    },
+    {
+     "code": 56506740,
+     "name": "Primite Lordly Lode"
+    },
+    {
+     "code": 40605147,
+     "name": "Solemn Strike",
+     "set": true
+    },
+    {
+     "code": 58053438,
+     "name": "Songs of the Dominators",
+     "set": true
+    }
+   ],
+   "hand": [
+    97045737
+   ],
+   "measure": {
+    "field": 1.3694444444444445,
+    "hand": 0.2412698412698413,
+    "floodgates": 1.44,
+    "resilience": 1.1680555555555556,
+    "follow_up": {
+     "gained": 0,
+     "rebuild": 0
+    }
+   }
+  }
+ ],
+ "other_seeds": [],
+ "line": {
+  "answers": [
+   [
+    5,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    8,
+    1
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    0,
+    0,
+    0,
+    0,
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    4,
+    0
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    1,
+    0,
+    0,
+    0
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    0,
+    0,
+    0,
+    0,
+    1,
+    0,
+    0,
+    0,
+    1,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    8,
+    2
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    4,
+    0,
+    3,
+    0
+   ],
+   [
+    0,
+    8,
+    3
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    5,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    8,
+    0
+   ],
+   [
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    0,
+    0,
+    0,
+    0,
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    4,
+    5
+   ],
+   [
+    1,
+    0,
+    0,
+    0
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    4,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    8,
+    0
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    4,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    8,
+    4
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    5,
+    0,
+    0,
+    0
+   ],
+   [
+    66,
+    118,
+    62,
+    5
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    0,
+    0,
+    0,
+    0,
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    4,
+    0
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    7,
+    0,
+    0,
+    0
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ]
+  ]
+ }
+}

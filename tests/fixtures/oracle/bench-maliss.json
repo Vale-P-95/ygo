@@ -11,9 +11,47 @@
  "deck_hash": "3100eb5f6c3027a6",
  "seed": 1,
  "goal": "",
- "nodes": 40000,
- "boards_found": 8657,
+ "nodes": 200000,
+ "boards_found": 27661,
  "boards": [
+  {
+   "value": 1.1272418300653593,
+   "look_key": "25c708280d905d87",
+   "field": [
+    {
+     "code": 52698008,
+     "name": "Cyberse Wicckid",
+     "zone": "emz"
+    },
+    {
+     "code": 24842059,
+     "name": "Linguriboh"
+    },
+    {
+     "code": 71166481,
+     "name": "Number 75: Bamboozling Gossip Shadow"
+    },
+    {
+     "code": 85257384,
+     "name": "The Phantom Knights of Umbrage Veil",
+     "set": true
+    }
+   ],
+   "hand": [
+    30118811,
+    14558127
+   ],
+   "measure": {
+    "field": 0.44592592592592584,
+    "hand": 0.5333333333333333,
+    "floodgates": 0.0,
+    "resilience": 0.1355265068990559,
+    "follow_up": {
+     "gained": 1,
+     "rebuild": 1
+    }
+   }
+  },
   {
    "value": 1.1272418300653593,
    "look_key": "cebd6e3939809374",
@@ -54,20 +92,16 @@
   },
   {
    "value": 1.1272418300653593,
-   "look_key": "d07b53c56593e0a1",
+   "look_key": "3129d3be6fb8b0a5",
    "field": [
-    {
-     "code": 30118811,
-     "name": "Backup @Ignister"
-    },
-    {
-     "code": 24842059,
-     "name": "Linguriboh",
-     "zone": "emz"
-    },
     {
      "code": 71166481,
      "name": "Number 75: Bamboozling Gossip Shadow"
+    },
+    {
+     "code": 59859086,
+     "name": "Splash Mage",
+     "zone": "emz"
     },
     {
      "code": 85257384,
@@ -80,6 +114,45 @@
     }
    ],
    "hand": [
+    30118811,
+    14558127
+   ],
+   "measure": {
+    "field": 0.44592592592592584,
+    "hand": 0.5333333333333333,
+    "floodgates": 0.0,
+    "resilience": 0.1355265068990559,
+    "follow_up": {
+     "gained": 1,
+     "rebuild": 1
+    }
+   }
+  },
+  {
+   "value": 1.1272418300653593,
+   "look_key": "391e9329ca2f806e",
+   "field": [
+    {
+     "code": 30118811,
+     "name": "Backup @Ignister"
+    },
+    {
+     "code": 71166481,
+     "name": "Number 75: Bamboozling Gossip Shadow"
+    },
+    {
+     "code": 59859086,
+     "name": "Splash Mage",
+     "zone": "emz"
+    },
+    {
+     "code": 85257384,
+     "name": "The Phantom Knights of Umbrage Veil",
+     "set": true
+    }
+   ],
+   "hand": [
+    30118811,
     14558127
    ],
    "measure": {
@@ -113,80 +186,6 @@
     {
      "code": 85257384,
      "name": "The Phantom Knights of Umbrage Veil"
-    }
-   ],
-   "hand": [
-    30118811,
-    14558127
-   ],
-   "measure": {
-    "field": 0.44592592592592584,
-    "hand": 0.5333333333333333,
-    "floodgates": 0.0,
-    "resilience": 0.11366739288307914,
-    "follow_up": {
-     "gained": 0,
-     "rebuild": 0
-    }
-   }
-  },
-  {
-   "value": 0.9941263616557733,
-   "look_key": "e6e16d86e26250e0",
-   "field": [
-    {
-     "code": 52698008,
-     "name": "Cyberse Wicckid",
-     "zone": "emz"
-    },
-    {
-     "code": 24842059,
-     "name": "Linguriboh"
-    },
-    {
-     "code": 71166481,
-     "name": "Number 75: Bamboozling Gossip Shadow"
-    },
-    {
-     "code": 85257384,
-     "name": "The Phantom Knights of Umbrage Veil"
-    }
-   ],
-   "hand": [
-    30118811,
-    14558127
-   ],
-   "measure": {
-    "field": 0.44592592592592584,
-    "hand": 0.5333333333333333,
-    "floodgates": 0.0,
-    "resilience": 0.11366739288307914,
-    "follow_up": {
-     "gained": 0,
-     "rebuild": 0
-    }
-   }
-  },
-  {
-   "value": 0.9941263616557733,
-   "look_key": "c452cb27d56ec6e0",
-   "field": [
-    {
-     "code": 71166481,
-     "name": "Number 75: Bamboozling Gossip Shadow"
-    },
-    {
-     "code": 59859086,
-     "name": "Splash Mage",
-     "zone": "emz"
-    },
-    {
-     "code": 85257384,
-     "name": "The Phantom Knights of Umbrage Veil"
-    },
-    {
-     "code": 3723262,
-     "name": "Wizard @Ignister"
     }
    ],
    "hand": [
@@ -411,74 +410,7 @@
    [
     1,
     0,
-    0,
-    0
-   ],
-   [
-    1,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0
-   ],
-   [
-    1,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0,
-    0
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    0,
-    4,
-    0
-   ],
-   [
-    1,
-    0,
-    0,
-    0
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    255,
-    255,
-    255,
-    255
-   ],
-   [
-    1,
-    0,
-    0,
+    2,
     0
    ],
    [
@@ -495,6 +427,67 @@
     0,
     4,
     5
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    1,
+    0,
+    0,
+    0
+   ],
+   [
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    1,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+   ],
+   [
+    0,
+    4,
+    1
+   ],
+   [
+    1,
+    0,
+    0,
+    0
    ],
    [
     255,
@@ -555,7 +548,7 @@
    [
     0,
     4,
-    1
+    0
    ],
    [
     0,
@@ -648,7 +641,7 @@
    [
     0,
     4,
-    1
+    2
    ],
    [
     255,
@@ -677,7 +670,7 @@
     0,
     0,
     0,
-    1,
+    0,
     0,
     0,
     0

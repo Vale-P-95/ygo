@@ -1,0 +1,223 @@
+{
+ "id": "hunt-invoked-0",
+ "deck": "invoked.ydk",
+ "hand": [
+  76334960,
+  52038441,
+  37432075,
+  76334960,
+  86319972
+ ],
+ "deck_hash": "29843c58e0f69d22",
+ "seed": 7,
+ "goal": "",
+ "nodes": 200000,
+ "boards_found": 12,
+ "boards": [
+  {
+   "value": 0.21986666666666674,
+   "look_key": "796dbb8c2a9becef",
+   "field": [
+    {
+     "code": 86319972,
+     "name": "Gamma Summon",
+     "set": true
+    },
+    {
+     "code": 37432075,
+     "name": "Invocation - \"Sword\"",
+     "set": true
+    }
+   ],
+   "hand": [
+    76334960,
+    52038441,
+    76334960
+   ],
+   "measure": {
+    "field": 0.0,
+    "hand": 0.24429629629629637,
+    "floodgates": 0.0,
+    "resilience": 0.0,
+    "follow_up": {
+     "gained": 0,
+     "rebuild": 0
+    }
+   }
+  },
+  {
+   "value": 0.21986666666666674,
+   "look_key": "e9bf96e085b65d1f",
+   "field": [
+    {
+     "code": 86319972,
+     "name": "Gamma Summon",
+     "set": true
+    }
+   ],
+   "hand": [
+    76334960,
+    52038441,
+    37432075,
+    76334960
+   ],
+   "measure": {
+    "field": 0.0,
+    "hand": 0.24429629629629637,
+    "floodgates": 0.0,
+    "resilience": 0.0,
+    "follow_up": {
+     "gained": 0,
+     "rebuild": 0
+    }
+   }
+  },
+  {
+   "value": 0.21986666666666674,
+   "look_key": "e5d2281ff6d90361",
+   "field": [
+    {
+     "code": 37432075,
+     "name": "Invocation - \"Sword\"",
+     "set": true
+    }
+   ],
+   "hand": [
+    76334960,
+    52038441,
+    76334960,
+    86319972
+   ],
+   "measure": {
+    "field": 0.0,
+    "hand": 0.24429629629629637,
+    "floodgates": 0.0,
+    "resilience": 0.0,
+    "follow_up": {
+     "gained": 0,
+     "rebuild": 0
+    }
+   }
+  },
+  {
+   "value": 0.21986666666666674,
+   "look_key": "95318c5e814c7666",
+   "field": [],
+   "hand": [
+    76334960,
+    52038441,
+    37432075,
+    76334960,
+    86319972
+   ],
+   "measure": {
+    "field": 0.0,
+    "hand": 0.24429629629629637,
+    "floodgates": 0.0,
+    "resilience": 0.0,
+    "follow_up": {
+     "gained": 0,
+     "rebuild": 0
+    }
+   }
+  },
+  {
+   "value": 0.0,
+   "look_key": "88f46515bb7d7e5c",
+   "field": [
+    {
+     "code": 86319972,
+     "name": "Gamma Summon",
+     "set": true
+    },
+    {
+     "code": 52038441,
+     "name": "Ghost Mourner & Moonlit Chill",
+     "set": true
+    },
+    {
+     "code": 37432075,
+     "name": "Invocation - \"Sword\"",
+     "set": true
+    }
+   ],
+   "hand": [
+    76334960,
+    76334960
+   ],
+   "measure": {
+    "field": 0.0,
+    "hand": 0.0,
+    "floodgates": 0.0,
+    "resilience": 0.0,
+    "follow_up": {
+     "gained": 0,
+     "rebuild": 0
+    }
+   }
+  }
+ ],
+ "other_seeds": [],
+ "line": {
+  "answers": [
+   [
+    4,
+    0,
+    1,
+    0
+   ],
+   [
+    0,
+    8,
+    1
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    4,
+    0,
+    2,
+    0
+   ],
+   [
+    0,
+    8,
+    2
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ],
+   [
+    7,
+    0,
+    0,
+    0
+   ],
+   [
+    255,
+    255,
+    255,
+    255
+   ]
+  ]
+ }
+}
