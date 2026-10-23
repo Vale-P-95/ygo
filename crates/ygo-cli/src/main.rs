@@ -1938,6 +1938,10 @@ fn kit_mix(dir: &Path, files: &[PathBuf], top: usize, seed: u64) -> Result<()> {
     }
     let total: u64 = counts.values().sum();
     println!("{lines} lines, {total} plays");
+    // The kit makes as many summons from the Extra Deck as a line does
+    // (Probe::ExtraSummon and the next two).
+    let extra = counts.get(&Probe::ExtraSummon).copied().unwrap_or(0);
+    println!("summons from the Extra Deck: {:.2} a line", extra as f64 / lines.max(1) as f64);
     println!("{:<62} {:>6} {:>6} {:>7}", "probe", "plays", "share", "weight");
     for (p, n) in &counts {
         let share = *n as f64 / total.max(1) as f64;
