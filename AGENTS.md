@@ -1,8 +1,8 @@
-# Regole per gli agenti (Claude Code, Antigravity/Gemini, altri)
+# Regole per gli agenti (sessioni Claude Code; Antigravity/Gemini fino alla fine del passo 5 dell'interfaccia)
 
 DuelForge è una suite desktop per Yu-Gi-Oh!: deck builder, scaffale di deck box 3D, laboratorio statistico e Combo Lab, un ricercatore di combo che usa il motore di EDOPro.
 Lo stack è un workspace Rust (motore, dati, statistiche, ricerca, CLI) più un'app Tauri 2 con React 19, TypeScript e Tailwind 4. La licenza è AGPL-3.0.
-Il progetto completo e le decisioni sono in `docs/PIANO.md`; lo stato attuale e i prossimi passi in `docs/STATO.md`; i lavori in corso in `docs/TASKS.md`.
+Il progetto completo e le decisioni sono in `docs/PIANO.md`; lo stato attuale e i prossimi passi in `docs/STATO.md`; i lavori in corso in `docs/TASKS.md`; come si lavora (strumenti, sessioni, token, come si vede l'app) in `docs/plans/piano-ambiente-e-risorse.md`.
 
 ## Mappa
 ```
@@ -59,13 +59,14 @@ Vale per `crates/ygo-engine` e `crates/ygo-solver`. Prima e dopo la modifica:
 
 ## Protocollo per chi tocca l'interfaccia
 Vale per `apps/desktop/src`. Nasce dagli errori ricorrenti delle revisioni: PR dichiarate pronte con difetti che il backend finto nascondeva, regressioni introdotte correggendo, caricamenti che si accavallano.
-1. **App vera, non solo backend finto.**
-   - Le funzioni che chiamano il backend si provano con `pnpm tauri dev` (con `DUELFORGE_DATA`).
-   - `mock.ts` non controlla i formati: ad esempio un oggetto salvato in `localStorage` e letto da un'altra pagina.
-   - Se l'app vera non si può provare, la PR lo dice.
+1. **Con gli occhi, non solo con i tipi.**
+   - Prima di dichiarare la PR pronta: `VITE_MOCK=1 pnpm dev` e `node scripts/screens.mjs` (Chromium di Playwright), poi si guardano gli screenshot delle pagine toccate nei due temi e si confrontano con il mockup, se c'è. Gli screenshot delle pagine toccate si allegano alla PR (artifact della CI o file in chat).
+   - L'anteprima del frontend con il backend finto si pubblica come Artifact, sempre allo stesso URL, così l'utente la vede dal telefono.
+   - Le funzioni che chiamano il backend si provano nell'app vera con `pnpm tauri dev` (con `DUELFORGE_DATA`) quando la PR tocca una pagina intera, la Bottega 3D, i suoni o le prestazioni del motore. Se l'app vera non si può provare, la PR lo dice.
+   - `mock.ts` non controlla i formati: ad esempio un oggetto salvato in `localStorage` e letto da un'altra pagina. Dove esistono, si usano le risposte registrate dal backend vero (`src/lib/fixtures/`), non dati inventati.
 2. **Dati con i tipi del contratto.**
    - Ciò che si passa tra pagine o si salva usa i tipi di `api.ts` (ad esempio `GoalCard`), non oggetti scritti a mano.
-   - Niente `as any`, `@ts-ignore` o `@ts-expect-error` per far tornare i tipi. Un tipo che non torna è un errore, oppure manca qualcosa nel contratto: allora si chiede a Claude in `docs/TASKS.md`.
+   - Niente `as any`, `@ts-ignore` o `@ts-expect-error` per far tornare i tipi. Un tipo che non torna è un errore, oppure manca qualcosa nel contratto: allora il contratto si cambia nella stessa PR (`lib.rs`, `api.ts`, `mock.ts` e le fixture insieme).
 3. **Caricamenti asincroni.**
    - Ogni caricamento ha un id di richiesta; si scartano le risposte vecchie e quelle che non sono del deck o dell'oggetto mostrato.
    - Cambiando deck, salvando o ricominciando, i dati vecchi si azzerano e il caricamento in corso si annulla.
@@ -76,24 +77,27 @@ Vale per `apps/desktop/src`. Nasce dagli errori ricorrenti delle revisioni: PR d
    - Lo stato legato a un deck, a una ricerca o a una selezione si azzera quando questa cambia: filtri nascosti compresi, ad esempio con `key`.
 6. **Correggendo una revisione si rilegge tutto il diff.** Non si tolgono controlli esistenti (una condizione, un `!error`, un id di richiesta) senza scriverne il motivo nella PR.
 7. **"Pronto per il merge" solo quando è vero.**
-   - Nella PR, per ogni punto chiesto: come è stato verificato (app vera, backend finto, solo `typecheck`).
+   - Nella PR, per ogni punto chiesto: come è stato verificato (app vera, screenshot, backend finto, solo `typecheck`).
    - Un task si segna fatto in `docs/TASKS.md` solo quando sono fatti tutti i suoi punti; quelli rimasti restano aperti, ben visibili.
 8. **Prima del push:** `pnpm typecheck` e `pnpm build`; quando ci saranno, anche i controlli di stile della CI (`any` vietato, dipendenze degli effetti).
 
 ## Cosa NON fare
 - Modificare `vendor/ygopro-core`.
 - Committare `data/`, immagini o testi Konami, o le decklist scaricate.
-- Force push, rebase o commit sul branch di un altro agente.
+- Force push, rebase o commit sul branch di un'altra sessione o di un altro agente.
 - Cambiare i tipi condivisi tra backend e interfaccia (`apps/desktop/src-tauri/src/lib.rs` ↔ `apps/desktop/src/lib/api.ts`) senza aggiornare entrambi nella stessa PR.
 - Lanciare benchmark o build lunghe senza che l'utente lo chieda.
 - Fare il merge in `main` senza la richiesta esplicita dell'utente.
 
-## Coordinamento tra agenti
-- **Aree**: Claude Code lavora su `crates/` e `apps/desktop/src-tauri/`; Antigravity/Gemini su `apps/desktop/src/`. Se all'interfaccia serve un dato nuovo dal backend, la richiesta va in `docs/TASKS.md` per Claude.
-- **Branch**: `main` è protetto e si cambia solo con pull request e CI verde. Ogni agente usa i suoi branch: `claude/<tema>`, `gemini/<tema>`.
+## Coordinamento tra sessioni
+Le sessioni Claude Code fanno tutto il codice: motore, backend dell'app e interfaccia. Gemini (Antigravity) finisce il passo 5 dell'interfaccia su `gemini/ui-shelf` e poi si ferma; i suoi branch si puliscono.
+- **Una sessione, un compito.** Ogni sessione nasce da `main` con un brief di dieci righe (compito, file, comandi di verifica, criterio di accettazione, piano e mockup da leggere), fa la sua PR e si chiude quando è unita. Un secondo compito è una sessione nuova. Al massimo tre sessioni in parallelo.
+- **Contesto corto.** Oltre i 200k token la sessione scrive il passaggio di consegne in `docs/plans/<tema>.md` (stato, numeri, prossimo passo), pusha e chiede di essere sostituita.
+- **Branch**: `main` è protetto e si cambia solo con pull request e CI verde. Ogni sessione usa il suo branch `claude/<tema>`.
 - **Inizio sessione**: `git pull`, poi leggere `docs/TASKS.md` e `git log -10`.
-- **Prendere un task**: scriverlo in "In corso" con agente, branch e **file che toccherai** (è il lock), poi committare e pushare quella riga prima di cominciare.
-- **File caldi** (un solo agente alla volta): `crates/ygo-solver/src/search.rs`, `probe.rs`, `value.rs`, `apps/desktop/src-tauri/src/lib.rs`, `apps/desktop/src/lib/api.ts`.
+- **Prendere un task**: scriverlo in "In corso" con sessione, branch e **file che toccherai** (è il lock), poi committare e pushare quella riga prima di cominciare.
+- **File caldi** (una sola sessione alla volta): `crates/ygo-solver/src/search.rs`, `probe.rs`, `value.rs`, `apps/desktop/src-tauri/src/lib.rs`, `apps/desktop/src/lib/api.ts`.
+- **Calcoli lunghi** (oltre dieci minuti): partono in background e la sessione chiude il turno; il risultato arriva come notifica. Niente controlli ripetuti, niente monitor sui log. Oltre le due ore si usa `bench.yml` su GitHub Actions.
 - **Lavoro interrotto** (la quota può finire in qualsiasi momento): fare piccoli commit che compilano, pushare sul proprio branch dopo ogni passo funzionante e spuntare i sotto-passi in `docs/TASKS.md`.
 - **Fine sessione**: aggiornare `docs/TASKS.md` (e `docs/STATO.md` se cambiano decisioni importanti), committare e pushare.
-- **Revisione**: la PR di un agente la rivede l'altro. Il merge lo decide l'utente.
+- **PR e merge**: la PR la apre la sessione stessa, con il template. Le PR piccole le rivede la sessione stessa con la lista del template; quelle grandi una sessione separata con brief corto. Il merge lo fa l'utente dalla pagina GitHub (squash), o chi lui delega.
