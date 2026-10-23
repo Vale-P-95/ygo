@@ -247,7 +247,7 @@ def main():
                                 pairs=[dict(worse=where[info[q["worse"]]["index"]], better=where[info[q["better"]]["index"]],
                                             truth_gap=round(q["truth_gap"], 3), score_gap=round(q["score_gap"], 3), causes=q["causes"])
                                        for q in ps]))
-            json.dump(doc, open(os.path.join(a.fixture, hand_file + ".lines.json"), "w"), indent=0)
+            json.dump(doc, open(os.path.join(a.fixture, hand_file + ".lines.json"), "w"), separators=(",", ":"))
     if a.json:
         json.dump(dict(margin=a.margin, boards=[dict(id=r["id"], truth=r["truth"], score=r["score"], opponents=len(r["opp"])) for r in rows],
                        pairs=pairs), open(a.json, "w"), indent=1)

@@ -381,7 +381,7 @@ Con «30 → 13» (circa 65%) le mani che perdono sono 3, con perdita media 0,33
 
 ## 6. A1b, passo 1: dove la misura e il livello 2 non sono d'accordo
 
-*Prototipo del passo 1 di A1b (`ricerca-piano-critico.md`). I numeri di questa versione sono parziali: il giro contro il meta era ancora in corso. Si aggiornano alla fine del giro.*
+*Prototipo del passo 1 di A1b (`ricerca-piano-critico.md`), 22-23/10. Giro completo con la CLI di `main` 0d747f1; il prima e dopo della PR #93 è in fondo.*
 
 **Domanda.** Su board già trovate, quando la misura del turno di prova e il livello 2 contro il meta ordinano due board al contrario, e perché?
 
@@ -393,7 +393,7 @@ Con «30 → 13» (circa 65%) le mani che perdono sono 3, con perdita media 0,33
 - **Livello 2 e verità.** `scripts/objective_bench.py`, cioè lo stesso banco oggettivo di `banco-oggettivo.md`:
   - `probe-line --vs <avversario> --moves` contro i deck del meta con `popRank` di Master Duel Meta (letto il 22/10 sera), con Lunalight saltato;
   - verità = 1 − `left`, media pesata con il meta, senza le coppie con meno dell'80% di mosse fatte su campo vuoto o senza linee.
-  - La misura si legge dagli stessi run: stesso codice, `main` 0d747f1.
+  - La misura si legge dagli stessi run, con lo stesso codice: la CLI di `main` 0d747f1.
 - **Disaccordo:** due board della stessa mano la cui verità differisce di almeno 0,05, mentre la misura (il composito di `bench.py`) mette prima l'altra.
 - **Comandi.**
   ```
@@ -414,3 +414,49 @@ Per la coppia A (preferita dalla misura) e B (migliore al livello 2), `a1b_repor
 6. **altro.**
 
 Una coppia può avere più cause; la prima è la principale.
+
+### Risultati
+**Giro.** 1653 invocazioni (87 file di linee × 19 avversari), circa 9 ore su 4 core, ripartito due volte dopo i riavvii del container.
+- Board con verità e misura: 406 su 415, in 86 mani.
+  - Mancano le board di `elfnote_kewl_tune-0` e `tearlaments-1`: il livello 2 vi fallisce (risposta rifiutata dal motore, o «0 lines»).
+  - Altri fallimenti parziali: Elfnote Kewl Tune mano 1 (19 avversari), Railway mano 0 (13). Sono i difetti dello strumento già passati alla corsia 4.
+- Accordo generale tra misura e verità (Spearman, divisione per deck del banco): 0,78 sulla taratura e 0,73 sulla verifica.
+- Nelle coppie dello stesso deck l'ordine è giusto 673 volte su 856 e 283 su 347.
+
+**Disaccordi.** Sulle 800 coppie della stessa mano ce ne sono **59 (7,4%) in 20 mani su 86**.
+
+| causa | principale | presente |
+|---|---:|---:|
+| Extra Deck | 19 | 24 |
+| turno dopo | 10 | 10 |
+| risposte insieme | 8 | 14 |
+| Magie e Trappole | 4 | 19 |
+| mostri | 5 | 21 |
+| mano | 3 | 5 |
+| Cimitero | 0 | 0 |
+| trappole in mano | 0 | 0 |
+| altro | 10 | 10 |
+
+Per deck: Clown Crew 8, Dracotail 8, Snake-Eye 4, Paleozoic 4, White Forest Azamina 4, Megalith 4, Invoked 3, Phantom Knights 3, Warrior Combo 3, Sky Striker 3, poi 1-2 negli altri.
+
+**Esempi, con la linea da rigiocare** (`tests/fixtures/research/a1b/<mano>.lines.json`, indici nel file):
+- **Extra Deck, Clown Crew mano 1.**
+  - La misura preferisce «Biancaviso, Flair, Soiree Operations coperta» a «Biancaviso, Clown Crew Finale coperta» (verità +0,30 per la seconda, misura −0,22).
+  - Finale, che distrugge, ferma 3 delle 17 Evocazioni dall'Extra Deck di Elfnote. La misura le dà 0,21, il livello 2 0,36.
+  - Il kit della misura ha un solo mostro nell'Extra Deck: una carta che colpisce le Evocazioni dall'Extra Deck vale poco nel kit.
+- **Magie e Trappole e mostri, Dracotail mani 0 e 1.**
+  - Le board con Dracotail Flame o Horn coperte battono quelle con Blazing Cartesia (verità +0,15-0,26).
+  - La misura dà a Blazing Cartesia e a Dracotail Sting più di quanto fermano contro le linee vere (Sting 0,26 nella misura, 0,13-0,17 al livello 2).
+- **Turno dopo, Paleozoic mano 0.** La board con due Paleozoic Dinomischus coperte batte quattro board con Clown Crew sul campo (verità +0,15). La misura le separa solo per il turno dopo (`follow_up`), che premia le altre.
+- **Risposte insieme.** Snake-Eye mano 1, Clown Crew mano 1, Phantom Knights mano 1, Megalith mano 1, White Forest Azamina mano 0, Mitsurugi Yummy mano 0: la board peggiore ha risposte che valgono di più una per una, ma insieme fermano meno.
+
+**Mani dell'oracolo** (5 mani, 25 board, 19 avversari): **13 disaccordi su 50 coppie**, 8 per «risposte insieme».
+- In inv-r5 la board dell'oracolo (Baronne de Fleur nella Zona Extra, Hyperinvoked Aeon, Gamma Summon e Super Polymerization coperte) ha la misura più alta di tutte, con 1,30 sopra la seconda. La sua verità però è 0,47, contro 0,66 della board «Baronne de Fleur, Super Polymerization coperta» della ricerca normale.
+- È peggio contro 17 avversari su 19 (Elfnote: `left` 0,71 contro 0,33).
+- Ogni sua risposta da sola copre il 75% delle mosse di Elfnote, ma tutte insieme ne lasciano passare il 71%.
+- L'ipotesi era che Super Polymerization, usata come risposta, prendesse come materiale la tua Baronne. La corsia 4 l'ha confermata e corretta (PR #93).
+- In inv-r2 la board dell'oracolo «Mechaba, Oceanus nella Zona Extra» perde contro tre board della ricerca normale (verità −0,17), per cause non classificate.
+
+**Cosa dice per l'oracolo.** In 2 delle 5 mani la board migliore dell'oracolo non è la migliore al livello 2. L'oracolo eredita le cecità della misura, come temeva il piano. I riferimenti dell'oracolo vanno quindi letti con il livello 2 accanto, e una fixture dovrebbe tenere anche le board migliori al livello 2.
+
+*Prima e dopo la PR #93: in corso.*
