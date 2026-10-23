@@ -37,7 +37,7 @@
 | 9, caccia ai bug (Fable) | session_01MiW9iEY8RRPEsj91Z5Rb2X | Fable | `claude/engine-bughunt` | **Finita** (PR #106). Fermata per risparmiare; il suo punto 5 è passato alla corsia 2. |
 | 10, bibliografia (Fable) | session_01FbWtNwW3xdKU3QgDvDGiK2 | Fable | `claude/literature-review-2` | Sta chiudendo `revisione-bibliografica-2.md`. Al massimo 2 lettori, in quest'ordine: la bibliografia annotata dell'utente (16 lavori, con il filone poker: DeepStack, Libratus, Pluribus, ReBeL, Student of Games), il gruppo di articoli 2023-2026 sui giochi di carte collezionabili, le piste del §4. Poi PR e stop. |
 
-**File caldi** (uno alla volta): `search.rs` (corsia 2), `probe.rs` (libero dal 23/10), `value.rs`, `apps/desktop/src-tauri/src/lib.rs` e `apps/desktop/src/lib/api.ts` (chi li prende avvisa prima).
+**File caldi** (uno alla volta): `search.rs` (corsia 2), `probe.rs` (libero dal 23/10), `value.rs`, `apps/desktop/src-tauri/src/lib.rs` (corsia 2, solo `combo_score`, dal 23/10) e `apps/desktop/src/lib/api.ts` (chi li prende avvisa prima).
 
 ## PR al passaggio
 - Unite il 23/10:
