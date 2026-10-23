@@ -1,5 +1,16 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { api, type Card, type ComboBoard, ComboBreaker, ComboInterruption, ComboRivalBreaker, ComboRivalHandTrap, ComboScore, type LearnedWeights } from "../../lib/api";
+import {
+  api,
+  type Card,
+  type ComboBoard,
+  ComboBreaker,
+  ComboInterruption,
+  type ComboMeta,
+  ComboRivalBreaker,
+  ComboRivalHandTrap,
+  ComboScore,
+  type LearnedWeights,
+} from "../../lib/api";
 import { METRICS, NEGATIVE, parts, pickProfile, PROFILES, score, setWeight, applyLearnedWeights, getPriorWeights, useWeights, type Metric, type MetricKey, type Weights } from "../../lib/scoring";
 import { sound } from "../../lib/sound";
 import { toast } from "../../lib/toast";
@@ -341,7 +352,7 @@ function MetricRow({ metric, s, weight, points, profile }: { metric: Metric; s: 
 }
 
 /** The board in a few plain sentences. */
-function summary(s: ComboScore): string[] {
+export function summary(s: ComboScore): string[] {
   const out: string[] = [];
   const field = s.details.filter((d) => d.place !== "mano");
   const used = field.filter((d) => d.value > 0.005);
@@ -360,6 +371,9 @@ function summary(s: ComboScore): string[] {
   if (s.interruptions > 0.005 && tried.length > 0) {
     const held = tried.filter((b) => holds(b, s)).length;
     out.push(`Contro i board breaker più giocati regge ${held} volte su ${tried.length}.`);
+  }
+  if (s.meta?.value != null) {
+    out.push(`Contro i deck più giocati del meta ferma in media il ${Math.round(s.meta.value * 100)}% delle loro giocate.`);
   }
   if (s.exposureDetail || s.exposureNote) {
     if (isLegacyExposure(s)) {
@@ -733,6 +747,115 @@ function Exposure({ s }: { s: ComboScore }) {
   );
 }
 
+export function MetaSection({ meta }: { meta: ComboMeta }) {
+  return (
+    <Section
+      title="Confronto con il meta (L2-3)"
+      info={
+        <>
+          <p>
+            Il motore mette alla prova la board contro i deck più giocati del meta (da Master Duel Meta),
+            simulando tutte le risposte possibili della tua board alle loro giocate.
+          </p>
+          <p>
+            «Efficacia nel meta»: percentuale complessiva pesata delle giocate avversarie che la tua board riesce a fermare (1 − giocate residue).
+          </p>
+          <p>
+            Un deck con giocate residue (left) non calcolabili o con linee non valide non viene conteggiato nel totale.
+          </p>
+        </>
+      }
+    >
+      <div className="flex flex-col gap-2.5">
+        <div className="rounded-lg border border-border/80 bg-surface-2/60 p-3 flex flex-col gap-2">
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-semibold text-text">Efficacia complessiva nel meta</span>
+              <span className="chip !py-0 !px-1.5 text-[10px] text-sec font-semibold">L2-3</span>
+            </div>
+            {meta.value != null ? (
+              <span className="text-sm font-bold tabular-nums text-sec">
+                {Math.round(meta.value * 100)}% <span className="text-xs font-normal text-muted">giocate fermate</span>
+              </span>
+            ) : (
+              <span className="text-xs text-faint">Non calcolabile</span>
+            )}
+          </div>
+
+          {meta.value != null ? (
+            <div className="flex items-center gap-2">
+              <span className="meter flex-1" role="img" aria-label={`Efficacia nel meta: ${Math.round(meta.value * 100)}%`}>
+                <span style={{ width: `${Math.round(meta.value * 100)}%`, background: "var(--sec)" }} />
+              </span>
+              <span className="shrink-0 text-[11px] tabular-nums text-muted">
+                residuo medio: {Math.round((meta.left ?? (1 - meta.value)) * 100)}%
+              </span>
+            </div>
+          ) : (
+            <p className="text-[11px] text-muted">
+              Nessuno dei deck del meta ha potuto essere conteggiato per questa board (linee non eseguibili a campo vuoto).
+            </p>
+          )}
+
+          {meta.perDeck.length > 0 && (
+            <div className="mt-1 flex flex-col gap-1 border-t border-border/50 pt-2">
+              <span className="text-[10px] font-semibold tracking-wider uppercase text-faint">
+                Dettaglio per deck ({meta.perDeck.length})
+              </span>
+              <ul className="flex flex-col gap-1.5">
+                {meta.perDeck.map((d) => {
+                  const notCounted = d.left === null;
+                  const stoppedPct = d.left != null ? Math.round((1 - d.left) * 100) : 0;
+                  const leftPct = d.left != null ? Math.round(d.left * 100) : 0;
+                  return (
+                    <li
+                      key={d.name}
+                      className="flex flex-col gap-1 rounded bg-surface/50 p-2 text-xs"
+                    >
+                      <div className="flex items-baseline justify-between gap-2">
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <b className="truncate text-text">{d.name}</b>
+                          <span className="chip !py-0 !px-1.5 text-[10px] text-muted font-normal shrink-0">
+                            peso: {fmt(d.weight)}%
+                          </span>
+                        </div>
+                        {notCounted ? (
+                          <span className="chip !py-0 !px-1.5 text-[10px] text-faint shrink-0">
+                            non conta
+                          </span>
+                        ) : (
+                          <span className="text-xs font-semibold tabular-nums text-text shrink-0">
+                            {stoppedPct}% <span className="text-[10px] font-normal text-muted">fermate</span>
+                          </span>
+                        )}
+                      </div>
+
+                      {notCounted ? (
+                        <p className="text-[11px] text-faint">
+                          Linee non conteggiate: {Math.round(d.made * 100)}% mosse a campo vuoto (richiesto ≥ 80%).
+                        </p>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <span className="meter flex-1" role="img" aria-label={`${d.name}: ${stoppedPct}% fermate`}>
+                            <span style={{ width: `${stoppedPct}%`, background: "var(--sec)" }} />
+                          </span>
+                          <span className="shrink-0 text-[11px] tabular-nums text-muted">
+                            residuo: {leftPct}%
+                          </span>
+                        </div>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          )}
+        </div>
+      </div>
+    </Section>
+  );
+}
+
 /** Why a board has its score: a summary, each metric, then what the probe turn saw. */
 export function ScoreBreakdown({
   board,
@@ -848,6 +971,8 @@ export function ScoreBreakdown({
           </div>
         )}
       </Section>
+
+      {s.meta && <MetaSection meta={s.meta} />}
 
       {s.floodgateList.length > 0 && (
         <Section title="Cosa l'avversario non può fare" info={<Paragraphs lines={metric("floodgates").explain} />}>

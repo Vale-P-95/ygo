@@ -686,6 +686,98 @@
    ]
   },
   {
+   "value": 3.9425882352941177,
+   "look_key": "a5066ecb63a7d189",
+   "field": [
+    {
+     "code": 84815190,
+     "name": "Baronne de Fleur",
+     "zone": "emz"
+    },
+    {
+     "code": 13597785,
+     "name": "Elfnote Lucina"
+    },
+    {
+     "code": 59581480,
+     "name": "Elfnote Tinia"
+    },
+    {
+     "code": 24092792,
+     "name": "Elfnotes: Rhapsodia of Madness"
+    },
+    {
+     "code": 64491754,
+     "name": "Elfnotes: Welcome Home"
+    },
+    {
+     "code": 5914858,
+     "name": "Junora the Power Patron of Tuning"
+    },
+    {
+     "code": 97556336,
+     "name": "Medius the Pure"
+    }
+   ],
+   "hand": [
+    14558127
+   ],
+   "measure": {
+    "field": 2.532962962962963,
+    "hand": 0.5333333333333333,
+    "floodgates": 0.0,
+    "resilience": 1.5493754538852578,
+    "follow_up": {
+     "gained": 3,
+     "rebuild": 0
+    }
+   }
+  },
+  {
+   "value": 3.9425882352941177,
+   "look_key": "b1b0fde0a175aa63",
+   "field": [
+    {
+     "code": 84815190,
+     "name": "Baronne de Fleur",
+     "zone": "emz"
+    },
+    {
+     "code": 13597785,
+     "name": "Elfnote Lucina"
+    },
+    {
+     "code": 59581480,
+     "name": "Elfnote Tinia"
+    },
+    {
+     "code": 24092792,
+     "name": "Elfnotes: Rhapsodia of Madness"
+    },
+    {
+     "code": 5914858,
+     "name": "Junora the Power Patron of Tuning"
+    },
+    {
+     "code": 97556336,
+     "name": "Medius the Pure"
+    }
+   ],
+   "hand": [
+    14558127
+   ],
+   "measure": {
+    "field": 2.532962962962963,
+    "hand": 0.5333333333333333,
+    "floodgates": 0.0,
+    "resilience": 1.5493754538852578,
+    "follow_up": {
+     "gained": 2,
+     "rebuild": 0
+    }
+   }
+  },
+  {
    "value": 3.869228758169935,
    "look_key": "495eeea1d8d3c6de",
    "field": [

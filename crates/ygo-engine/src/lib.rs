@@ -34,7 +34,7 @@ mod scripts;
 pub mod state;
 pub mod sweep;
 
-pub use actions::{actions, actions_with, describe_card, Action, ActionKind, MAX_ANNOUNCE};
+pub use actions::{actions, actions_with, describe_card, without_labels, Action, ActionKind, MAX_ANNOUNCE};
 pub use announce::is_declarable;
 pub use carddb::{Card, CardDb};
 pub use deck::DeckList;

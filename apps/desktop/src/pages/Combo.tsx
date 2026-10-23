@@ -1,15 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { AlertTriangle, ArrowLeftRight, Check, RefreshCw, Sparkles, X } from "lucide-react";
 import { BoardCompareModal } from "../components/combo/BoardCompareModal";
 import { BoardDetail } from "../components/combo/BoardDetail";
 import { BoardStrip, CardImage } from "../components/combo/Field";
-import { ScoreBar, WeightsPanel } from "../components/combo/Score";
+import { plural, ScoreBar, WeightsPanel } from "../components/combo/Score";
 import { CardPreview } from "../components/CardPreview";
 import { CardTile } from "../components/CardTile";
 import { DeckMenu } from "../components/DeckMenu";
 import { SectionHeader } from "../components/SectionHeader";
 import { api, type ComboBoard, type ComboGoal, type ComboHand, type ComboScore, type ComboStep, type GoalCard, type GoalZone, type Deck, type DeckSummary, type ZoneCard } from "../lib/api";
 import { useCardCache } from "../lib/cards";
-import { continueCombo, scoreBoards, startCombo, stopCombo, useCombo } from "../lib/combo";
+import { clearMetaError, compareMeta, continueCombo, scoreBoards, startCombo, stopCombo, useCombo } from "../lib/combo";
 import { dominates, score, useWeights } from "../lib/scoring";
 import { lastDeck, rememberDeck } from "../lib/deck";
 import { sound } from "../lib/sound";
@@ -120,15 +121,15 @@ function LockIcon({ closed }: { closed: boolean }) {
 
 function GoalMark({ status }: { status: boolean | null }) {
   return status === true ? (
-    <span className="text-[11px] font-semibold text-ok" title="Obiettivo raggiunto">
+    <span className="text-xs font-semibold text-ok" title="Obiettivo raggiunto">
       ✓
     </span>
   ) : status === false ? (
-    <span className="text-[11px] text-danger" title="Impossibile: provate tutte le linee">
+    <span className="text-xs text-danger" title="Impossibile: provate tutte le linee">
       ✕
     </span>
   ) : (
-    <span className="text-[11px] text-faint" title="Non ancora deciso">
+    <span className="text-xs text-faint" title="Non ancora deciso">
       ?
     </span>
   );
@@ -215,6 +216,10 @@ export function Combo({ artReady, onGoForge }: { artReady: boolean; onGoForge: (
   const [paretoOnly, setParetoOnly] = useState(false);
   const [choicesVersion, setChoicesVersion] = useState(0);
   const [recordedPairChoices, setRecordedPairChoices] = useState<Map<string, string>>(new Map());
+  const deckRef = useRef(deck);
+  useEffect(() => {
+    deckRef.current = deck;
+  }, [deck]);
 
   useEffect(() => {
     void api.listDecks().then(setAllDecks);
@@ -243,6 +248,7 @@ export function Combo({ artReady, onGoForge }: { artReady: boolean; onGoForge: (
       if (!d) return;
       rememberDeck(id);
       setDeck(d);
+      clearMetaError();
       const saved = load(`duelforge.combo.${id}`, NO_SETUP);
       setSetupState({ ...saved, goal: goalCards(saved.goal) });
       setPicker(null);
@@ -332,7 +338,11 @@ export function Combo({ artReady, onGoForge }: { artReady: boolean; onGoForge: (
 
   const boards = useMemo(() => {
     if (!ours) return [];
-    // Measured boards by their score, the others after them by the quick estimate.
+    // Boards with meta.value != null come first, ranked descending by meta.value.
+    const metaValue = (b: ComboBoard): number | null => {
+      const s = run.scores[boardId(b)];
+      return s && !s.error && s.meta && s.meta.value != null ? s.meta.value : null;
+    };
     const value = (b: ComboBoard) => {
       const s = run.scores[boardId(b)];
       if (sortByMatchup && s?.matchup && !s.error && !s.matchup.error) {
@@ -342,8 +352,18 @@ export function Combo({ artReady, onGoForge }: { artReady: boolean; onGoForge: (
     };
     return handFilteredBoards
       .filter((b) => !paretoOnly || !dominatedBoardIds.has(boardId(b)))
-      .map((b) => ({ b, v: value(b) }))
-      .sort((x, y) => y.b.goalHits - x.b.goalHits || (y.v ?? -1e9) - (x.v ?? -1e9) || byRank(x.b, y.b))
+      .map((b) => ({ b, v: value(b), mv: metaValue(b) }))
+      .sort((x, y) => {
+        const xHasMeta = x.mv != null;
+        const yHasMeta = y.mv != null;
+        if (xHasMeta && !yHasMeta) return -1;
+        if (!xHasMeta && yHasMeta) return 1;
+        if (xHasMeta && yHasMeta) {
+          const diff = y.mv! - x.mv!;
+          if (Math.abs(diff) > 1e-6) return diff;
+        }
+        return y.b.goalHits - x.b.goalHits || (y.v ?? -1e9) - (x.v ?? -1e9) || byRank(x.b, y.b);
+      })
       .map((x) => x.b);
   }, [ours, handFilteredBoards, run.scores, weights, sortByMatchup, paretoOnly, dominatedBoardIds]);
   // Boards that look the same (they differ only in the Graveyard, the banished cards or the zones) are one entry.
@@ -369,6 +389,9 @@ export function Combo({ artReady, onGoForge }: { artReady: boolean; onGoForge: (
   };
   const scale = Math.max(0.01, ...groups.map(({ board }) => scoreOf(board)).filter((s) => s != null).map((s) => score(s!, weights)));
   const measured = totalMeasuredCount;
+  const hasMetaBoards = useMemo(() => {
+    return handFilteredBoards.some((b) => run.scores[boardId(b)]?.meta?.value != null);
+  }, [handFilteredBoards, run.scores]);
 
   // Card data for everything the boards show.
   useEffect(() => {
@@ -430,6 +453,7 @@ export function Combo({ artReady, onGoForge }: { artReady: boolean; onGoForge: (
     setParetoOnly(false);
     setRecordedPairChoices(new Map());
     explained.current.clear();
+    clearMetaError();
     const done = await startCombo({
       deckId: deck.id,
       hand: byHand ? setup.hand : [],
@@ -452,11 +476,38 @@ export function Combo({ artReady, onGoForge }: { artReady: boolean; onGoForge: (
   const goOn = async () => {
     sound.play("open");
     explained.current.clear();
+    clearMetaError();
     const done = await continueCombo(options.seconds);
     if (done.error) {
       sound.play("error");
       toast(done.error, "error");
     } else sound.play("glass");
+  };
+
+  const handleCompareMeta = async () => {
+    if (!deck || deck.id == null || run.running || run.scoring || run.metaLoading) return;
+    sound.play("select");
+    const currentDeckId = deck.id;
+    const measuredBoards = boards.filter((b) => {
+      const s = run.scores[boardId(b)];
+      return s && !s.error;
+    });
+    const targetBoards =
+      profile === "balanced"
+        ? undefined
+        : measuredBoards.slice(0, 4).map((b) => ({ hand: b.hand, key: b.key }));
+
+    try {
+      const count = await compareMeta(targetBoards, currentDeckId);
+      if (deckRef.current?.id !== currentDeckId) return;
+      if (count > 0) {
+        sound.play("glass");
+        toast(`Confronto con il meta completato per ${plural(count, "board", "board")}`, "info");
+      }
+    } catch {
+      if (deckRef.current?.id !== currentDeckId) return;
+      sound.play("error");
+    }
   };
 
   const addToGoal = (id: number) => {
@@ -623,7 +674,7 @@ export function Combo({ artReady, onGoForge }: { artReady: boolean; onGoForge: (
                     );
                   })}
                 </div>
-                <p className="text-[11px] leading-relaxed text-faint">Tocca una carta del deck per metterla in mano, una della mano per toglierla. Il lucchetto la tiene in mano fino alla fine del turno.</p>
+                <p className="text-xs leading-relaxed text-faint">Tocca una carta del deck per metterla in mano, una della mano per toglierla. Il lucchetto la tiene in mano fino alla fine del turno.</p>
               </section>
             ) : (
               <section className="flex flex-col gap-2">
@@ -653,9 +704,9 @@ export function Combo({ artReady, onGoForge }: { artReady: boolean; onGoForge: (
             <section className="flex flex-col gap-2">
               <div className="flex items-baseline justify-between">
                 <h3 className="text-sm font-semibold">Obiettivo</h3>
-                <span className="text-[11px] text-faint">facoltativo</span>
+                <span className="text-xs text-faint">facoltativo</span>
               </div>
-              <p className="text-[11px] leading-relaxed text-faint">Carte da avere sul campo a fine turno: il motore cerca la linea che ci arriva, o prova che non esiste.</p>
+              <p className="text-xs leading-relaxed text-faint">Carte da avere sul campo a fine turno: il motore cerca la linea che ci arriva, o prova che non esiste.</p>
               {setup.goal.length > 0 && (
                 <div className="flex flex-wrap gap-1.5">
                   {setup.goal.map(({ code: id, zone }, i) => (
@@ -665,7 +716,7 @@ export function Combo({ artReady, onGoForge }: { artReady: boolean; onGoForge: (
                       {extraUnique.includes(id) && (
                         <button
                           type="button"
-                          className={`rounded px-1 text-[10px] font-semibold ${zone === "any" ? "text-faint hover:text-text" : "bg-sec text-bg"}`}
+                          className={`rounded px-1.5 py-0.5 text-xs font-semibold ${zone === "any" ? "text-faint hover:text-text" : "bg-sec text-bg"}`}
                           title={`Sul campo ${ZONES.find((z) => z.zone === zone)?.hint}: tocca per cambiare`}
                           onClick={() => {
                             sound.play("toggle");
@@ -722,7 +773,7 @@ export function Combo({ artReady, onGoForge }: { artReady: boolean; onGoForge: (
                 </div>
               )}
               {setup.goal.length > 1 && (
-                <div className="flex gap-1 self-start rounded-lg border border-border bg-bg-2 p-0.5 text-[11px]" role="radiogroup" aria-label="Quante carte dell'obiettivo">
+                <div className="flex gap-1 self-start rounded-lg border border-border bg-bg-2 p-0.5 text-xs" role="radiogroup" aria-label="Quante carte dell'obiettivo">
                   {(
                     [
                       [true, "tutte"],
@@ -753,7 +804,7 @@ export function Combo({ artReady, onGoForge }: { artReady: boolean; onGoForge: (
             <section className="flex flex-col gap-2">
               <div className="flex items-baseline justify-between">
                 <h3 className="text-sm font-semibold">Il Main Deck</h3>
-                <span className="text-[11px] text-faint">clic destro: vietala al motore</span>
+                <span className="text-xs text-faint">clic destro: vietala al motore</span>
               </div>
               <div className="grid grid-cols-6 gap-1">
                 {unique.map((id) => {
@@ -787,16 +838,16 @@ export function Combo({ artReady, onGoForge }: { artReady: boolean; onGoForge: (
                   </button>
                 ))}
               </div>
-              {setup.mode === "card" && <p className="text-[11px] text-faint">Circa {Math.max(1, Math.round(options.seconds / options.hands))} s per mano.</p>}
+              {setup.mode === "card" && <p className="text-xs text-faint">Circa {Math.max(1, Math.round(options.seconds / options.hands))} s per mano.</p>}
               <label className="flex items-start gap-2 text-xs text-muted">
                 <input type="checkbox" className="mt-0.5 accent-[var(--sec)]" checked={options.useHandtraps} onChange={(e) => setOptions({ useHandtraps: e.target.checked })} />
                 <span>
                   Usa anche le handtrap nella combo
-                  <span className="block text-[11px] text-faint">Di solito restano in mano per il turno avversario.</span>
+                  <span className="block text-xs text-faint">Di solito restano in mano per il turno avversario.</span>
                 </span>
               </label>
               {setup.forbid.length > 0 && (
-                <p className="text-[11px] text-faint">
+                <p className="text-xs text-faint">
                   Vietate: {setup.forbid.map(name).join(", ")}{" "}
                   <button type="button" className="underline hover:text-text" onClick={() => setSetup((s) => ({ ...s, forbid: [] }))}>
                     togli
@@ -853,7 +904,7 @@ export function Combo({ artReady, onGoForge }: { artReady: boolean; onGoForge: (
                       <button type="button" className="btn btn-ghost !py-1 text-xs" onClick={() => void goOn()}>
                         Continua per {BUDGETS.find((b) => b.seconds === options.seconds)?.label ?? `${options.seconds} s`}
                       </button>
-                      <span className="text-[11px] text-faint">riprende da dove si è fermata, senza ripartire da capo</span>
+                      <span className="text-xs text-faint">riprende da dove si è fermata, senza ripartire da capo</span>
                     </div>
                   ))}
               </section>
@@ -902,7 +953,7 @@ export function Combo({ artReady, onGoForge }: { artReady: boolean; onGoForge: (
                           <CardImage key={i} code={c} card={cards.get(c)} className="h-[32px] w-[22px]" />
                         ))}
                       </span>
-                      <span className="text-[11px] text-faint tabular-nums">{Math.round(h.weight * 100)}%</span>
+                      <span className="text-xs text-faint tabular-nums">{Math.round(h.weight * 100)}%</span>
                       {goal && <GoalMark status={h.goal} />}
                       <span className="ml-auto text-xs tabular-nums">
                         {h.best != null ? (
@@ -916,7 +967,7 @@ export function Combo({ artReady, onGoForge }: { artReady: boolean; onGoForge: (
                     </button>
                   ))}
                 </div>
-                <p className="text-[11px] text-faint">La percentuale è quanto pesa la mano tra tutte quelle con la carta. Tocca una mano per vederne solo le board.</p>
+                <p className="text-xs text-faint">La percentuale indica il peso della mano tra tutte quelle con la carta. Clicca su una mano per filtrare le relative board.</p>
               </section>
             )}
 
@@ -925,12 +976,14 @@ export function Combo({ artReady, onGoForge }: { artReady: boolean; onGoForge: (
                 <div className="flex flex-wrap items-center justify-between gap-2 px-1">
                   <div className="flex items-baseline gap-2">
                     <h3 className="text-sm font-semibold">{run.running ? "Le migliori board finora" : "Le board finali"}</h3>
-                    <span className="text-[11px] text-faint" aria-live="polite">
+                    <span className="text-xs text-faint" aria-live="polite">
                       {run.running
                         ? "stima provvisoria finché la ricerca gira"
                         : run.scoring
                           ? `turno di prova in corso: ${measured} board misurate…`
-                          : measured
+                          : run.metaLoading
+                            ? "confronto con il meta in corso…"
+                            : measured
                             ? "punteggio misurato con il turno di prova"
                             : "stima provvisoria"}
                     </span>
@@ -946,7 +999,7 @@ export function Combo({ artReady, onGoForge }: { artReady: boolean; onGoForge: (
                             sound.play("toggle");
                             void scoreBoards(id);
                           }}
-                          disabled={run.scoring}
+                          disabled={run.scoring || run.metaLoading}
                           className="select !py-0.5 !text-xs max-w-[200px]"
                           title="Scegli un deck della Bottega per misurare breaker e handtrap reali dell'avversario"
                         >
@@ -964,11 +1017,12 @@ export function Combo({ artReady, onGoForge }: { artReady: boolean; onGoForge: (
                           sound.play("select");
                           void scoreBoards(run.vsDeckId);
                         }}
-                        disabled={run.scoring}
-                        className="btn btn-ghost !px-2 !py-0.5 text-[11px]"
+                        disabled={run.scoring || run.metaLoading}
+                        className="btn btn-ghost !px-2.5 !py-0.5 text-xs flex items-center gap-1"
                         title="Misura le board che mancano con l'avversario scelto"
                       >
-                        {run.scoring ? "Misurazione…" : "↻ Rimisura"}
+                        <RefreshCw size={12} className={run.scoring ? "animate-spin" : ""} />
+                        <span>{run.scoring ? "Misurazione…" : "Rimisura"}</span>
                       </button>
                       {run.vsDeckId != null && (
                         <button
@@ -977,10 +1031,11 @@ export function Combo({ artReady, onGoForge }: { artReady: boolean; onGoForge: (
                             sound.play("toggle");
                             setSortByMatchup((v) => !v);
                           }}
-                          className={`chip !py-0.5 text-[11px] ${sortByMatchup ? "chip-active" : ""}`}
+                          className={`chip !py-0.5 text-xs flex items-center gap-1 ${sortByMatchup ? "chip-active" : ""}`}
                           title="Ordina per resilienza contro il deck avversario"
                         >
-                          {sortByMatchup ? "✓ Ordine: vs deck" : "Ordina per vs deck"}
+                          {sortByMatchup && <Check size={12} />}
+                          <span>{sortByMatchup ? "Ordine: vs deck" : "Ordina per vs deck"}</span>
                         </button>
                       )}
                       {(totalMeasuredCount > 1 || paretoOnly) && (
@@ -990,17 +1045,61 @@ export function Combo({ artReady, onGoForge }: { artReady: boolean; onGoForge: (
                             sound.play("toggle");
                             setParetoOnly((v) => !v);
                           }}
-                          className={`chip !py-0.5 text-[11px] ${paretoOnly ? "chip-active" : ""}`}
+                          className={`chip !py-0.5 text-xs flex items-center gap-1 ${paretoOnly ? "chip-active" : ""}`}
                           title="Mostra solo le board non dominate (frontiera di Pareto): nessuna altra board misurata è uguale o migliore su tutte le metriche"
                         >
-                          {paretoOnly
-                            ? `✓ Solo non dominate (${nonDominatedCount}/${totalMeasuredCount})`
-                            : "Solo non dominate (Pareto)"}
+                          {paretoOnly && <Check size={12} />}
+                          <span>{paretoOnly
+                            ? `Solo non dominate (${nonDominatedCount}/${totalMeasuredCount})`
+                            : "Solo non dominate (Pareto)"}</span>
+                        </button>
+                      )}
+                      {totalMeasuredCount > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => void handleCompareMeta()}
+                          disabled={run.scoring || run.metaLoading}
+                          className="btn btn-ghost !px-2.5 !py-0.5 text-xs flex items-center gap-1.5 text-sec border-sec/40 hover:bg-sec/10"
+                          title="Confronta le migliori board contro i 3 deck più giocati del meta su Master Duel Meta (L2-3)"
+                        >
+                          {hasMetaBoards ? <RefreshCw size={12} /> : <Sparkles size={12} />}
+                          <span>{run.metaLoading ? "Meta in corso…" : hasMetaBoards ? "Ricalcola meta" : "Confronta con il meta"}</span>
                         </button>
                       )}
                     </div>
                   )}
                 </div>
+                {run.metaLoading && (
+                  <div className="lab-card flex items-start gap-3 border-sec/60 bg-surface-2/80 p-3 text-xs anim-fade">
+                    <span className="spinner mt-0.5 h-4 w-4 shrink-0 text-sec" aria-hidden />
+                    <div className="flex flex-col gap-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-text">Confronto con il meta in corso…</span>
+                        <span className="chip !py-0 !px-1.5 text-xs text-sec font-semibold">L2-3</span>
+                      </div>
+                      <p className="text-xs leading-relaxed text-muted">
+                        Il confronto con il meta è in corso. La prima volta richiede circa 1 minuto (lettura del meta da Master Duel Meta e delle linee dei 3 deck più giocati), poi circa 20 s per board.
+                      </p>
+                    </div>
+                  </div>
+                )}
+                {run.metaError && (
+                  <div className="lab-card flex items-start justify-between gap-3 border-danger/60 bg-danger/10 p-3 text-xs text-danger anim-fade">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <AlertTriangle size={15} className="shrink-0" />
+                      <span className="min-w-0 font-medium">{run.metaError}</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => clearMetaError()}
+                      className="btn btn-ghost !py-0.5 !px-2 text-xs text-danger hover:bg-danger/20"
+                      title="Chiudi avviso"
+                      aria-label="Chiudi avviso"
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                )}
                 {!run.running && totalMeasuredCount > 0 && (
                   <WeightsPanel
                     profile={profile}
@@ -1015,7 +1114,7 @@ export function Combo({ artReady, onGoForge }: { artReady: boolean; onGoForge: (
                 {pinned && (
                   <div className="lab-card flex flex-wrap items-center justify-between gap-2 border-sec/60 bg-surface-2/80 px-3 py-2 text-xs anim-fade">
                     <span className="text-muted">
-                      Riferimento fissato: <b className="text-text">Board #{rankOf(pinned)}</b> · clicca <b className="text-sec">⇄ Confronta</b> su un'altra board per aprirle fianco a fianco.
+                      Riferimento fissato: <b className="text-text">Board #{rankOf(pinned)}</b> · clicca <b className="text-sec">Confronta</b> su un'altra board per aprirle a confronto.
                     </span>
                     <div className="flex items-center gap-2">
                       {selected && boardId(selected) !== boardId(pinned) && (
@@ -1025,9 +1124,10 @@ export function Combo({ artReady, onGoForge }: { artReady: boolean; onGoForge: (
                             sound.play("open");
                             setCompareTarget(selected);
                           }}
-                          className="btn btn-molten !px-2.5 !py-1 text-xs"
+                          className="btn btn-molten !px-2.5 !py-1 text-xs flex items-center gap-1.5"
                         >
-                          ⇄ Confronta con Board #{rankOf(selected)}
+                          <ArrowLeftRight size={13} />
+                          <span>Confronta con Board #{rankOf(selected)}</span>
                         </button>
                       )}
                       <button
@@ -1079,6 +1179,14 @@ export function Combo({ artReady, onGoForge }: { artReady: boolean; onGoForge: (
                         ) : (
                           <span title="Stima provvisoria (mostri, magie e trappole, carte in mano)">
                             <b className="text-sm text-faint">{b.quickScore.toFixed(1)}</b> <span className="text-[10px]">stima</span>
+                          </span>
+                        )}
+                        {scoreOf(b)?.meta?.value != null && (
+                          <span
+                            className="chip !px-1.5 !py-0 text-[10px] text-sec border-sec/40 font-semibold"
+                            title={`Efficacia nel meta (L2-3): in media ferma il ${Math.round(scoreOf(b)!.meta!.value! * 100)}% delle giocate dei top deck`}
+                          >
+                            meta: {Math.round(scoreOf(b)!.meta!.value! * 100)}%
                           </span>
                         )}
                         {scoreOf(b) && !dominatedBoardIds.has(boardId(b)) && measured > 1 && (
@@ -1142,7 +1250,13 @@ export function Combo({ artReady, onGoForge }: { artReady: boolean; onGoForge: (
                                   : "Fissa questa board per confrontarla con un'altra"
                             }
                           >
-                            {isPinned ? "✓ Fissata" : pinned ? `⇄ vs #${rankOf(pinned)}` : "⇄ Confronta"}
+                            {isPinned ? (
+                              <span className="flex items-center gap-1"><Check size={12} /> Fissata</span>
+                            ) : pinned ? (
+                              <span className="flex items-center gap-1"><ArrowLeftRight size={12} /> vs #{rankOf(pinned)}</span>
+                            ) : (
+                              <span className="flex items-center gap-1"><ArrowLeftRight size={12} /> Confronta</span>
+                            )}
                           </button>
                         )}
                       </span>
@@ -1187,13 +1301,15 @@ export function Combo({ artReady, onGoForge }: { artReady: boolean; onGoForge: (
                           setPinned(selected);
                         }
                       }}
-                      className="chip !py-0.5 text-[11px] hover:border-sec/60 hover:text-text"
+                      className="chip !py-0.5 text-xs hover:border-sec/60 hover:text-text"
                     >
-                      {pinned && boardId(pinned) === boardId(selected)
-                        ? "✓ Fissata per confronto"
-                        : pinned
-                          ? `⇄ Confronta con #${rankOf(pinned)}`
-                          : "⇄ Fissa per confronto"}
+                      {pinned && boardId(pinned) === boardId(selected) ? (
+                        <span className="flex items-center gap-1"><Check size={12} /> Fissata per confronto</span>
+                      ) : pinned ? (
+                        <span className="flex items-center gap-1"><ArrowLeftRight size={12} /> Confronta con #{rankOf(pinned)}</span>
+                      ) : (
+                        <span className="flex items-center gap-1"><ArrowLeftRight size={12} /> Fissa per confronto</span>
+                      )}
                     </button>
                   )}
                   <button type="button" className="text-xs text-muted hover:text-text" onClick={() => setSelected(null)}>

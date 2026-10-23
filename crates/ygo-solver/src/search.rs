@@ -74,9 +74,12 @@ pub struct SearchConfig {
     pub opponent: Option<Opponent>,
     /// Best boards included in each progress report.
     pub live_top: usize,
-    /// Provisional boards played to the end of the turn when the search stops.
+    /// Provisional boards played to the end of the turn when the search
+    /// stops, in a search of up to [`PHASE_BOARDS`] such boards; more in
+    /// proportion past them ([`scaled`]).
     pub confirm_top: usize,
-    /// Best boards whose zone choices are tried the other ways at the end.
+    /// Best boards whose zone choices are tried the other ways at the end,
+    /// scaled the same way by the exact boards.
     pub zone_top: usize,
     /// What the cards are worth alone on the field ([`crate::card_values`]):
     /// the estimate counts them, so the search goes after boards that stop
@@ -509,6 +512,9 @@ struct Shared<'a> {
     /// Handtraps seen to give something new to do when activated at your
     /// idle moment (Labrynth Cooclock): never left in the hand.
     useful_hand_traps: RwLock<HashSet<u32>>,
+    /// The workers' duels and their copies, kept from the search for the
+    /// phases after it ([`Shared::take_copies`]).
+    copies: Mutex<Vec<Copies>>,
     /// The times each handtrap did nothing at your idle moment: one is not
     /// enough to leave it in the hand (Labrynth Cooclock before a Trap is Set).
     idle_strikes: Mutex<HashMap<u32, u32>>,
@@ -1275,6 +1281,27 @@ impl Copies {
     }
 }
 
+impl Shared<'_> {
+    /// A worker's duel in an arena with its copies: one the search made, or
+    /// a new one (`None`: no copies asked, or no arena left; the lines are
+    /// then replayed from the start).
+    fn take_copies(&self) -> Option<Copies> {
+        if self.config.copies_mb == 0 {
+            return None;
+        }
+        if let Some(c) = self.copies.lock().ok().and_then(|mut c| c.pop()) {
+            return Some(c);
+        }
+        Copies::new(self).inspect_err(|e| eprintln!("search: {e}; the lines are replayed from the start")).ok()
+    }
+
+    fn give_back(&self, copies: Option<Copies>) {
+        if let (Some(c), Ok(mut pool)) = (copies, self.copies.lock()) {
+            pool.push(c);
+        }
+    }
+}
+
 impl Store {
     fn keep(&mut self, duel: &Duel, answers: &[Vec<u8>], hash: u64, track: &Track) {
         if self.full || self.cap == 0 || self.copies.contains_key(&hash) {
@@ -1941,10 +1968,7 @@ fn run_workers(shared: &Shared, threads: usize, mut progress: impl FnMut(&Progre
     std::thread::scope(|s| {
         for _ in 0..threads.max(1) {
             s.spawn(move || {
-                // Without an arena (none left) the lines are replayed.
-                let mut copies = (shared.config.copies_mb > 0)
-                    .then(|| Copies::new(shared).inspect_err(|e| eprintln!("search: {e}; the lines are replayed from the start")).ok())
-                    .flatten();
+                let mut copies = shared.take_copies();
                 while let Some(edge) = shared.pop() {
                     if let Err(e) = work(shared, edge, copies.as_mut()) {
                         if std::env::var_os("DUELFORGE_DEBUG_SEARCH").is_some() {
@@ -1960,6 +1984,7 @@ fn run_workers(shared: &Shared, threads: usize, mut progress: impl FnMut(&Progre
                         stats.learned(learning.elapsed());
                     }
                 }
+                shared.give_back(copies);
             });
         }
         while !shared.stopped() {
@@ -2116,16 +2141,29 @@ fn learn_round(shared: &Shared, count: usize) {
     }
 }
 
+/// Boards up to which the phases after the search take their configured
+/// number of boards ([`SearchConfig::confirm_top`], `zone_top`).
+pub const PHASE_BOARDS: usize = 2000;
+
+/// The boards a phase after the search takes, out of `found`: `top` up to
+/// [`PHASE_BOARDS`] boards found, the same share past them. A fixed number
+/// would be a smaller share the longer the search: a board that a short
+/// search plays to the end would be left out by a long one.
+fn scaled(top: usize, found: usize) -> usize {
+    top.max(found.saturating_mul(top) / PHASE_BOARDS)
+}
+
 /// Plays to the end of the turn the best provisional boards (and those
 /// that reach the goal), so their End Phase effects count.
 fn confirm_best(shared: &Shared) {
     let mut provisional: Vec<Board> = shared.boards.lock().map(|b| b.values().filter(|b| !b.exact).cloned().collect()).unwrap_or_default();
     provisional.sort_by(rank);
     let goal = &shared.config.goal;
+    let top = scaled(shared.config.confirm_top, provisional.len());
     let picked: Vec<Edge> = provisional
         .iter()
         .enumerate()
-        .filter(|(i, b)| *i < shared.config.confirm_top || goal.reached(b.goal_hits))
+        .filter(|(i, b)| *i < top || goal.reached(b.goal_hits))
         .filter_map(|(_, b)| {
             let (prefix, answer) = b.line.split_last()?;
             Some(Edge {
@@ -2145,18 +2183,23 @@ fn confirm_best(shared: &Shared) {
     shared.confirming.store(true, Ordering::Relaxed);
     let next = AtomicU64::new(0);
     std::thread::scope(|s| {
-        for _ in 0..shared.config.threads.max(1) {
-            s.spawn(|| loop {
-                let i = next.fetch_add(1, Ordering::Relaxed) as usize;
-                let Some(edge) = picked.get(i) else { break };
-                // Past the deadline the board stays provisional (not exact).
-                if shared.past_deadline() {
-                    break;
+        for _ in 0..shared.config.threads.max(1).min(picked.len()) {
+            s.spawn(|| {
+                // From the copies the search made.
+                let mut copies = shared.take_copies();
+                loop {
+                    let i = next.fetch_add(1, Ordering::Relaxed) as usize;
+                    let Some(edge) = picked.get(i) else { break };
+                    // Past the deadline the board stays provisional (not exact).
+                    if shared.past_deadline() {
+                        break;
+                    }
+                    // The End Phase may offer choices: their alternatives join the queue.
+                    if work(shared, edge.clone(), copies.as_mut()).is_err() {
+                        shared.interrupted.fetch_add(1, Ordering::Relaxed);
+                    }
                 }
-                // The End Phase may offer choices: their alternatives join the queue.
-                if work(shared, edge.clone(), None).is_err() {
-                    shared.interrupted.fetch_add(1, Ordering::Relaxed);
-                }
+                shared.give_back(copies);
             });
         }
     });
@@ -2172,30 +2215,47 @@ fn confirm_best(shared: &Shared) {
 fn zone_variants(shared: &Shared) {
     let mut best: Vec<Board> = shared.boards.lock().map(|b| b.values().filter(|b| b.exact).cloned().collect()).unwrap_or_default();
     best.sort_by(rank);
-    best.truncate(shared.config.zone_top);
+    best.truncate(scaled(shared.config.zone_top, best.len()));
     let next = AtomicU64::new(0);
     std::thread::scope(|s| {
-        for _ in 0..shared.config.threads.max(1) {
-            s.spawn(|| loop {
-                let i = next.fetch_add(1, Ordering::Relaxed) as usize;
-                let Some(board) = best.get(i) else { break };
-                if shared.past_deadline() {
-                    break;
+        for _ in 0..shared.config.threads.max(1).min(best.len()) {
+            s.spawn(|| {
+                let mut copies = shared.take_copies();
+                loop {
+                    let i = next.fetch_add(1, Ordering::Relaxed) as usize;
+                    let Some(board) = best.get(i) else { break };
+                    if shared.past_deadline() {
+                        break;
+                    }
+                    let _ = zone_variants_of(shared, &board.line, copies.as_mut());
                 }
-                let _ = zone_variants_of(shared, &board.line);
+                shared.give_back(copies);
             });
         }
     });
 }
 
-fn zone_variants_of(shared: &Shared, line: &Line) -> Result<(), Error> {
+fn zone_variants_of(shared: &Shared, line: &Line, mut copies: Option<&mut Copies>) -> Result<(), Error> {
     if shared.past_deadline() {
         return Ok(());
     }
     let config = shared.config;
-    // The zone choices of the line that had other kinds of zones.
+    // The zone choices of the line that had other kinds of zones, with a
+    // copy of the duel there when it is in an arena: each other zone is
+    // played from it, not from the start.
     let mut spots = Vec::new();
-    let mut duel = new_duel(shared)?;
+    let mut own: Duel;
+    let in_arena = copies.is_some();
+    let duel = match copies.as_deref_mut() {
+        Some(c) => {
+            c.duel.restore(&c.store.start)?;
+            &mut c.duel
+        }
+        None => {
+            own = new_duel(shared)?;
+            &mut own
+        }
+    };
     for (i, answer) in line.answers.iter().enumerate() {
         let Step::Decision { decision, .. } = duel.advance()? else { break };
         if let Decision::SelectPlace { player: 0, count: 1, .. } = decision {
@@ -2203,7 +2263,8 @@ fn zone_variants_of(shared: &Shared, line: &Line) -> Result<(), Error> {
                 let kinds = ygo_engine::auto::distinct_zones(&duel.state(), 0, duel.actions(&decision));
                 let others: Vec<Action> = kinds.into_iter().filter(|a| a.response != *answer).collect();
                 if !others.is_empty() {
-                    spots.push((i, k, others));
+                    let here = in_arena.then(|| duel.save().ok()).flatten();
+                    spots.push((i, k, others, here));
                 }
             }
         }
@@ -2212,14 +2273,26 @@ fn zone_variants_of(shared: &Shared, line: &Line) -> Result<(), Error> {
     if std::env::var_os("DUELFORGE_DEBUG_SEARCH").is_some() {
         eprintln!("zone variants: {} spots in a line of {} choices", spots.len(), line.choices.len());
     }
-    for (i, k, others) in spots {
+    for (i, k, others, here) in spots {
         for other in others {
             if shared.past_deadline() {
                 return Ok(());
             }
-            let mut duel = new_duel(shared)?;
+            // From the copy at the zone choice (its decision already read),
+            // or the whole line from the start.
+            let (duel, from) = match (copies.as_deref_mut(), &here) {
+                (Some(c), Some(here)) => {
+                    c.duel.restore(here)?;
+                    c.duel.respond(&other.response);
+                    (&mut c.duel, i + 1)
+                }
+                _ => {
+                    own = new_duel(shared)?;
+                    (&mut own, 0)
+                }
+            };
             let mut played = true;
-            for (j, answer) in line.answers.iter().enumerate() {
+            for (j, answer) in line.answers.iter().enumerate().skip(from) {
                 if !matches!(duel.advance(), Ok(Step::Decision { .. })) {
                     played = false;
                     break;
@@ -2288,6 +2361,7 @@ pub fn resume(
         own_negators: RwLock::default(),
         idle_hand_traps: RwLock::default(),
         useful_hand_traps: RwLock::default(),
+        copies: Mutex::default(),
         idle_strikes: Mutex::default(),
         stats: std::env::var_os("DUELFORGE_SEARCH_STATS").map(|_| stats::Stats::default()),
     };
@@ -2568,6 +2642,15 @@ mod stats {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_phases_after_the_search_grow_with_the_boards() {
+        assert_eq!(scaled(40, 300), 40);
+        assert_eq!(scaled(40, PHASE_BOARDS), 40);
+        assert_eq!(scaled(40, 20_000), 400);
+        assert_eq!(scaled(20, 20_000), 200);
+        assert_eq!(scaled(0, 20_000), 0);
+    }
 
     #[test]
     fn split_last_takes_off_the_last_choice() {

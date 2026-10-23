@@ -535,6 +535,12 @@ Nessun codice nella ricerca: misure e stime, per decidere.
 - Sulle 41 mani: 71% del tempo, #1 uguale o migliore in 41/41.
 - Sulle 82 mani, misurate dalla corsia 7, si perde il #1 in 5 mani, fino al 33,7% (Branded-1): lì le risposte fermano qualcosa solo dopo la seconda finestra.
 
+### B13, PR 3: le fasi dopo la ricerca dalle copie (23/10/2026, corsia 2)
+- I duelli dei thread e le loro copie restano dopo la ricerca, in un insieme comune: `confirm_best` parte dalle copie della ricerca, e `zone_variants` gioca ogni altra zona da una copia del duello fatta alla scelta della zona, non più tutta la linea dall'inizio.
+- I giri di apprendimento misurano con il turno di prova (`probe.rs`): restano col replay fino al passo del turno di prova.
+- Due mani Invoked a 4000 nodi: `zone_variants` da 0,9-1,2 s a 0,2-0,4 s, `confirm_best` da 0,3-0,5 s a 0,1-0,3 s.
+- Banco (37 deck, 4000 nodi, due giri alternati): ricerca 122,2 e 115,2 s su `main`, 111,9 e 107,8 s con le copie (−7%); board e linee identiche (differenze solo nell'ultima cifra dei decimali, le stesse tra due giri di `main`). `combo_hunt --seed 7`: 82 mani identiche. `paired_test.py` su 179 mani: 179 pari, accettato; secondi di ricerca 1672 → 1449 (−13%).
+
 ### B14, seguito: 8 finestre, 1 giro degli usi e il turno dopo (22-23/10/2026, corsia 8)
 **Cosa cambia rispetto alla scala sicura.**
 - **Gradino più corto.** Il gradino prova ogni risposta alle prime 8 finestre e conta gli usi in 1 giro, invece di 16 e 3. La misura completa riprende dalle finestre 9-16 e dagli altri giri, senza rigiocare quelli fatti.
@@ -561,3 +567,62 @@ Nessun codice nella ricerca: misure e stime, per decidere.
 - `paired_test.py` sulle 82 mani: 82 pari, accettato. Banco a 4000 nodi identico (best 11,56, first 11,55, 12 mani su 16), `paired_test.py` accettato.
 - Verdi anche `search_regression`, i test, fmt, clippy (anche `src-tauri`) e `pnpm typecheck`. Nell'app vera non è stata provata.
 - **Nell'app** le board che hanno solo il gradino economico non si mandano ancora alla pagina (`SEND_CHEAP_SCORES = false`, come nella PR #89).
+
+### L2-3 come ultimo gradino (23/10/2026, corsia 8)
+**Cosa fa.** Dopo la scala di B14, le migliori board per misura completa si rigiocano al livello 2 contro i 3 deck del meta con il `popRank` più alto (`ricerca-esperimenti.md` §6b), e quelle board si riordinano per L2-3.
+- **Valore:** Σ peso · (1 − `left`) sui deck contati, pesato fra loro.
+- **Deck non contati:** quelli le cui linee non si rigiocano come sono state trovate. Sono quelli con meno dell'80% delle mosse fatte su campo vuoto, o senza linee, come nel banco oggettivo.
+- **Scelta dei deck:** dai pesi soli, mai per nome (`ygo_solver::most_played`).
+- **Linee dei deck:** si calcolano quando servono, 12 mani da 1000 nodi come per `combo_moves`. Non si salvano mai da una sessione all'altra.
+
+**Codice.**
+- `ygo_solver::meta`: `meta_rivals`, `meta_score`, `most_played`.
+- `ygo_data::meta`: i tipi di deck per `popRank` e l'ultima lista dei top deck di ciascuno, da Master Duel Meta quando serve; `CardStore::id_by_name`.
+- **CLI:** `combos --meta-final N`. Le migliori N per misura vanno in testa, ordinate per L2-3; la stampa dice anche il posto per misura. Con `--meta-file`/`--meta-decks` il meta è fisso (il `meta.json` di `objective_bench.py`). Il JSON ha `meta`, `printed_by_measure` e `meta_seconds`.
+- **App:** comando `combo_meta(boards?)`.
+  - Senza board, prende le 4 migliori con la misura completa per il profilo «Bilanciato».
+  - Rimanda i punteggi con `ScoreView.meta` (`ComboScore.meta` in `api.ts`).
+  - Il meta e le linee restano in memoria per la sessione.
+  - Il pulsante e la classifica nella pagina sono chiesti a Gemini in `TASKS.md`.
+  - Non è stato provato nell'app vera.
+
+**Quanto migliora l'ordine.** Dati del giro A1b della corsia 7, sul branch `claude/research-data`: le prime 5 board per misura di ognuna delle 82 mani di `combo_hunt --seed 7`, contro i 19 deck del meta. Nessuna invocazione nuova.
+- Su ogni mano si prendono le prime N per misura, e si confronta il #1 della misura con il #1 di L2-3 (Elfnote, Dracotail, Invoked).
+- Il giudice è la verità contro gli **altri 16** avversari (`scripts/research/l23_final.py`).
+- Con 80 mani si intendono quelle con dati.
+
+| N | mani col #1 cambiato | il nuovo #1 è meglio / pari / peggio (soglia 0,02) | verità del #1, misura → L2-3 | #1 = il migliore per verità fra gli N |
+|---|---:|---:|---:|---:|
+| 3 | 24/80 | 9 / 14 / 1 | 0,590 → 0,598 | 48 → 57 |
+| **4** | **29/80** | **12 / 16 / 1** | **0,590 → 0,605** | **40 → 53** |
+| 5 | 30/80 | 15 / 14 / 1 | 0,590 → 0,608 | 40 → 52 |
+
+- **Dove cambia, con N = 4:** la verità del #1 sale in media di +0,043 (mediana +0,017), fino a +0,20 (Clown Crew-1, Snake-Eye-1).
+  - L'unico caso peggiore è Branded-1, −0,033.
+  - Senza i «parenti» dei tre deck nella verità (Elfnote Kewl Tune, Magistus Fairy Tail): 14 meglio, 13 pari, 2 peggio.
+- **Con il livello 2 dopo la PR #93 («risposte insieme»),** sulle sole mani rifatte dalla corsia 7:
+  - nelle 6 mani della caccia il #1 cambia in 5, tutte meglio (da +0,03 a +0,17);
+  - nelle 5 mani dell'oracolo il #1 della misura era già il migliore (prima della #93 L2-3 lo correggeva in 2: Branded +0,08, inv-r5 +0,15).
+- **Limite:** la verità è anch'essa il livello 2 contro altri deck (§6b), quindi L2-3 e la verità condividono il meccanismo.
+
+**Prova dal vivo e costo.** `combo_hunt --hands 1 --seed 7 --top 30 --staged` con `--meta-final 4`, su 8 deck (meta del giro A1b, liste MDM del 22/10), un thread per mano.
+- Il #1 cambia in 3 mani su 8: Dracotail (dal 3° posto per misura, 0,32 → 0,54), Megalith (dal 4°, 0,77 → 0,80), Warrior Combo (dal 3°, 0 → 0,12).
+- **Tempo:**
+  - linee dei 3 deck: 77-86 s a mano;
+  - 4 board: 33-238 s, mediana circa 150 s, cioè circa 38 s a board;
+  - la scala di B14 prima costa 11-88 s.
+- Quindi l'ultimo gradino costa circa 4-5 volte il resto della valutazione. Nell'app le linee e le board vanno su tutti i core, e le linee si leggono una volta per sessione e seme.
+- `paired_test.py` su queste 8 mani, prima e dopo: 8 pari, accettato (il riordino non cambia le misure). `search_regression` verde: la ricerca non cambia.
+
+### Tabella delle trasposizioni con la penalità minima (23/10/2026, corsia 2: misurata, non tenuta)
+- **L'idea** (revisione del motore §1.3, caccia ai bug punto 2): la tabella chiude un nodo alla prima visita, mentre la priorità dei suoi fratelli dipende dal cammino. Se una linea con 3 deviazioni arriva prima, i fratelli entrano in coda con la penalità di 4; la linea principale, se arriva dopo, viene scartata come duplicato.
+- **La prova:** la tabella tiene per ogni nodo il numero minimo di deviazioni visto; un arrivo con meno deviazioni riparte da lì e rimette in coda i fratelli con la penalità più bassa (le voci vecchie restano in coda). Durante `confirm_best` resta come prima.
+- **Quanto spesso:** 15-159 arrivi «più vicini» per ricerca a 3000 nodi (blue_eyes 49, branded_tearlaments 15, voiceless_voice 159).
+- **Esito** (`paired_test.py`, 179 mani, contro `main` con #104): 3 migliori, 5 peggiori, 171 pari (p = 0,73), la peggiore −23,5% (branded_tearlaments-0); secondi di ricerca da 1506 a 1516. Respinta: rimescola l'ordine senza un guadagno netto, e la nuova discesa rispende nodi su sottoalberi già visti. Il branch locale `tt-min` resta come riferimento.
+
+### Il campo che cambia con il budget (caccia ai bug, punto 1; 23/10/2026, corsia 2)
+- **Fasi dopo la ricerca in proporzione (tenuta):** `confirm_top` (40) e `zone_top` (20) valgono fino a 2000 board e crescono in proporzione oltre (`scaled` in `search.rs`), invece di restare fisse a ogni budget. Con le board del banco a 4000 nodi nulla cambia. Su sky_striker-1 a 20 000 nodi le due fasi costano ancora circa 0,2 s l'una. Sulle 20 mani dell'oracolo (sotto) i valori sono identici a quelli di `main` a 4000 e a 40 000 nodi: nessun danno, nessun guadagno misurabile su questo campione.
+- **Rappresentante del campo con un criterio fisso (misurato, non tenuto):** le varianti di un campo ordinate per più carte in mano, poi più carte nel Cimitero e bandite, poi linea più corta; con `--staged` la misura economica delle prime 2. Nell'app lo stesso per `look_key`.
+  - 20 mani dell'oracolo (`hunt-*`, comprese sky_striker-1 e warrior_combo-1), migliore board misurata a 4000 e a 40 000 nodi: tengono o migliorano con 10 volte i nodi 17 mani su 20 con `main`, 16 su 20 con il criterio. A 40 000 nodi il criterio sceglie varianti peggiori della stima della ricerca (sky_striker-1 1,64 → 1,52, clown_crew-0 0,67 → 0,35, r_b-0 2,05 → 1,56).
+  - `paired_test.py` (179 mani): 6 migliori, 3 peggiori, la peggiore −27,2% → respinto.
+  - Conclusione: con più carte in mano e più risorse non si sceglie meglio della stima. Il rappresentante stabile richiede una misura su più varianti (costo da 2 a 3 volte quello della misura economica di oggi) oppure la classifica fatta dopo la misura (revisione del motore, T1).

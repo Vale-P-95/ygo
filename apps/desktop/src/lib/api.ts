@@ -516,6 +516,34 @@ export interface ComboScore {
    * not send these yet (`SEND_CHEAP_SCORES` in `lib.rs`): it will once the page ranks them apart.
    */
   cheap?: boolean;
+  /**
+   * Level 2 against the 3 decks of the meta played the most (L2-3), for the best boards only: set by the `combo_meta`
+   * command (`invoke("combo_meta", { boards })`, `boards` an optional list of `{ hand, key }`; without it the best 4 by
+   * the "Bilanciato" profile), which sends the scores again as `combo-score` events. The boards that have it are ranked
+   * by `meta.value` ahead of the others. Missing or `null` when not measured.
+   */
+  meta?: ComboMeta | null;
+}
+
+/** A board against the most played decks of the meta (mirrors `MetaView`). */
+export interface ComboMeta {
+  /** Σ weight · (1 − left) over the decks counted, weighed among them: 0-1, higher is better. `null` when none could be counted. */
+  value: number | null;
+  /** The same weighed share of the decks' moves still made with all your answers. */
+  left: number | null;
+  perDeck: ComboMetaDeck[];
+}
+
+/** One deck of the meta against a board (mirrors `MetaDeckView`). */
+export interface ComboMetaDeck {
+  name: string;
+  /** Its `popRank` on Master Duel Meta: share of the ranked top decks, in %. */
+  weight: number;
+  lines: number;
+  /** Share of its moves made on an empty board: under 0.8 its lines did not play as found, and the deck is not counted. */
+  made: number;
+  /** Share of its moves still made with all your answers; `null` when not counted. */
+  left: number | null;
 }
 
 /** A card of the board that interrupts, against removals aimed at it with only its own effects to answer (mirrors `PieceView`). */
@@ -896,6 +924,8 @@ const tauriApi = {
   comboMoves: (hand: number, key: string, vsDeckId: number) => invoke<ComboMoves>("combo_moves", { hand, key, vsDeckId }),
   /** What each card of a board that interrupts holds against (destroy, banish, face-down, negate): a few seconds, for the board open. */
   boardProtection: (hand: number, key: string) => invoke<ComboPiece[]>("board_protection", { hand, key }),
+  /** Level 2 against the meta's most played decks (L2-3): takes about a minute the first time, then ~20s a board. */
+  comboMeta: (boards?: { hand: number; key: string }[]) => invoke<number>("combo_meta", { boards: boards ?? null }),
   onComboProgress: (handler: (p: ComboProgress) => void): Promise<UnlistenFn> => listen<ComboProgress>("combo-progress", (e) => handler(e.payload)),
   /** Laboratorio, "Collegamenti": the map of a deck, read by the engine (about half a minute the first time, then kept until its cards change). */
   deckLinks: (deckId: number) => invoke<DeckLinks>("deck_links", { deckId }),

@@ -1,6 +1,6 @@
 # Revisione dell'interfaccia, seconda parte: spazi, carte, filtri, Bottega, effetti
 
-*Piano scritto il 22/10/2026 dal coordinatore (Claude Code), dalle prove dell'app vera fatte dal proprietario. Lo esegue Gemini, un passo per PR. La prima revisione (schermi 1280×800 e tema chiaro) è in `docs/plans/ui-review.md`: questa non la ripete, la continua.*
+*Piano scritto il 22/10/2026 dal coordinatore (Claude Code), dalle prove dell'app vera fatte dal proprietario. I passi da 0 a 5 li esegue Gemini, un passo per PR (il 5 è la sua ultima PR, #118); dal 6 in poi li fa Claude Code, prima il mockup in Claude Design e poi una sessione Code (`docs/plans/piano-ambiente-e-risorse.md`, §3). La prima revisione (schermi 1280×800 e tema chiaro) è in `docs/plans/archivio/ui-review.md`: questa non la ripete, la continua.*
 
 ## Cosa ha visto il proprietario
 1. **Collegamenti (Laboratorio).**
@@ -123,6 +123,7 @@ File: `src/components/Catalog.tsx`, `FilterPanel.tsx`.
 - **I filtri attivi** compaiono come pillole rimovibili sotto la ricerca, solo quando ci sono.
 - **La scelta della vista** (carte grandi, medie, piccole, lista) diventa un solo pulsante con menu.
 - Il conteggio «14.388 carte» resta, più discreto.
+- *Completato il 23/10/2026 (Gemini):* barra monoriga compatta nel catalogo con campo di ricerca largo, ricerche salvate integrate come menu a tendina dentro il campo, interruttori a icona nella riga per i 4 filtri rapidi (Handtrap, Staple, Board breaker, Preferite) con stato `aria-pressed`, selettore vista a pulsante singolo con menu popover (carte grandi, medie, piccole, elenco), pulsante Filtri con badge conteggio filtri attivi, pillole rimovibili mostrate sotto solo quando ci sono filtri attivi o errori, conteggio carte discreto e 7 test Vitest in `Catalog.test.tsx`.
 
 ### Passo 4. Passata su tutte le sezioni (`gemini/ui-polish`)
 - **Per ogni pagina** (Fucina, Bottega, Laboratorio con tutte le schede, Circolo Arcano, Banditore, Impostazioni) una tabella nel piano: cosa si toglie, cosa si sposta, cosa diventa icona.
@@ -132,8 +133,11 @@ File: `src/components/Catalog.tsx`, `FilterPanel.tsx`.
   - Barre con più di 6-7 comandi visibili.
 - **Le didascalie decorative** («Ispirato a…») restano solo dove non rubano spazio.
 - **Le schede del Laboratorio** si possono raggruppare con icone; quelle meno usate vanno in un menu «Altro» se non ci stanno.
+- *Completato il 23/10/2026 (Gemini):* piano per-pagina con tabelle in `docs/plans/ui-polish.md`; normalizzata la scala tipografica (nessun testo sotto 12 px, badge minimi a 11 px); rimossi testi d'aiuto fissi e prolissi in favore di tooltip e popover; riorganizzate le barre con icone Lucide (Undo, Redo, Dices, Search, Plus, Scale, History, Boxes, ArrowLeftRight, Play, Sparkles); didascalia «Ispirato a...» reattiva (`hidden xl:block`); schede del Laboratorio arricchite con icone esplicative e menu a tendina «Altro ▾» per schermi compatti.
 
 ### Passo 5. Bottega: scatole e mensole (`gemini/ui-shelf`)
+Chi: Gemini, PR #118 in revisione (5 correzioni chieste): è la sua ultima PR.
+
 File: `src/components/DeckBox3D.tsx`, `src/pages/Shelf.tsx`, `src/lib/boxes.ts`, texture nuove in `src/assets/textures/`.
 - **Scatole meno spigolose.** Restano in CSS 3D, che è leggero e già funziona:
   - spigoli smussati, con facce intermedie sugli angoli oppure `border-radius` sulle facce e uno smusso ai bordi;
@@ -150,7 +154,9 @@ File: `src/components/DeckBox3D.tsx`, `src/pages/Shelf.tsx`, `src/lib/boxes.ts`,
 - **Peso.** La pagina della Bottega si carica a parte (`React.lazy`), perché texture e 3D non pesano sull'avvio.
 - **Alternativa non consigliata per ora:** three.js con `@react-three/fiber`. È più realistica, ma aggiunge circa 600 KB e complessità. Da riconsiderare solo se il CSS 3D non basta.
 
-### Passo 6. Effetti visivi e suoni, ognuno spegnibile (`gemini/ui-effects`)
+### Passo 6. Effetti visivi e suoni, ognuno spegnibile (`claude/ui-effects`)
+Chi: Claude, non più Gemini. Prima il mockup in Claude Design sul sistema di design DuelForge, poi una sessione Code.
+
 File: `src/lib/settings.ts`, `src/lib/sound.ts`, `src/lib/sparks.ts`, `src/pages/Settings.tsx`, e i punti dove gli effetti si usano.
 - **Impostazioni.** Ogni voce ha un interruttore e i valori predefiniti sono sobri.
   - *Effetti visivi:*

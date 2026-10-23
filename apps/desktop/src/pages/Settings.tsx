@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { Play, Sparkles } from "lucide-react";
 import { DataSetup } from "../components/DataSetup";
 import { SectionHeader } from "../components/SectionHeader";
 import type { DataStatus } from "../lib/api";
@@ -108,8 +109,9 @@ export function Settings({ onStatus }: { onStatus: (s: DataStatus) => void }) {
           <Row title="Anteprima al passaggio del mouse">
             <Toggle label="Anteprima" value={s.hoverPreview} onChange={(v) => set({ hoverPreview: v })} />
           </Row>
-          <button type="button" className="btn btn-ghost mt-3" onClick={(e) => burst(e.clientX, e.clientY, 40, 1.3)}>
-            Prova le scintille
+          <button type="button" className="btn btn-ghost mt-3 flex items-center gap-1.5" onClick={(e) => burst(e.clientX, e.clientY, 40, 1.3)}>
+            <Sparkles size={15} />
+            <span>Prova le scintille</span>
           </button>
         </section>
 
@@ -129,8 +131,9 @@ export function Settings({ onStatus }: { onStatus: (s: DataStatus) => void }) {
           </Row>
           <div className="mt-3 flex flex-wrap gap-2">
             {SOUND_TESTS.map((t) => (
-              <button key={t.name} type="button" className="btn btn-ghost !py-1.5 text-xs" onClick={() => sound.play(t.name)}>
-                ▶ {t.label}
+              <button key={t.name} type="button" className="btn btn-ghost !py-1.5 text-xs flex items-center gap-1.5" onClick={() => sound.play(t.name)}>
+                <Play size={13} className="fill-current text-sec" />
+                <span>{t.label}</span>
               </button>
             ))}
           </div>

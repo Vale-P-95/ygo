@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { BarChart2, Calculator, GitCompare, Network, Play, ScrollText, SlidersHorizontal, type LucideIcon } from "lucide-react";
+import { Popover, useOutsideClose } from "../components/Popover";
 import { CalculatorTab } from "../components/lab/CalculatorTab";
 import { CompareTab } from "../components/lab/CompareTab";
 import { ConditionPicker } from "../components/lab/ConditionPicker";
@@ -22,14 +24,17 @@ import { sectionById } from "../sections";
 
 type Tab = "overview" | "links" | "compare" | "calculator" | "simulator" | "optimizer" | "log";
 
-const TABS: { id: Tab; label: string }[] = [
-  { id: "overview", label: "Panoramica" },
-  { id: "links", label: "Collegamenti" },
-  { id: "compare", label: "Confronto" },
-  { id: "calculator", label: "Calcolatore" },
-  { id: "simulator", label: "Simulatore" },
-  { id: "optimizer", label: "Ottimizzatore" },
-  { id: "log", label: "Registro partite" },
+const PRIMARY_TABS: { id: Tab; label: string; icon: LucideIcon }[] = [
+  { id: "overview", label: "Panoramica", icon: BarChart2 },
+  { id: "links", label: "Collegamenti", icon: Network },
+  { id: "compare", label: "Confronto", icon: GitCompare },
+  { id: "calculator", label: "Calcolatore", icon: Calculator },
+];
+
+const SECONDARY_TABS: { id: Tab; label: string; icon: LucideIcon }[] = [
+  { id: "simulator", label: "Simulatore", icon: Play },
+  { id: "optimizer", label: "Ottimizzatore", icon: SlidersHorizontal },
+  { id: "log", label: "Registro partite", icon: ScrollText },
 ];
 
 /** Il Laboratorio: statistics on a deck, built on the roles of its cards. */
@@ -51,6 +56,9 @@ export function Lab({
   const [overview, setOverview] = useState<LabOverview | null>(null);
   const [hand, setHand] = useState<"first" | "second">("first");
   const [tab, setTab] = useState<Tab>("overview");
+  const [moreMenu, setMoreMenu] = useState(false);
+  const moreRef = useOutsideClose(moreMenu, () => setMoreMenu(false));
+  const activeSecondary = SECONDARY_TABS.find((t) => t.id === tab);
   // The condition is shared by Calcolatore, Simulatore and Ottimizzatore.
   const [root, setRootState] = useState<Group>(() => fromCond(BUILTIN_RECIPES[2].cond));
   const setRoot = useCallback((update: (g: Group) => Group) => setRootState((r) => update(structuredClone(r))), []);
@@ -340,20 +348,76 @@ export function Lab({
             </button>
           ))}
         </div>
-        <nav className="flex gap-1" aria-label="Schede del laboratorio">
-          {TABS.map((t) => (
+        <nav className="flex items-center gap-1" aria-label="Schede del laboratorio">
+          {PRIMARY_TABS.map((t) => {
+            const Icon = t.icon;
+            return (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => {
+                  sound.play("page");
+                  setTab(t.id);
+                }}
+                className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm ${
+                  tab === t.id
+                    ? "bg-surface-3 text-text shadow-[inset_0_-2px_0_var(--sec)] font-semibold"
+                    : "text-muted hover:text-text"
+                }`}
+              >
+                <Icon size={15} className={tab === t.id ? "text-sec" : "text-muted"} />
+                <span>{t.label}</span>
+              </button>
+            );
+          })}
+
+          <div ref={moreRef} className="relative">
             <button
-              key={t.id}
               type="button"
+              aria-expanded={moreMenu}
               onClick={() => {
-                sound.play("page");
-                setTab(t.id);
+                sound.play(moreMenu ? "close" : "open");
+                setMoreMenu((v) => !v);
               }}
-              className={`relative rounded-lg px-3 py-1.5 text-sm ${tab === t.id ? "bg-surface-3 text-text shadow-[inset_0_-2px_0_var(--sec)]" : "text-muted hover:text-text"}`}
+              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm ${
+                activeSecondary
+                  ? "bg-surface-3 text-text shadow-[inset_0_-2px_0_var(--sec)] font-semibold"
+                  : "text-muted hover:text-text"
+              }`}
             >
-              {t.label}
+              {activeSecondary ? (
+                <>
+                  <activeSecondary.icon size={15} className="text-sec" />
+                  <span>{activeSecondary.label}</span>
+                </>
+              ) : (
+                <span>Altro</span>
+              )}
+              <span className="text-faint text-xs">▾</span>
             </button>
-          ))}
+            <Popover open={moreMenu} align="left" width={200}>
+              {SECONDARY_TABS.map((t) => {
+                const Icon = t.icon;
+                return (
+                  <button
+                    key={t.id}
+                    type="button"
+                    onClick={() => {
+                      setMoreMenu(false);
+                      sound.play("page");
+                      setTab(t.id);
+                    }}
+                    className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm ${
+                      tab === t.id ? "bg-surface-3 text-sec font-semibold" : "text-text hover:bg-surface-3"
+                    }`}
+                  >
+                    <Icon size={15} className={tab === t.id ? "text-sec" : "text-muted"} />
+                    <span>{t.label}</span>
+                  </button>
+                );
+              })}
+            </Popover>
+          </div>
         </nav>
         {overview && (
           <span className="ml-auto text-xs whitespace-nowrap text-faint tabular-nums" title="Carte nel Main Deck">

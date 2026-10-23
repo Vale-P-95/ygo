@@ -1,6 +1,6 @@
-# Stato del progetto (22/10/2026)
+# Stato del progetto (24/10/2026)
 
-Breve indice per chi arriva. Il dettaglio è in `docs/PIANO.md` (v1.10, §30–§31), le regole di lavoro in `AGENTS.md`, i lavori in corso in `docs/TASKS.md`.
+Breve indice per chi arriva. Il dettaglio è in `docs/PIANO.md` (v1.11, §30–§32), le regole di lavoro in `AGENTS.md`, i lavori in corso in `docs/TASKS.md`.
 
 ## Fatto
 | Area | Cosa c'è | PIANO |
@@ -15,11 +15,13 @@ Breve indice per chi arriva. Il dettaglio è in `docs/PIANO.md` (v1.10, §30–�
 | Il Banditore | Confronto delle liste Master Duel, TCG e OCG e impatto sui deck salvati; storico dei cambi di lista | §31.3 |
 | App | Guida di benvenuto, palette dei comandi (`Ctrl+K`), scorciatoie, tema chiaro e scuro a 1280×800 | — |
 | Qualità | CI per pull request (solo le parti toccate), ESLint dell'interfaccia, test di regressione della ricerca, bench su GitHub Actions, installer Windows su `main`; strumento di copertura delle meccaniche | §28, §30 |
+| Lavoro del 23/10 | Oracolo a gradini (#108); turno di prova senza etichette, −12% di tempo (#110); banco di generalità (#111); sweep di robustezza su 286 deck, 0 crash (#112); «Confronta con il meta» nell'interfaccia (#113); nuova base del banco oggettivo (#114); fasi proporzionali (#115); passo 4 dell'interfaccia (#116); taratura dei pesi §7 (#117) | `docs/TASKS.md` |
 | Velocità | Partite riusate, script caricati una volta per thread, mimalloc per Lua e per il C++: ricerca −37% con uscite identiche (PR #33) | `docs/plans/velocita-ricerca.md` |
 
 ## A metà
 - **Classificazione delle board** (#47): fatti D0, D2–D4, D10, D13, D14 e D15; coppie sicure giuste 22 su 29, da confermare 16 su 46. D12 (esposizione come valore perso) alla corsia 4; poi D11, D16 e i pesi (D17), che aspettano i giudizi del proprietario. Piano: `docs/plans/classificazione-board.md`.
-- **Interfaccia** (Gemini, `docs/TASKS.md`): testi di follow-up, risorse e costo; risposta alla prima interruzione e protezione dei pezzi; Banditore v2 e lista OCG.
+- **Interfaccia**: passo 5 (Bottega) nella PR #118 di Gemini, in revisione, l'ultima sua; dal passo 6 in poi lo fa Claude Code con il mockup prima (`docs/plans/ui-revisione-2.md`).
+- **Pesi §7** (resilienza 0,6→0, floodgate 0,8→0,4): da confermare sul banco di generalità, poi da cambiare insieme in `bench.py`, CLI, `lib.rs` e `scoring.ts`.
 - **Deck lenti**: misura delle istruzioni Lua fatta; il tetto per richiesta è alla corsia 2.
 - **Linee del video Invoked** (#45): la ricerca trova le board; la classifica va rivista insieme alla #47.
 
@@ -38,7 +40,7 @@ Breve indice per chi arriva. Il dettaglio è in `docs/PIANO.md` (v1.10, §30–�
 - **Ricerca con replay**: il motore non copia una partita in corso, quindi ogni nodo si raggiunge rigiocando la linea. Tutte le ottimizzazioni puntano a ridurre i replay o a renderli più economici (§23, §25, §29.4).
 - **Punteggio misurato** con un turno di prova vero invece che stimato dal testo delle carte (§22, §26).
 - **Correzioni sempre generali**, validate su molti deck, mai per nome di carta (§28, §29.3).
-- **Due agenti**: Claude Code sul motore e sul backend, Gemini (Antigravity) sull'interfaccia; ogni PR la controlla l'altro, il merge lo decide l'utente (§30.5, `AGENTS.md`).
+- **Una sola famiglia di agenti dal 24/10/2026**: sessioni di Claude Code per motore, backend e interfaccia; mockup in Claude Design; decisioni nel Progetto Claude; un compito per sessione; il merge lo decide l'utente (§30.5, §32, `docs/plans/piano-ambiente-e-risorse.md`, `AGENTS.md`).
 - **Minuti di GitHub Actions contati** (repository privato): CI solo sulle parti toccate, bench solo a mano.
 
 ## Richieste dell'utente non ancora fatte
@@ -51,5 +53,5 @@ Il piano con le priorità e il lavoro in parallelo è in `docs/plans/piano-pross
 1. Classificazione delle board: D12 (corsia 4), poi D11 e D16; i pesi (D17, #43) con i giudizi del proprietario.
 2. Deck lenti: tetto di istruzioni Lua per richiesta (corsia 2).
 3. Collaudo del livello 2 dopo le correzioni (corsia 3).
-4. Interfaccia delle misure nuove (Gemini).
+4. Interfaccia: chiudere la #118, poi dal passo 6 in poi con Claude Code (mockup in Claude Design, poi una sessione Code); board `cheap: true` e B8.
 5. Mappa dei collegamenti (probabilità sature), simulatore (#36), valutatore imparato.

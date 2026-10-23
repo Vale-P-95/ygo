@@ -180,10 +180,10 @@ export function TestHand({ deck, getCard, onRoles, guessing, onSuggestRoles, onT
               ))}
             </div>
             <button type="button" className="btn btn-molten" onClick={() => deal(opening)} disabled={!size}>
-              Nuova mano <kbd className="text-[10px] opacity-70">N</kbd>
+              Nuova mano <kbd className="text-xs opacity-70">N</kbd>
             </button>
             <button type="button" className="btn btn-ghost" onClick={drawOne} disabled={drawn >= order.length}>
-              Pesca <kbd className="text-[10px] opacity-70">D</kbd>
+              Pesca <kbd className="text-xs opacity-70">D</kbd>
             </button>
             {onTryInCombo && (
               <button
@@ -210,14 +210,14 @@ export function TestHand({ deck, getCard, onRoles, guessing, onSuggestRoles, onT
           <div className="rounded-xl border border-border bg-bg-2/40 p-4">
             <div className="mb-1 flex items-baseline justify-between">
               <p className="eyebrow">Probabilità nella mano iniziale ({opening} carte)</p>
-              <span className="text-[11px] text-faint">pescate qui · esatta</span>
+              <span className="text-xs text-faint">pescate qui · esatta</span>
             </div>
             {row(`Almeno 1 Starter (${starters} nel deck)`, stats.starter, exact.starter)}
             {row(`Almeno 1 Estensore (${extenders} nel deck)`, stats.extender, exact.extender)}
             {row(`Almeno 1 Handtrap (${handtraps} nel deck)`, stats.handtrap, exact.handtrap)}
             {row("Starter + Handtrap insieme", stats.both, exact.both)}
             {row(`Mano senza Brick (${bricks} nel deck)`, stats.noBrick, exact.noBrick)}
-            <p className="mt-2 text-[11px] text-faint">
+            <p className="mt-2 text-xs text-faint">
               La probabilità esatta è ipergeometrica: {opening} carte da {size || "—"}. Le percentuali delle mani pescate convergono al valore esatto con molte
               mani.
             </p>

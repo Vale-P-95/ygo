@@ -378,3 +378,342 @@ Con «30 → 13» (circa 65%) le mani che perdono sono 3, con perdita media 0,33
   2. **Il dato che manca alla sonda economica è il turno dopo.** Se la misura economica registrasse anche le carte guadagnate nella Fase Finale e nel turno dopo della run in cui l'avversario passa (senza breaker), Sky Striker non sarebbe più un caso. Va chiesto a chi scrive la misura: è un contatore, non una run in più.
   3. **Le quasi-parità** (Primite, 1,6%) andrebbero trattate come parità nel confronto tra scale: con il 2% di tolleranza il K non cambia, ma il criterio diventa più onesto.
 - **Da rifare senza la patch** quando `probe.rs` esporrà le finestre per risposta (corsia 8).
+
+## 6. A1b, passo 1: dove la misura e il livello 2 non sono d'accordo
+
+*Prototipo del passo 1 di A1b (`ricerca-piano-critico.md`), 22-23/10. Giro completo con la CLI di `main` 0d747f1; il prima e dopo della PR #93 è in fondo.*
+
+**Domanda.** Su board già trovate, quando la misura del turno di prova e il livello 2 contro il meta ordinano due board al contrario, e perché?
+
+### Dati e comandi
+- **Board della caccia.** Le 82 mani del §1 (41 deck MDM, due mani di `combo_hunt --seed 7`), con le prime 5 board di ogni mano per misura completa e campi diversi (le zone non contano): 410 board.
+- **Board dell'oracolo.** Le fixture di `tests/fixtures/oracle` con la lista del deck ancora uguale (`deck_hash`): Branded e quattro mani Invoked (inv-r1, r2, r5, r6).
+  - Dracotail, Maliss e Tearlaments hanno liste cambiate. L'obiettivo Invoked non ha una linea salvata.
+  - Una fixture ha la linea della sola board migliore. Per confrontarla, la stessa mano è cercata con il budget normale (seme della fixture, 4000 nodi), e la board dell'oracolo si aggiunge alle prime 4 della ricerca normale.
+- **Livello 2 e verità.** `scripts/objective_bench.py`, cioè lo stesso banco oggettivo di `banco-oggettivo.md`:
+  - `probe-line --vs <avversario> --moves` contro i deck del meta con `popRank` di Master Duel Meta (letto il 22/10 sera), con Lunalight saltato;
+  - verità = 1 − `left`, media pesata con il meta, senza le coppie con meno dell'80% di mosse fatte su campo vuoto o senza linee.
+  - La misura si legge dagli stessi run, con lo stesso codice: la CLI di `main` 0d747f1.
+- **Disaccordo:** due board della stessa mano la cui verità differisce di almeno 0,05, mentre la misura (il composito di `bench.py`) mette prima l'altra.
+- **Comandi.**
+  ```
+  python3 scripts/research/a1b_setup.py <w>/a1b --hunt <w>/all82 --decks <mdm> --oracle tests/fixtures/oracle
+  python3 scripts/objective_bench.py <w>/a1b --decks <mdm> --hunt - --skip lunalight --jobs 4
+  python3 scripts/research/a1b_report.py <w>/a1b --json <w>/a1b_pairs.json --fixture tests/fixtures/research/a1b
+  ```
+  Per le mani dell'oracolo: `combos --seed <seme> --nodes 4000 --top 8 --json <h>/<deck>-<fixture>.json --save-lines …`, poi `a1b_setup.py <w>/a1bo --hunt <h> --per-hand 4 --oracle tests/fixtures/oracle`.
+
+### Come si classifica un disaccordo
+Per la coppia A (preferita dalla misura) e B (migliore al livello 2), `a1b_report.py` controlla, in quest'ordine:
+
+1. **turno dopo:** senza il valore del turno dopo (`follow_up`) la misura ordinerebbe bene;
+2. **trappole in mano:** la misura conta come interruzione una Trappola nella mano di A;
+3. **Extra Deck:** B ferma una quota delle Evocazioni dall'Extra Deck dell'avversario più alta di quella delle sue altre mosse, di almeno 0,1 più di A. Il kit della misura ha un solo mostro nell'Extra Deck;
+4. **risposte insieme:** al livello 2 le risposte di A valgono di più una per una, ma insieme fermano meno di quelle di B;
+5. **un posto** (Cimitero e bandite, mano, mostri, Magie e Trappole): quello che valgono al livello 2 le risposte da quel posto, B meno A, supera di almeno 0,1 quello che dà la misura;
+6. **altro.**
+
+Una coppia può avere più cause; la prima è la principale.
+
+### Risultati
+**Giro.** 1653 invocazioni (87 file di linee × 19 avversari), circa 9 ore su 4 core, ripartito due volte dopo i riavvii del container.
+- Board con verità e misura: 406 su 415, in 86 mani.
+  - Mancano le board di `elfnote_kewl_tune-0` e `tearlaments-1`: il livello 2 vi fallisce (risposta rifiutata dal motore, o «0 lines»).
+  - Altri fallimenti parziali: Elfnote Kewl Tune mano 1 (19 avversari), Railway mano 0 (13). Sono i difetti dello strumento già passati alla corsia 4.
+- Accordo generale tra misura e verità (Spearman, divisione per deck del banco): 0,78 sulla taratura e 0,73 sulla verifica.
+- Nelle coppie dello stesso deck l'ordine è giusto 673 volte su 856 e 283 su 347.
+
+**Disaccordi.** Sulle 800 coppie della stessa mano ce ne sono **59 (7,4%) in 20 mani su 86**.
+
+| causa | principale | presente |
+|---|---:|---:|
+| Extra Deck | 19 | 24 |
+| turno dopo | 10 | 10 |
+| risposte insieme | 8 | 14 |
+| Magie e Trappole | 4 | 19 |
+| mostri | 5 | 21 |
+| mano | 3 | 5 |
+| Cimitero | 0 | 0 |
+| trappole in mano | 0 | 0 |
+| altro | 10 | 10 |
+
+Per deck: Clown Crew 8, Dracotail 8, Snake-Eye 4, Paleozoic 4, White Forest Azamina 4, Megalith 4, Invoked 3, Phantom Knights 3, Warrior Combo 3, Sky Striker 3, poi 1-2 negli altri.
+
+**Esempi, con la linea da rigiocare** (`tests/fixtures/research/a1b/<mano>.lines.json`, indici nel file):
+- **Extra Deck, Clown Crew mano 1.**
+  - La misura preferisce «Biancaviso, Flair, Soiree Operations coperta» a «Biancaviso, Clown Crew Finale coperta» (verità +0,30 per la seconda, misura −0,22).
+  - Finale, che distrugge, ferma 3 delle 17 Evocazioni dall'Extra Deck di Elfnote. La misura le dà 0,21, il livello 2 0,36.
+  - Il kit della misura ha un solo mostro nell'Extra Deck: una carta che colpisce le Evocazioni dall'Extra Deck vale poco nel kit.
+- **Magie e Trappole e mostri, Dracotail mani 0 e 1.**
+  - Le board con Dracotail Flame o Horn coperte battono quelle con Blazing Cartesia (verità +0,15-0,26).
+  - La misura dà a Blazing Cartesia e a Dracotail Sting più di quanto fermano contro le linee vere (Sting 0,26 nella misura, 0,13-0,17 al livello 2).
+- **Turno dopo, Paleozoic mano 0.** La board con due Paleozoic Dinomischus coperte batte quattro board con Clown Crew sul campo (verità +0,15). La misura le separa solo per il turno dopo (`follow_up`), che premia le altre.
+- **Risposte insieme.** Snake-Eye mano 1, Clown Crew mano 1, Phantom Knights mano 1, Megalith mano 1, White Forest Azamina mano 0, Mitsurugi Yummy mano 0: la board peggiore ha risposte che valgono di più una per una, ma insieme fermano meno.
+
+**Mani dell'oracolo** (5 mani, 25 board, 19 avversari): **13 disaccordi su 50 coppie**, 8 per «risposte insieme».
+- In inv-r5 la board dell'oracolo (Baronne de Fleur nella Zona Extra, Hyperinvoked Aeon, Gamma Summon e Super Polymerization coperte) ha la misura più alta di tutte, con 1,30 sopra la seconda. La sua verità però è 0,47, contro 0,66 della board «Baronne de Fleur, Super Polymerization coperta» della ricerca normale.
+- È peggio contro 17 avversari su 19 (Elfnote: `left` 0,71 contro 0,33).
+- Ogni sua risposta da sola copre il 75% delle mosse di Elfnote, ma tutte insieme ne lasciano passare il 71%.
+- L'ipotesi era che Super Polymerization, usata come risposta, prendesse come materiale la tua Baronne. La corsia 4 l'ha confermata e corretta (PR #93).
+- In Branded la board dell'oracolo ha verità 0,57, contro 0,66 di una board della ricerca normale.
+
+**Cosa dice per l'oracolo.** Con la CLI di 0d747f1, in 2 delle 5 mani (Branded e inv-r5) la board migliore dell'oracolo non è la migliore al livello 2. L'oracolo eredita le cecità della misura, come temeva il piano. Dopo la PR #93 lo è in tutte e 5 (sotto), ma vale la regola: i riferimenti dell'oracolo vanno letti con il livello 2 accanto, e una fixture dovrebbe tenere anche le board migliori al livello 2.
+
+### Prima e dopo la PR #93 («risposte insieme»)
+La corsia 4 ha confermato l'ipotesi del caso inv-r5 e l'ha corretta nel livello 2 (PR #93, `main` 1af365d). Ho rigiocato con la CLI di 1af365d le mani toccate, con gli stessi avversari e pesi:
+- le 6 mani della caccia con la causa «risposte insieme»: Clown Crew mano 1, Megalith mano 1, Mitsurugi Yummy mano 0, Phantom Knights mano 1, Snake-Eye mano 1, White Forest Azamina mano 0. Sono 30 board;
+- le 5 mani dell'oracolo, 25 board.
+
+In tutto 209 invocazioni, poco più di un'ora.
+
+| insieme di mani | disaccordi prima | dopo | spariti / nuovi | «risposte insieme» prima → dopo |
+|---|---:|---:|---:|---:|
+| 6 mani della caccia (60 coppie) | 23 | 14 | 9 / 0 | 14 → 5 |
+| 5 mani dell'oracolo (50 coppie) | 13 | 5 | 8 / 0 | 8 → 0 |
+
+- **La misura non cambia** (stessi punteggi): cambia solo la verità del livello 2. Sale in 8 board su 30 della caccia (da +0,05 a +0,13: tutte le board di Phantom Knights, la #0 di Clown Crew, Snake-Eye, Azamina, Megalith) e in 10 su 25 delle mani dell'oracolo.
+- **Oracolo.** La board dell'oracolo di inv-r5 passa da 0,47 a 0,74 e quella di Branded da 0,57 a 0,71. Ora la board migliore dell'oracolo è la migliore anche al livello 2 in tutte e 5 le mani.
+- **Sul giro intero** i disaccordi passerebbero da 59 a circa 50. Le altre 80 mani non sono state rigiocate: hanno solo disaccordi senza «risposte insieme», ma anche la loro verità può essere cambiata un po'.
+- **Restano**, nelle mani rigiocate:
+  - Extra Deck: 8 come causa principale, presente in 10;
+  - turno dopo: 2;
+  - «risposte insieme»: 1 (5 come causa secondaria), da guardare uno per uno.
+
+### Conclusione e proposte per B5
+1. **Extra Deck: la cecità più frequente** (19 disaccordi su 59 come causa principale, e 8 su 14 dopo la #93). È il punto B5a del piano: un Extra Deck dell'avversario realistico nel kit. I deck dove pesa di più sono Snake-Eye 4, Clown Crew 3, Invoked 3, Warrior Combo 3, Resonators 2 e Megalith 2. Le risposte che colpiscono le Evocazioni dall'Extra Deck (come Clown Crew Finale) valgono poco nel kit, che ha un solo mostro nell'Extra Deck.
+2. **Turno dopo: 10.** La misura premia il turno dopo (`follow_up`) di board che contro il meta fermano meno: Paleozoic 4, Psychics 2, Live Twin, Phantom Knights, Clown Crew e Mitsurugi Yummy 1. Il peso di `follow_up` nel composito va tarato con il banco oggettivo (D17), non alzato.
+3. **Magie e Trappole, mostri: in Dracotail e Clown Crew.** La misura dà a certe risposte sul campo (Blazing Cartesia, Dracotail Sting) più di quanto fermano contro le linee vere, e a certe carte coperte (Dracotail Flame e Horn, Finale) meno. Va guardato con la protezione dei pezzi e con le finestre del §1.
+4. **Cimitero e trappole in mano: nessun caso** in queste board, con 19 avversari.
+5. **Il rapporto si rifà** con `a1b_report.py` dopo ogni correzione di B5, sulle stesse board (fixture `tests/fixtures/research/a1b`, 24 file di linee, uno per mano con disaccordi). Le liste MDM usate sono quelle del 22/10 mattina: con liste diverse le linee non si rigiocano (`deck_hash` nel file).
+
+Analisi dei disaccordi «Extra Deck» della corsia 4: `docs/plans/extra-deck-a1b.md`.
+
+## 6b. L2-3: il livello 2 contro i soli tre deck più giocati, la prova onesta
+
+**Domanda della coordinatrice.** La corsia 4 (`extra-deck-a1b.md`) ha provato L2-3: il livello 2 pesato con il meta, ma solo contro le aperture dei tre deck con il `popRank` più alto (Elfnote, Dracotail, Invoked). Sul campione dei disaccordi A1b ordinava giusto l'84% delle coppie, contro il 16% della misura. Quel campione però era scelto proprio dove la misura sbaglia. Qual è il risultato su tutte le board, senza giudicare L2-3 con se stesso?
+
+### Metodo
+`scripts/research/a1b_l23.py`, sui run già fatti del giro A1b del §6. Nessuna invocazione nuova; CLI di `main` 0d747f1.
+- **L2-3:** 1 − `left` contro Elfnote, Dracotail e Invoked, pesato con il loro `popRank`.
+- **Verità:** 1 − `left` contro tutti gli **altri** avversari misurati, pesata con il meta. Sono 16 (Lunalight saltato), mediana 16 per board. Così L2-3 non si giudica con i suoi stessi deck.
+  - Per prudenza ho rifatto il conto anche senza i «parenti» stretti dei tre deck nella verità: Elfnote Kewl Tune e Magistus Fairy Tail, che restano 14.
+- **Misura:** il punteggio del banco (interruzioni, handtrap, floodgate e resilienza con i pesi di oggi), e il composito con il turno dopo.
+- **Coppie:** due board dello stesso deck la cui verità differisce di almeno 0,02, come nel banco oggettivo. Taratura e verifica sono la divisione del banco, per deck, seme 47.
+- **Comando.**
+  ```
+  python3 scripts/research/a1b_l23.py <w>/a1b [--top 3] [--exclude elfnote_kewl_tune,magistus_fairy_tail]
+  ```
+
+### Risultati (406 board, 1219 coppie)
+
+| ordinamento | coppie giuste, taratura | coppie giuste, verifica | tutte | Spearman taratura | Spearman verifica |
+|---|---:|---:|---:|---:|---:|
+| misura (punteggio del banco) | 673/857 (79%) | 305/362 (84%) | 978/1219 (80%) | 0,78 | 0,73 |
+| misura con il turno dopo | 676/857 (79%) | 303/362 (84%) | 979/1219 (80%) | 0,78 | 0,70 |
+| **L2-3** | **819/857 (96%)** | **329/362 (91%)** | **1148/1219 (94%)** | **0,97** | **0,95** |
+| misura + 1·L2-3 | 757/857 (88%) | 330/362 (91%) | 1087/1219 (89%) | 0,83 | 0,78 |
+| misura + 2·L2-3 | 778/857 (91%) | 334/362 (92%) | 1112/1219 (91%) | 0,87 | 0,81 |
+| misura + 4·L2-3 | 802/857 (94%) | 337/362 (93%) | 1139/1219 (93%) | 0,91 | 0,85 |
+
+- **Senza i parenti nella verità** (14 avversari, 1213 coppie) il quadro non cambia. L2-3 ordina giusto il 93% (95% in taratura, 90% in verifica, Spearman 0,97 e 0,94); la misura l'80%; misura + 4·L2-3 il 93%.
+- **Quanti deck servono:**
+  - **L2-1** (solo Elfnote, 8,1 s a board): 82% delle coppie (84% in taratura, 77% in verifica), poco sopra la misura.
+  - **L2-3** (22,5 s a board in mediana, 48 s al 90° percentile): 94%.
+  - **L2-5** (32,5 s): 93%.
+
+  I tre deck sono il punto giusto.
+- **Costo.** Il livello 2 contro tre deck costa circa 50 volte la misura completa (0,47 s), più la lettura delle linee dei tre deck, una volta per sessione (10-25 s l'una).
+
+### Conclusione
+- **L2-3 segue la verità del meta molto meglio della misura** (94% contro 80% delle coppie, Spearman 0,95 contro 0,73 in verifica). Non è un effetto del campione: qui ci sono tutte le board, giudicate su avversari diversi.
+- **Limite della prova.** La «verità» è sempre il livello 2, contro altri deck. L2-3 e la verità condividono il meccanismo, quindi anche le sue cecità: l'avversario rigioca le sue linee migliori, non risponde in modo nuovo. La prova dice che tre deck bastano a stimare il livello 2 contro il meta. Non dice che il livello 2 sia la verità del gioco.
+- **Proposta per B14.** L2-3 come ultimo gradino, sulle 3-5 board che restano dopo la misura completa: circa 70-110 s in tutto, più la lettura delle linee. Con il §1 il #1 della misura è già quasi sempre tra le prime 15. L2-3 decide l'ordine finale fra le migliori, dove la misura sbaglia una coppia su cinque.
+  - Nell'app ha senso a richiesta, o in sottofondo dopo la prima classifica.
+- **Misura + k·L2-3** non batte L2-3 da solo. La misura serve a scegliere quali board mandare al livello 2, non a correggerlo.
+
+## 6c. Il kit concatenato della corsia 4, la prova onesta
+
+**Domanda della corsia 4.** Tre cambi del turno di prova, provati dietro tre interruttori d'ambiente: branch `claude/placed-cards`, 017aff9 (cioè `main` 9cc3005 con gli interruttori).
+- `DUELFORGE_EXP_PERUSE`: la copertura di una risposta è quello che un suo uso ferma nella finestra migliore, non l'unione di tutte le finestre.
+- `DUELFORGE_EXP_CASCADE`: conta anche una sonda persa perché è stata fermata quella da cui dipende.
+- `DUELFORGE_EXP_CHAIN`: i passi del kit diventano una catena nell'ordine di gioco (tranne le giocate che non toccano il Deck), e fermarne uno ferma quelli dopo.
+
+Sulle fixture dei disaccordi (§6, 81 coppie) la corsia 4 trovava le coppie giuste così:
+
+| configurazione | coppie giuste |
+|---|---:|
+| base | 16% |
+| CASCADE | 20% |
+| PERUSE | 41% |
+| PERUSE + CASCADE | 42% |
+| tutte e tre | 38% |
+
+Quel campione però è scelto dove la misura sbaglia.
+
+### Metodo
+- Ho rimisurato con la CLI di 017aff9 le 406 board del giro A1b: `probe-line --lines <a1b>/lines/<mano>.lines.json --json`, sola misura, nessun livello 2. 87 file per 4 configurazioni, 6,5 minuti sui 4 core.
+- Le giudica `scripts/research/a1b_fair_measure.py` contro la verità del giro A1b: livello 2 contro tutti gli avversari, oppure senza i tre più giocati, come L2-3.
+- Le coppie e le metriche sono quelle del §6b.
+- **Controllo:** la configurazione base riproduce la misura del giro A1b (955 contro 956 coppie giuste su 1203). Cambia solo il codice tra 0d747f1 e 9cc3005.
+```
+for c in base peruse peruse_cascade all; do …probe-line --deck <mdm>/<deck>.ydk --lines <a1b>/lines/<mano>.lines.json --json <w>/remeasure/$c/<mano>.json; done
+python3 scripts/research/a1b_fair_measure.py <w>/a1b base=<w>/remeasure/base peruse=… peruse+cascade=… tutte=…
+```
+
+### Risultati (406 board, verità su tutti gli avversari, 1203 coppie)
+
+| misura | turno dopo | coppie giuste, taratura | coppie giuste, verifica | tutte | Spearman taratura | Spearman verifica |
+|---|---|---:|---:|---:|---:|---:|
+| giro A1b (0d747f1) | no | 79% | 82% | 79% | 0,78 | 0,73 |
+| **base** (017aff9) | no | **79%** | **82%** | **79%** | **0,78** | **0,73** |
+| base | sì | 79% | 82% | 80% | 0,78 | 0,71 |
+| PERUSE | no | 75% | 69% | 73% | 0,56 | 0,42 |
+| PERUSE + CASCADE | no | 77% | 69% | 75% | 0,62 | 0,52 |
+| PERUSE + CASCADE | sì | 76% | 73% | 75% | 0,59 | 0,49 |
+| PERUSE + CASCADE + CHAIN | no | 77% | 76% | 77% | 0,75 | 0,60 |
+| PERUSE + CASCADE + CHAIN | sì | 78% | 77% | 77% | 0,75 | 0,60 |
+
+Combinazioni senza PERUSE, cioè con la copertura di oggi (richiesta successiva della corsia 4):
+
+| misura | turno dopo | coppie giuste, taratura | coppie giuste, verifica | tutte | Spearman taratura | Spearman verifica |
+|---|---|---:|---:|---:|---:|---:|
+| CASCADE | no | 79% | 82% | 80% (958) | 0,78 | 0,72 |
+| CHAIN | no | 78% | 76% | 78% | 0,74 | 0,60 |
+| CASCADE + CHAIN | no | 78% | 76% | 78% | 0,74 | 0,60 |
+| **SUMMONS** | no | **81%** | **84%** | **82% (984)** | 0,77 | **0,74** |
+| SUMMONS | sì | 81% | 81% | 81% (977) | 0,77 | 0,73 |
+| SUMMONS + CASCADE + CHAIN | no | 78% | 73% | 76% | 0,72 | 0,57 |
+
+CASCADE da solo è neutro: 958 coppie giuste contro 955, ρ 0,72 contro 0,73. CHAIN peggiora, e con CHAIN acceso CASCADE non cambia niente.
+
+SUMMONS è l'opzione (d) della corsia 4, sulla CLI di 25d2994. Fuori dall'interruttore è identica a 017aff9, quindi la base resta la stessa. I pesi delle Evocazioni vengono dalla frequenza nelle linee vere (kit-mix): dalla mano 0,32, Normali 0,35, Extra Deck 0,99, invece di 0,3, 0,2 e 0,6.
+- È l'unica configurazione che batte la base: 984 coppie giuste contro 955, anche sui deck di verifica (84% contro 82%).
+- Contate coppia per coppia: 45 guadagnate e 16 perse, test del segno p = 0,0003.
+- Il guadagno però è concentrato: Sky Striker +15/−0 e Clown Crew +15/−1 fanno 30 delle 45.
+  - Le perdite sono sparse: Artmage −3, Phantom Knights +1/−4, Invoked, Psychics e Pumpking Zombies −2.
+- Lo Spearman quasi non si muove (0,77/0,74 contro 0,78/0,73): migliora l'ordine dentro ai deck, non la scala tra deck.
+- Con il turno dopo il guadagno in verifica sparisce (81% contro 82%).
+- Insieme a CASCADE e CHAIN torna sotto la base, come CHAIN da solo.
+
+Con la verità senza i tre deck più giocati (1219 coppie) l'ordine è lo stesso:
+
+| configurazione | coppie giuste | Spearman in verifica |
+|---|---:|---:|
+| base | 80% | 0,73 |
+| PERUSE | 74% | 0,43 |
+| PERUSE + CASCADE | 76% | 0,54 |
+| tutte e tre | 79% | 0,63 |
+| CASCADE | 80% | 0,72 |
+| CHAIN | 79% | 0,63 |
+| CASCADE + CHAIN | 79% | 0,63 |
+| SUMMONS | 82% | 0,73 |
+| SUMMONS + CASCADE + CHAIN | 78% | 0,59 |
+
+### Conclusione
+- **Del kit concatenato nessun interruttore migliora la misura, in nessuna delle 7 combinazioni.** CASCADE da solo è neutro; le altre la peggiorano.
+- **SUMMONS da solo (opzione d) è l'unico miglioramento: +29 coppie, 82% contro 79%, significativo (p = 0,0003).** Viene però per due terzi da due deck. Prima di accenderlo conviene ripeterlo sul banco obiettivo nuovo della corsia 3, e senza il turno dopo, che lo annulla in verifica.
+  - PERUSE da solo fa il danno più grande: 79% → 73% delle coppie, Spearman in verifica 0,73 → 0,42.
+  - CASCADE e CHAIN recuperano in parte, ma restano sotto la base: 77% e 0,60.
+- Sul campione dei disaccordi il quadro era opposto: 16% → 42%. È l'effetto della scelta del campione: correggere dove la misura sbaglia costa di più dove oggi va bene.
+- **Proposta:** non accendere PERUSE, CASCADE e CHAIN. La strada che migliora l'ordine resta il livello 2 contro i tre deck più giocati (§6b, 94%).
+- **Regola per le prossime modifiche della misura:** si giudicano su tutte le board del giro A1b con `a1b_fair_measure.py`, non solo sulle coppie in disaccordo.
+  - Costa pochi minuti: le linee e la verità ci sono già.
+  - Con la verità che esclude i tre deck più giocati, il confronto con L2-3 resta onesto.
+
+## 7. Ritaratura dei pesi del punteggio, con il turno dopo e l'opzione (d)
+
+*23/10. Nuova base del banco oggettivo della corsia 3 (`claude/tools-qa` 6dce326: verità da `main` 1af365d, misure generiche da baf1d82). Ricerca con `main` 1fdde1f.*
+
+**Domanda.** I pesi del profilo «Bilanciato» (interruzioni 1, handtrap 0,9, floodgate 0,8, resilienza 0,6, più il turno dopo 0,4·0,3·rebuild) vanno cambiati? Va acceso il peso del turno dopo? E l'opzione (d) della corsia 4 (pesi delle Evocazioni 0,32/0,35/0,99, `extra-deck-a1b.md`) regge sulla ricerca?
+
+### Dati e comandi
+- **Banco oggettivo nuovo:** 205 board di 41 deck, 145 di taratura e 60 di verifica (divisione per deck di `objective_bench.py`, seme 47). 185 coppie dello stesso deck con verità diverse di almeno 0,02 (135 e 50).
+- **Giro A1b** (§6): 406 board, 1203 coppie (856 e 347), misurate con la base di 017aff9 e con l'opzione (d) (§6c). È un secondo insieme, più grande, con la stessa verità (livello 2 contro il meta) ma board diverse: le prime 5 di ogni mano della caccia.
+- **Script:** `scripts/research/tune_follow_up.py`. È `tune_weights.py` con un quinto peso, che moltiplica il turno dopo di `bench.follow_up_value` (1 = oggi). Fa due controlli fuori campione:
+  - la divisione del banco (taratura/verifica);
+  - 50 divisioni 70/30 a caso per deck: ogni volta taro sul 70% e giudico sul 30%, contro i pesi di oggi sullo stesso 30%.
+  - Con `--try` giudica pesi fissi su tutte le coppie, con il test del segno contro oggi.
+  ```
+  python3 scripts/research/tune_follow_up.py tests/fixtures/boards/objective-bench.json --splits 50 --step 0.05
+  python3 scripts/research/tune_follow_up.py <results.json> --try 1,0.9,0.4,0,0 --try 1,0.9,0.8,0,0.7 ...
+  python3 scripts/paired_test.py <out> --decks <mdm> --old <cli main> --new <cli con (d)> --measure-cli <cli con (d)>
+  ```
+- **L'opzione (d) sulla ricerca:** due build locali di 1fdde1f, mai committate.
+  - (d) dappertutto, com'era la prova della corsia 4.
+  - (d) solo nella misura: i valori delle carte (`card_values`), che guidano la ricerca, restano quelli di oggi.
+  - `paired_test.py --measure-cli` su 90 mani, 4000 nodi, un thread. Le #1 dei due lati sono rimisurate con la misura (d).
+
+### Taratura libera: non regge fuori campione
+Sul banco nuovo, con la griglia a passo 0,05:
+
+| pesi (interruzioni, handtrap, floodgate, resilienza, turno dopo) | taratura | verifica | ρ taratura | ρ verifica |
+|---|---:|---:|---:|---:|
+| oggi, senza turno dopo (1; 0,9; 0,8; 0,6; 0) | 84,4% | 96,0% | 0,87 | 0,63 |
+| oggi, con turno dopo (…; 1) | 84,4% | 96,0% | 0,85 | 0,58 |
+| tarati senza turno dopo (1; 0,9; 0,8; 0,1; 0) | 87,4% | 96,0% | 0,90 | 0,63 |
+| tarati con turno dopo (1; 1; 0,8; 0; 0,7) | 89,3% | 92,0% | 0,90 | 0,63 |
+
+- **Il massimo è piatto:** 5166 combinazioni stanno a una coppia dal migliore.
+- **Sulle 50 divisioni a caso i pesi tarati non battono quelli di oggi.**
+  - Senza turno dopo: meglio in 0 divisioni, peggio in 11.
+  - Con turno dopo: meglio in 5, peggio in 19.
+  - 135 coppie di taratura sono poche per cinque pesi: la taratura insegue il rumore.
+- **Sul giro A1b**, quattro volte più grande, la stessa prova va meglio: i pesi tarati battono quelli di oggi in 35 divisioni su 50, +1,5-2,0% di coppie in media.
+
+### Pesi fissi: resilienza a 0, floodgate a 0,4
+Le tarature dei due insiemi concordano su una sola cosa: la resilienza va a 0 (0, 0,1 e 0,15 nelle diverse tarature) e il floodgate scende (0,2-0,4). La resilienza segue la verità quasi quanto il punteggio intero (ρ 0,74 da sola in taratura), ma è già contenuta nelle interruzioni: pesata di nuovo, conta due volte le stesse risposte. I pesi fissi, giudicati su tutte le coppie contro oggi:
+
+| pesi | banco nuovo (185 coppie) | A1b, misura di oggi (1203) | A1b, misura (d) (1203) |
+|---|---|---|---|
+| oggi (1; 0,9; 0,8; 0,6; 0) | 87,6% | 80,4% | 82,8% |
+| **1; 0,9; 0,4; 0; 0** | **90,0%: +6/−2, p = 0,29** | **83,7%: +63/−33, p = 0,003** | **85,2%: +39/−21, p = 0,027** |
+| 1; 0,9; 0,8; 0; 0 | 90,0%: +6/−2 | 82,8%: +53/−35, p = 0,07 | 84,2%: +30/−23 |
+| 1; 0,9; 0,8; 0,3; 0 | 86,5%: +0/−2 | 81,4%: +28/−16 | 82,7%: +8/−9 |
+| 1; 0,9; 0,4; 0; 0,7 | 88,9%: +4/−2 | 84,9%: +72/−25 | 85,0%: +49/−29 |
+| oggi con turno dopo (…; 1) | 87,6%: +3/−3 | 80,6%: +10/−6 | 82,1%: +13/−20 |
+
+- **Fuori campione, sui deck di verifica, (1; 0,9; 0,4; 0) tiene le coppie e alza il ρ:**
+
+  | insieme | coppie oggi | coppie (1; 0,9; 0,4; 0) | ρ oggi | ρ (1; 0,9; 0,4; 0) |
+  |---|---:|---:|---:|---:|
+  | banco nuovo | 96,0% | 96,0% | 0,63 | 0,70 |
+  | A1b, misura di oggi | 81,8% | 83,0% | 0,73 | 0,80 |
+  | A1b, misura (d) | 84,4% | 87,3% | 0,74 | 0,81 |
+
+- **Dove guadagna:** nel giro A1b soprattutto Sky Striker +15/−0 e White Forest Azamina +10/−0, gli stessi deck dove guadagnava l'opzione (d). Perde su Resonators −5. Nel banco nuovo: Psychics +6, Snake-Eye −2.
+- **Cautela:** i pesi sono nati dalla taratura su A1b, quindi lì il risultato è in parte nel campione. Il controllo indipendente è il banco nuovo: va nello stesso verso (+6/−2, ρ in verifica 0,63 → 0,70), ma con poche coppie non è significativo.
+- **Effetto sulle #1:** sulle 90 mani della prova appaiata, ordinando le board trovate da `main` con i pesi nuovi, la #1 cambia in 9 mani. La #1 nuova vale al più 0,05 meno con i pesi di oggi (0,20 per Elfnote mano 0). La ricerca non usa questi pesi (`search.rs` non li legge): cambia solo l'ordine finale.
+- **Verdetti del proprietario:** non decidono. Su 32 coppie con una preferenza sono d'accordo i pesi di oggi in 6, quelli nuovi in 4 e la verità del banco in 1.
+
+### Il peso del turno dopo
+- La verità è solo il turno dell'avversario: il turno dopo si può controllare contro di essa, non tarare.
+- Il risultato è incerto e cambia con l'insieme:
+  - sul banco nuovo non aiuta (ρ in verifica 0,63 → 0,58 con i pesi di oggi);
+  - su A1b con la misura di oggi aiuta un poco (+72/−25 contro +63/−33);
+  - su A1b con la misura (d) costa 12 coppie su Paleozoic.
+- **Proposta:** il peso del turno dopo resta quello di oggi (0,4). È una scelta di prodotto («quanto conta poter ripartire»), non un dato del banco.
+
+### L'opzione (d) sulla ricerca
+
+| prova appaiata (90 mani) | meglio | peggio | pari | p | peggiore | secondi di ricerca |
+|---|---:|---:|---:|---:|---|---|
+| (d) dappertutto | 11 | 8 | 71 | 0,65 | Magistus Fairy Tail-0 −16,3%, bench-dracotail −16,0% | 926 → 668 |
+| (d) solo nella misura | 10 | 5 | 75 | 0,30 | Vampire-1 −31,5%, Psychics-0 −8,3% | 926 → 678 |
+
+- **Entrambe respinte:** una mano perde più del 5%. Con la corsia 4 (−41% su hunt-dracotail-0 con le sue liste) sono tre prove su tre.
+- **Tenere i valori delle carte di oggi non basta.** La ricerca misura le board anche mentre cerca, e quelle misure la guidano: con la misura (d) trova board diverse. In hunt-vampire-1 le 10 board elencate non hanno nessuna firma in comune con quelle di `main`. Ho controllato che non sia rumore: `main` rifatto sulle stesse mani ridà le stesse board (10 su 10, 8 su 8).
+- **Il guadagno di (d) sull'ordine viene in gran parte dagli stessi deck** (Sky Striker, White Forest Azamina) **che guadagnano con la resilienza a 0.** I pesi nuovi con la misura di oggi danno 83,7% delle coppie, contro 82,8% della sola (d), senza toccare la ricerca.
+
+### Conclusione
+- **(d): non si unisce.** Peggiora la ricerca in tutte e tre le prove, anche confinata alla misura, e il suo guadagno sull'ordine si ottiene in altro modo.
+- **Pesi del punteggio: proposta resilienza 0,6 → 0 e floodgate 0,8 → 0,4**, il resto invariato, turno dopo compreso.
+  - Va nello stesso verso su tre insiemi.
+  - È significativo sul più grande (p = 0,003).
+  - Alza il ρ sui deck di verifica (0,63 → 0,70 e 0,73 → 0,80).
+  - Non tocca la ricerca, quindi la prova appaiata non serve. Cambia solo l'ordine finale: la #1 in 9 mani su 90, di poco.
+- **Prima di accenderla**, una conferma sul banco di generalità della corsia 8 (deck fissati con `deck_hash`) sarebbe il controllo davvero indipendente.
+- I pesi stanno in quattro posti da cambiare insieme. Sono codice di altre corsie, quindi non li tocco:
+  - `scripts/bench.py` (`WEIGHTS`);
+  - `composite` in `crates/ygo-cli/src/main.rs`;
+  - `balanced` in `apps/desktop/src-tauri/src/lib.rs`;
+  - il profilo «Bilanciato» in `apps/desktop/src/lib/scoring.ts`.

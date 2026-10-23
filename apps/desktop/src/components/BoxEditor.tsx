@@ -118,7 +118,7 @@ export function BoxEditor({ deck, onBox, onRename, onOpen, onOpenLab, onOpenComb
               <button
                 type="button"
                 onClick={onOpenLab}
-                className="text-[11px] text-sec hover:underline"
+                className="text-xs text-sec hover:underline"
               >
                 Apri ↗
               </button>
@@ -137,7 +137,7 @@ export function BoxEditor({ deck, onBox, onRename, onOpen, onOpenLab, onOpenComb
                     style={{ background: def.color }}
                   />
                   <span>{def.label}</span>
-                  <span className="font-mono text-[10px] text-muted">({count})</span>
+                  <span className="font-mono text-xs text-muted">({count})</span>
                 </span>
               ))}
             </div>
@@ -233,7 +233,7 @@ export function BoxEditor({ deck, onBox, onRename, onOpen, onOpenLab, onOpenComb
         <section>
           <div className="mb-2 flex items-baseline justify-between">
             <p className="eyebrow">Carte vetrina</p>
-            <span className="text-[11px] text-faint">{deck.box.showcase.length}/3 · senza scelta: le prime del Main</span>
+            <span className="text-xs text-faint" title="Senza scelta: vengono mostrate le prime carte del Main Deck">{deck.box.showcase.length}/3 carte vetrina</span>
           </div>
           <div className="grid grid-cols-6 gap-1.5">
             {cards.map((id) => {

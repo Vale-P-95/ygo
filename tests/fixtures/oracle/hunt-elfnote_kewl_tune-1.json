@@ -597,6 +597,51 @@
    ]
   },
   {
+   "value": 3.9450686274509805,
+   "look_key": "aa4f70592399e131",
+   "field": [
+    {
+     "code": 84815190,
+     "name": "Baronne de Fleur"
+    },
+    {
+     "code": 59581480,
+     "name": "Elfnote Tinia"
+    },
+    {
+     "code": 24092792,
+     "name": "Elfnotes: Rhapsodia of Madness"
+    },
+    {
+     "code": 64491754,
+     "name": "Elfnotes: Welcome Home"
+    },
+    {
+     "code": 15665977,
+     "name": "Kewl Tune RS"
+    },
+    {
+     "code": 98506199,
+     "name": "Wind Pegasus @Ignister",
+     "zone": "emz"
+    }
+   ],
+   "hand": [
+    14558127,
+    56651978
+   ],
+   "measure": {
+    "field": 2.1994444444444445,
+    "hand": 1.1755555555555555,
+    "floodgates": 0.0,
+    "resilience": 1.1460403050108934,
+    "follow_up": {
+     "gained": 3,
+     "rebuild": 0
+    }
+   }
+  },
+  {
    "value": 3.927410675381264,
    "look_key": "5c8bd2fd04d6e2bb",
    "field": [

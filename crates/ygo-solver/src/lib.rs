@@ -8,6 +8,7 @@ pub mod explain;
 mod follow;
 pub mod links;
 pub mod matchup;
+pub mod meta;
 pub mod probe;
 pub mod roles;
 pub mod search;
@@ -24,6 +25,7 @@ pub use matchup::{
     against_moves, draw_trade_off, matchup, plays_of, rival_line, rival_lines, rival_plays, DrawTradeOff, HandTrapMoment, Matchup,
     MoveStop, MovesMatchup, Rival, RivalBreaker, RivalHandTrap, RivalLine, RivalMove, RivalPlay, StopPoint,
 };
+pub use meta::{meta_rivals, meta_score, most_played, MetaDeck, MetaDeckScore, MetaRival, MetaScore};
 pub use probe::{hand_traps, BreakerResult, Effect, FollowUp, Interruption, Kit, Measure, Probe, Prober, Protection, Removal, ResponderId};
 pub use roles::{guess_roles, RoleGuess};
 pub use search::{
