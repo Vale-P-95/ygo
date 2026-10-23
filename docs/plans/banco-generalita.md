@@ -32,11 +32,35 @@ python3 scripts/generality.py report $S/gen/runs-main --against $S/gen/runs-bran
 Le run già scritte si tengono: un giro interrotto riprende da dove si era fermato.
 
 ## Risultati su `main` 77999c9
-*(in corso)*
+`generality.py run --mult 10 --jobs 4`, 252 run (63 deck × 2 mani × 2 budget), circa 3 ore su 4 core.
+
+| insieme | mani | valore del budget normale sul budget ×10 | mani al 95% o più | run fallite | turni di prova falliti | linee interrotte |
+|---|---:|---:|---:|---:|---:|---:|
+| taratura | 86 | 89,0% | 52 (60%) | 0 | 0 | 0 |
+| freschi | 40 | 89,3% | 25 (62%) | 0 | 0 | 1 (Memento-0) |
+
+- **Divario: −0,4 punti.** Sui deck freschi il motore non va peggio che su quelli di taratura.
+- **Il numero è rumoroso.** Ricampionando i deck (bootstrap, 4000 volte), l'intervallo al 90% del divario va da −5,8 a +5,4 punti. Il banco vede solo divari di circa 5 punti o più, la soglia di `revisione-motore.md`. Per giudicare una modifica serve quindi il confronto appaiato, mano per mano (sotto), non la differenza fra due medie.
+- Le mani banali, senza board di valore nemmeno con il budget grande, valgono 100% e sono poche: 1 di taratura e 2 fresche. Senza di loro tutti e due gli insiemi fanno 88,8%.
+- **Le mani fresche più lontane dal budget grande:**
+  - Fiendsmith Unchained-0, 27%;
+  - Rokket-0, 42%;
+  - Atlantean Mermail-1, 54%;
+  - Fur Hire-1, 63%;
+  - Onomat Ryzeal-0, 65%;
+  - Magistus Witchcrafter-1, 65%.
+
+  Sono i primi casi da guardare per la ricerca.
+- **Tempo:** mediana di 24 s a mano con il budget normale e di 68 s con quello grande (taratura); 21 e 59 s per i freschi.
+- **Nessun crash né turno di prova fallito** sui 20 deck freschi, che comprendono archetipi assenti da Master Duel: Fur Hire, Sacred Beasts, Blitzclique, Regenesis, Memento, Toon, Rokket, HERO.
+  - Gli avvisi «no script» riguardano i Mostri Normali (Dark Magician, Neos, PSY-Frame Driver), che non hanno script.
+  - La sola linea interrotta è in Memento-0.
 
 ## Come si giudica una modifica
 Vale per ogni modifica a `crates/ygo-engine` e `crates/ygo-solver` che cambia la ricerca o la misura, accanto al protocollo di `AGENTS.md`.
 1. **Lo stesso giro prima e dopo**, con le stesse liste (`check` deve dire che corrispondono) e lo stesso budget: `report --against`.
+   - **Il giudizio è appaiato:** `python3 scripts/paired_test.py <out> --old runs-main --new runs-branch`, separato per taratura e freschi (`--only tuning.`, `--only fresh.`). Ogni run, normale e grande, si appaia per nome.
+   - La differenza fra le medie dei due insiemi ha un rumore di circa ±5 punti, quindi da sola non basta.
 2. **I numeri si riportano per tutti e due gli insiemi**, mai solo per la taratura: valore di taratura, valore dei freschi, divario, e quello che si rompe.
 3. **Una modifica non passa se:**
    - i freschi scendono di più di 1 punto mentre la taratura sale o resta (è adattamento al banco);

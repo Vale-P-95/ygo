@@ -93,6 +93,12 @@ Corsie di lavoro in parallelo del 22/10/2026 (piano in `docs/plans/piano-prossim
   - [x] Il termine in `quick_score` (test `tests/attrition.rs`).
   - [x] L'etichetta italiana «Look at your dell'avversario, Extra Deck».
   - [x] Banco, `combo_hunt` e `search_regression` prima e dopo, appaiati per mano (numeri in `docs/plans/attrito-avversario.md`).
+- [ ] **Corsia 8, banco di generalità** (priorità 1 di `revisione-motore.md`, §4.2). Deck di taratura congelati contro deck mai usati, anche TCG/OCG fuori da Master Duel: un numero dice se il motore va peggio sui deck nuovi, e il documento dice come giudicarci le modifiche future.
+
+  Agente: claude-code, sessione della corsia 8. Branch: `claude/staged-measure` (ripartito da `main` dopo la #105). File: `scripts/generality.py`, `tests/fixtures/generality/sets.json`, `docs/plans/banco-generalita.md`.
+  - [x] Insiemi congelati: 43 deck di taratura, 20 freschi, scelti senza nomi. Le liste non si committano: `rebuild` le riscarica in `data/generality` e le controlla con l'impronta (63 su 63 il 23/10).
+  - [x] Giro su `main` 77999c9 (252 run): taratura 89,0%, freschi 89,3% del valore con budget ×10, divario −0,4 punti (intervallo al 90% ±5,5); 0 crash, 0 turni di prova falliti, 1 linea interrotta sui freschi. In attesa della PR (la apre la coordinatrice).
+  - [x] Regole per giudicare le modifiche in `docs/plans/banco-generalita.md`.
 - [ ] **Corsia 8, L2-3 come ultimo gradino** (opzione a, approvata dal proprietario; prove in `ricerca-esperimenti.md` §6b). Dopo la scala di B14, le migliori 3-5 board per misura completa si rigiocano al livello 2 contro i 3 deck del meta con il `popRank` più alto, scelti dai pesi e mai per nome. Le linee dei deck si calcolano dal vivo, mai salvate tra una sessione e l'altra, e le board si riordinano per L2-3 (1 − `left`, pesato con il meta).
 
   Agente: claude-code, sessione della corsia 8. Branch: `claude/staged-measure` (ripartito da `main` 9cc3005). File: nuovi `crates/ygo-solver/src/meta.rs` (punteggio L2-3 sopra `rival_lines` e `against_moves`) e `crates/ygo-data/src/meta.rs` (deck del meta da Master Duel Meta, con i pesi); in `crates/ygo-solver/src/lib.rs` e `crates/ygo-data/src/lib.rs` solo l'export; `apps/desktop/src-tauri/src/lib.rs` (un comando nuovo e `ScoreView.meta`) e `apps/desktop/src/lib/api.ts` (solo il tipo); la parte `combos` di `crates/ygo-cli/src/main.rs` (`--meta-final`); script nuovi in `scripts/`. `probe.rs` non si tocca.
