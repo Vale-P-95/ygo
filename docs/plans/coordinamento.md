@@ -2,6 +2,8 @@
 
 *Passaggio di consegne del 23/10/2026. La sessione coordinatrice precedente (session_01Qb5hHYmGc86GMHx89tiDSZ) aveva un contesto troppo grande, quindi la si sostituisce con una nuova che parte da questo file. Va aggiornato a ogni cambio importante: è la memoria del coordinamento.*
 
+**Coordinatrice attuale:** session_017U35XxBgAq3CxA7yvL8UCT, dal 23/10. Tutte le corsie attive sono state avvisate di scrivere a lei.
+
 ## Ruolo
 - La coordinatrice (corsia 1) non scrive codice del motore. Smista il lavoro alle corsie, apre le loro PR, rivede quelle di Gemini e fa il merge.
 - Parla con l'utente in italiano, in breve, solo quando c'è qualcosa di nuovo: merge, numeri di miglioramento, problemi, decisioni da prendere.
@@ -26,7 +28,7 @@
 ## Corsie attive
 | Corsia | Sessione | Modello | Branch | Stato al passaggio |
 |---|---|---|---|---|
-| 2, velocità | session_01By7ydn8GEDXadN1ZzRbcz2 | Opus | `tt-min` (locale), poi nuovi | #104 unita. Sta misurando la correzione della tabella delle trasposizioni (punto 2 della caccia ai bug); la pusha e chiede la PR. In coda: punto 1, poi 3, poi 5 (`matchup.rs`, passato dalla corsia 9), poi 6 della caccia ai bug, una PR per punto. Poi l'arena in `probe.rs` quando la corsia 4 lo libera. |
+| 2, velocità | session_01By7ydn8GEDXadN1ZzRbcz2 | Opus | `tt-min` (locale), poi nuovi | #104 unita. Punto 2 della caccia ai bug (tabella delle trasposizioni) **respinto** dal test appaiato (179 mani: 3 meglio, 5 peggio, la peggiore −23,5%): lo chiude come «misurata, non tenuta» in `velocita-ricerca.md` con una PR di soli documenti. Ora fa il punto 1 e chiederà il via per `lib.rs` (`look_key`). In coda: 3, poi 5 (`matchup.rs`, passato dalla corsia 9), poi 6 della caccia ai bug, una PR per punto. Poi l'arena in `probe.rs` quando la corsia 4 lo libera. |
 | 3, banco oggettivo | session_01JdBXSyFKWwXxdwUdmvT1Bb | Opus | `claude/tools-qa` | Rifà la baseline su main 1af365d: banco principale, poi le coppie del proprietario (circa 3 ore dalle 11). Quando finisce: aprire la sua PR e dire alla corsia 7 di cominciare §7. |
 | 4, misura | session_01ATNjbjqk6NCAw5MYA4EqJg | Opus | `claude/placed-cards` | **Tiene `probe.rs`.** Rende definitiva l'opzione (d), i pesi delle Evocazioni (Extra Deck 0,99, Normale 0,35, dalla mano 0,32), con il protocollo completo. Merge **solo dopo** la conferma sul banco della corsia 3. Poi il punto 4 della caccia ai bug (etichette pigre in `actions_with`), in una PR separata. |
 | 6, oracolo | session_01JJXLcV6HHwvS1WVeEsLBMW | Opus | `claude/oracle-staged` | Ricostruisce le 91 fixture con `--staged 300,30`. Poi apre la PR con i numeri. |
@@ -45,8 +47,8 @@
   - #104 (corsia 2, copie nelle fasi dopo la ricerca);
   - #105 (corsia 8, opzione (a); la richiesta per Gemini è in `docs/TASKS.md`);
   - #106 (corsia 9, caccia ai bug).
-- Aperta solo #107, questo file.
-- Va detto a Gemini, con un commento sulla sua prossima PR o sulla #100, che #105 è su `main`.
+- #107 (questo file) unita il 23/10.
+- Gemini sa già che #105 è su `main` (commento sulla #100). Il prompt con «Confronta con il meta» (`gemini/combo-meta`) e poi il passo 4 è stato dato al proprietario il 23/10.
 
 ## Gemini (Antigravity)
 - Lavora su `apps/desktop/src/` con branch `gemini/*`. Il proprietario lo avvia a mano; si comunica con i commenti sulle sue PR.
