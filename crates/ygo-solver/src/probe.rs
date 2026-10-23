@@ -1891,21 +1891,38 @@ impl<'a> Prober<'a> {
         interruptions.sort_by(|a, b| b.value.total_cmp(&a.value));
         // All of them together, the strongest first: what is left of the
         // opponent's moves (two answers that stop the same move count once).
-        // Each is added only if the opponent then makes less: one used at
-        // its first chance can take a stronger one as its cost or material
-        // (Super Polymerization fusing your Baronne de Fleur), and then you
-        // would keep it for later.
-        let mut used: Vec<ResponderId> = Vec::new();
+        // An answer used at its first chance can take a stronger one as its
+        // cost or material (Super Polymerization fusing your Baronne de
+        // Fleur): then you would keep it. Two tries, the one that leaves
+        // the opponent less counts: from all of them, each left out (the
+        // weakest first) when the opponent then makes less; from none, each
+        // added (the strongest first) when it then makes less.
+        let order: Vec<ResponderId> = interruptions.iter().map(|i| i.responder).collect();
+        let made_by = |ids: &[ResponderId]| self.run_with(prelude, &steps, Policy::UseAll(ids), follow).ok().map(|r| made_weight(&r));
         let mut made_together = reference;
-        for i in &interruptions {
-            let mut tried = used.clone();
-            tried.push(i.responder);
-            let Ok(run) = self.run_with(prelude, &steps, Policy::UseAll(&tried), follow) else { continue };
-            let made = made_weight(&run);
-            if made < made_together - 1e-9 {
-                made_together = made;
-                used = tried;
+        if !order.is_empty() {
+            let mut kept = order.clone();
+            let mut made_kept = made_by(&kept).unwrap_or(reference);
+            for id in order.iter().rev() {
+                let without: Vec<ResponderId> = kept.iter().copied().filter(|k| k != id).collect();
+                if without.is_empty() {
+                    break;
+                }
+                if let Some(made) = made_by(&without).filter(|&m| m < made_kept - 1e-9) {
+                    made_kept = made;
+                    kept = without;
+                }
             }
+            let mut added: Vec<ResponderId> = Vec::new();
+            let mut made_added = reference;
+            for &id in &order {
+                let with: Vec<ResponderId> = added.iter().copied().chain([id]).collect();
+                if let Some(made) = made_by(&with).filter(|&m| m < made_added - 1e-9) {
+                    made_added = made;
+                    added = with;
+                }
+            }
+            made_together = made_kept.min(made_added);
         }
         let left = if reference > 0.0 && !interruptions.is_empty() { (made_together / reference).min(1.0) } else { 1.0 };
         Ok(MovesMeasure {
