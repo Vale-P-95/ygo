@@ -2,14 +2,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BoardCompareModal } from "../components/combo/BoardCompareModal";
 import { BoardDetail } from "../components/combo/BoardDetail";
 import { BoardStrip, CardImage } from "../components/combo/Field";
-import { ScoreBar, WeightsPanel } from "../components/combo/Score";
+import { plural, ScoreBar, WeightsPanel } from "../components/combo/Score";
 import { CardPreview } from "../components/CardPreview";
 import { CardTile } from "../components/CardTile";
 import { DeckMenu } from "../components/DeckMenu";
 import { SectionHeader } from "../components/SectionHeader";
 import { api, type ComboBoard, type ComboGoal, type ComboHand, type ComboScore, type ComboStep, type GoalCard, type GoalZone, type Deck, type DeckSummary, type ZoneCard } from "../lib/api";
 import { useCardCache } from "../lib/cards";
-import { continueCombo, scoreBoards, startCombo, stopCombo, useCombo } from "../lib/combo";
+import { clearMetaError, compareMeta, continueCombo, scoreBoards, startCombo, stopCombo, useCombo } from "../lib/combo";
 import { dominates, score, useWeights } from "../lib/scoring";
 import { lastDeck, rememberDeck } from "../lib/deck";
 import { sound } from "../lib/sound";
@@ -215,6 +215,7 @@ export function Combo({ artReady, onGoForge }: { artReady: boolean; onGoForge: (
   const [paretoOnly, setParetoOnly] = useState(false);
   const [choicesVersion, setChoicesVersion] = useState(0);
   const [recordedPairChoices, setRecordedPairChoices] = useState<Map<string, string>>(new Map());
+  const metaReqIdRef = useRef(0);
 
   useEffect(() => {
     void api.listDecks().then(setAllDecks);
@@ -243,6 +244,8 @@ export function Combo({ artReady, onGoForge }: { artReady: boolean; onGoForge: (
       if (!d) return;
       rememberDeck(id);
       setDeck(d);
+      clearMetaError();
+      metaReqIdRef.current++;
       const saved = load(`duelforge.combo.${id}`, NO_SETUP);
       setSetupState({ ...saved, goal: goalCards(saved.goal) });
       setPicker(null);
@@ -332,7 +335,11 @@ export function Combo({ artReady, onGoForge }: { artReady: boolean; onGoForge: (
 
   const boards = useMemo(() => {
     if (!ours) return [];
-    // Measured boards by their score, the others after them by the quick estimate.
+    // Boards with meta.value != null come first, ranked descending by meta.value.
+    const metaValue = (b: ComboBoard): number | null => {
+      const s = run.scores[boardId(b)];
+      return s && !s.error && s.meta && s.meta.value != null ? s.meta.value : null;
+    };
     const value = (b: ComboBoard) => {
       const s = run.scores[boardId(b)];
       if (sortByMatchup && s?.matchup && !s.error && !s.matchup.error) {
@@ -342,8 +349,18 @@ export function Combo({ artReady, onGoForge }: { artReady: boolean; onGoForge: (
     };
     return handFilteredBoards
       .filter((b) => !paretoOnly || !dominatedBoardIds.has(boardId(b)))
-      .map((b) => ({ b, v: value(b) }))
-      .sort((x, y) => y.b.goalHits - x.b.goalHits || (y.v ?? -1e9) - (x.v ?? -1e9) || byRank(x.b, y.b))
+      .map((b) => ({ b, v: value(b), mv: metaValue(b) }))
+      .sort((x, y) => {
+        const xHasMeta = x.mv != null;
+        const yHasMeta = y.mv != null;
+        if (xHasMeta && !yHasMeta) return -1;
+        if (!xHasMeta && yHasMeta) return 1;
+        if (xHasMeta && yHasMeta) {
+          const diff = y.mv! - x.mv!;
+          if (Math.abs(diff) > 1e-6) return diff;
+        }
+        return y.b.goalHits - x.b.goalHits || (y.v ?? -1e9) - (x.v ?? -1e9) || byRank(x.b, y.b);
+      })
       .map((x) => x.b);
   }, [ours, handFilteredBoards, run.scores, weights, sortByMatchup, paretoOnly, dominatedBoardIds]);
   // Boards that look the same (they differ only in the Graveyard, the banished cards or the zones) are one entry.
@@ -369,6 +386,9 @@ export function Combo({ artReady, onGoForge }: { artReady: boolean; onGoForge: (
   };
   const scale = Math.max(0.01, ...groups.map(({ board }) => scoreOf(board)).filter((s) => s != null).map((s) => score(s!, weights)));
   const measured = totalMeasuredCount;
+  const hasMetaBoards = useMemo(() => {
+    return handFilteredBoards.some((b) => run.scores[boardId(b)]?.meta?.value != null);
+  }, [handFilteredBoards, run.scores]);
 
   // Card data for everything the boards show.
   useEffect(() => {
@@ -430,6 +450,8 @@ export function Combo({ artReady, onGoForge }: { artReady: boolean; onGoForge: (
     setParetoOnly(false);
     setRecordedPairChoices(new Map());
     explained.current.clear();
+    clearMetaError();
+    metaReqIdRef.current++;
     const done = await startCombo({
       deckId: deck.id,
       hand: byHand ? setup.hand : [],
@@ -452,11 +474,42 @@ export function Combo({ artReady, onGoForge }: { artReady: boolean; onGoForge: (
   const goOn = async () => {
     sound.play("open");
     explained.current.clear();
+    clearMetaError();
+    metaReqIdRef.current++;
     const done = await continueCombo(options.seconds);
     if (done.error) {
       sound.play("error");
       toast(done.error, "error");
     } else sound.play("glass");
+  };
+
+  const handleCompareMeta = async () => {
+    if (!deck || deck.id == null || run.running || run.scoring || run.metaLoading) return;
+    sound.play("select");
+    const reqId = ++metaReqIdRef.current;
+    const currentDeckId = deck.id;
+    const measuredBoards = boards.filter((b) => {
+      const s = run.scores[boardId(b)];
+      return s && !s.error;
+    });
+    const targetBoards =
+      profile === "balanced"
+        ? undefined
+        : measuredBoards.slice(0, 4).map((b) => ({ hand: b.hand, key: b.key }));
+
+    try {
+      const count = await compareMeta(targetBoards, currentDeckId, reqId);
+      if (reqId !== metaReqIdRef.current || deck?.id !== currentDeckId) return;
+      if (count > 0) {
+        sound.play("glass");
+        toast(`Confronto con il meta completato per ${plural(count, "board", "board")}`, "info");
+      }
+    } catch (e) {
+      if (reqId !== metaReqIdRef.current || deck?.id !== currentDeckId) return;
+      sound.play("error");
+      const msg = e instanceof Error ? e.message : String(e);
+      toast(`Errore nel confronto con il meta: ${msg}`, "error");
+    }
   };
 
   const addToGoal = (id: number) => {
@@ -930,7 +983,9 @@ export function Combo({ artReady, onGoForge }: { artReady: boolean; onGoForge: (
                         ? "stima provvisoria finché la ricerca gira"
                         : run.scoring
                           ? `turno di prova in corso: ${measured} board misurate…`
-                          : measured
+                          : run.metaLoading
+                            ? "confronto con il meta in corso…"
+                            : measured
                             ? "punteggio misurato con il turno di prova"
                             : "stima provvisoria"}
                     </span>
@@ -946,7 +1001,7 @@ export function Combo({ artReady, onGoForge }: { artReady: boolean; onGoForge: (
                             sound.play("toggle");
                             void scoreBoards(id);
                           }}
-                          disabled={run.scoring}
+                          disabled={run.scoring || run.metaLoading}
                           className="select !py-0.5 !text-xs max-w-[200px]"
                           title="Scegli un deck della Bottega per misurare breaker e handtrap reali dell'avversario"
                         >
@@ -964,7 +1019,7 @@ export function Combo({ artReady, onGoForge }: { artReady: boolean; onGoForge: (
                           sound.play("select");
                           void scoreBoards(run.vsDeckId);
                         }}
-                        disabled={run.scoring}
+                        disabled={run.scoring || run.metaLoading}
                         className="btn btn-ghost !px-2 !py-0.5 text-[11px]"
                         title="Misura le board che mancano con l'avversario scelto"
                       >
@@ -998,9 +1053,50 @@ export function Combo({ artReady, onGoForge }: { artReady: boolean; onGoForge: (
                             : "Solo non dominate (Pareto)"}
                         </button>
                       )}
+                      {totalMeasuredCount > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => void handleCompareMeta()}
+                          disabled={run.scoring || run.metaLoading}
+                          className="btn btn-ghost !px-2 !py-0.5 text-[11px] text-sec border-sec/40 hover:bg-sec/10"
+                          title="Confronta le migliori board contro i 3 deck più giocati del meta su Master Duel Meta (L2-3)"
+                        >
+                          {run.metaLoading ? "Meta in corso…" : hasMetaBoards ? "↻ Ricalcola meta" : "★ Confronta con il meta"}
+                        </button>
+                      )}
                     </div>
                   )}
                 </div>
+                {run.metaLoading && (
+                  <div className="lab-card flex items-start gap-3 border-sec/60 bg-surface-2/80 p-3 text-xs anim-fade">
+                    <span className="spinner mt-0.5 h-4 w-4 shrink-0 text-sec" aria-hidden />
+                    <div className="flex flex-col gap-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-text">Confronto con il meta in corso…</span>
+                        <span className="chip !py-0 !px-1.5 text-[10px] text-sec font-semibold">L2-3</span>
+                      </div>
+                      <p className="text-[11px] leading-relaxed text-muted">
+                        Il confronto con il meta è in corso. La prima volta richiede circa 1 minuto (lettura del meta da Master Duel Meta e delle linee dei 3 deck più giocati), poi circa 20 s per board.
+                      </p>
+                    </div>
+                  </div>
+                )}
+                {run.metaError && (
+                  <div className="lab-card flex items-start justify-between gap-3 border-danger/60 bg-danger/10 p-3 text-xs text-danger anim-fade">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="shrink-0 font-bold" aria-hidden>⚠</span>
+                      <span className="min-w-0 font-medium">{run.metaError}</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => clearMetaError()}
+                      className="btn btn-ghost !py-0.5 !px-2 text-[11px] text-danger hover:bg-danger/20"
+                      title="Chiudi avviso"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                )}
                 {!run.running && totalMeasuredCount > 0 && (
                   <WeightsPanel
                     profile={profile}
@@ -1079,6 +1175,14 @@ export function Combo({ artReady, onGoForge }: { artReady: boolean; onGoForge: (
                         ) : (
                           <span title="Stima provvisoria (mostri, magie e trappole, carte in mano)">
                             <b className="text-sm text-faint">{b.quickScore.toFixed(1)}</b> <span className="text-[10px]">stima</span>
+                          </span>
+                        )}
+                        {scoreOf(b)?.meta?.value != null && (
+                          <span
+                            className="chip !px-1.5 !py-0 text-[10px] text-sec border-sec/40 font-semibold"
+                            title={`Efficacia nel meta (L2-3): in media ferma il ${Math.round(scoreOf(b)!.meta!.value! * 100)}% delle giocate dei top deck`}
+                          >
+                            meta: {Math.round(scoreOf(b)!.meta!.value! * 100)}%
                           </span>
                         )}
                         {scoreOf(b) && !dominatedBoardIds.has(boardId(b)) && measured > 1 && (

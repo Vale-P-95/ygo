@@ -6,6 +6,7 @@ import {
   formatHandtrapLoss,
   formatMaxxImpact,
   isLegacyExposure,
+  summary,
 } from "./Score";
 
 function makeScore(partial: Partial<ComboScore> = {}): ComboScore {
@@ -28,6 +29,7 @@ function makeScore(partial: Partial<ComboScore> = {}): ComboScore {
     exposureNote: partial.exposureNote ?? "",
     exposureDetail: partial.exposureDetail ?? null,
     countered: partial.countered ?? null,
+    meta: partial.meta ?? null,
     error: partial.error ?? null,
   };
 }
@@ -201,6 +203,54 @@ describe("Exposure format and losses variants", () => {
     it("formatMaxxImpact formats plus sign, 2 decimals, interruzioni, and percent", () => {
       expect(formatMaxxImpact(0.6, 0.47)).toBe("+0,60 interruzioni all'avversario (47%)");
       expect(formatMaxxImpact(1.0, 0.5)).toBe("+1,00 interruzione all'avversario (50%)");
+    });
+  });
+
+  describe("summary and meta", () => {
+    it("includes meta phrase in summary when s.meta.value is present", () => {
+      const sWithMeta = makeScore({
+        meta: {
+          value: 0.75,
+          left: 0.25,
+          perDeck: [
+            { name: "Snake-Eye", weight: 34.2, lines: 12, made: 0.96, left: 0.22 },
+            { name: "Branded", weight: 26.5, lines: 12, made: 0.94, left: 0.25 },
+          ],
+        },
+      });
+      const lines = summary(sWithMeta);
+      expect(lines).toContain("Contro i deck più giocati del meta ferma in media il 75% delle loro giocate.");
+    });
+
+    it("omits meta phrase when s.meta or s.meta.value is null", () => {
+      const sNoMeta = makeScore({ meta: null });
+      expect(summary(sNoMeta).some((l) => l.includes("più giocati del meta"))).toBe(false);
+
+      const sNullMetaVal = makeScore({
+        meta: {
+          value: null,
+          left: null,
+          perDeck: [{ name: "Yubel", weight: 18.0, lines: 12, made: 0.72, left: null }],
+        },
+      });
+      expect(summary(sNullMetaVal).some((l) => l.includes("più giocati del meta"))).toBe(false);
+    });
+
+    it("distinguishes counted decks from uncounted decks with left: null", () => {
+      const meta = {
+        value: 0.82,
+        left: 0.18,
+        perDeck: [
+          { name: "Snake-Eye", weight: 34.2, lines: 12, made: 0.96, left: 0.16 },
+          { name: "Uncounted Deck", weight: 15.0, lines: 12, made: 0.7, left: null },
+        ],
+      };
+      const counted = meta.perDeck.filter((d) => d.left !== null);
+      const uncounted = meta.perDeck.filter((d) => d.left === null);
+      expect(counted).toHaveLength(1);
+      expect(counted[0].name).toBe("Snake-Eye");
+      expect(uncounted).toHaveLength(1);
+      expect(uncounted[0].name).toBe("Uncounted Deck");
     });
   });
 });

@@ -20,12 +20,35 @@ export interface ComboRun {
   scoring: boolean;
   /** Chosen opponent deck ID for matchup measurement, if any. */
   vsDeckId: number | null;
+  /** Meta comparison (L2-3 against top meta decks) is running. */
+  metaLoading: boolean;
+  /** Error from meta comparison if any. */
+  metaError: string | null;
 }
 
-const IDLE: ComboRun = { running: false, request: null, progress: null, live: {}, outcome: null, error: null, scores: {}, scoring: false, vsDeckId: null };
+const IDLE: ComboRun = {
+  running: false,
+  request: null,
+  progress: null,
+  live: {},
+  outcome: null,
+  error: null,
+  scores: {},
+  scoring: false,
+  vsDeckId: null,
+  metaLoading: false,
+  metaError: null,
+};
 
 let run: ComboRun = IDLE;
 const listeners = new Set<() => void>();
+let metaRequestId = 0;
+
+export function clearMetaError() {
+  if (run.metaError != null) {
+    set({ metaError: null });
+  }
+}
 
 function set(next: Partial<ComboRun>) {
   run = { ...run, ...next };
@@ -45,6 +68,7 @@ export function useCombo(): ComboRun {
 /** Starts a search; resolves when it ends (finished, stopped or failed). */
 export async function startCombo(request: ComboRequest): Promise<ComboRun> {
   if (run.running) return run;
+  metaRequestId++;
   set({ ...IDLE, running: true, request });
   return follow(() => api.comboSearch(request));
 }
@@ -56,7 +80,15 @@ export async function startCombo(request: ComboRequest): Promise<ComboRun> {
 export async function continueCombo(seconds: number): Promise<ComboRun> {
   if (run.running || !run.request || !run.outcome) return run;
   const previous = run.outcome;
-  set({ running: true, error: null, request: { ...run.request, seconds: run.request.seconds + seconds }, outcome: null, live: liveOf(previous), scores: run.scores });
+  set({
+    running: true,
+    error: null,
+    metaError: null,
+    request: { ...run.request, seconds: run.request.seconds + seconds },
+    outcome: null,
+    live: liveOf(previous),
+    scores: run.scores,
+  });
   return follow(() => api.comboContinue(run.request!.deckId, seconds));
 }
 
@@ -74,7 +106,9 @@ function merge(seen: ComboBoard[] = [], top: ComboBoard[]): ComboBoard[] {
 }
 
 async function follow(call: () => Promise<ComboOutcome>): Promise<ComboRun> {
-  const unlisten = await api.onComboProgress((p) => set({ progress: p, live: { ...run.live, [p.handIndex]: merge(run.live[p.handIndex], p.top) } }));
+  const unlisten = await api.onComboProgress((p) =>
+    set({ progress: p, live: { ...run.live, [p.handIndex]: merge(run.live[p.handIndex], p.top) } })
+  );
   let finished = false;
   try {
     const outcome = await call();
@@ -95,7 +129,7 @@ export async function scoreBoards(vsDeckId?: number | null) {
   if (run.scoring || run.running) return;
   const targetVs = vsDeckId !== undefined ? vsDeckId : run.vsDeckId;
   const resetScores = vsDeckId !== undefined && vsDeckId !== run.vsDeckId;
-  set({ scoring: true, vsDeckId: targetVs, scores: resetScores ? {} : run.scores });
+  set({ scoring: true, vsDeckId: targetVs, scores: resetScores ? {} : run.scores, metaError: null });
   const unlisten = await api.onComboScore((s) => set({ scores: { ...run.scores, [`${s.hand}:${s.key}`]: s } }));
   try {
     await api.comboScore(targetVs);
@@ -107,6 +141,43 @@ export async function scoreBoards(vsDeckId?: number | null) {
   }
 }
 
+/** Measures the best boards against the top meta decks (L2-3); scores arrive one by one. */
+export async function compareMeta(
+  boards?: { hand: number; key: string }[],
+  deckId?: number | null,
+  requestId?: number,
+): Promise<number> {
+  if (run.scoring || run.running || run.metaLoading) return 0;
+  const reqId = requestId ?? ++metaRequestId;
+  metaRequestId = reqId;
+  const targetDeckId = deckId ?? run.request?.deckId;
+  set({ metaLoading: true, metaError: null });
+
+  const isStale = () => reqId !== metaRequestId || (targetDeckId != null && run.request != null && run.request.deckId !== targetDeckId);
+
+  const unlisten = await api.onComboScore((s) => {
+    if (isStale()) return;
+    set({ scores: { ...run.scores, [`${s.hand}:${s.key}`]: s } });
+  });
+
+  try {
+    const count = await api.comboMeta(boards);
+    if (isStale()) return 0;
+    return count;
+  } catch (e) {
+    if (!isStale()) {
+      const errStr = e instanceof Error ? e.message : String(e);
+      set({ metaError: errStr });
+    }
+    throw e;
+  } finally {
+    unlisten();
+    if (reqId === metaRequestId) {
+      set({ metaLoading: false });
+    }
+  }
+}
+
 export function stopCombo() {
-  if (run.running) void api.comboCancel();
+  if (run.running || run.metaLoading) void api.comboCancel();
 }
