@@ -47,6 +47,9 @@
   - #104 (corsia 2, copie nelle fasi dopo la ricerca);
   - #105 (corsia 8, opzione (a); la richiesta per Gemini è in `docs/TASKS.md`);
   - #106 (corsia 9, caccia ai bug).
+- **Promemoria per l'utente:** quando tutte le corsie hanno finito e le sessioni sono archiviate, ricordargli di configurare un «progetto» claude.ai (memoria e avvisi tra sessioni; aprirlo ferma la sessione corrente).
+- **Niente compiti nuovi** (decisione dell'utente, 23/10): ogni corsia chiude il compito in corso, manda la PR e si ferma.
+- #112 (corsia 8, sweep di robustezza: 286 deck, 0 crash; solo Vendread tocca il tetto Lua) unita il 23/10. #113 (Gemini, «Confronta con il meta»): 4 correzioni chieste nel commento di revisione.
 - #107 (questo file) unita il 23/10.
 - #108 (corsia 6, oracolo a gradini) e #109 (corsia 10, bibliografia, seconda passata) unite il 23/10. La corsia 10 è ferma. La corsia 6 prepara l'A1b; il passo 1 lo fa con la corsia 3 dopo la sua baseline.
 - #110 (corsia 4: turno di prova senza etichette, −12% di tempo, (d) non tenuta) e #111 (corsia 8: banco di generalità, scarto tuning/fresh −0,4 punti, 63/63 liste ricostruite) unite il 23/10. La corsia 4 è ferma; la corsia 8 passa al punto 3 (sweep di robustezza).
