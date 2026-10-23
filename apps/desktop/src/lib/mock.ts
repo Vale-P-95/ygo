@@ -2956,6 +2956,55 @@ export const mockApi: Api = {
     ];
   },
 
+  comboMeta: async (boards?: { hand: number; key: string }[]): Promise<number> => {
+    await delay(200);
+    const targetBoards = boards && boards.length > 0 ? boards : lastScoredBoards.slice(0, 4).map((b) => ({ hand: b.hand, key: b.key }));
+    for (let i = 0; i < targetBoards.length; i++) {
+      const b = targetBoards[i];
+      const found = lastScoredBoards.find((sb) => sb.hand === b.hand && sb.key === b.key);
+      const fallbackBoard: ComboBoard = {
+        hand: b.hand,
+        key: b.key,
+        quickScore: 0,
+        cardsUsed: 0,
+        choices: 0,
+        foundAfterMs: 0,
+        exact: true,
+        goalHits: 0,
+        monsters: [],
+        spells: [],
+        handCards: [],
+        grave: [],
+        banished: [],
+        deckCount: 40,
+        extraCount: 15,
+        extraFaceUp: [],
+      };
+      const existing = buildMockScoreForBoard(found ?? fallbackBoard, lastVsDeckId);
+      const val = Math.max(0.4, 0.85 - i * 0.08);
+      const metaScore: ComboScore = {
+        ...existing,
+        meta: {
+          value: val,
+          left: 1 - val,
+          perDeck: [
+            { name: "Snake-Eye", weight: 34.2, lines: 12, made: 0.96, left: Math.min(1, 1 - val + 0.03) },
+            { name: "Branded", weight: 26.5, lines: 12, made: 0.94, left: 1 - val },
+            {
+              name: "Yubel",
+              weight: 18.0,
+              lines: 12,
+              made: i === 1 ? 0.72 : 0.88,
+              left: i === 1 ? null : Math.max(0, 1 - val - 0.04),
+            },
+          ],
+        },
+      };
+      comboScoreListeners.forEach((fn) => fn(metaScore));
+    }
+    return targetBoards.length;
+  },
+
   comboMoves: async (): Promise<ComboMoves> => {
     await delay(500);
     // A Snake-Eye deck as the rival: two lines with moves, one that only Sets cards.
