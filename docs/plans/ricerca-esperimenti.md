@@ -455,8 +455,33 @@ Per deck: Clown Crew 8, Dracotail 8, Snake-Eye 4, Paleozoic 4, White Forest Azam
 - È peggio contro 17 avversari su 19 (Elfnote: `left` 0,71 contro 0,33).
 - Ogni sua risposta da sola copre il 75% delle mosse di Elfnote, ma tutte insieme ne lasciano passare il 71%.
 - L'ipotesi era che Super Polymerization, usata come risposta, prendesse come materiale la tua Baronne. La corsia 4 l'ha confermata e corretta (PR #93).
-- In inv-r2 la board dell'oracolo «Mechaba, Oceanus nella Zona Extra» perde contro tre board della ricerca normale (verità −0,17), per cause non classificate.
+- In Branded la board dell'oracolo ha verità 0,57, contro 0,66 di una board della ricerca normale.
 
-**Cosa dice per l'oracolo.** In 2 delle 5 mani la board migliore dell'oracolo non è la migliore al livello 2. L'oracolo eredita le cecità della misura, come temeva il piano. I riferimenti dell'oracolo vanno quindi letti con il livello 2 accanto, e una fixture dovrebbe tenere anche le board migliori al livello 2.
+**Cosa dice per l'oracolo.** Con la CLI di 0d747f1, in 2 delle 5 mani (Branded e inv-r5) la board migliore dell'oracolo non è la migliore al livello 2. L'oracolo eredita le cecità della misura, come temeva il piano. Dopo la PR #93 lo è in tutte e 5 (sotto), ma vale la regola: i riferimenti dell'oracolo vanno letti con il livello 2 accanto, e una fixture dovrebbe tenere anche le board migliori al livello 2.
 
-*Prima e dopo la PR #93: in corso.*
+### Prima e dopo la PR #93 («risposte insieme»)
+La corsia 4 ha confermato l'ipotesi del caso inv-r5 e l'ha corretta nel livello 2 (PR #93, `main` 1af365d). Ho rigiocato con la CLI di 1af365d le mani toccate, con gli stessi avversari e pesi:
+- le 6 mani della caccia con la causa «risposte insieme»: Clown Crew mano 1, Megalith mano 1, Mitsurugi Yummy mano 0, Phantom Knights mano 1, Snake-Eye mano 1, White Forest Azamina mano 0. Sono 30 board;
+- le 5 mani dell'oracolo, 25 board.
+
+In tutto 209 invocazioni, poco più di un'ora.
+
+| insieme di mani | disaccordi prima | dopo | spariti / nuovi | «risposte insieme» prima → dopo |
+|---|---:|---:|---:|---:|
+| 6 mani della caccia (60 coppie) | 23 | 14 | 9 / 0 | 14 → 5 |
+| 5 mani dell'oracolo (50 coppie) | 13 | 5 | 8 / 0 | 8 → 0 |
+
+- **La misura non cambia** (stessi punteggi): cambia solo la verità del livello 2. Sale in 8 board su 30 della caccia (da +0,05 a +0,13: tutte le board di Phantom Knights, la #0 di Clown Crew, Snake-Eye, Azamina, Megalith) e in 10 su 25 delle mani dell'oracolo.
+- **Oracolo.** La board dell'oracolo di inv-r5 passa da 0,47 a 0,74 e quella di Branded da 0,57 a 0,71. Ora la board migliore dell'oracolo è la migliore anche al livello 2 in tutte e 5 le mani.
+- **Sul giro intero** i disaccordi passerebbero da 59 a circa 50. Le altre 80 mani non sono state rigiocate: hanno solo disaccordi senza «risposte insieme», ma anche la loro verità può essere cambiata un po'.
+- **Restano**, nelle mani rigiocate:
+  - Extra Deck: 8 come causa principale, presente in 10;
+  - turno dopo: 2;
+  - «risposte insieme»: 1 (5 come causa secondaria), da guardare uno per uno.
+
+### Conclusione e proposte per B5
+1. **Extra Deck: la cecità più frequente** (19 disaccordi su 59 come causa principale, e 8 su 14 dopo la #93). È il punto B5a del piano: un Extra Deck dell'avversario realistico nel kit. I deck dove pesa di più sono Snake-Eye 4, Clown Crew 3, Invoked 3, Warrior Combo 3, Resonators 2 e Megalith 2. Le risposte che colpiscono le Evocazioni dall'Extra Deck (come Clown Crew Finale) valgono poco nel kit, che ha un solo mostro nell'Extra Deck.
+2. **Turno dopo: 10.** La misura premia il turno dopo (`follow_up`) di board che contro il meta fermano meno: Paleozoic 4, Psychics 2, Live Twin, Phantom Knights, Clown Crew e Mitsurugi Yummy 1. Il peso di `follow_up` nel composito va tarato con il banco oggettivo (D17), non alzato.
+3. **Magie e Trappole, mostri: in Dracotail e Clown Crew.** La misura dà a certe risposte sul campo (Blazing Cartesia, Dracotail Sting) più di quanto fermano contro le linee vere, e a certe carte coperte (Dracotail Flame e Horn, Finale) meno. Va guardato con la protezione dei pezzi e con le finestre del §1.
+4. **Cimitero e trappole in mano: nessun caso** in queste board, con 19 avversari.
+5. **Il rapporto si rifà** con `a1b_report.py` dopo ogni correzione di B5, sulle stesse board (fixture `tests/fixtures/research/a1b`, 24 file di linee, uno per mano con disaccordi). Le liste MDM usate sono quelle del 22/10 mattina: con liste diverse le linee non si rigiocano (`deck_hash` nel file).

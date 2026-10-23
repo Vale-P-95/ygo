@@ -66,6 +66,13 @@ def composite(m):
     return sum(w * v for w, v in zip(WEIGHTS, parts)) + follow_value(m)
 
 
+def deck_hash(path):
+    """As scripts/oracle.py: the lines replay only with the same list."""
+    import hashlib
+    cards = [w for w in open(path).read().split() if w.isdigit() or w.startswith(("#", "!"))]
+    return hashlib.sha256(" ".join(cards).encode()).hexdigest()[:16]
+
+
 def parse_log(path):
     """Per board block (in the order of the lines file): level 2 numbers, the
     opponent's moves, and your answers with where they are and what they stop."""
@@ -238,7 +245,9 @@ def main():
             src = json.load(open(os.path.join(a.out, "lines", hand_file + ".lines.json")))
             used = sorted({info[q[k]]["index"] for q in ps for k in ("worse", "better")})
             where = {i: n for n, i in enumerate(used)}
-            doc = dict(kind="lines", deck=os.path.basename(src.get("deck", "")), hand=src["hand"], seed=src["seed"],
+            deck_path = src.get("deck", "")
+            doc = dict(kind="lines", deck=os.path.basename(deck_path), hand=src["hand"], seed=src["seed"],
+                       deck_hash=deck_hash(deck_path) if os.path.exists(deck_path) else None,
                        items=[src["items"][i] for i in used],
                        a1b=dict(margin=a.margin, boards=[dict(index=where[info[b]["index"]], truth=round(info[b]["truth"], 3),
                                                               score=round(info[b]["score"], 3), board=info[b]["signature"])
