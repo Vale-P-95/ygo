@@ -1,9 +1,21 @@
 # Revisione bibliografica, seconda passata: ricerca ampliata, testi interi, piste nuove
 
-*Corsia 10, 23/10/2026, branch `claude/literature-review-2` da `main` 9cc3005. Segue `revisione-bibliografica.md` (prima passata, PR #87). Bozza: le sezioni si riempiono una alla volta e si pushano a ogni passo.*
+*Corsia 10, 23/10/2026, branch `claude/literature-review-2` da `main` 9cc3005. Segue `revisione-bibliografica.md` (prima passata, PR #87). Chiusa il 23/10/2026.*
 
-## 0. Sommario esecutivo
-*(5-8 idee più attuabili, in ordine; da scrivere alla fine)*
+## 0. Sommario esecutivo: le idee più attuabili, in ordine
+Ogni idea ha un esperimento misurabile nel testo e rispetta la regola di generalità (nessun nome di carta, nessuna linea precalcolata), salvo dove indicato.
+1. **La tabella delle trasposizioni va riaperta per penalità minore e per restrizione minore: una forma esatta esiste** (Burch & Holte 2011-2012, LevinTS Teorema 2, monobeam, NRR2; §3.2, §4.3). Oggi la prima visita chiude il nodo anche se arrivava con più deviazioni o con figli potati. Rimedio economico: NRR2 (lista d'incoerenza, circa 1% di espansioni in più) con la restrizione nella voce. Esperimento E-c3 (contatore dei riarrivi, poi nodi alla board migliore −25%). Piano: B3, priorità 6.
+2. **La monotonia nel budget si compra con inclusione dell'insieme misurato e annidamento, non con più esplorazione** (Lemons et al. 2022, Hansen & Zhou, Thayer & Ruml, patologia della ricerca; §4.3). La migliore board **misurata** è l'incumbent e non si perde; l'oracolo è una continuazione **riparante** della stessa ricerca. Esperimenti E-c1, E-c2 (82/82 mani non decrescenti da 500 a 4000 nodi). Piano: B14, B16, A1, A1b.2.
+3. **Il kit del turno di prova è una funzione di valore legittima, ma ha troppo poche continuazioni e nessuna taratura: va fatto crescere a doppio oracolo dal banco** (Modicum, Kovařík et al., Obscuro, Rubin; §3c). Una sola continuazione è peggio di niente; 4-10 bastano; le continuazioni generate si indeboliscono contro il meta reale; il valore è la media pesata dal priore sulle mani e il minimo sulle risposte dentro una mano. Esperimento E-p1 (ρ ≥ 0,9 con n ≤ 8 continuazioni). Piano: B5e/f, §5.3.2, A1b.1.
+4. **Quale passo interrompere si calcola dalla traccia del motore, senza nomi, in tre strati** (Krarup, COCOA, interdizione di piani, κ-piani, LM-cut; §4.1): chiusura causale della traccia più divario fra fratelli (zero chiamate), poi interdizione con ripianificazione iterata a punto fisso (il solo giro attuale sopravvaluta la board), poi tagli di landmark sulla mappa dei collegamenti per colpire tutte le linee. L'esatto è Σ2p-difficile: l'avido è l'algoritmo. Esperimenti E-a1, E-a2, E-a3. Piano: B5b, B5f, B4, §5.3.
+5. **La ripianificazione dopo una handtrap è la risoluzione annidata economica, e si fa a poco prezzo** se la credenza alla radice è il sottoinsieme delle mani con quella classe, la tabella e l'arena si portano attraverso `resume()`, e si ripianifica solo dove lo stato cambia (Brown & Sandholm, Obscuro, KLSS; §3c). Esperimento E-p3 (300 nodi entro 0,05 dall'oracolo nel 90% delle coppie). Piano: B5b, B13, §7.6.
+6. **Novità prima, stima come spareggio, tabelle partizionate per progresso; ordinamento per `η·g/π` con ri-radicamento agli eventi di progresso** (BFWS, Rollout-IW, HIW, LTS/PHS/√LTS, Go-Explore; §3.2). È la forma pubblicata di B11 e B1c, con teoremi; l'entropia normalizzata di Go-Explore sceglie la granularità degli atomi dai dati. Esperimenti E-c6 e quello del §3.2 su HIW. Piano: B1c, B11, B16.
+7. **Una stima lineare tarata sulla misura batte la profondità non tarata ai budget dei CCG, e il testo delle carte non basta per le carte nuove** (García-Sánchez et al., Miernik & Kowalski, Rigaux & Kashima, ygorl; §4.5, §4.2). Caratteristiche dallo script e dal motore, taratura rapida per deck, validazione per archetipo tenuto fuori con ancora fissa. Esperimenti E-e3, E-e4. Piano: B9, B15, A1b.3.
+8. **Il turno è illimitato anche in Yu-Gi-Oh!, con cicli legali di attivazioni che si riciclano** (Nicolosi et al. 2026, Riftbound, Hearthstone PSPACE; §2.1, §4.5): tetto di iterazioni, cicli rilevati modulo contatori, contatori nella chiave e nella misura, mazzo vuoto come terminale; il deck pubblico dell'articolo come fixture di regressione per terminazione e monotonia (E-e1). Piano: B3, B16, A1b.4.
+
+**Più linee candidate, meno mondi avversari** (Rubin 2026: il fascio paga fino a 96, i mondi saturano a 32; K ≈ ln(1/β)/p per vedere un rompitore di probabilità p) è la regola trasversale per spendere il budget di livello 2.
+
+**Cosa cambia rispetto alla prima passata** (§2.4): nessuna direzione ribaltata; corrette dieci attribuzioni e dettagli; coperti due temi assenti (patologia della ricerca; interdizione e tolleranza ai guasti); il CVaR non viene dalla linea del poker ed è da provare; esiste un articolo scientifico su Yu-Gi-Oh! (computabilità). **Non fatto** per risparmiare quota (§2.5): il vaglio per abstract dei gruppi 3-7, Crossref e CORE oltre il gruppo 5, Semantic Scholar e OpenAlex (chiavi API), la lettura a testo intero della pista sulle carte mai viste, e dodici copie aperte su host chiusi dal proxy.
 
 ## 1. Fonti aperte e cosa risponde davvero (sonda del 23/10/2026, 07:33 UTC, `curl` dal container)
 | Host | Esito | Nota |
@@ -39,7 +51,6 @@
 **Conseguenza.** I testi interi si prendono da arXiv, AAAI/ICAPS/SoCS/AIIDE (OJS), PMLR, NeurIPS, JAIR, JMLR, OpenReview, Frontiers, PLOS e dalle copie aperte trovate via Unpaywall e CORE. ACM, IEEE, Elsevier, Springer, Wiley, MDPI e Nature restano chiusi: per quei lavori si cerca la versione aperta, altrimenti si resta all'abstract.
 
 ## 2. Ricerca ampliata
-*(i 7 gruppi di parole chiave e le query A-E della prima passata, rieseguiti sulle fonti nuove: registro, lavori nuovi, cosa cambia nelle conclusioni)*
 
 ### 2.1 Gruppo 1, Yu-Gi-Oh!: un articolo scientifico esiste
 La prima passata scriveva «nessun articolo scientifico (peer-reviewed o arXiv) tratta Yu-Gi-Oh! come problema». **Va corretto.** L'API di arXiv (`all:"Yu-Gi-Oh"`, 23/10/2026) restituisce 4 lavori; tre sono di visione artificiale (un dataset di illustrazioni per StyleGAN2, due di classificazione multi-etichetta che usano le carte come dati) e uno è di logica matematica, **letto per intero** (sezioni 1, 2, 3 e 6, più la bibliografia):
@@ -225,7 +236,91 @@ Il lettore dedicato a questa pista è stato fermato dal limite di sessione prima
 
 **Non aperti** (Unpaywall: `is_oa=false`): McKenney & Ruml, Duelyst II (CoG 2023); HoningStone (IEEE TCIAIG 2016); due lavori sulle «combo infinite» (10.1109/mlnlp66797.2025.11388605 e la tesi Chulalongkorn 10.58837/chula.the.2025.204): registrati qui perché nessuno li ricerchi di nuovo.
 
-## 5. Tabella dei lavori nuovi
+## 5. Tabella dei lavori nuovi e dei livelli di lettura aggiornati
+Legenda come nella prima passata: PR = peer-reviewed; arXiv = preprint; tesi; repo; **intero** = testo intero letto (sezioni indicate nelle schede); abstract; sec = secondaria; titolo. Trasferibilità: A alta, M media, B bassa. «Nuovo» = non nella tabella della prima passata; «agg.» = già presente, livello di lettura alzato.
+
+| Lavoro | Tipo | Lettura | Trasf. | Stato | Dove |
+|---|---|---|---|---|---|
+| Nicolosi, Pisciotta & Bresolin 2026, Yu-Gi-Oh! Π¹₁-completo, arXiv 2603.02863 | arXiv | intero | M (argomento) / A (evidenza di dominio) | nuovo | §2.1, §4.5 |
+| Zhang 2023, Perfect Information Hearthstone PSPACE-hard, arXiv 2305.12731 | arXiv | intero | M | nuovo | §4.5 |
+| Romão, de Paula & Ueda 2025, Flesh and Blood NP-hard, arXiv 2501.11683 | arXiv | intero | B | nuovo | §4.5 |
+| Dalaklis & Fields 2026, Riftbound Turing-completo, arXiv 2609.33839 | arXiv | intero | M | nuovo | §4.5 |
+| Ramos & Soria 2026, Lean 4 e Nash per un TCG, arXiv 2607.08692 | arXiv | scorso | B | nuovo | §4.5 |
+| García-Sánchez et al. 2024, Hearthstone con EA, arXiv 2410.19681 | arXiv (KBS) | intero | M | nuovo | §4.5 |
+| Causal RL MTG Benchmark 2026, arXiv 2605.06066 | arXiv | intero | M (protocollo) / B | nuovo | §4.5 |
+| Zook, Harrison & Riedl 2015, MCTS per analisi di strategia, arXiv 1908.01423 | PR (FDG) | intero | B-M | nuovo | §4.5 |
+| Rigaux & Kashima 2026, forza dei mazzi draftati, arXiv 2607.04782 | PR (CoG) | intero (parti) | M (negativa su P4) | nuovo | §4.5 |
+| Wolf 2025, Monopoly Deal / BORG, arXiv 2510.25080 | arXiv | abstract + operatore | M (formalismo) | nuovo | §4.5 |
+| Rubin 2026, Unsound Search in LOCM, arXiv 2609.06816 | arXiv | intero | A (struttura) | agg. (era «solo bibliografia») | §3.1 |
+| Haluška & Schmid 2024, Learning to Beat ByteRL, arXiv 2404.16689 | arXiv | intero | B (metodo) / M (avvertimento) | agg. + correzione autori | §3.1 |
+| Churchill & Buro 2015, HPS Prismata, AIIDE | PR | intero | A (schema) | agg. | §3.1 |
+| Świechowski, Tajmajer & Janusz 2018, arXiv 1808.04794 | PR | intero | A (P5) | agg. | §3.1 |
+| Dockhorn & Mostaghim 2019, arXiv 1906.04238 | arXiv | intero | M (protocollo) | agg. | §3.1 |
+| Kowalski & Miernik 2023, SCGAI, arXiv 2305.11814 | PR | intero | M | agg. | §3.1, §3b |
+| Miernik & Kowalski 2022, Evolving Evaluation Functions, arXiv 2105.01115 | PR | intero | M | agg. | §3.1 |
+| Xi et al. 2023, ByteRL LOCM, arXiv 2303.04096 | arXiv | intero (parti) | B | agg. | §3.1 |
+| Churchill, Biderman & Herrick 2021; Biderman 2020 | PR; arXiv | intero | B (argomento) | agg. | §3.1 |
+| Kowalski, Ciężkowski, Krzyżyński & Winands 2026, ED-MCTS, arXiv 2607.13007 | arXiv | scorso | M | nuovo | §3.1 |
+| Kowalski et al. 2023/24, Tales of Tribute, arXiv 2305.08234 | arXiv/PR | intero | M | nuovo | §3b |
+| McKenney & Ruml 2023, Duelyst II, IEEE CoG | PR | abstract | ? (M-A per tema) | agg. (titolo e autori veri) | §3.1 |
+| Sakurai & Hasebe 2023, ICAART | PR | abstract | M-B | agg. | §3.1 |
+| Burch & Holte, SoCS 2011 e 2012 | PR | intero | A (regola) | agg. | §3.2 |
+| Orseau, Lelis, Lattimore & Weber 2018, LevinTS, arXiv 1811.10928 | PR | intero | A | agg. | §3.2 |
+| Orseau & Lelis 2021, PHS, arXiv 2103.11505 | PR | intero | A | agg. | §3.2 |
+| Orseau, Hutter & Lelis 2025, √LTS, arXiv 2412.05196 | arXiv | intero | A | nuovo | §3.2 |
+| Cazenave 2020, GNRPA, arXiv 2003.10024; 2024, ripetizioni limitate, arXiv 2401.10420 | arXiv | intero / scorso | M | agg. / nuovo | §3.2 |
+| Ecoffet et al. 2021, Go-Explore, arXiv 2004.12919 | PR (Nature) | intero | M-A | agg. | §3.2 |
+| Lipovetzky & Geffner 2017, BFWS, AAAI | PR | intero | A | agg. | §3.2 |
+| Bandres, Bonet & Geffner 2018, Rollout-IW; Junyent, Gómez & Jonsson 2021, HIW | PR | intero | A / M | agg. | §3.2 |
+| Gong, Guo & Ding 2026, HoopMind, arXiv 2608.29563 | arXiv | intero (parti) | M | nuovo | §3.2 |
+| Assif, Chatterjee & Banavar 2019, arXiv 1906.01476 | arXiv | intero | A (regola) | agg. + correzione autori | §3.3 |
+| Linhares & Swamy 2019, arXiv 1904.07381 | PR (STOC) | intero (parti) | M | agg. + correzione autori | §3.3 |
+| Sokota et al. 2026, Ataraxos, arXiv 2511.07312 | arXiv (Nature?) | intero | B (sistema) / M (pezzi) | nuovo | §3.4 |
+| Zha et al. 2021, DouZero, PMLR 139 | PR | intero | M (forma) / B | agg. | §3b |
+| Li et al. 2020, Suphx, arXiv 2003.13590 | arXiv | intero | M | agg. | §3b |
+| Vieira, Tavares & Chaimowicz 2024, tassonomia, arXiv 2410.06299 | PR | intero | B | agg. + correzione | §3b |
+| Moravčík et al. 2017, DeepStack, arXiv 1701.01724 | PR (Science) | intero | M (concetti) / B | nuovo | §3c |
+| Brown & Sandholm 2017, Safe and Nested Subgame Solving, NeurIPS | PR | intero | M / B | agg. | §3c |
+| Brown, Sandholm & Amos 2018, Modicum, arXiv 1805.08195 | PR | intero | A (foglia) / M / B | nuovo | §3c |
+| Brown et al. 2020, ReBeL | PR | intero | B | agg. | §3c |
+| Schmid et al. 2023, Student of Games, arXiv 2112.03178 | PR (Science) | intero | B-M | agg. | §3c |
+| Zhang & Sandholm 2025/26, Obscuro, arXiv 2506.01242 | arXiv | intero | M-A (concetti) / B | agg. | §3c |
+| Schmid 2021, tesi di dottorato, arXiv 2111.05884 | tesi | parti | — | agg. (era attribuita a Kovařík & Schmid) | §3c |
+| Kovařík, Seitz, Lisý et al. 2023, Value functions for depth-limited solving, AIJ | PR | parti | M (teoria) | nuovo | §3c |
+| Milec, Kovařík & Lisý 2025, arXiv 2501.10464; Zhang & Sandholm 2021, KLSS; DecisionHoldem 2022; Kubíček et al. 2023/2026 | arXiv/PR | abstract | B-M | nuovi | §3c |
+| Yu 2026, PokaiTrainer, arXiv 2608.29197 | arXiv | intero (§1-5) | M | nuovo | §3c |
+| Vorobeychik & Pritchard 2018, Plan Interdiction Games, arXiv 1811.06162 | PR (Springer 2020) | intero | A (formulazione) / M | nuovo | §4.1 |
+| Domshlak 2013, Fault Tolerant Planning, ICAPS | PR | intero | A (concetto) / M | nuovo | §4.1 |
+| Jensen, Veloso & Bryant 2004, ICAPS; Letchford & Vorobeychik 2013, AAMAS; Fox, Howey & Long 2006, AAAI; Sheyner/Jha et al. 2002 | PR | sec | B-M | nuovi | §4.1 |
+| Krarup et al. 2021, Contrastive Explanations, JAIR | PR | intero | A (chiusura causale) | nuovo | §4.1 |
+| Eifler et al. 2020, Plan-Property Dependencies, AAAI | PR | intero | M | nuovo | §4.1 |
+| Helmert & Domshlak 2009, LM-cut, ICAPS | PR | intero | M | nuovo | §4.1 |
+| Grüne & Wulf 2025, Blocking All Solutions, arXiv 2502.05348 | arXiv | intero (parti) | A (negativo) | nuovo | §4.1 |
+| Rigter, Lacerda & Hawes 2021, Minimax Regret, AAAI, arXiv 2012.04626 | PR | intero | M | nuovo | §4.1 |
+| Meulemans et al. 2023, COCOA, NeurIPS, arXiv 2306.16803 | PR | intero (§3) | A | nuovo | §4.1 |
+| Albrecht & Stone 2018, survey, AIJ, arXiv 1709.08071 | PR | §4.2 | A (P4-P5) | nuovo | §4.1 |
+| Nguyen & Kambhampati & Do 2011, arXiv 1104.5069 | arXiv | intero (parti) | B | nuovo | §4.1 |
+| Lemons et al. 2022, Beam Search Faster and Monotonic, ICAPS, arXiv 2204.02929 | PR | intero | A | nuovo | §4.3 |
+| Lemons et al. 2024, Rectangle Search, AAAI, arXiv 2312.12554 | PR | intero | M | agg. + correzione | §4.3 |
+| Hansen & Zhou 2007, Anytime Heuristic Search, JAIR | PR | intero (§1-2) | M | nuovo | §4.3 |
+| Likhachev, Gordon & Thrun 2003, ARA* | PR | intero (§1-3) | M | agg. | §4.3 |
+| Thayer & Ruml 2010, Anytime frameworks, SoCS | PR | intero | M | nuovo | §4.3 |
+| Sepetnitsky, Felner & Stern 2016, NRR2, SoCS | PR | intero | A | nuovo | §4.3 |
+| Chen & Sturtevant 2021, AAAI | PR | intro | B-M | nuovo | §4.3 |
+| Heusner, Keller & Helmert 2017, SoCS | PR | parti | M | nuovo | §4.3 |
+| Kuroiwa & Fukunaga 2019, 2020, ICAPS; Shimoda & Fukunaga 2024 | PR; arXiv | parti | M | agg. | §4.3 |
+| Valenzano, Sturtevant, Schaeffer & Xie 2014, ICAPS | PR | parti | A | nuovo | §4.3 |
+| Richter & Helmert 2009, ICAPS | PR | parti | M | nuovo | §4.4 |
+| Bulitko et al. 2003; Nau et al. 2010 (patologia) | PR | sec | M | nuovi | §4.3 |
+| Nguyen & Ramanujan 2022, Lookahead Pathology in MCTS, arXiv 2212.05208 | arXiv | intero | M | nuovo | §4.3 |
+| Wilt & Ruml 2012, When does WA* fail, SoCS | PR | parti | B-M | nuovo | §4.3 |
+| Jinnai & Fukunaga 2017, AAAI (modello di costo IW) | PR | parti | A | nuovo | §4.4 |
+| Soemers et al. 2016, Enhancements for real-time MCTS, arXiv 2407.03049 | PR (CIG) | parti | M-A | nuovo | §4.4 |
+| Phillips et al. 2012, E-Graphs, SoCS | PR | parti | M | nuovo | §4.4 |
+| Forge `GameSnapshot.java` (ripristino sul posto sperimentale) | repo | intero | A | agg. | §4.4 |
+| Stockfish `nnue.md` (accumulatore) | repo | parti | B-M | agg. | §4.4 |
+
+Lavori trovati e non letti: §2.3. Copie aperte bloccate dal proxy: §2.5.
 
 ## 6. Registro delle interrogazioni
 ### 6.1 Sweep automatica (23/10/2026; `harness.py`; colonne = risultati restituiti; «rif.» = 429 rifiutata; «—» = non eseguita)
