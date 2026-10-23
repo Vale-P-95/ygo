@@ -530,3 +530,64 @@ Analisi dei disaccordi «Extra Deck» della corsia 4: `docs/plans/extra-deck-a1b
 - **Proposta per B14.** L2-3 come ultimo gradino, sulle 3-5 board che restano dopo la misura completa: circa 70-110 s in tutto, più la lettura delle linee. Con il §1 il #1 della misura è già quasi sempre tra le prime 15. L2-3 decide l'ordine finale fra le migliori, dove la misura sbaglia una coppia su cinque.
   - Nell'app ha senso a richiesta, o in sottofondo dopo la prima classifica.
 - **Misura + k·L2-3** non batte L2-3 da solo. La misura serve a scegliere quali board mandare al livello 2, non a correggerlo.
+
+## 6c. Il kit concatenato della corsia 4, la prova onesta
+
+**Domanda della corsia 4.** Tre cambi del turno di prova, provati dietro tre interruttori d'ambiente: branch `claude/placed-cards`, 017aff9 (cioè `main` 9cc3005 con gli interruttori).
+- `DUELFORGE_EXP_PERUSE`: la copertura di una risposta è quello che un suo uso ferma nella finestra migliore, non l'unione di tutte le finestre.
+- `DUELFORGE_EXP_CASCADE`: conta anche una sonda persa perché è stata fermata quella da cui dipende.
+- `DUELFORGE_EXP_CHAIN`: i passi del kit diventano una catena nell'ordine di gioco (tranne le giocate che non toccano il Deck), e fermarne uno ferma quelli dopo.
+
+Sulle fixture dei disaccordi (§6, 81 coppie) la corsia 4 trovava le coppie giuste così:
+
+| configurazione | coppie giuste |
+|---|---:|
+| base | 16% |
+| CASCADE | 20% |
+| PERUSE | 41% |
+| PERUSE + CASCADE | 42% |
+| tutte e tre | 38% |
+
+Quel campione però è scelto dove la misura sbaglia.
+
+### Metodo
+- Ho rimisurato con la CLI di 017aff9 le 406 board del giro A1b: `probe-line --lines <a1b>/lines/<mano>.lines.json --json`, sola misura, nessun livello 2. 87 file per 4 configurazioni, 6,5 minuti sui 4 core.
+- Le giudica `scripts/research/a1b_fair_measure.py` contro la verità del giro A1b: livello 2 contro tutti gli avversari, oppure senza i tre più giocati, come L2-3.
+- Le coppie e le metriche sono quelle del §6b.
+- **Controllo:** la configurazione base riproduce la misura del giro A1b (955 contro 956 coppie giuste su 1203). Cambia solo il codice tra 0d747f1 e 9cc3005.
+```
+for c in base peruse peruse_cascade all; do …probe-line --deck <mdm>/<deck>.ydk --lines <a1b>/lines/<mano>.lines.json --json <w>/remeasure/$c/<mano>.json; done
+python3 scripts/research/a1b_fair_measure.py <w>/a1b base=<w>/remeasure/base peruse=… peruse+cascade=… tutte=…
+```
+
+### Risultati (406 board, verità su tutti gli avversari, 1203 coppie)
+
+| misura | turno dopo | coppie giuste, taratura | coppie giuste, verifica | tutte | Spearman taratura | Spearman verifica |
+|---|---|---:|---:|---:|---:|---:|
+| giro A1b (0d747f1) | no | 79% | 82% | 79% | 0,78 | 0,73 |
+| **base** (017aff9) | no | **79%** | **82%** | **79%** | **0,78** | **0,73** |
+| base | sì | 79% | 82% | 80% | 0,78 | 0,71 |
+| PERUSE | no | 75% | 69% | 73% | 0,56 | 0,42 |
+| PERUSE + CASCADE | no | 77% | 69% | 75% | 0,62 | 0,52 |
+| PERUSE + CASCADE | sì | 76% | 73% | 75% | 0,59 | 0,49 |
+| PERUSE + CASCADE + CHAIN | no | 77% | 76% | 77% | 0,75 | 0,60 |
+| PERUSE + CASCADE + CHAIN | sì | 78% | 77% | 77% | 0,75 | 0,60 |
+
+Con la verità senza i tre deck più giocati (1219 coppie) l'ordine è lo stesso:
+
+| configurazione | coppie giuste | Spearman in verifica |
+|---|---:|---:|
+| base | 80% | 0,73 |
+| PERUSE | 74% | 0,43 |
+| PERUSE + CASCADE | 76% | 0,54 |
+| tutte e tre | 79% | 0,63 |
+
+### Conclusione
+- **Su tutte le board nessuno dei tre interruttori migliora la misura: la peggiorano tutti.**
+  - PERUSE da solo fa il danno più grande: 79% → 73% delle coppie, Spearman in verifica 0,73 → 0,42.
+  - CASCADE e CHAIN recuperano in parte, ma restano sotto la base: 77% e 0,60.
+- Sul campione dei disaccordi il quadro era opposto: 16% → 42%. È l'effetto della scelta del campione: correggere dove la misura sbaglia costa di più dove oggi va bene.
+- **Proposta:** non accendere nessuno dei tre interruttori. La strada che migliora l'ordine resta il livello 2 contro i tre deck più giocati (§6b, 94%).
+- **Regola per le prossime modifiche della misura:** si giudicano su tutte le board del giro A1b con `a1b_fair_measure.py`, non solo sulle coppie in disaccordo.
+  - Costa pochi minuti: le linee e la verità ci sono già.
+  - Con la verità che esclude i tre deck più giocati, il confronto con L2-3 resta onesto.
