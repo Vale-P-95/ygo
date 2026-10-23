@@ -8,6 +8,40 @@ use crate::carddb::CardDb;
 use crate::consts::{location, position};
 use crate::message::{Activatable, CardRef, Decision};
 
+thread_local! {
+    /// Whether the actions built on this thread carry their labels.
+    static LABELS: std::cell::Cell<bool> = const { std::cell::Cell::new(true) };
+}
+
+fn labels() -> bool {
+    LABELS.with(|l| l.get())
+}
+
+/// Runs `f` with the actions it builds left without labels: the probe turn
+/// asks for actions at every decision and shows none, and building their
+/// labels was 5% of the work of a search with its measures.
+pub fn without_labels<R>(f: impl FnOnce() -> R) -> R {
+    struct Restore(bool);
+    impl Drop for Restore {
+        fn drop(&mut self) {
+            LABELS.with(|l| l.set(self.0));
+        }
+    }
+    let _restore = Restore(LABELS.with(|l| l.replace(false)));
+    f()
+}
+
+/// An action's label, built only when the actions carry labels.
+macro_rules! label {
+    ($e:expr) => {
+        if labels() {
+            String::from($e)
+        } else {
+            String::new()
+        }
+    };
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum ActionKind {
     NormalSummon,
@@ -368,51 +402,51 @@ fn all_actions(decision: &Decision, db: &CardDb, known: &[u32]) -> Vec<Action> {
             ..
         } => {
             for (i, c) in summonable.iter().enumerate() {
-                out.push(Action::new(K::NormalSummon, format!("Normal Summon {}", describe_card(db, c)), cmd(0, i)).on(c));
+                out.push(Action::new(K::NormalSummon, label!(format!("Normal Summon {}", describe_card(db, c))), cmd(0, i)).on(c));
             }
             for (i, c) in special_summonable.iter().enumerate() {
-                out.push(Action::new(K::SpecialSummon, format!("Special Summon {}", describe_card(db, c)), cmd(1, i)).on(c));
+                out.push(Action::new(K::SpecialSummon, label!(format!("Special Summon {}", describe_card(db, c))), cmd(1, i)).on(c));
             }
             for (i, c) in repositionable.iter().enumerate() {
-                out.push(Action::new(K::ChangePosition, format!("Change position of {}", describe_card(db, c)), cmd(2, i)).on(c));
+                out.push(Action::new(K::ChangePosition, label!(format!("Change position of {}", describe_card(db, c))), cmd(2, i)).on(c));
             }
             for (i, c) in monster_settable.iter().enumerate() {
-                out.push(Action::new(K::SetMonster, format!("Set {}", describe_card(db, c)), cmd(3, i)).on(c));
+                out.push(Action::new(K::SetMonster, label!(format!("Set {}", describe_card(db, c))), cmd(3, i)).on(c));
             }
             for (i, c) in spell_settable.iter().enumerate() {
-                out.push(Action::new(K::SetSpellTrap, format!("Set {}", describe_card(db, c)), cmd(4, i)).on(c));
+                out.push(Action::new(K::SetSpellTrap, label!(format!("Set {}", describe_card(db, c))), cmd(4, i)).on(c));
             }
             for (i, a) in activatable.iter().enumerate() {
                 out.push(
-                    Action::new(K::Activate, format!("Activate {}", describe_activation(db, a)), cmd(5, i))
+                    Action::new(K::Activate, label!(format!("Activate {}", describe_activation(db, a))), cmd(5, i))
                         .on(&a.card)
                         .described(a.description),
                 );
             }
             if *to_battle_phase {
-                out.push(Action::new(K::ToBattlePhase, "Go to Battle Phase", cmd(6, 0)));
+                out.push(Action::new(K::ToBattlePhase, label!("Go to Battle Phase"), cmd(6, 0)));
             }
             if *to_end_phase {
-                out.push(Action::new(K::EndTurn, "End turn", cmd(7, 0)));
+                out.push(Action::new(K::EndTurn, label!("End turn"), cmd(7, 0)));
             }
         }
         Decision::BattleCmd { activatable, attackers, to_main2, to_end_phase, .. } => {
             for (i, a) in activatable.iter().enumerate() {
                 out.push(
-                    Action::new(K::Activate, format!("Activate {}", describe_activation(db, a)), cmd(0, i))
+                    Action::new(K::Activate, label!(format!("Activate {}", describe_activation(db, a))), cmd(0, i))
                         .on(&a.card)
                         .described(a.description),
                 );
             }
             for (i, (c, direct)) in attackers.iter().enumerate() {
                 let how = if *direct { " (can attack directly)" } else { "" };
-                out.push(Action::new(K::Attack, format!("Attack with {}{how}", describe_card(db, c)), cmd(1, i)).on(c));
+                out.push(Action::new(K::Attack, label!(format!("Attack with {}{how}", describe_card(db, c))), cmd(1, i)).on(c));
             }
             if *to_main2 {
-                out.push(Action::new(K::ToMainPhase2, "Go to Main Phase 2", cmd(2, 0)));
+                out.push(Action::new(K::ToMainPhase2, label!("Go to Main Phase 2"), cmd(2, 0)));
             }
             if *to_end_phase {
-                out.push(Action::new(K::EndTurn, "End turn", cmd(3, 0)));
+                out.push(Action::new(K::EndTurn, label!("End turn"), cmd(3, 0)));
             }
         }
         Decision::EffectYesNo { card, description, .. } => {
@@ -420,35 +454,39 @@ fn all_actions(decision: &Decision, db: &CardDb, known: &[u32]) -> Vec<Action> {
             out.push(
                 Action::new(
                     K::Yes,
-                    format!("Yes, use {}{}", describe_card(db, card), if text.is_empty() { String::new() } else { format!(": {text}") }),
+                    label!(format!(
+                        "Yes, use {}{}",
+                        describe_card(db, card),
+                        if text.is_empty() { String::new() } else { format!(": {text}") }
+                    )),
                     i32_bytes(1),
                 )
                 .on(card)
                 .described(*description),
             );
-            out.push(Action::new(K::No, "No", i32_bytes(0)));
+            out.push(Action::new(K::No, label!("No"), i32_bytes(0)));
         }
         Decision::YesNo { description, .. } => {
             let text = db.describe(*description);
             out.push(
-                Action::new(K::Yes, if text.is_empty() { "Yes".to_owned() } else { format!("Yes: {text}") }, i32_bytes(1))
+                Action::new(K::Yes, label!(if text.is_empty() { "Yes".to_owned() } else { format!("Yes: {text}") }), i32_bytes(1))
                     .described(*description),
             );
-            out.push(Action::new(K::No, "No", i32_bytes(0)));
+            out.push(Action::new(K::No, label!("No"), i32_bytes(0)));
         }
         Decision::Option { options, .. } => {
             for (i, &o) in options.iter().enumerate() {
-                out.push(Action::new(K::Choose, format!("Option: {}", db.describe(o)), i32_bytes(i as i32)).described(o));
+                out.push(Action::new(K::Choose, label!(format!("Option: {}", db.describe(o))), i32_bytes(i as i32)).described(o));
             }
         }
         Decision::SelectCard { cancelable, min, max, cards, .. } => {
             for pick in combinations(cards, *min as usize, *max as usize, |_| true) {
-                let names: Vec<_> = pick.iter().map(|&i| describe_card(db, &cards[i])).collect();
-                let action = Action::new(K::Choose, format!("Select {}", names.join(" + ")), indices_response(&pick));
+                let names: Vec<_> = if labels() { pick.iter().map(|&i| describe_card(db, &cards[i])).collect() } else { Vec::new() };
+                let action = Action::new(K::Choose, label!(format!("Select {}", names.join(" + "))), indices_response(&pick));
                 out.push(if let [one] = pick[..] { action.on(&cards[one]) } else { action });
             }
             if *cancelable {
-                out.push(Action::new(K::Cancel, "Cancel", i32_bytes(-1)));
+                out.push(Action::new(K::Cancel, label!("Cancel"), i32_bytes(-1)));
             }
         }
         Decision::SelectUnselectCard { finishable, cancelable, selectable, unselectable, .. } => {
@@ -457,27 +495,27 @@ fn all_actions(decision: &Decision, db: &CardDb, known: &[u32]) -> Vec<Action> {
                 if seen.insert(combination_key(selectable, &[i])) {
                     let mut resp = i32_bytes(1);
                     resp.extend_from_slice(&(i as i32).to_le_bytes());
-                    out.push(Action::new(K::Choose, format!("Select {}", describe_card(db, c)), resp).on(c));
+                    out.push(Action::new(K::Choose, label!(format!("Select {}", describe_card(db, c))), resp).on(c));
                 }
             }
             for (j, c) in unselectable.iter().enumerate() {
                 let mut resp = i32_bytes(1);
                 resp.extend_from_slice(&((selectable.len() + j) as i32).to_le_bytes());
-                out.push(Action::new(K::Choose, format!("Unselect {}", describe_card(db, c)), resp));
+                out.push(Action::new(K::Choose, label!(format!("Unselect {}", describe_card(db, c))), resp));
             }
             if *finishable {
-                out.push(Action::new(K::Finish, "Finish selection", i32_bytes(-1)));
+                out.push(Action::new(K::Finish, label!("Finish selection"), i32_bytes(-1)));
             } else if *cancelable {
-                out.push(Action::new(K::Cancel, "Cancel", i32_bytes(-1)));
+                out.push(Action::new(K::Cancel, label!("Cancel"), i32_bytes(-1)));
             }
         }
         Decision::SelectChain { forced, chains, .. } => {
             if !*forced {
-                out.push(Action::new(K::Pass, "Don't chain", i32_bytes(-1)));
+                out.push(Action::new(K::Pass, label!("Don't chain"), i32_bytes(-1)));
             }
             for (i, a) in chains.iter().enumerate() {
                 out.push(
-                    Action::new(K::Activate, format!("Chain {}", describe_activation(db, a)), i32_bytes(i as i32))
+                    Action::new(K::Activate, label!(format!("Chain {}", describe_activation(db, a))), i32_bytes(i as i32))
                         .on(&a.card)
                         .described(a.description),
                 );
@@ -497,15 +535,19 @@ fn all_actions(decision: &Decision, db: &CardDb, known: &[u32]) -> Vec<Action> {
             if *count <= 1 {
                 for (side, loc, seq) in zones {
                     let owner = if side == *player { "your" } else { "opponent's" };
-                    out.push(Action::new(K::Place, format!("Place in {owner} {}", zone_name(loc, seq)), vec![side, loc, seq]));
+                    out.push(Action::new(K::Place, label!(format!("Place in {owner} {}", zone_name(loc, seq))), vec![side, loc, seq]));
                 }
             } else {
                 for pick in index_combinations(zones.len(), *count as usize) {
                     let chosen: Vec<_> = pick.iter().map(|&i| zones[i]).collect();
-                    let label = chosen.iter().map(|&(_, l, s)| zone_name(l, s)).collect::<Vec<_>>().join(", ");
+                    let label = if labels() {
+                        chosen.iter().map(|&(_, l, s)| zone_name(l, s)).collect::<Vec<_>>().join(", ")
+                    } else {
+                        String::new()
+                    };
                     out.push(Action::new(
                         K::Place,
-                        format!("Choose zones {label}"),
+                        label!(format!("Choose zones {label}")),
                         chosen.iter().flat_map(|&(p, l, s)| [p, l, s]).collect(),
                     ));
                 }
@@ -514,7 +556,7 @@ fn all_actions(decision: &Decision, db: &CardDb, known: &[u32]) -> Vec<Action> {
         Decision::SelectPosition { positions, .. } => {
             for pos in [position::FACEUP_ATTACK, position::FACEDOWN_ATTACK, position::FACEUP_DEFENSE, position::FACEDOWN_DEFENSE] {
                 if *positions as u32 & pos != 0 {
-                    out.push(Action::new(K::Position, format!("Position: {}", position::name(pos)), i32_bytes(pos as i32)));
+                    out.push(Action::new(K::Position, label!(format!("Position: {}", position::name(pos))), i32_bytes(pos as i32)));
                 }
             }
         }
@@ -522,11 +564,11 @@ fn all_actions(decision: &Decision, db: &CardDb, known: &[u32]) -> Vec<Action> {
             let refs: Vec<CardRef> = cards.iter().map(|(c, _)| *c).collect();
             let picks = combinations(&refs, 1, *max as usize, |pick| pick.iter().map(|&i| cards[i].1 as u32).sum::<u32>() >= *min);
             for pick in picks {
-                let names: Vec<_> = pick.iter().map(|&i| describe_card(db, &refs[i])).collect();
-                out.push(Action::new(K::Choose, format!("Tribute {}", names.join(" + ")), indices_response(&pick)));
+                let names: Vec<_> = if labels() { pick.iter().map(|&i| describe_card(db, &refs[i])).collect() } else { Vec::new() };
+                out.push(Action::new(K::Choose, label!(format!("Tribute {}", names.join(" + "))), indices_response(&pick)));
             }
             if *cancelable {
-                out.push(Action::new(K::Cancel, "Cancel", i32_bytes(-1)));
+                out.push(Action::new(K::Cancel, label!("Cancel"), i32_bytes(-1)));
             }
         }
         Decision::SelectSum { exact, target, min, max, must, cards, .. } => {
@@ -543,12 +585,12 @@ fn all_actions(decision: &Decision, db: &CardDb, known: &[u32]) -> Vec<Action> {
                 }
             });
             for pick in picks {
-                let names: Vec<_> = pick.iter().map(|&i| describe_card(db, &refs[i])).collect();
-                out.push(Action::new(K::Choose, format!("Select {}", names.join(" + ")), indices_response(&pick)));
+                let names: Vec<_> = if labels() { pick.iter().map(|&i| describe_card(db, &refs[i])).collect() } else { Vec::new() };
+                out.push(Action::new(K::Choose, label!(format!("Select {}", names.join(" + "))), indices_response(&pick)));
             }
         }
         Decision::Sort { cards, .. } => {
-            out.push(Action::new(K::Order, "Keep the default order", vec![0xff]));
+            out.push(Action::new(K::Order, label!("Keep the default order"), vec![0xff]));
             let n = cards.len();
             let orders: Vec<Vec<usize>> = if n <= MAX_SORTED { permutations(n) } else { vec![(0..n).rev().collect()] };
             let mut seen = HashSet::new();
@@ -562,8 +604,8 @@ fn all_actions(decision: &Decision, db: &CardDb, known: &[u32]) -> Vec<Action> {
                 for (pos, &i) in order.iter().enumerate() {
                     response[i] = pos as u8;
                 }
-                let names: Vec<_> = order.iter().map(|&i| db.name(cards[i].code)).collect();
-                out.push(Action::new(K::Order, format!("Order: {}", names.join(", ")), response));
+                let names: Vec<_> = if labels() { order.iter().map(|&i| db.name(cards[i].code)).collect() } else { Vec::new() };
+                out.push(Action::new(K::Order, label!(format!("Order: {}", names.join(", "))), response));
             }
         }
         Decision::AnnounceRace { count, available, .. } => {
@@ -571,7 +613,7 @@ fn all_actions(decision: &Decision, db: &CardDb, known: &[u32]) -> Vec<Action> {
             for pick in index_combinations(bits.len(), *count as usize) {
                 let mask = pick.iter().fold(0u64, |m, &i| m | 1u64 << bits[i]);
                 let label = pick.iter().map(|&i| race_name(bits[i])).collect::<Vec<_>>().join(" + ");
-                out.push(Action::new(K::Announce, format!("Declare monster type {label}"), mask.to_le_bytes().to_vec()));
+                out.push(Action::new(K::Announce, label!(format!("Declare monster type {label}")), mask.to_le_bytes().to_vec()));
             }
         }
         Decision::AnnounceAttribute { count, available, .. } => {
@@ -579,12 +621,12 @@ fn all_actions(decision: &Decision, db: &CardDb, known: &[u32]) -> Vec<Action> {
             for pick in index_combinations(bits.len(), *count as usize) {
                 let mask = pick.iter().fold(0u32, |m, &i| m | 1u32 << bits[i]);
                 let label = pick.iter().map(|&i| attribute_name(bits[i])).collect::<Vec<_>>().join(" + ");
-                out.push(Action::new(K::Announce, format!("Declare attribute {label}"), mask.to_le_bytes().to_vec()));
+                out.push(Action::new(K::Announce, label!(format!("Declare attribute {label}")), mask.to_le_bytes().to_vec()));
             }
         }
         Decision::AnnounceNumber { options, .. } => {
             for (i, o) in options.iter().enumerate() {
-                out.push(Action::new(K::Announce, format!("Declare {o}"), i32_bytes(i as i32)));
+                out.push(Action::new(K::Announce, label!(format!("Declare {o}")), i32_bytes(i as i32)));
             }
         }
         Decision::AnnounceCard { opcodes, .. } => {
@@ -601,7 +643,7 @@ fn all_actions(decision: &Decision, db: &CardDb, known: &[u32]) -> Vec<Action> {
                 codes.truncate(MAX_ANNOUNCE);
             }
             for code in codes {
-                out.push(Action::new(K::Announce, format!("Declare {}", db.name(code)), i32_bytes(code as i32)));
+                out.push(Action::new(K::Announce, label!(format!("Declare {}", db.name(code))), i32_bytes(code as i32)));
             }
         }
         Decision::SelectCounter { count, cards, .. } => {
@@ -616,14 +658,14 @@ fn all_actions(decision: &Decision, db: &CardDb, known: &[u32]) -> Vec<Action> {
                     .join(", ");
                 out.push(Action::new(
                     K::Choose,
-                    format!("Counters: {label}"),
+                    label!(format!("Counters: {label}")),
                     split.iter().flat_map(|&k| (k as i16).to_le_bytes()).collect(),
                 ));
             }
         }
         Decision::RockPaperScissors { .. } => {
             for (value, name) in [(1, "scissors"), (2, "rock"), (3, "paper")] {
-                out.push(Action::new(K::Choose, format!("Rock-paper-scissors: {name}"), i32_bytes(value)));
+                out.push(Action::new(K::Choose, label!(format!("Rock-paper-scissors: {name}")), i32_bytes(value)));
             }
         }
         Decision::Unsupported { .. } => {}
