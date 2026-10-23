@@ -1,6 +1,6 @@
-# Piano per l'ambiente di lavoro e le risorse (24/10/2026)
+# Piano per l'ambiente di lavoro e le risorse (v2, 24/10/2026)
 
-Come sviluppare DuelForge nella prossima fase sfruttando Claude (Progetti, Design, Code) e GitHub, senza sprecare token e minuti. Nasce dai numeri del 23/10, il giorno con dieci sessioni in parallelo: ha prodotto undici PR unite, ma anche sprechi evidenti, misurati qui sotto. Le regole stabili vanno nei file elencati al §8, così non si ripetono a ogni prompt.
+Come sviluppare DuelForge nella prossima fase con Claude (Progetti, Design, Code) e GitHub, **frontend compreso**, senza sprecare token e minuti. La v1 teneva l'interfaccia su Gemini; questa la riporta su Claude, perché il coordinamento tra due agenti costava turni (prompt da preparare, revisioni incrociate, contratti in due PR, prove «non fatte nell'app vera») senza dare velocità.
 
 Il piano del prodotto resta `docs/PIANO.md`; i lavori in corso `docs/TASKS.md`; la memoria del coordinamento `docs/plans/coordinamento.md`. Questo documento dice **come** si lavora, non **cosa** si costruisce.
 
@@ -10,7 +10,7 @@ Dati letti dalle sessioni il 23/10 (`list_sessions`, campo `usage`):
 
 | Sessione | Contesto finale | Spesa | Note |
 |---|---|---|---|
-| Vecchia coordinatrice (5 giorni) | 263k dopo la compattazione, 3,6 miliardi di token letti dalla cache | 1 244 $ | Monitor di git, trigger orario, `list_events` sulle sorelle |
+| Vecchia coordinatrice (5 giorni) | 263k dopo la compattazione; 3,6 miliardi di token letti dalla cache | 1 244 $ | Monitor di git, trigger orario, `list_events` sulle sorelle |
 | Corsia 2, velocità | 466k | 145 $ | Controlli frequenti sui calcoli lunghi: ogni risveglio rilegge mezzo milione di token |
 | Corsia 10, bibliografia (Fable) | 769k | 156 $ | 5 milioni di token in ingresso senza cache, 1,4 milioni in uscita |
 | Corsia 4, misura | 717k | 131 $ | Tre compiti in fila nella stessa sessione |
@@ -23,208 +23,233 @@ Dati letti dalle sessioni il 23/10 (`list_sessions`, campo `usage`):
 
 Le cause, in ordine di peso:
 
-1. **Contesti enormi riletti a ogni turno.** Una sessione con 600k token di contesto paga quei 600k (dalla cache, ma li paga) a ogni messaggio, a ogni notifica, a ogni controllo di un calcolo. Il costo di un turno cresce con la lunghezza della storia, non con la difficoltà del compito. È la causa principale: le sessioni più care sono quelle con il contesto più lungo, non quelle con il lavoro più difficile.
-2. **Sessioni longeve con più compiti in fila.** Il contesto del compito 1 resta nella storia mentre si fa il compito 3. La corsia 4 ha fatto tre PR nella stessa sessione a 717k.
-3. **Aspettare un calcolo lungo dentro la sessione.** Un banco di 3 ore con un agente che «controlla come va» ogni dieci minuti costa un turno pieno a controllo. Il calcolo non ha bisogno dell'agente finché non finisce.
-4. **Svegliarsi per niente.** Monitor di git a ogni push, trigger orario, `list_events` sui transcript delle sorelle (decine di migliaia di token a lettura), `list_sessions` (il JSON completo di dieci sessioni vale 15-20k token).
-5. **Modello sbagliato per il compito.** Fable 5.1 su una lettura di cento articoli a testo intero: utile per il ragionamento, costoso per il volume. Opus 5.5 per scrivere una riga in un documento.
-6. **Lavoro doppio.** Agenti subordinati lanciati per verifiche che il coordinatore poi rifaceva; la stessa CI rilanciata a mano dopo ogni push; revisioni in Chromium per PR piccole.
-7. **Ragionamento alto per compiti di segreteria.** Il coordinamento (aprire PR, fare merge, smistare messaggi) non richiede il livello di ragionamento del lavoro sul motore.
+1. **Contesti enormi riletti a ogni turno.** Una sessione con 600k token di contesto paga quei 600k (dalla cache, ma li paga) a ogni messaggio, notifica o controllo di un calcolo. Il costo di un turno cresce con la lunghezza della storia, non con la difficoltà del compito. È la causa principale.
+2. **Sessioni longeve con più compiti in fila.** Il contesto del compito 1 resta nella storia mentre si fa il compito 3.
+3. **Aspettare un calcolo lungo dentro la sessione.** Un banco di 3 ore con un agente che «controlla come va» ogni dieci minuti costa un turno pieno a controllo.
+4. **Svegliarsi per niente.** Monitor di git, trigger orario, `list_events` sui transcript altrui (decine di migliaia di token a lettura), `list_sessions` (15-20k token a chiamata).
+5. **Modello sbagliato per il compito.** Fable 5.1 su cento articoli a testo intero; Opus 5.5 per una riga in un documento.
+6. **Lavoro doppio e coordinamento a due.** Agenti subordinati per verifiche poi rifatte; CI rilanciata dopo ogni push; prompt per Gemini preparati a mano, revisioni delle sue PR, contratti `lib.rs` ↔ `api.ts` spezzati in due PR con uno stub in mezzo.
+7. **Ragionamento alto per compiti di segreteria.**
 
 ## 2. Regole per i token
 
-Le regole che seguono valgono per ogni sessione Claude del progetto. Vanno in `CLAUDE.md` (§8) perché si applichino da sole.
+Valgono per ogni sessione Claude del progetto. Vanno in `CLAUDE.md` (§9) perché si applichino da sole.
 
 ### 2.1 Una sessione, un compito, un contesto corto
-- **Una sessione per compito**, creata da `main` con un brief di poche righe, chiusa e archiviata quando la PR è unita. Mai un secondo compito nella stessa sessione: si apre una sessione nuova, che parte da zero e legge il brief.
-- **Soglia di contesto: 200k token.** Oltre, la sessione fa un passaggio di consegne (`docs/plans/<tema>.md` con stato, numeri e prossimo passo), pusha, e chiede di essere sostituita. Non si aspetta la compattazione automatica, che arriva tardi e perde dettagli.
-- **Il brief è il contesto.** Nel prompt iniziale: il compito, i file da toccare, i comandi di verifica, il criterio di accettazione, il nome del documento di piano da leggere. Niente storia: la storia sta nei documenti.
-- **Leggere solo ciò che serve.** `Read` con `offset`/`limit`; `grep` prima di `cat`; mai leggere `docs/PIANO.md` (1 400 righe) per intero: si legge `docs/STATO.md` e il piano del tema.
-- **Niente transcript altrui.** `list_events` è vietato salvo per diagnosticare una sessione bloccata. Ci si fida dei messaggi.
-- **`list_sessions` al massimo una volta per turno utente**, e solo quando l'utente chiede lo stato o i costi.
+- **Una sessione per compito**, creata da `main` con un brief di dieci righe, chiusa e archiviata quando la PR è unita. Mai un secondo compito nella stessa sessione.
+- **Soglia di contesto: 200k token.** Oltre, la sessione scrive il passaggio di consegne (`docs/plans/<tema>.md`: stato, numeri, prossimo passo), pusha e chiede di essere sostituita. Non si aspetta la compattazione automatica.
+- **Il brief è il contesto.** Compito, file da toccare, comandi di verifica, criterio di accettazione, documento di piano da leggere, modello consigliato. La storia sta nei documenti, non nel prompt.
+- **Letture mirate.** `Read` con `offset`/`limit`; `grep` prima di `cat`; mai `docs/PIANO.md` per intero (1 400 righe): si legge `docs/STATO.md` e il piano del tema. L'output dei comandi lunghi va in un file e si legge con `tail` (`pnpm build 2>&1 | tail -5`).
+- **Le letture pesanti stanno in un agente subordinato.** Esplorare dieci file per trovare una funzione, leggere un log, confrontare due versioni: lo fa un `Explore` con `model: "haiku"`, che restituisce la conclusione. Il contesto della sessione principale resta corto. È la leva più efficace dopo la durata della sessione.
+- **Niente transcript altrui.** `list_events` vietato salvo per diagnosticare una sessione bloccata. `list_sessions` al massimo una volta per turno utente, e solo a richiesta.
+- **Immagini con parsimonia.** Uno screenshot costa più di mille token: si guarda quello che serve (una pagina, un componente), non la galleria intera a ogni modifica.
 
 ### 2.2 I calcoli lunghi non tengono sveglio nessuno
-- Un calcolo che dura più di dieci minuti (banco, sweep, oracolo, `paired_test`) si lancia con `run_in_background` e un timeout generoso, e **la sessione finisce il turno**. Il risultato arriva come notifica di completamento: un solo risveglio.
-- Niente `Monitor` con `while true` su file di log; niente `sleep` in foreground; niente «controllo a che punto è».
-- Se il calcolo supera le due ore, si sposta su GitHub Actions (`bench.yml` già esiste, su richiesta) o sulla macchina dell'utente, e la sessione si chiude: la riapre il risultato.
-- Ogni script lungo scrive un **riassunto di dieci righe** in un file (`out/<nome>/summary.txt`). La sessione legge il riassunto, non il log.
+- Un calcolo oltre i dieci minuti (banco, sweep, oracolo, `paired_test`) parte con `run_in_background` e un timeout generoso, e **la sessione finisce il turno**. Il risultato arriva come notifica: un solo risveglio.
+- Niente `Monitor` con `while true` sui log; niente `sleep`; niente «controllo a che punto è».
+- Oltre le due ore si va su GitHub Actions (`bench.yml`, a mano) o sul computer dell'utente; la sessione si chiude e la riapre il risultato.
+- Ogni script lungo scrive un **riassunto di dieci righe** (`out/<nome>/summary.txt`). La sessione legge il riassunto, non il log.
 
 ### 2.3 Svegliarsi solo per eventi
-- Nessun trigger orario per «vedere se c'è qualcosa». Le sessioni si svegliano per: un messaggio dell'utente, una notifica di fine calcolo, un evento GitHub sulla PR a cui sono iscritte, un messaggio di un'altra sessione.
-- Una sola iscrizione agli eventi per PR, tolta al merge (è automatico).
-- Le sessioni sorelle scrivono alla coordinatrice **solo** per: PR pronta, blocco, richiesta di un file caldo. Non per «ho finito il passo 2 di 5».
-- Un messaggio a una sessione con contesto grande costa un turno di quella sessione: prima di scrivere, chiedersi se serve davvero.
+- Nessun trigger orario. Risvegli ammessi: messaggio dell'utente, fine di un calcolo, evento GitHub sulla PR a cui si è iscritti, messaggio di un'altra sessione per una PR pronta o un blocco.
+- Una iscrizione agli eventi per PR, tolta al merge (automatico).
+- Prima di scrivere a una sessione con contesto grande, chiedersi se serve: ogni messaggio le costa un turno intero.
 
 ### 2.4 Il modello giusto per il compito
-| Compito | Modello | Livello di ragionamento |
+| Compito | Modello | Ragionamento |
 |---|---|---|
-| Architettura, bug difficili del motore, algoritmi di ricerca, decisioni di misura | **Opus 5.5** | alto |
-| Revisione di una PR di Gemini, documenti, script Python, test, correzioni piccole, CLI | **Sonnet 5.5** | medio |
-| Coordinamento: aprire PR, merge, smistare messaggi, aggiornare `coordinamento.md` | **Sonnet 5.5** | basso |
-| Agenti subordinati di ricerca nel codice (`Explore`), riassunti di log, verifiche meccaniche | **Haiku 5.5** | basso |
-| Ragionamento profondo su un problema delimitato (una dimostrazione, un piano di esperimenti), con contesto corto | Fable 5.1 | alto, con contesto sotto 100k |
+| Architettura, bug difficili del motore, algoritmi di ricerca, decisioni di misura, contratto `lib.rs` ↔ `api.ts`, la macchina a stati di `Combo.tsx` e dei caricamenti asincroni | **Opus 5.5** | alto |
+| Componenti e pagine dell'interfaccia, Tailwind, test Vitest e Playwright, script Python, documenti, revisione di una PR, CLI | **Sonnet 5.5** | medio |
+| Coordinamento (PR, merge, `coordinamento.md`), correzioni di lint, stringhe in italiano, rinomine | **Sonnet 5.5** o Haiku 5.5 | basso |
+| Agenti subordinati di ricerca nel codice, riassunti di log, confronto di screenshot | **Haiku 5.5** | basso |
+| Primo sistema di design e schermate chiave in Claude Design | Opus 5.5 | medio |
+| Varianti di un mockup esistente | Sonnet 5.5 | basso |
+| Ragionamento profondo su un problema delimitato, con contesto sotto 100k | Fable 5.1 | alto |
 
-- Il modello si imposta alla creazione della sessione e con `/model`; il livello con `/effort`. Chi crea una sessione sorella (`create_session`) passa il modello nel parametro `model`.
-- Fable 5.1 **mai** per letture lunghe, cicli di prova e correzione, o sessioni che durano ore: costa di più per token e il vantaggio sparisce quando il lavoro è volume, non ragionamento.
-- Gli agenti subordinati (`Agent`) ricevono `model: "haiku"` o `"sonnet"` a meno che il compito non richieda Opus. Un subagente eredita il modello del padre se non si specifica: con Opus in sessione, ogni `Explore` è un Opus.
-- `/fast` per i turni di segreteria con molto output (scrivere un documento già deciso).
+- Il modello si imposta alla creazione (`create_session`, parametro `model`) o con `/model`; il livello con `/effort`. Fasi di un compito: pianificare ad alto, implementare a medio, rifinire a basso.
+- Fable 5.1 **mai** per letture lunghe, cicli prova-correggi o sessioni di ore.
+- I subagenti ricevono sempre `model: "haiku"` o `"sonnet"`: altrimenti ereditano Opus.
+- `/fast` per scrivere documenti già decisi o codice meccanico.
 
 ### 2.5 Quota del piano Max
-Il piano ha due finestre: 5 ore e 7 giorni. Il 23/10 la finestra settimanale era in «avviso» alle 14. Regole:
-- Le sessioni in parallelo si limitano a **tre** contemporanee, più la coordinatrice. Dieci corsie in un giorno hanno consumato in otto ore quello che tre corsie consumano in una settimana, con molto lavoro di attesa.
-- Il lavoro che consuma solo CPU (banchi, sweep) va in coda su una sola sessione o su Actions, non in parallelo su sessioni Claude.
-- Un controllo dei costi a fine giornata, con `list_sessions` (una volta), si annota in `coordinamento.md`: spesa per sessione e contesto. Se una sessione supera i 300k, si chiude il giorno dopo con un passaggio di consegne.
+Due finestre, 5 ore e 7 giorni. Il 23/10 quella settimanale era in «avviso» alle 14.
+- Al massimo **tre sessioni in parallelo**. Dieci corsie in un giorno hanno consumato in otto ore quello che tre consumano in una settimana, soprattutto aspettando.
+- Il lavoro che consuma CPU (banchi, sweep) va in coda su una sessione o su Actions.
+- **Il merge dalla pagina GitHub costa zero token.** Quando la CI è verde e la revisione è fatta, l'utente preme «Squash and merge» dal telefono: nessuna sessione deve svegliarsi. La coordinatrice fa il merge solo quando l'utente lo delega esplicitamente.
+- A fine giornata, un `list_sessions` e tre righe in `coordinamento.md`: spesa per sessione e contesto. Una sessione sopra i 250k si chiude il giorno dopo con un passaggio di consegne.
 
-## 3. Gli strumenti e il loro ruolo
+## 3. Il frontend torna su Claude: la filiera
 
-### 3.1 Claude Code sul web (claude.ai/code): motore, dati, backend dell'app
-- È l'ambiente di oggi: container Linux, Rust, Node, Chromium, accesso al repository, CI via GitHub MCP, messaggi tra sessioni, task programmati.
-- Vi si fa tutto il lavoro su `crates/`, `apps/desktop/src-tauri/` e `scripts/`: compila, testa, lancia la CLI (`combos`, `coverage`, `card-values`, `roles`), fa i banchi corti.
-- **Limite:** non può aprire l'app Tauri con la sua finestra. Il backend dell'app (`lib.rs`) si compila con `cargo check -p duelforge-desktop` e si prova attraverso la CLI e i test; l'app vera si prova altrove (§6).
-- L'ambiente (`env_01V1q8vVFjcriRQeHs7ZLwV8`) va sistemato una volta: script di avvio che scarica `data/` in cache (oggi ogni sessione nuova rifà `fetch-data`), variabili `DUELFORGE_DATA` e `VITE_MOCK`, rete aperta verso Master Duel Meta, YGOPRODeck, crates.io, npm.
+Oggi l'interfaccia è in `apps/desktop/src/` (React 19, TypeScript, Tailwind 4, token in `src/index.css`, 1 600 righe, due temi; componenti base del passo 0: `Toolbar`, `FilterChip`, `IconButton`, `SidePanel`, `HelpPopover`; `mock.ts` da 3 200 righe; Vitest; `scripts/screens.mjs` con Playwright e axe). Con Claude si lavora in quattro passi, ognuno nel suo strumento.
 
-### 3.2 Claude Code sul computer (app desktop o CLI su Windows): l'app vera
-- È l'unico posto dove gira `pnpm tauri dev` con la finestra, le texture, i suoni, il 3D della Bottega. Ogni PR di interfaccia si prova qui prima del merge, o lo fa l'utente.
-- Con **Remote Control** una sessione cloud può usare il computer dell'utente: lanciare l'app, fare screenshot, provare un pulsante. Da attivare una volta nelle impostazioni; poi la sessione di revisione dell'interfaccia lo usa invece di dichiarare «non provato nell'app vera» (come nelle PR #113 e #116).
-- Il repository locale va tenuto su `main` aggiornato, con `data/` già scaricato: così la prova di una PR è `git fetch && git checkout gemini/<branch> && pnpm tauri dev`, due minuti.
+### 3.1 Il sistema di design di DuelForge (una volta)
+- Si costruisce **dal codice**: una sessione Code (Opus, poi Sonnet) crea una libreria di anteprime in `apps/desktop/design/` (un HTML per componente o gruppo: colori e tipografia dai token, pulsanti, chip, barre, pannelli, schede, la scatola 3D, nei due temi), ognuna con il marcatore `<!-- @dsCard group="…" -->`, e con `/design-sync` la carica in un progetto «Sistema di design DuelForge» su claude.ai. Da lì ogni mockup in Claude Design usa i colori, i font (Inter, Cinzel) e i componenti veri, non un'invenzione.
+- Si aggiorna **per differenza**, componente per componente, quando i token o i componenti base cambiano: la skill lo fa in modo incrementale, mai con una sostituzione in blocco.
+- L'anteprima di ogni componente serve anche agli screenshot (§6) e come «galleria» di sviluppo (§3.3): un lavoro, tre usi.
 
-### 3.3 Antigravity/Gemini: interfaccia
-- Resta sull'interfaccia (`apps/desktop/src/`), con i suoi branch `gemini/*`. Non consuma la quota Claude. Legge `AGENTS.md`.
-- Ogni suo prompt ha le due sezioni fisse (controlli automatici con i comandi; attività in pausa da ricontrollare in `TASKS.md`). Il prompt lo prepara la coordinatrice, l'utente lo incolla.
-- Le sue PR le rivede una sessione Claude **Sonnet** con brief corto: area giusta, protocollo dell'interfaccia di `AGENTS.md`, CI verde, e la prova nell'app vera via Remote Control quando la PR tocca pagine intere.
+### 3.2 Il mockup (per ogni schermata nuova o rifatta)
+- Nel **Progetto Claude** (§5) si chiede il mockup: un artifact «Design» con artboard a 1280×800 per i due temi, costruito sul sistema di design. Si rivede sul canvas, anche dal telefono; i commenti sull'artifact restano attaccati al punto commentato.
+- Si fa per: i passi 5 e 6 di `ui-revisione-2.md`, la scheda del punteggio con il meta e le board `cheap`, gli obiettivi ricchi (B8), il simulatore (#36). Non per i ritocchi (una scritta, un'icona): quelli vanno diretti al codice.
+- Un mockup costa una chat nel Progetto, senza repository né strumenti: una frazione di una sessione Code. Cambiare idea sul canvas costa meno che cambiarla nel codice.
 
-### 3.4 Progetti Claude (claude.ai): la memoria e le decisioni
-- Un **Progetto «DuelForge»** con, come conoscenza: `docs/STATO.md`, `AGENTS.md`, questo piano, `docs/plans/coordinamento.md`, il glossario dei termini (board, kit, turno di prova, oracolo, A1b, banco di generalità). Si aggiornano quando cambiano su `main`, non a ogni PR.
-- Istruzioni del Progetto: lingua, convenzioni, i principi non negoziabili (motore generale, niente linee precalcolate, prova equa sulle 406 board), e la regola «le decisioni si scrivono in `docs/plans/<tema>.md`, mai solo in chat».
-- Serve per: **discutere le decisioni** (quale opzione della misura, cosa fare della (d), le priorità del prossimo giro) senza aprire una sessione Code con il repository; **preparare i brief** delle sessioni; **leggere i riepiloghi**. Una chat nel Progetto costa una frazione di una sessione Code, perché non ha strumenti, repository né notifiche.
-- Il popup «Continua il lavoro sulle pull request tra le sessioni» propone proprio un Progetto collegato a Code: quando è attivo, le sessioni Code nate dal Progetto ne ereditano istruzioni e memoria, e il Progetto avvisa quando una PR finisce o serve l'utente. Da attivare al prossimo giro, con la sessione coordinatrice chiusa.
+### 3.3 Il codice (una sessione Code per schermata)
+- Brief: il link all'artifact del mockup, i file da toccare, il contratto `api.ts` (se cambia, la stessa PR tocca `lib.rs` e `mock.ts`), i criteri. La sessione legge il mockup con `Artifact read` e lo traduce nei componenti esistenti; i componenti nuovi entrano nella libreria e nel sistema di design.
+- **Si verifica da sola, con gli occhi**: `VITE_MOCK=1 pnpm dev` nel container, `scripts/screens.mjs` con il Chromium preinstallato, e la sessione guarda gli screenshot (uno per pagina e tema) confrontandoli con il mockup, prima di dichiarare la PR pronta. È il punto che con Gemini mancava: nessuna PR «verificata solo con typecheck».
+- Una pagina `/galleria`, solo in modo mock, mostra ogni componente in tutti gli stati (vuoto, caricamento, errore, dati): è lo Storybook di DuelForge senza Storybook, e la sorgente delle anteprime del sistema di design.
+- Protocollo dell'interfaccia di `AGENTS.md` (id di richiesta, azzeramento al cambio deck, errori in italiano, dipendenze degli effetti, niente `any`) invariato: ora lo rispetta chi scrive e chi rivede, nella stessa sessione, e la revisione finale la fa una sessione Sonnet diversa solo per le PR grandi.
+- Modelli: Sonnet per componenti e pagine; Opus per lo stato di `Combo.tsx`, i caricamenti asincroni, il contratto; Haiku per lint e stringhe.
 
-### 3.5 Claude Design: prima di Gemini, non dopo
-- I passi dell'interfaccia (`docs/plans/ui-revisione-2.md`) oggi partono da una descrizione testuale e si giudicano sul risultato. Con Claude Design si fa prima il **mockup** della schermata (Bottega con mensole e scatole, scheda del punteggio con il meta) sul canvas, con il sistema di design di DuelForge (token di `src/index.css`, Inter e Cinzel, i due temi), e lo si rivede con l'utente. Gemini riceve il mockup esportato più le specifiche, invece di interpretare un testo.
-- Un **sistema di design** di DuelForge in Claude Design, costruito dai token e dai componenti base del passo 0 (`Toolbar`, `FilterChip`, `IconButton`, `SidePanel`, `HelpPopover`): si fa una volta, poi ogni mockup lo riusa.
-- Vale per le pagine nuove e i rifacimenti grandi (passi 5 e 6, l'interfaccia del simulatore #36). Non per i ritocchi.
+### 3.4 La prova nell'app vera e il merge
+- Anteprima Artifact per l'utente (§6.1), screenshot nella PR tramite gli artifact della CI (§6.2), prova nell'app Tauri sul computer per le PR che toccano pagine intere, 3D o suoni (§6.4).
+- Merge dalla pagina GitHub.
 
-### 3.6 Artifact: anteprima del frontend senza installare niente
-- Il frontend con il backend finto (`VITE_MOCK=1 pnpm build`) è un sito statico. Una sessione cloud lo può **pubblicare come Artifact a più file** (pagina più `dist/assets/*`), privato, apribile dal telefono. Non ha il motore, ma mostra layout, temi, testi, animazioni, con i dati finti di `mock.ts`.
-- Si usa per rivedere le PR di Gemini prima del merge e per far vedere all'utente una schermata senza che debba compilare. Costa una build (un minuto) e una pubblicazione; il limite di 16 MB per pagina va rispettato tenendo i font e le texture fuori dall'anteprima o sotto i limiti.
+### 3.5 Perché costa meno di Gemini
+Nessun prompt da preparare e incollare; nessuna revisione incrociata obbligatoria; contratto in una PR sola, senza stub provvisori; nessuna PR unita «non provata nell'app vera»; i mockup si rivedono prima di scrivere codice, quindi meno giri di correzione; un solo insieme di regole (`AGENTS.md` e `CLAUDE.md` tornano a coincidere).
 
-### 3.7 GitHub: cosa usare e cosa no
-- **Branch protection** su `main` (c'è): PR con CI verde. Aggiungere la regola «una approvazione» no: il merge lo fa la coordinatrice su mandato dell'utente, e un'approvazione formale costerebbe un turno in più per PR.
-- **Template di PR** (`.github/pull_request_template.md`): sezioni «Cosa cambia», «Numeri prima/dopo» (per il motore), «Verifica punto per punto» (per l'interfaccia), «Attività in pausa toccate». Oggi ogni PR lo riscrive a mano.
-- **CODEOWNERS**: `crates/`, `src-tauri/` a Claude; `apps/desktop/src/` a Gemini. Serve come documentazione delle aree, non per bloccare.
-- **Actions**: il budget è contato. Restano le regole di `ci.yml` (PR una volta, solo le aree toccate; tutto su `main`; installer solo su `main`). Il bench e i banchi lunghi su `workflow_dispatch` quando una sessione cloud non deve restare sveglia ore. I risultati tornano come artifact di Actions, non in chat.
-- **Issues** per le richieste dell'utente e i bug trovati (oggi stanno in `TASKS.md` e nel PIANO): un'issue per tema, con l'etichetta dell'area; la PR la chiude con `Closes #n`. `TASKS.md` resta per i lock e lo stato operativo, non per la lista dei desideri.
-- **Projects di GitHub**: no. Un'altra bacheca da tenere aggiornata costa turni; `TASKS.md` più le issue bastano.
-- **Dependabot**: solo per le vulnerabilità, non per gli aggiornamenti di routine (ogni PR di aggiornamento costa una CI).
-- **Release**: tag `v0.x` quando `main` passa l'installer; l'utente scarica l'installer dall'Actions run o dalla release.
+### 3.6 Uscita da Gemini
+- Il passo 5 (Bottega) è in corso su `gemini/ui-shelf`: si lascia finire, lo rivede una sessione Sonnet con screenshot, si unisce. Poi Gemini si ferma: il passo 6 va a Claude con la filiera di §3.
+- I 26 branch `gemini/*` si puliscono: quelli uniti si cancellano; `gemini/workstation-bridge` (non unito) si rivede una volta e si decide se recuperarlo o chiuderlo.
+- `AGENTS.md` perde la sezione sulle aree di Gemini e le due sezioni fisse dei prompt; resta il protocollo dell'interfaccia.
 
-## 4. Backend, frontend e ambiente: dove si fa cosa
+## 4. Gli strumenti e il loro ruolo
 
-| Parte | Dove si sviluppa | Come si prova | Chi |
+### 4.1 Claude Code sul web (claude.ai/code): motore, backend, frontend
+- Container Linux con Rust, Node, pnpm, Chromium per Playwright, Xvfb, repository, CI via GitHub, messaggi tra sessioni.
+- Vi si fa tutto il codice: `crates/`, `src-tauri/`, `apps/desktop/src/`, `scripts/`. Il frontend si prova nel browser headless con il backend finto; il backend dell'app con `cargo check -p duelforge-desktop` e la CLI.
+- **Limite:** l'app Tauri con la finestra non parte (manca WebKitGTK). Si può provare una volta a installarlo nello script di avvio e lanciare `pnpm tauri dev` sotto Xvfb per screenshot dell'app vera dal cloud; se funziona entra in §6, altrimenti l'app vera resta sul computer.
+- L'ambiente va sistemato una volta: script di avvio con `pnpm install` e `cargo fetch`; `fetch-data` solo quando serve (le sessioni di frontend non ne hanno bisogno); variabili `DUELFORGE_DATA`, `VITE_MOCK`; rete verso Master Duel Meta, YGOPRODeck, crates.io, npm, ambientCG/Poly Haven per le texture.
+
+### 4.2 Claude Code sul computer (app desktop su Windows): l'app vera
+- L'unico posto con `pnpm tauri dev`, la finestra, le texture, i suoni, il 3D. Una sessione locale può lanciare l'app, guardarla (uso del computer: screenshot della finestra) e correggere con ricarica a caldo. Costa gli stessi token di una sessione cloud, ma vede l'app vera.
+- Con **Remote Control** una sessione cloud usa il computer: `git checkout` del branch, `pnpm tauri dev`, screenshot. Da attivare una volta.
+- Il repository locale su `main` aggiornato, con `data/` scaricato: provare una PR è `git fetch && git checkout <branch> && pnpm tauri dev`.
+
+### 4.3 Progetto Claude (claude.ai): lo studio
+Vedi §5.
+
+### 4.4 Claude Design (dentro Claude): mockup e sistema di design
+Vedi §3.1 e §3.2. Il sistema di design è un progetto su claude.ai alimentato da `/design-sync`; i mockup sono artifact «Design» del Progetto. Non si fanno mockup fuori dal sistema di design: altrimenti il codice non torna.
+
+### 4.5 Artifact: anteprime per l'utente
+Vedi §6.1.
+
+### 4.6 GitHub
+- **Branch protection** su `main` (c'è): PR con CI verde. Nessuna approvazione obbligatoria: il merge lo fa l'utente dalla pagina.
+- **Template di PR** (`.github/pull_request_template.md`): «Cosa cambia», «Numeri prima/dopo» (motore), «Verifica» con la lista del protocollo dell'interfaccia e il link agli screenshot (interfaccia), «Attività in pausa toccate».
+- **Actions**: budget contato. Restano le regole di `ci.yml`. Aggiunte al job frontend: `pnpm screens` con gli screenshot e l'audit axe come artifact del run (30 secondi), e una prova Playwright «fumo» sul mock (apre ogni pagina nei due temi, nessun errore in console). I banchi lunghi su `bench.yml`.
+- **Issues** per richieste e bug (un'issue per tema, chiusa dalla PR con `Closes #n`). `TASKS.md` resta per lock e stato operativo.
+- **Niente Projects di GitHub, niente Dependabot di routine** (solo vulnerabilità): ogni PR automatica costa una CI e un turno di revisione.
+- **Release**: tag `v0.x` quando `main` passa l'installer; l'installer si scarica dall'Actions run.
+- **Pulizia dei branch**: dopo il merge, cancellare il branch (impostazione «automatically delete head branches»).
+
+## 5. Il ruolo del Progetto Claude
+
+Con il frontend su Claude il Progetto diventa lo **studio** del prodotto: il posto dove si decide, si disegna e si guarda, senza aprire sessioni Code.
+
+- **Conoscenza**: `docs/STATO.md`, `AGENTS.md`, questo piano, `coordinamento.md`, un glossario (board, kit, turno di prova, oracolo, A1b, banco di generalità, misura a gradini), gli screenshot correnti delle sei pagine nei due temi (rinnovati a ogni release). Si aggiorna quando `main` cambia davvero, non a ogni PR.
+- **Istruzioni**: lingua e convenzioni di `AGENTS.md`, i principi non negoziabili (motore generale, niente linee precalcolate, prova equa sulle 406 board), «ogni decisione finisce in `docs/plans/`», «i mockup si fanno sul sistema di design DuelForge».
+- **Cosa ci si fa**:
+  1. le **decisioni** (opzioni della misura, priorità del giro, cosa tenere e cosa no) con i numeri delle PR davanti;
+  2. i **mockup** in Claude Design e la loro revisione, dal telefono, con i commenti;
+  3. i **brief** delle sessioni Code, scritti con il modello di §9.4: dieci righe, poi la sessione nasce dal Progetto e ne eredita istruzioni e memoria (è la funzione proposta dal popup «Continua il lavoro sulle pull request tra le sessioni»);
+  4. gli **avvisi**: il Progetto segnala quando una PR finisce o serve l'utente, al posto della coordinatrice sempre sveglia;
+  5. i **riepiloghi** di fine giro, letti dai documenti su `main`.
+- **Cosa non ci si fa**: codice. Una chat del Progetto non ha repository né strumenti; se serve toccare un file, nasce una sessione Code con il brief.
+- Costo: una chat del Progetto ha un contesto piccolo e stabile (le istruzioni e la conoscenza sono in cache); una decisione discussa lì costa una frazione della stessa discussione in una sessione Code con 200k di storia.
+
+Con questo, la coordinatrice permanente non serve più: le sessioni sono poche (al massimo tre), nascono dal Progetto, aprono la propria PR e si iscrivono ai suoi eventi; l'utente unisce dalla pagina GitHub o lo delega. Una sessione Sonnet di coordinamento si apre solo nei giorni con molte PR in coda, e si chiude la sera.
+
+## 6. Vedere l'app in sviluppo
+
+Dal più immediato al più completo. Le opzioni 1-3 non richiedono niente sul computer.
+
+1. **Anteprima Artifact del frontend** (per l'utente, dal telefono). La sessione fa `VITE_MOCK=1 pnpm build` e pubblica `dist/` come artifact a più file, **sempre allo stesso URL** (si aggiorna in posto), privato. Mostra layout, temi, testi, flussi, animazioni con i dati di `mock.ts`. Per renderla realistica, il backend finto si alimenta con **risposte registrate** dal backend vero: un comando della CLI (`duelforge-cli record-fixtures --deck <deck>`) salva in `apps/desktop/src/lib/fixtures/` le risposte JSON di un deck di esempio (ricerca, punteggi, meta, collegamenti, banlist), e `mock.ts` le serve invece di inventarle. Un minuto dopo ogni passo utile. Limiti: niente motore dal vivo, niente 3D pesante oltre i 16 MB (font e texture fuori dall'anteprima o sotto i limiti).
+2. **Screenshot della sessione** (per la sessione e per l'utente, subito). `scripts/screens.mjs` nel container: la sessione li guarda per verificarsi, e manda all'utente quelli che contano con un file in chat. In CI gli stessi screenshot diventano artifact del run, visibili dalla PR.
+3. **Browser con il motore vero, nel cloud** (fase 2, se il mock registrato non basta). Un «ponte di sviluppo»: un piccolo binario Rust che espone gli stessi comandi di `lib.rs` su HTTP locale, e `api.ts` che con `VITE_BRIDGE=1` chiama il ponte invece di `invoke`. Permette a Playwright di provare l'interfaccia con il motore vero e i dati veri, nel container e in CI. Richiede di spostare i comandi di `lib.rs` in un crate condiviso. L'utente non vede le porte del container: serve alla sessione, non ai suoi occhi.
+4. **App Tauri vera**: sul computer con `pnpm tauri dev` e ricarica a caldo, da una sessione Claude Code desktop (che la guarda) o da una sessione cloud via Remote Control. Obbligatoria per le PR che toccano pagine intere, la Bottega 3D, i suoni, le prestazioni del motore dall'app.
+5. **App Tauri sotto Xvfb nel cloud** (da provare una volta): se WebKitGTK si installa nel container, `pnpm tauri dev` headless con screenshot dell'app vera senza il computer. Se funziona, sostituisce il punto 4 per tutto tranne suoni e prestazioni.
+6. **Installer da `main`**, una volta a settimana: la prova completa.
+
+Regola: 1 e 2 per ogni PR dell'interfaccia; 4 per i passi grandi; 6 settimanale. Il 3 si fa quando il primo bug «solo con il motore vero» costa più del ponte.
+
+## 7. Backend, frontend e ambiente: dove si fa cosa
+
+| Parte | Dove | Come si prova | Modello |
 |---|---|---|---|
-| Motore (`ygo-engine`, `ygo-solver`), dati, statistiche, CLI | Claude Code web | `cargo test --release`, CLI, `paired_test.py`, banchi corti; banchi lunghi su Actions | Claude (Opus per gli algoritmi, Sonnet per script e documenti) |
-| Backend dell'app (`src-tauri/src/lib.rs`) | Claude Code web | `cargo check -p duelforge-desktop`, clippy; la funzione si prova dalla CLI che la copre (`combos --staged`, ecc.) | Claude |
-| Contratto `lib.rs` ↔ `api.ts` | Una sola PR che tocca entrambi | `pnpm typecheck` più `cargo check`; `mock.ts` aggiornato nella stessa PR | Claude propone, Gemini consuma |
-| Interfaccia (`apps/desktop/src/`) | Antigravity sul computer dell'utente, con `pnpm tauri dev` e `DUELFORGE_DATA` | App vera, Vitest, Playwright (`screens.mjs`), anteprima Artifact | Gemini; revisione Claude Sonnet |
-| Mockup e sistema di design | Claude Design | Revisione con l'utente sul canvas | Claude + utente |
-| Decisioni e priorità | Progetto Claude | Documento in `docs/plans/` | Utente + Claude |
-| Prova finale, installer | Computer Windows dell'utente, Actions per l'installer | Installer da `main` | Utente |
+| Motore, dati, statistiche, CLI | Code web | `cargo test --release`, CLI, `paired_test.py`, prova equa, banco di generalità; banchi lunghi su Actions | Opus (algoritmi), Sonnet (script, documenti) |
+| Backend dell'app (`lib.rs`) | Code web | `cargo check -p duelforge-desktop`, clippy; la funzione dalla CLI che la copre | Opus per il contratto, Sonnet per il resto |
+| Contratto `lib.rs` ↔ `api.ts` ↔ `mock.ts` | Una PR sola | `cargo check` più `pnpm typecheck`; fixture registrate aggiornate | Opus |
+| Interfaccia | Code web, mockup prima in Claude Design | Screenshot propri, Vitest, Playwright fumo, anteprima Artifact; app vera sul computer per i passi grandi | Sonnet; Opus per stato e asincronia |
+| Sistema di design | Code web con `/design-sync` | La galleria e le anteprime | Opus la prima volta, poi Sonnet |
+| Decisioni, mockup, brief | Progetto Claude | Documento in `docs/plans/` | Opus per le decisioni, Sonnet per le varianti |
+| Prova finale, installer | Computer Windows, Actions | Installer da `main` | utente |
 
-Regole del contratto:
-- Un campo nuovo in `api.ts` nasce in una PR di Claude che tocca `lib.rs`, `api.ts` e `mock.ts` insieme, con lo stub finto che produce dati plausibili. Gemini non aspetta: lavora sul finto, come per `comboMeta`.
-- Il backend non manda mai all'interfaccia dati che l'interfaccia non sa mostrare (è la regola di `SEND_CHEAP_SCORES`): l'interruttore sta nel backend e si accende quando Gemini ha fatto la sua parte.
+Regole del contratto: un campo nuovo nasce in una PR che tocca `lib.rs`, `api.ts`, `mock.ts` e le fixture insieme; il backend non manda dati che l'interfaccia non mostra (l'interruttore `SEND_CHEAP_SCORES` si accende nella stessa PR che fa la scheda).
 
-## 5. Il ciclo di lavoro (un compito dall'idea al merge)
+## 8. Il ciclo di un compito
 
-1. **Decisione** nel Progetto Claude o in `docs/plans/<tema>.md`: cosa, perché, criterio di accettazione, numeri attesi. Costa poco, non apre sessioni Code.
-2. **Issue** su GitHub con il riassunto e il collegamento al piano.
-3. **Brief** di dieci righe (modello da §8.4). La coordinatrice lo scrive; l'utente, o la coordinatrice con `create_session`, apre la sessione con il modello giusto.
-4. **Lavoro** in una sessione sola: piccoli commit che compilano, push dopo ogni passo, calcoli lunghi in background con la sessione che finisce il turno.
-5. **PR** aperta dalla sessione stessa con il template; CI parte da sola all'apertura. Se serve un push dopo, la CI si rilancia una volta a mano, non a ogni commit.
-6. **Revisione** da una sessione Sonnet diversa (o dalla coordinatrice se il diff è piccolo). Per Gemini: sempre.
-7. **Merge** squash dalla coordinatrice, con CI verde e mandato dell'utente.
-8. **Chiusura**: la sessione aggiorna `TASKS.md` e, se cambiano decisioni, `STATO.md`; l'utente la archivia. Una sessione archiviata non consuma più niente.
+1. **Decisione** nel Progetto o in `docs/plans/<tema>.md`: cosa, perché, criterio, numeri attesi.
+2. **Mockup** in Claude Design, se la schermata è nuova o rifatta; revisione con commenti.
+3. **Issue** su GitHub con il riassunto e i link (piano, mockup).
+4. **Brief** di dieci righe nel Progetto; la sessione Code nasce da lì con il modello giusto.
+5. **Lavoro** in una sessione sola: commit piccoli che compilano, push dopo ogni passo, calcoli lunghi in background con il turno chiuso, screenshot propri prima di dire «pronto».
+6. **PR** dal template, aperta dalla sessione; CI all'apertura; un solo rilancio a mano dopo l'ultimo push, se ce n'è stato uno.
+7. **Revisione**: per le PR piccole basta la sessione stessa con la lista del template; per quelle grandi una sessione Sonnet separata con brief corto (diff, lista, screenshot).
+8. **Merge** dalla pagina GitHub da parte dell'utente (o delegato), squash, branch cancellato.
+9. **Chiusura**: `TASKS.md` aggiornato, `STATO.md` se cambiano decisioni, sessione archiviata.
 
-La coordinatrice non è un servizio sempre acceso: lavora a eventi (PR, messaggi) e sta sotto i 250k di contesto. Quando li supera, passa le consegne con `coordinamento.md`, come è successo il 23/10.
+## 9. Le regole stabili, nei file giusti
 
-## 6. Provare l'app in tempo reale (o quasi)
+### 9.1 `AGENTS.md` (c'è)
+Resta la carta del progetto: mappa, comandi, convenzioni, protocolli, cosa non fare. Cambia:
+- via le aree di Gemini, i branch `gemini/*`, le due sezioni fisse dei prompt, «la PR di un agente la rivede l'altro»;
+- «Coordinamento tra agenti» diventa «Coordinamento tra sessioni»: una sessione per compito, lock in `TASKS.md`, file caldi, soglia 200k, passaggio di consegne;
+- nel protocollo dell'interfaccia: la verifica con screenshot propri e l'anteprima Artifact come passi obbligatori; «se l'app vera non si può provare, la PR lo dice» resta.
 
-Dal più immediato al più completo:
+### 9.2 `CLAUDE.md` (c'è, cinque righe)
+Solo per Claude Code: tabella dei modelli e livelli (§2.4); risvegli (§2.3); subagenti Haiku per le letture pesanti; `list_events` vietato; brief standard; passaggio di consegne; file caldi; «il merge lo fa l'utente dalla pagina, salvo delega».
 
-1. **Anteprima Artifact del frontend finto** (§3.6): zero installazioni, si apre dal telefono, mostra layout e flussi con i dati di `mock.ts`. Non mostra il motore né il 3D pesante. Tempo: un minuto dopo ogni push di Gemini, pubblicata dalla sessione di revisione.
-2. **Screenshot automatici**: `pnpm screens` (Playwright, con l'audit di accessibilità) in CI sul job frontend, con gli screenshot come artifact di Actions. Si vedono nella PR senza aprire niente. Costa pochi secondi di Actions.
-3. **`pnpm tauri dev` sul computer** con ricarica a caldo: l'interfaccia si aggiorna mentre Gemini salva. È l'ambiente di Antigravity, quindi è già «in tempo reale» per chi guarda quello schermo. Con **Remote Control**, anche una sessione cloud lo vede e lo usa.
-4. **Build release locale** (`pnpm tauri build` con `--features tauri/custom-protocol`, come dice `CLAUDE.md`) per le prove di velocità vera del motore: il modo dev è più lento.
-5. **Installer da `main`**: la prova completa, dopo il merge. Si scarica dall'Actions run.
+### 9.3 `.claude/settings.json` (da creare)
+Permessi senza conferma: `cargo fmt/clippy/test/check`, `pnpm lint/typecheck/test/build/dev/screens`, `git add/commit/push` sul proprio branch, `python3 scripts/*.py`, `node scripts/screens.mjs`. Il 23/10 quattro blocchi su commit e push di documenti sono costati quattro turni e quattro messaggi. Vietati: `git push --force`, `git rebase` su branch altrui, scritture in `vendor/`.
 
-Consiglio: 1 e 2 per ogni PR di interfaccia; 3 per i passi grandi (5 e 6) e per ogni cosa che tocca il motore dall'app; 5 una volta a settimana.
+### 9.4 `.claude/skills/` (da creare)
+- **`brief`**: il modello del brief (compito, file, comandi, criterio, piano, mockup, modello).
+- **`pr-motore`**: il protocollo del motore con i comandi esatti (`mdm_decks.py`, `bench.py`, `paired_test.py`, `a1b_fair_measure.py`, `generality.py`) e la tabella numeri prima/dopo.
+- **`pr-interfaccia`**: la lista del protocollo dell'interfaccia, `VITE_MOCK=1 pnpm dev` più `screens.mjs`, come confrontare con il mockup, come pubblicare l'anteprima Artifact allo stesso URL, cosa scrivere nel template.
+- **`design-to-code`**: come leggere un artifact Design, mappare i componenti del sistema di design a quelli di `src/components/`, aggiungere un componente nuovo alla galleria e a `/design-sync`.
+- **`steward`** (letta da chi guida una PR): convenzioni di merge e CI, quando rilanciare la CI (una volta, dopo l'ultimo push), niente commit vuoti.
+- **`coordinamento`**: per i giorni con una coordinatrice: PR, iscrizione, merge con squash e `expectedHeadSha` completo, `coordinamento.md`, passaggio di consegne.
 
-## 7. Qualità senza spreco
-- **Niente prove ridondanti.** La CI della PR è la prova; non si rifanno `cargo test` completi in sessione se la CI li fa. In sessione si fa il test del pezzo toccato (`cargo test -p ygo-solver --test <nome>`).
-- **`search_regression` e i banchi** restano l'arbitro per il motore, con `paired_test.py` e la prova equa sulle 406 board: nessuna PR del motore senza numeri, come oggi. Il banco di generalità (tuning/fresh, PR #111) entra nel protocollo per ogni costante nuova.
-- **Le prove lunghe si fanno una volta**, prima della PR, e i numeri vanno nella PR. La revisione non le ripete.
-- **Agenti subordinati**: solo per cercare nel codice (Haiku) o per una revisione indipendente di una PR grande (Sonnet). Mai per «verificare» ciò che la sessione ha appena fatto.
-- **Workflow multi-agente**: solo per revisioni grandi o analisi su molti file, su richiesta esplicita (regola già in `CLAUDE.md`).
+### 9.5 `.github/`
+`pull_request_template.md`; in `ci.yml` gli screenshot e la prova fumo Playwright sul job frontend; cancellazione automatica dei branch uniti.
 
-## 8. Le regole stabili, nei file giusti
+### 9.6 Il Progetto Claude
+Istruzioni e conoscenza come in §5.
 
-Ogni regola sta in un posto solo, letto da chi deve rispettarla.
+### 9.7 `docs/plans/coordinamento.md`
+Resta la memoria operativa nei giorni con coordinatrice; altrimenti si aggiorna a fine giro con le sessioni, i costi e le decisioni.
 
-### 8.1 `AGENTS.md` (c'è): regole per tutti gli agenti
-Resta com'è: mappa, comandi, convenzioni, protocolli del motore e dell'interfaccia, cosa non fare, coordinamento. Aggiunte:
-- un rimando a questo piano nella sezione «Coordinamento»;
-- la regola «una sessione, un compito» e la soglia di contesto (§2.1);
-- la regola dei calcoli lunghi in background (§2.2).
+## 10. Cosa fare adesso, in ordine
+1. **Chiudere il giro**: PR dell'A1b (corsia 6), merge, archiviazione; `coordinamento.md` e questo piano su `main`.
+2. **Regole** (§9.1-9.5) in una PR di documenti e configurazione: mezza giornata di una sessione Sonnet.
+3. **Ambiente cloud**: script di avvio, variabili, rete; la prova una tantum di WebKitGTK sotto Xvfb (§6.5).
+4. **Progetto Claude**: conoscenza, istruzioni, collegamento con Code; Remote Control sul computer.
+5. **Fixture registrate e anteprima**: il comando `record-fixtures`, `mock.ts` che le serve, la prima anteprima Artifact (Sonnet, una sessione).
+6. **Sistema di design**: la galleria `/galleria`, le anteprime in `apps/desktop/design/`, `/design-sync` (Opus la prima volta).
+7. **Passo 5 di Gemini**: revisione con screenshot e merge; poi Gemini si ferma e i branch si puliscono.
+8. **Primo compito con la filiera completa**: il passo 6 (effetti e suoni, ognuno spegnibile): mockup delle Impostazioni in Claude Design, sessione Sonnet, screenshot, anteprima, prova sul computer. Serve a collaudare la filiera su un compito piccolo prima di quelli grandi.
+9. **Poi, uno per sessione, al massimo tre in parallelo**:
+   - i due pesi del punteggio proposti dalla §7 (resilienza 0,6 → 0, floodgate 0,8 → 0,4): conferma sul banco di generalità, poi una PR che cambia `bench.py`, CLI, `lib.rs`, `scoring.ts` insieme;
+   - le board `cheap: true`: scheda e interruttore `SEND_CHEAP_SCORES` nella stessa PR;
+   - B8, obiettivi ricchi: mockup, poi contratto e interfaccia (Opus);
+   - i punti 3, 5 e 6 della caccia ai bug, l'arena nel turno di prova, il caso Vendread (Opus);
+   - il simulatore (#36): mockup prima.
 
-### 8.2 `CLAUDE.md` (c'è): solo per Claude Code
-Oggi ha cinque righe. Diventa il posto delle regole di §2 che Gemini non deve leggere:
-- tabella dei modelli (§2.4) e livello di ragionamento per tipo di compito;
-- regole sui risvegli (§2.3): niente monitor, niente trigger, iscrizione per PR;
-- `list_events` vietato, `list_sessions` solo su richiesta;
-- il brief standard (§8.4) e il passaggio di consegne a 200k;
-- i file caldi e come si chiede il lock.
-
-### 8.3 `.claude/settings.json` (da creare): permessi e comportamento
-- Elenco dei comandi permessi senza conferma: `cargo fmt/clippy/test/check`, `pnpm lint/typecheck/test/build`, `git commit/push` sul proprio branch, `python3 scripts/*.py`. Il 23/10 il classificatore ha bloccato quattro volte commit e push di documenti: ogni blocco è un turno perso e un messaggio all'utente.
-- Comandi vietati: `git push --force`, `git rebase` su branch altrui, qualunque scrittura in `vendor/`.
-- Hook di fine sessione già in uso (controllo dei cambi non committati) resta.
-
-### 8.4 `.claude/skills/` (da creare): le procedure ripetute
-Ogni skill è un file `SKILL.md` che una sessione carica quando serve, invece di ricevere le istruzioni nel prompt:
-- **`brief`**: il modello del brief di una sessione (compito, file, comandi, criterio, piano da leggere, modello consigliato).
-- **`pr-motore`**: il protocollo di `AGENTS.md` per il motore con i comandi esatti (`mdm_decks.py`, `bench.py`, `paired_test.py`, `a1b_fair_measure.py`, `generality.py`), e la tabella numeri prima/dopo da incollare nella PR.
-- **`revisione-gemini`**: la lista di controllo del protocollo dell'interfaccia, le due sezioni fisse del commento, il piè di pagina, il comando per l'anteprima Artifact e per Remote Control.
-- **`coordinamento`**: aprire la PR, iscriversi agli eventi, merge con squash e `expectedHeadSha` completo, aggiornare `coordinamento.md`, quando passare le consegne.
-- **`steward`** (letta automaticamente da chi guida una PR): convenzioni di merge e CI del repository, quando rilanciare la CI (una volta dopo l'ultimo push, mai a ogni commit).
-
-### 8.5 `.github/` (da creare o completare)
-- `pull_request_template.md` (§3.7).
-- `CODEOWNERS` (§3.7).
-- In `ci.yml`: gli screenshot Playwright come artifact del job frontend (§6.2).
-
-### 8.6 Il Progetto Claude
-Istruzioni del Progetto: le righe di `AGENTS.md` «Convenzioni» e «Cosa NON fare», i principi non negoziabili, e «ogni decisione finisce in `docs/plans/`». Conoscenza: `STATO.md`, questo piano, `coordinamento.md`, il glossario.
-
-### 8.7 `docs/plans/coordinamento.md` (c'è): la memoria operativa
-Resta la memoria della coordinatrice: corsie, PR, decisioni del giorno, costi. Si unisce a `main` con una PR di soli documenti a fine giornata.
-
-## 9. Cosa fare adesso, in ordine
-1. **Chiudere il giro**: aspettare la PR dell'A1b (corsia 6), unirla, archiviare la sessione. Unire `coordinamento.md` e questo piano a `main`.
-2. **Scrivere le regole** (§8.1-8.5) in una PR di soli documenti e configurazione: `CLAUDE.md`, `AGENTS.md` (tre righe), `.claude/settings.json`, le cinque skill, il template di PR, `CODEOWNERS`. Mezza giornata di una sessione Sonnet.
-3. **Sistemare l'ambiente cloud**: script di avvio con `data/` in cache, variabili, rete. Una sessione, una volta.
-4. **Creare il Progetto Claude** con conoscenza e istruzioni; attivare il collegamento con Code dal popup; attivare Remote Control sul computer.
-5. **Il sistema di design** in Claude Design, dai token e dai componenti del passo 0; il mockup della Bottega (passo 5, in corso con Gemini) e del passo 6.
-6. **Riaprire i compiti** del prossimo giro, uno per sessione, al massimo tre in parallelo, secondo `docs/STATO.md` e ciò che è rimasto in coda il 23/10:
-   - i due pesi del punteggio proposti dalla §7 (resilienza 0,6 → 0, floodgate 0,8 → 0,4), con la conferma sul banco di generalità e il cambio coordinato in `bench.py`, CLI, `lib.rs`, `scoring.ts` (una PR, Sonnet per il cambio, Opus se il banco dice no);
-   - i punti 3, 5 e 6 della caccia ai bug e l'arena nel turno di prova (Opus, uno per sessione);
-   - il caso Vendread e il tetto Lua (Opus);
-   - le board `cheap: true` nell'interfaccia e `SEND_CHEAP_SCORES` (Gemini, poi Claude Sonnet per l'interruttore);
-   - B8, gli obiettivi ricchi: il contratto `lib.rs` ↔ `api.ts` (Opus per il contratto, Gemini dopo).
-
-## 10. Come si misura se funziona
-Da leggere a fine di ogni settimana, in `coordinamento.md`:
-- spesa per PR unita (il 23/10: circa 85 $ per PR, contando tutte le sessioni); obiettivo: sotto 30 $;
+## 11. Come si misura se funziona
+A fine settimana, in `coordinamento.md`:
+- spesa per PR unita (23/10: circa 85 $ contando tutte le sessioni); obiettivo sotto 30 $;
 - contesto massimo delle sessioni chiuse; obiettivo: nessuna sopra 250k;
-- turni «a vuoto» (risvegli senza azione); obiettivo: zero monitor e zero trigger;
-- minuti di Actions al mese, con la CI che resta sotto il budget del repository;
-- PR dell'interfaccia provate nell'app vera prima del merge; obiettivo: tutte quelle che toccano una pagina intera.
+- risvegli a vuoto; obiettivo zero;
+- PR dell'interfaccia con screenshot propri nella PR; obiettivo: tutte;
+- PR dell'interfaccia provate nell'app vera prima del merge; obiettivo: tutte quelle che toccano una pagina intera;
+- minuti di Actions al mese, sotto il budget del repository.
