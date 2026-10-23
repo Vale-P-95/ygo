@@ -6,6 +6,7 @@ Le righe storiche con Gemini restano come cronologia; il contratto (`lib.rs`, `a
 Regole in `AGENTS.md`. Per prendere un task, spostalo in "In corso" con agente, branch e file che tocchi (è il lock), poi committa e pusha questa modifica prima di cominciare.
 
 ## In corso
+- [ ] **Sistema di design (piano ambiente §10 punto 6)** (claude-code, sessione del thread «Costruire il sistema di design»). Branch: `claude/project-thread-cc5k7p`. File: `apps/desktop/src/main.tsx`, `apps/desktop/src/pages/Gallery.tsx` (nuovo), `apps/desktop/scripts/design-export.mjs` (nuovo), `apps/desktop/design/` (nuovo), `apps/desktop/package.json` (uno script), `docs/TASKS.md`, `docs/plans/sistema-di-design.md` (nuovo). Non tocca `api.ts`, `mock.ts` né i file dello script di avvio dell'ambiente cloud.
 Stato al 23/10/2026: è ancora in corso la corsia 6 (A1b, branch `claude/oracle-a1b`) e la PR #118 di Gemini (passo 5 dell'interfaccia, in revisione, la sua ultima). Il resto del 23/10 è fatto o in pausa (voci in "Da fare").
 Corsie di lavoro in parallelo del 22/10/2026 (piano in `docs/plans/piano-prossimi-passi.md`): ogni corsia tocca solo i suoi file.
 - [x] **Revisione dell'interfaccia, passo 5: Bottega (scatole e mensole)** (Gemini, PR #118): scatole CSS 3D con smussatura visibile dei bordi, texture CC0 ad alta fedeltà (pelle, metallo spazzolato, legno, plastica opaca, cartoncino), illuminazione dinamica a riflesso speculare, cerniera metallica, ombra di contatto centrata e morbida nei due temi, ripiani in legno con staffe e parete di fondo, salvataggio immediato allo smontaggio, token colore nei temi, code splitting con React.lazy e test Vitest.
@@ -307,7 +308,7 @@ Corsie di lavoro in parallelo del 22/10/2026 (piano in `docs/plans/piano-prossim
 - [ ] Caccia ai bug del motore: punti 3, 5 e 6, e l'arena nel turno di prova (`docs/plans/caccia-bug-motore.md`).
 - [ ] Caso Vendread, il tetto Lua (500 000 ingressi) che scatta nello sweep di robustezza (`docs/plans/robustezza.md`).
 - [ ] Fixture registrate (`duelforge-cli record-fixtures`) e anteprima Artifact dell'app.
-- [ ] Sistema di design con `/design-sync` e pagina `/galleria`.
+- [ ] Sistema di design con `/design-sync` e pagina `/galleria` (in corso, vedi sopra).
 - [ ] Script di avvio dell'ambiente cloud (setup script).
 - [ ] CI: screenshot e test di fumo con Playwright.
 
