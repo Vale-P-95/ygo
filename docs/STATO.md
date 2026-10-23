@@ -14,13 +14,14 @@ Breve indice per chi arriva. Il dettaglio è in `docs/PIANO.md` (v1.11, §30–�
 | Combo Lab (interfaccia) | Confronto affiancato tra due board, pesi imparati dalle tue scelte e frontiera di Pareto, riproduttore passo-passo della linea con il campo a ogni passo, frecce Link, copia della guida | — |
 | Il Banditore | Confronto delle liste Master Duel, TCG e OCG e impatto sui deck salvati; storico dei cambi di lista | §31.3 |
 | App | Guida di benvenuto, palette dei comandi (`Ctrl+K`), scorciatoie, tema chiaro e scuro a 1280×800 | — |
+| Sistema di design | Galleria `/galleria` (solo in modo mock) e anteprime generate in `apps/desktop/design/` con `pnpm design`, pronte per `/design-sync` | `docs/plans/sistema-di-design.md` |
 | Qualità | CI per pull request (solo le parti toccate), ESLint dell'interfaccia, test di regressione della ricerca, bench su GitHub Actions, installer Windows su `main`; strumento di copertura delle meccaniche | §28, §30 |
 | Lavoro del 23/10 | Oracolo a gradini (#108); turno di prova senza etichette, −12% di tempo (#110); banco di generalità (#111); sweep di robustezza su 286 deck, 0 crash (#112); «Confronta con il meta» nell'interfaccia (#113); nuova base del banco oggettivo (#114); fasi proporzionali (#115); passo 4 dell'interfaccia (#116); taratura dei pesi §7 (#117) | `docs/TASKS.md` |
 | Velocità | Partite riusate, script caricati una volta per thread, mimalloc per Lua e per il C++: ricerca −37% con uscite identiche (PR #33) | `docs/plans/velocita-ricerca.md` |
 
 ## A metà
 - **Classificazione delle board** (#47): fatti D0, D2–D4, D10, D13, D14 e D15; coppie sicure giuste 22 su 29, da confermare 16 su 46. D12 (esposizione come valore perso) alla corsia 4; poi D11, D16 e i pesi (D17), che aspettano i giudizi del proprietario. Piano: `docs/plans/classificazione-board.md`.
-- **Interfaccia**: passo 5 (Bottega) nella PR #118 di Gemini, in revisione, l'ultima sua; dal passo 6 in poi lo fa Claude Code con il mockup prima (`docs/plans/ui-revisione-2.md`).
+- **Interfaccia**: passo 5 (Bottega) unito con la #118, l'ultima PR di Gemini; dal passo 6 in poi lo fa Claude Code con il mockup prima (`docs/plans/ui-revisione-2.md`).
 - **Pesi §7** (resilienza 0,6→0, floodgate 0,8→0,4): da confermare sul banco di generalità, poi da cambiare insieme in `bench.py`, CLI, `lib.rs` e `scoring.ts`.
 - **Deck lenti**: misura delle istruzioni Lua fatta; il tetto per richiesta è alla corsia 2.
 - **Linee del video Invoked** (#45): la ricerca trova le board; la classifica va rivista insieme alla #47.
@@ -53,5 +54,5 @@ Il piano con le priorità e il lavoro in parallelo è in `docs/plans/piano-pross
 1. Classificazione delle board: D12 (corsia 4), poi D11 e D16; i pesi (D17, #43) con i giudizi del proprietario.
 2. Deck lenti: tetto di istruzioni Lua per richiesta (corsia 2).
 3. Collaudo del livello 2 dopo le correzioni (corsia 3).
-4. Interfaccia: chiudere la #118, poi dal passo 6 in poi con Claude Code (mockup in Claude Design, poi una sessione Code); board `cheap: true` e B8.
+4. Interfaccia: primo `/design-sync` del sistema di design (lo lancia l'utente), poi dal passo 6 in poi con Claude Code (mockup in Claude Design, poi una sessione Code); board `cheap: true` e B8.
 5. Mappa dei collegamenti (probabilità sature), simulatore (#36), valutatore imparato.

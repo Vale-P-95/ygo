@@ -23,6 +23,9 @@ Le regole di `AGENTS.md` valgono per tutti. Queste riguardano solo come una sess
 - `Read` con `offset`/`limit`; `grep` prima di `cat`; mai `docs/PIANO.md` per intero. L'output dei comandi lunghi va in un file e si legge con `tail`.
 - Screenshot: solo le pagine toccate, nei due temi; non l'intera galleria a ogni modifica.
 - `list_events` sulle altre sessioni è vietato, salvo per diagnosticare una sessione bloccata. `list_sessions` solo quando l'utente chiede stato o costi, al massimo una volta per turno.
+- **Avviso sui consumi** (richiesta dell'utente, 24/10): se i token corrono più del previsto, la sessione lo dice subito all'utente in una riga, senza aspettare la fine. Segnali: metà del budget del brief spesa prima di metà del lavoro, contesto oltre i 150k, tre cicli prova-correggi sullo stesso errore, un comando bloccato o rilanciato più volte, un compito che si allarga oltre il brief. La riga dice cosa costa, perché, e propone una via: fermarsi, stringere il compito, cambiare modello o effort, passare la mano.
+
+- **A fine compito si aggiorna tutto su GitHub**, nella stessa PR: `docs/TASKS.md`, `docs/STATO.md`, il piano del tema (`docs/plans/<tema>.md`), il punto chiuso di `docs/plans/piano-ambiente-e-risorse.md` se è uno dei suoi, e le skill o i documenti che il lavoro cambia.
 
 ### Risvegli
 - Nessun trigger orario, nessun `Monitor` sui log, nessun `sleep`. Ci si sveglia per: messaggio dell'utente, fine di un calcolo in background, evento GitHub della PR a cui si è iscritti, messaggio di un'altra sessione per una PR pronta o un blocco.
