@@ -54,3 +54,27 @@ Una board con una sola grande negazione batte così, nella misura, una con più 
 3. **Da non fare**:
    - aggiungere al kit Evocazioni o carte (il §5.4 della revisione lo dice già, e il prototipo lo conferma);
    - ritoccare i pesi delle sonde per questa classe.
+
+## Il kit concatenato (opzione c): non conferma
+Decisa dal proprietario dopo questa nota: rendere dipendenti le sonde del kit, così che fermare un passo fermi anche ciò che ne dipende (M1), e la prima grande negazione fermi meno (M2). Tre interruttori nella misura, provati con la prova equa della corsia 7 (`scripts/research/a1b_fair_measure.py`, `ricerca-esperimenti.md` §6c): le 406 board del giro A1b, 1203 coppie dello stesso deck, verità del livello 2.
+- **CASCADE**: conta una sonda persa perché quella da cui dipende è stata fermata (oggi non si conta).
+- **PERUSE**: la copertura è ciò che ferma un uso nella sua finestra migliore, non l'unione di tutte le finestre.
+- **CHAIN**: i passi del kit sono una catena nell'ordine di gioco (tranne le giocate che non toccano il Deck): fermarne uno ferma quelli dopo.
+
+| configurazione | coppie giuste (taratura / verifica / tutte) | ρ verifica |
+|---|---|---|
+| oggi | 79% / 82% / 79% | 0,73 |
+| CASCADE | 79% / 82% / 80% | 0,72 |
+| CHAIN, o CASCADE + CHAIN | 78% / 76% / 78% | 0,60 |
+| PERUSE | 75% / 69% / 73% | 0,42 |
+| PERUSE + CASCADE | 77% / 69% / 75% | 0,52 |
+| PERUSE + CASCADE + CHAIN | 77% / 76% / 77% | 0,60 |
+
+Senza la verità dei tre deck più giocati l'ordine non cambia.
+
+**Perché non funziona.**
+- Sulle fixture, cioè sui soli disaccordi, PERUSE con CASCADE portava le coppie giuste dal 16% al 42%. Era il campione: sulle board dove la misura oggi ordina bene si perde di più.
+- L'unione delle finestre misura anche la flessibilità di una risposta, cioè quante cose diverse può fermare. Contro avversari diversi conta, e la verità ne tiene conto.
+- La catena fissa del kit dà a ogni risposta presto nel turno il valore di tutto ciò che viene dopo, anche dove le linee vere hanno rami indipendenti.
+
+Gli interruttori restano fuori da `main` (branch locale `chain-exp`). Resta `paired_test.py --measure-cli`: confronta le due ricerche rimisurando la loro #1 con la stessa misura, perché un cambio della misura ne sposta la scala. La regola, d'ora in poi: ogni cambio della misura si giudica prima con la prova equa su tutte le board.

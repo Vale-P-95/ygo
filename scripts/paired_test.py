@@ -19,16 +19,26 @@ more than 5%.
     python3 scripts/paired_test.py /tmp/paired --decks /tmp/mdm --old /tmp/cli-main --new target/release/duelforge-cli
     python3 scripts/paired_test.py /tmp/paired --old /tmp/hunt-main --new /tmp/hunt-branch
     python3 scripts/paired_test.py /tmp/paired --old /tmp/bench-main/results.json --new /tmp/bench-branch/results.json
+
+With --measure-cli, the best board of each side is measured again by that
+build, the same for both: needed when the change is to the measure itself,
+whose values are not on the old scale (the old side measured by the old
+measure, the new one by the new, would compare two scales, not two
+searches). The runs save their lines for it; a folder of JSON files needs
+the lines files of combo_hunt.py next to them.
+
+    python3 scripts/paired_test.py /tmp/paired --decks /tmp/mdm --old /tmp/cli-main --new target/release/duelforge-cli --measure-cli target/release/duelforge-cli
 """
 import argparse
 import concurrent.futures as cf
 import json
 import math
 import os
+import subprocess
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from oracle import boards_of, hands, run  # noqa: E402
+from oracle import ROOT, boards_of, hands, run, value  # noqa: E402
 
 # A smaller difference is even; a hand losing more than this blocks the change.
 EVEN = 0.01
@@ -62,7 +72,8 @@ def side_values(source, side, a):
             path = os.path.join(folder, case[0] + ".json")
             if os.path.exists(path):
                 return
-            secs = run(source, case, a.nodes, path + ".part")
+            lines = path[:-5] + ".lines.json" if a.measure_cli else None
+            secs = run(source, case, a.nodes, path + ".part", out_lines=lines)
             if secs is not None:
                 os.replace(path + ".part", path)
                 json.dump({"seconds": secs}, open(path[:-5] + ".time.json", "w"))
@@ -79,8 +90,30 @@ def side_values(source, side, a):
         except (KeyError, ValueError):
             continue
         timing = path[:-5] + ".time.json"
-        out[file[:-5]] = (found[0][0] if found else 0.0, json.load(open(timing))["seconds"] if os.path.exists(timing) else None)
+        best = found[0][0] if found else 0.0
+        if a.measure_cli and found:
+            best = measured_again(a, file[:-5], path, found[0][1])
+        out[file[:-5]] = (best, json.load(open(timing))["seconds"] if os.path.exists(timing) else None)
     return out
+
+
+def measured_again(a, name, path, item):
+    """The value of the board `item` of the run at `path`, measured by
+    --measure-cli (its line from the lines file saved next to the run)."""
+    case = next((c for c in hands(a.decks) if c[0] == name), None) if a.decks else None
+    lines = path[:-5] + ".lines.json"
+    if case is None or not os.path.exists(lines):
+        sys.exit(f"{name}: --measure-cli needs --decks and the lines file {lines}")
+    index = json.load(open(path))["items"].index(item)
+    again = path[:-5] + f".again{index}.json"
+    if not os.path.exists(again):
+        _, deck, hand, seed, _ = case
+        subprocess.run([a.measure_cli, "--data", os.path.join(ROOT, "data"), "probe-line", "--deck", deck, "--hand", hand, "--seed", str(seed),
+                        "--lines", lines, "--index", str(index), "--json", again], capture_output=True)
+    try:
+        return value(json.load(open(again))["items"][0]["measure"])
+    except (OSError, ValueError, KeyError, IndexError):
+        sys.exit(f"{name}: the best board could not be measured again ({again})")
 
 
 def main():
@@ -92,6 +125,7 @@ def main():
     p.add_argument("--nodes", type=int, default=4000)
     p.add_argument("--jobs", type=int, default=4)
     p.add_argument("--only", default="")
+    p.add_argument("--measure-cli", help="a duelforge-cli that measures the best board of both sides again (a change to the measure)")
     a = p.parse_args()
     os.makedirs(a.out, exist_ok=True)
     old, new = side_values(a.old, "old", a), side_values(a.new, "new", a)
