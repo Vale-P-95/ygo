@@ -119,3 +119,18 @@ Esempio: il campo «Sky Striker Ace = Zero [EMZ] + Widow Anchor coperta» ha a 1
 4. Punto 4 (etichette e cloni): una PR meccanica con uscite identiche.
 5. Punto 5 (rifiuti nel rigioco): pochi giorni, migliora la fiducia nel banco oggettivo.
 6. Punto 6: quando l'arena entra nel turno di prova.
+
+## 10. Punti 3, 5 e 6: codice scritto, prove da fare (passaggio di consegne, 23/10)
+*Branch `claude/project-thread-nben5n`, commit 245a5ca su `main` f3c5c62. Le liste MDM non si scaricavano dal container (rete bloccata), quindi le prove sono solo sul deck Invoked della fixture. Lo riprende una sessione nuova con i domini permessi.*
+
+**Cosa c'è nel codice.**
+- **Punto 3** (`search.rs`): le handtrap imparate inutili e i tuoi negatori della tua catena non si tagliano più: vanno per ultimi tra i fratelli (ordinamento stabile dopo `dive_order`) e in coda con `STRUCK` (oggi `END_PHASE_LAST`, 100) tolto alla priorità; un arco già in coda con una handtrap diventata inutile torna in coda con la penalità invece di finire. `DUELFORGE_STRUCK=cut` rimette il taglio di prima (per il confronto), `DUELFORGE_STRUCK=<numero>` cambia la penalità, `DUELFORGE_STRUCK_HIDDEN=1` mette per ultimi anche i bersagli nascosti invece di toglierli (PIANO §30.8). `DUELFORGE_SEARCH_STATS` conta le risposte toccate da ciascun insieme (`struck`).
+- **Punto 5** (`matchup.rs`): il rigioco del livello 1 conta i rifiuti del motore. Il rigioco senza handtrap li tollera come prima (20); quello con una handtrap è `diverged` (quindi «ferma») se ne ha più di `MAX_REJECTED` (2) oltre a quelli senza. `Matchup.rejected`/`diverged` e `HandTrapMoment.rejected` sono nel JSON di `probe-line --vs`. `draw_trade_off` è invariato.
+- **Punto 6** (`search.rs`): `Board.state` è un `Arc<DuelState>` (le copie per progress, fasi finali e risultato non duplicano lo stato); `progress` ordina solo le prime `live_top` board (`select_nth_unstable_by`, stesso ordine perché `rank` è totale).
+
+**Prove fatte** (deck Invoked della fixture, 4000 nodi, un thread): su 5 mani (bench inv-r1, r5, r6, hunt-invoked-0, -1) le prime 5 board sono identiche a `main` con la penalità 100, con `cut` e con `HIDDEN`; contatori `struck`: idle 0, negatori 1-68, nascosti 1-213. Memoria a 40 000 nodi su hunt-invoked-1 (11 602 board): 886 → 826 MB (−7%), stesse board, stesso tempo. Livello 1 di hunt-invoked-1 contro Invoked: identico, 0 rifiuti. Test della libreria verdi; `lib.rs` dell'app non compilato qui (mancano le librerie GTK): legge solo `&b.state`, che con `Arc` si deref.
+
+**Cosa resta da provare (prossima sessione).**
+1. `paired_test.py` sui 41 deck MDM, `--old` `main` contro il branch, con la penalità 100 e con una piccola (per esempio `DUELFORGE_STRUCK=3`), con e senza `HIDDEN`; 4 thread contro 1 su 20 mani. Si tiene la variante che passa; le altre si scrivono «misurate, non tenute» e si tolgono le variabili d'ambiente.
+2. Punto 5: `probe-line --vs` (livello 1, senza `--moves`) sulle board del banco oggettivo contro i 3-6 avversari più giocati: quota di rigiochi con rifiuti (`rejected` > 0) e righe che cambiano `hand_trap_chance`; nessun cambio dove i rifiuti sono 0. La prova equa sulle 406 board non serve: misura senza `--vs`, che il punto 5 non tocca.
+3. Punto 6: il −7% è poco. La memoria che resta è soprattutto la `Line` clonata per nodo (`Arc::new(line.clone())`, O(profondità)) e quella di ogni board; da misurare con un profilo dello heap prima di cambiare `Line` (tocca anche `lib.rs`).
