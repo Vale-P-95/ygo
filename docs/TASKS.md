@@ -123,11 +123,7 @@ Corsie di lavoro in parallelo del 22/10/2026 (piano in `docs/plans/piano-prossim
     - Fixture: `tests/fixtures/research/invoked-goals.tsv`.
   - [x] 4. Bibliografia: `ricerca-letteratura.md` §8, con la confidenza di ogni fonte, le correzioni e le aree mancanti.
   - Seguiti, ad altre corsie: il livello 2 dà «0 lines» su Railway e rifiuta una risposta su Elfnote Kewl Tune (corsia 4). Quando il gradino di B14 è in `main`, la misura va rifatta senza la patch.
-- [ ] **Corsia 6, secondo task.** Ruoli (piano `docs/plans/ricerca-piano-critico.md`, «Ruoli»): board breaker che usano carte avversarie come materiale o Tributo, starter ed estensore insieme, Invocation «Grail» estensore. Poi l'oracolo A1 e il test appaiato.
-
-  Agente: claude-code, sessione della corsia 6. Branch: `claude/roles-fix` (da `main` cc78f89). File: `crates/ygo-solver/src/roles.rs` e i suoi test, la parte `roles` di `crates/ygo-cli/src/main.rs` se serve, script nuovi miei in `scripts/`; `docs/plans/ricerca-piano-critico.md` (sezioni Ruoli e A1); per A1 anche `tests/fixtures/oracle/`.
-  - [x] Ruoli (in attesa della PR, la apre la coordinatrice): numeri nel piano, «Ruoli: fatto».
-  - [ ] A1: oracolo e test appaiato, branch `claude/oracle`. Fatti `scripts/oracle.py`, `scripts/paired_test.py` e un pilota sul banco (fixture in `tests/fixtures/oracle`, numeri nel piano). Restano il giro lungo (del proprietario) e la board di Aeon a 3 materiali.
+- [x] **Corsia 6, secondo task.** Ruoli, oracolo A1 e A1b (piano `docs/plans/ricerca-piano-critico.md`). Ruoli: PR #75; A1: PR #79, #92, #95, #108; A1b: branch `claude/oracle-a1b`, in attesa della PR (la apre la coordinatrice). Fermata il 23/10 per decisione dell'utente; lock tolto.
 - [x] **Corsia 6.** Probabilità della mappa dei collegamenti: una `chance` che distingua le carte e sia vicina al vero (misurata su mani cercate), senza saturazione. Fatto, in attesa della PR (la apre la coordinatrice): errore medio contro 200 mani a caso da 0,344 a 0,059 su 6 deck; carte a ≥ 0,99 sui 41 deck da 29 + 20 a 6 + 2; nessun collegamento perso; ricerca delle combo invariata. Numeri e cosa resta aperto in `docs/plans/mappa-collegamenti.md`, «Probabilità misurata sulle mani cercate».
 
   Agente: claude-code, sessione sorella della mappa. Branch: `claude/links-chance`. File: `crates/ygo-solver/src/links.rs` e i suoi test, la parte `links` di `crates/ygo-cli/src/main.rs`, `Rng` di `crates/ygo-solver/src/card.rs` (solo la visibilità), script nuovi miei in `scripts/` (`links_chance.py`) e il default di `links_report.py`, `docs/plans/mappa-collegamenti.md`, `tests/fixtures/links/`; solo i commenti di `LinkCard` in `apps/desktop/src-tauri/src/lib.rs` e `apps/desktop/src/lib/api.ts` (nessun campo nuovo). Lock tolto.
@@ -236,10 +232,14 @@ Corsie di lavoro in parallelo del 22/10/2026 (piano in `docs/plans/piano-prossim
 ### Motore e ricerca (Claude)
 - [ ] **Ricerca delle combo: piano critico** (dalle prove del proprietario, 22/10): board più forti in meno tempo. Piano: `docs/plans/ricerca-piano-critico.md`; letteratura e audit delle carte: `docs/plans/ricerca-letteratura.md`.
   - [x] Ruoli: board breaker che usano carte avversarie come materiale (Super Polymerization), starter ed estensore insieme, Invocation «Grail» estensore. Corsia 6, branch `claude/roles-fix`, in attesa della PR.
-  - [ ] A1: oracolo automatico (la stessa ricerca con un budget enorme, le board misurate con il banco oggettivo) e test appaiato per accettare le modifiche. Corsia 6.
+  - [x] A1: oracolo automatico (la stessa ricerca con un budget enorme, le board misurate con il banco oggettivo) e test appaiato per accettare le modifiche. Corsia 6.
     - [x] Strumenti (`scripts/oracle.py`, `scripts/paired_test.py`) e pilota a 40 000 nodi (PR #79).
-    - [ ] Il giro vero nel cloud, a 50 volte i nodi, prima con il solo seme della mano. Corsia 6, branch `claude/oracle-run`.
-  - [ ] A1b: oltre i limiti dell'oracolo. Livello 2 sulle board dell'oracolo e rapporto dei disaccordi (con la corsia 3); convergenza a 100× e 200× su 12 mani; generalità su deck mai visti (niente ricalcoli quando cambiano le liste); più avanti ricerca esaustiva sulle mani piccole e ygo-combo-solver. Corsia 6, dopo il giro vero.
+    - [x] Il giro vero nel cloud, a 50 volte i nodi (PR #92), poi con la misura a gradini 300/30 (PR #95, #108).
+  - [ ] A1b: oltre i limiti dell'oracolo. Corsia 6, branch `claude/oracle-a1b` (numeri nel piano, «A1b: risultati»).
+    - [x] Passo 1: livello 2 sulle board dell'oracolo contro i 6 avversari più giocati e rapporto dei disaccordi (`tests/fixtures/oracle-disagreements.json`); fixture con board di tipo diverso.
+    - [x] Passo 2: convergenza a 100× su 12 mani (10 stabili). Il giro a 200× **non completato, fermato il 23/10 per costo** (6 mani su 12).
+    - [x] Passo 3: quota sui deck tenuti da parte (70/30, seme 47) in `oracle.py measure`.
+    - [ ] Passo 4 (ricerca esaustiva, ygo-combo-solver): non cominciato, dopo B13.
   - [x] A2: dove va il lavoro della ricerca (PR #67): replay 43% del tempo della ricerca, nodi già visti 26%, nodi senza cambi visibili 24%; turno di prova 58% del tempo di `combo_hunt`.
   - [ ] B0: il replay (prima un prototipo dell'arena di memoria, poi la copia del duello). Corsia 2.
     - [x] B13, PR 1 (corsia 2, PR #72): arena di memoria per duello e `Duel::save`/`restore` col lato Rust. File: `crates/ygo-engine/shim/arena.cpp` (al posto di `new.cpp`), `build.rs`, `src/duel.rs`, `src/ffi.rs`, `src/lib.rs`, `tests/arena.rs`, `.github/workflows/ci.yml` (job Windows del motore).

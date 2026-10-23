@@ -175,6 +175,34 @@ Quattro passi, in quest'ordine.
    - **Secondo cercatore indipendente:** ygo-combo-solver, con la stessa versione del core e degli script. Una board migliore della nostra abbassa il tetto e dà la linea da rigiocare, come per B4a.
    - **Controllo:** l'oracolo arriva ad almeno il 99% dell'esaustiva sulle mani dove questa finisce.
 
+#### A1b: risultati (corsia 6, 23/10, branch `claude/oracle-a1b`)
+Fermata il 23/10 per decisione dell'utente. I numeri sono quelli dei calcoli finiti fino a quel momento.
+
+- **Strumenti nuovi in `scripts/oracle.py`:**
+  - `fixtures` tiene anche le board di tipo diverso: la migliore per interruzioni sul campo, per resilienza e per risorse del turno dopo. Ogni board ha la sua linea, in esadecimale e senza testo di carta.
+  - `lines` esporta le linee di una fixture per `probe-line`.
+  - `as-hunt` scrive le fixture nel formato di `combo_hunt --json`, per `objective_bench.py`.
+  - `disagree` scrive il rapporto dei disaccordi.
+  - `converge` segna ogni fixture come stabile o provvisoria.
+  - `measure` riporta la quota media per i deck di taratura e per quelli di verifica (70/30, seme 47, come il banco oggettivo), e per le mani stabili e provvisorie.
+- **Passo 1, livello 2 sulle board dell'oracolo.**
+  - `objective_bench.py` senza modifiche, sulle board di 82 mani: 388 board, contro i primi 6 avversari del meta del 22/10, che pesano il 55%.
+  - 492 invocazioni, 12,8 ore in tutto con 3 lavori, mediana 77 s. 9 sono andate oltre il limite.
+  - La verità di una board è 1 − `left`, pesata con la popolarità. Nessuna coppia dubbia.
+  - La board migliore per la misura è anche la migliore per la verità, entro 0,05, in 74 mani su 82.
+  - **48 coppie in disaccordo** di almeno 0,05: la misura mette prima una board, la verità l'altra. Sono in `tests/fixtures/oracle-disagreements.json`, con la board da rigiocare. Per deck: warrior_combo 8, dracotail 7, maliss 6, primite 4, yummy 4, orcust 4, blue_eyes 4, sky_striker 3, power_patron 2, snake_eye 2, elfnote_kewl_tune 2, railway 1, odion 1.
+  - **I casi più grandi:**
+    - dracotail-1: la #1 per la misura (2,58) ferma il 36% delle mosse del meta. La #5 (2,07: Albion, Ecclesia and the Dark Dragon, Fallen of the White Dragon, Predaplant Verte Anaconda nella Zona Mostri Extra, tre carte coperte) ne ferma l'80%.
+    - primite-1: quattro board da 3,70 fermano il 57-59%. Una da 3,69, con Solemn Strike, Dominus Purge e Primite Drillbeam coperte e Baronne nella Zona Mostri Extra, ferma l'87%. Le trappole coperte valgono poco nella misura.
+    - power_patron-0 e yummy-1: differenze di 0,13-0,16.
+  - **Le board tenute per tipo servono.** In 6 mani una board tenuta per resilienza, interruzioni o turno dopo batte la migliore per la misura di almeno 0,05: dracotail-1 (+0,26), primite-1 (+0,28), warrior_combo-0 e -1, maliss-1.
+- **Passo 2, convergenza.**
+  - 12 mani: le 4 più lontane dall'oracolo, da deck diversi, e 8 di altri deck. A 400 000 nodi (100×) 10 su 12 hanno il tetto stabile; si alzano branded-1 (da 1,70 a 2,03) e mitsurugi_yummy-0 (da 3,15 a 3,27).
+  - Il giro a 800 000 nodi (200×) è **non completato, fermato il 23/10 per costo**: 6 mani su 12. Due corse alla volta a 400 000 nodi bastano a esaurire la memoria (15 GB), per le 50-90 mila board tenute.
+  - Con le 6 mani fatte, clown_crew-1 sale ancora dell'1,5%. Contando anche questo, le mani stabili sono 9 su 12 (75%), sotto l'80% del controllo. Le 3 provvisorie sono segnate nelle fixture (`convergence`).
+- **Passo 3, deck tenuti da parte.** A 16 000 nodi la ricerca normale arriva in media al 75,8% dell'oracolo sui 59 deck di taratura e al 77,6% sui 29 di verifica. I deck di verifica non sono sotto di oltre 5 punti: con il codice di oggi niente è adattato al banco. Va rifatto a ogni modifica della ricerca o della misura.
+- **Passo 4:** non cominciato. Viene dopo B13.
+
 ### A2. Dove va il lavoro della ricerca: fatto (corsia 2, PR #67)
 `DUELFORGE_SEARCH_STATS=1` e `scripts/search_stats.py`; numeri in `velocita-ricerca.md`.
 
