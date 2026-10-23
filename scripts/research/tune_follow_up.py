@@ -3,7 +3,7 @@
 (docs/plans/ricerca-esperimenti.md, section 7): scripts/tune_weights.py with a
 fifth weight, the follow-up's, and a held-out check over many deck splits.
 
-    python3 scripts/research/tune_follow_up.py <results.json of objective_bench.py> [--splits 20] [--step 0.1]
+    python3 scripts/research/tune_follow_up.py <results.json of objective_bench.py, or tests/fixtures/boards/objective-bench.json> [--splits 20] [--step 0.1]
 
 The truth and the pairs are those of tune_weights.py (1 - left, meta-weighted;
 pairs of one deck whose truths differ by at least --gap). The fifth measure is
@@ -22,6 +22,7 @@ Two checks:
 import argparse
 import itertools
 import json
+import math
 import os
 import random
 import statistics
@@ -31,7 +32,7 @@ import numpy as np
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 from bench import WEIGHTS, follow_up_value  # noqa: E402
-from tune_weights import METRICS, boards_of, pairs_of, spearman  # noqa: E402
+from tune_weights import METRICS, boards_of, pairs_of, rows_of, spearman  # noqa: E402
 
 TODAY = (*WEIGHTS, 1.0)
 
@@ -39,7 +40,7 @@ TODAY = (*WEIGHTS, 1.0)
 def with_follow_up(results, made):
     """The boards of tune_weights.py, plus the follow-up of the generic measure."""
     rows = {}
-    for r in results["rows"]:
+    for r in rows_of(results):
         if r.get("generic"):
             rows.setdefault(r["board"], r["generic"])
     boards = boards_of(results, made)
@@ -86,6 +87,25 @@ def judge(boards, gap, w):
     return right(diffs(ps), w) / len(ps), len(ps), spearman([score(b, w) for b in boards], [b["truth"] for b in boards])
 
 
+def compare(boards, gap, tries):
+    """Fixed weights against today's on all the pairs: pairs won and lost, by deck."""
+    pairs = pairs_of(boards, gap)
+    d = diffs(pairs)
+    today = d @ np.asarray((*WEIGHTS, 0.0))
+    print(f"{len(boards)} board, {len(pairs)} coppie; oggi (1, 0.9, 0.8, 0.6, 0): {right(d, (*WEIGHTS, 0.0)) / len(pairs):.1%}")
+    for w in tries:
+        s = d @ np.asarray(w)
+        won = [p[0]["deck"] for p, x, y in zip(pairs, s, today) if x > 1e-9 and y <= 1e-9]
+        lost = [p[0]["deck"] for p, x, y in zip(pairs, s, today) if x <= 1e-9 and y > 1e-9]
+        n, k = len(won) + len(lost), min(len(won), len(lost))
+        pv = min(1.0, 2 * sum(math.comb(n, i) for i in range(k + 1)) / 2 ** n) if n else 1.0
+        by = {g: [b for b in boards if b["split"] == g] for g in ("taratura", "verifica")}
+        rho = [spearman([score(b, w) for b in by[g]], [b["truth"] for b in by[g]]) for g in by]
+        top = sorted(set(won) | set(lost), key=lambda x: -abs(won.count(x) - lost.count(x)))[:4]
+        print(f"- {', '.join(f'{x:g}' for x in w)}: {right(d, w) / len(pairs):.1%}; {len(won)} guadagnate, {len(lost)} perse, p = {pv:.3f}; "
+              f"ρ {rho[0]:.2f}/{rho[1]:.2f}; " + ", ".join(f"{x} +{won.count(x)}/-{lost.count(x)}" for x in top))
+
+
 def main():
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("results")
@@ -96,9 +116,14 @@ def main():
     p.add_argument("--follow-top", type=float, default=3.0, help="largest multiplier of today's follow-up tried")
     p.add_argument("--splits", type=int, default=20)
     p.add_argument("--seed", type=int, default=1)
+    p.add_argument("--try", dest="tries", action="append", default=[], metavar="W1,W2,W3,W4,W5",
+                   help="fixed weights judged on every pair against today's, with the sign test (no tuning)")
     a = p.parse_args()
 
     boards = with_follow_up(json.load(open(a.results)), a.made)
+    if a.tries:
+        compare(boards, a.gap, [tuple(float(x) for x in t.split(",")) for t in a.tries])
+        return
     grid = np.round(np.arange(0, a.top + a.step / 2, a.step), 4)
     follow_grid = np.round(np.arange(0, a.follow_top + a.step / 2, a.step), 4)
     groups = {g: [b for b in boards if b["split"] == g] for g in ("taratura", "verifica")}
