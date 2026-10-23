@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import { CommandPalette } from "./components/CommandPalette";
 import { Embers } from "./components/Embers";
 import { ChartTooltip, DragLayer, Toasts } from "./components/Overlays";
@@ -14,9 +14,10 @@ import { DeckBuilder } from "./pages/DeckBuilder";
 import { Lab } from "./pages/Lab";
 import { Overview } from "./pages/Overview";
 import { Settings } from "./pages/Settings";
-import { Shelf } from "./pages/Shelf";
 import { Upcoming } from "./pages/Upcoming";
 import { sectionById, sections, type SectionId } from "./sections";
+
+const Shelf = lazy(() => import("./pages/Shelf").then((m) => ({ default: m.Shelf })));
 
 /** Ember color per section, matching its accent. */
 const EMBER_COLORS: Partial<Record<SectionId, string>> = {
@@ -140,25 +141,39 @@ export default function App() {
           )}
           {active === "deck-builder" && <DeckBuilder status={status} onStatus={setStatus} onGoCombo={() => setActive("combo")} />}
           {active === "shelf" && (
-            <Shelf
-              artReady={artReady}
-              onOpenDeck={(id) => {
-                rememberDeck(id);
-                setActive("deck-builder");
-              }}
-              onOpenLab={(id) => {
-                rememberDeck(id);
-                setActive("stats");
-              }}
-              onOpenCombo={(id) => {
-                rememberDeck(id);
-                setActive("combo");
-              }}
-              onNewDeck={() => {
-                requestNewDeck();
-                setActive("deck-builder");
-              }}
-            />
+            <Suspense
+              fallback={
+                <div className="flex h-full flex-col">
+                  <div className="h-14 border-b border-border bg-surface/40" />
+                  <div className="shelf-wall flex flex-1 items-center justify-center text-muted">
+                    <div className="flex flex-col items-center gap-2">
+                      <div className="h-7 w-7 animate-spin rounded-full border-2 border-sec border-t-transparent" />
+                      <span className="text-xs text-muted">Apertura Bottega…</span>
+                    </div>
+                  </div>
+                </div>
+              }
+            >
+              <Shelf
+                artReady={artReady}
+                onOpenDeck={(id) => {
+                  rememberDeck(id);
+                  setActive("deck-builder");
+                }}
+                onOpenLab={(id) => {
+                  rememberDeck(id);
+                  setActive("stats");
+                }}
+                onOpenCombo={(id) => {
+                  rememberDeck(id);
+                  setActive("combo");
+                }}
+                onNewDeck={() => {
+                  requestNewDeck();
+                  setActive("deck-builder");
+                }}
+              />
+            </Suspense>
           )}
           {active === "stats" && (
             <Lab

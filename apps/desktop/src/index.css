@@ -685,18 +685,37 @@ body {
 .dbox-stage[role="button"] {
   cursor: pointer;
 }
+.dbox-stage[role="button"]:focus-visible {
+  outline: 2px solid var(--sec);
+  outline-offset: 4px;
+  border-radius: 8px;
+}
 .dbox-shadow {
   position: absolute;
   left: 50%;
-  bottom: calc(22px * var(--s));
-  width: calc(var(--w) * var(--s) * 1.35);
-  height: calc(26px * var(--s));
-  transform: translateX(-50%);
-  background: radial-gradient(closest-side, rgb(0 0 0 / 0.65), transparent);
-  transition: background 300ms;
+  bottom: calc(18px * var(--s));
+  width: calc(var(--w) * var(--s) * 1.32);
+  height: calc(24px * var(--s));
+  transform: translateX(calc(-50% + var(--tilt-y, 0deg) * -0.3)) scale(var(--shadow-scale, 1));
+  border-radius: 50%;
+  background: radial-gradient(ellipse at 50% 50%, rgb(0 0 0 / var(--shadow-op, 0.72)) 0%, rgb(0 0 0 / calc(var(--shadow-op, 0.72) * 0.45)) 40%, transparent 75%);
+  filter: blur(calc(4px * var(--s)));
+  transition: transform 420ms cubic-bezier(0.2, 0.8, 0.2, 1), opacity 300ms, filter 300ms;
+  pointer-events: none;
+}
+.dbox-stage[data-interactive]:hover .dbox-shadow,
+.dbox-stage[data-selected] .dbox-shadow {
+  --shadow-scale: 1.15;
+  --shadow-op: 0.52;
+  filter: blur(calc(7px * var(--s)));
+}
+.dbox-stage[data-extracting] .dbox-shadow {
+  --shadow-scale: 1.25;
+  --shadow-op: 0.35;
+  filter: blur(calc(10px * var(--s)));
 }
 .dbox-stage[data-selected] .dbox-shadow {
-  background: radial-gradient(closest-side, color-mix(in oklab, var(--sec) 85%, transparent), transparent);
+  background: radial-gradient(ellipse at 50% 50%, color-mix(in oklab, var(--sec) 80%, black) 0%, color-mix(in oklab, var(--sec) 45%, transparent) 45%, transparent 75%);
 }
 .dbox {
   position: absolute;
@@ -712,7 +731,11 @@ body {
 }
 .dbox-stage[data-interactive]:hover .dbox,
 .dbox-stage[data-selected] .dbox {
-  --lift: -10px;
+  --lift: -12px;
+}
+.dbox-stage[data-extracting] .dbox {
+  --lift: -24px;
+  transition: transform 180ms cubic-bezier(0.1, 0.9, 0.2, 1);
 }
 .dbox-stage[data-sway] .dbox {
   animation: dbox-sway 7s ease-in-out infinite alternate;
@@ -730,7 +753,11 @@ body {
   position: absolute;
   top: 0;
   left: 0;
+  border-radius: 4px;
   background-color: var(--c);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.22),
+    inset 0 -1px 0 rgb(0 0 0 / 0.32);
 }
 .dbox-front {
   width: var(--w);
@@ -768,6 +795,16 @@ body {
   transform: rotateX(-90deg);
   filter: brightness(0.4);
 }
+/* Specular highlight tracking pointer */
+.dbox-specular {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(circle at var(--light-x, 50%) var(--light-y, 30%), rgb(255 255 255 / var(--spec-op, 0.22)) 0%, transparent 60%);
+  pointer-events: none;
+  mix-blend-mode: overlay;
+  transition: opacity 200ms ease;
+}
 /* The lid, hinged on the back edge and leaning back. */
 .dbox-lid {
   width: var(--w);
@@ -776,15 +813,41 @@ body {
   transform-origin: 50% 100%;
   transform: translateZ(calc(var(--d) / -2)) rotateX(var(--lid, 16deg));
   filter: brightness(0.78);
+  border-radius: 6px 6px 2px 2px;
   transition: transform 420ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 .dbox-stage[data-interactive]:hover .dbox-lid {
   --lid: 28deg;
 }
+.dbox-stage[data-extracting] .dbox-lid {
+  --lid: 44deg;
+  transition: transform 180ms cubic-bezier(0.1, 0.9, 0.2, 1);
+}
 .dbox[data-shape="box"] .dbox-lid {
   height: calc(var(--d) * 0.8);
   top: calc(var(--d) * -0.8);
   border-radius: 6px 6px 0 0;
+}
+/* Visible metallic lid hinge */
+.dbox-hinge {
+  position: absolute;
+  top: -3px;
+  left: 12%;
+  width: 76%;
+  height: 6px;
+  transform: translateZ(calc(var(--d) / -2)) rotateX(0deg);
+  border-radius: 2px;
+  background: linear-gradient(90deg,
+    #4b4f56 0 10%, #9aa1ad 12%, #e5eaf2 15%, #4b4f56 18%,
+    transparent 18% 28%,
+    #4b4f56 28% 38%, #9aa1ad 40%, #e5eaf2 43%, #4b4f56 46%,
+    transparent 46% 54%,
+    #4b4f56 54% 64%, #9aa1ad 66%, #e5eaf2 69%, #4b4f56 72%,
+    transparent 72% 82%,
+    #4b4f56 82% 92%, #9aa1ad 94%, #e5eaf2 97%, #4b4f56 100%
+  );
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.55);
+  pointer-events: none;
 }
 
 .dbox-cards {
@@ -807,7 +870,11 @@ body {
 }
 .dbox-stage[data-interactive]:hover .dbox-card,
 .dbox-stage[data-selected] .dbox-card {
-  transform: translateY(-16px) translateX(calc(var(--i) * 22px)) rotateZ(calc(var(--i) * 9deg)) translateZ(calc(var(--i) * 2px));
+  transform: translateY(-20px) translateX(calc(var(--i) * 22px)) rotateZ(calc(var(--i) * 9deg)) translateZ(calc(var(--i) * 3px));
+}
+.dbox-stage[data-extracting] .dbox-card {
+  transform: translateY(-38px) translateX(calc(var(--i) * 26px)) rotateZ(calc(var(--i) * 12deg)) translateZ(calc(var(--i) * 4px));
+  transition: transform 180ms cubic-bezier(0.1, 0.9, 0.2, 1);
 }
 
 .dbox-plate {
@@ -897,6 +964,7 @@ body {
 }
 .dbox[data-shape="chest"] .dbox-front {
   padding-top: 24%;
+  border-radius: 6px;
 }
 .dbox[data-shape="chest"] .dbox-front::before,
 .dbox[data-shape="chest"] .dbox-lid::before {
@@ -909,51 +977,65 @@ body {
   pointer-events: none;
 }
 
-/* Materials */
+/* Materials with CC0 Textures */
 .dbox[data-material="leather"] .dbox-face {
+  background-color: var(--c);
   background-image:
-    radial-gradient(rgb(255 255 255 / 0.07) 1px, transparent 1.6px),
-    radial-gradient(rgb(0 0 0 / 0.22) 1px, transparent 1.6px),
-    linear-gradient(160deg, rgb(255 255 255 / 0.14), transparent 45%, rgb(0 0 0 / 0.28));
-  background-size:
-    5px 5px,
-    7px 7px,
-    100% 100%;
-  background-position:
-    0 0,
-    2px 3px,
-    0 0;
+    linear-gradient(135deg, rgb(255 255 255 / 0.14) 0%, transparent 45%, rgb(0 0 0 / 0.35) 100%),
+    url('./assets/textures/leather.webp');
+  background-size: auto, 160px 160px;
+  background-blend-mode: overlay, multiply;
 }
 .dbox[data-material="leather"] .dbox-front::after {
   content: "";
   position: absolute;
   inset: 6px;
-  border: 1.5px dashed rgb(255 235 200 / 0.35);
+  border: 1.5px dashed rgb(255 235 200 / 0.45);
   border-radius: inherit;
   pointer-events: none;
 }
 .dbox[data-material="metal"] .dbox-face {
+  background-color: color-mix(in oklab, var(--c) 45%, #9299a3);
   background-image:
-    linear-gradient(110deg, rgb(255 255 255 / 0.5), rgb(255 255 255 / 0) 35%, rgb(255 255 255 / 0.2) 55%, rgb(0 0 0 / 0.3)),
-    repeating-linear-gradient(90deg, rgb(255 255 255 / 0.07) 0 1px, transparent 1px 3px);
+    linear-gradient(110deg, rgb(255 255 255 / 0.45) 0%, rgb(255 255 255 / 0.05) 35%, rgb(255 255 255 / 0.3) 55%, rgb(0 0 0 / 0.4) 100%),
+    url('./assets/textures/metal.webp');
+  background-size: auto, 256px 256px;
+  background-blend-mode: hard-light, luminosity;
 }
 .dbox[data-material="metal"] .dbox-front::after {
   content: "";
   position: absolute;
   inset: 5px;
   background:
-    radial-gradient(circle, rgb(255 255 255 / 0.75) 0 1.5px, rgb(0 0 0 / 0.35) 2.5px, transparent 3px) 0 0 / 100% 100% no-repeat,
-    radial-gradient(circle at 4px 4px, rgb(230 230 230) 0 2px, rgb(0 0 0 / 0.4) 3px, transparent 3.5px),
-    radial-gradient(circle at calc(100% - 4px) 4px, rgb(230 230 230) 0 2px, rgb(0 0 0 / 0.4) 3px, transparent 3.5px),
-    radial-gradient(circle at 4px calc(100% - 4px), rgb(230 230 230) 0 2px, rgb(0 0 0 / 0.4) 3px, transparent 3.5px),
-    radial-gradient(circle at calc(100% - 4px) calc(100% - 4px), rgb(230 230 230) 0 2px, rgb(0 0 0 / 0.4) 3px, transparent 3.5px);
+    radial-gradient(circle at 4px 4px, rgb(240 240 240) 0 2px, rgb(0 0 0 / 0.5) 3px, transparent 3.5px),
+    radial-gradient(circle at calc(100% - 4px) 4px, rgb(240 240 240) 0 2px, rgb(0 0 0 / 0.5) 3px, transparent 3.5px),
+    radial-gradient(circle at 4px calc(100% - 4px), rgb(240 240 240) 0 2px, rgb(0 0 0 / 0.5) 3px, transparent 3.5px),
+    radial-gradient(circle at calc(100% - 4px) calc(100% - 4px), rgb(240 240 240) 0 2px, rgb(0 0 0 / 0.5) 3px, transparent 3.5px);
   pointer-events: none;
 }
 .dbox[data-material="wood"] .dbox-face {
-  background-color: color-mix(in oklab, var(--c) 55%, #6b4423);
+  background-color: color-mix(in oklab, var(--c) 40%, #5c3818);
   background-image:
-    repeating-linear-gradient(88deg, rgb(0 0 0 / 0.16) 0 2px, transparent 2px 7px, rgb(255 255 255 / 0.05) 7px 8px, transparent 8px 13px),
-    linear-gradient(170deg, rgb(255 255 255 / 0.12), rgb(0 0 0 / 0.28));
+    linear-gradient(165deg, rgb(255 255 255 / 0.16) 0%, transparent 40%, rgb(0 0 0 / 0.38) 100%),
+    url('./assets/textures/wood.webp');
+  background-size: auto, 256px 256px;
+  background-blend-mode: overlay, multiply;
+}
+.dbox[data-material="cardboard"] .dbox-face {
+  background-color: color-mix(in oklab, var(--c) 30%, #c49a6c);
+  background-image:
+    linear-gradient(175deg, rgb(255 255 255 / 0.12), rgb(0 0 0 / 0.3)),
+    url('./assets/textures/cardboard.webp');
+  background-size: auto, 256px 256px;
+  background-blend-mode: soft-light, multiply;
+}
+.dbox[data-material="cardboard"] .dbox-front::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  box-shadow: inset 0 0 8px rgb(0 0 0 / 0.35);
+  border-radius: inherit;
+  pointer-events: none;
 }
 .dbox[data-material="holo"] .dbox-face {
   background-image: linear-gradient(115deg, rgb(255 60 160 / 0.5), rgb(255 210 60 / 0.45), rgb(60 255 190 / 0.45), rgb(70 150 255 / 0.5), rgb(200 80 255 / 0.45), rgb(255 60 160 / 0.5));
@@ -972,12 +1054,32 @@ body {
   }
 }
 .dbox[data-material="matte"] .dbox-face {
+  background-color: var(--c);
   background-image:
-    radial-gradient(circle at 30% 20%, rgb(255 255 255 / 0.1), transparent 60%),
-    linear-gradient(rgb(0 0 0 / 0), rgb(0 0 0 / 0.2));
+    radial-gradient(circle at var(--light-x, 35%) var(--light-y, 25%), rgb(255 255 255 / 0.25) 0%, transparent 60%),
+    linear-gradient(180deg, rgb(255 255 255 / 0.08), rgb(0 0 0 / 0.28)),
+    url('./assets/textures/matte.webp');
+  background-size: auto, auto, 200px 200px;
+  background-blend-mode: screen, normal, soft-light;
 }
 
-/* The shelf planks */
+/* Bottega wooden shelves and subtle wall */
+.shelf-wall {
+  background-color: var(--df-bg);
+  background-image:
+    radial-gradient(ellipse at 50% 0%, color-mix(in oklab, var(--sec) 14%, transparent) 0%, transparent 70%),
+    linear-gradient(180deg, rgba(0, 0, 0, 0.12) 0%, transparent 20%, rgba(0, 0, 0, 0.25) 100%),
+    repeating-linear-gradient(90deg, color-mix(in oklab, var(--df-border) 35%, transparent) 0 1px, transparent 1px 48px);
+  background-attachment: local;
+}
+[data-theme="light"] .shelf-wall {
+  background-color: #f7f3ee;
+  background-image:
+    radial-gradient(ellipse at 50% 0%, color-mix(in oklab, var(--sec) 10%, transparent) 0%, transparent 70%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.5) 0%, transparent 25%, rgba(180, 160, 140, 0.15) 100%),
+    repeating-linear-gradient(90deg, rgba(160, 140, 120, 0.12) 0 1px, transparent 1px 48px);
+}
+
 .shelf-row {
   position: relative;
   z-index: 1;
@@ -988,41 +1090,88 @@ body {
   padding: 0 28px;
   min-height: 250px;
 }
-/* Top surface (seen from above, where the boxes stand) and front edge. */
+/* Top surface (seen from above, where the boxes stand) and beveled front edge with CC0 wood texture */
 .shelf-plank {
   position: relative;
-  height: 40px;
-  margin: -30px 0 40px;
-  border-radius: 3px;
-  background:
-    repeating-linear-gradient(90deg, rgb(0 0 0 / 0.12) 0 2px, transparent 2px 23px, rgb(255 255 255 / 0.04) 23px 24px, transparent 24px 41px),
-    linear-gradient(180deg, #5a3a20 0, #8a5c34 22px, #b07a47 23px, #8a5a31 30px, #5e3b1f 100%);
+  height: 42px;
+  margin: -28px 0 44px;
+  border-radius: 4px;
+  background-color: #734824;
+  background-image:
+    linear-gradient(180deg,
+      rgba(255, 235, 195, 0.32) 0px,
+      rgba(255, 255, 255, 0.08) 18px,
+      rgba(255, 220, 150, 0.45) 20px,
+      rgba(70, 35, 12, 0.5) 22px,
+      rgba(40, 20, 8, 0.75) 100%
+    ),
+    url('./assets/textures/wood.webp');
+  background-size: 100% 100%, 380px 380px;
+  background-blend-mode: overlay, normal;
   box-shadow:
-    0 14px 22px -8px rgb(0 0 0 / 0.75),
-    inset 0 1px 0 rgb(255 220 170 / 0.35);
+    0 16px 26px -6px rgb(0 0 0 / 0.78),
+    0 4px 8px -2px rgb(0 0 0 / 0.45),
+    inset 0 1.5px 0 rgb(255 235 200 / 0.45),
+    inset 0 -1.5px 0 rgb(0 0 0 / 0.5);
 }
 .shelf-plank::before,
 .shelf-plank::after {
   content: "";
   position: absolute;
   top: 100%;
-  width: 16px;
-  height: 22px;
-  border-radius: 0 0 4px 4px;
-  background: linear-gradient(90deg, #8a6a3a, #e2c27e 50%, #8a6a3a);
-  box-shadow: 0 4px 6px rgb(0 0 0 / 0.5);
+  width: 22px;
+  height: 32px;
+  border-radius: 0 0 6px 6px;
+  background:
+    radial-gradient(circle at 11px 10px, #ffffff 0 1.5px, #202226 2.5px, transparent 3px),
+    radial-gradient(circle at 11px 22px, #ffffff 0 1.5px, #202226 2.5px, transparent 3px),
+    linear-gradient(90deg, #383b40 0%, #767c87 40%, #a8afba 55%, #383b40 100%);
+  box-shadow:
+    0 6px 10px rgb(0 0 0 / 0.65),
+    inset 0 1px 0 rgb(255 255 255 / 0.35);
 }
 .shelf-plank::before {
-  left: 7%;
+  left: 6%;
 }
 .shelf-plank::after {
-  right: 7%;
+  right: 6%;
 }
 [data-theme="light"] .shelf-plank {
-  background:
-    repeating-linear-gradient(90deg, rgb(0 0 0 / 0.08) 0 2px, transparent 2px 23px),
-    linear-gradient(180deg, #a5774a 0, #c99a69 22px, #e0b585 23px, #b07f4f 30px, #8d6038 100%);
+  background-color: #b58352;
+  background-image:
+    linear-gradient(180deg,
+      rgba(255, 245, 225, 0.45) 0px,
+      rgba(255, 255, 255, 0.15) 18px,
+      rgba(255, 235, 190, 0.55) 20px,
+      rgba(100, 60, 25, 0.35) 22px,
+      rgba(75, 42, 18, 0.55) 100%
+    ),
+    url('./assets/textures/wood.webp');
+  background-size: 100% 100%, 380px 380px;
+  background-blend-mode: overlay, normal;
+  box-shadow:
+    0 14px 22px -6px rgb(0 0 0 / 0.35),
+    0 3px 6px -2px rgb(0 0 0 / 0.2),
+    inset 0 1.5px 0 rgb(255 255 255 / 0.65),
+    inset 0 -1.5px 0 rgb(60 30 10 / 0.3);
 }
+
+@media (prefers-reduced-motion: reduce) {
+  .dbox,
+  .dbox-card,
+  .dbox-lid,
+  .dbox-shadow {
+    transition: none !important;
+    animation: none !important;
+  }
+  .dbox-stage[data-sway] .dbox {
+    animation: none !important;
+  }
+  .dbox[data-material="holo"] .dbox-face {
+    animation: none !important;
+  }
+}
+
 
 /* ---------- Lab charts ---------- */
 

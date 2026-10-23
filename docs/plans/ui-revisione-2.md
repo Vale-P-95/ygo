@@ -151,6 +151,7 @@ File: `src/components/DeckBox3D.tsx`, `src/pages/Shelf.tsx`, `src/lib/boxes.ts`,
 - **Movimento.** Al passaggio la scatola si solleva e le carte vetrina escono un po'. Al clic, breve animazione di estrazione prima di aprire il deck.
 - **Peso.** La pagina della Bottega si carica a parte (`React.lazy`), perché texture e 3D non pesano sull'avvio.
 - **Alternativa non consigliata per ora:** three.js con `@react-three/fiber`. È più realistica, ma aggiunge circa 600 KB e complessità. Da riconsiderare solo se il CSS 3D non basta.
+- *Completato il 23/10/2026 (Gemini):* scatole 3D arricchite con materiali e texture CC0 ad alta fedeltà (pelle, metallo, legno, plastica opaca, cartoncino) e licenze in `LICENSE.md`, illuminazione dinamica a riflesso speculare che traccia il puntatore (`--light-x`, `--light-y`), cerniera metallica visibile (`.dbox-hinge`), ombra di contatto morbida multilivello che reagisce a sollevamento ed estrazione, ripiani in legno con texture Wood049, bordo smussato e staffe metalliche con rivetti, parete di fondo leggera per temi dark e light, animazione di estrazione su clic, pieno supporto a `prefers-reduced-motion` e code splitting con `React.lazy` e `Suspense` per la Bottega (-14 KB sul bundle iniziale).
 
 ### Passo 6. Effetti visivi e suoni, ognuno spegnibile (`gemini/ui-effects`)
 File: `src/lib/settings.ts`, `src/lib/sound.ts`, `src/lib/sparks.ts`, `src/pages/Settings.tsx`, e i punti dove gli effetti si usano.

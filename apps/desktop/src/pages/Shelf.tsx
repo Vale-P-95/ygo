@@ -43,6 +43,16 @@ export function Shelf({ artReady, onOpenDeck, onOpenLab, onOpenCombo, onNewDeck 
   const areaRef = useRef<HTMLDivElement>(null);
   const saveTimers = useRef(new Map<string, number>());
 
+  useEffect(() => {
+    const timers = saveTimers.current;
+    return () => {
+      for (const t of timers.values()) {
+        window.clearTimeout(t);
+      }
+      timers.clear();
+    };
+  }, []);
+
   const load = useCallback(() => api.shelfDecks().then(setDecks), []);
 
   useEffect(() => {
@@ -189,8 +199,8 @@ export function Shelf({ artReady, onOpenDeck, onOpenLab, onOpenCombo, onNewDeck 
       <div className="flex min-h-0 flex-1">
         <div
           ref={areaRef}
-          className="relative min-w-0 flex-1 overflow-y-auto pt-8"
-          style={{ background: "radial-gradient(ellipse at 50% -10%, color-mix(in oklab, var(--sec) 12%, transparent), transparent 60%)" }}
+          className="shelf-wall relative min-w-0 flex-1 overflow-y-auto pt-8"
+
           onClick={(e) => e.target === e.currentTarget && setSelected(null)}
         >
           {decks && decks.length === 0 && (
