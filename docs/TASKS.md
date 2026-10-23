@@ -311,7 +311,9 @@ Corsie di lavoro in parallelo del 22/10/2026 (piano in `docs/plans/piano-prossim
 - [ ] Fixture registrate e anteprima Artifact dell'app (branch `claude/project-thread-g8204p`, PR in revisione).
   - [x] `duelforge-cli record-fixtures --deck <deck>` scrive `apps/desktop/src/lib/fixtures/recorded.json` (ricerche, faccette, cambi della banlist, composizione del deck; mai testi delle carte); `mock.ts` lo serve se c'è (ricerche solo per le carte che il catalogo finto sa mostrare).
   - [x] Prima anteprima Artifact (`VITE_MOCK=1 vite build --base ./`, a più file, 1,7 MB): https://claude.ai/artifact/DY3eamcB7ZU4AT2shZdL9p.
-  - [ ] Registrare davvero `recorded.json`: serve `data/cards.db`, e qui `db.ygoprodeck.com` è bloccata. Da fare dove `update-cards` funziona. Poi: punteggi, legalità e probabilità del deck (richiedono i comandi di `lib.rs`).
+  - [x] `recorded.json` registrato davvero (24/10, rete aperta): `update-cards` (14 636 carte), poi `record-fixtures` sul deck Invoked MD: 17 ricerche, faccette, composizione del deck; solo id. `banChanges` è vuoto: i cambi si registrano tra due `update-cards` successivi, quindi `mock.ts` usa i suoi. Il catalogo finto riconosce solo 52 id su 14 406 della ricerca vuota, quindi mostra poche carte per ricerca.
+  - [ ] Punteggi, legalità e probabilità del deck registrati (richiedono i comandi di `lib.rs`).
+  - Nota ambiente cloud: servono `git submodule update --init --depth 1 vendor/ygopro-core` e, dentro, `git submodule update --init --depth 1` (Lua) prima di `cargo build`; `screens.mjs` vuole `--url http://localhost:1420 --chromium /opt/pw-browsers/chromium`.
 - [ ] Sistema di design: galleria e anteprime fatte (vedi sopra); manca il primo `/design-sync`, lo lancia l'utente.
 - [x] Script di avvio dell'ambiente cloud (PR in revisione): `scripts/cloud-setup.sh` (sottomodulo, WebKitGTK e Xvfb, `pnpm install`, `cargo fetch`, `--data` per `fetch-data`; variabili in `.cloud-env`) e `scripts/cloud-app.sh` (l'app vera sotto Xvfb con screenshot). Prova di WebKitGTK riuscita (§6.5 del piano).
 - [ ] CI: screenshot e test di fumo con Playwright.
