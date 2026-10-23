@@ -49,6 +49,47 @@ La prima passata scriveva «nessun articolo scientifico (peer-reviewed o arXiv) 
 
 Il resto del gruppo 1 sulle fonti nuove (Crossref, CORE; Semantic Scholar e OpenAlex limitati nel ritmo: vedi §6): le interrogazioni con «Yu-Gi-Oh» restituiscono solo lavori di pedagogia, studi dei media, realtà aumentata e analisi linguistica (11 titoli guardati su Crossref, nessuno tenuto). **Resta vero che nessun lavoro accademico tratta la ricerca delle linee, la forza della board o la generalizzazione a carte nuove in Yu-Gi-Oh!**; l'unico articolo è di computabilità.
 
+### 2.2 Come è stata rifatta la ricerca sulle fonti nuove
+Un programma (`harness.py`, nello scratchpad della sessione) ha eseguito **tutte le 56 parole chiave dei 7 gruppi, le 5 query combinate A-E, 3 varianti su Yu-Gi-Oh! e 15 query sulle aggiunte** (79 interrogazioni) sulle API di arXiv, Crossref, CORE, Semantic Scholar e OpenAlex, registrando per ognuna data, fonte, stato HTTP e numero di risultati (fino a 20-25 per fonte). Le fonti chiuse per la ricerca diretta (IEEE, ACM, Elsevier, Springer, Wiley, MDPI) sono indicizzate da Crossref, Semantic Scholar e OpenAlex: la copertura passa da lì. DBLP risponde con una pagina anti-bot (HTTP 202) a ogni chiamata, ed è escluso; l'API di OpenReview è chiusa (403).
+
+| gruppo | arXiv | Crossref | CORE | Semantic Scholar | OpenAlex |
+|---|---|---|---|---|---|
+| G1 Yu-Gi-Oh! (11 query) | 11/11, 6 risultati | 11/11, 185 | 4/11, 60 | 0/11 (429) | 0/11 (429) |
+| G2 CCG (8) | 8/8, 105 | 8/8, 160 | 1/8, 20 | 3/8, 60 | 0/8 |
+| G3 RL (8) | 8/8, 153 | 8/8, 160 | 3/8, 60 | 1/8, 20 | 0/8 |
+| G4 ricerca (8) | 8/8, 106 | 8/8, 160 | 3/8, 60 | 0/8 | 0/8 |
+| G5 informazione nascosta (8) | 8/8, 96 | 6/8, 120 | 2/5, 40 | 0/8 | 0/8 |
+| G6 generalizzazione (8) | 8/8, 117 | non eseguita | non eseguita | 0/8 | 0/8 |
+| G7 ibridi (8) | 8/8, 110 | non eseguita | non eseguita | 0/8 | 0/8 |
+| A-E combinate (5) | 5/5, 72 | non eseguita | non eseguita | 0/5 | 0/5 |
+| X aggiunte (15) | 15/15, 30 | non eseguita | non eseguita | 1/15, 20 | 0/15 |
+
+«a/b» = interrogazioni con risposta 200 su quelle lanciate. **Semantic Scholar e OpenAlex hanno rifiutato quasi tutto con 429** anche a chiamate singole distanziate di 8-30 s: dal container servono chiavi API. CORE ha un limite di 10 chiamate per finestra. La sweep su Crossref e CORE è stata **interrotta dopo il gruppo 5** per la richiesta della coordinatrice di risparmiare quota (23/10, ore 11:15): i gruppi 6, 7, A-E e X sulle fonti non-arXiv sono nell'elenco «non fatto» (§2.5). Il filtro `site:` del motore generale non è stato usato in questa passata.
+
+I 795 risultati di arXiv sono stati deduplicati e filtrati per parole chiave (`screen.py`) in liste per gruppo, poi **vagliati per titolo e anno (2022-2026)**. I lavori letti per intero sono in §3 e §4; qui sotto quelli trovati e **non letti** (solo titolo), perché il vaglio per abstract dei gruppi 3-7 è stato fermato dalla stessa richiesta.
+
+### 2.3 Lavori nuovi trovati con la ricerca ampliata (rispetto alla tabella della prima passata)
+**Letti per intero** (schede in §2.1, §3 e §4): Nicolosi et al. 2026 (Yu-Gi-Oh!, computabilità); Rubin 2026 (LOCM, ricerca sopra politica e valore); Haluška & Schmid 2024; Kowalski et al. 2026 (ED-MCTS); Sokota et al. 2026 (Ataraxos); Orseau, Hutter & Lelis 2025 (√LTS); Cazenave 2024 (GNRPA con ripetizioni limitate); Gong, Guo & Ding 2026 (HoopMind); Assif, Chatterjee & Banavar 2019; Linhares & Swamy 2019; Vorobeychik & Pritchard 2018; Domshlak 2013; Krarup et al. 2021; Eifler et al. 2020; Helmert & Domshlak 2009; Grüne & Wulf 2025; Rigter et al. 2021; Meulemans et al. 2023; Albrecht & Stone 2018; Lemons et al. 2022 e 2024; Hansen & Zhou 2007; Thayer & Ruml 2010; Sepetnitsky, Felner & Stern 2016; Heusner, Keller & Helmert 2017; Kuroiwa & Fukunaga 2019 e 2020; Valenzano et al. 2014; Chen & Sturtevant 2021; Wilt & Ruml 2012; Nguyen & Ramanujan 2022; Jinnai & Fukunaga 2017; Soemers et al. 2016; Richter & Helmert 2009; Phillips et al. 2012; Kowalski, Miernik et al., Tales of Tribute 2023/2024; più quelli in corso di lettura del cluster CCG 2023-2026 e della linea poker (§3c, §4.5).
+
+**Trovati, solo titolo, non letti** (dal vaglio di arXiv 2022-2026; i primi tre sono i più in tema con le piste del §4):
+- 2605.16312 *When Actions Disappear: Adversarial Action Removal in Self-Play RL* (2026): la rimozione avversaria di azioni è il nostro kit a catena visto dall'altro lato (pista a).
+- 2605.25720 *Learning to Search and Searching to Learn for Generalization in Planning* (2026) e 2206.14298 *Left Heavy Tails and the Effectiveness of the Policy and Value Networks in DNN-based best-first search* (2022): piste (b) e (c).
+- 2610.15046 *Belief Embedding Tree Search* (2026); 2609.12422 *Hierarchical Belief Modeling for Zero-Shot Opponent Adaptation* (2026); 2604.25796 *StratFormer: Adaptive Opponent Modeling in Imperfect-Information Games* (2026); 2605.19235 *GAE Falls Short in Imperfect-Information Self-Play RL* (2026); 2609.01549 *NashDreamer* (2026); 2605.28863 *Self-Play RL under Imperfect Information in Big 2* (2026).
+- 2505.12109 *SAINT: Attention-Based Policies for Discrete Combinatorial Action Spaces* (2025); 2509.22963 *RL with Discrete Diffusion Policies for Combinatorial Action Spaces* (2025); 2601.22211 *Latent Spherical Flow Policy for RL with Combinatorial Actions* (2026).
+- 2602.00676 *OpenGuanDan* (2026); 2607.27035 *Correlated Chance Sampling for MCCFR* (2026); 2511.12083 *No-Regret Strategy Solving via Pre-Trained Embedding* (2025); 2508.09292 *The Othello AI Arena: limited-time adaptation to unseen boards* (2025); 2507.22278 *Successor Features for Transfer in Alternating Markov Games* (2025); 2605.16524 *Template-Free Explainability for MCTS* (2026).
+
+### 2.4 Cosa cambia nelle conclusioni della prima passata
+1. «Nessuna letteratura scientifica su Yu-Gi-Oh!» → esiste un articolo di computabilità (2026); resta vero che nessuno tratta la pianificazione.
+2. La lettura a testo intero **conferma** le cinque direzioni della prima passata e ne alza la confidenza; le correzioni sono di attribuzione e di dettaglio (§3), non di sostanza. Le più importanti: Haluška & Schmid (non Vieira) per «Learning to Beat ByteRL»; Rubin 2026 è evidenza **positiva** per la nostra architettura, non «negativa»; l'ordinamento di Coac riguardava il draft, non le mosse; MirrorForce ha aggiunto un critico centrale che non è nella ricetta Ataraxos; le due fonti su SAA/DRO erano attribuite ad autori sbagliati e non contengono il CVaR; la cronologia di Burch & Holte era invertita; la tassonomia dei CCG non colloca Yu-Gi-Oh! da nessuna parte.
+3. Due temi assenti nella prima passata e ora coperti: la **patologia della ricerca** (più budget, decisioni peggiori) come nome del problema (c), e l'**interdizione di piani** e i **piani tolleranti ai guasti** come teoria del kit a catena (a).
+4. Il «limite ammissibile per un turno» resta una lacuna anche a testo intero; esistono solo potature ottimistiche misurate (HoopMind) e la regola «più linee, meno mondi» di Rubin.
+
+### 2.5 Non fatto, per la richiesta di risparmiare quota
+- Vaglio per abstract delle liste dei gruppi 3-7 (1869 candidati dopo filtro e deduplicazione: 113 G1, 154 G2, 157 G3, 103 G4, 94 G5, 115 G6, 106 G7, 69 A-E, 29 X); solo il vaglio per titolo di cui sopra.
+- Crossref e CORE per i gruppi 6, 7, A-E e X; Semantic Scholar e OpenAlex per tutti (chiavi API necessarie); citazioni e riferimenti del lavoro di Nicolosi et al. via Semantic Scholar/OpenAlex.
+- La pista (b) sulle carte mai viste con lettura a testo intero di Bertram et al. 2024, Cardsformer, Soemers et al. 2023, Kirk et al. 2023: il lettore è stato fermato dal limite di sessione prima di leggere; resta ciò che la prima passata aveva dalle fonti GitHub (§2.6 e §2.7 di `revisione-bibliografica.md`) più i protocolli di valutazione raccolti qui (§4.2).
+- Le copie aperte bloccate dal proxy (elencate in §3): Duelyst (McKenney & Ruml 2023 e le tesi UNH), Sakurai & Hasebe, Holte 2013, Rosin 2011, Lipovetzky et al. 2015, Cowling et al. 2012, Zhang & Buro 2017, Santos et al. 2017, Rockafellar & Uryasev 2000, Jensen et al. 2004, Fox et al. 2006, Letchford & Vorobeychik 2013: una macchina con rete aperta le scarica in pochi minuti.
+
 ## 3. Letture a testo intero: aggiornamenti e correzioni alla prima passata
 Qui ogni lavoro è passato da «abstract» o «secondaria» a «intero» dove una copia aperta esisteva. I PDF sono stati scaricati da arXiv, OJS di AAAI/SoCS/AIIDE, papers.nips.cc e JAIR, e letti con `pdftotext`. Dove la copia aperta è su un host chiuso dal container lo dico.
 
@@ -149,3 +190,110 @@ Il proprietario ha mandato 16 lavori con annotazioni da una fonte esterna non ve
 ## 5. Tabella dei lavori nuovi
 
 ## 6. Registro delle interrogazioni
+### 6.1 Sweep automatica (23/10/2026; `harness.py`; colonne = risultati restituiti; «rif.» = 429 rifiutata; «—» = non eseguita)
+| id | interrogazione | arXiv | Crossref | CORE | S2 | OpenAlex |
+|---|---|---|---|---|---|---|
+| AE-01 | "Yu-Gi-Oh" AND ("artificial intelligence" OR "reinforcement learning" OR "game AI") | 1 | — | — | rif. | rif. |
+| AE-02 | ("collectible card game" OR "trading card game") AND ("reinforcement learning" OR "game tree search") | 1 | — | — | rif. | rif. |
+| AE-03 | ("card game" OR "complex game") AND ("automated planning" OR "Monte Carlo Tree Search") | 20 | — | — | rif. | rif. |
+| AE-04 | ("imperfect information games" OR "partially observable games") AND ("deep reinforcement learning" OR "search") | 25 | — | — | rif. | rif. |
+| AE-05 | ("game AI" OR "game-playing agents") AND ("self-play" OR "generalization" OR "neuro-symbolic") | 25 | — | — | rif. | rif. |
+| G1-01 | "Yu-Gi-Oh" artificial intelligence | 1 | 20 | 20 | rif. | rif. |
+| G1-02 | "Yu-Gi-Oh" AI agent | 0 | 20 | rif. | rif. | rif. |
+| G1-03 | "Yu-Gi-Oh" reinforcement learning | 0 | 20 | rif. | rif. | rif. |
+| G1-04 | "Yu-Gi-Oh" game playing | 0 | 20 | rif. | rif. | rif. |
+| G1-05 | "Yu-Gi-Oh" automated planning | 0 | 20 | rif. | rif. | rif. |
+| G1-06 | "Yu-Gi-Oh" machine learning | 0 | 20 | 20 | rif. | rif. |
+| G1-07 | "Yu-Gi-Oh" bot strategy | 0 | 20 | 20 | rif. | rif. |
+| G1-08 | "Yu-Gi-Oh" computational game theory | 1 | 20 | rif. | rif. | rif. |
+| G1-09 | Yu-Gi-Oh | 4 | 20 | rif. | rif. | rif. |
+| G1-10 | yugioh | 0 | 5 | rif. | rif. | rif. |
+| G1-11 | ygopro | 0 | 0 | 0 | rif. | rif. |
+| G2-01 | collectible card game AI | 16 | 20 | rif. | 20 | rif. |
+| G2-02 | trading card game artificial intelligence | 9 | 20 | rif. | rif. | rif. |
+| G2-03 | CCG AI agent | 1 | 20 | rif. | rif. | rif. |
+| G2-04 | card game reinforcement learning | 25 | 20 | rif. | rif. | rif. |
+| G2-05 | strategic card game AI | 8 | 20 | rif. | 20 | rif. |
+| G2-06 | complex card game decision making | 17 | 20 | rif. | 20 | rif. |
+| G2-07 | autonomous agent card games | 4 | 20 | rif. | rif. | rif. |
+| G2-08 | general game playing card games | 25 | 20 | 20 | rif. | rif. |
+| G3-01 | deep reinforcement learning for card games | 23 | 20 | rif. | 20 | rif. |
+| G3-02 | self-play reinforcement learning | 25 | 20 | rif. | rif. | rif. |
+| G3-03 | multi-agent reinforcement learning games | 25 | 20 | rif. | rif. | rif. |
+| G3-04 | policy optimization imperfect information games | 25 | 20 | rif. | rif. | rif. |
+| G3-05 | PPO card game agent | 5 | 20 | rif. | rif. | rif. |
+| G3-06 | model-free reinforcement learning card games | 4 | 20 | 20 | rif. | rif. |
+| G3-07 | curriculum learning game AI | 25 | 20 | 20 | rif. | rif. |
+| G3-08 | league training game agents | 21 | 20 | 20 | rif. | rif. |
+| G4-01 | Monte Carlo Tree Search card games | 14 | 20 | rif. | rif. | rif. |
+| G4-02 | information set Monte Carlo tree search | 25 | 20 | rif. | rif. | rif. |
+| G4-03 | game tree search large branching factor | 7 | 20 | rif. | rif. | rif. |
+| G4-04 | heuristic search complex games | 25 | 20 | 20 | rif. | rif. |
+| G4-05 | neural guided search game AI | 6 | 20 | 20 | rif. | rif. |
+| G4-06 | hierarchical planning card games | 1 | 20 | 20 | rif. | rif. |
+| G4-07 | combinatorial action space reinforcement learning | 25 | 20 | rif. | rif. | rif. |
+| G4-08 | planning under uncertainty game AI | 3 | 20 | rif. | rif. | rif. |
+| G5-01 | imperfect information games AI | 25 | 20 | 20 | rif. | rif. |
+| G5-02 | partially observable Markov decision process game AI | 4 | 20 | rif. | rif. | rif. |
+| G5-03 | counterfactual regret minimization | 25 | 20 | 20 | rif. | rif. |
+| G5-04 | belief state planning card games | 1 | 20 | rif. | rif. | rif. |
+| G5-05 | opponent modeling imperfect information games | 25 | 20 | rif. | rif. | rif. |
+| G5-06 | Bayesian inference hidden cards | 1 | 20 | — | rif. | rif. |
+| G5-07 | game theory collectible card games | 10 | — | — | rif. | rif. |
+| G5-08 | robust strategy hidden information games | 5 | — | — | rif. | rif. |
+| G6-01 | generalization across decks game AI | 1 | — | — | rif. | rif. |
+| G6-02 | general game playing reinforcement learning | 25 | — | — | rif. | rif. |
+| G6-03 | zero-shot generalization game agents | 25 | — | — | rif. | rif. |
+| G6-04 | meta-learning game AI | 25 | — | — | rif. | rif. |
+| G6-05 | continual learning game agents | 25 | — | — | rif. | rif. |
+| G6-06 | transfer learning card games | 9 | — | — | rif. | rif. |
+| G6-07 | robust reinforcement learning unseen opponents | 7 | — | — | rif. | rif. |
+| G6-08 | generalization to unseen cards game AI | 0 | — | — | rif. | rif. |
+| G7-01 | hybrid symbolic neural game AI | 3 | — | — | rif. | rif. |
+| G7-02 | neuro-symbolic planning game agents | 2 | — | — | rif. | rif. |
+| G7-03 | legal action generation game engine | 4 | — | — | rif. | rif. |
+| G7-04 | graph neural networks card games | 1 | — | — | rif. | rif. |
+| G7-05 | transformer game state representation | 25 | — | — | rif. | rif. |
+| G7-06 | learned policy heuristic search | 25 | — | — | rif. | rif. |
+| G7-07 | rule-based AI versus reinforcement learning | 25 | — | — | rif. | rif. |
+| G7-08 | structured action space neural networks | 25 | — | — | rif. | rif. |
+| X-01 | novelty width search planning simulator | 1 | — | — | rif. | rif. |
+| X-02 | partial-order reduction planning commutativity pruning | 0 | — | — | rif. | rif. |
+| X-03 | admissible bound pruning single-agent search turn | 0 | — | — | rif. | rif. |
+| X-04 | Hearthstone AI search | 3 | — | — | rif. | rif. |
+| X-05 | Legends of Code and Magic AI | 4 | — | — | rif. | rif. |
+| X-06 | Magic: The Gathering AI Forge | 0 | — | — | rif. | rif. |
+| X-07 | Prismata hierarchical portfolio search | 0 | — | — | rif. | rif. |
+| X-08 | card game combo search | 0 | — | — | rif. | rif. |
+| X-09 | card game turn planning | 0 | — | — | 20 | rif. |
+| X-10 | plan robustness dependency actions critical action | 16 | — | — | rif. | rif. |
+| X-11 | worst-case evaluation adversarial plan robustness | 6 | — | — | rif. | rif. |
+| X-12 | anytime search monotone transposition table reopening | 0 | — | — | rif. | rif. |
+| X-13 | state snapshot restore simulator search | 0 | — | — | rif. | rif. |
+| X-14 | evaluation caching across searches memoization game | 0 | — | — | rif. | rif. |
+| X-15 | unseen entities zero-shot generalization object-centric reinforcement learning | 0 | — | — | rif. | rif. |
+
+### 6.2 Gruppo 1, varianti dirette sull'API di arXiv (23/10/2026, 50 risultati massimi)
+| interrogazione | risultati |
+|---|---|
+| ti:"Yu-Gi-Oh" | 1 |
+| abs:"Yu-Gi-Oh" | 4 |
+| all:"Yu-Gi-Oh" AND all:undecidable | 1 |
+| all:"Yu-Gi-Oh" AND all:complexity | 2 |
+| all:"trading card game" AND all:computability | 5 |
+| all:"trading card game" | 11 |
+| all:"collectible card game" | 21 |
+| all:"card game" AND all:undecidable | 2 |
+| all:"card game" AND (all:"Turing complete" OR all:undecidability) | 3 |
+| ti:"Magic: The Gathering" | 11 |
+| all:"Magic: The Gathering" AND all:complexity | 8 |
+| all:yugioh OR all:ygopro OR all:"yu gi oh" | 4 |
+| all:"card game" AND all:"first turn" | 0 |
+| all:"card game" AND all:combo | 0 |
+| **unici** | **44** (elencati nello scratchpad; i rilevanti in §2.3 e §4.5) |
+| Semantic Scholar: `paper/arXiv:2603.02863` con citazioni e riferimenti (4 tentativi, 25 s) | 429 |
+| OpenAlex: `works?filter=title.search:Yu-Gi-Oh` (3 tentativi) | 429 |
+| Semantic Scholar web `/arxiv/2603.02863` | 404 |
+
+### 6.3 Interrogazioni e letture dei lettori a testo intero
+Ogni lettore ha tenuto il proprio registro (interrogazioni sulle API, URL scaricati, host bloccati); i registri completi sono nei rapporti dei lettori, conservati nello scratchpad della sessione. In sintesi: lettore 1 (CCG) 9 PDF da arXiv e 1 da OJS, 10 interrogazioni Crossref, 9 Unpaywall, 6 WebSearch; lettore 2 (ricerca) 14 PDF da arXiv, 3 da OJS, 3 Crossref, 5 WebSearch; lettore 3 (pista a) 30 interrogazioni all'API di arXiv, 10 Crossref, 4 CORE, 3 OJS, 1 JAIR, 9 PDF arXiv, 3 WebSearch; lettore 5 (piste c-d) 14 interrogazioni arXiv, 24 Crossref, 12 PDF OJS, 1 NeurIPS, 1 JAIR, 6 Unpaywall, 7 file GitHub, 2 WebSearch; lettore 9 (annotazioni) 3 PDF (PMLR, arXiv), 12 file GitHub, 4 interrogazioni arXiv, 1 Crossref, 3 tentativi su ieee-cog.org (non raggiungibile). Totale WebSearch della passata: 16 chiamate.
