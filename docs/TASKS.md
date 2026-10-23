@@ -10,7 +10,7 @@ Stato al 23/10/2026: è ancora in corso la corsia 6 (A1b, branch `claude/oracle-
 Corsie di lavoro in parallelo del 22/10/2026 (piano in `docs/plans/piano-prossimi-passi.md`): ogni corsia tocca solo i suoi file.
 - [x] **Revisione dell'interfaccia, passo 4: Passata su tutte le sezioni (scritte piccole, testi fissi, barre affollate)** (Gemini, PR aperta il 23/10): armonizzazione tipografica (scritte < 12px normalizzate a text-xs o text-caption), eliminazione testi fissi prolissi a favore di tooltip e popover contestuali, pulizia barre con icone Lucide (Undo, Redo, Dices, Search, Plus, Scale, History, Boxes, ArrowLeftRight, Play, Sparkles), didascalie decorative SectionHeader reattive (`hidden xl:block`), 7 schede del Laboratorio riorganizzate con icone e menu reattivo «Altro ▾». 137 test Vitest, lint, typecheck e build superati. Lock tolto.
 - [x] **«Confronta con il meta» (L2-3)** (Gemini, PR #113 unita il 23/10): pulsante «Confronta con il meta» nel Combo Lab dopo la valutazione, chiamata `api.comboMeta` (con le 4 migliori per pesi scelti), ordinamento con `meta.value` prima delle altre decrescente, dettaglio `MetaSection` per deck con deck `left: null` etichettati «non conta», messaggi di attesa e gestione errori in italiano, id di richiesta e azzeramento al cambio deck, stub in `mock.ts` e `comboMeta` in `api.ts`. 137 test Vitest, `pnpm lint`, `pnpm typecheck` e `pnpm build` passati. Lock tolto.
-- [ ] **Corsia 8, sweep di robustezza** (punto 3). Tutta la pipeline (ricerca, turno di prova, rigioco delle linee) su deck costruiti in automatico da molti archetipi: ogni decisione senza risposta, linea che non si rigioca e crash, con la riproduzione.
+- [x] **Corsia 8, sweep di robustezza** (punto 3, PR #112 unita il 23/10). Tutta la pipeline (ricerca, turno di prova, rigioco delle linee) su deck costruiti in automatico da molti archetipi: ogni decisione senza risposta, linea che non si rigioca e crash, con la riproduzione.
 
   Agente: claude-code, sessione della corsia 8. Branch: claude/staged-measure. File: crates/ygo-engine/src/sweep.rs (CardPool::archetype_decks), il comando `random-decks` in crates/ygo-cli/src/main.rs, scripts/robustness.py, docs/plans/robustezza.md.
   - [x] Giro su main 98c3a2d: 286 deck, 572 mani, 2000 duelli. 0 crash, 0 turni di prova falliti, 0 linee che non si rigiocano, 0 decisioni senza risposta o rifiutate. Unico caso: Vendread, linee interrotte dal tetto delle istruzioni Lua (uno script lento, non un ciclo infinito); da guardare per la velocità (corsia 2). In attesa della PR (la apre la coordinatrice).
@@ -304,7 +304,7 @@ Corsie di lavoro in parallelo del 22/10/2026 (piano in `docs/plans/piano-prossim
 - [ ] Board `cheap: true`: scheda del punteggio e `SEND_CHEAP_SCORES` nella stessa PR (vedi la voce della corsia 8 qui sopra).
 - [ ] B8, obiettivi ricchi: mockup in Claude Design, poi contratto e interfaccia (vedi B8 sopra).
 - [ ] Caccia ai bug del motore: punti 3, 5 e 6, e l'arena nel turno di prova (`docs/plans/caccia-bug-motore.md`).
-- [ ] Caso Vendread, il tetto Lua (500 000 ingressi) che scatta nello sweep di robustezza (`docs/plans/robustezza.md`, sul branch della corsia 8).
+- [ ] Caso Vendread, il tetto Lua (500 000 ingressi) che scatta nello sweep di robustezza (`docs/plans/robustezza.md`).
 - [ ] Fixture registrate (`duelforge-cli record-fixtures`) e anteprima Artifact dell'app.
 - [ ] Sistema di design con `/design-sync` e pagina `/galleria`.
 - [ ] Script di avvio dell'ambiente cloud (setup script).
