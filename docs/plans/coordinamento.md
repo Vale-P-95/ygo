@@ -51,6 +51,7 @@
 - **Niente compiti nuovi** (decisione dell'utente, 23/10): ogni corsia chiude il compito in corso, manda la PR e si ferma.
 - #112 (corsia 8, sweep di robustezza: 286 deck, 0 crash; solo Vendread tocca il tetto Lua) unita il 23/10. #113 (Gemini, «Confronta con il meta»): 4 correzioni chieste nel commento di revisione.
 - #113 (Gemini, «Confronta con il meta», non provata nell'app vera) e #114 (corsia 3, nuova base del banco oggettivo) unite il 23/10. Sessioni archiviate: corsie 3, 4, 8, 9, 10. Restano 2, 6, 7.
+- #115 (corsia 2: fasi proporzionali; TT e rappresentante del campo misurati e non tenuti), #116 (Gemini, passo 4 dell'interfaccia) e #117 (corsia 7, §7: (d) respinta; proposta resilienza 0,6→0 e floodgate 0,8→0,4, da confermare sul banco di generalità e cambiare insieme in bench.py, CLI, lib.rs, scoring.ts) unite il 23/10. Resta attiva solo la corsia 6 (A1b).
 - #107 (questo file) unita il 23/10.
 - #108 (corsia 6, oracolo a gradini) e #109 (corsia 10, bibliografia, seconda passata) unite il 23/10. La corsia 10 è ferma. La corsia 6 prepara l'A1b; il passo 1 lo fa con la corsia 3 dopo la sua baseline.
 - #110 (corsia 4: turno di prova senza etichette, −12% di tempo, (d) non tenuta) e #111 (corsia 8: banco di generalità, scarto tuning/fresh −0,4 punti, 63/63 liste ricostruite) unite il 23/10. La corsia 4 è ferma; la corsia 8 passa al punto 3 (sweep di robustezza).
