@@ -132,6 +132,8 @@ pub struct CardPool {
     main: Vec<u32>,
     extra: Vec<u32>,
     archetypes: Vec<(Vec<u32>, Vec<u32>)>,
+    /// The set code of each archetype, in the same order.
+    setcodes: Vec<u16>,
 }
 
 impl CardPool {
@@ -158,12 +160,49 @@ impl CardPool {
                 }
             }
         }
-        let archetypes = sets.into_values().filter(|(m, _)| m.len() >= 8).collect();
-        Self { main, extra, archetypes }
+        let (setcodes, archetypes) = sets.into_iter().filter(|(_, (m, _))| m.len() >= 8).unzip();
+        Self { main, extra, archetypes, setcodes }
     }
 
     pub fn archetypes(&self) -> usize {
         self.archetypes.len()
+    }
+
+    /// `count` decks of different archetypes (with at least `min_cards` Main
+    /// Deck cards each), for the robustness sweep of the whole pipeline: the
+    /// archetype's Main Deck cards ×3 up to 40 (random cards fill a smaller
+    /// one), its Extra Deck monsters then random ones up to 15. The same
+    /// `seed` gives the same decks.
+    pub fn archetype_decks(&self, count: usize, min_cards: usize, seed: u64) -> Vec<(u16, DeckList)> {
+        let mut rng = Rng::new(seed ^ 0x51ee_d0ec);
+        let mut order: Vec<usize> = (0..self.archetypes.len()).filter(|&i| self.archetypes[i].0.len() >= min_cards).collect();
+        shuffle(&mut order, rng.next());
+        order
+            .into_iter()
+            .take(count)
+            .map(|i| {
+                let (m, e) = &self.archetypes[i];
+                let mut deck = DeckList::default();
+                let mut m = m.clone();
+                shuffle(&mut m, rng.next());
+                for &code in &m {
+                    if deck.main.len() + 3 > 40 {
+                        break;
+                    }
+                    deck.main.extend([code; 3]);
+                }
+                while deck.main.len() < 40 && !self.main.is_empty() {
+                    deck.main.push(self.main[rng.below(self.main.len())]);
+                }
+                let mut e = e.clone();
+                shuffle(&mut e, rng.next());
+                deck.extra.extend(e.iter().take(15));
+                while deck.extra.len() < 15 && !self.extra.is_empty() {
+                    deck.extra.push(self.extra[rng.below(self.extra.len())]);
+                }
+                (self.setcodes[i], deck)
+            })
+            .collect()
     }
 
     /// An archetype deck (13 cards ×3 and fillers) three times out of four,
