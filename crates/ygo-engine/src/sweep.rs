@@ -236,6 +236,7 @@ pub fn open_duel(engine: &Engine, decks: [&DeckList; 2], seed: u64) -> Result<Du
         seed: [seed ^ 0x9e37_79b9_7f4a_7c15, seed.rotate_left(29) | 1, 0x5eed, 0xd0e1],
         flags: duel_flags::MODE_MR5 | duel_flags::PSEUDO_SHUFFLE,
         starting_lp: 8000,
+        draw_per_turn: 1,
     };
     let mut duel = Duel::new(engine, &config)?;
     for (player, deck) in decks.iter().enumerate() {

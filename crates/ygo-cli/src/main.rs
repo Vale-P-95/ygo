@@ -282,8 +282,9 @@ enum Cmd {
     },
     /// Going second: the best board of `--vs` from random hands of 5, then
     /// random hands of 6 of `--deck` play their turn against it; each hand
-    /// is worth the share of the board's value left after its turn (a
-    /// measure apart from the first turn's).
+    /// is worth the share of the board's value left after its turn, less
+    /// the share of the opponent's Life Points it took with its Battle Phase
+    /// (a measure apart from the first turn's).
     BreakBoard {
         /// Your deck, in .ydk format.
         #[arg(long)]
@@ -2324,8 +2325,9 @@ fn break_board(
         let count = hand.iter().filter(|c| breakers.iter().any(|b| db.canonical_code(*b) == db.canonical_code(**c))).count();
         if count > 0 { &mut with } else { &mut without }.push(broken.share);
         println!(
-            "{:>4.0}% left  {} breaker(s)  {:>5.1} s  {:>6} nodes  {}\n      kept: {}",
+            "{:>4.0}% left  {:>4} LP  {} breaker(s)  {:>5.1} s  {:>6} nodes  {}\n      kept: {}",
             broken.share * 100.0,
+            -broken.damage,
             count,
             at.elapsed().as_secs_f64(),
             broken.nodes,
@@ -2334,7 +2336,7 @@ fn break_board(
         );
         rows.push(serde_json::json!({
             "hand": hand, "breakers": count, "share": broken.share, "left": broken.left,
-            "kept": broken.kept, "line": broken.line, "nodes": broken.nodes,
+            "kept": broken.kept, "damage": broken.damage, "line": broken.line, "nodes": broken.nodes,
         }));
     }
     let mean = |v: &[f64]| if v.is_empty() { f64::NAN } else { v.iter().sum::<f64>() / v.len() as f64 };

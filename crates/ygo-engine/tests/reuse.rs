@@ -52,7 +52,8 @@ fn reused_duels_play_like_new_ones() {
     let engine = Engine::load(&data).expect("game data loads");
     let ydk = std::fs::read_to_string(root.join("tests/fixtures/decks/invoked-siracusa-md.ydk")).unwrap();
     let deck = DeckList::from_ydk(&ydk).unwrap();
-    let opponent = Opponent { hand: deck.main[..5].to_vec(), deck: deck.main[5..].to_vec(), extra: deck.extra.clone(), placed: Vec::new() };
+    let opponent =
+        Opponent { hand: deck.main[..5].to_vec(), deck: deck.main[5..].to_vec(), extra: deck.extra.clone(), ..Opponent::default() };
     let mut rng = 2026u64;
     let mut duels = Vec::new();
     for k in 0..30 {
