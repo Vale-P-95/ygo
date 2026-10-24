@@ -512,8 +512,8 @@ export interface ComboScore {
   error: string | null;
   /**
    * Only the cheap measure: the board was not among the best by it, so it has no breakers (`resilience` is all its field),
-   * follow-up, exposure nor matchup. Rank it after the boards with the full measure (`false` or missing). The backend does
-   * not send these yet (`SEND_CHEAP_SCORES` in `lib.rs`): it will once the page ranks them apart.
+   * follow-up, exposure nor matchup. The page ranks it after the boards with the full measure (`false` or missing) and
+   * does not weigh it against them; a later full score of the same board replaces it.
    */
   cheap?: boolean;
   /**

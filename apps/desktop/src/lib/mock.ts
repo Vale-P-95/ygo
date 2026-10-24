@@ -55,6 +55,14 @@ import invokedLinksFixture from "./fixtures/invoked-links.json";
 
 type Api = typeof ApiType;
 
+/** Answers of the real backend for a sample deck (`duelforge-cli record-fixtures`); absent until someone records them. */
+interface Recorded {
+  searches: Record<string, SearchResult>;
+  facets: Facets;
+  banChanges: BanChange[];
+}
+const recorded: Recorded | null = Object.values(import.meta.glob<Recorded>("./fixtures/recorded.json", { eager: true, import: "default" }))[0] ?? null;
+
 interface CardSeed {
   id: number;
   name: string;
@@ -2205,18 +2213,25 @@ export const mockApi: Api = {
     return structuredClone(statusState);
   },
 
-  search: async (query: string) => searchCatalog(query),
+  search: async (query: string) => {
+    // The recorded ids stand only for cards the mock catalog can show.
+    const hit = recorded?.searches[query.trim()];
+    const ids = hit?.ids.filter((id) => CARDS.has(id)) ?? [];
+    return hit && ids.length > 0 ? { ...hit, ids } : searchCatalog(query);
+  },
 
   getCards: async (ids: number[]) => ids.map((id) => CARDS.get(id)).filter((c): c is Card => c != null),
 
-  facets: async (): Promise<Facets> => ({
+  facets: async (): Promise<Facets> =>
+    recorded?.facets ?? {
     attributes: ["FIRE", "DARK", "LIGHT", "EARTH", "WIND", "WATER"],
     races: ["Pyro", "Spellcaster", "Winged Beast", "Beast", "Dragon", "Fiend", "Warrior", "Cyberse", "Machine", "Zombie", "Insect", "Rock", "Fairy"],
     archetypes: ["Snake-Eye", "Sinful Spoils", "Fire King", "Diabellstar", "Salamangreat", "Fiendsmith", "Invoked", "Witchcrafter", "Ancient Gear"],
     formats: ["Master Duel", "TCG", "OCG"],
-  }),
+  },
 
   banChanges: async (format?: BanChange["format"]): Promise<BanChange[]> => {
+    if (recorded?.banChanges.length) return recorded.banChanges.filter((c) => !format || c.format === format);
     const changes: BanChange[] = [
       { format: "md", id: 98159737, date: "2026-10-06", before: null, after: "Limited" },
       { format: "md", id: 97045737, date: "2026-10-06", before: "Limited", after: "Semi-Limited" },
@@ -2859,12 +2874,15 @@ export const mockApi: Api = {
 
   comboScore: async (vsDeckId?: number | null): Promise<number> => {
     lastVsDeckId = vsDeckId ?? null;
-    for (const b of lastScoredBoards) {
+    // Like the backend: the best 15 in full, the rest (up to 30) with the cheap measure only. The mock has few boards: half.
+    const fullCount = Math.min(15, Math.ceil(lastScoredBoards.length / 2));
+    for (const [i, b] of lastScoredBoards.slice(0, 30).entries()) {
       await delay(45);
-      const s = buildMockScoreForBoard(b, lastVsDeckId);
+      const full = buildMockScoreForBoard(b, lastVsDeckId);
+      const s = i < fullCount ? full : { ...full, cheap: true, followup: 0, exposure: 0, matchup: null };
       comboScoreListeners.forEach((fn) => fn(s));
     }
-    return lastScoredBoards.length;
+    return Math.min(lastScoredBoards.length, 30);
   },
 
   comboScores: async (): Promise<ComboScore[]> => lastScoredBoards.map((b) => buildMockScoreForBoard(b, lastVsDeckId)),

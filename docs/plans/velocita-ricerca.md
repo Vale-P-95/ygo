@@ -502,7 +502,7 @@ Nessun codice nella ricerca: misure e stime, per decidere.
   - `Parts` ha due campi in più, le finestre e i giri degli usi; la misura completa resta a 16 e 3.
 - **App** (`combo_score`, mano precisa): la scala qui sopra, con l'esposizione e il confronto con il deck scelto solo per le 15.
   - Le altre hanno un punteggio senza breaker, segnato da `ScoreView.cheap` (`cheap?: boolean` in `api.ts`).
-  - **Per ora l'app non lo manda alla pagina** (`SEND_CHEAP_SCORES = false`). La pagina ordina ogni punteggio con i suoi pesi, e uno senza breaker né esposizione starebbe sopra quello completo dello stesso campo. Così quelle board restano «non misurate», ordinate dalla stima, come oggi le board oltre la 30ª. Si accende quando la scheda di Gemini mette le board `cheap` dopo le altre.
+  - **Ora l'app lo manda alla pagina** (l'interruttore `SEND_CHEAP_SCORES` è stato tolto con la scheda che le mette dopo le complete). Prima non lo mandava (`SEND_CHEAP_SCORES = false`). La pagina ordina ogni punteggio con i suoi pesi, e uno senza breaker né esposizione starebbe sopra quello completo dello stesso campo. Così quelle board restano «non misurate», ordinate dalla stima, come oggi le board oltre la 30ª. Si accende quando la scheda di Gemini mette le board `cheap` dopo le altre.
   - Queste misure non dipendono dal deck avversario, quindi restano valide quando lo si cambia.
   - In «carta + resto» non cambia niente.
 - **CLI:**
@@ -541,6 +541,28 @@ Nessun codice nella ricerca: misure e stime, per decidere.
 - Due mani Invoked a 4000 nodi: `zone_variants` da 0,9-1,2 s a 0,2-0,4 s, `confirm_best` da 0,3-0,5 s a 0,1-0,3 s.
 - Banco (37 deck, 4000 nodi, due giri alternati): ricerca 122,2 e 115,2 s su `main`, 111,9 e 107,8 s con le copie (−7%); board e linee identiche (differenze solo nell'ultima cifra dei decimali, le stesse tra due giri di `main`). `combo_hunt --seed 7`: 82 mani identiche. `paired_test.py` su 179 mani: 179 pari, accettato; secondi di ricerca 1672 → 1449 (−13%).
 
+### B13, PR 4: il turno di prova dalle copie (24/10/2026)
+- **Come:** il tuo turno in una run del turno di prova si gioca allo stesso modo qualunque cosa faccia la run dopo (risposte provate, breaker, turno dopo). Ogni `Prober` tiene quindi il suo duello in un'arena e, per ogni turno tuo (la linea, la linea tagliata di `expected_loss`, il turno passato subito), una copia del duello dove comincia il turno dell'avversario, con ciò che la run tiene del tuo turno (carte tolte, osservatore, effetti liberi, catena aperta, decisioni contate). Le run dopo la prima rimettono la copia e giocano solo il turno dell'avversario.
+- **Quante:** 4 copie per prober (`DUELFORGE_PROBE_COPIES`, 0 = come prima), al massimo 3 prober con copie per thread; le copie vanno via con il loro prober. Il duello si rifà quando cambiano l'avversario o le carte piazzate.
+- **Controllo:** `DUELFORGE_COPY_CHECK=n` (lo stesso della ricerca) gioca ogni n-esima run partita da una copia anche in un duello nuovo e la ferma con un errore se differisce; il test `the_probe_turn_plays_the_same_from_a_copy_of_the_duel` lo fa su ogni run, e fallisce se si guasta il ripristino di proposito.
+- **Senza copie:** le run del livello 2 col tuo script (`Prelude::Own`) e i giri di debug (`DUELFORGE_DEBUG_PROBE=2`, che leggono il log del motore).
+- **Protocollo** (`main` a9e6da0 contro il branch, 40 liste MDM del 24/10, 4 processi su 4 core, prima `main` poi il branch):
+
+| | main | branch |
+|---|---:|---:|
+| `combo_hunt --hands 2 --seed 7 --top 30 --staged`, 80 mani: tempo totale | 468 s | **305 s (−35%)** |
+| secondi dei turni di prova (`probe_seconds`) | 1213 s | **654 s (−46%)** |
+| secondi della ricerca (giri di apprendimento compresi) | 300 s | **232 s (−23%)** |
+| board e linee | | 156 file su 160 identici; 4 differiscono solo nell'ultima cifra di `countered`, scambiata tra board dello stesso file (ordine delle somme, come tra due giri di `main`) |
+| `paired_test.py` sulle 80 mani | | 0 meglio, 0 peggio, 80 pari: ACCEPTED |
+| banco (`bench.py`, 4000 nodi, 14 mani su 16: mancano le liste Ignister e Yummy) | 74 s · best 17,61 · first 17,52 | **54 s** · identico; `paired_test.py` 14 pari |
+| `combos --threads 4 --top 30 --staged`, una mano Invoked | 26,6 s, turni di prova 20,9 s, VmHWM 570 MB | **17,5 s, 13,2 s, 512 MB** |
+| `probe-line --vs --moves` (4 linee contro Snake-Eye) | 16,2 s | 15,3 s, identico |
+| `card-values` (4 deck) | 4,3 s | 4,3 s, stessi valori |
+
+- **La prova equa sulle 406 board** non serve: la misura non cambia (stesse uscite di `main`). Le linee del giro A1b in `tests/fixtures/research/a1b` non si rigiocano con le liste MDM di oggi, su nessuno dei due binari.
+- **Memoria:** una copia è la parte usata dell'arena (circa 2-3 MB); con 4 copie e 3 prober per thread restano sotto i 40 MB per thread, e il picco scende perché le run non fanno più un duello nuovo ciascuna.
+
 ### B14, seguito: 8 finestre, 1 giro degli usi e il turno dopo (22-23/10/2026, corsia 8)
 **Cosa cambia rispetto alla scala sicura.**
 - **Gradino più corto.** Il gradino prova ogni risposta alle prime 8 finestre e conta gli usi in 1 giro, invece di 16 e 3. La misura completa riprende dalle finestre 9-16 e dagli altri giri, senza rigiocare quelli fatti.
@@ -566,7 +588,7 @@ Nessun codice nella ricerca: misure e stime, per decidere.
   Le altre mani dove la migliore sta oltre l'8ª: D/D/D-0 10ª, Dracotail-0 9ª, Dracotail-1 11ª, Phantom Knights-1 11ª.
 - `paired_test.py` sulle 82 mani: 82 pari, accettato. Banco a 4000 nodi identico (best 11,56, first 11,55, 12 mani su 16), `paired_test.py` accettato.
 - Verdi anche `search_regression`, i test, fmt, clippy (anche `src-tauri`) e `pnpm typecheck`. Nell'app vera non è stata provata.
-- **Nell'app** le board che hanno solo il gradino economico non si mandano ancora alla pagina (`SEND_CHEAP_SCORES = false`, come nella PR #89).
+- **Nell'app** le board che hanno solo il gradino economico ora arrivano alla pagina, che le mette dopo le complete con «valutata in breve» (prima `SEND_CHEAP_SCORES = false`, come nella PR #89).
 
 ### L2-3 come ultimo gradino (23/10/2026, corsia 8)
 **Cosa fa.** Dopo la scala di B14, le migliori board per misura completa si rigiocano al livello 2 contro i 3 deck del meta con il `popRank` più alto (`ricerca-esperimenti.md` §6b), e quelle board si riordinano per L2-3.

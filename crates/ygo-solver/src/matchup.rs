@@ -30,6 +30,17 @@ const ITS_TURN: usize = 6;
 /// Moments each handtrap is tried at, the first ones of the line.
 const MAX_TRIES: usize = 24;
 
+/// Answers of your line the engine may reject in a replay with a handtrap
+/// used, more than in the one without, before the line counts as changed:
+/// each is answered simply instead, and past a few the board at the end is
+/// another line's.
+const MAX_REJECTED: u32 = 2;
+
+/// Rejected answers a replay goes on after (see [`MAX_REJECTED`]): the line
+/// was found against the kit's opponent, and the deck's cards in its hand can
+/// change the questions before any handtrap (Elfnote Tinia).
+const REJECTED_TOLERATED: u32 = 20;
+
 /// Points where the line is stopped to weigh what a drawing handtrap gives.
 const MAX_STOPS: usize = 12;
 
@@ -200,7 +211,8 @@ pub struct RivalHandTrap {
     pub chance: f64,
     /// Moments of the line the engine let it be used.
     pub windows: u32,
-    /// Those where using it changes the field or hand you end with.
+    /// Those where using it changes the field or hand you end with (or
+    /// where the line could not be played on as it was).
     pub stops: u32,
     /// Your cards being played at those moments, the first first.
     pub at: Vec<u32>,
@@ -221,6 +233,9 @@ pub struct HandTrapMoment {
     /// Cards the opponent draws from then to the end of your turn, less
     /// those it shuffles back into the Deck.
     pub drawn: u32,
+    /// Answers of your line the engine rejected (each answered simply), more
+    /// than without the handtrap; over [`MAX_REJECTED`] the line has changed.
+    pub rejected: u32,
 }
 
 /// The board and its line against the opponent's deck.
@@ -241,6 +256,11 @@ pub struct Matchup {
     pub hand_traps: Vec<RivalHandTrap>,
     /// Chance it has at least one that stops something.
     pub hand_trap_chance: f64,
+    /// Answers of your line the engine rejected, each answered simply, when
+    /// it is played again against the deck's hand with no handtrap used.
+    pub rejected: u32,
+    /// That replay could not be played on as the line was.
+    pub diverged: bool,
 }
 
 /// Measures the board reached by `line` (found against the standard kit's
@@ -264,7 +284,9 @@ pub fn matchup(
         (out.resilience, out.breaker_chance) = rival.against(&out.breakers, measure.field_value, ITS_TURN);
     }
 
-    out.hand_traps = hand_trap_stops(engine, deck, hand, seed, &rival.replay_opponent(), &own, &rival.hand_traps)?;
+    let base;
+    (out.hand_traps, base) = hand_trap_stops(engine, deck, hand, seed, &rival.replay_opponent(), &own, &rival.hand_traps)?;
+    (out.rejected, out.diverged) = (base.rejected, base.diverged);
     for h in &mut out.hand_traps {
         h.chance = 1.0 - rival.none_of(&[h.code], OPENING);
     }
@@ -331,7 +353,7 @@ pub fn draw_trade_off(
     let mut drawing: Vec<(u32, usize)> = Vec::new();
     for &code in &rival.hand_traps {
         let Some(w) = base.windows.iter().position(|m| m.offered.iter().any(|(c, _)| *c == code)) else { continue };
-        let full = replay(engine, deck, hand, seed, &opponent, &own, Play { use_at: Some((code, w)), stop_at: None })?;
+        let full = replay(engine, deck, hand, seed, &opponent, &own, Play { use_at: Some((code, w)), ..Play::default() })?;
         if full.drawn > 0 {
             drawing.push((code, w));
         }
@@ -369,7 +391,8 @@ pub fn draw_trade_off(
         let mut points = Vec::new();
         for (s, choices, playing, measure, breakers) in &boards {
             let stop_at = (*s < own.answers.len()).then_some(*s);
-            let drawn = replay(engine, deck, hand, seed, &opponent, &own, Play { use_at: Some((code, w)), stop_at })?.drawn;
+            let drawn =
+                replay(engine, deck, hand, seed, &opponent, &own, Play { use_at: Some((code, w)), stop_at, ..Play::default() })?.drawn;
             let cards = ITS_TURN + drawn as usize;
             let (interruptions, none) = if rival.cards.is_empty() {
                 let none = none_drawn(rival.size.max(40), GENERIC_OUTS, cards);
@@ -679,15 +702,26 @@ struct Replay {
     /// Cards the opponent drew during your turn, less those it shuffled
     /// back from its hand into the Deck (the hand limit of a Mulcharmy).
     drawn: u32,
+    /// Answers of the line the engine rejected, each answered simply.
+    rejected: u32,
 }
 
 /// How a replay goes: the opponent uses a handtrap (`use_at`: the card, at
 /// a window of the replay where none is used) or passes everywhere; your
-/// line stops at an answer (`stop_at`) and ends the turn, or goes on.
-#[derive(Debug, Clone, Copy, Default)]
+/// line stops at an answer (`stop_at`) and ends the turn, or goes on; the
+/// engine may reject `tolerated` answers of the line before it counts as
+/// changed.
+#[derive(Debug, Clone, Copy)]
 struct Play {
     use_at: Option<(u32, usize)>,
     stop_at: Option<usize>,
+    tolerated: u32,
+}
+
+impl Default for Play {
+    fn default() -> Self {
+        Play { use_at: None, stop_at: None, tolerated: REJECTED_TOLERATED }
+    }
 }
 
 /// Plays your answers with the opponent holding `hand_traps`, as `play` says.
@@ -710,7 +744,6 @@ fn replay(
     let mut theirs_on_top = false;
     // Your last decision, answered with the line's answer.
     let mut asked: Option<Decision> = None;
-    let mut rejected = 0;
     // The opponent's cards drawn until its turn begins.
     let mut drawn: i64 = 0;
     let mut over = false;
@@ -718,9 +751,13 @@ fn replay(
         let step = match duel.advance() {
             // After a handtrap your line may be asked something new, of the
             // same kind as its next answer, that does not fit it: you answer
-            // it simply, and the line goes on.
-            Err(Error::Rejected(_)) if rejected < 20 => {
-                rejected += 1;
+            // it simply, and the line goes on. Past a few, it is another line.
+            Err(Error::Rejected(_)) if out.rejected < REJECTED_TOLERATED => {
+                out.rejected += 1;
+                if out.rejected > play.tolerated {
+                    out.diverged = true;
+                    break;
+                }
                 let Some(decision) = asked.take() else { break };
                 next -= 1;
                 duel.respond(&passive_answer(&decision, &duel.actions(&decision)));
@@ -904,8 +941,11 @@ fn hand_trap_stops(
     opponent: &Opponent,
     own: &Script,
     hand_traps: &[u32],
-) -> Result<Vec<RivalHandTrap>, Error> {
+) -> Result<(Vec<RivalHandTrap>, Replay), Error> {
     let base = replay(engine, deck, hand, seed, opponent, own, Play::default())?;
+    // A handtrap may make the engine reject a few more answers of the line
+    // than without it; past that, the line has changed.
+    let tolerated = base.rejected + MAX_REJECTED;
     let mut out = Vec::new();
     for &code in hand_traps {
         let windows: Vec<usize> = (0..base.windows.len()).filter(|&w| base.windows[w].offered.iter().any(|(c, _)| *c == code)).collect();
@@ -916,7 +956,7 @@ fn hand_trap_stops(
         let mut at = Vec::new();
         let mut moments = Vec::new();
         for &w in windows.iter().take(MAX_TRIES) {
-            let tried = replay(engine, deck, hand, seed, opponent, own, Play { use_at: Some((code, w)), stop_at: None });
+            let tried = replay(engine, deck, hand, seed, opponent, own, Play { use_at: Some((code, w)), stop_at: None, tolerated });
             if std::env::var_os("DUELFORGE_DEBUG_MATCHUP").is_some() {
                 let db = engine.cards();
                 match &tried {
@@ -932,6 +972,7 @@ fn hand_trap_stops(
             // Stopped: something of your field or hand is missing at the end
             // (ending with more, as when it lets you summon one more card, is not).
             let drawn = tried.as_ref().map_or(0, |r| r.drawn);
+            let rejected = tried.as_ref().map_or(0, |r| r.rejected.saturating_sub(base.rejected));
             let stopped = tried.ok().is_none_or(|r| r.diverged || !missing(&base.end, &r.end).is_empty());
             if stopped {
                 stops += 1;
@@ -939,12 +980,12 @@ fn hand_trap_stops(
                     at.push(card);
                 }
             }
-            moments.push(HandTrapMoment { playing: base.windows[w].playing, stops: stopped, drawn });
+            moments.push(HandTrapMoment { playing: base.windows[w].playing, stops: stopped, drawn, rejected });
         }
         let drawn = moments.iter().map(|m| m.drawn).max().unwrap_or(0);
         out.push(RivalHandTrap { code, chance: 0.0, windows: windows.len() as u32, stops, at, drawn, moments });
     }
-    Ok(out)
+    Ok((out, base))
 }
 
 /// The cards of `before` missing from `after` (both sorted), copies counted.
