@@ -1459,6 +1459,7 @@ struct BoardView {
     /// Played to the opponent's turn (else read when the turn was ended).
     exact: bool,
     goal_hits: usize,
+    goal_soft: usize,
     #[serde(flatten)]
     field: FieldView,
 }
@@ -1503,6 +1504,7 @@ fn board_view(hand: usize, b: &ygo_solver::Board) -> BoardView {
         found_after_ms: b.found_after.as_millis() as u64,
         exact: b.exact,
         goal_hits: b.goal_hits,
+        goal_soft: b.goal_soft,
         field: field_view(&b.state),
     }
 }
@@ -1550,15 +1552,24 @@ struct ComboOutcome {
 #[serde(rename_all = "camelCase")]
 struct GoalCardRequest {
     code: u32,
-    /// "any", "extra" (Extra Monster Zone) or "main".
+    /// "any" (your field), "extra" (Extra Monster Zone), "main", "monster",
+    /// "faceup", "set", "fieldzone", "grave", "banished" or "hand".
     zone: String,
+    /// Required (the default); false: only preferred. Goals saved before
+    /// it have none.
+    #[serde(default = "required")]
+    hard: bool,
+}
+
+fn required() -> bool {
+    true
 }
 
 #[derive(serde::Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct ComboGoal {
     cards: Vec<GoalCardRequest>,
-    /// All of them (else one is enough).
+    /// All the hard ones (else one is enough).
     all: bool,
     /// Stop at the first board that reaches it.
     first: bool,
@@ -1674,10 +1685,17 @@ fn combo_search(app: tauri::AppHandle, state: State<'_, AppState>, request: Comb
         let zone = |z: &str| match z {
             "extra" => ygo_solver::GoalZone::Extra,
             "main" => ygo_solver::GoalZone::Main,
+            "monster" => ygo_solver::GoalZone::Monster,
+            "faceup" => ygo_solver::GoalZone::FaceUp,
+            "set" => ygo_solver::GoalZone::Set,
+            "fieldzone" => ygo_solver::GoalZone::FieldZone,
+            "grave" => ygo_solver::GoalZone::Grave,
+            "banished" => ygo_solver::GoalZone::Banished,
+            "hand" => ygo_solver::GoalZone::Hand,
             _ => ygo_solver::GoalZone::Any,
         };
-        let on_field = goal.cards.iter().map(|c| ygo_solver::GoalCard { code: c.code, zone: zone(&c.zone) }).collect();
-        config.goal = ygo_solver::Goal { on_field, all: goal.all, first_only: goal.first };
+        let cards = goal.cards.iter().map(|c| ygo_solver::GoalCard { code: c.code, zone: zone(&c.zone), hard: c.hard }).collect();
+        config.goal = ygo_solver::Goal { cards, all: goal.all, first_only: goal.first };
     }
     let (hands, keep) = match request.card {
         Some(card) if request.hand.is_empty() => {

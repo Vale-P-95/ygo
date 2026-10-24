@@ -8,6 +8,7 @@ import type {
   ComboBoard,
   CardLink,
   ComboGoal,
+  GoalZone,
   ComboMatchup,
   ComboHand,
   ComboOutcome,
@@ -1596,20 +1597,43 @@ function zSpell(code: number, faceUp = true): ZoneCard {
   };
 }
 
-function countGoalHits(monsters: (ZoneCard | null)[], spells: (ZoneCard | null)[], goal: ComboGoal | null): number {
+type MockBoard = Omit<ComboBoard, "goalHits" | "goalSoft">;
+
+/** Cards of the goal where they are wanted, hard or soft (like `Goal::hits`, without the order of the picks). */
+function countGoalHits(b: MockBoard, goal: ComboGoal | null, hard: boolean): number {
   if (!goal || goal.cards.length === 0) return 0;
+  const has = (zones: (ZoneCard | null)[], code: number, ok: (z: ZoneCard, i: number) => boolean) =>
+    zones.some((z, i) => z?.code === code && ok(z, i));
   let hits = 0;
   for (const g of goal.cards) {
-    const inMain = monsters.slice(0, 5).some((z) => z?.code === g.code);
-    const inExtra = monsters.slice(5).some((z) => z?.code === g.code);
-    const inSpells = spells.some((z) => z?.code === g.code);
-    const matched = g.zone === "extra" ? inExtra : g.zone === "main" ? inMain : inMain || inExtra || inSpells;
-    if (matched) hits++;
+    if ((g.hard ?? true) !== hard) continue;
+    const main = has(b.monsters.slice(0, 5), g.code, (z) => z.faceUp);
+    const extra = has(b.monsters.slice(5), g.code, (z) => z.faceUp);
+    const up = has(b.spells, g.code, (z, i) => z.faceUp && i !== 5);
+    const set = has(b.spells, g.code, (z) => !z.faceUp);
+    const fieldZone = has(b.spells, g.code, (z, i) => z.faceUp && i === 5);
+    const matched: Record<GoalZone, boolean> = {
+      any: main || extra || up || set || fieldZone,
+      extra,
+      main,
+      monster: main || extra,
+      faceup: up,
+      set,
+      fieldzone: fieldZone,
+      grave: b.grave.includes(g.code),
+      banished: b.banished.includes(g.code),
+      hand: b.handCards.includes(g.code),
+    };
+    if (matched[g.zone]) hits++;
   }
   return hits;
 }
 
 function buildMockBoardsForHand(handIdx: number, deckId: number, goal: ComboGoal | null): ComboBoard[] {
+  return mockBoards(handIdx, deckId).map((b) => ({ ...b, goalHits: countGoalHits(b, goal, true), goalSoft: countGoalHits(b, goal, false) }));
+}
+
+function mockBoards(handIdx: number, deckId: number): MockBoard[] {
   if (deckId === 2) {
     const m1: (ZoneCard | null)[] = [
       zMonster(75286621, { attack: 2500, def: 2100 }),
@@ -1640,7 +1664,6 @@ function buildMockBoardsForHand(handIdx: number, deckId: number, goal: ComboGoal
         choices: 13,
         foundAfterMs: 240 + handIdx * 90,
         exact: true,
-        goalHits: countGoalHits(m1, s1, goal),
         monsters: m1,
         spells: s1,
         handCards: [86120752, 14558127, 97268402],
@@ -1658,7 +1681,6 @@ function buildMockBoardsForHand(handIdx: number, deckId: number, goal: ComboGoal
         choices: 11,
         foundAfterMs: 390 + handIdx * 90,
         exact: true,
-        goalHits: countGoalHits(m2, s2, goal),
         monsters: m2,
         spells: s2,
         handCards: [86120752, 14558127, 23434538],
@@ -1735,7 +1757,6 @@ function buildMockBoardsForHand(handIdx: number, deckId: number, goal: ComboGoal
       choices: 18,
       foundAfterMs: 310 + handIdx * 80,
       exact: true,
-      goalHits: countGoalHits(mA, sA, goal),
       monsters: mA,
       spells: sA,
       handCards: [14558127, 13002461, 42370001],
@@ -1753,7 +1774,6 @@ function buildMockBoardsForHand(handIdx: number, deckId: number, goal: ComboGoal
       choices: 16,
       foundAfterMs: 480 + handIdx * 80,
       exact: true,
-      goalHits: countGoalHits(mB, sB, goal),
       monsters: mB,
       spells: sB,
       handCards: [14558127, 23434538, 98159737],
@@ -1771,7 +1791,6 @@ function buildMockBoardsForHand(handIdx: number, deckId: number, goal: ComboGoal
       choices: 9,
       foundAfterMs: 170 + handIdx * 60,
       exact: true,
-      goalHits: countGoalHits(mC, sC, goal),
       monsters: mC,
       spells: sC,
       handCards: [14558127, 23434538, 42370001, 72270339],
@@ -2844,9 +2863,8 @@ export const mockApi: Api = {
     }
 
     lastScoredBoards = allBoards;
-    const goalReached =
-      request.goal != null &&
-      allBoards.some((b) => (request.goal!.all ? b.goalHits >= request.goal!.cards.length : b.goalHits > 0));
+    const hard = request.goal?.cards.filter((g) => g.hard ?? true).length ?? 0;
+    const goalReached = hard > 0 && allBoards.some((b) => (request.goal!.all ? b.goalHits >= hard : b.goalHits > 0));
 
     return {
       stop: comboCancelled ? "Cancelled" : goalReached && request.goal?.first ? "GoalReached" : byCard ? "Finished" : "Exhausted",
@@ -2989,6 +3007,7 @@ export const mockApi: Api = {
         foundAfterMs: 0,
         exact: true,
         goalHits: 0,
+        goalSoft: 0,
         monsters: [],
         spells: [],
         handCards: [],

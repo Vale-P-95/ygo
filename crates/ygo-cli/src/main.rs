@@ -120,8 +120,10 @@ enum Cmd {
         /// Hands to try with `--card`.
         #[arg(long, default_value_t = 12)]
         hands: usize,
-        /// Goal: cards wanted on the field at the end (semicolon-separated;
-        /// "Name@extra" or "Name@main" for a monster's zone).
+        /// Goal: cards wanted at the end of the turn (semicolon-separated).
+        /// "Name@place" says where: extra, main, monster, faceup, set,
+        /// fieldzone, gy, banished, hand (default: field, anywhere on it);
+        /// "~Name" makes the card soft (preferred, not required).
         #[arg(long, default_value = "")]
         goal: String,
         /// The goal needs only one of its cards.
@@ -589,18 +591,21 @@ fn combos(dir: &Path, setup: &Setup, options: CombosOptions) -> Result<()> {
     }
     config.policy.forbid = resolve_hand(&engine, &forbid)?;
     config.keep_in_hand = resolve_hand(&engine, &keep)?;
-    // "Name@extra" or "Name@main" asks for a Monster Zone.
-    let mut on_field = Vec::new();
+    // "Name@place" asks for a place, "~Name" for a soft card.
+    let mut cards = Vec::new();
     for item in goal.split(';').map(str::trim).filter(|s| !s.is_empty()) {
+        let (item, hard) = match item.strip_prefix('~') {
+            Some(rest) => (rest.trim(), false),
+            None => (item, true),
+        };
         let (name, zone) = match item.rsplit_once('@') {
-            Some((name, "extra")) => (name, ygo_solver::GoalZone::Extra),
-            Some((name, "main")) => (name, ygo_solver::GoalZone::Main),
-            _ => (item, ygo_solver::GoalZone::Any),
+            Some((name, place)) => (name, goal_zone(place).with_context(|| format!("unknown goal place: {place}"))?),
+            None => (item, ygo_solver::GoalZone::Any),
         };
         let code = *resolve_hand(&engine, name)?.first().context("empty goal card")?;
-        on_field.push(ygo_solver::GoalCard { code, zone });
+        cards.push(ygo_solver::GoalCard { code, zone, hard });
     }
-    config.goal = ygo_solver::Goal { on_field, all: !goal_any, first_only: first };
+    config.goal = ygo_solver::Goal { cards, all: !goal_any, first_only: first };
     let goal_status = |reached: Option<bool>| match reached {
         Some(true) => "reached",
         Some(false) => "impossible: no line reaches it",
@@ -2363,6 +2368,24 @@ fn info(dir: &Path) -> Result<()> {
     println!("Cards: {}", engine.cards().len());
     println!("Scripts: {}", engine.scripts().len());
     Ok(())
+}
+
+/// A place of `--goal` ("Name@place").
+fn goal_zone(place: &str) -> Option<ygo_solver::GoalZone> {
+    use ygo_solver::GoalZone;
+    Some(match place {
+        "field" => GoalZone::Any,
+        "extra" => GoalZone::Extra,
+        "main" => GoalZone::Main,
+        "monster" => GoalZone::Monster,
+        "faceup" => GoalZone::FaceUp,
+        "set" => GoalZone::Set,
+        "fieldzone" => GoalZone::FieldZone,
+        "gy" | "grave" => GoalZone::Grave,
+        "banished" => GoalZone::Banished,
+        "hand" => GoalZone::Hand,
+        _ => return None,
+    })
 }
 
 fn resolve_hand(engine: &Engine, hand: &str) -> Result<Vec<u32>> {

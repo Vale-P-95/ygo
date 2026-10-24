@@ -129,11 +129,8 @@ fn the_probe_turn_tells_the_zones_of_oceanus_apart() {
         config.policy.passive = vec![ASH, FUWALOS];
         config.hand_traps = vec![ASH, FUWALOS];
         config.opponent = Some(Kit::standard(&engine).opponent().clone());
-        config.goal = Goal {
-            on_field: vec![GoalCard { code: oceanus, zone }, GoalCard { code: mechaba, zone: GoalZone::Any }],
-            all: true,
-            first_only: true,
-        };
+        config.goal =
+            Goal { cards: vec![GoalCard::new(oceanus, zone), GoalCard::new(mechaba, GoalZone::Any)], all: true, first_only: true };
         let result = search(&engine, &config, &AtomicBool::new(false), |_| {});
         assert_eq!(result.stop, Stop::GoalReached, "{zone:?}");
         let mut prober = Prober::new(&engine, &deck, &hand, config.seed, &kit);
