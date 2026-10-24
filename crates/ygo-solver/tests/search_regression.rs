@@ -25,7 +25,9 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use ygo_engine::{DeckList, DuelState, Engine};
-use ygo_solver::{card_values, explain, search, Goal, HappeningKind, Kit, MechanicKind, SearchConfig, SearchResult, Stop};
+use ygo_solver::{
+    card_values, explain, search, Goal, GoalCard, GoalZone, HappeningKind, Kit, MechanicKind, SearchConfig, SearchResult, Stop,
+};
 
 /// Nodes per search: about a minute in release. The thresholds below hold
 /// already with half of them, so a search that reaches the same boards a
@@ -372,6 +374,89 @@ fn a_goal_card_is_not_sent_away_first() {
             hand.iter().map(|&c| lab.name(c)).collect::<Vec<_>>(),
             lab.describe(&result)
         );
+    }
+}
+
+impl Lab {
+    /// A goal of all its cards: "Name@place" (`GoalZone` in lower case, or
+    /// none for anywhere on the field), "~Name" for a soft card.
+    fn goal(&self, cards: &[&str]) -> Goal {
+        let cards = cards
+            .iter()
+            .map(|item| {
+                let (item, hard) = item.strip_prefix('~').map_or((*item, true), |rest| (rest, false));
+                let (name, zone) = match item.rsplit_once('@') {
+                    Some((name, place)) => {
+                        let zone = [
+                            GoalZone::Extra,
+                            GoalZone::Main,
+                            GoalZone::Monster,
+                            GoalZone::FaceUp,
+                            GoalZone::Set,
+                            GoalZone::FieldZone,
+                            GoalZone::Grave,
+                            GoalZone::Banished,
+                            GoalZone::Hand,
+                        ]
+                        .into_iter()
+                        .find(|z| format!("{z:?}").to_lowercase() == place)
+                        .unwrap_or_else(|| panic!("no place {place}"));
+                        (name, zone)
+                    }
+                    None => (item, GoalZone::Any),
+                };
+                GoalCard { code: self.card(name), zone, hard }
+            })
+            .collect();
+        Goal { cards, all: true, first_only: true }
+    }
+}
+
+#[test]
+#[cfg_attr(debug_assertions, ignore = "slow in debug: run with --release")]
+fn goals_off_the_field_and_set_cards_are_reached_or_proved_impossible() {
+    // Each place of a goal card, reached from a hand that can (the cards
+    // wanted off the field on a board played through the End Phase), and
+    // proved out of reach from one that cannot: every line tried.
+    let Some(lab) = lab() else { return };
+    let hand = |names: &[&str]| names.iter().map(|n| lab.card(n)).collect::<Vec<u32>>();
+    let meltdown = hand(&["Aleister the Invoker", GRAIL, "Magical Meltdown", "Ash Blossom & Joyous Spring", "Mulcharmy Fuwalos"]);
+    let super_poly =
+        hand(&["Aleister the Reminiscent", "Crowley, the Gifted Magistus", "Invocation", "Super Polymerization", "Droll & Lock Bird"]);
+    let dead = hand(&[
+        "Ash Blossom & Joyous Spring",
+        "Mulcharmy Fuwalos",
+        "Ash Blossom & Joyous Spring",
+        "Mulcharmy Fuwalos",
+        "Ash Blossom & Joyous Spring",
+    ]);
+    let cases: [(&[u32], &[&str], Option<bool>); 9] = [
+        (&meltdown, &["Invoked Mechaba@monster", "Aleister the Invoker@banished", "Magical Meltdown@fieldzone"], Some(true)),
+        (&meltdown, &["Invoked Mechaba@main", "76334960@grave", "~Mulcharmy Fuwalos@hand"], Some(true)),
+        (&super_poly, &["Super Polymerization@set", "Invoked Mechaba", "Invocation@grave"], Some(true)),
+        (&dead, &["Ash Blossom & Joyous Spring@hand"], Some(true)),
+        (&dead, &["Ash Blossom & Joyous Spring@grave"], Some(false)),
+        (&dead, &["Mulcharmy Fuwalos@banished"], Some(false)),
+        (&dead, &["Ash Blossom & Joyous Spring@faceup"], Some(false)),
+        // A soft card does not make a goal reachable, nor one alone a goal.
+        (&dead, &["Mulcharmy Fuwalos@banished", "~Ash Blossom & Joyous Spring@hand"], Some(false)),
+        (&dead, &["~Ash Blossom & Joyous Spring@hand"], None),
+    ];
+    for (hand, cards, verdict) in cases {
+        let goal = lab.goal(cards);
+        let (_, result) = lab.search_for(hand, goal.clone());
+        let summary = format!("{cards:?}\n{}", lab.describe(&result));
+        assert_eq!(result.goal_reached(&goal), verdict, "{summary}");
+        match verdict {
+            Some(true) => {
+                assert_eq!(result.stop, Stop::GoalReached, "{summary}");
+                let board = &result.boards[0];
+                assert!(board.exact && goal.reached(board.goal_hits), "{summary}");
+                assert_eq!(goal.hits(&lab.engine, &board.state).hard, cards.iter().filter(|c| !c.starts_with('~')).count(), "{summary}");
+            }
+            Some(false) => assert_eq!(result.stop, Stop::Exhausted, "{summary}"),
+            None => assert_eq!(result.stop, Stop::Exhausted, "{summary}"),
+        }
     }
 }
 

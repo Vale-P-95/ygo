@@ -359,8 +359,10 @@ export interface ComboBoard {
   foundAfterMs: number;
   /** Played to the opponent's turn; otherwise read when the turn was ended, before the End Phase. */
   exact: boolean;
-  /** Cards of the goal on the field. */
+  /** Hard cards of the goal where they are wanted. */
   goalHits: number;
+  /** Soft cards of the goal where they are wanted. */
+  goalSoft: number;
   /** Main Monster Zones 0-4, then the Extra Monster Zones. */
   monsters: (ZoneCard | null)[];
   /** Spell & Trap Zones 0-4, then the Field Zone. */
@@ -406,17 +408,24 @@ export interface ComboOutcome {
   complete: boolean;
 }
 
-/** Where a monster of the goal must be. */
-export type GoalZone = "any" | "extra" | "main";
+/**
+ * Where a card of the goal must be at the end of the turn: "any" anywhere on your field (a face-up monster or any
+ * card in the Spell & Trap row), "extra"/"main" an Extra or Main Monster Zone, "monster" any Monster Zone face-up,
+ * "faceup"/"set" a Spell & Trap Zone face-up or face-down, "fieldzone" the Field Zone, then the GY, the banished
+ * cards and the hand (these only count on boards played through the End Phase).
+ */
+export type GoalZone = "any" | "extra" | "main" | "monster" | "faceup" | "set" | "fieldzone" | "grave" | "banished" | "hand";
 
 export interface GoalCard {
   code: number;
   zone: GoalZone;
+  /** Required (default); false: preferred, the board that has it ranks higher but the goal does not need it. */
+  hard?: boolean;
 }
 
 export interface ComboGoal {
   cards: GoalCard[];
-  /** All of them (else one is enough). */
+  /** All the hard ones (else one is enough). */
   all: boolean;
   /** Stop at the first board that reaches it. */
   first: boolean;

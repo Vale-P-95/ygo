@@ -6,6 +6,9 @@ Le righe storiche con Gemini restano come cronologia; il contratto (`lib.rs`, `a
 Regole in `AGENTS.md`. Per prendere un task, spostalo in "In corso" con agente, branch e file che tocchi (è il lock), poi committa e pusha questa modifica prima di cominciare.
 
 ## In corso
+- [x] **B8, obiettivi ricchi: motore e contratto** (claude-code, thread «Aggiungere gli obiettivi ricchi al motore», branch `claude/project-thread-jui7sh`, PR aperta il 24/10). Ogni carta dell'obiettivo dice il posto (campo, Mostro Principale, Extra o qualsiasi, Magia/Trappola scoperta o coperta, Zona Terreno, Cimitero, bandita, mano) e se è dura o morbida; gli obiettivi salvati restano validi. Labrynth e Branded raggiungono «Trappola coperta + carta nel Cimitero» in 31-320 nodi; nove obiettivi nuovi nel `search_regression`; senza obiettivo `paired_test.py` 91 mani pari e board identiche. Dettagli in `docs/plans/ricerca-piano-critico.md`, B8. Lock tolto.
+  - [ ] Interfaccia: selettore del posto per carta, segno duro o morbido, `goalSoft` nella scheda (contratto già pronto), dal mockup di Valerio.
+  - [ ] Dopo: atomi sull'avversario (dopo B5a), vincoli sui materiali, perché un obiettivo è impossibile.
 - [x] **B1a, ordine dei fratelli nella coda della ricerca: misurato, non tenuto** (claude-code, thread «Portare avanti B1a nel motore», branch `claude/project-thread-nl7aze`, PR aperta il 24/10). Contatore nuovo in `DUELFORGE_SEARCH_STATS` (`siblings`, sommato da `search_stats.py`): su `main` il 46% dei fratelli esce dalla coda fuori dall'ordine di `dive_order`. Con la correzione 0%, ma `paired_test.py` su 88 mani dà 15 meglio, 9 peggio (p = 0,31) e una mano −42%: respinto; 80 mani nuove 11 meglio, 13 peggio. Entra solo il contatore; l'ordinamento passa a B1b e B1c. Dettagli in `docs/plans/ricerca-piano-critico.md`, B1a. Lock tolto.
 - [x] **Pesi del punteggio §7: resilienza 0,6 → 0, floodgate 0,8 → 0,4** (claude-code, thread «Confermare i nuovi pesi del punteggio», branch `claude/project-thread-4ly968`, PR aperta il 24/10). Verità del livello 2 contro il meta sui 20 deck freschi del banco di generalità: 195 board, 591 coppie, 720 run. Coppie giuste 80,4% → 86,0% (+40/−8, p < 0,001); con il turno dopo 78,7% → 82,0% (+32/−14, p = 0,011); ρ 0,70 → 0,78. Pesi cambiati insieme in `bench.py`, `composite` della CLI, `balanced` di `lib.rs` e il profilo «Bilanciato» di `scoring.ts`; verità in `tests/fixtures/boards/generality-fresh.json`. Dettagli in `docs/plans/ricerca-esperimenti.md` §7. Lock tolto.
   - [ ] Il floodgate della misura economica (`cheap_composite`, `cheap_value`) resta a 0,8: abbassarlo cambia quali board passano alla misura completa. Va provato a parte, con `paired_test.py` in modalità `--staged`.
@@ -305,7 +308,7 @@ Corsie di lavoro in parallelo del 22/10/2026 (piano in `docs/plans/piano-prossim
   - [ ] B2, B2b, B3, B1b-c, poi B8 (motore e contratto), B10, B11, B16, B4. Corsia 2, una PR l'una.
   - [x] B4a (corsia 2): nel modo obiettivo una carta dell'obiettivo scelta dove il motore la manda via (costo, materiale, scarto) va per ultima, e perde priorità se era l'ultima copia. Obiettivo Invoked «Oceanus + S:P» da 0/4 a 4/4 mani in 60 s, con Oceanus nella Zona Mostri Extra anche. File: `crates/ygo-solver/src/search.rs`, `tests/search_regression.rs`.
   - [ ] B5a (attrito avversario, caso Aeon), B14 (quali board misurare), B5b-d, B9. Coordinatore, dopo D17.
-  - [ ] B8, obiettivi ricchi: prima il mockup in Claude Design, poi contratto (`lib.rs`, `api.ts`, `mock.ts`) e interfaccia nella stessa PR, in una sessione di Claude (dopo il motore di B8).
+  - [ ] B8, obiettivi ricchi: il motore e il contratto (`lib.rs`, `api.ts`, `mock.ts`) sono fatti (24/10, voce in «In corso»); resta l'interfaccia dal mockup in Claude Design, in una sessione di Claude.
 - [ ] Linee del video Invoked: come si classificano, correzioni generali (#45).
 - [ ] Scale e pesi delle metriche del punteggio (#43).
 - [ ] Frontiera di Pareto e confronto tra board; preferenze apprese (#40).
@@ -315,7 +318,7 @@ Corsie di lavoro in parallelo del 22/10/2026 (piano in `docs/plans/piano-prossim
 
 - [ ] **Pesi del punteggio da cambiare (§7, corsia 7, PR #117):** resilienza 0,6 → 0 e floodgate 0,8 → 0,4. Prima si confermano sul banco di generalità; poi si cambiano insieme in `scripts/bench.py`, nel comando `composite` della CLI, in `balanced` di `lib.rs` e in `scoring.ts`.
 - [x] Board `cheap: true`: scheda del punteggio e interruttore nella stessa PR (vedi la voce della corsia 8 qui sopra).
-- [ ] B8, obiettivi ricchi: mockup in Claude Design, poi contratto e interfaccia (vedi B8 sopra).
+- [ ] B8, obiettivi ricchi: mockup in Claude Design, poi interfaccia (motore e contratto fatti, vedi B8 sopra).
 - [ ] Caccia ai bug del motore: l'arena nel turno di prova e la memoria delle arene dei duelli (`docs/plans/caccia-bug-motore.md`, §11). Punti 3, 5 e 6 fatti.
 - [x] Caso Vendread, il tetto Lua (500 000 ingressi) che scatta nello sweep di robustezza (`docs/plans/robustezza.md`): fatto il 24/10, PR del thread «Risolvere il caso Vendread».
 - [ ] Fixture registrate e anteprima Artifact dell'app (branch `claude/project-thread-g8204p`, PR in revisione).

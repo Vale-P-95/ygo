@@ -27,7 +27,7 @@
 //! boards are played for real.
 //!
 //! A search can go on where it stopped ([`resume`]) and can aim at a
-//! [`Goal`]: cards that must be on the field at the end.
+//! [`Goal`]: cards wanted at the end, on the field or off it.
 
 use std::cmp::Ordering as CmpOrdering;
 use std::collections::hash_map::DefaultHasher;
@@ -45,6 +45,7 @@ use ygo_engine::{
 };
 
 use crate::coverage::{self, Audit, Coverage, Links, Mechanic};
+use crate::goal::{Goal, GoalPick, GoalZone};
 use crate::probe::{taken_weight, Kit, Prober};
 use crate::value::{CardValues, InHand, Spot};
 
@@ -133,144 +134,6 @@ impl SearchConfig {
     }
 }
 
-/// Where a monster of the goal must be.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
-pub enum GoalZone {
-    #[default]
-    Any,
-    /// An Extra Monster Zone (some monsters work differently there, like
-    /// Invoked Oceanus).
-    Extra,
-    /// A Main Monster Zone.
-    Main,
-}
-
-/// A card wanted on the field, and where.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct GoalCard {
-    pub code: u32,
-    pub zone: GoalZone,
-}
-
-/// Cards wanted on your field at the end of the turn. The search favours
-/// the lines that bring them, and ranks the boards that have them first.
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub struct Goal {
-    /// A card listed twice wants two copies.
-    pub on_field: Vec<GoalCard>,
-    /// All of them; otherwise at least one.
-    pub all: bool,
-    /// Stop at the first board that reaches the goal.
-    pub first_only: bool,
-}
-
-impl Goal {
-    pub fn is_set(&self) -> bool {
-        !self.on_field.is_empty()
-    }
-
-    /// Any zone for each of `codes`.
-    pub fn cards(codes: &[u32], all: bool, first_only: bool) -> Goal {
-        Goal { on_field: codes.iter().map(|&code| GoalCard { code, zone: GoalZone::Any }).collect(), all, first_only }
-    }
-
-    /// How many of the wanted cards are on your field, in their zone
-    /// (alternate artworks count).
-    pub fn hits(&self, engine: &Engine, state: &DuelState) -> usize {
-        if !self.is_set() {
-            return 0;
-        }
-        let db = engine.cards();
-        let me = &state.players[0];
-        // (code, zone kind): Main Monster Zones 0-4, Extra 5-6, others.
-        let mut field: Vec<(u32, GoalZone)> = me
-            .monsters
-            .iter()
-            .enumerate()
-            .filter_map(|(i, c)| {
-                c.as_ref()
-                    .filter(|c| c.is_face_up())
-                    .map(|c| (db.canonical_code(c.code), if i >= 5 { GoalZone::Extra } else { GoalZone::Main }))
-            })
-            .chain(me.spells.iter().flatten().map(|c| (db.canonical_code(c.code), GoalZone::Any)))
-            .collect();
-        let mut hits = 0;
-        for wanted in &self.on_field {
-            let code = db.canonical_code(wanted.code);
-            if let Some(i) = field.iter().position(|&(c, z)| c == code && (wanted.zone == GoalZone::Any || wanted.zone == z)) {
-                field.swap_remove(i);
-                hits += 1;
-            }
-        }
-        hits
-    }
-
-    /// The zone the goal wants this card in, if it names one.
-    fn zone_of(&self, engine: &Engine, code: u32) -> Option<GoalZone> {
-        let db = engine.cards();
-        self.on_field.iter().find(|g| g.zone != GoalZone::Any && db.canonical_code(g.code) == db.canonical_code(code)).map(|g| g.zone)
-    }
-
-    pub fn reached(&self, hits: usize) -> bool {
-        self.is_set() && if self.all { hits == self.on_field.len() } else { hits > 0 }
-    }
-
-    /// The action picks or plays one of the wanted cards (summoning it,
-    /// choosing it in a list such as the Fusion Monsters offered).
-    fn involves(&self, engine: &Engine, action: &Action) -> bool {
-        let db = engine.cards();
-        action.card.is_some_and(|c| self.on_field.iter().any(|g| db.canonical_code(g.code) == db.canonical_code(c.code)))
-    }
-
-    /// What the answer does for the goal: picking a goal card brings it
-    /// closer, unless the choice sends the card away (a cost that banishes
-    /// it, a material).
-    fn pick(&self, engine: &Engine, decision: &Decision, state: &DuelState, action: &Action) -> GoalPick {
-        if !self.involves(engine, action) {
-            return GoalPick::Other;
-        }
-        let Some(card) = action.card.filter(|c| c.controller == 0 && sends_away(decision)) else {
-            return GoalPick::Toward;
-        };
-        // Copies of it still in your hand, Deck, Extra Deck or on the field.
-        let db = engine.cards();
-        let code = db.canonical_code(card.code);
-        let same = |c: u32| db.canonical_code(c) == code;
-        let me = &state.players[0];
-        let copies = me.hand.iter().filter(|&&c| same(c)).count()
-            + me.deck.iter().filter(|&&c| same(c)).count()
-            + me.extra.iter().filter(|&&(c, _)| same(c)).count()
-            + me.monsters.iter().chain(&me.spells).flatten().filter(|c| same(c.code)).count();
-        let wanted = self.on_field.iter().filter(|g| db.canonical_code(g.code) == code).count();
-        let in_play = card.location & (location::HAND | location::DECK | location::EXTRA | location::MZONE | location::SZONE) != 0;
-        GoalPick::Away { last: in_play && copies <= wanted }
-    }
-}
-
-/// What an answer does for the goal ([`Goal::pick`]).
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum GoalPick {
-    Toward,
-    /// `last`: no other copy is left to reach the goal with.
-    Away {
-        last: bool,
-    },
-    Other,
-}
-
-/// The engine's hint says the cards chosen leave: Tributed, discarded,
-/// destroyed, banished, sent to the GY or the Deck, used as Fusion, Synchro,
-/// Xyz or Link Material.
-fn sends_away(decision: &Decision) -> bool {
-    match decision {
-        Decision::SelectCard { hint, .. }
-        | Decision::SelectUnselectCard { hint, .. }
-        | Decision::SelectTribute { hint, .. }
-        | Decision::SelectSum { hint, .. } => matches!(hint, 500..=504 | 507 | 511..=513 | 533),
-        _ => false,
-    }
-}
-
 /// How to play a line again: every answer from the start, the automatic
 /// ones included, and the labels of the real choices among them.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -316,8 +179,10 @@ pub struct Board {
     pub cards_used: usize,
     /// A quick estimate until the real score is computed (Phase 5C).
     pub quick_score: f64,
-    /// Cards of the goal on the field.
+    /// Hard cards of the goal where they are wanted.
     pub goal_hits: usize,
+    /// Soft cards of the goal where they are wanted.
+    pub goal_soft: usize,
     pub found_after: Duration,
 }
 
@@ -373,9 +238,14 @@ pub struct SearchResult {
 impl SearchResult {
     /// `Some(true)` when a board reaches the goal, `Some(false)` when no
     /// line can (every line was tried, none lost to an engine error),
-    /// `None` while it is unknown.
+    /// `None` while it is unknown or there is nothing to reach (only soft
+    /// cards).
     pub fn goal_reached(&self, goal: &Goal) -> Option<bool> {
-        if self.boards.iter().any(|b| goal.reached(b.goal_hits)) {
+        if !goal.has_target() {
+            return None;
+        }
+        // Cards wanted off the field are only known once the End Phase is played.
+        if self.boards.iter().any(|b| goal.reached(b.goal_hits) && (b.exact || !goal.off_field())) {
             Some(true)
         } else if self.stop == Stop::Exhausted && self.interrupted == 0 {
             Some(false)
@@ -716,6 +586,7 @@ impl Shared<'_> {
     }
 
     fn board(&self, state: DuelState, line: Line, exact: bool) -> Board {
+        let hits = self.config.goal.hits(self.engine, &state);
         Board {
             key: board_key(&state),
             cards_used: cards_used(&self.config.hand, &state),
@@ -723,7 +594,8 @@ impl Shared<'_> {
                 .values
                 .read()
                 .map_or(0.0, |v| quick_score(self.engine, &state, &self.config.hand_traps, &v, self.config.opponent.as_ref())),
-            goal_hits: self.config.goal.hits(self.engine, &state),
+            goal_hits: hits.hard,
+            goal_soft: hits.soft,
             exact,
             line,
             state: Arc::new(state),
@@ -734,16 +606,25 @@ impl Shared<'_> {
 
 /// What the search steers by: the quick estimate, and the cards of the goal.
 fn estimate(board: &Board) -> f64 {
-    board.quick_score + 3.0 * board.goal_hits as f64
+    preferred(board) + 3.0 * board.goal_hits as f64
 }
 
-/// Best first: the goal, then a higher estimate, then fewer cards from the
-/// hand, then a shorter line; ties by the board's key, so the same search
-/// keeps the same boards.
+/// What a soft card of the goal adds to the estimate: less than a hard one,
+/// about what a card that stops something alone is worth.
+const SOFT_GOAL: f64 = 1.0;
+
+/// The quick estimate, with the soft cards of the goal.
+fn preferred(board: &Board) -> f64 {
+    board.quick_score + SOFT_GOAL * board.goal_soft as f64
+}
+
+/// Best first: the hard cards of the goal, then a higher estimate (with the
+/// soft ones), then fewer cards from the hand, then a shorter line; ties by
+/// the board's key, so the same search keeps the same boards.
 fn rank(a: &Board, b: &Board) -> CmpOrdering {
     b.goal_hits
         .cmp(&a.goal_hits)
-        .then(b.quick_score.total_cmp(&a.quick_score))
+        .then(preferred(b).total_cmp(&preferred(a)))
         .then(a.cards_used.cmp(&b.cards_used))
         .then(a.line.choices.len().cmp(&b.line.choices.len()))
         .then(a.key.cmp(&b.key))
@@ -1926,7 +1807,7 @@ fn play(shared: &Shared, edge: &Edge, dive: &mut Dive, copies: Option<&mut Copie
         if let (Decision::SelectPlace { .. }, Some(code)) = (&decision, placing) {
             let first = match config.goal.zone_of(shared.engine, code) {
                 Some(zone) => Some(zone == GoalZone::Extra),
-                None if config.goal.on_field.iter().any(|g| g.zone == GoalZone::Extra) => Some(false),
+                None if config.goal.wants_extra() => Some(false),
                 None => None,
             };
             if let Some(first) = first {
