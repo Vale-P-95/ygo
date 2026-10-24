@@ -2,7 +2,8 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import { useEffect, useRef } from "react";
 import { cardImage, type Card } from "../lib/api";
 import { pointerDownDraggable, type DropZone } from "../lib/drag";
-import { ATTRIBUTE_COLORS, frameColor } from "./CardDetails";
+import { frameColor } from "./CardDetails";
+import { AttributeIcon } from "./AttributeIcon";
 import { rarityCode, type TileBadge } from "./CardTile";
 
 const ROW = 62;
@@ -100,7 +101,7 @@ export function CardList({ ids, getCard, requestCards, version, onAdd, onOpen, o
                 </span>
                 {card && (
                   <span className="truncate text-xs text-muted">
-                    {card.attribute && <span style={{ color: ATTRIBUTE_COLORS[card.attribute] }}>{card.attribute} · </span>}
+                    {card.attribute && <><AttributeIcon attribute={card.attribute} className="inline h-3.5 w-3.5" /> · </>}
                     {subtitle(card)}
                   </span>
                 )}
