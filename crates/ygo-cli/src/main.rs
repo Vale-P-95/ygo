@@ -8,6 +8,7 @@
 //! - `sweep`: random duels between random decks, reporting any decision
 //!   that cannot be answered or any answer the engine rejects.
 
+use std::collections::HashMap;
 use std::io::{BufRead, Write};
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -30,6 +31,8 @@ struct Cli {
     command: Cmd,
 }
 
+// Parsed once: the size of the largest command's options does not matter.
+#[allow(clippy::large_enum_variant)]
 #[derive(Subcommand)]
 enum Cmd {
     /// Download or update card scripts and card databases with git.
@@ -165,6 +168,18 @@ enum Cmd {
         /// With --staged: runs counting the uses of a response in the cheap measure.
         #[arg(long, default_value_t = STAGED_ROUNDS)]
         staged_rounds: usize,
+        /// With --nodes: the best boards at 500, 1000, 2000... nodes on the
+        /// way and at the budget are measured too (each line once), so with
+        /// one thread more nodes keep what fewer measured.
+        #[arg(long)]
+        checkpoints: bool,
+        /// With --checkpoints and --staged: fields of each checkpoint given the cheap measure.
+        #[arg(long, default_value_t = CHECKPOINT_CHEAP)]
+        checkpoint_cheap: usize,
+        /// With --checkpoints: fields of each checkpoint given the full measure
+        /// (with --staged, the best by the cheap one).
+        #[arg(long, default_value_t = CHECKPOINT_FULL)]
+        checkpoint_full: usize,
         /// Measure the best N boards again at level 2 against the 3 most
         /// played decks of the meta, and list them by it (L2-3).
         #[arg(long, default_value_t = 0)]
@@ -399,6 +414,9 @@ fn main() -> Result<()> {
             staged_full,
             staged_windows,
             staged_rounds,
+            checkpoints,
+            checkpoint_cheap,
+            checkpoint_full,
             meta_final,
             meta_file,
             meta_decks,
@@ -429,6 +447,9 @@ fn main() -> Result<()> {
                     full: staged_full,
                     measure: ygo_solver::probe::Cheap { windows: staged_windows, use_rounds: staged_rounds },
                 }),
+                checkpoints,
+                checkpoint_cheap,
+                checkpoint_full,
                 meta: (meta_final > 0).then_some(MetaFinal { boards: meta_final, file: meta_file, decks: meta_decks }),
             },
         ),
@@ -497,6 +518,9 @@ struct CombosOptions {
     no_breakers: bool,
     quick_value: bool,
     staged: Option<Staged>,
+    checkpoints: bool,
+    checkpoint_cheap: usize,
+    checkpoint_full: usize,
     meta: Option<MetaFinal>,
 }
 
@@ -534,6 +558,42 @@ fn load_meta(dir: &Path, meta: &MetaFinal) -> Result<Vec<ygo_solver::MetaDeck>> 
         .collect())
 }
 
+/// The first checkpoint of `combos --checkpoints`, doubled up to the budget.
+const CHECKPOINT_FIRST: u64 = 500;
+/// Best boards the search copies at a checkpoint, for its first fields.
+const CHECKPOINT_BOARDS: usize = 1000;
+/// Fields of a checkpoint given the cheap measure, and of those the best
+/// by it given the full one (`--staged`).
+const CHECKPOINT_CHEAP: usize = 30;
+const CHECKPOINT_FULL: usize = 15;
+
+/// The checkpoints of `combos --checkpoints` for a budget of `nodes`:
+/// 500·2^k nodes below it, then `nodes`. Absolute, not shares of the
+/// budget: a search with 4000 nodes passes all those of one with 2000.
+fn checkpoint_stops(nodes: u64) -> Vec<u64> {
+    let mut stops: Vec<u64> = std::iter::successors(Some(CHECKPOINT_FIRST), |n| n.checked_mul(2)).take_while(|&n| n < nodes).collect();
+    stops.push(nodes);
+    stops
+}
+
+/// The first `top` fields of a search's boards, best first, each with its
+/// boards: boards with the same field (other zones, another hand, other
+/// cards in the GY) are variants of one, and each field is listed once, so
+/// the top boards are different fields.
+fn fields(boards: &[ygo_solver::Board], top: usize) -> Vec<(u64, Vec<ygo_solver::Board>)> {
+    let mut groups: Vec<(u64, Vec<ygo_solver::Board>)> = Vec::new();
+    for board in boards {
+        let key = ygo_solver::search::field_key(&board.state);
+        let open = groups.len() < top;
+        match groups.iter_mut().find(|(k, _)| *k == key) {
+            Some((_, g)) => g.push(board.clone()),
+            None if open => groups.push((key, vec![board.clone()])),
+            None => {}
+        }
+    }
+    groups
+}
+
 /// `combos --staged`: the cheap measure of the first `cheap` fields, then
 /// the full one of the best `full` by it.
 #[derive(Clone, Copy)]
@@ -564,6 +624,9 @@ fn combos(dir: &Path, setup: &Setup, options: CombosOptions) -> Result<()> {
         no_breakers,
         quick_value,
         staged,
+        checkpoints,
+        checkpoint_cheap,
+        checkpoint_full,
         meta,
     } = options;
     let (engine, deck, hand) = start(dir, setup)?;
@@ -643,6 +706,18 @@ fn combos(dir: &Path, setup: &Setup, options: CombosOptions) -> Result<()> {
     if config.hand.is_empty() {
         bail!("give --hand, or --card for \"card + rest\"");
     }
+    // With --checkpoints the search copies its best boards at 500·2^k nodes
+    // on the way, and the fields of every copy are measured too, each line
+    // once (docs/plans/monotonia-budget.md). With one thread a search with
+    // more nodes takes the same copies first: the best board measured gets
+    // worse with more nodes only through the boards of the phases after
+    // the search, which a longer search may not have.
+    let stops = match nodes {
+        Some(n) if checkpoints => checkpoint_stops(n),
+        _ => Vec::new(),
+    };
+    config.checkpoint_top = if stops.is_empty() { 0 } else { CHECKPOINT_BOARDS };
+    config.checkpoints = stops.clone();
     let mut last = 0;
     let result = ygo_solver::search(&engine, &config, &cancel, |p| {
         if p.elapsed.as_secs() >= last + 5 {
@@ -676,26 +751,11 @@ fn combos(dir: &Path, setup: &Setup, options: CombosOptions) -> Result<()> {
     );
     let db = engine.cards();
     let mut prober = ygo_solver::Prober::new(&engine, &config.deck, &config.hand, config.seed, &kit);
-    // Boards with the same field (other zones, another hand, other cards
-    // in the GY) are variants of one: each field is listed once, so the
-    // top boards are different fields. With --probe the first variants of
-    // the fields printed first are measured and the best measured one is
-    // shown.
-    let mut groups: Vec<(u64, Vec<&ygo_solver::Board>)> = Vec::new();
-    for board in &result.boards {
-        let key = ygo_solver::search::field_key(&board.state);
-        let open = groups.len() < top;
-        match groups.iter_mut().find(|(k, _)| *k == key) {
-            Some((_, g)) => g.push(board),
-            None if open => groups.push((key, vec![board])),
-            None => {}
-        }
-    }
     // Measured first: the boards are then printed best measured first (the
     // search's estimate next to it), as the Combo Lab ranks them; the JSON
     // and the saved lines keep the search's order, with the printed rank.
-    struct Listed<'a> {
-        board: &'a ygo_solver::Board,
+    struct Listed {
+        board: ygo_solver::Board,
         variants: usize,
         measured: Option<Result<ygo_solver::Measure, ygo_engine::Error>>,
         took: std::time::Duration,
@@ -705,106 +765,177 @@ fn combos(dir: &Path, setup: &Setup, options: CombosOptions) -> Result<()> {
         quick: Option<(f64, std::time::Duration)>,
         /// `measured` is the cheap measure only (`--staged`).
         cheap: bool,
+        /// The value of the field's cheap measure (`--staged`), for scripts.
+        cheap_value: Option<f64>,
     }
-    let value = |item: &Listed| {
-        item.measured.as_ref().and_then(|m| m.as_ref().ok()).filter(|_| !item.cheap).map(composite).unwrap_or(f64::NEG_INFINITY)
-    };
-    // What to measure: `probe`, without the breakers, the quick value too.
-    let how = (probe, no_breakers, quick_value);
-    fn measure<'a>(prober: &mut ygo_solver::Prober, how: (bool, bool, bool), board: &'a ygo_solver::Board, variants: usize) -> Listed<'a> {
-        let (probe, no_breakers, quick_value) = how;
-        let mut item = Listed {
-            board,
-            variants,
-            measured: None,
-            took: std::time::Duration::ZERO,
-            exposure: None,
-            loss: None,
-            quick: None,
-            cheap: false,
-        };
-        if probe {
-            let started = std::time::Instant::now();
-            item.measured = Some(if no_breakers { prober.measure_unbroken(&board.line) } else { prober.measure(&board.line) });
-            item.took = started.elapsed();
-            if quick_value {
-                let started = std::time::Instant::now();
-                item.quick = prober.quick_measure(&board.line).ok().map(|v| (v, started.elapsed()));
+    impl Listed {
+        fn new(board: &ygo_solver::Board, variants: usize) -> Self {
+            Listed {
+                board: board.clone(),
+                variants,
+                measured: None,
+                took: std::time::Duration::ZERO,
+                exposure: None,
+                loss: None,
+                quick: None,
+                cheap: false,
+                cheap_value: None,
             }
         }
-        item
+
+        /// The full measure's value, then the cheap one's: the best item of a field.
+        fn rank(&self) -> (f64, f64) {
+            let ok = self.measured.as_ref().and_then(|m| m.as_ref().ok());
+            let full = ok.filter(|_| !self.cheap).map(composite);
+            (full.unwrap_or(f64::NEG_INFINITY), ok.filter(|_| self.cheap).map(cheap_composite).unwrap_or(f64::NEG_INFINITY))
+        }
     }
-    let probe_started = std::time::Instant::now();
-    // The value of each field's cheap measure (`--staged`), for scripts.
-    let mut cheap_values: Vec<Option<f64>> = Vec::new();
-    let mut boards: Vec<Listed> = if let Some(staged) = staged {
-        // The cheap measure of the first fields in the search's order, then
-        // the full one of the best of them by it; the others keep the cheap
-        // one, and the fields past the first are not measured. The full
-        // measure goes on from the cheap one.
-        let mut partials = Vec::new();
-        let mut boards: Vec<Listed> = groups
-            .iter()
-            .enumerate()
-            .map(|(i, (_, group))| {
-                let mut item = measure(&mut prober, (false, false, false), group[0], group.len() - 1);
-                let mut partial = None;
-                if i < staged.cheap {
-                    let started = std::time::Instant::now();
-                    let cheap = prober.measure_cheap(&item.board.line, staged.measure);
-                    item.took = started.elapsed();
-                    item.measured = Some(cheap.map(|(m, p)| {
-                        partial = Some(p);
-                        m
-                    }));
-                    item.cheap = true;
-                }
-                partials.push(partial);
-                item
-            })
-            .collect();
-        let cheap_value = |item: &Listed| item.measured.as_ref().and_then(|m| m.as_ref().ok()).map(cheap_composite);
-        cheap_values = boards.iter().map(cheap_value).collect();
-        let mut order: Vec<usize> = (0..boards.len()).filter(|&i| cheap_value(&boards[i]).is_some()).collect();
-        order.sort_by(|&a, &b| cheap_value(&boards[b]).unwrap_or(0.0).total_cmp(&cheap_value(&boards[a]).unwrap_or(0.0)).then(a.cmp(&b)));
-        for &i in order.iter().take(staged.full) {
-            match partials[i].take() {
-                Some(partial) if !no_breakers => {
-                    let item = &mut boards[i];
-                    let started = std::time::Instant::now();
-                    item.measured = Some(prober.measure_resumed(&item.board.line, partial));
-                    item.took += started.elapsed();
-                    item.cheap = false;
-                    if quick_value {
+    type Answers = Vec<Vec<u8>>;
+    type Kept = Result<ygo_solver::Measure, String>;
+    /// A full measure, its time, the quick value and its time, and whether it went on from the cheap one.
+    type FullKept = (Kept, std::time::Duration, Option<(f64, std::time::Duration)>, bool);
+    /// The lines measured at the stops so far, by their answers: a line
+    /// listed again at a later stop is not measured again. A cheap measure
+    /// keeps what the full one goes on from.
+    struct Measurer<'p, 'e> {
+        prober: &'p mut ygo_solver::Prober<'e>,
+        /// `probe`, without the breakers, the quick value too.
+        how: (bool, bool, bool),
+        cheap: HashMap<Answers, (Kept, Option<ygo_solver::probe::Partial>, std::time::Duration)>,
+        full: HashMap<Answers, FullKept>,
+        again: usize,
+    }
+    fn unkept(kept: &Kept) -> Result<ygo_solver::Measure, ygo_engine::Error> {
+        kept.clone().map_err(ygo_engine::Error::Engine)
+    }
+    impl Measurer<'_, '_> {
+        fn cheap(&mut self, item: &mut Listed, how: ygo_solver::probe::Cheap) {
+            let key = &item.board.line.answers;
+            if !self.cheap.contains_key(key) {
+                let started = std::time::Instant::now();
+                let (measured, partial) = match self.prober.measure_cheap(&item.board.line, how) {
+                    Ok((m, p)) => (Ok(m), Some(p)),
+                    Err(e) => (Err(e.to_string()), None),
+                };
+                self.cheap.insert(key.clone(), (measured, partial, started.elapsed()));
+            } else {
+                self.again += 1;
+            }
+            let (measured, _, took) = &self.cheap[key];
+            item.measured = Some(unkept(measured));
+            item.took = *took;
+            item.cheap = true;
+            item.cheap_value = measured.as_ref().ok().map(cheap_composite);
+        }
+
+        /// The full measure (with `probe`), from the cheap one's runs when it was taken.
+        fn full(&mut self, item: &mut Listed) {
+            let (probe, no_breakers, quick_value) = self.how;
+            if !probe {
+                return;
+            }
+            let key = &item.board.line.answers;
+            if !self.full.contains_key(key) {
+                let line = &item.board.line;
+                let partial = self.cheap.get_mut(key).and_then(|c| c.1.take());
+                let started = std::time::Instant::now();
+                let (measured, resumed) = match partial {
+                    Some(partial) if !no_breakers => (self.prober.measure_resumed(line, partial), true),
+                    _ if no_breakers => (self.prober.measure_unbroken(line), false),
+                    _ => (self.prober.measure(line), false),
+                };
+                let took = started.elapsed();
+                let quick = quick_value
+                    .then(|| {
                         let started = std::time::Instant::now();
-                        item.quick = prober.quick_measure(&item.board.line).ok().map(|v| (v, started.elapsed()));
+                        self.prober.quick_measure(line).ok().map(|v| (v, started.elapsed()))
+                    })
+                    .flatten();
+                self.full.insert(key.clone(), (measured.map_err(|e| e.to_string()), took, quick, resumed));
+            } else {
+                self.again += 1;
+            }
+            let (measured, took, quick, resumed) = &self.full[key];
+            item.measured = Some(unkept(measured));
+            // Going on from the cheap measure, the time is both's.
+            item.took = if *resumed && item.cheap { item.took + *took } else { *took };
+            item.quick = *quick;
+            item.cheap = false;
+        }
+
+        /// The fields of one stop, measured as `combos` measures the fields
+        /// of a search: with `staged`, the cheap measure of the first fields
+        /// and the full one of the best by it; else the full one of all.
+        /// With `probe`, the other variants of the best fields too.
+        fn stop(&mut self, groups: &[(u64, Vec<ygo_solver::Board>)], staged: Option<Staged>) -> Vec<Listed> {
+            let mut items: Vec<Listed> = groups.iter().map(|(_, group)| Listed::new(&group[0], group.len() - 1)).collect();
+            match staged {
+                Some(staged) => {
+                    for item in items.iter_mut().take(staged.cheap) {
+                        self.cheap(item, staged.measure);
+                    }
+                    let mut order: Vec<usize> = (0..items.len()).filter(|&i| items[i].cheap_value.is_some()).collect();
+                    order.sort_by(|&a, &b| {
+                        items[b].cheap_value.unwrap_or(0.0).total_cmp(&items[a].cheap_value.unwrap_or(0.0)).then(a.cmp(&b))
+                    });
+                    for &i in order.iter().take(staged.full) {
+                        self.full(&mut items[i]);
                     }
                 }
-                _ => boards[i] = measure(&mut prober, how, groups[i].1[0], groups[i].1.len() - 1),
-            }
-        }
-        boards
-    } else {
-        groups.iter().map(|(_, group)| measure(&mut prober, how, group[0], group.len() - 1)).collect()
-    };
-    if probe {
-        // The other variants only for the fields printed first: they decide
-        // the top of the list, and each variant is a probe turn more. A field
-        // only gains from them, so these fields stay first.
-        let mut first: Vec<usize> = (0..boards.len()).collect();
-        first.sort_by(|&a, &b| value(&boards[b]).total_cmp(&value(&boards[a])).then(a.cmp(&b)));
-        for &i in first.iter().take(FIELDS_WITH_VARIANTS) {
-            if boards[i].cheap || boards[i].measured.is_none() {
-                continue;
-            }
-            let group = &groups[i].1;
-            for &board in group.iter().skip(1).take(MEASURED_VARIANTS - 1) {
-                let item = measure(&mut prober, how, board, group.len() - 1);
-                if value(&item) > value(&boards[i]) {
-                    boards[i] = item;
+                None => {
+                    for item in &mut items {
+                        self.full(item);
+                    }
                 }
             }
+            if self.how.0 {
+                // The other variants only for the fields printed first: they decide
+                // the top of the list, and each variant is a probe turn more. A field
+                // only gains from them, so these fields stay first.
+                let mut first: Vec<usize> = (0..items.len()).collect();
+                first.sort_by(|&a, &b| items[b].rank().0.total_cmp(&items[a].rank().0).then(a.cmp(&b)));
+                for &i in first.iter().take(FIELDS_WITH_VARIANTS) {
+                    if items[i].cheap || items[i].measured.is_none() {
+                        continue;
+                    }
+                    let group = &groups[i].1;
+                    for board in group.iter().skip(1).take(MEASURED_VARIANTS - 1) {
+                        let mut item = Listed::new(board, group.len() - 1);
+                        self.full(&mut item);
+                        if item.rank().0 > items[i].rank().0 {
+                            item.cheap_value = items[i].cheap_value;
+                            items[i] = item;
+                        }
+                    }
+                }
+            }
+            items
         }
+    }
+    let probe_started = std::time::Instant::now();
+    let mut measurer =
+        Measurer { prober: &mut prober, how: (probe, no_breakers, quick_value), cheap: HashMap::new(), full: HashMap::new(), again: 0 };
+    // The checkpoints with their own numbers of fields measured: those of a
+    // checkpoint do not depend on the budget.
+    let at_checkpoint = staged.map(|s| Staged { cheap: checkpoint_cheap, full: checkpoint_full, ..s });
+    let checkpoint_fields = if staged.is_some() { top.max(checkpoint_cheap) } else { checkpoint_full };
+    let at_stops: Vec<Vec<Listed>> =
+        result.checkpoints.iter().map(|(_, boards)| measurer.stop(&fields(boards, checkpoint_fields), at_checkpoint)).collect();
+    let groups = fields(&result.boards, top);
+    let mut boards = measurer.stop(&groups, staged);
+    let measured_again = measurer.again;
+    // The fields of the search's end in its order, then those measured
+    // only at a checkpoint; a field measured better at a checkpoint
+    // (another line, another variant) keeps that measure.
+    for item in at_stops.into_iter().flatten().filter(|item| item.measured.is_some()) {
+        let key = ygo_solver::search::field_key(&item.board.state);
+        match boards.iter().position(|b| ygo_solver::search::field_key(&b.board.state) == key) {
+            Some(j) if item.rank() > boards[j].rank() => boards[j] = item,
+            Some(_) => {}
+            None => boards.push(item),
+        }
+    }
+    if probe {
         for item in boards.iter_mut().filter(|item| !item.cheap && item.measured.is_some()) {
             let points = ygo_solver::explain::exposure_points(
                 &engine,
@@ -818,6 +949,14 @@ fn combos(dir: &Path, setup: &Setup, options: CombosOptions) -> Result<()> {
             item.exposure = points.as_ref().map(|(x, _)| *x);
             item.loss = points.and_then(|(x, points)| expected_loss(&mut prober, &item.board.line, &x, &points));
         }
+    }
+    if !stops.is_empty() {
+        println!(
+            "checkpoints: {} of {} nodes passed, {} measures taken from another list",
+            result.checkpoints.len(),
+            stops.iter().map(u64::to_string).collect::<Vec<_>>().join(", "),
+            measured_again
+        );
     }
     let probe_seconds = probe_started.elapsed().as_secs_f64();
     if probe {
@@ -876,7 +1015,7 @@ fn combos(dir: &Path, setup: &Setup, options: CombosOptions) -> Result<()> {
         rank_of[i] = rank;
     }
     for (rank, &i) in printed.iter().enumerate() {
-        let Listed { board, variants, measured, took, exposure, loss, quick, cheap } = &boards[i];
+        let Listed { board, variants, measured, took, exposure, loss, quick, cheap, .. } = &boards[i];
         let variants = *variants;
         let me = &board.state.players[0];
         let zone = |(z, c): (usize, &ygo_engine::FieldCard)| {
@@ -974,7 +1113,7 @@ fn combos(dir: &Path, setup: &Setup, options: CombosOptions) -> Result<()> {
     for (i, item) in boards.iter().enumerate() {
         if probe {
             let measured = item.measured.as_ref().and_then(|m| m.as_ref().ok());
-            let mut b = board_json(&engine, &config, item.board, i, item.variants, measured, item.took, item.exposure.as_ref());
+            let mut b = board_json(&engine, &config, &item.board, i, item.variants, measured, item.took, item.exposure.as_ref());
             b["printed"] = serde_json::json!(rank_of[i]);
             if staged.is_some() {
                 b["stage"] = serde_json::json!(match (&item.measured, item.cheap) {
@@ -982,7 +1121,7 @@ fn combos(dir: &Path, setup: &Setup, options: CombosOptions) -> Result<()> {
                     (Some(_), true) => "cheap",
                     (Some(_), false) => "full",
                 });
-                b["cheap_value"] = serde_json::json!(cheap_values.get(i).copied().flatten());
+                b["cheap_value"] = serde_json::json!(item.cheap_value);
             }
             if let Some(m) = &metas[i] {
                 b["printed_by_measure"] = serde_json::json!(by_measure[i]);

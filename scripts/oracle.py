@@ -17,6 +17,8 @@ not in --decks is skipped.
     python3 scripts/oracle.py fixtures /tmp/oracle tests/fixtures/oracle
     # the normal search against them
     python3 scripts/oracle.py measure tests/fixtures/oracle /tmp/oracle-measure --decks /tmp/mdm
+    # the lists the fixtures were searched with, when the Master Duel Meta lists of today are others
+    python3 scripts/oracle.py decks tests/fixtures/oracle /tmp/oracle-decks
 
 `build` runs `duelforge-cli combos --probe --json --save-lines` for each
 hand and seed, with NODES x MULT nodes on one thread (the same boards on any
@@ -139,10 +141,12 @@ def value(measure):
     return sum(w * v for w, v in zip(WEIGHTS, parts)) + follow_up_value(measure)
 
 
-def run(cli, case, nodes, out_json, out_lines=None, threads=1, top=TOP, staged=None):
+def run(cli, case, nodes, out_json, out_lines=None, threads=1, top=TOP, staged=None, extra=(), timing=None):
     """One `combos` run; the search seconds, or None when it failed. With
     `staged` (cheap, full): the cheap measure of the first `cheap` fields by
-    the estimate, then the full one of the best `full` by it (B14)."""
+    the estimate, then the full one of the best `full` by it (B14). `extra`:
+    more options for combos (e.g. --checkpoints). With `timing`, the search
+    seconds and the whole run's go to that file."""
     _, deck, hand, seed, goal = case
     if staged and goal:
         # The boards reaching the goal are listed first: the full measure of
@@ -158,13 +162,19 @@ def run(cli, case, nodes, out_json, out_lines=None, threads=1, top=TOP, staged=N
         command += ["--save-lines", out_lines]
     if goal:
         command += ["--goal", goal]
+    command += list(extra)
+    started = time.time()
     r = subprocess.run(command, capture_output=True, text=True)
+    wall = time.time() - started
     head = next((l for l in r.stdout.splitlines() if l.startswith(("NodeLimit", "TimeLimit", "Exhausted"))), "")
     m = re.search(r"after ([\d.]+) s", head)
     if r.returncode != 0 or not os.path.exists(out_json):
         sys.stderr.write(f"{case[0]}: combos failed ({r.returncode}): {r.stderr[-500:]}\n")
         return None
-    return float(m.group(1)) if m else -1.0
+    secs = float(m.group(1)) if m else -1.0
+    if timing:
+        json.dump({"seconds": secs, "wall": wall}, open(timing, "w"))
+    return secs
 
 
 def goal_reached(field, goal):
@@ -197,6 +207,47 @@ def staged(a):
 def matches(only, hid):
     """`hid` is one of the hands `--only` names (any of its comma-separated parts)."""
     return any(part in hid for part in only.split(","))
+
+
+def cmd_decks(a):
+    """The lists the fixtures were searched with, found by their deck_hash
+    among the last --limit top decks of Master Duel Meta (the lists change
+    from day to day, and a hand whose cards left the list does not play).
+    Written as mdm_decks.py writes them."""
+    import urllib.request
+    want = {}
+    for f in sorted(os.listdir(a.fixtures)):
+        if f.endswith(".json"):
+            fx = json.load(open(os.path.join(a.fixtures, f)))
+            if fx.get("deck_hash"):
+                want[fx["deck_hash"]] = os.path.basename(fx["deck"])
+    url = f"https://www.masterduelmeta.com/api/v1/top-decks?sort=-created&limit={a.limit}"
+    request = urllib.request.Request(url, headers={"User-Agent": "DuelForge deck tests"})
+    with urllib.request.urlopen(request, timeout=300) as response:
+        decks = json.load(response)
+    db = sqlite3.connect(os.path.join(ROOT, "data", "cards.db"))
+    os.makedirs(a.out, exist_ok=True)
+    found = {}
+    for deck in decks:
+        parts = {"main": [], "extra": []}
+        for part, cards in parts.items():
+            for entry in deck.get(part, []):
+                row = db.execute("select id from cards where lower(name) = lower(?)", (entry["card"]["name"],)).fetchone()
+                if row:
+                    cards.extend([row[0]] * entry["amount"])
+        text = "#main\n" + "\n".join(map(str, parts["main"])) + "\n#extra\n" + "\n".join(map(str, parts["extra"])) + "\n!side\n"
+        path = os.path.join(a.out, ".candidate.ydk")
+        open(path, "w").write(text)
+        h = deck_hash(path)
+        if h in want and h not in found:
+            found[h] = want[h]
+            os.replace(path, os.path.join(a.out, want[h]))
+    if os.path.exists(os.path.join(a.out, ".candidate.ydk")):
+        os.remove(os.path.join(a.out, ".candidate.ydk"))
+    print(f"{len(decks)} top decks read; {len(found)} of {len(want)} lists found")
+    left = sorted(set(want.values()) - set(found.values()))
+    if left:
+        print("not found (a larger --limit, or a deck of tests/fixtures/decks): " + ", ".join(left))
 
 
 def cmd_hands(a):
@@ -352,6 +403,9 @@ def cmd_measure(a):
         deck = os.path.join(ROOT, fx["deck"]) if os.path.exists(os.path.join(ROOT, fx["deck"])) else os.path.join(a.decks, fx["deck"])
         if not os.path.exists(deck):
             deck = os.path.join(a.decks, os.path.basename(fx["deck"]))
+        if not os.path.exists(deck):
+            sys.stderr.write(f"{fx['id']}: {fx['deck']} is not in --decks; left out\n")
+            return None
         if fx.get("deck_hash") and deck_hash(deck) != fx["deck_hash"]:
             sys.stderr.write(f"{fx['id']}: {deck} is not the list the oracle searched; its numbers do not compare\n")
         case = (fx["id"], deck, ";".join(map(str, fx["hand"])), fx["seed"], fx["goal"])
@@ -364,19 +418,18 @@ def cmd_measure(a):
             if os.path.exists(out) and os.path.exists(timing):
                 secs = json.load(open(timing))["seconds"]
             else:
-                secs = run(a.cli, case, nodes, out)
-                if secs is not None:
-                    json.dump({"seconds": secs}, open(timing, "w"))
+                secs = run(a.cli, case, nodes, out, staged=staged(a), extra=a.combos_args.split(), timing=timing)
             if secs is None:
                 steps.append({"nodes": nodes, "failed": True})
                 continue
+            wall = json.load(open(timing)).get("wall")
             found = boards_of(out, fx["goal"])
             listed = sorted(boards_of(out, fx["goal"]), key=lambda b: b[1].get("printed", 99))
             keys = [i["look_key"] for _, i in listed]
             # The oracle's board itself, and the first board as good (boards
             # can differ in what the measure does not value).
             as_good = next((k + 1 for k, (v, _) in enumerate(listed) if v >= 0.99 * oracle_value), None)
-            steps.append({"nodes": nodes, "seconds": secs, "best": found[0][0] if found else 0.0,
+            steps.append({"nodes": nodes, "seconds": secs, "wall": wall, "best": found[0][0] if found else 0.0,
                           "oracle_rank": keys.index(oracle_key) + 1 if oracle_key in keys else None, "as_good_rank": as_good})
         reach = {}
         for frac in (0.9, 0.95, 1.0):
@@ -387,7 +440,7 @@ def cmd_measure(a):
                 "stable": stable}
 
     with cf.ThreadPoolExecutor(a.jobs) as ex:
-        results = list(ex.map(one, fixtures))
+        results = [r for r in ex.map(one, fixtures) if r]
     json.dump(results, open(os.path.join(a.out, "measure.json"), "w"), indent=1)
     print(f"{'hand':34} {'oracle':>7} " + " ".join(f"{b:>8}" for b in budgets) + "   90%    95%   100%  same  as good")
     for r in results:
@@ -405,6 +458,26 @@ def cmd_measure(a):
         print(f"\n{at95}/{n} hands reach 95% of the oracle within {last} nodes; in the top 3 at {last} nodes: "
               f"the oracle's board in {top3}/{n}, a board as good (99%) in {good3}/{n}")
         report_groups(results, budgets)
+        report_drops(results, budgets)
+
+
+def report_drops(results, budgets):
+    """The hands whose best board measured gets worse by over 1% from a
+    budget to the next one (docs/plans/monotonia-budget.md, E-c2), and the
+    seconds of the whole runs at each budget."""
+    drops = []
+    for r in results:
+        steps = [s for s in r["steps"] if not s.get("failed")]
+        worst = min(((b["best"] - a["best"]) / a["best"] for a, b in zip(steps, steps[1:]) if a["best"] > 0), default=0.0)
+        if worst < -0.01:
+            drops.append((r["id"], worst))
+    print(f"\n{len(drops)}/{len(results)} hands get worse by over 1% from a budget to the next"
+          + (": " + ", ".join(f"{h} {w:+.0%}" for h, w in sorted(drops, key=lambda d: d[1])) if drops else ""))
+    walls = []
+    for i in range(len(budgets)):
+        vals = [r["steps"][i].get("wall") for r in results if i < len(r["steps"]) and not r["steps"][i].get("failed")]
+        walls.append(f"{sum(v for v in vals if v):.0f}" if all(vals) and vals else "-")
+    print(f"{'run seconds':12} " + " ".join(f"{w:>7}" for w in walls))
 
 
 def share(r, i):
@@ -586,6 +659,10 @@ def cmd_lines(a):
 def main():
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = p.add_subparsers(dest="cmd", required=True)
+    dk = sub.add_parser("decks", help="find the lists the fixtures were searched with")
+    dk.add_argument("fixtures")
+    dk.add_argument("out")
+    dk.add_argument("--limit", type=int, default=3000, help="most recent top decks to read")
     h = sub.add_parser("hands", help="list the fixed set of hands")
     h.add_argument("--decks", required=True)
     b = sub.add_parser("build", help="the long runs")
@@ -628,9 +705,11 @@ def main():
     m.add_argument("--budgets", default="1000,2000,4000,8000")
     m.add_argument("--jobs", type=int, default=4)
     m.add_argument("--only", default="")
+    m.add_argument("--staged", help="CHEAP,FULL: measure as combos --staged (default: the full measure of the first 10)")
+    m.add_argument("--combos-args", default="", help="more options for combos, as one string (e.g. \"--checkpoints\")")
     m.add_argument("--cli", default=os.path.join(ROOT, "target", "release", "duelforge-cli"))
     a = p.parse_args()
-    {"hands": cmd_hands, "build": cmd_build, "fixtures": cmd_fixtures, "measure": cmd_measure, "converge": cmd_converge,
+    {"decks": cmd_decks, "hands": cmd_hands, "build": cmd_build, "fixtures": cmd_fixtures, "measure": cmd_measure, "converge": cmd_converge,
      "lines": cmd_lines, "as-hunt": cmd_as_hunt, "disagree": cmd_disagree}[a.cmd](a)
 
 

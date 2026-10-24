@@ -103,6 +103,14 @@ pub struct SearchConfig {
     /// from the longest copy of it instead of replaying it from the start
     /// of the duel (0: replay every line).
     pub copies_mb: usize,
+    /// Nodes at which the best boards are copied on the way
+    /// ([`SearchResult::checkpoints`]); it does not change the search.
+    /// With one thread a copy is taken at the same node in any search
+    /// that gets there, so the boards a longer search copies hold those
+    /// of a shorter one.
+    pub checkpoints: Vec<u64>,
+    /// Best boards copied at each checkpoint.
+    pub checkpoint_top: usize,
 }
 
 impl SearchConfig {
@@ -130,6 +138,8 @@ impl SearchConfig {
             coverage: false,
             // DUELFORGE_COPIES_MB to measure with another cap.
             copies_mb: std::env::var("DUELFORGE_COPIES_MB").ok().and_then(|n| n.parse().ok()).unwrap_or(64),
+            checkpoints: Vec::new(),
+            checkpoint_top: 0,
         }
     }
 }
@@ -233,6 +243,10 @@ pub struct SearchResult {
     pub frontier: Frontier,
     /// What the search did with each action of your cards, when asked.
     pub coverage: Option<Coverage>,
+    /// The best boards at each of [`SearchConfig::checkpoints`] the search
+    /// got past, with its nodes then: before the phases after the search,
+    /// best first.
+    pub checkpoints: Vec<(u64, Vec<Board>)>,
 }
 
 impl SearchResult {
@@ -395,6 +409,8 @@ struct Shared<'a> {
     idle_strikes: Mutex<HashMap<u32, u32>>,
     /// Where the work goes (`DUELFORGE_SEARCH_STATS`): `None` otherwise.
     stats: Option<stats::Stats>,
+    /// The best boards at the checkpoints passed ([`SearchConfig::checkpoints`]).
+    checkpoints: Mutex<Vec<(u64, Vec<Board>)>>,
 }
 
 struct Queue {
@@ -452,6 +468,26 @@ impl Shared<'_> {
         self.check_time();
         if self.nodes.load(Ordering::Relaxed) >= self.config.max_nodes {
             self.set_stop(Stop::NodeLimit);
+        }
+    }
+
+    /// Copies the best boards once the nodes got past the next of
+    /// [`SearchConfig::checkpoints`]: between two edges, where the budget
+    /// of nodes is checked, so with one thread at the same node as a search
+    /// with that budget stops.
+    fn checkpoint(&self) {
+        let checkpoints = &self.config.checkpoints;
+        let nodes = self.nodes.load(Ordering::Relaxed);
+        let Ok(mut taken) = self.checkpoints.lock() else { return };
+        if checkpoints.get(taken.len()).is_none_or(|&c| nodes < c) {
+            return;
+        }
+        let mut best: Vec<Board> = self.boards.lock().map(|b| b.values().cloned().collect()).unwrap_or_default();
+        best.sort_by(rank);
+        best.truncate(self.config.checkpoint_top);
+        // Past more than one at once: the same boards for each.
+        while checkpoints.get(taken.len()).is_some_and(|&c| nodes >= c) {
+            taken.push((nodes, best.clone()));
         }
     }
 
@@ -1900,6 +1936,9 @@ fn run_workers(shared: &Shared, threads: usize, mut progress: impl FnMut(&Progre
                     }
                     shared.done_with_edge();
                     shared.check_limits();
+                    // Before the round of learning: a search that stops
+                    // here does not learn either.
+                    shared.checkpoint();
                     let learning = Instant::now();
                     learn(shared);
                     if let Some(stats) = &shared.stats {
@@ -2286,6 +2325,7 @@ pub fn resume(
         copies: Mutex::default(),
         idle_strikes: Mutex::default(),
         stats: std::env::var_os("DUELFORGE_SEARCH_STATS").map(|_| stats::Stats::default()),
+        checkpoints: Mutex::default(),
     };
     if !started {
         shared.push(vec![NewEdge {
@@ -2358,7 +2398,8 @@ pub fn resume(
         values: shared.values.into_inner().ok(),
         measured: shared.measured.into_inner().unwrap_or_else(|e| e.into_inner()),
     };
-    SearchResult { boards: sorted, progress: final_progress, stop, interrupted, frontier, coverage }
+    let checkpoints = shared.checkpoints.into_inner().unwrap_or_else(|e| e.into_inner());
+    SearchResult { boards: sorted, progress: final_progress, stop, interrupted, frontier, coverage, checkpoints }
 }
 
 /// Where the work of a search goes (`DUELFORGE_SEARCH_STATS`, plan A2 of
