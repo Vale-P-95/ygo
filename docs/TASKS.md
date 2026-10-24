@@ -6,6 +6,7 @@ Le righe storiche con Gemini restano come cronologia; il contratto (`lib.rs`, `a
 Regole in `AGENTS.md`. Per prendere un task, spostalo in "In corso" con agente, branch e file che tocchi (è il lock), poi committa e pusha questa modifica prima di cominciare.
 
 ## In corso
+- [x] **Andare secondo, passo 1: la board avversaria risponde** (`docs/plans/andare-secondo.md`, limite 1; claude-code, thread «Far rispondere la board avversaria», branch `claude/second-responses`, PR aperta il 24/10). Nel mio turno l'avversario attiva solo gli effetti che la misura della sua board ha trovato come interruzioni (`AutoPolicy::opponent_responders`), mirando alle mie carte; il resto passivo. Sulle 3 coppie resta di più (con breaker 9/0/57% → 22/9/72%, senza 60/28/80% → 56/59/83%) e le mani con breaker lasciano ancora meno; `search_regression` invariata. Restano la Battle Phase (passo 2) e l'interfaccia.
 - [x] **Regole del motore sul banco congelato** (claude-code, thread «Definire regole affidabili per validare il motore», branch `claude/project-thread-l89lfs`, PR aperta il 24/10; `docs/plans/regole-motore.md`). `tests/fixtures/banco-motore/v1` (63 liste, 193 mani, `rules.json`), `scripts/banco.py` (`run`, `same`, `judge`), `bench.yml` con `bench: banco-*`; AGENTS.md, CLAUDE.md e skill aggiornati. Lock tolto.
   - [ ] Primo giro `main` contro `main` (determinismo, tempi, larghezza degli intervalli).
   - [ ] Verità v1 per la classe M (§4).

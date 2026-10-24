@@ -253,6 +253,7 @@ Resta la memoria operativa nei giorni con coordinatrice; altrimenti si aggiorna 
    - [fatto il 24/10] il Monte Carlo guidato dal motore nella CLI (`engine-mc`, idea 4): 200 mani costano 4-8 minuti su 4 core (5-9 s per mano), uno scambio di una copia circa 30 s grazie alla cache; scrive `out/engine-mc/summary.txt`. Oltre le 400 mani o con `--climb` lungo va in background;
    - il simulatore (#36): mockup prima;
    - [fatto il 24/10] andare secondo, prototipo CLI `break-board` (idea 5 di `idee-nuove.md`, Opus alto): una sessione, contesto sotto 100k, prove su 3 coppie in pochi minuti di CPU.
+   - [fatto il 24/10] andare secondo, passo 1: la board avversaria risponde con le sue interruzioni misurate (Opus alto, una sessione, contesto sotto 100k; le 3 coppie prima e dopo in 4 minuti di CPU con `--passive`).
    - [fatto il 24/10] classifica per interazione a fine turno, CLI `combos --interaction` (richiesta di Valerio, Opus): solo CLI, misura invariata, una prova da pochi secondi; contesto sotto 100k.
 
 ## 10bis. Decisione sul merge (23/10)
