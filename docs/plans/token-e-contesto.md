@@ -64,7 +64,7 @@ Mai `Read` senza `offset`/`limit` su: `docs/PIANO.md`, `docs/TASKS.md`, `docs/pl
 - Una PR che si allarga oltre il brief si ferma e si divide: la parte nuova è un altro brief.
 
 ## 4. Modifiche di questo documento ai file di regole
-- `CLAUDE.md`: sezione «Contesto» riscritta con i punti 3.1-3.4 in forma compatta;.
+- `CLAUDE.md`: sezione «Contesto» riscritta con i punti 3.1-3.6 in forma compatta.
 - `.claude/settings.json`: `CLAUDE_AUTOCOMPACT_PCT_OVERRIDE`, `BASH_MAX_OUTPUT_LENGTH` e `MAX_MCP_OUTPUT_TOKENS` a valori più bassi; divieto di `Read` su `target/` e `node_modules/`.
 - `AGENTS.md`, «Inizio sessione»: legge l'intestazione di `docs/TASKS.md` e cerca il proprio tema, non il file intero.
 - `.claude/skills/brief/SKILL.md`: «Da leggere» indica sezioni, non documenti.
