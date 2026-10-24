@@ -6,6 +6,8 @@ Le righe storiche con Gemini restano come cronologia; il contratto (`lib.rs`, `a
 Regole in `AGENTS.md`. Per prendere un task, spostalo in "In corso" con agente, branch e file che tocchi (è il lock), poi committa e pusha questa modifica prima di cominciare.
 
 ## In corso
+- [x] **B13, turno di prova e giri di apprendimento dalle copie del duello** (claude-code, thread «Portare l'arena nel turno di prova», branch `claude/project-thread-0b7e7s`, PR aperta il 24/10). Ogni prober tiene il suo duello in un'arena e una copia dove comincia il turno dell'avversario; le run dopo la prima della stessa linea rigiocano solo il turno dell'avversario. combo_hunt 80 mani: turni di prova 1213 → 654 s (−46%), ricerca 300 → 232 s (−23%, i giri di apprendimento), board identiche (a parte l'ultima cifra di `countered`, come tra due giri di `main`); `paired_test.py` 80 pari e banco 14 pari, ACCEPTED. Dettagli in `docs/plans/velocita-ricerca.md`. Lock tolto.
+  - [ ] Restano senza copie le run del livello 2 col tuo script (`Prelude::Own`, `--vs --moves`) e i valori delle carte piazzate (un duello per posto): tempo invariato.
 - [x] **Sistema di design (piano ambiente §10 punto 6)** (claude-code, thread «Costruire il sistema di design», branch `claude/project-thread-cc5k7p`, PR aperta il 24/10): pagina `/galleria` solo in modo mock (16 schede, due temi affiancati, stati vuoto, caricamento, errore, dati), anteprime generate in `apps/desktop/design/` con `@dsCard` e `pnpm design` (`scripts/design-export.mjs`), anteprima Artifact https://claude.ai/artifact/UQsPmQuirQoVtSeUgoZxG9. Decisioni e prossimi passi in `docs/plans/sistema-di-design.md`. Lock tolto all'apertura della PR.
   - [ ] Primo `/design-sync` verso il progetto «Sistema di design DuelForge»: lo lancia l'utente.
 Stato al 23/10/2026: è ancora in corso la corsia 6 (A1b, branch `claude/oracle-a1b`) e la PR #118 di Gemini (passo 5 dell'interfaccia, in revisione, la sua ultima). Il resto del 23/10 è fatto o in pausa (voci in "Da fare").
@@ -289,10 +291,10 @@ Corsie di lavoro in parallelo del 22/10/2026 (piano in `docs/plans/piano-prossim
     - [x] B13, PR 1 (corsia 2, PR #72): arena di memoria per duello e `Duel::save`/`restore` col lato Rust. File: `crates/ygo-engine/shim/arena.cpp` (al posto di `new.cpp`), `build.rs`, `src/duel.rs`, `src/ffi.rs`, `src/lib.rs`, `tests/arena.rs`, `.github/workflows/ci.yml` (job Windows del motore).
     - [x] B13, PR 2 (corsia 2, PR #84): le discese della ricerca partono dalla copia più lunga della loro linea (64 MB per thread, `copies_mb`); controllo con `DUELFORGE_COPY_CHECK=n`. Ricerca −32% sul banco, board identiche. File: `crates/ygo-solver/src/search.rs`, `coverage.rs`, `tests/search_regression.rs`, `crates/ygo-engine/shim/arena.cpp`, `shim/compile.cpp`, `src/duel.rs`.
     - [x] B13, fasi dopo la ricerca (corsia 2, PR #104).
-    - [ ] B13, dopo: turno di prova e giri di apprendimento (passano da `probe.rs`, dopo le corsie 4 e 8).
+    - [x] B13, dopo: turno di prova e giri di apprendimento (passano da `probe.rs`): fatto il 24/10, voce in «In corso».
     - [x] Caccia ai bug, punto 1, prima parte (corsia 2): fasi dopo la ricerca in proporzione alle board. Il rappresentante con un criterio fisso è misurato e non tenuto (`velocita-ricerca.md`); resta aperto un rappresentante scelto con la misura.
     - [x] Caccia ai bug, punto 2 (tabella delle trasposizioni): misurata, non tenuta.
-    - [x] Caccia ai bug punti 3, 5 e 6 (§11 del piano): 3 non tenuto, 5 tenuto, 6 in parte. L'arena nel turno di prova resta in coda, con la misura della memoria delle arene.
+    - [x] Caccia ai bug punti 3, 5 e 6 (§11 del piano): 3 non tenuto, 5 tenuto, 6 in parte. L'arena nel turno di prova è entrata il 24/10 (VmHWM di un `combos` a 4 thread 570 → 512 MB).
   - [ ] B1a, B2, B2b, B3, B1b-c, poi B8 (motore e contratto), B10, B11, B16, B4. Corsia 2, una PR l'una.
   - [x] B4a (corsia 2): nel modo obiettivo una carta dell'obiettivo scelta dove il motore la manda via (costo, materiale, scarto) va per ultima, e perde priorità se era l'ultima copia. Obiettivo Invoked «Oceanus + S:P» da 0/4 a 4/4 mani in 60 s, con Oceanus nella Zona Mostri Extra anche. File: `crates/ygo-solver/src/search.rs`, `tests/search_regression.rs`.
   - [ ] B5a (attrito avversario, caso Aeon), B14 (quali board misurare), B5b-d, B9. Coordinatore, dopo D17.

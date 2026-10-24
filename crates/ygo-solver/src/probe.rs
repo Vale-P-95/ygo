@@ -19,13 +19,15 @@
 //! Everything is measured in "interruptions": 1.0 is negating the
 //! activation of any card and destroying it, once, without targeting.
 
+use std::cell::{Cell, RefCell};
 use std::collections::{HashMap, HashSet};
-use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::{Arc, OnceLock};
 
 use ygo_engine::auto::passive_answer;
 use ygo_engine::consts::{hint, location, position, reason};
 use ygo_engine::{
-    Action, ActionKind, CardDb, CardRef, Decision, DeckList, Duel, DuelState, Engine, Error, Event, Opponent, Placement, Step,
+    Action, ActionKind, CardDb, CardRef, Decision, DeckList, Duel, DuelState, Engine, Error, Event, Opponent, Placement, SavedDuel, Step,
 };
 
 use crate::explain::{ChokeKind, ChokePoint};
@@ -1008,7 +1010,7 @@ struct RunTrace {
 }
 
 /// Follows the events of a run to tell what each use of the responder did.
-#[derive(Default)]
+#[derive(Default, Clone)]
 struct Observer {
     /// Chain link -> controller and code.
     links: HashMap<u32, (u8, u32)>,
@@ -1247,6 +1249,126 @@ pub struct Prober<'a> {
     baseline: Option<RunTrace>,
     /// When the runs stop (a search's learning round).
     deadline: Option<std::time::Instant>,
+    /// Which prober this is, for its copies of the duel ([`TurnCopies`]).
+    id: ProberId,
+    /// No arena could be made for its runs: they play your turn again.
+    no_arena: AtomicBool,
+}
+
+/// The next number of a prober.
+static PROBER_IDS: AtomicU64 = AtomicU64::new(1);
+
+/// A prober's number: its copies go with it, a thread keeps none it will
+/// not use.
+struct ProberId(u64);
+
+impl Drop for ProberId {
+    fn drop(&mut self) {
+        let _ = TURN_COPIES.try_with(|c| c.try_borrow_mut().map(|mut c| c.retain(|t| t.owner != self.0)));
+    }
+}
+
+/// How many copies of the duel where your turn ends a prober keeps
+/// (`DUELFORGE_PROBE_COPIES`, 0 for none): the runs of a board come one
+/// after the other, so a few are enough.
+fn turn_copies_cap() -> usize {
+    static CAP: OnceLock<usize> = OnceLock::new();
+    *CAP.get_or_init(|| std::env::var("DUELFORGE_PROBE_COPIES").ok().and_then(|n| n.parse().ok()).unwrap_or(4))
+}
+
+/// The probers of a thread with copies of their duel: two used in turn
+/// (with and without a hand, for the card values) keep theirs.
+const PROBERS_WITH_COPIES: usize = 3;
+
+thread_local! {
+    /// The copies of the duel of this thread's last probers, the last used last.
+    static TURN_COPIES: RefCell<Vec<TurnCopies>> = const { RefCell::new(Vec::new()) };
+    static CHECK_COPIES: Cell<Option<u64>> = const { Cell::new(None) };
+}
+
+/// Every `every`-th run of this thread's probers made from now on that
+/// starts from a copy of the duel is also played in a new duel, and the
+/// two must be the same (`DUELFORGE_COPY_CHECK=n` for every thread).
+#[doc(hidden)]
+pub fn check_turn_copies(every: Option<u64>) {
+    CHECK_COPIES.with(|c| c.set(every));
+}
+
+/// A prober's duel in a memory arena, and copies of it where your turn ends
+/// (plan B13 in docs/plans/velocita-ricerca.md): a run puts back the copy
+/// made where the same turn of yours ended, and plays only the opponent's
+/// turn, instead of a new duel and your whole line. Your turn plays the
+/// same whatever the run does after it, so the run is the same.
+struct TurnCopies {
+    owner: u64,
+    /// The opponent and the cards placed the duel was made with.
+    opponent: Opponent,
+    placed: Option<Vec<Placement>>,
+    duel: Duel,
+    /// The duel as made: a turn with no copy is played from here.
+    start: SavedDuel,
+    copies: Vec<TurnCopy>,
+    clock: u64,
+    /// With `DUELFORGE_COPY_CHECK=n`, every n-th run from a copy is also
+    /// played in a new duel, and the two must be the same.
+    check: Option<u64>,
+    started: u64,
+}
+
+struct TurnCopy {
+    turn: TurnKey,
+    saved: SavedDuel,
+    at: TurnStart,
+    used: u64,
+}
+
+/// Your turn in a run: the answers of the line, or ending the turn at once.
+#[derive(PartialEq, Eq)]
+enum TurnKey {
+    Line(Vec<Vec<u8>>),
+    Cut(Vec<Vec<u8>>),
+    EndAtOnce,
+}
+
+impl TurnKey {
+    /// Your turn when it has copies: what follows a script of yours
+    /// ([`Prelude::Own`]) is played again.
+    fn of(prelude: Prelude) -> Option<TurnKey> {
+        match prelude {
+            Prelude::Line(line) => Some(TurnKey::Line(line.answers.clone())),
+            Prelude::Cut(line, at) => Some(TurnKey::Cut(line.answers[..at.min(line.answers.len())].to_vec())),
+            Prelude::EndAtOnce | Prelude::Placed(_) => Some(TurnKey::EndAtOnce),
+            Prelude::Own(_) => None,
+        }
+    }
+}
+
+/// Where a run is when the opponent's turn begins: its first decision and
+/// the events before it, and what the run kept of your turn.
+#[derive(Clone)]
+struct TurnStart {
+    decision: Decision,
+    events: Vec<Event>,
+    /// Decisions answered so far (a run answers at most 4000).
+    decisions: usize,
+    taken: Vec<(u32, u8)>,
+    uses: Vec<Use>,
+    observer: Observer,
+    idle_effects: HashSet<(u32, u64)>,
+    mine_on_top: bool,
+    your_link: Option<u32>,
+    aiming: Option<KitStep>,
+}
+
+impl TurnCopies {
+    fn keep(&mut self, turn: TurnKey, saved: SavedDuel, at: TurnStart) {
+        // The copy used least recently goes first.
+        while self.copies.len() >= turn_copies_cap() {
+            let Some(oldest) = self.copies.iter().enumerate().min_by_key(|(_, c)| c.used).map(|(i, _)| i) else { break };
+            self.copies.swap_remove(oldest);
+        }
+        self.copies.push(TurnCopy { turn, saved, at, used: self.clock });
+    }
 }
 
 /// One of your effects that stops what the opponent does.
@@ -1379,7 +1501,8 @@ pub struct FollowUp {
 
 impl<'a> Prober<'a> {
     pub fn new(engine: &'a Engine, deck: &'a DeckList, hand: &'a [u32], seed: u64, kit: &'a Kit) -> Self {
-        Prober { engine, deck, hand, seed, kit, baseline: None, deadline: None }
+        let id = ProberId(PROBER_IDS.fetch_add(1, Ordering::Relaxed));
+        Prober { engine, deck, hand, seed, kit, baseline: None, deadline: None, id, no_arena: AtomicBool::new(false) }
     }
 
     /// From `deadline` on, every run fails at its next decision: a measure
@@ -2187,12 +2310,155 @@ impl<'a> Prober<'a> {
     }
 
     fn run_labelled(&self, prelude: Prelude, steps: &[&KitStep], policy: Policy, context: Context) -> Result<RunTrace, Error> {
-        let engine = self.engine;
         let opponent = context.opponent.unwrap_or(&self.kit.opponent);
-        let mut duel = match prelude {
-            Prelude::Placed(placed) => Duel::goldfish_vs_placed(engine, self.deck, self.hand, self.seed, opponent, placed)?,
-            _ => Duel::goldfish_vs(engine, self.deck, self.hand, self.seed, opponent)?,
+        // A debug run shows the engine's log, which a copy does not keep.
+        let verbose = std::env::var("DUELFORGE_DEBUG_PROBE").is_ok_and(|v| v == "2");
+        let turn = TurnKey::of(prelude).filter(|_| !verbose);
+        let Some((turn, mut copies)) = turn.and_then(|t| Some((t, self.take_copies(prelude, opponent)?))) else {
+            let mut duel = self.new_duel(prelude, opponent)?;
+            return self.play(prelude, steps, policy, context, &mut duel, None, None);
         };
+        copies.clock += 1;
+        let clock = copies.clock;
+        let found = copies.copies.iter_mut().find(|c| c.turn == turn);
+        let played = match found {
+            Some(copy) => {
+                copy.used = clock;
+                let at = copy.at.clone();
+                match copies.duel.restore(&copy.saved) {
+                    Ok(()) => {
+                        let played = self.play(prelude, steps, policy, context, &mut copies.duel, Some(at), None);
+                        copies.started += 1;
+                        match copies.check.filter(|n| copies.started.is_multiple_of(*n)) {
+                            Some(_) => self.check_copy(prelude, steps, policy, context, opponent, played),
+                            None => played,
+                        }
+                    }
+                    Err(e) => Err(e),
+                }
+            }
+            None => match copies.duel.restore(&copies.start) {
+                Ok(()) => {
+                    let mut made = None;
+                    let played = self.play(prelude, steps, policy, context, &mut copies.duel, None, Some(&mut made));
+                    if let Some((saved, at)) = made {
+                        copies.keep(turn, saved, at);
+                    }
+                    played
+                }
+                Err(e) => Err(e),
+            },
+        };
+        self.give_back(copies);
+        played
+    }
+
+    /// A new duel for a run, as before the copies.
+    fn new_duel(&self, prelude: Prelude, opponent: &Opponent) -> Result<Duel, Error> {
+        match prelude {
+            Prelude::Placed(placed) => Duel::goldfish_vs_placed(self.engine, self.deck, self.hand, self.seed, opponent, placed),
+            _ => Duel::goldfish_vs(self.engine, self.deck, self.hand, self.seed, opponent),
+        }
+    }
+
+    /// The duel in an arena for a run starting as `prelude` against
+    /// `opponent`, with its copies: this prober's last one when it was made
+    /// the same, or a new one (none if no arena can be made: the runs then
+    /// play your turn again).
+    fn take_copies(&self, prelude: Prelude, opponent: &Opponent) -> Option<TurnCopies> {
+        if turn_copies_cap() == 0 || self.no_arena.load(Ordering::Relaxed) {
+            return None;
+        }
+        let placed = match prelude {
+            Prelude::Placed(placed) => Some(placed),
+            _ => None,
+        };
+        let mine = |c: &TurnCopies| c.owner == self.id.0 && c.opponent == *opponent && c.placed.as_deref() == placed;
+        let held = TURN_COPIES
+            .try_with(|c| {
+                let mut c = c.try_borrow_mut().ok()?;
+                // Another start of this prober's: its arena goes before a new one is made.
+                c.retain(|t| t.owner != self.id.0 || mine(t));
+                let i = c.iter().position(mine)?;
+                Some(c.remove(i))
+            })
+            .ok()
+            .flatten();
+        if held.is_some() {
+            return held;
+        }
+        ygo_engine::arena_duels(true);
+        let duel = self.new_duel(prelude, opponent);
+        ygo_engine::arena_duels(false);
+        let made = duel.and_then(|duel| {
+            let start = duel.save()?;
+            Ok(TurnCopies {
+                owner: self.id.0,
+                opponent: opponent.clone(),
+                placed: placed.map(<[Placement]>::to_vec),
+                duel,
+                start,
+                copies: Vec::new(),
+                clock: 0,
+                check: CHECK_COPIES
+                    .with(Cell::get)
+                    .or_else(|| std::env::var("DUELFORGE_COPY_CHECK").ok().and_then(|n| n.parse().ok()))
+                    .filter(|&n| n > 0),
+                started: 0,
+            })
+        });
+        made.inspect_err(|e| {
+            eprintln!("probe turn: {e}; the runs play your turn again");
+            self.no_arena.store(true, Ordering::Relaxed);
+        })
+        .ok()
+    }
+
+    fn give_back(&self, copies: TurnCopies) {
+        let _ = TURN_COPIES.try_with(|c| {
+            if let Ok(mut c) = c.try_borrow_mut() {
+                if c.len() >= PROBERS_WITH_COPIES {
+                    c.remove(0);
+                }
+                c.push(copies);
+            }
+        });
+    }
+
+    /// A run from a copy must be the same as the run in a new duel.
+    fn check_copy(
+        &self,
+        prelude: Prelude,
+        steps: &[&KitStep],
+        policy: Policy,
+        context: Context,
+        opponent: &Opponent,
+        played: Result<RunTrace, Error>,
+    ) -> Result<RunTrace, Error> {
+        let mut duel = self.new_duel(prelude, opponent)?;
+        let expected = self.play(prelude, steps, policy, context, &mut duel, None, None);
+        if format!("{played:?}") != format!("{expected:?}") {
+            eprintln!("probe turn: a run from a copy of the duel is not the run in a new duel");
+            return Err(Error::Engine("a run from a copy of the duel is not the run in a new duel".to_owned()));
+        }
+        played
+    }
+
+    /// Plays a run in `duel`, from the start of the duel or from where the
+    /// opponent's turn begins (`from`, a copy put back); with `made`, a copy
+    /// of the duel there.
+    #[allow(clippy::too_many_arguments)]
+    fn play(
+        &self,
+        prelude: Prelude,
+        steps: &[&KitStep],
+        policy: Policy,
+        context: Context,
+        duel: &mut Duel,
+        from: Option<TurnStart>,
+        mut made: Option<&mut Option<(SavedDuel, TurnStart)>>,
+    ) -> Result<RunTrace, Error> {
+        let engine = self.engine;
         // Your line was found against the kit's opponent: against another one
         // (other cards in its Extra Deck), the opponent's cards it picks are
         // picked again by what they are.
@@ -2258,14 +2524,50 @@ impl<'a> Prober<'a> {
         let mut shown = false;
         let label =
             |actions: &[Action], answer: &[u8]| actions.iter().find(|a| a.response == answer).map_or("?".to_owned(), |a| a.label.clone());
-        for _ in 0..4000 {
+        // From a copy: what your turn left, and the opponent's first decision.
+        let mut first = None;
+        let mut start = 0;
+        if let Some(at) = from {
+            trace.taken = at.taken;
+            trace.uses = at.uses;
+            observer = at.observer;
+            idle_effects = at.idle_effects;
+            mine_on_top = at.mine_on_top;
+            your_link = at.your_link;
+            aiming = at.aiming;
+            start = at.decisions;
+            first = Some((at.decision, at.events));
+        }
+        for decisions in start..4000 {
             if self.out_of_time() {
                 return Err(Error::Engine("the probe turn ran out of time".to_owned()));
             }
-            let (decision, events) = match duel.advance()? {
-                Step::Decision { decision, events } => (decision, events),
-                Step::End { .. } => break,
+            let (decision, events) = match first.take() {
+                Some(at) => at,
+                None => match duel.advance()? {
+                    Step::Decision { decision, events } => (decision, events),
+                    Step::End { .. } => break,
+                },
             };
+            // The opponent's turn begins: your turn is over, a copy of the
+            // duel here serves every run after the same turn.
+            if made.is_some() && duel.turn_info().0 > 1 {
+                if let (Some(slot), Ok(saved)) = (made.take(), duel.save()) {
+                    let at = TurnStart {
+                        decision: decision.clone(),
+                        events: events.clone(),
+                        decisions,
+                        taken: trace.taken.clone(),
+                        uses: trace.uses.clone(),
+                        observer: observer.clone(),
+                        idle_effects: idle_effects.clone(),
+                        mine_on_top,
+                        your_link,
+                        aiming: aiming.clone(),
+                    };
+                    *slot = Some((saved, at));
+                }
+            }
             let your_turn = duel.turn_info().0 <= 1;
             for e in &events {
                 if let (true, Event::Move { code, from, to, .. }) = (your_turn, e) {
@@ -2319,7 +2621,7 @@ impl<'a> Prober<'a> {
             let (turn, _, _) = duel.turn_info();
             if ending && turn > 2 {
                 if let Some((j, before)) = current.take() {
-                    self.finish(&mut trace.steps[j], steps[j], &before, &Piles::of(&duel), &observer);
+                    self.finish(&mut trace.steps[j], steps[j], &before, &Piles::of(duel), &observer);
                 }
                 complete = true;
                 break;
@@ -2404,10 +2706,10 @@ impl<'a> Prober<'a> {
                             // One of its moves starts: the one before it is over.
                             if let Some(i) = followed.at.and_then(|k| script.step_of.get(k).copied().flatten()) {
                                 if let Some((j, before)) = current.take() {
-                                    self.finish(&mut trace.steps[j], steps[j], &before, &Piles::of(&duel), &observer);
+                                    self.finish(&mut trace.steps[j], steps[j], &before, &Piles::of(duel), &observer);
                                 }
                                 trace.steps[i].available = true;
-                                current = Some((i, Piles::of(&duel)));
+                                current = Some((i, Piles::of(duel)));
                                 observer.new_step();
                                 windows_in_step = 0;
                                 last_use = None;
@@ -2432,11 +2734,11 @@ impl<'a> Prober<'a> {
                         // its Main Phase (the Battle Phase is not measured).
                         None => {
                             if let Some((j, before)) = current.take() {
-                                self.finish(&mut trace.steps[j], steps[j], &before, &Piles::of(&duel), &observer);
+                                self.finish(&mut trace.steps[j], steps[j], &before, &Piles::of(duel), &observer);
                             }
                             if context.turn_three {
                                 duel.respond(&end_turn(&decision, &actions));
-                                trace.follow_up = self.turn_three(&mut duel, &idle_effects)?;
+                                trace.follow_up = self.turn_three(duel, &idle_effects)?;
                             }
                             complete = true;
                             break;
@@ -2454,7 +2756,7 @@ impl<'a> Prober<'a> {
                             }
                         }
                         if let Some((i, before)) = current.take() {
-                            let after = Piles::of(&duel);
+                            let after = Piles::of(duel);
                             if verbose {
                                 let db = engine.cards();
                                 let names = |v: &[u32]| v.iter().map(|&c| db.name(c)).collect::<Vec<_>>().join(", ");
@@ -2480,7 +2782,7 @@ impl<'a> Prober<'a> {
                         }
                         match chosen {
                             Some((i, answer)) => {
-                                current = Some((i, Piles::of(&duel)));
+                                current = Some((i, Piles::of(duel)));
                                 observer.new_step();
                                 windows_in_step = 0;
                                 battled = false;
@@ -2490,7 +2792,7 @@ impl<'a> Prober<'a> {
                             None => {
                                 if context.turn_three {
                                     duel.respond(&end_turn(&decision, &actions));
-                                    trace.follow_up = self.turn_three(&mut duel, &idle_effects)?;
+                                    trace.follow_up = self.turn_three(duel, &idle_effects)?;
                                 }
                                 complete = true;
                                 break;
