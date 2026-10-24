@@ -44,6 +44,7 @@ Regole in `AGENTS.md`. Per prendere un task, spostalo in "In corso" con agente, 
 - [x] **Risposta alla prima interruzione e protezione dei pezzi** (fatto nella PR #54; dopo la PR di D15, #47; backend pronto, piano `docs/plans/classificazione-board.md` §C11). Nella scheda del punteggio di una board misurata (Circolo Arcano):
 - [ ] Tornare a TypeScript 7 (`apps/desktop/package.json`) quando `typescript-eslint` lo supporta: con la PR #29 è fissato a 6.0.3 perché `typescript-eslint` 8 non regge ancora la versione 7. Poi, già che ci si è, `tseslint.config(...)` → `defineConfig` di `eslint/config` in `eslint.config.js`.
 ### Motore e ricerca
+- [ ] **Prossimi passi del motore** (24/10, proposta, decide Valerio): linee fortunate con più ordini del mazzo, misura a dimezzamenti fra le finaliste, verità v1 del banco; poi sonda economica nella ricerca e banco v2. Piano e brief: `docs/plans/prossimi-passi-motore.md`.
 - [ ] **Ricerca delle combo: piano critico** (dalle prove del proprietario, 22/10): board più forti in meno tempo. Piano: `docs/plans/ricerca-piano-critico.md`; letteratura e audit delle carte: `docs/plans/ricerca-letteratura.md`.
   - [ ] A1b: oltre i limiti dell'oracolo. Corsia 6, branch `claude/oracle-a1b` (numeri nel piano, «A1b: risultati»).
     - [ ] Passo 4 (ricerca esaustiva, ygo-combo-solver): non cominciato, dopo B13.
