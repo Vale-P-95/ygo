@@ -112,6 +112,7 @@ File: `src/pages/DeckBuilder.tsx`, un componente nuovo `src/components/CardInspe
 - **Sotto i 1440 px** l'ispettore si apre sopra il deck come pannello sovrapposto, con un pulsante, invece di stringere il deck.
 - Le istruzioni fisse («Trascina le carte · clic destro…» in alto e in fondo al catalogo) vanno nel pulsante «?».
 - *Completato il 22/10/2026 (Gemini):* creato componente accessibile `CardInspector` (artwork grande, statistiche mostro, testo normale e pendulum, rarità MD, banlist nei 3 formati, ruoli, copie nel deck); integrato `SidePanel` richiudibile a sinistra (300 px, overlay reattivo < 1440 px con pulsante dedicato e auto-apertura al clic, soppressione anteprima fluttuante `CardPreview`); interazione con clic singolo (fissa carta, sblocco Esc) e passaggio mouse (anteprima); azioni rapide (+1 Main/Extra, +1 Side, preferita, visore zoom); istruzioni fisse sostituite da `HelpPopover`; 8 test Vitest unitari in `CardInspector.test.tsx`.
+- *Corretto il 24/10/2026 (Claude Code):* la finestra dell'app si apre a 1280 px, quindi con la soglia a 1440 px l'ispettore restava un pannello sovrapposto chiuso e non si vedeva. Ora si aggancia come terza colonna da 1200 px in su, largo `clamp(250px, 20vw, 320px)`, aperto di default; il clic su una carta lo apre.
 
 ### Passo 3. Ricerca e filtri del catalogo (`gemini/ui-catalog-search`)
 File: `src/components/Catalog.tsx`, `FilterPanel.tsx`.
