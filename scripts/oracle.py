@@ -139,10 +139,12 @@ def value(measure):
     return sum(w * v for w, v in zip(WEIGHTS, parts)) + follow_up_value(measure)
 
 
-def run(cli, case, nodes, out_json, out_lines=None, threads=1, top=TOP, staged=None):
+def run(cli, case, nodes, out_json, out_lines=None, threads=1, top=TOP, staged=None, extra=(), timing=None):
     """One `combos` run; the search seconds, or None when it failed. With
     `staged` (cheap, full): the cheap measure of the first `cheap` fields by
-    the estimate, then the full one of the best `full` by it (B14)."""
+    the estimate, then the full one of the best `full` by it (B14). `extra`:
+    more options for combos (e.g. --checkpoints). With `timing`, the search
+    seconds and the whole run's go to that file."""
     _, deck, hand, seed, goal = case
     if staged and goal:
         # The boards reaching the goal are listed first: the full measure of
@@ -158,13 +160,19 @@ def run(cli, case, nodes, out_json, out_lines=None, threads=1, top=TOP, staged=N
         command += ["--save-lines", out_lines]
     if goal:
         command += ["--goal", goal]
+    command += list(extra)
+    started = time.time()
     r = subprocess.run(command, capture_output=True, text=True)
+    wall = time.time() - started
     head = next((l for l in r.stdout.splitlines() if l.startswith(("NodeLimit", "TimeLimit", "Exhausted"))), "")
     m = re.search(r"after ([\d.]+) s", head)
     if r.returncode != 0 or not os.path.exists(out_json):
         sys.stderr.write(f"{case[0]}: combos failed ({r.returncode}): {r.stderr[-500:]}\n")
         return None
-    return float(m.group(1)) if m else -1.0
+    secs = float(m.group(1)) if m else -1.0
+    if timing:
+        json.dump({"seconds": secs, "wall": wall}, open(timing, "w"))
+    return secs
 
 
 def goal_reached(field, goal):
@@ -364,19 +372,18 @@ def cmd_measure(a):
             if os.path.exists(out) and os.path.exists(timing):
                 secs = json.load(open(timing))["seconds"]
             else:
-                secs = run(a.cli, case, nodes, out)
-                if secs is not None:
-                    json.dump({"seconds": secs}, open(timing, "w"))
+                secs = run(a.cli, case, nodes, out, staged=staged(a), extra=a.combos_args.split(), timing=timing)
             if secs is None:
                 steps.append({"nodes": nodes, "failed": True})
                 continue
+            wall = json.load(open(timing)).get("wall")
             found = boards_of(out, fx["goal"])
             listed = sorted(boards_of(out, fx["goal"]), key=lambda b: b[1].get("printed", 99))
             keys = [i["look_key"] for _, i in listed]
             # The oracle's board itself, and the first board as good (boards
             # can differ in what the measure does not value).
             as_good = next((k + 1 for k, (v, _) in enumerate(listed) if v >= 0.99 * oracle_value), None)
-            steps.append({"nodes": nodes, "seconds": secs, "best": found[0][0] if found else 0.0,
+            steps.append({"nodes": nodes, "seconds": secs, "wall": wall, "best": found[0][0] if found else 0.0,
                           "oracle_rank": keys.index(oracle_key) + 1 if oracle_key in keys else None, "as_good_rank": as_good})
         reach = {}
         for frac in (0.9, 0.95, 1.0):
@@ -405,6 +412,26 @@ def cmd_measure(a):
         print(f"\n{at95}/{n} hands reach 95% of the oracle within {last} nodes; in the top 3 at {last} nodes: "
               f"the oracle's board in {top3}/{n}, a board as good (99%) in {good3}/{n}")
         report_groups(results, budgets)
+        report_drops(results, budgets)
+
+
+def report_drops(results, budgets):
+    """The hands whose best board measured gets worse by over 1% from a
+    budget to the next one (docs/plans/monotonia-budget.md, E-c2), and the
+    seconds of the whole runs at each budget."""
+    drops = []
+    for r in results:
+        steps = [s for s in r["steps"] if not s.get("failed")]
+        worst = min(((b["best"] - a["best"]) / a["best"] for a, b in zip(steps, steps[1:]) if a["best"] > 0), default=0.0)
+        if worst < -0.01:
+            drops.append((r["id"], worst))
+    print(f"\n{len(drops)}/{len(results)} hands get worse by over 1% from a budget to the next"
+          + (": " + ", ".join(f"{h} {w:+.0%}" for h, w in sorted(drops, key=lambda d: d[1])) if drops else ""))
+    walls = []
+    for i in range(len(budgets)):
+        vals = [r["steps"][i].get("wall") for r in results if i < len(r["steps"]) and not r["steps"][i].get("failed")]
+        walls.append(f"{sum(v for v in vals if v):.0f}" if all(vals) and vals else "-")
+    print(f"{'run seconds':12} " + " ".join(f"{w:>7}" for w in walls))
 
 
 def share(r, i):
@@ -628,6 +655,8 @@ def main():
     m.add_argument("--budgets", default="1000,2000,4000,8000")
     m.add_argument("--jobs", type=int, default=4)
     m.add_argument("--only", default="")
+    m.add_argument("--staged", help="CHEAP,FULL: measure as combos --staged (default: the full measure of the first 10)")
+    m.add_argument("--combos-args", default="", help="more options for combos, as one string (e.g. \"--checkpoints\")")
     m.add_argument("--cli", default=os.path.join(ROOT, "target", "release", "duelforge-cli"))
     a = p.parse_args()
     {"hands": cmd_hands, "build": cmd_build, "fixtures": cmd_fixtures, "measure": cmd_measure, "converge": cmd_converge,

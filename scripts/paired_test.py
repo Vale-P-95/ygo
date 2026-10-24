@@ -38,7 +38,7 @@ import subprocess
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from oracle import ROOT, boards_of, hands, run, value  # noqa: E402
+from oracle import ROOT, boards_of, hands, run, staged, value  # noqa: E402
 
 # A smaller difference is even; a hand losing more than this blocks the change.
 EVEN = 0.01
@@ -55,10 +55,10 @@ def sign_test(wins, losses):
 
 
 def side_values(source, side, a):
-    """{hand: (best value, search seconds)} of one side: a build to run, a
+    """{hand: (best value, search seconds, run seconds)} of one side: a build to run, a
     folder of combos JSON files, or bench.py's results.json."""
     if os.path.isfile(source) and source.endswith(".json"):
-        return {r["name"]: (r["best"], r.get("search_s")) for r in json.load(open(source))}
+        return {r["name"]: (r["best"], r.get("search_s"), None) for r in json.load(open(source))}
     if os.path.isdir(source):
         folder = source
     else:
@@ -73,10 +73,11 @@ def side_values(source, side, a):
             if os.path.exists(path):
                 return
             lines = path[:-5] + ".lines.json" if a.measure_cli else None
-            secs = run(source, case, a.nodes, path + ".part", out_lines=lines)
+            extra = (a.old_args if side == "old" else a.new_args).split()
+            secs = run(source, case, a.nodes, path + ".part", out_lines=lines, staged=staged(a), extra=extra,
+                       timing=path[:-5] + ".time.json")
             if secs is not None:
                 os.replace(path + ".part", path)
-                json.dump({"seconds": secs}, open(path[:-5] + ".time.json", "w"))
 
         with cf.ThreadPoolExecutor(a.jobs) as ex:
             list(ex.map(one, cases))
@@ -93,7 +94,8 @@ def side_values(source, side, a):
         best = found[0][0] if found else 0.0
         if a.measure_cli and found:
             best = measured_again(a, file[:-5], path, found[0][1])
-        out[file[:-5]] = (best, json.load(open(timing))["seconds"] if os.path.exists(timing) else None)
+        times = json.load(open(timing)) if os.path.exists(timing) else {}
+        out[file[:-5]] = (best, times.get("seconds"), times.get("wall"))
     return out
 
 
@@ -125,6 +127,9 @@ def main():
     p.add_argument("--nodes", type=int, default=4000)
     p.add_argument("--jobs", type=int, default=4)
     p.add_argument("--only", default="")
+    p.add_argument("--staged", help="CHEAP,FULL: measure as combos --staged (default: the full measure of the first 10)")
+    p.add_argument("--old-args", default="", help="more options for the old build's combos, as one string")
+    p.add_argument("--new-args", default="", help="more options for the new build's combos (e.g. \"--checkpoints\")")
     p.add_argument("--measure-cli", help="a duelforge-cli that measures the best board of both sides again (a change to the measure)")
     a = p.parse_args()
     os.makedirs(a.out, exist_ok=True)
@@ -132,13 +137,13 @@ def main():
 
     rows = []
     for name in sorted(set(old) & set(new)):
-        (v_old, t_old), (v_new, t_new) = old[name], new[name]
+        (v_old, t_old, w_old), (v_new, t_new, w_new) = old[name], new[name]
         change = (v_new - v_old) / v_old if v_old > 0 else (0.0 if v_new == v_old else math.inf)
         verdict = "better" if change > EVEN else "worse" if change < -EVEN else "even"
-        rows.append((name, v_old, v_new, change, verdict, t_old, t_new))
+        rows.append((name, v_old, v_new, change, verdict, t_old, t_new, w_old, w_new))
     missing = sorted(set(old) ^ set(new))
     print(f"{'hand':34} {'old':>7} {'new':>7} {'change':>8}  verdict   s old   s new")
-    for name, v_old, v_new, change, verdict, t_old, t_new in rows:
+    for name, v_old, v_new, change, verdict, t_old, t_new, _, _ in rows:
         secs = lambda t: f"{t:>7.1f}" if t is not None else f"{'-':>7}"
         print(f"{name:34} {v_old:>7.2f} {v_new:>7.2f} {change:>+8.1%}  {verdict:7} {secs(t_old)} {secs(t_new)}")
     if missing:
@@ -150,9 +155,11 @@ def main():
     total = lambda i: sum(r[i] for r in rows if r[i] is not None)
     print(f"\n{len(rows)} hands: {wins} better, {losses} worse, {len(rows) - wins - losses} even "
           f"(sign test p = {sign_test(wins, losses):.3f}); worst {worst:+.1%}; "
-          f"search seconds {total(5):.0f} -> {total(6):.0f}")
+          f"search seconds {total(5):.0f} -> {total(6):.0f}"
+          + (f"; run seconds {total(7):.0f} -> {total(8):.0f} ({total(8) / total(7) - 1:+.0%})"
+             if all(r[7] is not None and r[8] is not None for r in rows) and total(7) > 0 else ""))
     print("ACCEPTED" if accepted else "REJECTED" + (" (a hand loses more than 5%)" if worst < -MAX_LOSS else " (more hands worse than better)"))
-    json.dump([dict(zip(("hand", "old", "new", "change", "verdict", "seconds_old", "seconds_new"), r)) for r in rows],
+    json.dump([dict(zip(("hand", "old", "new", "change", "verdict", "seconds_old", "seconds_new", "wall_old", "wall_new"), r)) for r in rows],
               open(os.path.join(a.out, "paired.json"), "w"), indent=1)
     return 0 if accepted else 1
 
