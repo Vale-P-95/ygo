@@ -56,6 +56,9 @@ enum Cmd {
         /// Extra search queries to record, besides the built-in ones and one per archetype of the deck.
         #[arg(long)]
         query: Vec<String>,
+        /// Deck roles for the probabilities, e.g. `starter=14558127,23434538`; handtraps come from the handtrap tag.
+        #[arg(long)]
+        role: Vec<String>,
     },
     /// Search the card database with the same language as the app.
     Search {
@@ -277,6 +280,29 @@ enum Cmd {
         #[arg(long, default_value_t = 1)]
         seed: u64,
     },
+    /// The handtraps of a deck's Main and Side against the meta: the share of
+    /// the best lines of the decks played the most that each stops, weighed
+    /// by how much each deck is played, and the move it stops them at.
+    TechTable {
+        /// Deck in .ydk format (its Side counts).
+        #[arg(long)]
+        deck: PathBuf,
+        /// Decks of the meta played the most to measure against.
+        #[arg(long, default_value_t = TECH_DECKS)]
+        decks: usize,
+        #[arg(long, default_value_t = 1)]
+        seed: u64,
+        /// The meta from a file (`objective_bench.py`'s meta.json: opponents
+        /// with deck and weight) instead of Master Duel Meta now; the lists
+        /// are <deck>.ydk in --meta-decks.
+        #[arg(long)]
+        meta_file: Option<PathBuf>,
+        #[arg(long)]
+        meta_decks: Option<PathBuf>,
+        /// Also write the table to this JSON file.
+        #[arg(long)]
+        json: Option<PathBuf>,
+    },
     /// The handtraps of a deck, read from the engine: cards it can use from
     /// the hand during the opponent's turn.
     HandTraps {
@@ -385,7 +411,7 @@ fn main() -> Result<()> {
         Cmd::FetchData => fetch_data(&cli.data),
         Cmd::Info => info(&cli.data),
         Cmd::UpdateCards { force } => update_cards(&cli.data, force),
-        Cmd::RecordFixtures { deck, out, query } => record_fixtures(&cli.data, &deck, &out, &query),
+        Cmd::RecordFixtures { deck, out, query, role } => record_fixtures(&cli.data, &deck, &out, &query, &role),
         Cmd::Search { query, limit } => search(&cli.data, &query, limit),
         Cmd::Play { setup, steps, verbose } => play(&cli.data, &setup, steps.as_deref(), verbose),
         Cmd::Bench { setup, playouts, max_decisions } => bench(&cli.data, &setup, playouts, max_decisions),
@@ -455,6 +481,9 @@ fn main() -> Result<()> {
         ),
         Cmd::ProbeLine { setup, lines, index, json, vs, stops, moves, protection } => {
             probe_line(&cli.data, &setup, &lines, index, json.as_deref(), vs.as_deref(), stops, moves, protection)
+        }
+        Cmd::TechTable { deck, decks, seed, meta_file, meta_decks, json } => {
+            tech_table(&cli.data, &deck, decks, seed, MetaFinal { boards: 0, file: meta_file, decks: meta_decks }, json.as_deref())
         }
         Cmd::HandTraps { deck } => hand_traps(&cli.data, &deck),
         Cmd::RivalPlays { deck, hands, nodes, seed } => rival_plays(&cli.data, &deck, hands, nodes, seed),
@@ -1729,11 +1758,11 @@ const STAGED_ROUNDS: usize = 1;
 
 /// The value of a cheap measure ([`ygo_solver::Prober::measure_cheap`]):
 /// field, hand and floodgates, and your next turn when the opponent breaks
-/// nothing. The floodgates keep 0.8 here, the weight the staged pick was
-/// measured with: lowering it changes which boards get the full measure.
+/// nothing. The floodgates weigh 0.4, as in [`composite`], so the cut to the
+/// full measure ranks by the weights of the score.
 fn cheap_composite(m: &ygo_solver::Measure) -> f64 {
     let rebuild = m.follow_up.map_or(0.0, |f| f.rebuild as f64);
-    m.field_value + 0.9 * m.hand_value + 0.8 * m.floodgate_value + 0.4 * 0.3 * rebuild
+    m.field_value + 0.9 * m.hand_value + 0.4 * m.floodgate_value + 0.4 * 0.3 * rebuild
 }
 
 /// The measured value of a board with the "Bilanciato" profile of the app:
@@ -1920,13 +1949,37 @@ fn search(dir: &Path, text: &str, limit: usize) -> Result<()> {
 }
 
 /// Searches every app screen starts from; the deck's archetypes are added to them.
-const FIXTURE_QUERIES: &[&str] = &["", "type:monster", "type:spell", "type:trap", "attr:dark", "atk>=2500", "tag:handtrap", "\"negate\""];
+const FIXTURE_QUERIES: &[&str] =
+    &["", "format:md sort:popular", "type:monster", "type:spell", "type:trap", "attr:dark", "atk>=2500", "tag:handtrap", "\"negate\""];
+
+/// Results kept per recorded search: the mock catalog needs every card it shows, and the file stays small.
+const FIXTURE_RESULTS: usize = 48;
+
+/// Parses `role=id,id,...` arguments into the deck's roles.
+fn parse_roles(args: &[String]) -> Result<std::collections::BTreeMap<String, Vec<u32>>> {
+    let mut roles = std::collections::BTreeMap::<String, Vec<u32>>::new();
+    for arg in args {
+        let (name, ids) = arg.split_once('=').with_context(|| format!("role {arg:?}: expected name=id,id,..."))?;
+        let ids = ids
+            .split(',')
+            .map(|id| id.trim().parse::<u32>().with_context(|| format!("role {name}: bad id {id:?}")))
+            .collect::<Result<Vec<_>>>()?;
+        roles.entry(name.trim().to_owned()).or_default().extend(ids);
+    }
+    Ok(roles)
+}
 
 /// What the backend answers for a deck, in the shapes of `api.ts` and without any card text (Konami's, never committed).
-fn recorded_fixtures(store: &CardStore, deck: &ygo_data::deck::Sections, extra_queries: &[String]) -> Result<serde_json::Value> {
+fn recorded_fixtures(
+    store: &CardStore,
+    deck: &ygo_data::deck::Sections,
+    extra_queries: &[String],
+    roles: &std::collections::BTreeMap<String, Vec<u32>>,
+) -> Result<serde_json::Value> {
     let (main, extra, side) = deck;
     let all: Vec<u32> = main.iter().chain(extra).chain(side).copied().collect();
-    let mut archetypes: Vec<String> = store.get_many(&all)?.into_iter().filter_map(|c| c.archetype).collect();
+    let deck_cards = store.get_many(&all)?;
+    let mut archetypes: Vec<String> = deck_cards.iter().filter_map(|c| c.archetype.clone()).collect();
     archetypes.sort();
     archetypes.dedup();
     let mut queries: Vec<String> = FIXTURE_QUERIES.iter().map(|q| q.to_string()).collect();
@@ -1935,29 +1988,74 @@ fn recorded_fixtures(store: &CardStore, deck: &ygo_data::deck::Sections, extra_q
     let mut seen = std::collections::HashSet::new();
     queries.retain(|q| seen.insert(q.clone()));
     let mut searches = serde_json::Map::new();
+    let mut shown: Vec<u32> = all.clone();
     for text in queries {
         let parsed = ygo_data::parse_query(&text);
-        let ids = store.search(&parsed.query)?;
+        let mut ids = store.search(&parsed.query)?;
+        ids.truncate(FIXTURE_RESULTS);
+        shown.extend(&ids);
         searches.insert(text, serde_json::json!({ "ids": ids, "chips": parsed.chips, "errors": parsed.errors }));
     }
+    shown.sort_unstable();
+    shown.dedup();
+    // Names, types and statuses only: the texts stay out of the repository.
+    let cards: Vec<ygo_data::Card> = store
+        .get_many(&shown)?
+        .into_iter()
+        .map(|mut c| {
+            c.desc.clear();
+            c.pend_desc = None;
+            c
+        })
+        .collect();
+    let format = ygo_data::Format::Md;
+    let sample = ygo_data::Deck {
+        name: "Deck registrato".into(),
+        format,
+        main: main.clone(),
+        extra: extra.clone(),
+        side: side.clone(),
+        ..Default::default()
+    };
+    let by_id: HashMap<u32, ygo_data::Card> = deck_cards.iter().map(|c| (c.id, c.clone())).collect();
+    let mut legality = ygo_data::deck::validate(&sample, &by_id);
+    legality.banlist = store.banlist_date("md");
+    // The handtrap role as the app's tag knows it, plus the roles given.
+    let mut roles = roles.clone();
+    let handtraps: Vec<u32> =
+        deck_cards.iter().filter(|c| ygo_data::Tag::Handtrap.names().contains(&c.name.as_str())).map(|c| c.id).collect();
+    roles.entry(ygo_stats::roles::HANDTRAP.to_owned()).or_default().extend(handtraps);
+    for ids in roles.values_mut() {
+        ids.sort_unstable();
+        ids.dedup();
+    }
+    let overview = ygo_stats::overview(&ygo_stats::DeckModel::from_ids(main, &roles));
     Ok(serde_json::json!({
-        "deck": { "main": main, "extra": extra, "side": side },
+        "deck": { "main": main, "extra": extra, "side": side, "roles": roles },
         "searches": searches,
+        "cards": cards,
+        "legality": legality,
+        "overview": overview,
         "facets": store.facets()?,
         "banChanges": store.ban_changes(Some("md"))?,
     }))
 }
 
-fn record_fixtures(dir: &Path, deck: &Path, out: &Path, extra_queries: &[String]) -> Result<()> {
+fn record_fixtures(dir: &Path, deck: &Path, out: &Path, extra_queries: &[String], roles: &[String]) -> Result<()> {
     let store = CardStore::open(&dir.join("cards.db"))?;
     let text = std::fs::read_to_string(deck).with_context(|| format!("reading {}", deck.display()))?;
     let sections = ygo_data::deck::parse_any(&text)?;
-    let json = recorded_fixtures(&store, &sections, extra_queries)?;
+    let json = recorded_fixtures(&store, &sections, extra_queries, &parse_roles(roles)?)?;
     if let Some(parent) = out.parent() {
         std::fs::create_dir_all(parent)?;
     }
     std::fs::write(out, serde_json::to_string_pretty(&json)? + "\n")?;
-    println!("wrote {} ({} searches)", out.display(), json["searches"].as_object().map_or(0, |m| m.len()));
+    println!(
+        "wrote {} ({} searches, {} cards)",
+        out.display(),
+        json["searches"].as_object().map_or(0, |m| m.len()),
+        json["cards"].as_array().map_or(0, |a| a.len())
+    );
     Ok(())
 }
 
@@ -2145,6 +2243,65 @@ fn rival_plays(dir: &Path, deck: &Path, hands: usize, nodes: u64, seed: u64) -> 
             engine.cards().name(p.code),
             ygo_engine::consts::location::name(p.location)
         );
+    }
+    Ok(())
+}
+
+/// Decks of the meta `tech-table` measures against by default.
+const TECH_DECKS: usize = 6;
+
+fn tech_table(dir: &Path, deck: &Path, count: usize, seed: u64, meta: MetaFinal, json: Option<&Path>) -> Result<()> {
+    let engine = load_engine(dir)?;
+    let text = std::fs::read_to_string(deck).with_context(|| format!("cannot read {}", deck.display()))?;
+    let deck = DeckList::from_ydk(&text)?;
+    let decks = ygo_solver::most_played(&load_meta(dir, &meta)?, count);
+    let threads = std::thread::available_parallelism().map_or(4, |n| n.get());
+    let kit = ygo_solver::Kit::standard(&engine);
+    let started = std::time::Instant::now();
+    let rivals = ygo_solver::meta_rivals(&engine, &decks, seed, threads);
+    let read = started.elapsed().as_secs_f64();
+    let table = ygo_solver::tech_table(&engine, &deck, &rivals, seed, &kit, threads);
+    let db = engine.cards();
+    println!("lines read in {read:.1} s, played again in {:.1} s", started.elapsed().as_secs_f64() - read);
+    for d in &table.decks {
+        println!("  {:<28} weight {:>5.1}  {} lines, {} measured", d.name, d.weight, d.lines, d.measured);
+    }
+    println!();
+    for r in &table.rows {
+        let per: Vec<String> = r.decks.iter().map(|a| format!("{}/{}", a.stopped, a.usable)).collect();
+        let at: Vec<String> = r.at.iter().take(3).map(|(c, n)| format!("{} ×{n}", db.name(*c))).collect();
+        println!(
+            "{:>4.0}% taken {:>4.0}% of lines  {:<32} {}+{}  in hand {:>3.0}%  step {:<4}  [{}]  at {}",
+            r.lost * 100.0,
+            r.value * 100.0,
+            db.name(r.code),
+            r.main,
+            r.side,
+            r.chance * 100.0,
+            r.step.map_or("-".to_owned(), |s| format!("{:.1}", s)),
+            per.join(" "),
+            at.join(", ")
+        );
+    }
+    if let Some(path) = json {
+        let rows: Vec<serde_json::Value> = table
+            .rows
+            .iter()
+            .map(|r| {
+                serde_json::json!({
+                    "code": r.code, "name": db.name(r.code), "main": r.main, "side": r.side, "chance": r.chance,
+                    "value": r.value, "lost": r.lost, "step": r.step,
+                    "decks": r.decks.iter().map(|a| serde_json::json!({ "usable": a.usable, "stopped": a.stopped, "lost": a.lost })).collect::<Vec<_>>(),
+                    "at": r.at.iter().map(|(c, n)| serde_json::json!({ "code": c, "name": db.name(*c), "lines": n })).collect::<Vec<_>>(),
+                })
+            })
+            .collect();
+        let decks: Vec<serde_json::Value> = table
+            .decks
+            .iter()
+            .map(|d| serde_json::json!({ "name": d.name, "weight": d.weight, "lines": d.lines, "measured": d.measured }))
+            .collect();
+        std::fs::write(path, serde_json::to_string_pretty(&serde_json::json!({ "seed": seed, "decks": decks, "rows": rows }))?)?;
     }
     Ok(())
 }
@@ -2810,10 +2967,21 @@ mod tests {
     #[test]
     fn recorded_fixtures_cover_each_query_once() {
         let store = CardStore::open_in_memory().unwrap();
-        let json = recorded_fixtures(&store, &(vec![1], vec![], vec![]), &["type:monster".into(), "x".into()]).unwrap();
+        let json =
+            recorded_fixtures(&store, &(vec![1], vec![], vec![]), &["type:monster".into(), "x".into()], &Default::default()).unwrap();
         let searches = json["searches"].as_object().unwrap();
         assert_eq!(searches.len(), FIXTURE_QUERIES.len() + 1);
         assert_eq!(searches["x"]["ids"], serde_json::json!([]));
         assert_eq!(json["deck"]["main"], serde_json::json!([1]));
+        assert_eq!(json["legality"]["legal"], serde_json::json!(false));
+        assert_eq!(json["overview"]["size"], serde_json::json!(1));
+    }
+
+    #[test]
+    fn roles_parse_from_arguments() {
+        let roles = parse_roles(&["starter=1,2".into(), "starter=3".into(), "brick=4".into()]).unwrap();
+        assert_eq!(roles["starter"], vec![1, 2, 3]);
+        assert_eq!(roles["brick"], vec![4]);
+        assert!(parse_roles(&["starter".into()]).is_err());
     }
 }

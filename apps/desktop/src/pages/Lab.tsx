@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { BarChart2, Calculator, GitCompare, Network, Play, ScrollText, SlidersHorizontal, type LucideIcon } from "lucide-react";
+import { BarChart2, Calculator, GitCompare, Network, Play, ScrollText, Shield, SlidersHorizontal, type LucideIcon } from "lucide-react";
 import { Popover, useOutsideClose } from "../components/Popover";
 import { CalculatorTab } from "../components/lab/CalculatorTab";
 import { CompareTab } from "../components/lab/CompareTab";
@@ -11,6 +11,7 @@ import { OptimizerTab } from "../components/lab/OptimizerTab";
 import { OverviewTab } from "../components/lab/OverviewTab";
 import { RolesPanel } from "../components/lab/RolesPanel";
 import { SimulatorTab } from "../components/lab/SimulatorTab";
+import { TechTab } from "../components/lab/TechTab";
 import { DeckMenu } from "../components/DeckMenu";
 import { SectionHeader } from "../components/SectionHeader";
 import { api, type Deck, type DeckLinks, type DeckSummary, type LabOverview, type MatchLog, type Recipe } from "../lib/api";
@@ -22,7 +23,7 @@ import { sound } from "../lib/sound";
 import { toast } from "../lib/toast";
 import { sectionById } from "../sections";
 
-type Tab = "overview" | "links" | "compare" | "calculator" | "simulator" | "optimizer" | "log";
+type Tab = "overview" | "links" | "compare" | "calculator" | "simulator" | "optimizer" | "meta" | "log";
 
 const PRIMARY_TABS: { id: Tab; label: string; icon: LucideIcon }[] = [
   { id: "overview", label: "Panoramica", icon: BarChart2 },
@@ -34,6 +35,7 @@ const PRIMARY_TABS: { id: Tab; label: string; icon: LucideIcon }[] = [
 const SECONDARY_TABS: { id: Tab; label: string; icon: LucideIcon }[] = [
   { id: "simulator", label: "Simulatore", icon: Play },
   { id: "optimizer", label: "Ottimizzatore", icon: SlidersHorizontal },
+  { id: "meta", label: "Contro il meta", icon: Shield },
   { id: "log", label: "Registro partite", icon: ScrollText },
 ];
 
@@ -435,7 +437,7 @@ export function Lab({
           </button>
         </div>
       ) : (
-        <div className={tab === "links" ? "grid min-h-0 flex-1 grid-cols-1" : "grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_312px] xl:grid-cols-[minmax(0,1fr)_336px]"}>
+        <div className={tab === "links" || tab === "meta" ? "grid min-h-0 flex-1 grid-cols-1" : "grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_312px] xl:grid-cols-[minmax(0,1fr)_336px]"}>
           <div key={tab} className="bg-blueprint min-h-0 overflow-y-auto px-4 py-4 xl:px-6 xl:py-5">
             {!deck || !overview ? (
               <p className="text-sm text-muted">Carico il deck…</p>
@@ -460,6 +462,8 @@ export function Lab({
               <CompareTab key={deck.id} deck={deck} overview={overview} decks={decks ?? []} hand={hand} getCard={cards.get} request={request} />
             ) : tab === "calculator" ? (
               <CalculatorTab deckId={deck.id!} main={deck.main} roles={roles} hand={hand} getCard={cards.get} root={root} setRoot={setRoot} recipes={recipes} setRecipes={setRecipes} />
+            ) : tab === "meta" ? (
+              <TechTab key={deck.id} deck={deck} getCard={cards.get} request={request} />
             ) : tab === "simulator" || tab === "optimizer" ? (
               <div className="flex flex-col gap-4">
                 <ConditionPicker root={root} setRoot={setRoot} recipes={recipes} getCard={cards.get} onEdit={() => setTab("calculator")} />
@@ -491,7 +495,7 @@ export function Lab({
                 getCard={cards.get}
                 onLogged={reloadLog}
               />
-            ) : tab === "links" ? null : (
+            ) : tab === "links" || tab === "meta" ? null : (
               <RolesPanel
                 main={deck.main}
                 roles={roles}

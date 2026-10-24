@@ -613,6 +613,22 @@ Nessun codice nella ricerca: misure e stime, per decidere.
 - Verdi anche `search_regression`, i test, fmt, clippy (anche `src-tauri`) e `pnpm typecheck`. Nell'app vera non è stata provata.
 - **Nell'app** le board che hanno solo il gradino economico ora arrivano alla pagina, che le mette dopo le complete con «valutata in breve» (prima `SEND_CHEAP_SCORES = false`, come nella PR #89).
 
+### B14, floodgate 0,4 nella misura economica (24/10/2026)
+**Cosa cambia.** Il valore economico (`cheap_composite` della CLI, `cheap_value` di `lib.rs`) pesa il floodgate 0,4 come il punteggio (§7 di `ricerca-esperimenti.md`), non più 0,8. La misura completa non cambia; cambia solo quali 15 board su 30 la ricevono.
+
+**Protocollo.** Banco di generalità, 43 deck di taratura e 20 freschi, 2 mani ciascuno (`combo_hunt.py --hands 2 --seed 7`), 4000 nodi, un thread. Su `main` 684d061 un giro con il solo gradino economico sulle prime 30 (`--staged --staged-full 0`) e uno con la misura completa delle prime 30; il taglio si simula con i due pesi (la misura ripresa è identica a quella da capo). Poi la conferma: `combos --staged` di `main` contro il branch, `paired_test.py`.
+
+| insieme | mani | 15 cambiati | migliore più in alto / più in basso | posto medio della migliore, 0,8 → 0,4 | delle 5 migliori nelle 15 | posto peggiore della migliore |
+|---|---:|---:|---:|---|---|---|
+| taratura | 86 | 7 (19 campi) | 5 / 0 | 2,58 → 2,34 | 410 → 415 su 430 | 14ª (Paleozoic-0) in tutti e due |
+| freschi | 40 | 1 (1 campo) | 0 / 1 | 2,55 → 2,60 | 190 → 190 su 200 | 14ª (Atlantean Mermail) in tutti e due |
+
+- **#1 identico in 126 mani su 126**, simulato e confermato: `paired_test.py` 126 pari, 0 meglio, 0 peggio, ACCEPTED.
+- La migliore sale di più in invoked-siracusa-ewcq2026-1 (10ª → 2ª) e primite-1 (9ª → 1ª). Vampire-1 ha la migliore 22ª con tutti e due i pesi, ma una board con lo stesso valore è fra le 15.
+- **Margine invariato:** le mani più vicine al taglio restano alla 14ª.
+- Prova equa sulle 406 board: identica per costruzione (`probe-line` usa la misura completa, che non cambia).
+- Costo: circa 1 ora di CPU su 4 core, nessuna build lunga oltre la release della CLI.
+
 ### L2-3 come ultimo gradino (23/10/2026, corsia 8)
 **Cosa fa.** Dopo la scala di B14, le migliori board per misura completa si rigiocano al livello 2 contro i 3 deck del meta con il `popRank` più alto (`ricerca-esperimenti.md` §6b), e quelle board si riordinano per L2-3.
 - **Valore:** Σ peso · (1 − `left`) sui deck contati, pesato fra loro.

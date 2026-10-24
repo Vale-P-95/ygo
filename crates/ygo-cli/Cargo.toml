@@ -14,6 +14,7 @@ path = "src/main.rs"
 ygo-engine = { path = "../ygo-engine" }
 ygo-data = { path = "../ygo-data" }
 ygo-solver = { path = "../ygo-solver" }
+ygo-stats = { path = "../ygo-stats" }
 tokio = { version = "1", features = ["rt-multi-thread"] }
 clap = { version = "4.5", features = ["derive"] }
 anyhow = "1"
