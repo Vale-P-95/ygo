@@ -555,6 +555,56 @@ export interface ComboMetaDeck {
   left: number | null;
 }
 
+/**
+ * Laboratorio, "Contro il meta" (mirrors `TechTableView`): each handtrap of the deck's Main and Side against the best
+ * lines of the decks of the meta played the most, played again by the engine with it in your hand.
+ */
+export interface TechTable {
+  deckId: number;
+  decks: TechDeck[];
+  /** The handtrap that takes the most first (`lost`). */
+  rows: TechRow[];
+}
+
+/** A deck of the meta in the tech table (mirrors `TechDeckView`). */
+export interface TechDeck {
+  name: string;
+  /** Its `popRank` on Master Duel Meta: share of the ranked top decks, in %. */
+  weight: number;
+  /** Lines found, and those that play as found with no handtrap used: only these are counted. */
+  lines: number;
+  measured: number;
+}
+
+/** One of your handtraps against the meta (mirrors `TechRowView`). */
+export interface TechRow {
+  code: number;
+  /** Copies in the Main and in the Side Deck. */
+  main: number;
+  side: number;
+  /** Chance of at least one among the 5 cards you hold in the opponent's first turn, with the Main Deck as it is. */
+  chance: number;
+  /** Share of the meta's lines it stops (changes the field or hand they end with), 0-1, each deck weighed by its `weight`. */
+  value: number;
+  /** The same weighed share of the field and hand the lines end with that it takes at its best moment (0-1): rows are ordered by it. */
+  lost: number;
+  /** Against each deck of `TechTable.decks`, in its order. */
+  perDeck: TechAgainst[];
+  /** Moves of a line played before it stops it, averaged over the lines it stops; `null` when it stops none. */
+  step: number | null;
+  /** Cards of the lines it answers when it stops them, with how many lines, the most often first. */
+  at: { code: number; lines: number }[];
+}
+
+/** A handtrap against one deck of the meta (mirrors `TechAgainstView`). */
+export interface TechAgainst {
+  /** Lines counted where the engine lets you use it, and those it stops. */
+  usable: number;
+  stopped: number;
+  /** Share of the field and hand the deck's lines end with that it takes, averaged over the lines counted. */
+  lost: number;
+}
+
 /** A card of the board that interrupts, against removals aimed at it with only its own effects to answer (mirrors `PieceView`). */
 export interface ComboPiece {
   code: number;
@@ -935,6 +985,11 @@ const tauriApi = {
   boardProtection: (hand: number, key: string) => invoke<ComboPiece[]>("board_protection", { hand, key }),
   /** Level 2 against the meta's most played decks (L2-3): takes about a minute the first time, then ~20s a board. */
   comboMeta: (boards?: { hand: number; key: string }[]) => invoke<number>("combo_meta", { boards: boards ?? null }),
+  /**
+   * Laboratorio, "Contro il meta": the deck's handtraps against the lines of the 6 decks of the meta played the most.
+   * Reading the meta's lines takes a few minutes the first time in a session, then about half a minute a deck.
+   */
+  techTable: (deckId: number) => invoke<TechTable>("tech_table", { deckId }),
   onComboProgress: (handler: (p: ComboProgress) => void): Promise<UnlistenFn> => listen<ComboProgress>("combo-progress", (e) => handler(e.payload)),
   /** Laboratorio, "Collegamenti": the map of a deck, read by the engine (about half a minute the first time, then kept until its cards change). */
   deckLinks: (deckId: number) => invoke<DeckLinks>("deck_links", { deckId }),
