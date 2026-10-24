@@ -150,6 +150,23 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm test
       - run: pnpm build
+      # Smoke test and screenshots on the mock backend (recorded fixtures):
+      # every section must render in both themes without page errors.
+      - name: Playwright browser
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Smoke test and screenshots
+        run: |
+          VITE_MOCK=1 pnpm exec vite build --outDir dist-mock
+          pnpm exec vite preview --outDir dist-mock --port 4173 &
+          npx --yes wait-on http://localhost:4173 --timeout 30000
+          node scripts/screens.mjs --smoke --url http://localhost:4173 --out screenshots
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshots-${{ github.sha }}
+          path: apps/desktop/screenshots/*.png
+          retention-days: 7
 
   windows-installer:
     name: Windows installer

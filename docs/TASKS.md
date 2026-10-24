@@ -311,7 +311,7 @@ Corsie di lavoro in parallelo del 22/10/2026 (piano in `docs/plans/piano-prossim
 - [ ] Fixture registrate (`duelforge-cli record-fixtures`) e anteprima Artifact dell'app.
 - [ ] Sistema di design: galleria e anteprime fatte (vedi sopra); manca il primo `/design-sync`, lo lancia l'utente.
 - [x] Script di avvio dell'ambiente cloud (PR in revisione): `scripts/cloud-setup.sh` (sottomodulo, WebKitGTK e Xvfb, `pnpm install`, `cargo fetch`, `--data` per `fetch-data`; variabili in `.cloud-env`) e `scripts/cloud-app.sh` (l'app vera sotto Xvfb con screenshot). Prova di WebKitGTK riuscita (§6.5 del piano).
-- [ ] CI: screenshot e test di fumo con Playwright.
+- [x] CI: screenshot e prova fumo con Playwright (PR in revisione): `screens.mjs --smoke` (1280×800, due temi, tutte le sezioni; fallisce su errori di pagina, risposte HTTP ≥ 400 o sezioni vuote) sul job frontend di `ci.yml`, in modo mock; gli screenshot sono l'artifact `screenshots-<sha>`.
 
 ### Richieste dal backend per l'interfaccia
 Nessuna aperta. Un dato nuovo per l'interfaccia lo aggiunge la stessa sessione di Claude che fa la schermata, nella stessa PR.
