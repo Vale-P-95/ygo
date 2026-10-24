@@ -40,7 +40,7 @@ pub use carddb::{Card, CardDb};
 pub use deck::DeckList;
 pub use duel::{
     arena_duels, fresh_duels, generic_materials, shuffle, ChainLink, Duel, DuelConfig, Engine, Opponent, Placement, Prelude, SavedDuel,
-    Step,
+    Step, STARTING_LP,
 };
 pub use message::{Activatable, CardRef, Decision, Event};
 pub use script::{run_script, ScriptEnd, Trace};

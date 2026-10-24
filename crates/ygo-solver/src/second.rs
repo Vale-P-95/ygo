@@ -6,15 +6,15 @@
 //! against the standard kit), from the opponent's side, before and after.
 //! A measure of its own, apart from the first turn's. On your turn the
 //! board answers with the effects its measure found as interruptions, aimed
-//! at your cards, and nothing else; your turn is the duel's first, with no
-//! Battle Phase.
+//! at your cards, and nothing else. Your turn comes after its turn, with a
+//! Battle Phase: the Life Points it loses count too ([`LP_WEIGHT`]).
 
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
 use std::time::Duration;
 
 use ygo_engine::consts::location;
-use ygo_engine::{DeckList, DuelState, Engine, Error, Opponent, Placement};
+use ygo_engine::{DeckList, DuelState, Engine, Error, Opponent, Placement, STARTING_LP};
 
 use crate::card::Rng;
 use crate::probe::{hand_traps, Kit, Measure, Prober};
@@ -27,6 +27,11 @@ const FLOODGATE_WEIGHT: f64 = 0.4;
 /// What taking away a card of the board is worth to the search at least,
 /// in interruptions: a body to attack with or to use as material.
 const BODY: f64 = 0.3;
+
+/// What the opponent's Life Points lost are worth against its board: all
+/// of them count as the whole board (a lethal leaves nothing), half of them
+/// as half of it.
+const LP_WEIGHT: f64 = 1.0;
 
 /// The opponent's board you play against.
 #[derive(Debug, Clone)]
@@ -56,10 +61,13 @@ pub struct BrokenBoard {
     pub line: Option<Vec<String>>,
     /// The opponent's cards left on its field after your turn.
     pub kept: Vec<u32>,
-    /// The board's value left after your turn, and its share of the value
-    /// before (1 when your hand does nothing).
+    /// The board's value left after your turn, and the share of the value
+    /// before that is left, less the opponent's Life Points lost at
+    /// [`LP_WEIGHT`] (1 when your hand does nothing, 0 for a lethal).
     pub left: f64,
     pub share: f64,
+    /// The Life Points the opponent lost.
+    pub damage: i32,
     /// Nodes the search used.
     pub nodes: u64,
 }
@@ -177,6 +185,7 @@ pub fn rival_board(engine: &Engine, deck: &DeckList, seed: u64, hands: usize, no
         deck: them.deck.clone(),
         extra: them.extra.iter().map(|e| e.0).collect(),
         placed: placed.clone(),
+        went_first: true,
     };
     Some(RivalBoard { hand, placed, left, value, worth, responders })
 }
@@ -213,22 +222,34 @@ pub fn break_board(
     search_config.time_limit = Duration::from_secs(120);
     search_config.opponent = Some(rival.left.clone());
     search_config.opponent_field = rival.worth.clone();
+    // To the search, taking all its Life Points is worth taking all its cards.
+    search_config.opponent_lp = LP_WEIGHT * rival.worth.iter().map(|w| w.1).sum::<f64>() / STARTING_LP as f64;
+    search_config.policy.skip_battle = false;
     if config.answers {
         search_config.policy.opponent_responders = rival.responders.clone();
     }
     search_config.hand_traps = hand_traps(engine, deck, config.seed, kit);
     let result = search(engine, &search_config, &AtomicBool::new(false), |_| {});
     let all: Vec<u32> = rival.placed.iter().filter(|p| on_field(p)).map(|p| p.code).collect();
-    let mut out = BrokenBoard { hand: hand.to_vec(), line: None, kept: all, left: rival.value, share: 1.0, nodes: result.progress.nodes };
-    for board in result.boards.iter().take(config.top.max(1)) {
+    let mut out =
+        BrokenBoard { hand: hand.to_vec(), line: None, kept: all, left: rival.value, share: 1.0, damage: 0, nodes: result.progress.nodes };
+    let damage = |state: &DuelState| (STARTING_LP - state.players[1].lp).clamp(0, STARTING_LP);
+    let lp_share = |damage: i32| LP_WEIGHT * damage as f64 / STARTING_LP as f64;
+    // The best by the estimate, and any lethal: the board left does not
+    // matter then.
+    let lethal = result.boards.iter().skip(config.top.max(1)).find(|b| damage(&b.state) >= STARTING_LP);
+    for board in result.boards.iter().take(config.top.max(1)).chain(lethal) {
         let placed = placements(&board.state, 1);
         let left = board_value(&measure(engine, rival_deck, &board.state, 1, None, config.seed, kit)?);
-        if out.line.is_none() || left < out.left {
+        let lost = damage(&board.state);
+        let share = (if rival.value > 0.0 { left / rival.value } else { 1.0 } - lp_share(lost)).max(0.0);
+        if out.line.is_none() || share < out.share {
             out.line = Some(board.line.choices.clone());
             out.kept = placed.iter().filter(|p| on_field(p)).map(|p| p.code).collect();
             out.left = left;
+            out.share = share;
+            out.damage = lost;
         }
     }
-    out.share = if rival.value > 0.0 { out.left / rival.value } else { 1.0 };
     Ok(out)
 }
