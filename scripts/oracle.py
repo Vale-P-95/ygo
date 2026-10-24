@@ -17,6 +17,8 @@ not in --decks is skipped.
     python3 scripts/oracle.py fixtures /tmp/oracle tests/fixtures/oracle
     # the normal search against them
     python3 scripts/oracle.py measure tests/fixtures/oracle /tmp/oracle-measure --decks /tmp/mdm
+    # the lists the fixtures were searched with, when the Master Duel Meta lists of today are others
+    python3 scripts/oracle.py decks tests/fixtures/oracle /tmp/oracle-decks
 
 `build` runs `duelforge-cli combos --probe --json --save-lines` for each
 hand and seed, with NODES x MULT nodes on one thread (the same boards on any
@@ -205,6 +207,47 @@ def staged(a):
 def matches(only, hid):
     """`hid` is one of the hands `--only` names (any of its comma-separated parts)."""
     return any(part in hid for part in only.split(","))
+
+
+def cmd_decks(a):
+    """The lists the fixtures were searched with, found by their deck_hash
+    among the last --limit top decks of Master Duel Meta (the lists change
+    from day to day, and a hand whose cards left the list does not play).
+    Written as mdm_decks.py writes them."""
+    import urllib.request
+    want = {}
+    for f in sorted(os.listdir(a.fixtures)):
+        if f.endswith(".json"):
+            fx = json.load(open(os.path.join(a.fixtures, f)))
+            if fx.get("deck_hash"):
+                want[fx["deck_hash"]] = os.path.basename(fx["deck"])
+    url = f"https://www.masterduelmeta.com/api/v1/top-decks?sort=-created&limit={a.limit}"
+    request = urllib.request.Request(url, headers={"User-Agent": "DuelForge deck tests"})
+    with urllib.request.urlopen(request, timeout=300) as response:
+        decks = json.load(response)
+    db = sqlite3.connect(os.path.join(ROOT, "data", "cards.db"))
+    os.makedirs(a.out, exist_ok=True)
+    found = {}
+    for deck in decks:
+        parts = {"main": [], "extra": []}
+        for part, cards in parts.items():
+            for entry in deck.get(part, []):
+                row = db.execute("select id from cards where lower(name) = lower(?)", (entry["card"]["name"],)).fetchone()
+                if row:
+                    cards.extend([row[0]] * entry["amount"])
+        text = "#main\n" + "\n".join(map(str, parts["main"])) + "\n#extra\n" + "\n".join(map(str, parts["extra"])) + "\n!side\n"
+        path = os.path.join(a.out, ".candidate.ydk")
+        open(path, "w").write(text)
+        h = deck_hash(path)
+        if h in want and h not in found:
+            found[h] = want[h]
+            os.replace(path, os.path.join(a.out, want[h]))
+    if os.path.exists(os.path.join(a.out, ".candidate.ydk")):
+        os.remove(os.path.join(a.out, ".candidate.ydk"))
+    print(f"{len(decks)} top decks read; {len(found)} of {len(want)} lists found")
+    left = sorted(set(want.values()) - set(found.values()))
+    if left:
+        print("not found (a larger --limit, or a deck of tests/fixtures/decks): " + ", ".join(left))
 
 
 def cmd_hands(a):
@@ -616,6 +659,10 @@ def cmd_lines(a):
 def main():
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = p.add_subparsers(dest="cmd", required=True)
+    dk = sub.add_parser("decks", help="find the lists the fixtures were searched with")
+    dk.add_argument("fixtures")
+    dk.add_argument("out")
+    dk.add_argument("--limit", type=int, default=3000, help="most recent top decks to read")
     h = sub.add_parser("hands", help="list the fixed set of hands")
     h.add_argument("--decks", required=True)
     b = sub.add_parser("build", help="the long runs")
@@ -662,7 +709,7 @@ def main():
     m.add_argument("--combos-args", default="", help="more options for combos, as one string (e.g. \"--checkpoints\")")
     m.add_argument("--cli", default=os.path.join(ROOT, "target", "release", "duelforge-cli"))
     a = p.parse_args()
-    {"hands": cmd_hands, "build": cmd_build, "fixtures": cmd_fixtures, "measure": cmd_measure, "converge": cmd_converge,
+    {"decks": cmd_decks, "hands": cmd_hands, "build": cmd_build, "fixtures": cmd_fixtures, "measure": cmd_measure, "converge": cmd_converge,
      "lines": cmd_lines, "as-hunt": cmd_as_hunt, "disagree": cmd_disagree}[a.cmd](a)
 
 

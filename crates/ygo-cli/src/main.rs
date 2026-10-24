@@ -31,6 +31,8 @@ struct Cli {
     command: Cmd,
 }
 
+// Parsed once: the size of the largest command's options does not matter.
+#[allow(clippy::large_enum_variant)]
 #[derive(Subcommand)]
 enum Cmd {
     /// Download or update card scripts and card databases with git.
@@ -790,6 +792,8 @@ fn combos(dir: &Path, setup: &Setup, options: CombosOptions) -> Result<()> {
     }
     type Answers = Vec<Vec<u8>>;
     type Kept = Result<ygo_solver::Measure, String>;
+    /// A full measure, its time, the quick value and its time, and whether it went on from the cheap one.
+    type FullKept = (Kept, std::time::Duration, Option<(f64, std::time::Duration)>, bool);
     /// The lines measured at the stops so far, by their answers: a line
     /// listed again at a later stop is not measured again. A cheap measure
     /// keeps what the full one goes on from.
@@ -798,7 +802,7 @@ fn combos(dir: &Path, setup: &Setup, options: CombosOptions) -> Result<()> {
         /// `probe`, without the breakers, the quick value too.
         how: (bool, bool, bool),
         cheap: HashMap<Answers, (Kept, Option<ygo_solver::probe::Partial>, std::time::Duration)>,
-        full: HashMap<Answers, (Kept, std::time::Duration, Option<(f64, std::time::Duration)>, bool)>,
+        full: HashMap<Answers, FullKept>,
         again: usize,
     }
     fn unkept(kept: &Kept) -> Result<ygo_solver::Measure, ygo_engine::Error> {
