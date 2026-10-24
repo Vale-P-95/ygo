@@ -170,3 +170,29 @@ fn the_opponents_board_is_placed_on_its_side() {
     assert!(them.monsters.iter().flatten().any(|c| c.code == apollousa && c.attack > 0), "{:?}", them.monsters);
     assert!(them.grave.contains(&dragon));
 }
+
+#[test]
+fn going_second_your_turn_is_the_third_with_a_battle_phase() {
+    let Some((engine, deck)) = setup() else { return };
+    let dragon = code(&engine, "Alexandrite Dragon");
+    let rest: Vec<u32> = deck.main.iter().copied().filter(|c| !HAND.contains(c)).take(10).collect();
+    let opponent = Opponent {
+        hand: rest[..2].to_vec(),
+        deck: rest[2..].to_vec(),
+        placed: vec![monster(dragon, 2)],
+        went_first: true,
+        ..Opponent::default()
+    };
+    let mut duel = Duel::goldfish_against_placed(&engine, &deck, &HAND, 1, Some(&opponent), &[]).unwrap();
+    let actions = to_free_moment(&mut duel, &mut Vec::new());
+    let (turn, player, _) = duel.turn_info();
+    assert_eq!((turn, player), (3, 0));
+    // Turns 1 and 2 passed with nothing done, and no one drew.
+    let state = duel.state();
+    assert_eq!(state.players[0].hand.len(), HAND.len());
+    assert_eq!((state.players[1].hand.len(), state.players[1].deck.len()), (2, 8));
+    assert!(state.players[1].monsters[2].as_ref().is_some_and(|c| c.code == dragon));
+    assert!(actions.iter().any(|a| a.kind == ActionKind::ToBattlePhase), "{actions:?}");
+    // The duel ends when the opponent's next turn begins.
+    assert_eq!(duel.last_turn(), Some(3));
+}

@@ -8,6 +8,7 @@ use std::path::Path;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, OnceLock};
 
+use crate::actions::ActionKind;
 use crate::carddb::CardDb;
 use crate::consts::{card_type, duel_flags, location, position, summon_type};
 use crate::deck::DeckList;
@@ -50,16 +51,21 @@ impl Engine {
     }
 }
 
+/// Life Points of each player in the solitaire duels ([`Duel::goldfish`]).
+pub const STARTING_LP: i32 = 8000;
+
 #[derive(Debug, Clone)]
 pub struct DuelConfig {
     pub seed: [u64; 4],
     pub flags: u64,
     pub starting_lp: u32,
+    /// Cards each player draws in the Draw Phase.
+    pub draw_per_turn: u32,
 }
 
 impl Default for DuelConfig {
     fn default() -> Self {
-        Self { seed: [1, 2, 3, 4], flags: duel_flags::MODE_MR5, starting_lp: 8000 }
+        Self { seed: [1, 2, 3, 4], flags: duel_flags::MODE_MR5, starting_lp: 8000, draw_per_turn: 1 }
     }
 }
 
@@ -167,6 +173,9 @@ pub struct Duel {
     chain: Vec<ChainLink>,
     /// The duel ends ([`Step::End`]) as soon as a later turn begins.
     last_turn: Option<u32>,
+    /// The turns before this one pass: both players do nothing
+    /// ([`Opponent::went_first`]).
+    first_turn: u32,
     /// The memory arena the engine allocates this duel in (shim/arena.cpp),
     /// or null: with one the duel can be saved and put back ([`Duel::save`]).
     arena: *mut c_void,
@@ -205,6 +214,7 @@ pub struct SavedDuel {
     open_chain: usize,
     chain: Vec<ChainLink>,
     last_turn: Option<u32>,
+    first_turn: u32,
 }
 
 // The memory is plain bytes; the arena pointer only identifies the duel.
@@ -298,6 +308,11 @@ pub struct Opponent {
     /// duel starts, placed like yours: the board you play your turn
     /// against when going second. Not in `deck` or `extra`.
     pub placed: Vec<Placement>,
+    /// It had the first turn, which made `placed`: your turn is a later one,
+    /// with a Battle Phase. The engine always gives turn 1 to you, so turn 1
+    /// (yours) and turn 2 (its) pass with nothing done and no one draws;
+    /// your turn is turn 3.
+    pub went_first: bool,
 }
 
 // Each duel is a self-contained engine instance (its own Lua state); the
@@ -465,7 +480,7 @@ pub fn fresh_duels(fresh: bool) {
 
 fn duel_options(config: &DuelConfig, ctx: &Context) -> OCG_DuelOptions {
     let payload = ctx as *const Context as *mut c_void;
-    let player = OCG_Player { starting_lp: config.starting_lp, starting_draw_count: 0, draw_count_per_turn: 1 };
+    let player = OCG_Player { starting_lp: config.starting_lp, starting_draw_count: 0, draw_count_per_turn: config.draw_per_turn };
     OCG_DuelOptions {
         seed: config.seed,
         flags: config.flags,
@@ -577,6 +592,7 @@ impl Duel {
             open_chain: 0,
             chain: Vec::new(),
             last_turn: None,
+            first_turn: 1,
             arena: std::ptr::null_mut(),
             arena_id: 0,
         }
@@ -632,6 +648,7 @@ impl Duel {
             open_chain: self.open_chain,
             chain: self.chain.clone(),
             last_turn: self.last_turn,
+            first_turn: self.first_turn,
         })
     }
 
@@ -654,6 +671,7 @@ impl Duel {
         self.open_chain = saved.open_chain;
         self.chain = saved.chain.clone();
         self.last_turn = saved.last_turn;
+        self.first_turn = saved.first_turn;
         Ok(())
     }
 
@@ -688,7 +706,7 @@ impl Duel {
         placed: &[Placement],
     ) -> Result<Self, Error> {
         let mut duel = Self::solitaire(engine, deck, hand, seed, opponent, placed)?;
-        duel.last_turn = Some(1);
+        duel.last_turn = Some(duel.first_turn);
         Ok(duel)
     }
 
@@ -788,12 +806,17 @@ impl Duel {
             }
         }
         shuffle(&mut main, seed);
+        let went_first = opponent.is_some_and(|o| o.went_first);
         let config = DuelConfig {
             seed: [seed ^ 0x9e37_79b9_7f4a_7c15, seed.rotate_left(17) | 1, 0xdead_beef, 0x1234_5678],
             flags: duel_flags::MODE_MR5 | duel_flags::PSEUDO_SHUFFLE | if opponent.is_none() { duel_flags::SIMPLE_AI } else { 0 },
-            starting_lp: 8000,
+            starting_lp: STARTING_LP as u32,
+            draw_per_turn: if went_first { 0 } else { 1 },
         };
         let mut duel = Duel::new(engine, &config)?;
+        if went_first {
+            duel.first_turn = 3;
+        }
         if duel.reusable && !NO_PRELOAD.with(Cell::get) {
             let theirs = opponent.into_iter().flat_map(|o| o.deck.iter().chain(&o.extra).chain(&o.hand)).copied();
             let theirs_placed = opponent.into_iter().flat_map(|o| &o.placed);
@@ -954,6 +977,7 @@ impl Duel {
         }
         if let Some(mut shadow) = self.shadow.take() {
             shadow.last_turn = self.last_turn;
+            shadow.first_turn = self.first_turn;
             let fresh = shadow.advance_once();
             let (a, b) = (format!("{step:?}"), format!("{fresh:?}"));
             let (sa, sb) = (self.state(), shadow.state());
@@ -996,6 +1020,20 @@ impl Duel {
             if self.last_turn.is_some_and(|last| self.turn > last) {
                 self.pending = None;
                 return Ok(Step::End { events });
+            }
+            if let Some(decision) = decision.as_ref().filter(|_| self.first_turn > 1 && self.turn < self.first_turn) {
+                // A turn that passes: nobody does anything, and nothing of
+                // it is told.
+                self.select_hint = 0;
+                self.pending = Some(decision.clone());
+                let actions = self.actions(decision);
+                let answer = match actions.iter().find(|a| a.kind == ActionKind::EndTurn) {
+                    Some(end) => end.response.clone(),
+                    None => crate::auto::passive_answer(decision, &actions),
+                };
+                self.respond_here(&answer);
+                events.clear();
+                continue;
             }
             if let Some(decision) = decision {
                 self.select_hint = 0;
@@ -1056,6 +1094,12 @@ impl Duel {
             }
             _ => {}
         }
+    }
+
+    /// The last turn played: the duel ends when the next one begins (`None`:
+    /// it goes on).
+    pub fn last_turn(&self) -> Option<u32> {
+        self.last_turn
     }
 
     /// `(turn, turn player, phase)`; turn 1 is the first.
@@ -1124,6 +1168,11 @@ impl Duel {
         if let Some(shadow) = &mut self.shadow {
             shadow.respond(response);
         }
+        self.respond_here(response);
+    }
+
+    /// [`Self::respond`] in this duel only (not its shadow).
+    fn respond_here(&mut self, response: &[u8]) {
         self.last_response = response.to_vec();
         let _arena = self.enter();
         unsafe { OCG_DuelSetResponse(self.raw, response.as_ptr() as *const c_void, response.len() as u32) };
