@@ -152,6 +152,39 @@ fn the_probe_turn_tells_the_zones_of_oceanus_apart() {
 }
 
 #[test]
+fn the_probe_turn_plays_the_same_from_a_copy_of_the_duel() {
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let data = std::env::var_os("DUELFORGE_DATA").map(PathBuf::from).unwrap_or_else(|| root.join("data"));
+    if !data.join("scripts/constant.lua").is_file() {
+        eprintln!("skipped: no game data in {}", data.display());
+        return;
+    }
+    let engine = Engine::load(&data).expect("game data loads");
+    let deck = DeckList::from_ydk(&std::fs::read_to_string(root.join("tests/fixtures/decks/invoked-siracusa-md.ydk")).unwrap()).unwrap();
+    let kit = Kit::standard(&engine);
+    let hand = vec![ALEISTER, CHALICE, MELTDOWN, ASH, FUWALOS];
+    let mut config = SearchConfig::new(deck.clone(), hand.clone());
+    config.threads = 1;
+    config.max_nodes = 300;
+    config.time_limit = Duration::from_secs(300);
+    config.opponent = Some(kit.opponent().clone());
+    let result = search(&engine, &config, &AtomicBool::new(false), |_| {});
+    // Every run that starts from a copy is played in a new duel too: a
+    // difference fails the measure.
+    ygo_solver::probe::check_turn_copies(Some(1));
+    let mut prober = Prober::new(&engine, &deck, &hand, config.seed, &kit);
+    let measures: Vec<_> = result.boards.iter().take(2).map(|b| prober.measure(&b.line).expect("the same run from a copy")).collect();
+    ygo_solver::probe::check_turn_copies(None);
+    // Measured again, from the copies made the first time.
+    for (board, first) in result.boards.iter().zip(&measures) {
+        let again = prober.measure(&board.line).unwrap();
+        assert_eq!(again.field_value, first.field_value);
+        assert_eq!(again.hand_value, first.hand_value);
+        assert_eq!(again.floodgates, first.floodgates);
+    }
+}
+
+#[test]
 fn cards_alone_on_the_field_are_worth_what_they_stop() {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
     let data = std::env::var_os("DUELFORGE_DATA").map(PathBuf::from).unwrap_or_else(|| root.join("data"));
