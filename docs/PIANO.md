@@ -808,7 +808,7 @@ Tema ametista della sezione, intestazione con Aleister the Invoker. A sinistra: 
 - **5C Punteggio e spiegazione**: turno di prova, metriche, profili, pesi, confronti, frontiera, interfaccia dei risultati con la riproduzione passo per passo. Pronto quando ogni punto è spiegato e l'ordine delle board di riferimento rispetta l'obiettivo di accordo.
 
 ### 22.7 Scelte da confermare
-1. Per ora solo andando **per primo**; per secondo (rompere una board avversaria) nella Fase 6 insieme alle handtrap.
+1. Per ora solo andando **per primo**; per secondo (rompere una board avversaria) nella Fase 6 insieme alle handtrap. *24/10/2026: prototipo nella CLI, `break-board` (`docs/plans/andare-secondo.md`).*
 2. I pesi predefiniti del profilo Bilanciato (§22.4).
 3. Il kit del turno di prova: le sonde e i board breaker elencati, aggiornabili con il meta.
 

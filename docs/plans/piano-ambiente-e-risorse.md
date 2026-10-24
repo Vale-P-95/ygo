@@ -34,6 +34,7 @@ Le cause, in ordine di peso:
 ## 2. Regole per i token
 
 Valgono per ogni sessione Claude del progetto. Vanno in `CLAUDE.md` (§9) perché si applichino da sole.
+Le leve aggiunte il 24/10 (avvio sessione, documenti grandi, output, GitHub, compattazione) sono in `docs/plans/token-e-contesto.md`.
 
 ### 2.1 Una sessione, un compito, un contesto corto
 - **Una sessione per compito**, creata da `main` con un brief di dieci righe, chiusa e archiviata quando la PR è unita. Mai un secondo compito nella stessa sessione.
@@ -248,7 +249,8 @@ Resta la memoria operativa nei giorni con coordinatrice; altrimenti si aggiorna 
    - [fatto] le board `cheap: true`: scheda e interruttore `SEND_CHEAP_SCORES` nella stessa PR;
    - B8, obiettivi ricchi: motore e contratto fatti il 24/10; restano mockup e interfaccia (Opus);
    - [fatto] i punti 3, 5 e 6 della caccia ai bug; [fatto il 24/10] l'arena nel turno di prova; [fatto il 24/10] il caso Vendread (Opus, `docs/plans/robustezza.md`);
-   - il simulatore (#36): mockup prima.
+   - il simulatore (#36): mockup prima;
+   - [fatto il 24/10] andare secondo, prototipo CLI `break-board` (idea 5 di `idee-nuove.md`, Opus alto): una sessione, contesto sotto 100k, prove su 3 coppie in pochi minuti di CPU.
 
 ## 10bis. Decisione sul merge (23/10)
 - **Cosa**: i merge li fa la coordinatrice in automatico; sostituisce «il merge lo fa l'utente dalla pagina».
