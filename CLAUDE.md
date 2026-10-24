@@ -24,6 +24,10 @@ Le regole di `AGENTS.md` valgono per tutti. Queste riguardano solo come una sess
 - Screenshot: solo le pagine toccate, nei due temi; non l'intera galleria a ogni modifica.
 - `list_events` sulle altre sessioni è vietato, salvo per diagnosticare una sessione bloccata. `list_sessions` solo quando l'utente chiede stato o costi, al massimo una volta per turno.
 
+### Avviso sui token
+- Se in una sessione l'effort o il consumo superano il previsto (cicli prova-correggi lunghi, letture ripetute, contesto oltre i 150k senza esito vicino, subagenti Opus per lavori da Haiku, un comando bloccato o rilanciato più volte, un compito che si allarga oltre il brief), si avvisa subito l'utente con una riga: cosa sta costando, quanto, e la proposta (cambiare modello o effort, passare la mano, fermarsi). Non si aspetta la fine del compito.
+- A fine compito si aggiornano su GitHub, nella stessa PR, `docs/TASKS.md`, `docs/STATO.md` se cambia qualcosa di importante, il piano toccato e ogni documento che il lavoro rende vecchio.
+
 ### Risvegli
 - Nessun trigger orario, nessun `Monitor` sui log, nessun `sleep`. Ci si sveglia per: messaggio dell'utente, fine di un calcolo in background, evento GitHub della PR a cui si è iscritti, messaggio di un'altra sessione per una PR pronta o un blocco.
 - Un calcolo oltre i dieci minuti parte con `run_in_background` e la sessione chiude il turno. Ogni script lungo scrive `out/<nome>/summary.txt` (dieci righe): si legge quello, non il log.

@@ -138,6 +138,16 @@ export function score(s: ComboScore, w: Weights): number {
   return METRICS.reduce((t, m) => t + w[m.key] * s[m.key], 0);
 }
 
+/** Scored with the cheap measure only: no breakers, follow-up, exposure nor matchup, so it is not comparable with a full score. */
+export function isCheap(s: ComboScore | null | undefined): boolean {
+  return s?.cheap === true;
+}
+
+/** The score to keep when `next` arrives: a cheap one never replaces a full one of the same board. */
+export function keepFull(prev: ComboScore | undefined, next: ComboScore): ComboScore {
+  return prev && !isCheap(prev) && !prev.error && isCheap(next) ? prev : next;
+}
+
 /** Each metric's part of the score (the cost is negative). */
 export function parts(s: ComboScore, w: Weights): { metric: Metric; value: number }[] {
   return METRICS.map((metric) => ({ metric, value: w[metric.key] * s[metric.key] }));

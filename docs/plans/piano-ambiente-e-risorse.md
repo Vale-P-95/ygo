@@ -116,7 +116,7 @@ Nessun prompt da preparare e incollare; nessuna revisione incrociata obbligatori
 ### 4.1 Claude Code sul web (claude.ai/code): motore, backend, frontend
 - Container Linux con Rust, Node, pnpm, Chromium per Playwright, Xvfb, repository, CI via GitHub, messaggi tra sessioni.
 - Vi si fa tutto il codice: `crates/`, `src-tauri/`, `apps/desktop/src/`, `scripts/`. Il frontend si prova nel browser headless con il backend finto; il backend dell'app con `cargo check -p duelforge-desktop` e la CLI.
-- **Limite:** l'app Tauri con la finestra non parte (manca WebKitGTK). Si può provare una volta a installarlo nello script di avvio e lanciare `pnpm tauri dev` sotto Xvfb per screenshot dell'app vera dal cloud; se funziona entra in §6, altrimenti l'app vera resta sul computer.
+- **App Tauri sotto Xvfb: provato il 23/10, funziona.** WebKitGTK si installa con apt (`scripts/cloud-setup.sh`); `scripts/cloud-app.sh <png>` lancia `pnpm tauri dev` senza finestra e scatta lo screenshot (prima build debug ~8 minuti, poi pochi secondi; in background). Provato con `VITE_MOCK=1`; con il motore vero serve `data/` (`cloud-setup.sh --data`). Non sostituisce la prova sul computer per suoni, prestazioni e 3D con la GPU (qui rendering software).
 - L'ambiente va sistemato una volta: script di avvio con `pnpm install` e `cargo fetch`; `fetch-data` solo quando serve (le sessioni di frontend non ne hanno bisogno); variabili `DUELFORGE_DATA`, `VITE_MOCK`; rete verso Master Duel Meta, YGOPRODeck, crates.io, npm, ambientCG/Poly Haven per le texture.
 - Verificato il 24/10 (thread «Provare le correzioni dei bug del motore»): la rete verso Master Duel Meta e YGOPRODeck è aperta. Una sessione del motore da container vuoto si prepara in circa 15 minuti (build release, `fetch-data`, `update-cards`, `mdm_decks.py`, build di `main` per il confronto); `paired_test.py` su 92 mani a 4000 nodi con 4 job dura circa 20 minuti per lato, e il lato `--old` si riusa come cartella per le varianti. Per la memoria: massif vede solo lo heap Rust, perché il motore alloca con mimalloc (`arena.cpp`); il picco si misura con VmHWM.
 
@@ -168,7 +168,7 @@ Dal più immediato al più completo. Le opzioni 1-3 non richiedono niente sul co
 2. **Screenshot della sessione** (per la sessione e per l'utente, subito). `scripts/screens.mjs` nel container: la sessione li guarda per verificarsi, e manda all'utente quelli che contano con un file in chat. In CI gli stessi screenshot diventano artifact del run, visibili dalla PR.
 3. **Browser con il motore vero, nel cloud** (fase 2, se il mock registrato non basta). Un «ponte di sviluppo»: un piccolo binario Rust che espone gli stessi comandi di `lib.rs` su HTTP locale, e `api.ts` che con `VITE_BRIDGE=1` chiama il ponte invece di `invoke`. Permette a Playwright di provare l'interfaccia con il motore vero e i dati veri, nel container e in CI. Richiede di spostare i comandi di `lib.rs` in un crate condiviso. L'utente non vede le porte del container: serve alla sessione, non ai suoi occhi.
 4. **App Tauri vera**: sul computer con `pnpm tauri dev` e ricarica a caldo, da una sessione Claude Code desktop (che la guarda) o da una sessione cloud via Remote Control. Obbligatoria per le PR che toccano pagine intere, la Bottega 3D, i suoni, le prestazioni del motore dall'app.
-5. **App Tauri sotto Xvfb nel cloud** (da provare una volta): se WebKitGTK si installa nel container, `pnpm tauri dev` headless con screenshot dell'app vera senza il computer. Se funziona, sostituisce il punto 4 per tutto tranne suoni e prestazioni.
+5. **App Tauri sotto Xvfb nel cloud** (provata il 23/10, funziona): `scripts/cloud-app.sh` lancia `pnpm tauri dev` headless con screenshot dell'app vera senza il computer. Sostituisce il punto 4 per tutto tranne suoni e prestazioni.
 6. **Installer da `main`**, una volta a settimana: la prova completa.
 
 Regola: 1 e 2 per ogni PR dell'interfaccia; 4 per i passi grandi; 6 settimanale. Il 3 si fa quando il primo bug «solo con il motore vero» costa più del ponte.
@@ -210,10 +210,10 @@ Resta la carta del progetto: mappa, comandi, convenzioni, protocolli, cosa non f
 ### 9.2 `CLAUDE.md` (c'è, cinque righe)
 Solo per Claude Code: tabella dei modelli e livelli (§2.4); risvegli (§2.3); subagenti Haiku per le letture pesanti; `list_events` vietato; brief standard; passaggio di consegne; file caldi; «il merge lo fa l'utente dalla pagina, salvo delega».
 
-### 9.3 `.claude/settings.json` (da creare)
+### 9.3 `.claude/settings.json` (fatto)
 Permessi senza conferma: `cargo fmt/clippy/test/check`, `pnpm lint/typecheck/test/build/dev/screens`, `git add/commit/push` sul proprio branch, `python3 scripts/*.py`, `node scripts/screens.mjs`. Il 23/10 quattro blocchi su commit e push di documenti sono costati quattro turni e quattro messaggi. Vietati: `git push --force`, `git rebase` su branch altrui, scritture in `vendor/`.
 
-### 9.4 `.claude/skills/` (da creare)
+### 9.4 `.claude/skills/` (fatto)
 - **`brief`**: il modello del brief (compito, file, comandi, criterio, piano, mockup, modello).
 - **`pr-motore`**: il protocollo del motore con i comandi esatti (`mdm_decks.py`, `bench.py`, `paired_test.py`, `a1b_fair_measure.py`, `generality.py`) e la tabella numeri prima/dopo.
 - **`pr-interfaccia`**: la lista del protocollo dell'interfaccia, `VITE_MOCK=1 pnpm dev` più `screens.mjs`, come confrontare con il mockup, come pubblicare l'anteprima Artifact allo stesso URL, cosa scrivere nel template.
@@ -233,15 +233,15 @@ Resta la memoria operativa nei giorni con coordinatrice; altrimenti si aggiorna 
 ## 10. Cosa fare adesso, in ordine
 1. **Chiudere il giro**: PR dell'A1b (corsia 6), merge, archiviazione; `coordinamento.md` e questo piano su `main`.
 2. **Regole** (§9.1-9.5) in una PR di documenti e configurazione: mezza giornata di una sessione Sonnet.
-3. **Ambiente cloud**: script di avvio, variabili, rete; la prova una tantum di WebKitGTK sotto Xvfb (§6.5).
+3. ~~**Ambiente cloud**~~ fatto il 23/10: `scripts/cloud-setup.sh`, variabili in `.cloud-env`, prova di WebKitGTK sotto Xvfb riuscita (§6.5). Da impostare nell'ambiente su claude.ai: come setup script `scripts/cloud-setup.sh`.
 4. **Progetto Claude**: conoscenza, istruzioni, collegamento con Code; Remote Control sul computer.
-5. **Fixture registrate e anteprima**: il comando `record-fixtures`, `mock.ts` che le serve, la prima anteprima Artifact (Sonnet, una sessione).
-6. **Sistema di design**: la galleria `/galleria`, le anteprime in `apps/desktop/design/`, `/design-sync` (Opus la prima volta).
+5. **Fixture registrate e anteprima**: ~~il comando `record-fixtures`, `mock.ts` che le serve, la prima anteprima Artifact~~ fatto il 23/10 nella struttura: `record-fixtures` scrive `fixtures/recorded.json` (ricerche, faccette, banlist, deck; niente testi), `mock.ts` lo serve se presente, anteprima pubblicata con `vite build --base ./` (percorsi relativi, serve per l'Artifact). Resta da registrare i dati veri dove `update-cards` funziona (nel cloud ygoprodeck è bloccata), e da aggiungere punteggi e probabilità.
+6. **Sistema di design**: la galleria `/galleria`, le anteprime in `apps/desktop/design/`, `/design-sync` (Opus la prima volta). *24/10: galleria, anteprime e script `pnpm design` nella PR del thread «Costruire il sistema di design»; il primo `/design-sync` lo lancia l'utente (`docs/plans/sistema-di-design.md`). Il §9 è fatto, salvo gli screenshot in CI del §9.5, in coda in `TASKS.md`.*
 7. **Passo 5 di Gemini**: revisione con screenshot e merge; poi Gemini si ferma e i branch si puliscono.
 8. **Primo compito con la filiera completa**: il passo 6 (effetti e suoni, ognuno spegnibile): mockup delle Impostazioni in Claude Design, sessione Sonnet, screenshot, anteprima, prova sul computer. Serve a collaudare la filiera su un compito piccolo prima di quelli grandi.
 9. **Poi, uno per sessione, al massimo tre in parallelo**:
    - i due pesi del punteggio proposti dalla §7 (resilienza 0,6 → 0, floodgate 0,8 → 0,4): conferma sul banco di generalità, poi una PR che cambia `bench.py`, CLI, `lib.rs`, `scoring.ts` insieme;
-   - le board `cheap: true`: scheda e interruttore `SEND_CHEAP_SCORES` nella stessa PR;
+   - [fatto] le board `cheap: true`: scheda e interruttore `SEND_CHEAP_SCORES` nella stessa PR;
    - B8, obiettivi ricchi: mockup, poi contratto e interfaccia (Opus);
    - i punti 3, 5 e 6 della caccia ai bug, l'arena nel turno di prova, il caso Vendread (Opus);
    - il simulatore (#36): mockup prima.

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ComboScore } from "./api";
-import { METRICS, NEGATIVE, parts, PROFILES, score, migrateLegacyWeights, loadChoice, WEIGHTS_STORAGE_VERSION, type Weights } from "./scoring";
+import { isCheap, keepFull, METRICS, NEGATIVE, parts, PROFILES, score, migrateLegacyWeights, loadChoice, WEIGHTS_STORAGE_VERSION, type Weights } from "./scoring";
 
 function makeScore(partial: Partial<ComboScore> = {}): ComboScore {
   return {
@@ -23,6 +23,7 @@ function makeScore(partial: Partial<ComboScore> = {}): ComboScore {
     exposureDetail: partial.exposureDetail ?? null,
     countered: partial.countered ?? null,
     error: partial.error ?? null,
+    cheap: partial.cheap,
   };
 }
 
@@ -281,5 +282,17 @@ describe("scoring", () => {
       expect(choice.profile).toBe("learned");
       expect(choice.weights.exposure).toBe(-0.08);
     });
+  });
+});
+
+describe("cheap scores", () => {
+  it("never replace a full score of the same board", () => {
+    const full = makeScore({ interruptions: 3 });
+    const cheap = makeScore({ interruptions: 5, cheap: true });
+    expect(isCheap(cheap)).toBe(true);
+    expect(keepFull(full, cheap)).toBe(full);
+    expect(keepFull(cheap, full)).toBe(full);
+    expect(keepFull(undefined, cheap)).toBe(cheap);
+    expect(keepFull(makeScore({ error: "x" }), cheap)).toBe(cheap);
   });
 });

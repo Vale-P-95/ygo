@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from "react";
+import { keepFull } from "./scoring";
 import { api, type ComboBoard, type ComboOutcome, type ComboProgress, type ComboRequest, type ComboScore } from "./api";
 
 /**
@@ -130,7 +131,10 @@ export async function scoreBoards(vsDeckId?: number | null) {
   const targetVs = vsDeckId !== undefined ? vsDeckId : run.vsDeckId;
   const resetScores = vsDeckId !== undefined && vsDeckId !== run.vsDeckId;
   set({ scoring: true, vsDeckId: targetVs, scores: resetScores ? {} : run.scores, metaError: null });
-  const unlisten = await api.onComboScore((s) => set({ scores: { ...run.scores, [`${s.hand}:${s.key}`]: s } }));
+  const unlisten = await api.onComboScore((s) => {
+    const id = `${s.hand}:${s.key}`;
+    set({ scores: { ...run.scores, [id]: keepFull(run.scores[id], s) } });
+  });
   try {
     await api.comboScore(targetVs);
   } catch (e) {
@@ -155,7 +159,8 @@ export async function compareMeta(
 
   const unlisten = await api.onComboScore((s) => {
     if (isStale()) return;
-    set({ scores: { ...run.scores, [`${s.hand}:${s.key}`]: s } });
+    const id = `${s.hand}:${s.key}`;
+    set({ scores: { ...run.scores, [id]: keepFull(run.scores[id], s) } });
   });
 
   try {

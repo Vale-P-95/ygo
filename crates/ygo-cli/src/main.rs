@@ -42,6 +42,18 @@ enum Cmd {
         #[arg(long)]
         force: bool,
     },
+    /// Record the backend's answers for a sample deck as JSON, for the mock mode of the app (no card texts).
+    RecordFixtures {
+        /// Sample deck in .ydk format.
+        #[arg(long)]
+        deck: PathBuf,
+        /// Where to write the file.
+        #[arg(long, default_value = "apps/desktop/src/lib/fixtures/recorded.json")]
+        out: PathBuf,
+        /// Extra search queries to record, besides the built-in ones and one per archetype of the deck.
+        #[arg(long)]
+        query: Vec<String>,
+    },
     /// Search the card database with the same language as the app.
     Search {
         /// e.g. `attr:dark type:fusion atk>=2500 "negate"`
@@ -356,6 +368,7 @@ fn main() -> Result<()> {
         Cmd::FetchData => fetch_data(&cli.data),
         Cmd::Info => info(&cli.data),
         Cmd::UpdateCards { force } => update_cards(&cli.data, force),
+        Cmd::RecordFixtures { deck, out, query } => record_fixtures(&cli.data, &deck, &out, &query),
         Cmd::Search { query, limit } => search(&cli.data, &query, limit),
         Cmd::Play { setup, steps, verbose } => play(&cli.data, &setup, steps.as_deref(), verbose),
         Cmd::Bench { setup, playouts, max_decisions } => bench(&cli.data, &setup, playouts, max_decisions),
@@ -1761,6 +1774,48 @@ fn search(dir: &Path, text: &str, limit: usize) -> Result<()> {
     Ok(())
 }
 
+/// Searches every app screen starts from; the deck's archetypes are added to them.
+const FIXTURE_QUERIES: &[&str] = &["", "type:monster", "type:spell", "type:trap", "attr:dark", "atk>=2500", "tag:handtrap", "\"negate\""];
+
+/// What the backend answers for a deck, in the shapes of `api.ts` and without any card text (Konami's, never committed).
+fn recorded_fixtures(store: &CardStore, deck: &ygo_data::deck::Sections, extra_queries: &[String]) -> Result<serde_json::Value> {
+    let (main, extra, side) = deck;
+    let all: Vec<u32> = main.iter().chain(extra).chain(side).copied().collect();
+    let mut archetypes: Vec<String> = store.get_many(&all)?.into_iter().filter_map(|c| c.archetype).collect();
+    archetypes.sort();
+    archetypes.dedup();
+    let mut queries: Vec<String> = FIXTURE_QUERIES.iter().map(|q| q.to_string()).collect();
+    queries.extend(archetypes.iter().map(|a| format!("arch:\"{a}\"")));
+    queries.extend(extra_queries.iter().cloned());
+    let mut seen = std::collections::HashSet::new();
+    queries.retain(|q| seen.insert(q.clone()));
+    let mut searches = serde_json::Map::new();
+    for text in queries {
+        let parsed = ygo_data::parse_query(&text);
+        let ids = store.search(&parsed.query)?;
+        searches.insert(text, serde_json::json!({ "ids": ids, "chips": parsed.chips, "errors": parsed.errors }));
+    }
+    Ok(serde_json::json!({
+        "deck": { "main": main, "extra": extra, "side": side },
+        "searches": searches,
+        "facets": store.facets()?,
+        "banChanges": store.ban_changes(Some("md"))?,
+    }))
+}
+
+fn record_fixtures(dir: &Path, deck: &Path, out: &Path, extra_queries: &[String]) -> Result<()> {
+    let store = CardStore::open(&dir.join("cards.db"))?;
+    let text = std::fs::read_to_string(deck).with_context(|| format!("reading {}", deck.display()))?;
+    let sections = ygo_data::deck::parse_any(&text)?;
+    let json = recorded_fixtures(&store, &sections, extra_queries)?;
+    if let Some(parent) = out.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    std::fs::write(out, serde_json::to_string_pretty(&json)? + "\n")?;
+    println!("wrote {} ({} searches)", out.display(), json["searches"].as_object().map_or(0, |m| m.len()));
+    Ok(())
+}
+
 /// Where `links` writes the map, and the hands searched for it.
 struct LinksOut<'a> {
     json: Option<&'a Path>,
@@ -2583,4 +2638,19 @@ fn bench(dir: &Path, setup: &Setup, playouts: u32, max_decisions: u32) -> Result
     let secs = t.elapsed().as_secs_f64();
     println!("Parallel replays on {threads} threads: {:.0} decisions/s", decisions as f64 / secs);
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn recorded_fixtures_cover_each_query_once() {
+        let store = CardStore::open_in_memory().unwrap();
+        let json = recorded_fixtures(&store, &(vec![1], vec![], vec![]), &["type:monster".into(), "x".into()]).unwrap();
+        let searches = json["searches"].as_object().unwrap();
+        assert_eq!(searches.len(), FIXTURE_QUERIES.len() + 1);
+        assert_eq!(searches["x"]["ids"], serde_json::json!([]));
+        assert_eq!(json["deck"]["main"], serde_json::json!([1]));
+    }
 }
