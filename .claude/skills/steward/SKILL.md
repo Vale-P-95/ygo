@@ -19,5 +19,5 @@ description: Convenzioni del repository per chi guida una pull request fino al m
 - Le PR del motore devono avere i numeri prima/dopo (`pr-motore`); quelle dell'interfaccia gli screenshot e la lista (`pr-interfaccia`). Senza, non sono pronte.
 
 ## Merge
-- Lo fa la coordinatrice in automatico (decisione del 23/10), non il thread: `merge_method: squash`, `expectedHeadSha` con lo SHA completo (40 caratteri), CI verde, nessun conflitto. Mai con conflitti, mai con CI rossa; per il motore, solo con la prova equa sulle 406 board non peggiorata. Si attende l'esito dai soli eventi della PR, senza controlli a intervalli. Dopo l'ultimo push la CI si lancia a mano una volta (`ci.yml`).
+- Lo fa la coordinatrice in automatico (decisione del 23/10), non il thread: `merge_method: squash`, `expectedHeadSha` con lo SHA completo (40 caratteri), CI verde, nessun conflitto. Mai con conflitti, mai con CI rossa; per il motore, solo con `banco.py` ACCEPTED (`docs/plans/regole-motore.md`). Si attende l'esito dai soli eventi della PR, senza controlli a intervalli. Dopo l'ultimo push la CI si lancia a mano una volta (`ci.yml`).
 - Dopo il merge: `docs/TASKS.md` aggiornato, iscrizione agli eventi tolta (automatica), branch cancellato.
