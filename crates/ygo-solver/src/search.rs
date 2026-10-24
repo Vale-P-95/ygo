@@ -41,7 +41,7 @@ use ygo_engine::auto::AutoPolicy;
 use ygo_engine::consts::{card_type, location};
 use ygo_engine::{
     canonical_fingerprint, fingerprint, italian, Action, ActionKind, CardDb, CardRef, ChainLink, Decision, DeckList, Duel, DuelState,
-    Engine, Error, Event, Opponent, Placement, Prelude, SavedDuel, Step,
+    Engine, Error, Event, Opponent, Placement, Prelude, SavedDuel, Step, STARTING_LP,
 };
 
 use crate::coverage::{self, Audit, Coverage, Links, Mechanic};
@@ -77,6 +77,9 @@ pub struct SearchConfig {
     /// on the field ([`Opponent::placed`]) is worth to the estimate, in
     /// interruptions (a card not listed: as any card taken from the field).
     pub opponent_field: Vec<(u32, f64)>,
+    /// Going second: what each Life Point the opponent loses is worth to
+    /// the estimate, in interruptions (0: going first, no one attacks).
+    pub opponent_lp: f64,
     /// Best boards included in each progress report.
     pub live_top: usize,
     /// Provisional boards played to the end of the turn when the search
@@ -133,6 +136,7 @@ impl SearchConfig {
             policy: AutoPolicy::default(),
             opponent: None,
             opponent_field: Vec::new(),
+            opponent_lp: 0.0,
             live_top: 10,
             confirm_top: 40,
             zone_top: 20,
@@ -632,7 +636,15 @@ impl Shared<'_> {
             key: board_key(&state),
             cards_used: cards_used(&self.config.hand, &state),
             quick_score: self.values.read().map_or(0.0, |v| {
-                quick_score(self.engine, &state, &self.config.hand_traps, &v, self.config.opponent.as_ref(), &self.config.opponent_field)
+                quick_score(
+                    self.engine,
+                    &state,
+                    &self.config.hand_traps,
+                    &v,
+                    self.config.opponent.as_ref(),
+                    &self.config.opponent_field,
+                    self.config.opponent_lp,
+                )
             }),
             goal_hits: hits.hard,
             goal_soft: hits.soft,
@@ -896,6 +908,7 @@ pub fn quick_score(
     values: &CardValues,
     opponent: Option<&Opponent>,
     opponent_field: &[(u32, f64)],
+    opponent_lp: f64,
 ) -> f64 {
     let me = &state.players[0];
     let mut score = 0.0;
@@ -953,21 +966,23 @@ pub fn quick_score(
             InHand::Unknown => 0.3,
         })
         .sum::<f64>();
-    score + VALUE_WEIGHT * (values.of_field(engine, state) + opponent.map_or(0.0, |o| taken_from(o, state, opponent_field)))
+    score + VALUE_WEIGHT * (values.of_field(engine, state) + opponent.map_or(0.0, |o| taken_from(o, state, opponent_field, opponent_lp)))
 }
 
 /// What your turn took from the opponent (B5a): its cards when the turn
 /// began (`opponent`) against those it still has, pile by pile, at the
 /// weights of the probe turn's [`crate::probe::attrition`]. Its Extra Deck
 /// banished by Hyperinvoked Aeon is worth something to the search too.
-/// Going second, also its cards placed on the field that are gone.
-fn taken_from(opponent: &Opponent, state: &DuelState, field_worth: &[(u32, f64)]) -> f64 {
+/// Going second, also its cards placed on the field that are gone, and the
+/// Life Points it lost at `lp_worth` each.
+fn taken_from(opponent: &Opponent, state: &DuelState, field_worth: &[(u32, f64)], lp_worth: f64) -> f64 {
     let them = &state.players[1];
     let gone = |before: usize, now: usize| before.saturating_sub(now) as f64;
     gone(opponent.extra.len(), them.extra.len()) * taken_weight(location::EXTRA)
         + gone(opponent.hand.len(), them.hand.len()) * taken_weight(location::HAND)
         + gone(opponent.deck.len(), them.deck.len()) * taken_weight(location::DECK)
         + taken_field(opponent, state, field_worth)
+        + lp_worth * (STARTING_LP - them.lp).clamp(0, STARTING_LP) as f64
 }
 
 /// The opponent's cards placed on the field when your turn began that are
@@ -1680,7 +1695,7 @@ fn play(shared: &Shared, edge: &Edge, dive: &mut Dive, copies: Option<&mut Copie
             undoable &= happened == 0;
         }
         let decision = match step {
-            Step::Decision { decision, .. } if decision.player() == Some(0) && turn <= 1 => decision,
+            Step::Decision { decision, .. } if decision.player() == Some(0) && turn <= duel.last_turn().unwrap_or(1) => decision,
             // The opponent's turn (or the end of the duel): the board is done.
             _ => {
                 let state = duel.state();
@@ -2128,8 +2143,15 @@ fn learn_round(shared: &Shared, count: usize) {
     if raised {
         let (Ok(values), Ok(mut boards)) = (shared.values.read(), shared.boards.lock()) else { return };
         for b in boards.values_mut() {
-            b.quick_score =
-                quick_score(shared.engine, &b.state, &config.hand_traps, &values, config.opponent.as_ref(), &config.opponent_field);
+            b.quick_score = quick_score(
+                shared.engine,
+                &b.state,
+                &config.hand_traps,
+                &values,
+                config.opponent.as_ref(),
+                &config.opponent_field,
+                config.opponent_lp,
+            );
         }
     }
 }
