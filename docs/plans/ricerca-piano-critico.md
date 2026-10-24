@@ -244,6 +244,9 @@ Ogni correzione è generale: niente nomi di carte. Segue il protocollo del motor
   - B1b, history relativa e di continuazione per offerta (tipo di azione, codice, luogo);
   - B1c, penalità di deviazione che cresce con il rango in `dive_order`, al posto dello 0,6 uguale per tutte.
   - **Controllo:** tempo per arrivare alla board migliore sul banco −20%, e `best` non scende più del 2%.
+  - **B1c misurato il 24/10, non tenuto** (thread «Aggiungere la penalità per rango nella coda»). La penalità per ogni risposta fuori dal tuffo diventa base + passo · (rango − 1), col rango in `dive_order` dopo gli ordinamenti di zona. Sette forme e due costanti senza rango (per misurare il rumore) su 91 mani dell'oracolo, `oracle.py measure --staged 30,15` a 4000 nodi, un thread; tabella in `piano-motore-impatto.md` §5, «Esito di B1c».
+  - Tutte le forme col rango abbassano la quota media sui deck di taratura (da 57,0% a 51,6-54,8%) e hanno più mani peggio che meglio; la verifica si muove a caso (da 60,8% a 65,6%). Anche cambiare solo la costante (0,5 o 0,7) sposta oltre l'1% fra 34 e 40 mani su 91, con mani fino a −83%.
+  - Lettura: come per B1a, a 4000 nodi il risultato di una mano dipende in modo caotico dall'ordine della coda; una costante uguale per tutti i deck non porta da nessuna parte, e il criterio «nessuna mano oltre −5%» non lo passa nessuna modifica dell'ordine, nemmeno una a caso. Serve un segnale che venga dalla mano stessa (B1b, B11) e un giudice che tolga il rumore (più semi per mano, o `--checkpoints`).
 - **B10, B11, B16.** Tutti con controllo: tempo alla board migliore −10%, `best` non più basso.
   - B10, priorità ricalcolate dopo l'apprendimento («epoca dei valori»);
   - B11, più code alternate (forza, distanza dall'obiettivo, azioni utili, per tipo) e novità come chiave secondaria;

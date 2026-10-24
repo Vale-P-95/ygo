@@ -279,7 +279,7 @@ struct NewEdge {
     priority: f64,
     confirms: Option<u64>,
     value: f64,
-    deviation: f64,
+    discrepancies: u32,
 }
 
 /// A choice left for later: the line to its node and the answer to try.
@@ -293,9 +293,9 @@ struct Edge {
     confirms: Option<u64>,
     /// Estimate of the best board of the line this edge leaves.
     value: f64,
-    /// Priority taken off for the answers of the line, this one included,
-    /// that are not the one the dive would have given (see [`deviation`]).
-    deviation: f64,
+    /// Answers of the line, this one included, that are not the one the
+    /// dive would have given.
+    discrepancies: u32,
 }
 
 impl PartialEq for Edge {
@@ -526,7 +526,7 @@ impl Shared<'_> {
                     order,
                     confirms: e.confirms,
                     value: e.value,
-                    deviation: e.deviation,
+                    discrepancies: e.discrepancies,
                 });
             }
         }
@@ -1368,25 +1368,14 @@ fn shown_state(state: &DuelState) -> u64 {
 }
 
 /// Priority taken off an answer for each answer of its line that is not
-/// the dive's, growing with its rank in [`dive_order`] (1 for the second
-/// answer): the lines near the best ones are tried first, the ones that
-/// differ in many choices, or take answers the order puts last, later.
-fn deviation(rank: usize) -> f64 {
-    let (base, step) = *DEVIATION;
-    base + step * rank.saturating_sub(1) as f64
-}
-
-static DEVIATION: std::sync::LazyLock<(f64, f64)> = std::sync::LazyLock::new(|| {
-    std::env::var("DUELFORGE_DEVIATION")
-        .ok()
-        .and_then(|v| v.split_once(',').and_then(|(a, b)| Some((a.parse().ok()?, b.parse().ok()?))))
-        .unwrap_or((0.6, 0.0))
-});
+/// the dive's: the lines near the best ones are tried first, the ones that
+/// differ in many choices later.
+const DISCREPANCY: f64 = 0.6;
 
 /// Plays one edge: replays its line, gives its answer, then dives. The
 /// other answers met on the way are queued when the dive is over, at the
 /// estimate of the best board the line reached after them (the boards
-/// before an answer do not depend on it), less [`deviation`] for each
+/// before an answer do not depend on it), less [`DISCREPANCY`] for each
 /// answer of their line that is not the dive's; the other zones of a line's
 /// last choice go last.
 fn work(shared: &Shared, edge: Edge, copies: Option<&mut Copies>) -> Result<(), Error> {
@@ -1400,6 +1389,7 @@ fn work(shared: &Shared, edge: Edge, copies: Option<&mut Copies>) -> Result<(), 
     if let Some(stats) = &shared.stats {
         stats.dive(&dive, started.elapsed());
     }
+    let discrepancies = edge.discrepancies + 1;
     // Best board estimate from each depth of the line on.
     let mut after: Vec<(usize, f64)> = dive.boards.clone();
     after.sort_by_key(|&(depth, _)| std::cmp::Reverse(depth));
@@ -1426,14 +1416,13 @@ fn work(shared: &Shared, edge: Edge, copies: Option<&mut Copies>) -> Result<(), 
                 _ => 0.0,
             };
             let last = if left.last_zone { END_PHASE_LAST } else { 0.0 };
-            let deviation = edge.deviation + deviation(left.rank);
             NewEdge {
                 prefix: left.prefix,
                 answer: Some(left.answer),
-                priority: value - deviation + bonus - last,
+                priority: value - DISCREPANCY * discrepancies as f64 + bonus - last,
                 confirms: None,
                 value,
-                deviation,
+                discrepancies,
             }
         })
         .collect();
@@ -1462,8 +1451,6 @@ struct LeftAnswer {
     depth: usize,
     goal: GoalPick,
     kind: ActionKind,
-    /// Its place among the node's answers in the dive's order (0 for the one given).
-    rank: usize,
     /// Another zone for the monster of the line's last choice (see `play`).
     last_zone: bool,
 }
@@ -1578,7 +1565,7 @@ fn play(shared: &Shared, edge: &Edge, dive: &mut Dive, copies: Option<&mut Copie
                     priority: edge.priority,
                     confirms: edge.confirms,
                     value: edge.value,
-                    deviation: edge.deviation,
+                    discrepancies: edge.discrepancies,
                 }]),
             }
             dive.end = stats::End::Halted;
@@ -1890,20 +1877,19 @@ fn play(shared: &Shared, edge: &Edge, dive: &mut Dive, copies: Option<&mut Copie
                         priority,
                         confirms: Some(key),
                         value,
-                        deviation: edge.deviation,
+                        discrepancies: edge.discrepancies,
                     }]);
                 }
             }
         }
         // Lines that pick a card of the goal are tried before the others
         // (see `Goal::pick`).
-        dive.left.extend(actions.iter().enumerate().skip(1).map(|(rank, a)| LeftAnswer {
+        dive.left.extend(actions[1..].iter().map(|a| LeftAnswer {
             prefix: prefix.clone(),
             answer: (a.response.clone(), italian::choice(a)),
             depth,
             goal: goal(a),
             kind: a.kind,
-            rank,
             last_zone: false,
         }));
         let first = &actions[0];
@@ -1916,7 +1902,6 @@ fn play(shared: &Shared, edge: &Edge, dive: &mut Dive, copies: Option<&mut Copie
             depth,
             goal: goal(first),
             kind: first.kind,
-            rank: 0,
             last_zone: false,
         });
         hidden = (!free).then(|| (depth, first.kind, shown_state(&state)));
@@ -2149,7 +2134,7 @@ fn confirm_best(shared: &Shared) {
                 order: 0,
                 confirms: Some(b.key),
                 value: b.quick_score,
-                deviation: 0.0,
+                discrepancies: 0,
             })
         })
         .collect();
@@ -2349,7 +2334,7 @@ pub fn resume(
             priority: 0.0,
             confirms: None,
             value: 0.0,
-            deviation: 0.0,
+            discrepancies: 0,
         }]);
     }
     shared.check_limits();
