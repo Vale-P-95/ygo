@@ -250,6 +250,7 @@ Resta la memoria operativa nei giorni con coordinatrice; altrimenti si aggiorna 
    - [fatto] i punti 3, 5 e 6 della caccia ai bug; [fatto il 24/10] l'arena nel turno di prova; [fatto il 24/10] il caso Vendread (Opus, `docs/plans/robustezza.md`);
    - il simulatore (#36): mockup prima;
    - [fatto il 24/10] andare secondo, prototipo CLI `break-board` (idea 5 di `idee-nuove.md`, Opus alto): una sessione, contesto sotto 100k, prove su 3 coppie in pochi minuti di CPU.
+   - [fatto il 24/10] andare secondo, passo 1: la board avversaria risponde con le sue interruzioni misurate (Opus alto, una sessione, contesto sotto 100k; le 3 coppie prima e dopo in 4 minuti di CPU con `--passive`).
 
 ## 10bis. Decisione sul merge (23/10)
 - **Cosa**: i merge li fa la coordinatrice in automatico; sostituisce «il merge lo fa l'utente dalla pagina».

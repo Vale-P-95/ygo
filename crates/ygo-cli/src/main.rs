@@ -304,6 +304,9 @@ enum Cmd {
         /// Your boards measured per hand, the best by the search's estimate.
         #[arg(long, default_value_t = 5)]
         top: usize,
+        /// The opponent's board does not answer your turn (as before it did).
+        #[arg(long)]
+        passive: bool,
         #[arg(long, default_value_t = 1)]
         seed: u64,
         #[arg(long)]
@@ -515,9 +518,9 @@ fn main() -> Result<()> {
             tech_table(&cli.data, &deck, decks, seed, MetaFinal { boards: 0, file: meta_file, decks: meta_decks }, json.as_deref())
         }
         Cmd::HandTraps { deck } => hand_traps(&cli.data, &deck),
-        Cmd::BreakBoard { deck, vs, hands, rival_hands, nodes, rival_nodes, top, seed, json } => {
+        Cmd::BreakBoard { deck, vs, hands, rival_hands, nodes, rival_nodes, top, passive, seed, json } => {
             let threads = std::thread::available_parallelism().map_or(4, |n| n.get());
-            let config = ygo_solver::BreakConfig { seed, nodes, threads, top };
+            let config = ygo_solver::BreakConfig { seed, nodes, threads, top, answers: !passive };
             break_board(&cli.data, &deck, &vs, hands, rival_hands, rival_nodes, &config, json.as_deref())
         }
         Cmd::RivalPlays { deck, hands, nodes, seed } => rival_plays(&cli.data, &deck, hands, nodes, seed),
@@ -2308,6 +2311,8 @@ fn break_board(
     for (code, worth) in &rival.worth {
         println!("   {:<40} worth {worth:.2}", db.name(*code));
     }
+    let answers: Vec<u32> = if config.answers { rival.responders.iter().map(|r| r.0).collect() } else { Vec::new() };
+    println!("it answers with: {}", if answers.is_empty() { "nothing".to_owned() } else { names(&answers) });
     // The breakers of your deck the engine can play, to tell the hands apart.
     let breakers = ygo_solver::Rival::new(&engine, &mine, config.seed, &kit).breakers().to_vec();
     println!("your breakers: {}", if breakers.is_empty() { "none".to_owned() } else { names(&breakers) });
@@ -2343,7 +2348,7 @@ fn break_board(
     );
     if let Some(path) = json {
         let out = serde_json::json!({
-            "rival": { "hand": rival.hand, "value": rival.value, "worth": rival.worth },
+            "rival": { "hand": rival.hand, "value": rival.value, "worth": rival.worth, "responders": answers },
             "hands": rows,
         });
         std::fs::write(path, serde_json::to_string_pretty(&out)?)?;
