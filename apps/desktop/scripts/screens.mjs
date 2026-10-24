@@ -6,6 +6,7 @@
  *
  * Usage:
  *   node scripts/screens.mjs [--url http://localhost:5173] [--out screenshots] [--axe] [--chromium <path>]
+ *   node scripts/screens.mjs --smoke    one viewport (1280x800), fails on page errors or an empty section (used by CI)
  */
 
 import fs from "node:fs";
@@ -23,6 +24,7 @@ const hasArg = (name) => args.includes(name);
 const BASE_URL = getArg("--url", "http://localhost:5173");
 const OUT_DIR = path.resolve(getArg("--out", path.join(process.cwd(), "screenshots")));
 const RUN_AXE = hasArg("--axe");
+const SMOKE = hasArg("--smoke");
 const CHROMIUM_PATH = getArg("--chromium", process.env.PLAYWRIGHT_CHROMIUM || null);
 
 const VIEWPORTS = [
@@ -32,6 +34,9 @@ const VIEWPORTS = [
   { width: 1920, height: 1080, name: "1920x1080" },
   { width: 1280, height: 600, name: "1280x600" },
 ];
+
+if (SMOKE) VIEWPORTS.splice(1);
+const problems = [];
 
 const THEMES = ["forge", "light"];
 
@@ -77,6 +82,16 @@ async function main() {
         viewport: { width: vp.width, height: vp.height },
       });
       const page = await context.newPage();
+      page.on("pageerror", (err) => problems.push(`pageerror: ${err.message}`));
+      page.on("response", (res) => {
+        if (res.status() >= 400) problems.push(`HTTP ${res.status()}: ${res.url()}`);
+      });
+      page.on("console", (msg) => {
+        // The generic "Failed to load resource" line is reported with its URL by the response listener.
+        if (msg.type() === "error" && !msg.text().startsWith("Failed to load resource")) {
+          problems.push(`console.error: ${msg.text()}`);
+        }
+      });
 
       // Load initial page with mock mode
       await page.goto(BASE_URL, { waitUntil: "networkidle" });
@@ -198,6 +213,10 @@ async function main() {
 
           await page.waitForTimeout(400);
 
+          if (SMOKE && (await page.locator("#root").innerText()).trim().length === 0) {
+            problems.push(`empty page: ${section.id} (${theme})`);
+          }
+
           const fileName = `${theme}_${vp.name}_${section.id}.png`;
           const filePath = path.join(OUT_DIR, fileName);
           await page.screenshot({ path: filePath, fullPage: false });
@@ -235,6 +254,11 @@ async function main() {
     }
   } finally {
     await browser.close();
+  }
+  if (SMOKE && problems.length > 0) {
+    console.error(`\nProva fumo fallita (${problems.length}):`);
+    for (const p of new Set(problems)) console.error(`  - ${p}`);
+    process.exit(1);
   }
 }
 
