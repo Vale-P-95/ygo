@@ -1584,8 +1584,9 @@ const STAGED_WINDOWS: usize = 8;
 const STAGED_ROUNDS: usize = 1;
 
 /// The value of a cheap measure ([`ygo_solver::Prober::measure_cheap`]):
-/// [`composite`] without the resilience, and with your next turn when the
-/// opponent breaks nothing.
+/// field, hand and floodgates, and your next turn when the opponent breaks
+/// nothing. The floodgates keep 0.8 here, the weight the staged pick was
+/// measured with: lowering it changes which boards get the full measure.
 fn cheap_composite(m: &ygo_solver::Measure) -> f64 {
     let rebuild = m.follow_up.map_or(0.0, |f| f.rebuild as f64);
     m.field_value + 0.9 * m.hand_value + 0.8 * m.floodgate_value + 0.4 * 0.3 * rebuild
@@ -1595,7 +1596,7 @@ fn cheap_composite(m: &ygo_solver::Measure) -> f64 {
 /// the same weights as `WEIGHTS`, `FOLLOW_UP` and `REBUILD` in
 /// scripts/bench.py (the cards gained in the End Phase weigh 0 there).
 fn composite(m: &ygo_solver::Measure) -> f64 {
-    const WEIGHTS: [f64; 4] = [1.0, 0.9, 0.8, 0.6];
+    const WEIGHTS: [f64; 4] = [1.0, 0.9, 0.4, 0.0];
     const FOLLOW_UP: f64 = 0.4;
     const REBUILD: f64 = 0.3;
     let parts = [m.field_value, m.hand_value, m.floodgate_value, m.resilience];

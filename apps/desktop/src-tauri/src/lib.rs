@@ -1963,8 +1963,10 @@ const SCORED_BOARDS: usize = 15;
 const CHEAP_MEASURE: ygo_solver::probe::Cheap = ygo_solver::probe::Cheap { windows: 8, use_rounds: 1 };
 
 /// The value a cheap measure ranks the boards by: field, hand, floodgates
-/// and the effects to rebuild with on your next turn, as the "Bilanciato"
-/// profile weighs them, with no breaker played.
+/// and the effects to rebuild with on your next turn, with no breaker
+/// played. The floodgates keep 0.8, the weight the staged pick was measured
+/// with, not the 0.4 of the "Bilanciato" profile: lowering it changes which
+/// boards get the full measure.
 fn cheap_value(m: &ygo_solver::Measure) -> f64 {
     let rebuild = m.follow_up.map_or(0.0, |f| f.rebuild as f64);
     m.field_value + 0.9 * m.hand_value + 0.8 * m.floodgate_value + 0.4 * 0.3 * rebuild
@@ -2186,11 +2188,10 @@ struct BoardRef {
     key: String,
 }
 
-/// The value of a score with the "Bilanciato" profile of the page.
+/// The value of a score with the "Bilanciato" profile of the page. The
+/// resilience weighs 0 there (docs/plans/ricerca-esperimenti.md, section 7).
 fn balanced(v: &ScoreView) -> f64 {
-    v.interruptions + 0.9 * v.hand_traps + 0.8 * v.floodgates + 0.6 * v.resilience + 0.4 * v.followup + 0.1 * v.resources
-        - 0.1 * v.cost
-        - 0.5 * v.exposure
+    v.interruptions + 0.9 * v.hand_traps + 0.4 * v.floodgates + 0.4 * v.followup + 0.1 * v.resources - 0.1 * v.cost - 0.5 * v.exposure
 }
 
 /// The last step of the ranking (L2-3): the boards named, or the best
