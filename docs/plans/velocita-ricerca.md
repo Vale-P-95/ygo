@@ -648,3 +648,21 @@ Nessun codice nella ricerca: misure e stime, per decidere.
   - 20 mani dell'oracolo (`hunt-*`, comprese sky_striker-1 e warrior_combo-1), migliore board misurata a 4000 e a 40 000 nodi: tengono o migliorano con 10 volte i nodi 17 mani su 20 con `main`, 16 su 20 con il criterio. A 40 000 nodi il criterio sceglie varianti peggiori della stima della ricerca (sky_striker-1 1,64 → 1,52, clown_crew-0 0,67 → 0,35, r_b-0 2,05 → 1,56).
   - `paired_test.py` (179 mani): 6 migliori, 3 peggiori, la peggiore −27,2% → respinto.
   - Conclusione: con più carte in mano e più risorse non si sceglie meglio della stima. Il rappresentante stabile richiede una misura su più varianti (costo da 2 a 3 volte quello della misura economica di oggi) oppure la classifica fatta dopo la misura (revisione del motore, T1).
+
+### B2 e B2b, ordini scambiabili e selezioni come un passo (24/10/2026, corsia 2: misurati, non fatti)
+- **Contatore.** Con `DUELFORGE_SEARCH_STATS=1` le discese che finiscono su un nodo già visto con le stesse scelte in altro ordine si dividono ora in tre: a un momento libero (`OtherOrder`: giocate intere scambiate, il caso dei sleep set di B2), dentro una selezione con carte già prese (`OtherOrderPicks`: il caso di B2b) e a un altro passo di qualcosa in corso (`OtherOrderInside`). La ricerca non cambia.
+- **Giro.** `main` 4a4536d (con B13 nel turno di prova), 90 mani: il banco senza le due mani Invoked che la lista del proprietario non permette (Invoked dalla fixture `invoked-siracusa-md.ydk`, perché la lista MDM di oggi non ha più Droll & Lock Bird e Crowley) e `combo_hunt --seed 7`; 4000 nodi, un thread, solo la ricerca (niente turno di prova).
+
+| Fine della discesa | % nodi | secondi | % del tempo della ricerca |
+|---|---|---|---|
+| board letta | 72,5% | 192,6 | 39% |
+| nodo già visto per altre scelte | 17,5% | 44,4 | 9,1% |
+| altro ordine, a un momento libero (B2) | 6,3% | 16,7 | 3,4% |
+| altro ordine, a un altro passo | 1,6% | 3,9 | 0,8% |
+| altro ordine, dentro una selezione (B2b) | 0,4% | 2,0 | 0,4% |
+| ogni risposta riporta dove un'altra linea va già | 1,5% | 11,3 | 2,3% |
+
+Totale: 334 008 nodi, 490,4 s di ricerca, di cui 278,9 s nelle discese (replay 58%, era 78-80% prima di B13) e 83,0 s nei giri di apprendimento.
+
+- **B2, non fatto.** Il tetto del guadagno dei sleep set è la riga «momento libero»: 6,3% dei nodi e 3,4% del tempo della ricerca, cioè circa l'1% del tempo di `combo_hunt`, dove la ricerca è un quarto del totale. Per prenderlo serve una prova di commutatività a campione (`revisione-bibliografica.md` §4.2) e il rischio è perdere stati (Burch & Holte); la revisione del motore li vuole «solo se gratis» (§7 punto 6, §8 punto 8). Non lo sono. Si riapre solo se una ricerca molto più veloce per nodo rende il 6% dei nodi la parte che conta.
+- **B2b, non fatto.** Le scelte dentro una selezione già si incontrano come insieme (`Pending`), e i doppi che restano sono lo 0,4% dei nodi. I nodi «senza cambi visibili» sono il 22,3% (`Choose` 42 246, `SpecialSummon` 27 589), ma sono ramificazioni vere: contarli come un passo solo cambierebbe il conto del budget (come dare il 28% di nodi in più), non il lavoro. Il controllo del piano (nodi del banco −15%) si raggiungerebbe solo così, e non è un risparmio.
