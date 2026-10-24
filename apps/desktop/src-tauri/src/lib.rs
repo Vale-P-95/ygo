@@ -2065,6 +2065,11 @@ fn links_view(deck_id: i64, map: &ygo_solver::DeckLinks) -> DeckLinksView {
 /// boards kept to the full measure.
 const CHEAP_BOARDS: usize = 30;
 const SCORED_BOARDS: usize = 15;
+/// Variants of each look given the cheap measure: boards that look the
+/// same but have another Graveyard or banished cards, which can leave
+/// another card to use in the probe turn. The best of them by the cheap
+/// measure stands for the look (`docs/plans/piano-motore-impatto.md` §4).
+const LOOK_VARIANTS: usize = 3;
 /// What the cheap measure tries.
 const CHEAP_MEASURE: ygo_solver::probe::Cheap = ygo_solver::probe::Cheap { windows: 8, use_rounds: 1 };
 
@@ -2075,6 +2080,41 @@ const CHEAP_MEASURE: ygo_solver::probe::Cheap = ygo_solver::probe::Cheap { windo
 fn cheap_value(m: &ygo_solver::Measure) -> f64 {
     let rebuild = m.follow_up.map_or(0.0, |f| f.rebuild as f64);
     m.field_value + 0.9 * m.hand_value + 0.4 * m.floodgate_value + 0.4 * 0.3 * rebuild
+}
+
+/// The variants of a look in the search's order: the first of each
+/// Graveyard and banishment, up to `top`, and besides them the ones `kept`.
+fn look_variants<'a>(group: &[&'a ygo_solver::Board], top: usize, kept: impl Fn(&ygo_solver::Board) -> bool) -> Vec<&'a ygo_solver::Board> {
+    let mut seen = HashSet::new();
+    group
+        .iter()
+        .copied()
+        .filter(|b| {
+            let p = &b.state.players[0];
+            let mut piles = (p.grave.clone(), p.banished.clone());
+            piles.0.sort_unstable();
+            piles.1.sort_unstable();
+            let first = seen.len() < top && seen.insert(piles);
+            first || kept(b)
+        })
+        .collect()
+}
+
+/// The variant that stands for a look: the best by its cheap value, at
+/// equal value the first in the search's order; with no value known, the
+/// first.
+fn best_variant(
+    variants: &[(usize, ygo_solver::Board)],
+    value: impl Fn(usize, u64) -> Option<f64>,
+) -> Option<(&(usize, ygo_solver::Board), f64)> {
+    let mut best: Option<(&(usize, ygo_solver::Board), f64)> = None;
+    for v in variants {
+        let x = value(v.0, v.1.key).unwrap_or(f64::NEG_INFINITY);
+        if best.is_none_or(|(_, b)| x > b) {
+            best = Some((v, x));
+        }
+    }
+    best
 }
 
 /// `work` on each board, on all cores, until `cancel`; one prober per hand
@@ -2113,8 +2153,9 @@ fn on_all_cores<'a, R: Send>(
 /// Puts the best boards of the last search to the probe turn, on all cores,
 /// sending each result as a `combo-score` event; boards already measured
 /// are not measured again. A precise hand goes in steps: the cheap measure
-/// of the first [`CHEAP_BOARDS`], then the full one of the best
-/// [`SCORED_BOARDS`] by it; the others keep the cheap score
+/// of the first [`CHEAP_BOARDS`] looks, each on up to [`LOOK_VARIANTS`]
+/// variants and standing for the best of them, then the full one of the
+/// best [`SCORED_BOARDS`] by it; the others keep the cheap score
 /// ([`ScoreView::cheap`]), which the page ranks after the full ones. With `vs_deck_id` (a deck of the Bottega) each
 /// board with the full measure is also measured against that deck's
 /// breakers and handtraps (another deck than last time measures all boards
@@ -2131,8 +2172,10 @@ fn combo_score(app: tauri::AppHandle, state: State<'_, AppState>, vs_deck_id: Op
             job.vs = vs_deck_id;
         }
         let staged = job.hands.len() == 1;
-        // One board per look: boards that differ only in the Graveyard or the banished cards score the same.
-        // A look already measured is that board.
+        // One entry per look. A precise hand gives each look its variants
+        // with another Graveyard or banished cards, which need not score the
+        // same; "card + rest" only the first board, as before. A look already
+        // measured in full is that board.
         let full = |h: usize, key: u64| job.scores.get(&(h, key)).is_some_and(|v| !v.cheap);
         let mut measured: HashMap<(usize, u64), &ygo_solver::Board> = HashMap::new();
         for (h, b) in &job.boards {
@@ -2140,24 +2183,40 @@ fn combo_score(app: tauri::AppHandle, state: State<'_, AppState>, vs_deck_id: Op
                 measured.entry((*h, ygo_solver::look_key(&b.state))).or_insert(b);
             }
         }
-        let mut looks: HashSet<(usize, u64)> = HashSet::new();
-        let candidates: Vec<(usize, ygo_solver::Board)> = job
-            .boards
-            .iter()
-            .filter_map(|(h, b)| {
-                let look = (*h, ygo_solver::look_key(&b.state));
-                // "Card + rest": only the looks not measured yet, as before.
-                if !looks.insert(look) || !staged && measured.contains_key(&look) {
-                    return None;
+        let mut at: HashMap<(usize, u64), usize> = HashMap::new();
+        let mut looks: Vec<((usize, u64), Vec<&ygo_solver::Board>)> = Vec::new();
+        for (h, b) in &job.boards {
+            let look = (*h, ygo_solver::look_key(&b.state));
+            match at.get(&look) {
+                Some(&i) => looks[i].1.push(b),
+                None => {
+                    at.insert(look, looks.len());
+                    looks.push((look, vec![b]));
                 }
-                Some((*h, measured.get(&look).map_or(b, |m| *m).clone()))
-            })
+            }
+        }
+        let known = |h: usize, b: &ygo_solver::Board| job.cheap.contains_key(&(h, b.key));
+        let candidates: Vec<Vec<(usize, ygo_solver::Board)>> = looks
+            .into_iter()
+            // "Card + rest": only the looks not measured yet, as before.
+            .filter(|(look, _)| staged || !measured.contains_key(look))
             .enumerate()
-            // Past the first ones, the boards with the cheap measure already
-            // (kept from before "Continua") cost nothing and stay in the
-            // ranking: the full measure never leaves out one it chose before.
-            .filter(|(i, (h, b))| !staged || *i < CHEAP_BOARDS || job.cheap.contains_key(&(*h, b.key)))
-            .map(|(_, c)| c)
+            .filter_map(|(i, (look, group))| {
+                let h = look.0;
+                let mut boards = match measured.get(&look) {
+                    Some(m) => vec![*m],
+                    None if staged => look_variants(&group, LOOK_VARIANTS, |b| known(h, b)),
+                    None => vec![group[0]],
+                };
+                // Past the first looks, the variants with the cheap measure
+                // already (kept from before "Continua") cost nothing and stay
+                // in the ranking: the full measure never leaves out one it
+                // chose before.
+                if staged && i >= CHEAP_BOARDS {
+                    boards.retain(|b| known(h, b));
+                }
+                (!boards.is_empty()).then(|| boards.into_iter().map(|b| (h, b.clone())).collect())
+            })
             .collect();
         let cheap: Option<HashMap<(usize, u64), f64>> = staged.then(|| job.cheap.iter().map(|(k, (v, _))| (*k, *v)).collect());
         (
@@ -2173,15 +2232,22 @@ fn combo_score(app: tauri::AppHandle, state: State<'_, AppState>, vs_deck_id: Op
     let kit = ygo_solver::Kit::standard(&engine);
     let new_prober = |hand: usize| ygo_solver::Prober::new(&engine, &config.deck, &hands[hand], config.seed, &kit);
 
-    // The cheap measure of the candidates without one, then the best by it.
-    let mut cheap_scores: Vec<((usize, u64), (f64, ScoreView))> = Vec::new();
+    // The cheap measure of the variants without one, then the best looks by it.
+    let mut cheap_scores: HashMap<(usize, u64), (f64, ScoreView)> = HashMap::new();
     // What each cheap measure played, for the full one to go on from it.
     let partials: Mutex<HashMap<(usize, u64), ygo_solver::probe::Partial>> = Mutex::new(HashMap::new());
     let todo: Vec<(usize, ygo_solver::Board)> = match &cheap {
         Some(known) => {
             let missing: Vec<(usize, ygo_solver::Board)> =
-                candidates.iter().filter(|(h, b)| !known.contains_key(&(*h, b.key))).cloned().collect();
-            cheap_scores = on_all_cores(&missing, &state.combo_cancel, new_prober, |prober, hand, board| {
+                candidates.iter().flatten().filter(|(h, b)| !known.contains_key(&(*h, b.key))).cloned().collect();
+            let look_of: HashMap<(usize, u64), usize> =
+                candidates.iter().enumerate().flat_map(|(i, v)| v.iter().map(move |(h, b)| ((*h, b.key), i))).collect();
+            // A look is sent once all its variants are measured, and only the
+            // best of them: the others are not entries of the list.
+            let left: Mutex<Vec<usize>> =
+                Mutex::new(candidates.iter().map(|v| v.iter().filter(|(h, b)| !known.contains_key(&(*h, b.key))).count()).collect());
+            let fresh: Mutex<HashMap<(usize, u64), (f64, ScoreView)>> = Mutex::new(HashMap::new());
+            on_all_cores(&missing, &state.combo_cancel, new_prober, |prober, hand, board| {
                 let measured = prober.measure_cheap(&board.line, CHEAP_MEASURE).map_err(|e| e.to_string()).map(|(m, partial)| {
                     if let Ok(mut p) = partials.lock() {
                         p.insert((hand, board.key), partial);
@@ -2191,26 +2257,35 @@ fn combo_score(app: tauri::AppHandle, state: State<'_, AppState>, vs_deck_id: Op
                 let value = measured.as_ref().map_or(f64::NEG_INFINITY, cheap_value);
                 let mut view = score_view(&engine, hand, board, measured, None, None, &config.hand_traps, &roles);
                 view.cheap = true;
-                let _ = app.emit("combo-score", view.clone());
-                ((hand, board.key), (value, view))
+                let (Ok(mut fresh), Ok(mut left)) = (fresh.lock(), left.lock()) else { return };
+                fresh.insert((hand, board.key), (value, view));
+                let i = look_of[&(hand, board.key)];
+                left[i] -= 1;
+                if left[i] == 0 {
+                    let value = |h: usize, key: u64| known.get(&(h, key)).copied().or_else(|| fresh.get(&(h, key)).map(|(v, _)| *v));
+                    // A variant measured before "Continua" was sent then.
+                    if let Some(((h, b), _)) = best_variant(&candidates[i], value) {
+                        if let Some((_, view)) = fresh.get(&(*h, b.key)) {
+                            let _ = app.emit("combo-score", view.clone());
+                        }
+                    }
+                }
             });
+            cheap_scores = fresh.into_inner().unwrap_or_default();
             if state.combo_cancel.load(Ordering::Relaxed) {
                 // A ranking with boards missing would put the wrong ones to the full measure.
                 Vec::new()
             } else {
-                let value = |h: usize, key: u64| {
-                    known.get(&(h, key)).or_else(|| cheap_scores.iter().find(|(k, _)| *k == (h, key)).map(|(_, (v, _))| v)).copied()
-                };
-                let mut ranked: Vec<&(usize, ygo_solver::Board)> = candidates.iter().collect();
+                let value = |h: usize, key: u64| known.get(&(h, key)).or_else(|| cheap_scores.get(&(h, key)).map(|(v, _)| v)).copied();
+                let mut ranked: Vec<(&(usize, ygo_solver::Board), f64)> =
+                    candidates.iter().filter_map(|v| best_variant(v, value)).collect();
                 // Stable: at equal value the search's order.
-                ranked.sort_by(|(ha, a), (hb, b)| {
-                    value(*hb, b.key).unwrap_or(f64::NEG_INFINITY).total_cmp(&value(*ha, a.key).unwrap_or(f64::NEG_INFINITY))
-                });
-                ranked.into_iter().take(SCORED_BOARDS).cloned().collect()
+                ranked.sort_by(|(_, a), (_, b)| b.total_cmp(a));
+                ranked.into_iter().take(SCORED_BOARDS).map(|(c, _)| c.clone()).collect()
             }
         }
         // Not needed after: "card + rest" keeps no cheap scores.
-        None => std::mem::take(&mut candidates),
+        None => std::mem::take(&mut candidates).into_iter().flatten().collect(),
     };
     // Boards with the full measure already are not measured again.
     let todo: Vec<(usize, ygo_solver::Board)> = {
@@ -2271,10 +2346,18 @@ fn combo_score(app: tauri::AppHandle, state: State<'_, AppState>, vs_deck_id: Op
         job.scores.insert(key, view);
         job.losses.insert(key, loss);
     }
-    // The candidates left out of the full measure keep the cheap score
-    // (sent again after a change of deck, which clears the scores).
+    // The looks left out of the full measure keep the cheap score of the
+    // variant that stands for them (sent again after a change of deck, which
+    // clears the scores); the other variants have none, even one that stood
+    // for the look before "Continua".
     if cheap.is_some() {
-        for (h, b) in &candidates {
+        for variants in &candidates {
+            let Some(((h, b), _)) = best_variant(variants, |h, key| job.cheap.get(&(h, key)).map(|(v, _)| *v)) else { continue };
+            for (vh, vb) in variants {
+                if vb.key != b.key && job.scores.get(&(*vh, vb.key)).is_some_and(|v| v.cheap) {
+                    job.scores.remove(&(*vh, vb.key));
+                }
+            }
             if let (None, Some((_, view))) = (job.scores.get(&(*h, b.key)), job.cheap.get(&(*h, b.key))) {
                 let view = view.clone();
                 let _ = app.emit("combo-score", view.clone());
