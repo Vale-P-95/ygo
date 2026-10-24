@@ -17,5 +17,5 @@ Richiesta di Valerio: partendo da una mano (o da una carta), quali linee lascian
 Esempio (Invoked, mano Aleister, Crowley, Ash, Meltdown, Droll; 3000 nodi): con il valore solito vince Mechaba + Endymion (1,12, Caliga 0,92); con `--interaction` vince Invoked Caliga (1,82: Ash in mano e 4 tipi di mosse bloccate), Mechaba scende a 1,17.
 
 ## Prossimi passi
-- Interfaccia: un profilo «Interazione a fine turno» nel Combo Lab con il riepilogo per tipo (serve il riepilogo nel contratto `lib.rs` ↔ `api.ts`); mockup prima.
+- ~~Interfaccia~~ fatta il 24/10: il conteggio sta in `ygo-solver/src/interaction.rs` (la CLI lo usa da lì), `ScoreView.interaction` ↔ `ComboScore.interaction`, profilo «Interazione a fine turno» in `scoring.ts` (pesi 1 su interruzioni, handtrap, floodgate; 0 sul resto) e sezione nel dettaglio della board (`InteractionSection`). Senza mockup di Valerio: stile delle sezioni esistenti. Da provare nell'app vera.
 - `--card`: misurare la board migliore di ogni mano e mediare l'interazione.

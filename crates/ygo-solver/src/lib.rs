@@ -8,6 +8,7 @@ pub mod engine_mc;
 pub mod explain;
 mod follow;
 pub mod goal;
+pub mod interaction;
 pub mod links;
 pub mod matchup;
 pub mod meta;
@@ -21,6 +22,7 @@ pub use card::{resume_card, sample_hands, search_card, CardSearch, HandResult};
 pub use coverage::{Counts, Coverage, Kind as MechanicKind, Mechanic};
 pub use explain::{explain, exposure, ExplainedStep, Exposure, Happening, HappeningKind};
 pub use goal::{Goal, GoalCard, GoalHits, GoalZone};
+pub use interaction::{interaction_value, InteractionProfile};
 pub use links::{
     compare_links, deck_links, deck_links_again, hands_reach, random_hands, CardChange, CardLink, DeckLinks, HandReach, LinkCard, LinkKind,
     LinksBudget, LinksDiff, LinksWork, Zone as LinkZone,

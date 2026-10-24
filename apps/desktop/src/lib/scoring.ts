@@ -124,6 +124,8 @@ export interface Profile {
 export const PROFILES: Profile[] = [
   { id: "balanced", label: "Bilanciato", weights: { interruptions: 1, handTraps: 0.9, floodgates: 0.4, resilience: 0, followup: 0.4, resources: 0.1, cost: -0.1, exposure: -0.5 } },
   { id: "negates", label: "Più negazioni", weights: { interruptions: 1.5, handTraps: 1.2, floodgates: 0.5, resilience: 0.4, followup: 0.2, resources: 0.05, cost: -0.05, exposure: -0.4 } },
+  // Only what the board stops at the end of the turn, all weights 1 (docs/plans/interazione-fine-turno.md).
+  { id: "interaction", label: "Interazione a fine turno", weights: { interruptions: 1, handTraps: 1, floodgates: 1, resilience: 0, followup: 0, resources: 0, cost: 0, exposure: 0 } },
   { id: "control", label: "Controllo e floodgate", weights: { interruptions: 0.8, handTraps: 0.7, floodgates: 1.6, resilience: 0.6, followup: 0.3, resources: 0.05, cost: -0.1, exposure: -0.4 } },
   { id: "resilient", label: "A prova di board breaker", weights: { interruptions: 0.8, handTraps: 0.9, floodgates: 0.6, resilience: 1.5, followup: 0.5, resources: 0.1, cost: -0.1, exposure: -0.6 } },
   { id: "grind", label: "Risorse e follow-up", weights: { interruptions: 0.7, handTraps: 0.7, floodgates: 0.5, resilience: 0.6, followup: 1.2, resources: 0.3, cost: -0.2, exposure: -0.3 } },
