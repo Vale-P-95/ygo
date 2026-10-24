@@ -49,7 +49,8 @@ Breve indice per chi arriva. Il dettaglio è in `docs/PIANO.md` (v1.11, §30–�
 - **Ricerca con replay**: il motore non copia una partita in corso, quindi ogni nodo si raggiunge rigiocando la linea. Tutte le ottimizzazioni puntano a ridurre i replay o a renderli più economici (§23, §25, §29.4).
 - **Punteggio misurato** con un turno di prova vero invece che stimato dal testo delle carte (§22, §26).
 - **Correzioni sempre generali**, validate su molti deck, mai per nome di carta (§28, §29.3).
-- **Una sola famiglia di agenti dal 24/10/2026**: sessioni di Claude Code per motore, backend e interfaccia; mockup in Claude Design; decisioni nel Progetto Claude; un compito per sessione; il merge lo fa la coordinatrice in automatico a CI verde, per il motore con la prova equa non peggiorata (decisione del 23/10; §30.5, §32, `docs/plans/piano-ambiente-e-risorse.md`, `AGENTS.md`).
+- **Una sola famiglia di agenti dal 24/10/2026**: sessioni di Claude Code per motore, backend e interfaccia; mockup in Claude Design; decisioni nel Progetto Claude; un compito per sessione; il merge lo fa la coordinatrice in automatico a CI verde, per il motore con `banco.py` ACCEPTED sul banco congelato (decisione del 23/10, regola del 24/10 in `docs/plans/regole-motore.md`; §30.5, §32, `docs/plans/piano-ambiente-e-risorse.md`, `AGENTS.md`).
+- **Regole del motore sul banco congelato** (24/10): ogni PR del motore dichiara la classe (E uscite uguali, R ricerca, M misura) e si unisce solo con `scripts/banco.py` ACCEPTED su `tests/fixtures/banco-motore/v1` (63 liste committate, 193 mani, soglie fisse); sostituisce la prova equa sulle 406 board (`docs/plans/regole-motore.md`).
 - **Minuti di GitHub Actions contati** (repository privato): CI solo sulle parti toccate, bench solo a mano.
 
 ## Richieste dell'utente non ancora fatte

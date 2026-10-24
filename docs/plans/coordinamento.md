@@ -31,7 +31,7 @@
 - Il motore è **generale**: deve funzionare con qualunque deck e con carte nuove. Nessuna regola per nome di carta.
 - **Nessuna linea precalcolata o salvata su disco.** Le linee si riconoscono sul momento. Per questo l'opzione (b), aperture avversarie in cache, è stata **rifiutata**.
 - L'oracolo e i riferimenti sono automatici, mai linee scritte a mano. Niente ricalcoli quando cambiano le liste del meta: la generalità si misura su deck mai visti.
-- Ogni cambio della misura si giudica prima con `scripts/research/a1b_fair_measure.py` su tutte le 406 board (prova equa), non su campioni scelti.
+- Ogni cambio del motore si giudica con `scripts/banco.py` sul banco congelato (`docs/plans/regole-motore.md`), mai su campioni scelti. Fino alla verità v1, un cambio della misura lo decide il proprietario (dal 24/10 sostituisce la prova equa sulle 406 board).
 
 ## Corsie attive
 | Corsia | Sessione | Modello | Branch | Stato al passaggio |

@@ -1,7 +1,11 @@
 name: Bench
 
-# Compares the combo search of two versions on the hands of
-# tests/fixtures/hands/bench.tsv (scripts/bench.py): each hand on one thread
+# Compares the combo search of two versions. With bench "banco-quick" or
+# "banco-full", on the frozen bench of tests/fixtures/banco-motore
+# (scripts/banco.py, rules in docs/plans/regole-motore.md): committed lists,
+# so nothing is downloaded, and the verdict of `same` or `judge`. With
+# "legacy", on the hands of tests/fixtures/hands/bench.tsv
+# (scripts/bench.py) and the lists of today: each hand on one thread
 # with a node budget, so the boards do not depend on the runner, and the
 # hands split over several runners. Started by hand: one run costs more
 # than an hour of Actions minutes. The Master Duel Meta decklists are
@@ -22,6 +26,12 @@ on:
       shards:
         description: Runners the hands are split over
         default: "6"
+      bench:
+        description: banco-quick (63 hands), banco-full (193 hands) or legacy (bench.tsv on today's lists)
+        default: banco-full
+      check:
+        description: "For the banco: same (no output may change), judge (the paired rules) or judge-measure (a change to the measure)"
+        default: judge
 
 env:
   CARGO_TERM_COLOR: always
@@ -67,10 +77,13 @@ jobs:
         with:
           name: cli-head
           path: cli
-      - run: |
+      - if: inputs.bench == 'legacy'
+        run: |
           chmod +x cli/duelforge-cli
           cli/duelforge-cli --data data update-cards
           python3 scripts/mdm_decks.py --out decks --db data/cards.db
+      - if: inputs.bench != 'legacy'
+        run: mkdir -p decks && touch decks/.none
       - uses: actions/upload-artifact@v4
         with:
           name: decks
@@ -103,7 +116,15 @@ jobs:
       - run: |
           chmod +x art/cli-base/duelforge-cli art/cli-head/duelforge-cli
           art/cli-head/duelforge-cli --data data fetch-data
+      - name: Search (banco)
+        if: inputs.bench != 'legacy'
+        run: |
+          set="${{ inputs.bench }}"
+          python3 scripts/banco.py run out --old art/cli-base/duelforge-cli --new art/cli-head/duelforge-cli \
+            --set "${set#banco-}" --jobs 2 --shard "${{ matrix.shard }}/${{ inputs.shards }}" \
+            ${{ inputs.check == 'judge-measure' && '--measure-cli art/cli-head/duelforge-cli' || '' }}
       - name: Search
+        if: inputs.bench == 'legacy'
         run: |
           shard="${{ matrix.shard }}/${{ inputs.shards }}"
           python3 scripts/bench.py out/base --decks art/decks --cli art/cli-base/duelforge-cli --nodes ${{ inputs.nodes }} --jobs 2 --shard "$shard"
@@ -126,7 +147,22 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           path: art
-      - run: |
+      - name: Verdict (banco)
+        if: inputs.bench != 'legacy'
+        run: |
+          mkdir banco
+          for d in art/results-*; do cp -r "$d"/. banco/; done
+          # The boards were measured again on the runners (run --measure-cli).
+          case "${{ inputs.check }}" in
+            same) python3 scripts/banco.py same banco || status=$? ;;
+            judge-measure) python3 scripts/banco.py judge banco --measure-cli art/cli-head/duelforge-cli || status=$? ;;
+            *) python3 scripts/banco.py judge banco || status=$? ;;
+          esac
+          { echo "## Banco $(cat art/cli-base/version.txt) → $(cat art/cli-head/version.txt)"; echo '```'; cat banco/summary.txt; echo '```'; } | tee report.md
+          cat report.md >> "$GITHUB_STEP_SUMMARY"
+          exit ${status:-0}
+      - if: inputs.bench == 'legacy'
+        run: |
           title="Bench: $(cat art/cli-base/version.txt) → $(cat art/cli-head/version.txt), ${{ inputs.nodes }} nodi"
           python3 scripts/bench_compare.py --title "$title" --base art/results-*/base/results.json --head art/results-*/head/results.json | tee report.md
           cat report.md >> "$GITHUB_STEP_SUMMARY"

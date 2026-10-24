@@ -18,7 +18,7 @@ La coordinatrice non è un servizio sempre acceso: lavora a eventi e si chiude a
 ## Per ogni PR pronta
 1. `git fetch` del branch e `git diff --stat origin/main...<branch>`: area giusta, niente file fuori dal brief, `git merge-tree` pulito.
 2. Aprire la PR con il template e i numeri o gli screenshot mandati dalla sessione; iscriversi agli eventi (`subscribe_pr_activity`).
-3. Al verde, senza delega e senza attese a intervalli (ci si sveglia sull'evento): merge in squash con SHA completo; per il motore, solo con la prova equa sulle 406 board non peggiorata. Dopo un push la CI si lancia a mano una volta (`ci.yml`).
+3. Al verde, senza delega e senza attese a intervalli (ci si sveglia sull'evento): merge in squash con SHA completo; per il motore, solo con `banco.py` ACCEPTED nella PR (`docs/plans/regole-motore.md`); un cambio della misura, fino alla verità v1, lo decide il proprietario. Dopo un push la CI si lancia a mano una volta (`ci.yml`).
 4. Annotare in `coordinamento.md`; dire alla sessione di fermarsi; dire all'utente che la sessione si può archiviare.
 
 ## Messaggi alle sessioni

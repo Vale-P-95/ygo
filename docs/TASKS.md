@@ -6,6 +6,9 @@ Le righe storiche con Gemini restano come cronologia; il contratto (`lib.rs`, `a
 Regole in `AGENTS.md`. Per prendere un task, spostalo in "In corso" con agente, branch e file che tocchi (è il lock), poi committa e pusha questa modifica prima di cominciare.
 
 ## In corso
+- [x] **Regole del motore sul banco congelato** (claude-code, thread «Definire regole affidabili per validare il motore», branch `claude/project-thread-l89lfs`, PR aperta il 24/10; `docs/plans/regole-motore.md`). `tests/fixtures/banco-motore/v1` (63 liste, 193 mani, `rules.json`), `scripts/banco.py` (`run`, `same`, `judge`), `bench.yml` con `bench: banco-*`; AGENTS.md, CLAUDE.md e skill aggiornati. Lock tolto.
+  - [ ] Primo giro `main` contro `main` (determinismo, tempi, larghezza degli intervalli).
+  - [ ] Verità v1 per la classe M (§4).
 - [x] **Classifica per interazione a fine turno, CLI `combos --interaction`** (claude-code, thread «Classificare le linee per interruzioni a fine turno», branch `claude/project-thread-j7r84m`, PR aperta il 24/10; `docs/plans/interazione-fine-turno.md`). Le board si ordinano per campo + mano + floodgate a pesi 1, senza breaker, turno dopo ed esposizione, con il riepilogo per tipo di effetto, posto, carte usabili, floodgate e risorse (anche nel JSON). Misura e ricerca invariate.
   - [ ] Interfaccia: profilo «Interazione a fine turno» con il riepilogo, mockup prima.
   - [ ] Con `--card`: interazione media sulle mani.
