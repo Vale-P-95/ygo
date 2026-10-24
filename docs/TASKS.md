@@ -27,6 +27,8 @@ Regole in `AGENTS.md`. Per prendere un task, spostalo in "In corso" con agente, 
 - [ ] **Mascotte nei pannelli info** (claude-code, branch `claude/project-thread-v1jfz3`, PR #166). L'Arcimago del design di Valerio in `InfoDialog` su `InfoButton` e `HelpPopover`, con `kind` per il glifo sulla lavagna.
   - File: `Mascot.tsx`, `InfoDialog.tsx`, `InfoButton.tsx`, `ui/HelpPopover.tsx`, `index.css`.
   - Resta: i testi per voce del design (probabilità, interruzioni, passi) non ripresi.
+- [ ] **Copie del duello lungo le linee lunghe** (thread «Velocizzare il rigioco delle linee lunghe», branch `claude/project-thread-2ad6hl`). Classe E: uscite identiche, meno rigioco.
+  File: `crates/ygo-solver/src/search.rs` (solo `Copies`, `Store`, `Queue`; lock), `docs/plans/velocita-ricerca.md`.
 
 ## Da fare (in ordine di priorità)
 
