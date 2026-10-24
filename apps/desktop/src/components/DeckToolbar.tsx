@@ -255,7 +255,7 @@ export function DeckToolbar(p: Props) {
             </button>
           )}
 
-          <HelpPopover title="Comandi della Fucina" tooltip="Guida della Fucina" align="right" kind="tip">
+          <HelpPopover title="Comandi della Fucina" tooltip="Guida della Fucina" kind="tip">
             <div className="flex flex-col gap-2.5 text-xs text-text/90">
               <div>
                 <p className="font-semibold text-text">Gestione carte e deck</p>

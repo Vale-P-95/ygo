@@ -1809,18 +1809,6 @@ body {
   outline: 2px solid var(--sec);
   outline-offset: 2px;
 }
-.info-panel {
-  position: fixed;
-  z-index: 60;
-  width: 300px;
-  max-height: min(420px, calc(100vh - 16px));
-  overflow-y: auto;
-  border-radius: 10px;
-  border: 1px solid var(--df-border-strong);
-  background: var(--df-surface);
-  padding: 0.7rem 0.8rem;
-  box-shadow: 0 12px 32px -8px rgb(0 0 0 / 0.45);
-}
 
 /* A thin bar of the breakdown of a score (how much of something is left or covered). */
 .meter {
@@ -1836,34 +1824,97 @@ body {
   border-radius: 999px;
 }
 
-/* The mascot in info panels: a slow bob and a blink. */
-.mascot-body {
-  animation: mascot-bob 2.6s ease-in-out infinite;
-  transform-origin: 50% 90%;
-}
-.mascot-eyes {
-  animation: mascot-blink 4.5s infinite;
-  transform-origin: 50% 19px;
-  transform-box: fill-box;
-}
-@keyframes mascot-bob {
-  50% {
-    transform: translateY(-1.5px) scale(1.03);
+/* The Archmage of the info dialogs (Claude Design handoff). */
+@keyframes dfPop {
+  0% {
+    opacity: 0;
+    transform: translateY(40px) scale(0.4);
+  }
+  60% {
+    opacity: 1;
+    transform: translateY(-8px) scale(1.06);
+  }
+  100% {
+    transform: none;
   }
 }
-@keyframes mascot-blink {
+@keyframes dfBob {
+  50% {
+    transform: translateY(-5px);
+  }
+}
+@keyframes dfTap {
+  40% {
+    transform: rotate(-14deg);
+  }
+  55% {
+    transform: rotate(-6deg);
+  }
+}
+@keyframes dfBlink {
   0%,
-  94%,
+  92%,
   100% {
     transform: scaleY(1);
   }
-  97% {
+  95% {
     transform: scaleY(0.1);
   }
 }
+@keyframes dfChalk {
+  0%,
+  30% {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.1);
+  }
+  60%,
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes dfSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes dfGlow {
+  0%,
+  100% {
+    opacity: 0.7;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+@keyframes dfFade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.mascot-dialog {
+  grid-template-columns: 250px minmax(0, 1fr);
+}
+@media (max-width: 560px) {
+  .mascot-dialog {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.mascot-pop {
+  animation: dfPop 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  transform-origin: 50% 100%;
+}
 @media (prefers-reduced-motion: reduce) {
-  .mascot-body,
-  .mascot-eyes {
-    animation: none;
+  .mascot-pop,
+  .mascot svg,
+  .mascot svg * {
+    animation: none !important;
   }
 }
