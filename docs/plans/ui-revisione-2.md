@@ -156,6 +156,7 @@ File: `src/components/DeckBox3D.tsx`, `src/pages/Shelf.tsx`, `src/lib/boxes.ts`,
 - *Completato il 23/10/2026 (Gemini):* scatole 3D arricchite con materiali e texture CC0 ad alta fedeltà (pelle, metallo, legno, plastica opaca, cartoncino) e licenze in `LICENSE.md`, illuminazione dinamica a riflesso speculare che traccia il puntatore (`--light-x`, `--light-y`), cerniera metallica visibile (`.dbox-hinge`), ombra di contatto morbida multilivello che reagisce a sollevamento ed estrazione, ripiani in legno con texture Wood049, bordo smussato e staffe metalliche con rivetti, parete di fondo leggera per temi dark e light, animazione di estrazione su clic, pieno supporto a `prefers-reduced-motion` e code splitting con `React.lazy` e `Suspense` per la Bottega (-14 KB sul bundle iniziale).
 
 ### Passo 6. Effetti visivi e suoni, ognuno spegnibile (`claude/ui-effects`)
+*Fatto il 24/10/2026 (Claude, senza mockup): gli interruttori per gli effetti e i suoni che già ci sono (sei effetti visivi, tre gruppi di suoni, «Prova» anche a gruppo spento, `prefers-reduced-motion` rispettato). Mancano gli effetti e i suoni nuovi elencati sotto.*
 Chi: Claude, non più Gemini. Prima il mockup in Claude Design sul sistema di design DuelForge, poi una sessione Code.
 
 File: `src/lib/settings.ts`, `src/lib/sound.ts`, `src/lib/sparks.ts`, `src/pages/Settings.tsx`, e i punti dove gli effetti si usano.

@@ -35,7 +35,7 @@ function isEditableElement(target: EventTarget | null): boolean {
 }
 
 function useTheme() {
-  const { theme, cardEffects } = useSettings();
+  const { theme, cardEffects, listAnimations, shelfEffects } = useSettings();
   useEffect(() => {
     const root = document.documentElement;
     const apply = () => {
@@ -44,15 +44,18 @@ function useTheme() {
     };
     apply();
     root.dataset.cardEffects = cardEffects ? "on" : "off";
+    root.dataset.listAnimations = listAnimations ? "on" : "off";
+    root.dataset.shelfEffects = shelfEffects ? "on" : "off";
     if (theme !== "system") return;
     const media = matchMedia("(prefers-color-scheme: light)");
     media.addEventListener("change", apply);
     return () => media.removeEventListener("change", apply);
-  }, [theme, cardEffects]);
+  }, [theme, cardEffects, listAnimations, shelfEffects]);
 }
 
 export default function App() {
   useTheme();
+  const { pageTransitions } = useSettings();
   const [active, setActive] = useState<SectionId>("deck-builder");
   const [status, setStatus] = useState<DataStatus | null>(null);
   const [decks, setDecks] = useState<DeckSummary[]>([]);
@@ -135,7 +138,7 @@ export default function App() {
       />
       <main data-section={active} className="relative min-w-0 flex-1">
         <Embers color={EMBER_COLORS[active] ?? "#ffc65c"} />
-        <div key={`${active}:${navVersion}`} className="relative h-full anim-fade">
+        <div key={`${active}:${navVersion}`} className={`relative h-full ${pageTransitions ? "anim-fade" : ""}`}>
           {active === "overview" && (
             <Overview status={status} deckCount={deckCount} onStatus={setStatus} go={setActive} onOpenGuide={() => setGuideOpen(true)} />
           )}

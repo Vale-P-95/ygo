@@ -52,7 +52,7 @@ function Slider({ value, onChange, label }: { value: number; onChange: (v: numbe
         value={Math.round(value * 100)}
         aria-label={label}
         onChange={(e) => onChange(Number(e.target.value) / 100)}
-        onPointerUp={() => sound.play("select")}
+        onPointerUp={() => sound.play("select", true)}
         className="w-44 accent-[var(--df-gold)]"
       />
       <span className="w-9 text-right text-xs text-muted tabular-nums">{Math.round(value * 100)}%</span>
@@ -72,6 +72,8 @@ const SOUND_TESTS: { name: SoundName; label: string }[] = [
   { name: "chime", label: "Conferma" },
   { name: "error", label: "Errore" },
   { name: "forge", label: "Martello" },
+  { name: "knock", label: "Scatola" },
+  { name: "latch", label: "Chiusura" },
 ];
 
 export function Settings({ onStatus }: { onStatus: (s: DataStatus) => void }) {
@@ -106,6 +108,18 @@ export function Settings({ onStatus }: { onStatus: (s: DataStatus) => void }) {
           <Row title="Effetti sulle carte" hint="Inclinazione 3D, riflessi olografici UR/SR, scintille">
             <Toggle label="Effetti sulle carte" value={s.cardEffects} onChange={(v) => set({ cardEffects: v })} />
           </Row>
+          <Row title="Transizioni tra pagine" hint="Breve dissolvenza al cambio di sezione">
+            <Toggle label="Transizioni tra pagine" value={s.pageTransitions} onChange={(v) => set({ pageTransitions: v })} />
+          </Row>
+          <Row title="Animazioni di liste e risultati" hint="Comparsa delle board, delle carte e dei grafici">
+            <Toggle label="Animazioni di liste e risultati" value={s.listAnimations} onChange={(v) => set({ listAnimations: v })} />
+          </Row>
+          <Row title="Effetti della Bottega" hint="Oscillazione, riflessi e sollevamento delle scatole">
+            <Toggle label="Effetti della Bottega" value={s.shelfEffects} onChange={(v) => set({ shelfEffects: v })} />
+          </Row>
+          <Row title="Effetti della mappa dei collegamenti" hint="Impulso lungo i collegamenti scelti">
+            <Toggle label="Effetti della mappa dei collegamenti" value={s.linksEffects} onChange={(v) => set({ linksEffects: v })} />
+          </Row>
           <Row title="Anteprima al passaggio del mouse">
             <Toggle label="Anteprima" value={s.hoverPreview} onChange={(v) => set({ hoverPreview: v })} />
           </Row>
@@ -120,6 +134,15 @@ export function Settings({ onStatus }: { onStatus: (s: DataStatus) => void }) {
           <Row title="Suoni" hint="Tutti i suoni sono sintetizzati dall'app">
             <Toggle label="Suoni" value={s.sound} onChange={(v) => set({ sound: v })} />
           </Row>
+          <Row title="Interfaccia" hint="Passaggio del mouse, clic, schede, cambio pagina">
+            <Toggle label="Suoni dell'interfaccia" value={s.soundUi} onChange={(v) => set({ soundUi: v })} />
+          </Row>
+          <Row title="Eventi" hint="Ricerca finita, conferme, errori, laboratorio">
+            <Toggle label="Suoni degli eventi" value={s.soundEvents} onChange={(v) => set({ soundEvents: v })} />
+          </Row>
+          <Row title="Carte e Bottega" hint="Scatole posate sulla mensola, chiusure">
+            <Toggle label="Suoni di carte e Bottega" value={s.soundShelf} onChange={(v) => set({ soundShelf: v })} />
+          </Row>
           <Row title="Volume generale">
             <Slider label="Volume generale" value={s.masterVolume} onChange={(v) => set({ masterVolume: v })} />
           </Row>
@@ -131,7 +154,7 @@ export function Settings({ onStatus }: { onStatus: (s: DataStatus) => void }) {
           </Row>
           <div className="mt-3 flex flex-wrap gap-2">
             {SOUND_TESTS.map((t) => (
-              <button key={t.name} type="button" className="btn btn-ghost !py-1.5 text-xs flex items-center gap-1.5" onClick={() => sound.play(t.name)}>
+              <button key={t.name} type="button" className="btn btn-ghost !py-1.5 text-xs flex items-center gap-1.5" onClick={() => sound.play(t.name, true)}>
                 <Play size={13} className="fill-current text-sec" />
                 <span>{t.label}</span>
               </button>

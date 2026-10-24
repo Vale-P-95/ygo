@@ -1209,6 +1209,17 @@ body {
   }
 }
 
+/* The same stillness, when the shelf effects are switched off in the settings. */
+[data-shelf-effects="off"] .dbox,
+[data-shelf-effects="off"] .dbox-card,
+[data-shelf-effects="off"] .dbox-lid,
+[data-shelf-effects="off"] .dbox-shadow,
+[data-shelf-effects="off"] .dbox-stage[data-sway] .dbox,
+[data-shelf-effects="off"] .dbox[data-material="holo"] .dbox-face {
+  transition: none !important;
+  animation: none !important;
+}
+
 
 /* ---------- Lab charts ---------- */
 
@@ -1367,6 +1378,14 @@ body {
 }
 .anim-fade {
   animation: fade-in 200ms ease both;
+}
+
+/* Entrances of lists and results, when switched off in the settings. */
+[data-list-animations="off"] .anim-rise,
+[data-list-animations="off"] .anim-pop,
+[data-list-animations="off"] .card-drop,
+[data-list-animations="off"] .deal {
+  animation: none !important;
 }
 
 /* Combo Lab: the field of a board, as in Master Duel. */
