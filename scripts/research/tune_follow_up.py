@@ -87,12 +87,12 @@ def judge(boards, gap, w):
     return right(diffs(ps), w) / len(ps), len(ps), spearman([score(b, w) for b in boards], [b["truth"] for b in boards])
 
 
-def compare(boards, gap, tries):
-    """Fixed weights against today's on all the pairs: pairs won and lost, by deck."""
+def compare(boards, gap, tries, base):
+    """Fixed weights against a base (today's) on all the pairs: pairs won and lost, by deck."""
     pairs = pairs_of(boards, gap)
     d = diffs(pairs)
-    today = d @ np.asarray((*WEIGHTS, 0.0))
-    print(f"{len(boards)} board, {len(pairs)} coppie; oggi (1, 0.9, 0.8, 0.6, 0): {right(d, (*WEIGHTS, 0.0)) / len(pairs):.1%}")
+    today = d @ np.asarray(base)
+    print(f"{len(boards)} board, {len(pairs)} coppie; base ({', '.join(f'{x:g}' for x in base)}): {right(d, base) / len(pairs):.1%}")
     for w in tries:
         s = d @ np.asarray(w)
         won = [p[0]["deck"] for p, x, y in zip(pairs, s, today) if x > 1e-9 and y <= 1e-9]
@@ -118,11 +118,14 @@ def main():
     p.add_argument("--seed", type=int, default=1)
     p.add_argument("--try", dest="tries", action="append", default=[], metavar="W1,W2,W3,W4,W5",
                    help="fixed weights judged on every pair against today's, with the sign test (no tuning)")
+    p.add_argument("--base", default=None, metavar="W1,W2,W3,W4,W5",
+                   help="the weights --try is judged against (default today's without the next turn; with it: today's and 1)")
     a = p.parse_args()
 
     boards = with_follow_up(json.load(open(a.results)), a.made)
     if a.tries:
-        compare(boards, a.gap, [tuple(float(x) for x in t.split(",")) for t in a.tries])
+        base = tuple(float(x) for x in a.base.split(",")) if a.base else (*WEIGHTS, 0.0)
+        compare(boards, a.gap, [tuple(float(x) for x in t.split(",")) for t in a.tries], base)
         return
     grid = np.round(np.arange(0, a.top + a.step / 2, a.step), 4)
     follow_grid = np.round(np.arange(0, a.follow_top + a.step / 2, a.step), 4)
