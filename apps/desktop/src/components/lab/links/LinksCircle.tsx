@@ -1,6 +1,6 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { cardImage, type Card, type CardLink, type LinkCard, type LinksComparison } from "../../../lib/api";
-import { prefersReducedMotion } from "../../../lib/settings";
+import { prefersReducedMotion, useSettings } from "../../../lib/settings";
 import { sound } from "../../../lib/sound";
 import {
   calculateCircleGeometry,
@@ -44,7 +44,8 @@ export function LinksCircle({
   const containerRef = useRef<HTMLDivElement>(null);
   const [dimensions, setDimensions] = useState<{ width: number; height: number }>({ width: 740, height: 560 });
   const markerIdPrefix = useId().replace(/:/g, "_");
-  const reduceMotion = prefersReducedMotion();
+  const { linksEffects } = useSettings();
+  const reduceMotion = prefersReducedMotion() || !linksEffects;
 
   // Stable dimensions tracking via ResizeObserver
   useEffect(() => {
