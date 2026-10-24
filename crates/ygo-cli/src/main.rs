@@ -166,12 +166,18 @@ enum Cmd {
         /// With --staged: runs counting the uses of a response in the cheap measure.
         #[arg(long, default_value_t = STAGED_ROUNDS)]
         staged_rounds: usize,
-        /// With --nodes: the search stops at 500, 1000, 2000... nodes on the
-        /// way and goes on from there, and the boards of every stop are
-        /// measured too (each line once). With one thread the best board
-        /// measured does not get worse with more nodes.
+        /// With --nodes: the best boards at 500, 1000, 2000... nodes on the
+        /// way and at the budget are measured too (each line once), so with
+        /// one thread more nodes keep what fewer measured.
         #[arg(long)]
         checkpoints: bool,
+        /// With --checkpoints and --staged: fields of each checkpoint given the cheap measure.
+        #[arg(long, default_value_t = CHECKPOINT_CHEAP)]
+        checkpoint_cheap: usize,
+        /// With --checkpoints: fields of each checkpoint given the full measure
+        /// (with --staged, the best by the cheap one).
+        #[arg(long, default_value_t = CHECKPOINT_FULL)]
+        checkpoint_full: usize,
         /// Measure the best N boards again at level 2 against the 3 most
         /// played decks of the meta, and list them by it (L2-3).
         #[arg(long, default_value_t = 0)]
@@ -407,6 +413,8 @@ fn main() -> Result<()> {
             staged_windows,
             staged_rounds,
             checkpoints,
+            checkpoint_cheap,
+            checkpoint_full,
             meta_final,
             meta_file,
             meta_decks,
@@ -438,6 +446,8 @@ fn main() -> Result<()> {
                     measure: ygo_solver::probe::Cheap { windows: staged_windows, use_rounds: staged_rounds },
                 }),
                 checkpoints,
+                checkpoint_cheap,
+                checkpoint_full,
                 meta: (meta_final > 0).then_some(MetaFinal { boards: meta_final, file: meta_file, decks: meta_decks }),
             },
         ),
@@ -507,6 +517,8 @@ struct CombosOptions {
     quick_value: bool,
     staged: Option<Staged>,
     checkpoints: bool,
+    checkpoint_cheap: usize,
+    checkpoint_full: usize,
     meta: Option<MetaFinal>,
 }
 
@@ -544,12 +556,18 @@ fn load_meta(dir: &Path, meta: &MetaFinal) -> Result<Vec<ygo_solver::MetaDeck>> 
         .collect())
 }
 
-/// The first stop of `combos --checkpoints`, doubled up to the budget.
+/// The first checkpoint of `combos --checkpoints`, doubled up to the budget.
 const CHECKPOINT_FIRST: u64 = 500;
+/// Best boards the search copies at a checkpoint, for its first fields.
+const CHECKPOINT_BOARDS: usize = 1000;
+/// Fields of a checkpoint given the cheap measure, and of those the best
+/// by it given the full one (`--staged`).
+const CHECKPOINT_CHEAP: usize = 30;
+const CHECKPOINT_FULL: usize = 15;
 
-/// The stops of `combos --checkpoints` for a budget of `nodes`: 500·2^k
-/// nodes below it, then `nodes`. Absolute, not shares of the budget: a
-/// search with 4000 nodes makes all the stops of one with 2000.
+/// The checkpoints of `combos --checkpoints` for a budget of `nodes`:
+/// 500·2^k nodes below it, then `nodes`. Absolute, not shares of the
+/// budget: a search with 4000 nodes passes all those of one with 2000.
 fn checkpoint_stops(nodes: u64) -> Vec<u64> {
     let mut stops: Vec<u64> = std::iter::successors(Some(CHECKPOINT_FIRST), |n| n.checked_mul(2)).take_while(|&n| n < nodes).collect();
     stops.push(nodes);
@@ -605,6 +623,8 @@ fn combos(dir: &Path, setup: &Setup, options: CombosOptions) -> Result<()> {
         quick_value,
         staged,
         checkpoints,
+        checkpoint_cheap,
+        checkpoint_full,
         meta,
     } = options;
     let (engine, deck, hand) = start(dir, setup)?;
@@ -684,51 +704,34 @@ fn combos(dir: &Path, setup: &Setup, options: CombosOptions) -> Result<()> {
     if config.hand.is_empty() {
         bail!("give --hand, or --card for \"card + rest\"");
     }
-    // With --checkpoints the search stops at 500·2^k nodes on the way and
-    // goes on from there, and the fields of every stop are measured as
-    // those of the last (docs/plans/monotonia-budget.md). With one thread a
-    // search with more nodes makes the same stops first, so it measures all
-    // that a smaller one measures: the best board measured does not get
-    // worse with more nodes.
+    // With --checkpoints the search copies its best boards at 500·2^k nodes
+    // on the way, and the fields of every copy are measured too, each line
+    // once (docs/plans/monotonia-budget.md). With one thread a search with
+    // more nodes takes the same copies first: the best board measured gets
+    // worse with more nodes only through the boards of the phases after
+    // the search, which a longer search may not have.
     let stops = match nodes {
         Some(n) if checkpoints => checkpoint_stops(n),
-        _ => vec![config.max_nodes],
+        _ => Vec::new(),
     };
+    config.checkpoint_top = if stops.is_empty() { 0 } else { CHECKPOINT_BOARDS };
+    config.checkpoints = stops.clone();
     let mut last = 0;
-    let mut frontier = ygo_solver::Frontier::default();
-    // The fields listed at each stop.
-    let mut listed_at: Vec<Vec<(u64, Vec<ygo_solver::Board>)>> = Vec::new();
-    let mut result: Option<ygo_solver::SearchResult> = None;
-    for &stop in &stops {
-        config.max_nodes = stop;
-        // The time limit is over all the stops.
-        let spent = result.as_ref().map_or(std::time::Duration::ZERO, |r| r.progress.elapsed);
-        config.time_limit = std::time::Duration::from_secs(seconds).saturating_sub(spent);
-        let mut r = ygo_solver::resume(&engine, &config, std::mem::take(&mut frontier), &cancel, |p| {
-            if p.elapsed.as_secs() >= last + 5 {
-                last = p.elapsed.as_secs();
-                eprintln!(
-                    "{:>4} s  {} nodes, {} replays, {} duplicates, {} queued, {} boards (best {:.1})",
-                    p.elapsed.as_secs(),
-                    p.nodes,
-                    p.replays,
-                    p.duplicates,
-                    p.queued,
-                    p.boards,
-                    p.best_quick_score
-                );
-            }
-        });
-        frontier = std::mem::take(&mut r.frontier);
-        listed_at.push(fields(&r.boards, top));
-        let go_on = r.stop == ygo_solver::Stop::NodeLimit;
-        result = Some(r);
-        if !go_on {
-            break;
+    let result = ygo_solver::search(&engine, &config, &cancel, |p| {
+        if p.elapsed.as_secs() >= last + 5 {
+            last = p.elapsed.as_secs();
+            eprintln!(
+                "{:>4} s  {} nodes, {} replays, {} duplicates, {} queued, {} boards (best {:.1})",
+                p.elapsed.as_secs(),
+                p.nodes,
+                p.replays,
+                p.duplicates,
+                p.queued,
+                p.boards,
+                p.best_quick_score
+            );
         }
-    }
-    drop(frontier);
-    let result = result.context("the search made no stop")?;
+    });
     if config.goal.is_set() {
         println!("goal: {}", goal_status(result.goal_reached(&config.goal)));
     }
@@ -908,13 +911,19 @@ fn combos(dir: &Path, setup: &Setup, options: CombosOptions) -> Result<()> {
     let probe_started = std::time::Instant::now();
     let mut measurer =
         Measurer { prober: &mut prober, how: (probe, no_breakers, quick_value), cheap: HashMap::new(), full: HashMap::new(), again: 0 };
-    let mut stops_listed: Vec<Vec<Listed>> = listed_at.iter().map(|groups| measurer.stop(groups, staged)).collect();
+    // The checkpoints with their own numbers of fields measured: those of a
+    // checkpoint do not depend on the budget.
+    let at_checkpoint = staged.map(|s| Staged { cheap: checkpoint_cheap, full: checkpoint_full, ..s });
+    let checkpoint_fields = if staged.is_some() { top.max(checkpoint_cheap) } else { checkpoint_full };
+    let at_stops: Vec<Vec<Listed>> =
+        result.checkpoints.iter().map(|(_, boards)| measurer.stop(&fields(boards, checkpoint_fields), at_checkpoint)).collect();
+    let groups = fields(&result.boards, top);
+    let mut boards = measurer.stop(&groups, staged);
     let measured_again = measurer.again;
-    // The last stop's fields in the search's order, then those measured
-    // only at an earlier stop; a field measured better at an earlier stop
+    // The fields of the search's end in its order, then those measured
+    // only at a checkpoint; a field measured better at a checkpoint
     // (another line, another variant) keeps that measure.
-    let mut boards = stops_listed.pop().unwrap_or_default();
-    for item in stops_listed.into_iter().flatten().filter(|item| item.measured.is_some()) {
+    for item in at_stops.into_iter().flatten().filter(|item| item.measured.is_some()) {
         let key = ygo_solver::search::field_key(&item.board.state);
         match boards.iter().position(|b| ygo_solver::search::field_key(&b.board.state) == key) {
             Some(j) if item.rank() > boards[j].rank() => boards[j] = item,
@@ -937,11 +946,11 @@ fn combos(dir: &Path, setup: &Setup, options: CombosOptions) -> Result<()> {
             item.loss = points.and_then(|(x, points)| expected_loss(&mut prober, &item.board.line, &x, &points));
         }
     }
-    if stops.len() > 1 {
+    if !stops.is_empty() {
         println!(
-            "checkpoints: {} stops ({}), {} measures taken from an earlier stop",
-            listed_at.len(),
-            stops.iter().take(listed_at.len()).map(u64::to_string).collect::<Vec<_>>().join(", "),
+            "checkpoints: {} of {} nodes passed, {} measures taken from another list",
+            result.checkpoints.len(),
+            stops.iter().map(u64::to_string).collect::<Vec<_>>().join(", "),
             measured_again
         );
     }
