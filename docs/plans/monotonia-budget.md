@@ -59,3 +59,29 @@ PR: template di .github/pull_request_template.md; tabella delle cadute e del tem
 Modello: Opus 5.5, effort alto (script e documenti a Sonnet 5.5 medio)
 Quando hai finito: TASKS.md e questo piano aggiornati, PR aperta, fermati.
 ```
+
+## Esito (thread «Rendere la ricerca monotona nel budget», 24/10, branch `claude/project-thread-g65a3w`)
+**In breve:** la garanzia si ottiene (cadute 21 → 1 su 91, nessuna mano peggio di `main`), ma costa +91% di tempo a 4000 nodi, non +15%. Entra come opzione `combos --checkpoints`, spenta di base: senza l'opzione l'uscita è identica a `main`.
+
+**Come è fatta.** `SearchConfig::checkpoints` (nodi) e `checkpoint_top` (board): fra due archi, dove si controlla il budget e prima del giro di apprendimento, la ricerca copia le sue migliori board in `SearchResult::checkpoints`. La ricerca non cambia; con un thread una ricerca più lunga prende le stesse copie per prime (test `checkpoints_change_nothing_and_a_longer_search_takes_the_same` in `search_regression`). `combos --checkpoints` mette i punti a 500·2^k nodi sotto il budget e al budget stesso, misura i campi di ogni copia come quelli della fine (`--checkpoint-cheap`, `--checkpoint-full`, 30/15) con una cache per linea, e tiene per ogni campo la misura migliore.
+
+**Prova (E-c2).** 91 mani delle fixture dell'oracolo con le liste esatte della loro ricerca (`oracle.py decks`: 42 deck non erano più nelle liste del giorno), un thread, `oracle.py measure --staged 30,15`, budget 500-8000. Le mani a 4000 nodi sono le stesse di `paired_test.py` (banco più `combo_hunt --seed 7`), quindi la colonna «contro main a 4000» è il test appaiato.
+
+| | cadute oltre l'1% | contro main a 4000 (meglio / peggio, p) | peggiore | secondi a 4000 | secondi a 8000 |
+|---|---|---|---|---|---|
+| `main`, `--staged` 30/15 | 21 su 91 | — | — | 1736 | 2227 |
+| prima forma: la ricerca riparte a ogni punto (`resume`) | 0 | 23 / 18, p = 0,53 | −44% | 3159 (+82%) | 4152 |
+| la stessa con 15/8 per punto | 0 | 18 / 25, p = 0,36 | −44% | 2379 (+37%) | 3174 |
+| **istantanee, 30/15 per punto** | **1** (doomz-0 −10%) | **10 / 0, p = 0,002** | 0% | 3312 (+91%) | 4342 |
+| istantanee, 15/8 alla fine e per punto | 4 | 7 / 8, p = 1 | −47% | 2499 (+44%) | 3337 |
+
+- **Perché costa tanto.** Per non scendere, un budget deve misurare tutto ciò che misura ogni budget più piccolo. Le prime 30 di 500, 1000, 2000 e 4000 nodi si sovrappongono poco: a 4000 nodi i campi con la misura completa passano da 14,5 a 34 per mano. Il tempo in più è tutto nei turni di prova (950 → 2506 s); la ricerca resta uguale (428 → 434 s).
+- **La prima forma** (`resume` a ogni punto, senza toccare `search.rs`) dà la garanzia esatta, ma le fasi dopo la ricerca girano a ogni punto e la ricerca prende un'altra strada: mani fino a −44% contro `main`. Scartata.
+- **L'unica caduta delle istantanee** viene dalle fasi dopo la ricerca: a 4000 nodi la board migliore è una che solo il gioco della End Phase o le varianti di zona producono, e la ricerca a 8000 nodi copia le board di 4000 prima di quelle fasi.
+- **Con lo stesso tempo conviene spendere nodi:** `main` a 8000 nodi (2227 s) vale quanto le istantanee a 4000 (3312 s): 18 mani meglio, 22 peggio.
+- **Prova equa sulle 406 board:** identica per costruzione. La misura (`probe.rs`, `probe-line`) non cambia, e senza l'opzione `combos` dà le stesse board e le stesse misure di `main` (12 mani su 12 a 2000 nodi, obiettivo Invoked compreso).
+
+**Seguito.**
+- L'app (`lib.rs`) può avere la monotonia a costo quasi nullo dove conta per l'utente: tenere la migliore board misurata fra una ripresa e l'altra della stessa ricerca.
+- `--checkpoints` serve ai test appaiati che devono confrontare budget diversi senza il rumore delle cadute, pagandone il tempo.
+- Le idee dopo restano la 6 (novità e LTS, B11) e la 5.
