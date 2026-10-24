@@ -210,6 +210,11 @@ enum Cmd {
         meta_file: Option<PathBuf>,
         #[arg(long)]
         meta_decks: Option<PathBuf>,
+        /// Several hands of the deck in one run, one per line of this file:
+        /// id, seed, hand, JSON file and lines file (tab-separated, the last
+        /// two may be empty). The engine and the card values are loaded once.
+        #[arg(long)]
+        cases: Option<PathBuf>,
     },
     /// The Monte Carlo played by the engine: hands drawn from the deck, each
     /// searched and measured, and P(best board ≥ threshold) with its 95%
@@ -545,6 +550,7 @@ fn main() -> Result<()> {
             meta_final,
             meta_file,
             meta_decks,
+            cases,
         } => combos(
             &cli.data,
             &setup,
@@ -579,6 +585,7 @@ fn main() -> Result<()> {
                 checkpoint_full,
                 meta: (meta_final > 0).then_some(MetaFinal { boards: meta_final, file: meta_file, decks: meta_decks }),
             },
+            cases.as_deref(),
         ),
         Cmd::ProbeLine { setup, lines, index, json, vs, stops, moves, protection } => {
             probe_line(&cli.data, &setup, &lines, index, json.as_deref(), vs.as_deref(), stops, moves, protection)
@@ -653,6 +660,7 @@ fn random_decks(dir: &Path, count: usize, min_cards: usize, seed: u64, out: &Pat
     Ok(())
 }
 
+#[derive(Clone)]
 struct CombosOptions {
     seconds: u64,
     nodes: Option<u64>,
@@ -682,6 +690,7 @@ struct CombosOptions {
 
 /// `combos --meta-final`: the best `boards` measured again against the
 /// meta, read from `file` (lists in `decks`) or from Master Duel Meta.
+#[derive(Clone)]
 struct MetaFinal {
     boards: usize,
     file: Option<PathBuf>,
@@ -781,7 +790,50 @@ struct Staged {
     measure: ygo_solver::probe::Cheap,
 }
 
-fn combos(dir: &Path, setup: &Setup, options: CombosOptions) -> Result<()> {
+/// The seed the card values are measured with, whatever the hand's: the
+/// values are the deck's, so the hands of a deck share them (the app uses
+/// this seed too).
+const VALUES_SEED: u64 = 1;
+
+fn combos(dir: &Path, setup: &Setup, options: CombosOptions, cases: Option<&Path>) -> Result<()> {
+    let Some(cases) = cases else {
+        let (engine, deck, hand) = start(dir, setup)?;
+        return combos_with(dir, &engine, setup, deck, hand, options);
+    };
+    // The first case's time also counts the engine's loading.
+    let mut started = std::time::Instant::now();
+    let engine = load_engine(dir)?;
+    let text = std::fs::read_to_string(cases).with_context(|| format!("cannot read {}", cases.display()))?;
+    let mut failed = 0;
+    for line in text.lines().filter(|l| !l.trim().is_empty() && !l.starts_with('#')) {
+        let fields: Vec<&str> = line.split('\t').collect();
+        let [id, seed, hand, json, save_lines] = fields[..] else { bail!("a case needs 5 tab-separated fields: {line}") };
+        let path = |p: &str| (!p.is_empty()).then(|| PathBuf::from(p));
+        let setup =
+            Setup { deck: setup.deck.clone(), hand: hand.to_owned(), seed: seed.parse().with_context(|| format!("bad seed in {line}"))? };
+        let json = path(json);
+        // A JSON file implies the probe turn, as with --json.
+        let options = CombosOptions { probe: options.probe || json.is_some(), json, save_lines: path(save_lines), ..options.clone() };
+        // Each case's output between its markers, with its own time (the
+        // first one also pays for the engine and the card values).
+        println!("=== case {id}");
+        let done = prepare(&engine, &setup).and_then(|(deck, hand)| combos_with(dir, &engine, &setup, deck, hand, options));
+        match done {
+            Ok(()) => println!("=== case {id} done in {:.2} s", started.elapsed().as_secs_f64()),
+            Err(e) => {
+                failed += 1;
+                println!("=== case {id} failed in {:.2} s: {e:#}", started.elapsed().as_secs_f64());
+            }
+        }
+        started = std::time::Instant::now();
+    }
+    if failed > 0 {
+        bail!("{failed} cases failed");
+    }
+    Ok(())
+}
+
+fn combos_with(dir: &Path, engine: &Engine, setup: &Setup, deck: DeckList, hand: Vec<u32>, options: CombosOptions) -> Result<()> {
     let CombosOptions {
         seconds,
         nodes,
@@ -808,7 +860,6 @@ fn combos(dir: &Path, setup: &Setup, options: CombosOptions) -> Result<()> {
         checkpoint_full,
         meta,
     } = options;
-    let (engine, deck, hand) = start(dir, setup)?;
     let mut config = ygo_solver::SearchConfig::new(deck, hand);
     config.seed = setup.seed;
     config.time_limit = std::time::Duration::from_secs(seconds);
@@ -826,7 +877,7 @@ fn combos(dir: &Path, setup: &Setup, options: CombosOptions) -> Result<()> {
     // What each card stops alone on the field: the search steers by it,
     // and learns on the way what cards stop together.
     config.values =
-        std::sync::Arc::new(ygo_solver::card_values(&engine, &config.deck, config.seed, &kit, &config.hand_traps, config.threads));
+        std::sync::Arc::new(ygo_solver::card_values(engine, &config.deck, VALUES_SEED, &kit, &config.hand_traps, config.threads));
     config.learn = Some(std::sync::Arc::new(kit.clone()));
     if !use_handtraps {
         config.policy.passive = known_hand_traps(&engine);
@@ -2990,9 +3041,15 @@ fn resolve_hand(engine: &Engine, hand: &str) -> Result<Vec<u32>> {
 
 fn start(dir: &Path, setup: &Setup) -> Result<(Engine, DeckList, Vec<u32>)> {
     let engine = load_engine(dir)?;
+    let (deck, hand) = prepare(&engine, setup)?;
+    Ok((engine, deck, hand))
+}
+
+/// The deck and the hand of `setup`, with a warning for each card without a script.
+fn prepare(engine: &Engine, setup: &Setup) -> Result<(DeckList, Vec<u32>)> {
     let text = std::fs::read_to_string(&setup.deck).with_context(|| format!("cannot read {}", setup.deck.display()))?;
     let deck = DeckList::from_ydk(&text)?;
-    let hand = resolve_hand(&engine, &setup.hand)?;
+    let hand = resolve_hand(engine, &setup.hand)?;
     let mut unscripted: Vec<u32> = deck
         .main
         .iter()
@@ -3004,7 +3061,7 @@ fn start(dir: &Path, setup: &Setup) -> Result<(Engine, DeckList, Vec<u32>)> {
     for code in unscripted {
         eprintln!("warning: no script for {} ({code})", engine.cards().name(code));
     }
-    Ok((engine, deck, hand))
+    Ok((deck, hand))
 }
 
 fn print_events(engine: &Engine, events: &[Event]) {
