@@ -199,6 +199,10 @@ enum Cmd {
         /// (with --staged, the best by the cheap one).
         #[arg(long, default_value_t = CHECKPOINT_FULL)]
         checkpoint_full: usize,
+        /// Measure in full the first --top fields of the search's end by the
+        /// estimate, as before the fields gathered on the way.
+        #[arg(long)]
+        no_gather: bool,
         /// Measure the best N boards again at level 2 against the 3 most
         /// played decks of the meta, and list them by it (L2-3).
         #[arg(long, default_value_t = 0)]
@@ -542,6 +546,7 @@ fn main() -> Result<()> {
             checkpoints,
             checkpoint_cheap,
             checkpoint_full,
+            no_gather,
             meta_final,
             meta_file,
             meta_decks,
@@ -577,6 +582,7 @@ fn main() -> Result<()> {
                 checkpoints,
                 checkpoint_cheap,
                 checkpoint_full,
+                gather: !no_gather,
                 meta: (meta_final > 0).then_some(MetaFinal { boards: meta_final, file: meta_file, decks: meta_decks }),
             },
         ),
@@ -677,6 +683,7 @@ struct CombosOptions {
     checkpoints: bool,
     checkpoint_cheap: usize,
     checkpoint_full: usize,
+    gather: bool,
     meta: Option<MetaFinal>,
 }
 
@@ -750,6 +757,26 @@ fn fields(boards: &[ygo_solver::Board], top: usize) -> Vec<(u64, Vec<ygo_solver:
     groups
 }
 
+/// The fields a search measures by default: the first `top` of its end,
+/// then the first `top` of each checkpoint not among them, the earliest
+/// first. A field found again keeps the variants it did not have.
+fn gathered(boards: &[ygo_solver::Board], checkpoints: &[(u64, Vec<ygo_solver::Board>)], top: usize) -> Vec<(u64, Vec<ygo_solver::Board>)> {
+    let mut groups = fields(boards, top);
+    for (key, group) in checkpoints.iter().flat_map(|(_, at)| fields(at, top)) {
+        match groups.iter_mut().find(|(k, _)| *k == key) {
+            Some((_, known)) => {
+                for board in group {
+                    if !known.iter().any(|b| b.line.answers == board.line.answers) {
+                        known.push(board);
+                    }
+                }
+            }
+            None => groups.push((key, group)),
+        }
+    }
+    groups
+}
+
 /// The variants of a field in the search's order, the first of each hand,
 /// Graveyard and banishment: those differ in what the probe turn can still
 /// use, while other zones alone are the zone phase's work.
@@ -806,6 +833,7 @@ fn combos(dir: &Path, setup: &Setup, options: CombosOptions) -> Result<()> {
         checkpoints,
         checkpoint_cheap,
         checkpoint_full,
+        gather,
         meta,
     } = options;
     let (engine, deck, hand) = start(dir, setup)?;
@@ -891,8 +919,15 @@ fn combos(dir: &Path, setup: &Setup, options: CombosOptions) -> Result<()> {
     // more nodes takes the same copies first: the best board measured gets
     // worse with more nodes only through the boards of the phases after
     // the search, which a longer search may not have.
+    // Else the fields measured in full are chosen by the cheap measure among
+    // those first at the end and at the same checkpoints (`gathered`): a
+    // search with more nodes still finds the boards of one with fewer, but
+    // more boards the estimate ranks first push them out of the end's first
+    // fields (docs/plans/prossimi-passi-motore.md, 1).
+    let gather = gather && probe && staged.is_none() && !checkpoints;
     let stops = match nodes {
         Some(n) if checkpoints => checkpoint_stops(n),
+        n if gather => checkpoint_stops(n.unwrap_or(u64::MAX)),
         _ => Vec::new(),
     };
     config.checkpoint_top = if stops.is_empty() { 0 } else { CHECKPOINT_BOARDS };
@@ -1120,9 +1155,18 @@ fn combos(dir: &Path, setup: &Setup, options: CombosOptions) -> Result<()> {
     // checkpoint do not depend on the budget.
     let at_checkpoint = staged.map(|s| Staged { cheap: checkpoint_cheap, full: checkpoint_full, ..s });
     let checkpoint_fields = if staged.is_some() { top.max(checkpoint_cheap) } else { checkpoint_full };
-    let at_stops: Vec<Vec<Listed>> =
-        result.checkpoints.iter().map(|(_, boards)| measurer.stop(&fields(boards, checkpoint_fields), at_checkpoint)).collect();
-    let groups = fields(&result.boards, top);
+    let at_stops: Vec<Vec<Listed>> = match checkpoints {
+        true => result.checkpoints.iter().map(|(_, boards)| measurer.stop(&fields(boards, checkpoint_fields), at_checkpoint)).collect(),
+        false => Vec::new(),
+    };
+    let (groups, staged) = match gather {
+        true => {
+            let groups = gathered(&result.boards, &result.checkpoints, top);
+            let measure = ygo_solver::probe::Cheap { windows: STAGED_WINDOWS, use_rounds: STAGED_ROUNDS };
+            (groups.clone(), Some(Staged { cheap: groups.len(), full: top, variants: 1, measure }))
+        }
+        false => (fields(&result.boards, top), staged),
+    };
     let mut boards = measurer.stop(&groups, staged);
     let measured_again = measurer.again;
     // The fields of the search's end in its order, then those measured
@@ -1152,7 +1196,10 @@ fn combos(dir: &Path, setup: &Setup, options: CombosOptions) -> Result<()> {
             item.loss = points.and_then(|(x, points)| expected_loss(&mut prober, &item.board.line, &x, &points));
         }
     }
-    if !stops.is_empty() {
+    if gather {
+        println!("gathered: {} fields from the end and {} checkpoints", groups.len(), result.checkpoints.len());
+    }
+    if checkpoints && !stops.is_empty() {
         println!(
             "checkpoints: {} of {} nodes passed, {} measures taken from another list",
             result.checkpoints.len(),
