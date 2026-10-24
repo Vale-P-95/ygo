@@ -86,7 +86,7 @@ Le copie si fanno solo dove servono: farle a ogni finestra durante la corsa senz
 | 1 | Taglio dei giri (rilevamento di cicli) | −87% Fur Hire, −59% Elfnote; 0 nei deck senza giri | 30 righe; non dimostrabile, uscite identiche sul campione | **Fatto** |
 | 2 | Copie alle finestre (checkpoint del prefisso comune, come Forge e ygorl) | −30% delle corse `UseAt`, −5/−20% a mano normale | 250 righe sopra B13; esatto | **Fatto** |
 | 3 | Rispondere bene alle selezioni che girano (chiudere la selezione o annullarla) | il tempo l'aveva già preso il taglio (−1% sul banco); in più la finestra conta davvero | 10 righe in `forward_by`; cambia la misura di 8 mani su 193 | **Fatto** (sotto) |
-| 4 | Valori delle carte su disco, per deck, script e kit | −3/4 s a mano: −14% sui banchi (4 run per deck nel banco di generalità), 0 nell'app | invalidazione (versione degli script, del kit e del motore) | Da fare per i banchi |
+| 4 | Valori delle carte su disco, per deck, script e kit | −3/4 s a mano: −14% sui banchi (4 run per deck nel banco di generalità), 0 nell'app | invalidazione (versione degli script, del kit e del motore) | **Respinta** da Valerio il 24/10 (sotto) |
 | 5 | Memoria delle corse (tabella di trasposizione sulle corse: stessa linea, politica, contesto) | 4% | piccolo; chiave completa obbligatoria | Da fare, piccolo |
 | 6 | Extra Deck del kit più leggero (meno copie di mostri con procedura di Evocazione) | fino a un terzo delle azioni dell'avversario, da misurare | cambia la misura: prova equa | Da misurare |
 | 7 | Misura finale delle 10 board su più thread | tempo di attesa ÷3 su 4 core, lavoro uguale | piccolo; nei banchi i core sono già pieni | Per l'app |
@@ -100,5 +100,9 @@ Le fonti per 2, 4 e 5 sono in `revisione-bibliografica-2.md` §4.4 (Jinnai & Fuk
 - **Prova equa sulle 406 board:** la misura di ogni board è la stessa (JSON identici su 19 + 91 mani, cioè circa 1100 board misurate, e il controllo di ogni copia), quindi la prova equa non cambia, come per B13. Le linee del giro A1b non sono in questo container per rifarla.
 - `cargo fmt`, `clippy -D warnings`, `cargo test --release` e `search_regression`: tutti verdi.
 
+## Decisione del 24/10: niente valori delle carte su disco
+- **Respinta la tecnica 4.** Decisione di Valerio: il motore valuta sul momento, e in modo indipendente dal meta, le linee più forti da una mano o da una carta. Niente salvato su disco fra un avvio e l'altro, come per le linee precalcolate (`coordinamento.md`, `progetto-claude.md`).
+- **Cosa resta possibile.** I valori in memoria nello stesso processo, come già nell'app; per i banchi, una CLI che giochi tutte le mani di un deck in un solo processo (`prossimi-passi-motore.md`).
+
 ## Prossimo passo
-La 4 per i banchi (valori delle carte su disco, −14% sui giri del banco) o la 5 (memoria delle corse, −4%, classe E); per l'app la 7 (misura finale delle 10 board su più thread). Il taglio dei giri resta come rete di sicurezza: su 63 mani non scatta più.
+La 5 (memoria delle corse, −4%, classe E); per l'app la 7 (misura finale delle 10 board su più thread). La 4 non si fa (decisione sopra). Il taglio dei giri resta come rete di sicurezza: su 63 mani non scatta più.
