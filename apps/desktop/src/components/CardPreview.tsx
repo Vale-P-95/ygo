@@ -1,6 +1,7 @@
 import { createPortal } from "react-dom";
 import { cardImage, type Card } from "../lib/api";
-import { ATTRIBUTE_COLORS, frameColor } from "./CardDetails";
+import { frameColor } from "./CardDetails";
+import { AttributeIcon } from "./AttributeIcon";
 
 const WIDTH = 520;
 
@@ -21,7 +22,7 @@ export function CardPreview({ card, anchor }: { card: Card; anchor: DOMRect }) {
         <p className="display text-base leading-tight font-bold">{card.name}</p>
         {card.kind === "monster" && (
           <p className="text-xs text-muted">
-            {card.attribute && <span style={{ color: ATTRIBUTE_COLORS[card.attribute] }}>{card.attribute} · </span>}
+            {card.attribute && <><AttributeIcon attribute={card.attribute} className="inline h-3.5 w-3.5" /> · </>}
             {card.typeLine.join(" / ")}
             {card.level != null && ` · ★${card.level}`}
           </p>

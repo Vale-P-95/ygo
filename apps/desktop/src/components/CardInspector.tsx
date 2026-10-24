@@ -15,6 +15,7 @@ import { cardImage, type Card, type Deck } from "../lib/api";
 import { copyLimit, isExtraDeckCard } from "../lib/deck";
 import { roleDefs } from "../lib/roles";
 import { ATTRIBUTE_COLORS, frameColor } from "./CardDetails";
+import { AttributeIcon } from "./AttributeIcon";
 import { rarityCode } from "./CardTile";
 import { IconButton } from "./ui/IconButton";
 
@@ -265,8 +266,7 @@ export const CardInspector = memo(function CardInspector({
               borderColor: ATTRIBUTE_COLORS[card.attribute],
             }}
           >
-            <span style={{ color: ATTRIBUTE_COLORS[card.attribute] }} aria-hidden="true">●</span>{" "}
-            <span>{card.attribute}</span>
+            <AttributeIcon attribute={card.attribute} className="h-5 w-5" />
           </span>
         )}
 
