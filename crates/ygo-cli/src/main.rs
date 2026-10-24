@@ -5,6 +5,8 @@
 //! - `play`: play a starting hand from a deck, interactively or by script.
 //! - `bench`: measure duel creation, playout and replay speed.
 //! - `combos`: search every line from a hand and list the end boards.
+//! - `engine-mc`: P(board ≥ threshold) from many hands played by the engine,
+//!   and the swaps of a copy that raise it.
 //! - `sweep`: random duels between random decks, reporting any decision
 //!   that cannot be answered or any answer the engine rejects.
 
@@ -20,6 +22,8 @@ use ygo_data::{sync, CardStore};
 use ygo_engine::consts::{location, phase, position};
 use ygo_engine::sweep::SweepConfig;
 use ygo_engine::{actions, describe_card, run_script, Action, ActionKind, DeckList, Duel, Engine, Event, ScriptEnd, Step, Trace};
+
+mod engine_mc;
 
 #[derive(Parser)]
 #[command(name = "duelforge-cli", version, about)]
@@ -165,6 +169,10 @@ enum Cmd {
         /// With --staged: of those, the best by it given the full measure.
         #[arg(long, default_value_t = STAGED_FULL)]
         staged_full: usize,
+        /// With --staged: variants of each field given the cheap measure (another
+        /// hand, Graveyard or banishment), the best by it standing for the field.
+        #[arg(long, default_value_t = STAGED_VARIANTS)]
+        staged_variants: usize,
         /// With --staged: windows each response is tried at in the cheap measure.
         #[arg(long, default_value_t = STAGED_WINDOWS)]
         staged_windows: usize,
@@ -194,6 +202,54 @@ enum Cmd {
         meta_file: Option<PathBuf>,
         #[arg(long)]
         meta_decks: Option<PathBuf>,
+    },
+    /// The Monte Carlo played by the engine: hands drawn from the deck, each
+    /// searched and measured, and P(best board ≥ threshold) with its 95%
+    /// interval. Swaps of a copy are measured on the same draws, with the
+    /// hands already searched taken from a cache; `--climb` lets the
+    /// optimizer pick the swaps. Writes `summary.txt` and `hands.json` to `--out`.
+    EngineMc {
+        /// Deck in .ydk format (its Side Deck: cards that may enter).
+        #[arg(long)]
+        deck: PathBuf,
+        /// Hands drawn (5 cards, going first).
+        #[arg(long, default_value_t = 200)]
+        hands: usize,
+        /// Choices explored per hand.
+        #[arg(long, default_value_t = 2000)]
+        nodes: u64,
+        /// Measured value a hand's best board must reach (default: the
+        /// median of the deck's hands, then kept for every variant).
+        #[arg(long)]
+        threshold: Option<f64>,
+        /// Fields of each hand given the cheap measure.
+        #[arg(long, default_value_t = 10)]
+        cheap: usize,
+        /// Of those, the best by it given the full measure.
+        #[arg(long, default_value_t = 3)]
+        full: usize,
+        /// Swaps to measure: "Out>In", semicolon-separated names or passcodes.
+        #[arg(long, default_value = "")]
+        swap: String,
+        /// Let the optimizer swap copies: decks measured at most (0: none).
+        #[arg(long, default_value_t = 0)]
+        climb: usize,
+        /// Cards that may enter besides the Side Deck (semicolon-separated).
+        #[arg(long, default_value = "")]
+        candidates: String,
+        /// Hands searched at once (each on one thread).
+        #[arg(long)]
+        threads: Option<usize>,
+        /// Seed of the draws, the deck order and the engine.
+        #[arg(long, default_value_t = 1)]
+        seed: u64,
+        #[arg(long, default_value = "out/engine-mc")]
+        out: PathBuf,
+        /// Also find the roles by playing and compare: the exact odds of a
+        /// Starter, and the share of the hands with and without one that
+        /// reached the threshold.
+        #[arg(long)]
+        roles: bool,
     },
     /// Measure lines saved by `combos --save-lines` with the probe turn,
     /// without searching (the same boards before and after a change). The
@@ -470,6 +526,7 @@ fn main() -> Result<()> {
             staged,
             staged_cheap,
             staged_full,
+            staged_variants,
             staged_windows,
             staged_rounds,
             checkpoints,
@@ -503,6 +560,7 @@ fn main() -> Result<()> {
                 staged: staged.then_some(Staged {
                     cheap: staged_cheap,
                     full: staged_full,
+                    variants: staged_variants.max(1),
                     measure: ygo_solver::probe::Cheap { windows: staged_windows, use_rounds: staged_rounds },
                 }),
                 checkpoints,
@@ -513,6 +571,26 @@ fn main() -> Result<()> {
         ),
         Cmd::ProbeLine { setup, lines, index, json, vs, stops, moves, protection } => {
             probe_line(&cli.data, &setup, &lines, index, json.as_deref(), vs.as_deref(), stops, moves, protection)
+        }
+        Cmd::EngineMc { deck, hands, nodes, threshold, cheap, full, swap, climb, candidates, threads, seed, out, roles } => {
+            engine_mc::engine_mc(
+                &cli.data,
+                engine_mc::Options {
+                    deck,
+                    hands,
+                    nodes,
+                    threshold,
+                    cheap,
+                    full,
+                    swaps: swap,
+                    climb,
+                    candidates,
+                    threads,
+                    seed,
+                    out,
+                    roles,
+                },
+            )
         }
         Cmd::TechTable { deck, decks, seed, meta_file, meta_decks, json } => {
             tech_table(&cli.data, &deck, decks, seed, MetaFinal { boards: 0, file: meta_file, decks: meta_decks }, json.as_deref())
@@ -660,12 +738,34 @@ fn fields(boards: &[ygo_solver::Board], top: usize) -> Vec<(u64, Vec<ygo_solver:
     groups
 }
 
+/// The variants of a field in the search's order, the first of each hand,
+/// Graveyard and banishment: those differ in what the probe turn can still
+/// use, while other zones alone are the zone phase's work.
+fn variants(group: &[ygo_solver::Board], top: usize) -> Vec<&ygo_solver::Board> {
+    let mut seen = std::collections::HashSet::new();
+    let mut out = Vec::new();
+    for board in group {
+        let p = &board.state.players[0];
+        let mut rest = (p.hand.clone(), p.grave.clone(), p.banished.clone());
+        rest.0.sort_unstable();
+        rest.1.sort_unstable();
+        rest.2.sort_unstable();
+        if out.len() < top && seen.insert(rest) {
+            out.push(board);
+        }
+    }
+    out
+}
+
 /// `combos --staged`: the cheap measure of the first `cheap` fields, then
-/// the full one of the best `full` by it.
+/// the full one of the best `full` by it. Each field stands for its first
+/// `variants` variants with another hand, Graveyard or banishment, and the
+/// best of them by the cheap measure stands for it.
 #[derive(Clone, Copy)]
 struct Staged {
     cheap: usize,
     full: usize,
+    variants: usize,
     measure: ygo_solver::probe::Cheap,
 }
 
@@ -937,8 +1037,17 @@ fn combos(dir: &Path, setup: &Setup, options: CombosOptions) -> Result<()> {
             let mut items: Vec<Listed> = groups.iter().map(|(_, group)| Listed::new(&group[0], group.len() - 1)).collect();
             match staged {
                 Some(staged) => {
-                    for item in items.iter_mut().take(staged.cheap) {
-                        self.cheap(item, staged.measure);
+                    // The first variant found need not be the best: the field
+                    // keeps the best of its variants by the cheap measure.
+                    for (i, item) in items.iter_mut().enumerate().take(staged.cheap) {
+                        let group = &groups[i].1;
+                        for board in variants(group, staged.variants) {
+                            let mut variant = Listed::new(board, group.len() - 1);
+                            self.cheap(&mut variant, staged.measure);
+                            if item.measured.is_none() || variant.rank().1 > item.rank().1 {
+                                *item = variant;
+                            }
+                        }
                     }
                     let mut order: Vec<usize> = (0..items.len()).filter(|&i| items[i].cheap_value.is_some()).collect();
                     order.sort_by(|&a, &b| {
@@ -964,8 +1073,21 @@ fn combos(dir: &Path, setup: &Setup, options: CombosOptions) -> Result<()> {
                     if items[i].cheap || items[i].measured.is_none() {
                         continue;
                     }
+                    // The variants measured cheap first, best first, then the
+                    // others in the search's order.
                     let group = &groups[i].1;
-                    for board in group.iter().skip(1).take(MEASURED_VARIANTS - 1) {
+                    let shown = &items[i].board.line.answers;
+                    let mut others: Vec<(f64, &ygo_solver::Board)> = group
+                        .iter()
+                        .filter(|b| &b.line.answers != shown)
+                        .map(|b| {
+                            let cheap = self.cheap.get(&b.line.answers).and_then(|c| c.0.as_ref().ok()).map(cheap_composite);
+                            (cheap.unwrap_or(f64::NEG_INFINITY), b)
+                        })
+                        .collect();
+                    others.sort_by(|a, b| b.0.total_cmp(&a.0));
+                    let others: Vec<&ygo_solver::Board> = others.into_iter().map(|(_, b)| b).take(MEASURED_VARIANTS - 1).collect();
+                    for board in others {
                         let mut item = Listed::new(board, group.len() - 1);
                         self.full(&mut item);
                         if item.rank().0 > items[i].rank().0 {
@@ -1790,6 +1912,8 @@ const FIELDS_WITH_VARIANTS: usize = 3;
 /// (`docs/plans/velocita-ricerca.md`, B14); what the cheap measure tries.
 const STAGED_CHEAP: usize = 30;
 const STAGED_FULL: usize = 15;
+/// Variants of each field given the cheap measure (`docs/plans/piano-motore-impatto.md` §4).
+const STAGED_VARIANTS: usize = 3;
 const STAGED_WINDOWS: usize = 8;
 const STAGED_ROUNDS: usize = 1;
 

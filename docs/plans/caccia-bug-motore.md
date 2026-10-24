@@ -38,6 +38,8 @@ Esempio: il campo «Sky Striker Ace = Zero [EMZ] + Widow Anchor coperta» ha a 1
 - `search.rs`, `resume`: `confirm_best` gioca la End Phase alle prime `confirm_top` (40) board provvisorie per `rank`; `zone_variants` prova le altre zone per le prime `zone_top` (20) board esatte. A 1000 nodi (295 board) la board giusta è quasi sempre tra le 40; a 200 000 nodi (20 000 board) no. Una board provvisoria oltre la 40ª resta senza End Phase e senza varianti di zona.
 - `scripts/oracle.py --staged 300,30`: i primi 300 campi per la stima, poi i 30 migliori per la misura economica. A1 registra già warrior_combo-1 fuori dai 300.
 
+**Fatto in `combos --staged` (24/10):** il rappresentante è la migliore per misura economica di fino a 3 varianti (`piano-motore-impatto.md` §4, «Esito»); l'app resta da fare.
+
 **Correzione.** Il rappresentante di un campo (o di un aspetto) si sceglie con la **misura economica tra le sue varianti**, non con la stima: si misura economica ogni variante distinta per `board_key` dei primi N campi (le varianti di uno stesso campo differiscono in mano, Cimitero, bandite e zone, che la misura vede), oppure si raggruppa *dopo* la misura economica. Le fasi finali si dimensionano in proporzione alle board trovate (per esempio il 2% delle provvisorie, con un minimo di 40), o meglio per stabilità: finché la top K misurata cambia. Nessun nome di carta.
 
 **Controllo.** Sulle 91 mani dell'oracolo, mani con il valore in calo di oltre l'1% passando a un budget maggiore: da 28 a meno di 5. Sulle 82 mani di `combo_hunt --seed 7`, il #1 misurato con il nuovo criterio non è mai sotto quello di oggi (test appaiato).

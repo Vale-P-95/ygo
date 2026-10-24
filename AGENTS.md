@@ -94,7 +94,7 @@ Le sessioni Claude Code fanno tutto il codice: motore, backend dell'app e interf
 - **Una sessione, un compito.** Ogni sessione nasce da `main` con un brief di dieci righe (compito, file, comandi di verifica, criterio di accettazione, piano e mockup da leggere), fa la sua PR e si chiude quando è unita. Un secondo compito è una sessione nuova. Al massimo tre sessioni in parallelo.
 - **Contesto corto.** Oltre i 200k token la sessione scrive il passaggio di consegne in `docs/plans/<tema>.md` (stato, numeri, prossimo passo), pusha e chiede di essere sostituita.
 - **Branch**: `main` è protetto e si cambia solo con pull request e CI verde. Ogni sessione usa il suo branch `claude/<tema>`.
-- **Inizio sessione**: `git pull`, poi leggere `docs/TASKS.md` e `git log -10`.
+- **Inizio sessione**: `git pull`, poi `git log --oneline -10` e di `docs/TASKS.md` solo l'intestazione e le righe del proprio tema e dei file caldi (`sed`/`grep`, non il file intero: pesa 20k token).
 - **Prendere un task**: scriverlo in "In corso" con sessione, branch e **file che toccherai** (è il lock), poi committare e pushare quella riga prima di cominciare.
 - **File caldi** (una sola sessione alla volta): `crates/ygo-solver/src/search.rs`, `probe.rs`, `value.rs`, `apps/desktop/src-tauri/src/lib.rs`, `apps/desktop/src/lib/api.ts`.
 - **Calcoli lunghi** (oltre dieci minuti): partono in background e la sessione chiude il turno; il risultato arriva come notifica. Niente controlli ripetuti, niente monitor sui log. Oltre le due ore si usa `bench.yml` su GitHub Actions.

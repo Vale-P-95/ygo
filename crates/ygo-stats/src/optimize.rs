@@ -395,6 +395,125 @@ fn prune(
     (deck, kept)
 }
 
+/// What [`climb`] may change, and how hard it tries.
+#[derive(Debug, Clone)]
+pub struct ClimbConfig {
+    pub deck: DeckModel,
+    /// Cards that may enter the deck (the Maybe board).
+    pub candidates: Vec<CardEntry>,
+    /// Most copies allowed per card (banlist); 3 when missing.
+    pub limits: BTreeMap<u32, u32>,
+    /// Cards whose copies must not change.
+    pub locked: Vec<u32>,
+    /// Decks measured at most, the starting one excluded.
+    pub budget: usize,
+    /// Gain a swap must surely bring to be kept (see [`Judged::gain_low`]).
+    pub margin: f64,
+}
+
+/// One copy of the first card out, one of the second in.
+type Swap = (u32, u32);
+
+/// What the objective says of a deck next to the current one.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct Judged {
+    pub objective: f64,
+    /// The gain over the current deck that the measure is sure of: the
+    /// low end of its interval for a noisy measure, the gain itself for
+    /// an exact one.
+    pub gain_low: f64,
+}
+
+/// A swap [`climb`] measured: one copy of `out` for one of `into`.
+#[derive(Debug, Clone, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Tried {
+    pub out: u32,
+    pub into: u32,
+    /// `None`: the measure failed.
+    pub objective: Option<f64>,
+    pub kept: bool,
+}
+
+#[derive(Debug, Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ClimbResult {
+    pub before: f64,
+    pub after: f64,
+    pub changes: Vec<Change>,
+    pub tried: Vec<Tried>,
+}
+
+/// One copy out and one in at a time, for an objective the exact
+/// calculation cannot give: the Monte Carlo played by the engine. Each
+/// measure is a search of many hands, so the annealing of [`optimize`] is
+/// out of reach. `rank` lists the swaps `(out, into)` of a deck, most
+/// promising first; `judge(current, next)` measures them in that order.
+/// The first whose sure gain passes the margin is kept and the swaps of
+/// the new deck are ranked again, until a deck where none passes or the
+/// budget is spent. `before` is the starting deck's objective. The size of
+/// the deck never changes, so draws of the same positions stay comparable.
+pub fn climb(
+    config: &ClimbConfig,
+    before: f64,
+    mut rank: impl FnMut(&DeckModel) -> Vec<(u32, u32)>,
+    mut judge: impl FnMut(&DeckModel, &DeckModel) -> Option<Judged>,
+) -> ClimbResult {
+    let limit = |id: u32| config.limits.get(&id).copied().unwrap_or(3);
+    let mut current = config.deck.clone();
+    let mut current_score = before;
+    let mut tried = Vec::new();
+    // The swaps measured from each deck, by its copies: a deck seen again tries the others.
+    let mut seen: BTreeMap<Vec<(u32, u32)>, Vec<Swap>> = BTreeMap::new();
+    let copies = |d: &DeckModel| {
+        let mut v: Vec<(u32, u32)> = d.cards.iter().filter(|c| c.copies > 0).map(|c| (c.id, c.copies)).collect();
+        v.sort_unstable();
+        v
+    };
+    'decks: while tried.len() < config.budget {
+        let done = seen.entry(copies(&current)).or_default().clone();
+        let have = |id: u32| current.cards.iter().find(|c| c.id == id).map_or(0, |c| c.copies);
+        let valid = |&(out, into): &(u32, u32)| {
+            out != into
+                && have(out) > 0
+                && have(into) < limit(into)
+                && !config.locked.contains(&out)
+                && !config.locked.contains(&into)
+                && (current.cards.iter().any(|c| c.id == into) || config.candidates.iter().any(|c| c.id == into))
+                && !done.contains(&(out, into))
+        };
+        let moves: Vec<(u32, u32)> = rank(&current).into_iter().filter(valid).collect();
+        for (out, into) in moves {
+            if tried.len() >= config.budget {
+                break 'decks;
+            }
+            let roles = config.candidates.iter().find(|c| c.id == into).map(|c| c.roles.clone()).unwrap_or_default();
+            let next = with_copies(&with_copies(&current, out, -1, &[]), into, 1, &roles);
+            seen.entry(copies(&current)).or_default().push((out, into));
+            let judged = judge(&current, &next);
+            let kept = judged.is_some_and(|j| j.gain_low > config.margin);
+            tried.push(Tried { out, into, objective: judged.map(|j| j.objective), kept });
+            if let (true, Some(j)) = (kept, judged) {
+                current = next;
+                current_score = j.objective;
+                continue 'decks;
+            }
+        }
+        break;
+    }
+    let changes = current
+        .cards
+        .iter()
+        .map(|c| (c.id, c.copies))
+        .chain(config.deck.cards.iter().filter(|c| !current.cards.iter().any(|x| x.id == c.id)).map(|c| (c.id, 0)))
+        .filter_map(|(id, to)| {
+            let from = config.deck.cards.iter().find(|x| x.id == id).map_or(0, |x| x.copies);
+            (from != to).then_some(Change { id, from, to })
+        })
+        .collect();
+    ClimbResult { before, after: current_score, changes, tried }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -642,5 +761,40 @@ mod tests {
         assert_eq!(r.size, 40);
         assert!(r.after.objective > r.before.objective + 0.2, "{r:?}");
         assert!(r.changes.iter().any(|c| c.id == 2 && c.to == 3) && r.changes.iter().any(|c| c.id == 1 && c.to == 3), "{r:?}");
+    }
+
+    #[test]
+    fn climb_keeps_the_swaps_that_gain_within_the_budget() {
+        // The objective of the annealing test, measured: one more Starter in place of a card without roles.
+        let config = drifting_config(0);
+        let cond = config.cond.clone();
+        let climb_config = ClimbConfig {
+            deck: config.deck.clone(),
+            candidates: vec![],
+            limits: BTreeMap::new(),
+            locked: vec![],
+            budget: 40,
+            margin: 1e-9,
+        };
+        let ids: Vec<u32> = config.deck.cards.iter().map(|c| c.id).collect();
+        let all = |_: &DeckModel| ids.iter().flat_map(|&a| ids.iter().map(move |&b| (a, b))).collect::<Vec<_>>();
+        let mut measured = 0;
+        let p = |d: &DeckModel| probability(d, &cond, 5).unwrap();
+        let mut judge = |current: &DeckModel, next: &DeckModel| {
+            measured += 1;
+            Some(Judged { objective: p(next), gain_low: p(next) - p(current) })
+        };
+        let r = climb(&climb_config, p(&config.deck), all, &mut judge);
+        assert!(r.after > r.before + 1e-3, "{r:?}");
+        let mut changes: Vec<(u32, u32, u32)> = r.changes.iter().map(|c| (c.id, c.from, c.to)).collect();
+        changes.sort();
+        // The only gain: card 5, the Starter below three copies, in place of a card that is not a Starter
+        // (the first in `rank`'s order, an Extender: to this objective it is worth as much as a neutral card).
+        assert_eq!(changes, [(5, 2, 3), (6, 3, 2)]);
+        assert_eq!(measured, r.tried.len());
+        assert!(r.tried.len() <= 40 && r.tried.iter().filter(|t| t.kept).count() == 1);
+        // A budget of one swap measures one.
+        let r = climb(&ClimbConfig { budget: 1, ..climb_config }, 0.0, all, |_, n| Some(Judged { objective: p(n), gain_low: 0.0 }));
+        assert_eq!(r.tried.len(), 1);
     }
 }
