@@ -48,6 +48,7 @@ Valgono per ogni sessione Claude del progetto. Vanno in `CLAUDE.md` (§9) perch�
 - Un calcolo oltre i dieci minuti (banco, sweep, oracolo, `paired_test`) parte con `run_in_background` e un timeout generoso, e **la sessione finisce il turno**. Il risultato arriva come notifica: un solo risveglio.
 - Niente `Monitor` con `while true` sui log; niente `sleep`; niente «controllo a che punto è».
 - Oltre le due ore si va su GitHub Actions (`bench.yml`, a mano) o sul computer dell'utente; la sessione si chiude e la riapre il risultato.
+- Ordine di grandezza nel container a 4 core: `oracle.py measure --staged 30,15 --jobs 4` sulle 91 mani a 4000 nodi circa 12 minuti; a 1000, 4000 e 16 000 nodi circa un'ora.
 - Ogni script lungo scrive un **riassunto di dieci righe** (`out/<nome>/summary.txt`). La sessione legge il riassunto, non il log.
 
 ### 2.3 Svegliarsi solo per eventi
@@ -243,6 +244,7 @@ Resta la memoria operativa nei giorni con coordinatrice; altrimenti si aggiorna 
 8. **Primo compito con la filiera completa**: il passo 6 (effetti e suoni, ognuno spegnibile): mockup delle Impostazioni in Claude Design, sessione Sonnet, screenshot, anteprima, prova sul computer. Serve a collaudare la filiera su un compito piccolo prima di quelli grandi.
 9. **Poi, uno per sessione, al massimo tre in parallelo**:
    - [fatto il 24/10] i due pesi del punteggio proposti dalla §7 (resilienza 0,6 → 0, floodgate 0,8 → 0,4): confermati sui 20 deck freschi del banco di generalità (coppie giuste 80,4% → 86,0%, p < 0,001), cambiati insieme in `bench.py`, CLI, `lib.rs`, `scoring.ts` (`ricerca-esperimenti.md` §7). Resta da provare il floodgate della misura economica;
+   - [fatto il 24/10] il floodgate 0,4 anche nella misura economica (`piano-motore-impatto.md` §3): #1 identico in 126 mani, circa 1 ora di CPU;
    - [fatto] le board `cheap: true`: scheda e interruttore `SEND_CHEAP_SCORES` nella stessa PR;
    - B8, obiettivi ricchi: motore e contratto fatti il 24/10; restano mockup e interfaccia (Opus);
    - [fatto] i punti 3, 5 e 6 della caccia ai bug; [fatto il 24/10] l'arena nel turno di prova; [fatto il 24/10] il caso Vendread (Opus, `docs/plans/robustezza.md`);

@@ -38,10 +38,12 @@ struct AppState {
     /// The meta read from Master Duel Meta for [`combo_meta`], and its
     /// decks' lines: kept for this session only.
     meta: Mutex<Option<MetaCache>>,
+    /// The last tech table, and the cards (Main, Extra, Side) of its deck.
+    tech: Mutex<Option<(Vec<u32>, TechTableView)>>,
 }
 
 /// The decks of the meta and, once read, the most played ones with their
-/// lines for a seed.
+/// lines for a seed (the first of them serve a call that wants fewer).
 struct MetaCache {
     decks: Vec<ygo_solver::MetaDeck>,
     rivals: Option<(u64, std::sync::Arc<Vec<ygo_solver::MetaRival>>)>,
@@ -1714,7 +1716,18 @@ fn run_combo(app: &tauri::AppHandle, engine: &Engine, job: &mut ComboJob, second
         _ => "Finished".to_owned(),
     };
     job.status = results.iter().map(|r| (r.goal, r.frontier.is_exhausted())).collect();
-    job.boards = results.iter().enumerate().flat_map(|(i, r)| r.boards.iter().map(move |b| (i, b.clone()))).collect();
+    // A board already measured stays in the list when the search goes on,
+    // even when it is no longer among the best kept by the estimate: more
+    // time never loses the best board measured (docs/plans/monotonia-budget.md).
+    let previous = std::mem::take(&mut job.boards);
+    let measured = |h: usize, key: u64| job.scores.contains_key(&(h, key)) || job.cheap.contains_key(&(h, key));
+    let mut boards = Vec::new();
+    for (i, r) in results.iter().enumerate() {
+        let listed: HashSet<u64> = r.boards.iter().map(|b| b.key).collect();
+        boards.extend(r.boards.iter().map(|b| (i, b.clone())));
+        boards.extend(previous.iter().filter(|(h, b)| *h == i && !listed.contains(&b.key) && measured(i, b.key)).cloned());
+    }
+    job.boards = boards;
     job.hands = results.into_iter().map(|r| (r.hand, r.weight, r.frontier)).collect();
     ComboOutcome {
         stop,
@@ -2057,12 +2070,11 @@ const CHEAP_MEASURE: ygo_solver::probe::Cheap = ygo_solver::probe::Cheap { windo
 
 /// The value a cheap measure ranks the boards by: field, hand, floodgates
 /// and the effects to rebuild with on your next turn, with no breaker
-/// played. The floodgates keep 0.8, the weight the staged pick was measured
-/// with, not the 0.4 of the "Bilanciato" profile: lowering it changes which
-/// boards get the full measure.
+/// played. The floodgates weigh 0.4, as in the "Bilanciato" profile, so the
+/// cut to the full measure ranks by the weights of the score.
 fn cheap_value(m: &ygo_solver::Measure) -> f64 {
     let rebuild = m.follow_up.map_or(0.0, |f| f.rebuild as f64);
-    m.field_value + 0.9 * m.hand_value + 0.8 * m.floodgate_value + 0.4 * 0.3 * rebuild
+    m.field_value + 0.9 * m.hand_value + 0.4 * m.floodgate_value + 0.4 * 0.3 * rebuild
 }
 
 /// `work` on each board, on all cores, until `cancel`; one prober per hand
@@ -2140,7 +2152,12 @@ fn combo_score(app: tauri::AppHandle, state: State<'_, AppState>, vs_deck_id: Op
                 }
                 Some((*h, measured.get(&look).map_or(b, |m| *m).clone()))
             })
-            .take(if staged { CHEAP_BOARDS } else { usize::MAX })
+            .enumerate()
+            // Past the first ones, the boards with the cheap measure already
+            // (kept from before "Continua") cost nothing and stay in the
+            // ranking: the full measure never leaves out one it chose before.
+            .filter(|(i, (h, b))| !staged || *i < CHEAP_BOARDS || job.cheap.contains_key(&(*h, b.key)))
+            .map(|(_, c)| c)
             .collect();
         let cheap: Option<HashMap<(usize, u64), f64>> = staged.then(|| job.cheap.iter().map(|(k, (v, _))| (*k, *v)).collect());
         (
@@ -2297,8 +2314,20 @@ fn balanced(v: &ScoreView) -> f64 {
 /// Returns how many boards have it.
 #[tauri::command]
 async fn combo_meta(app: tauri::AppHandle, state: State<'_, AppState>, boards: Option<Vec<BoardRef>>) -> Result<usize, String> {
+    let decks = meta_decks(&state).await?;
+    let app2 = app.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let state = app2.state::<AppState>();
+        meta_final(&app2, &state, &decks, boards)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+/// The decks of the meta, read from Master Duel Meta once per session.
+async fn meta_decks(state: &State<'_, AppState>) -> Result<Vec<ygo_solver::MetaDeck>, String> {
     let known = state.meta.lock().map_err(|e| e.to_string())?.as_ref().map(|m| m.decks.clone());
-    let decks = match known {
+    Ok(match known {
         Some(decks) => decks,
         None => {
             let (types, lists) =
@@ -2318,11 +2347,154 @@ async fn combo_meta(app: tauri::AppHandle, state: State<'_, AppState>, boards: O
             *state.meta.lock().map_err(|e| e.to_string())? = Some(MetaCache { decks: decks.clone(), rivals: None });
             decks
         }
-    };
-    let app2 = app.clone();
+    })
+}
+
+/// The best lines of the `count` decks of the meta played the most, for
+/// `seed`: from the cache when it has as many for that seed, else read
+/// (10-25 s a deck) and kept, the lines already read reused.
+fn meta_rivals_for(
+    state: &AppState,
+    engine: &Engine,
+    decks: &[ygo_solver::MetaDeck],
+    count: usize,
+    seed: u64,
+    threads: usize,
+) -> Result<Vec<ygo_solver::MetaRival>, String> {
+    let wanted = ygo_solver::most_played(decks, count);
+    let known = state.meta.lock().map_err(|e| e.to_string())?.as_ref().and_then(|m| m.rivals.clone());
+    let known: Vec<ygo_solver::MetaRival> = known.filter(|(s, _)| *s == seed).map(|(_, r)| r.as_ref().clone()).unwrap_or_default();
+    let mut rivals = Vec::new();
+    for deck in &wanted {
+        match known.iter().find(|r| r.deck.name == deck.name && r.deck.list.main == deck.list.main) {
+            Some(r) => rivals.push(r.clone()),
+            None => rivals.extend(ygo_solver::meta_rivals(engine, std::slice::from_ref(deck), seed, threads)),
+        }
+    }
+    if rivals.len() > known.len() {
+        if let Some(m) = state.meta.lock().map_err(|e| e.to_string())?.as_mut() {
+            m.rivals = Some((seed, std::sync::Arc::new(rivals.clone())));
+        }
+    }
+    Ok(rivals)
+}
+
+/// Decks of the meta the tech table measures against: the most played.
+const TECH_DECKS: usize = 6;
+/// Seed of the meta's lines for the tech table: the Combo Lab's default, so
+/// that both reuse the same lines.
+const TECH_SEED: u64 = 1;
+
+/// The tech table of a deck ([`ygo_solver::TechTable`]).
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct TechTableView {
+    deck_id: i64,
+    decks: Vec<TechDeckView>,
+    rows: Vec<TechRowView>,
+}
+
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct TechDeckView {
+    name: String,
+    /// Its `popRank` on Master Duel Meta (share of the ranked top decks, %).
+    weight: f64,
+    /// Lines found, and those that play as found with no handtrap (counted).
+    lines: usize,
+    measured: usize,
+}
+
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct TechRowView {
+    code: u32,
+    /// Copies in the Main and Side Deck.
+    main: u32,
+    side: u32,
+    /// Chance of at least one among the 5 cards held going second.
+    chance: f64,
+    /// Share of the meta's lines it stops (changes how they end), each deck
+    /// weighed by its weight (0-1).
+    value: f64,
+    /// The same weighed share of the field and hand the lines end with that
+    /// it takes at its best moment (0-1): the rows are ordered by it.
+    lost: f64,
+    /// Against each deck of `decks`, in its order.
+    per_deck: Vec<TechAgainstView>,
+    /// Moves of a line played before it stops it, averaged; none when it stops none.
+    step: Option<f64>,
+    /// Cards of the lines it answers when it stops them, the most often first.
+    at: Vec<TechAtView>,
+}
+
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct TechAgainstView {
+    /// Lines counted where it can be used, and those it stops.
+    usable: usize,
+    stopped: usize,
+    /// Share of the field and hand its lines end with that it takes, averaged.
+    lost: f64,
+}
+
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct TechAtView {
+    code: u32,
+    lines: u32,
+}
+
+/// Laboratorio, "Contro il meta": each handtrap of the deck's Main and Side
+/// against the best lines of the [`TECH_DECKS`] decks of the meta played the
+/// most (read from Master Duel Meta), played again with it in hand: the
+/// share of the lines it stops, weighed by how much each deck is played.
+/// The meta's lines are read once per session (10-25 s a deck); then about
+/// half a minute a deck of yours. The last table is kept while its deck's
+/// cards are the same.
+#[tauri::command]
+async fn tech_table(app: tauri::AppHandle, state: State<'_, AppState>, deck_id: i64) -> Result<TechTableView, String> {
+    let deck = state.with_user(|u| u.get(deck_id))?.ok_or("Il deck non esiste più")?;
+    let cards: Vec<u32> = deck.main.iter().chain(&deck.extra).chain(&deck.side).copied().collect();
+    if let Some((known, view)) = state.tech.lock().map_err(|e| e.to_string())?.as_ref() {
+        if *known == cards {
+            return Ok(TechTableView { deck_id, ..view.clone() });
+        }
+    }
+    let decks = meta_decks(&state).await?;
     tauri::async_runtime::spawn_blocking(move || {
-        let state = app2.state::<AppState>();
-        meta_final(&app2, &state, &decks, boards)
+        let state = app.state::<AppState>();
+        let engine = state.engine()?;
+        let list = ygo_engine::DeckList { main: deck.main.clone(), extra: deck.extra.clone(), side: deck.side.clone() };
+        let threads = std::thread::available_parallelism().map_or(4, |n| n.get());
+        let rivals = meta_rivals_for(&state, &engine, &decks, TECH_DECKS, TECH_SEED, threads)?;
+        let kit = ygo_solver::Kit::standard(&engine);
+        let table = ygo_solver::tech_table(&engine, &list, &rivals, TECH_SEED, &kit, threads);
+        let view = TechTableView {
+            deck_id,
+            decks: table
+                .decks
+                .iter()
+                .map(|d| TechDeckView { name: d.name.clone(), weight: d.weight, lines: d.lines, measured: d.measured })
+                .collect(),
+            rows: table
+                .rows
+                .iter()
+                .map(|r| TechRowView {
+                    code: r.code,
+                    main: r.main,
+                    side: r.side,
+                    chance: r.chance,
+                    value: r.value,
+                    lost: r.lost,
+                    per_deck: r.decks.iter().map(|a| TechAgainstView { usable: a.usable, stopped: a.stopped, lost: a.lost }).collect(),
+                    step: r.step,
+                    at: r.at.iter().map(|&(code, lines)| TechAtView { code, lines }).collect(),
+                })
+                .collect(),
+        };
+        *state.tech.lock().map_err(|e| e.to_string())? = Some((cards, view.clone()));
+        Ok(view)
     })
     .await
     .map_err(|e| e.to_string())?
@@ -2357,22 +2529,7 @@ fn meta_final(
     let threads = std::thread::available_parallelism().map_or(4, |n| n.get());
     let kit = ygo_solver::Kit::standard(&engine);
     if !todo.is_empty() {
-        let known = state.meta.lock().map_err(|e| e.to_string())?.as_ref().and_then(|m| m.rivals.clone());
-        let rivals = match known.filter(|(seed, _)| *seed == config.seed) {
-            Some((_, rivals)) => rivals,
-            None => {
-                let rivals = std::sync::Arc::new(ygo_solver::meta_rivals(
-                    &engine,
-                    &ygo_solver::most_played(decks, META_DECKS),
-                    config.seed,
-                    threads,
-                ));
-                if let Some(m) = state.meta.lock().map_err(|e| e.to_string())?.as_mut() {
-                    m.rivals = Some((config.seed, rivals.clone()));
-                }
-                rivals
-            }
-        };
+        let rivals = meta_rivals_for(state, &engine, decks, META_DECKS, config.seed, threads)?;
         let next = std::sync::atomic::AtomicUsize::new(0);
         let results = Mutex::new(Vec::new());
         std::thread::scope(|s| {
@@ -2725,6 +2882,7 @@ pub fn run() {
                 links: Mutex::new(HashMap::new()),
                 rival_lines: Mutex::new(HashMap::new()),
                 meta: Mutex::new(None),
+                tech: Mutex::new(None),
             };
             state.open_store();
             app.manage(state);
@@ -2791,6 +2949,7 @@ pub fn run() {
             combo_score,
             combo_scores,
             combo_meta,
+            tech_table,
             deck_links,
             deck_links_compare,
             combo_cancel,

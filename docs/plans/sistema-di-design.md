@@ -15,5 +15,5 @@ Piano ambiente §3.1 e §10 punto 6. Sessione del 24/10/2026, thread «Costruire
 - Non ci sono ancora: `Modal` e i popover aperti (vivono in un portale a schermo intero), `CardInspector`, le schede del Combo Lab (`Score`, `Field`). Si aggiungono quando servono a un mockup.
 
 ## Prossimo passo
-1. L'utente lancia `/design-sync` da una sessione Claude Code su `apps/desktop/design/`, verso un progetto nuovo «Sistema di design DuelForge» (attenzione: Claude Design come sito a sé chiude il 14/12/2026 e vive dentro Claude).
+1. Fatto il 24/10: primo `/design-sync` verso «Sistema di design DuelForge» (https://claude.ai/design/p/e56fbb94-4879-4211-a222-24193176a51f), con le anteprime caricate così come sono e uno `styles.css` che importa `duelforge.css`. Il progetto è fissato in `.design-sync/config.json`. Claude Design come sito a sé chiude il 14/12/2026 e vive dentro Claude.
 2. Primo mockup sul sistema di design: il passo 6 (Impostazioni, effetti e suoni), §10 punto 8 del piano ambiente.
