@@ -61,7 +61,7 @@ Quando hai finito: TASKS.md e questo piano aggiornati, PR aperta, fermati.
 ```
 
 ## Esito (thread «Rendere la ricerca monotona nel budget», 24/10, branch `claude/project-thread-g65a3w`)
-**In breve:** la garanzia si ottiene (cadute 21 → 1 su 91, nessuna mano peggio di `main`), ma costa +91% di tempo a 4000 nodi, non +15%. Entra come opzione `combos --checkpoints`, spenta di base: senza l'opzione l'uscita è identica a `main`.
+**In breve:** la garanzia si ottiene (cadute 21 → 1 su 91, nessuna mano peggio di `main`), ma costa +91% di tempo a 4000 nodi, non +15%. Entra come opzione `combos --checkpoints`, spenta di base: senza l'opzione l'uscita è identica a `main`. Scelta di Valerio del 24/10: si unisce con l'opzione spenta, il codice resta pronto se un giorno la misura costerà meno.
 
 **Come è fatta.** `SearchConfig::checkpoints` (nodi) e `checkpoint_top` (board): fra due archi, dove si controlla il budget e prima del giro di apprendimento, la ricerca copia le sue migliori board in `SearchResult::checkpoints`. La ricerca non cambia; con un thread una ricerca più lunga prende le stesse copie per prime (test `checkpoints_change_nothing_and_a_longer_search_takes_the_same` in `search_regression`). `combos --checkpoints` mette i punti a 500·2^k nodi sotto il budget e al budget stesso, misura i campi di ogni copia come quelli della fine (`--checkpoint-cheap`, `--checkpoint-full`, 30/15) con una cache per linea, e tiene per ogni campo la misura migliore.
 
