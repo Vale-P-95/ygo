@@ -47,6 +47,7 @@ Attenzione al confronto multiplo: con 8 scambi provati al 95% uno può passare p
 Con 400 mani l'intervallo sta sotto ±5 su entrambi, e le variabili di controllo stringono di più (Branded ±4,9 → ±3,8). Il secondo Droll piace alla misura perché un'handtrap tenuta in mano vale 0,9 nel profilo «Bilanciato»: è il giudizio della misura, non un consiglio di gioco.
 
 ## Prossimi passi
-- Nell'app: un comando Tauri con avanzamento e annullamento, e «Quante copie?» del Laboratorio con l'obiettivo «board misurata». Va fatto con il contratto (`lib.rs`, `api.ts`, `mock.ts`) nella stessa PR.
+- **Nell'app (24/10, fatto in parte)**: scheda «Monte Carlo» del Laboratorio (`McTab.tsx`). Si sceglie il numero di mani (40, 100, 200) e, volendo, uno scambio (una carta del Main Deck fuori, una del Side dentro); il comando `mc_run` (`lib.rs`) chiama `ygo_solver::mc_run::run` e manda una `mc-progress` a ogni mano, `mc_cancel` ferma e restituisce le mani finite (numeri meno precisi). Mostra P(board ≥ mediana) con l'intervallo corretto e quello del campione, il valore medio, l'istogramma, la differenza dello scambio sulle stesse mani con il verdetto, e le mani dalla migliore con le carte usate dalla linea. Il seme è 1, i nodi 2000, come nella CLI.
+- Resta: `--climb` nell'app (l'ottimizzatore sceglie gli scambi; serve spostare `rank_swaps` in `ygo-solver` e dare a `ygo-solver` la dipendenza da `ygo-stats`) e «Quante copie?» con l'obiettivo «board misurata».
 - Andando secondo (6 carte) serve la misura dell'idea 5.
 - Più mani per scambio solo dove serve: misurare prima le mani cambiate, e fermarsi quando l'intervallo della differenza esclude lo zero (test sequenziale).

@@ -11,6 +11,7 @@ pub mod goal;
 pub mod interaction;
 pub mod links;
 pub mod matchup;
+pub mod mc_run;
 pub mod meta;
 pub mod probe;
 pub mod roles;

@@ -22,6 +22,7 @@ use ygo_data::{sync, CardStore};
 use ygo_engine::consts::{location, phase, position};
 use ygo_engine::sweep::SweepConfig;
 use ygo_engine::{actions, describe_card, run_script, Action, ActionKind, DeckList, Duel, Engine, Event, ScriptEnd, Step, Trace};
+use ygo_solver::mc_run::{cheap_composite, composite, fields, STAGED_CHEAP, STAGED_FULL, STAGED_ROUNDS, STAGED_WINDOWS};
 use ygo_solver::InteractionProfile;
 
 mod engine_mc;
@@ -730,24 +731,6 @@ fn checkpoint_stops(nodes: u64) -> Vec<u64> {
     let mut stops: Vec<u64> = std::iter::successors(Some(CHECKPOINT_FIRST), |n| n.checked_mul(2)).take_while(|&n| n < nodes).collect();
     stops.push(nodes);
     stops
-}
-
-/// The first `top` fields of a search's boards, best first, each with its
-/// boards: boards with the same field (other zones, another hand, other
-/// cards in the GY) are variants of one, and each field is listed once, so
-/// the top boards are different fields.
-fn fields(boards: &[ygo_solver::Board], top: usize) -> Vec<(u64, Vec<ygo_solver::Board>)> {
-    let mut groups: Vec<(u64, Vec<ygo_solver::Board>)> = Vec::new();
-    for board in boards {
-        let key = ygo_solver::search::field_key(&board.state);
-        let open = groups.len() < top;
-        match groups.iter_mut().find(|(k, _)| *k == key) {
-            Some((_, g)) => g.push(board.clone()),
-            None if open => groups.push((key, vec![board.clone()])),
-            None => {}
-        }
-    }
-    groups
 }
 
 /// The variants of a field in the search's order, the first of each hand,
@@ -1928,36 +1911,8 @@ fn loss_json(l: &ygo_solver::probe::ExpectedLoss, took: std::time::Duration) -> 
 const MEASURED_VARIANTS: usize = 3;
 const FIELDS_WITH_VARIANTS: usize = 3;
 
-/// `combos --staged` by default: fields given the cheap measure, and of
-/// those the best by it given the full one, as in the Combo Lab
-/// (`docs/plans/velocita-ricerca.md`, B14); what the cheap measure tries.
-const STAGED_CHEAP: usize = 30;
-const STAGED_FULL: usize = 15;
 /// Variants of each field given the cheap measure (`docs/plans/piano-motore-impatto.md` §4).
 const STAGED_VARIANTS: usize = 3;
-const STAGED_WINDOWS: usize = 8;
-const STAGED_ROUNDS: usize = 1;
-
-/// The value of a cheap measure ([`ygo_solver::Prober::measure_cheap`]):
-/// field, hand and floodgates, and your next turn when the opponent breaks
-/// nothing. The floodgates weigh 0.4, as in [`composite`], so the cut to the
-/// full measure ranks by the weights of the score.
-fn cheap_composite(m: &ygo_solver::Measure) -> f64 {
-    let rebuild = m.follow_up.map_or(0.0, |f| f.rebuild as f64);
-    m.field_value + 0.9 * m.hand_value + 0.4 * m.floodgate_value + 0.4 * 0.3 * rebuild
-}
-
-/// The measured value of a board with the "Bilanciato" profile of the app:
-/// the same weights as `WEIGHTS`, `FOLLOW_UP` and `REBUILD` in
-/// scripts/bench.py (the cards gained in the End Phase weigh 0 there).
-fn composite(m: &ygo_solver::Measure) -> f64 {
-    const WEIGHTS: [f64; 4] = [1.0, 0.9, 0.4, 0.0];
-    const FOLLOW_UP: f64 = 0.4;
-    const REBUILD: f64 = 0.3;
-    let parts = [m.field_value, m.hand_value, m.floodgate_value, m.resilience];
-    let rebuild = m.follow_up.map_or(0.0, |f| f.rebuild as f64);
-    WEIGHTS.iter().zip(parts).map(|(w, v)| w * v).sum::<f64>() + FOLLOW_UP * REBUILD * rebuild
-}
 
 fn profile_of(m: &ygo_solver::Measure, state: &ygo_engine::DuelState) -> InteractionProfile {
     InteractionProfile::of(m, state.players[0].hand.len(), state.players[0].grave.len())

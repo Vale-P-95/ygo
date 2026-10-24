@@ -24,6 +24,9 @@ Regole in `AGENTS.md`. Per prendere un task, spostalo in "In corso" con agente, 
 - [ ] **Interfaccia: funzioni del motore solo da CLI, secondo passo (interazione a fine turno).** Thread del progetto, branch `claude/project-thread-bwh2cy`, PR aperta il 24/10.
   Profilo «Interazione a fine turno» nel Combo Lab: `InteractionProfile` in `ygo-solver/src/interaction.rs`, `ScoreView.interaction` (`lib.rs`) ↔ `ComboScore.interaction` (`api.ts`, `mock.ts`), sezione in `Score.tsx`, profilo in `scoring.ts`.
   Provato con backend finto e screenshot nei due temi, non nell'app vera (nessun dato in sessione); piano in `docs/plans/interazione-fine-turno.md`.
+- [ ] **Interfaccia: funzioni del motore solo da CLI, terzo passo (Monte Carlo del motore).** Thread del progetto, branch `claude/project-thread-uoxqx4`, PR aperta il 24/10.
+  Scheda «Monte Carlo» del Laboratorio (`McTab.tsx`) e comandi `mc_run`/`mc_cancel` con evento `mc-progress` (`lib.rs`, `api.ts`, `mock.ts`); la logica sta in `ygo-solver/src/mc_run.rs` (la CLI la usa). Piano: `docs/plans/monte-carlo-motore.md`.
+  Provato con backend finto e screenshot nei due temi, non nell'app vera (nessun dato in sessione). Manca ancora: `--climb` e «Quante copie?» con l'obiettivo «board misurata».
 - [ ] **Mascotte nei pannelli info** (claude-code, branch `claude/project-thread-v1jfz3`, PR #166). L'Arcimago del design di Valerio in `InfoDialog` su `InfoButton` e `HelpPopover`, con `kind` per il glifo sulla lavagna.
   - File: `Mascot.tsx`, `InfoDialog.tsx`, `InfoButton.tsx`, `ui/HelpPopover.tsx`, `index.css`.
   - Resta: i testi per voce del design (probabilità, interruzioni, passi) non ripresi.

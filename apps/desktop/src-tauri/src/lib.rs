@@ -42,6 +42,8 @@ struct AppState {
     tech: Mutex<Option<(Vec<u32>, TechTableView)>>,
     /// Set to stop the running "per secondo" measure.
     second_cancel: AtomicBool,
+    /// Set to stop the running engine Monte Carlo.
+    mc_cancel: AtomicBool,
 }
 
 /// The decks of the meta and, once read, the most played ones with their
@@ -2720,6 +2722,187 @@ fn second_cancel(state: State<'_, AppState>) {
     state.second_cancel.store(true, Ordering::Relaxed);
 }
 
+/// Seed of the engine Monte Carlo: the Combo Lab's default.
+const MC_SEED: u64 = 1;
+
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct McRequest {
+    deck_id: i64,
+    /// Echoed on every progress event, so the page drops those of an older run.
+    request_id: u64,
+    /// Hands of 5 drawn from the Main Deck, and the nodes the search spends on each.
+    hands: usize,
+    nodes: u64,
+    /// One copy of `out` turned into `into`, measured on the same hands.
+    swap: Option<McSwapRequest>,
+}
+
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct McSwapRequest {
+    out: u32,
+    into: u32,
+}
+
+/// One hand played by the engine.
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct McHandView {
+    hand: Vec<u32>,
+    /// Value of the best board the hand reached (0 when none).
+    value: f64,
+    /// Cards of the hand the best line used.
+    used: Vec<u32>,
+}
+
+/// A deck measured: P(board ≥ threshold) and what it cost.
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct McDeckView {
+    /// Share of the hands that reached the threshold, corrected by the odds of the cards (0-1), with its 95% half width.
+    p: f64,
+    p_half: f64,
+    /// The share of the sample alone, and its Wilson interval.
+    p_sample: f64,
+    low: f64,
+    high: f64,
+    mean: f64,
+    mean_half: f64,
+    hands: Vec<McHandView>,
+    searched: usize,
+    seconds: f64,
+}
+
+/// A swap of a copy measured on the same hands as the deck.
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct McSwapView {
+    out: u32,
+    into: u32,
+    deck: McDeckView,
+    /// Change of P with the half width of its 95% interval, on the same hands and corrected.
+    dp: f64,
+    dp_half: f64,
+    dmean: f64,
+    dmean_half: f64,
+    /// Hands that changed with the swap.
+    changed: usize,
+}
+
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct McResultView {
+    deck_id: i64,
+    request_id: u64,
+    /// Value a board must reach: the median of the deck's hands.
+    threshold: f64,
+    deck: McDeckView,
+    swap: Option<McSwapView>,
+    /// Stopped before the last hand: the numbers use the hands done.
+    stopped: bool,
+    seconds: f64,
+}
+
+/// A hand finished, while `mc_run` goes on (`mc-progress`).
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct McProgressView {
+    deck_id: i64,
+    request_id: u64,
+    /// "deck" or "swap".
+    phase: &'static str,
+    done: usize,
+    total: usize,
+    hand: McHandView,
+}
+
+fn mc_hand_view(h: &ygo_solver::mc_run::McHand) -> McHandView {
+    McHandView { hand: h.hand.clone(), value: h.value, used: h.used.clone() }
+}
+
+fn mc_deck_view(d: &ygo_solver::mc_run::McDeck) -> McDeckView {
+    let e = &d.estimate;
+    McDeckView {
+        p: e.p_adjusted,
+        p_half: e.p_adjusted_half,
+        p_sample: e.p,
+        low: e.low,
+        high: e.high,
+        mean: e.mean,
+        mean_half: e.mean_half,
+        hands: d.hands.iter().map(mc_hand_view).collect(),
+        searched: d.searched,
+        seconds: d.seconds,
+    }
+}
+
+/// The Monte Carlo played by the engine: hands of 5 of the deck, each
+/// searched by the Combo Lab, and the share whose best board reaches the
+/// median of the deck ([`ygo_solver::mc_run::run`]). Each hand is sent as it
+/// ends (`mc-progress`); `mc_cancel` stops it and the call returns the hands done.
+#[tauri::command]
+async fn mc_run(app: tauri::AppHandle, state: State<'_, AppState>, request: McRequest) -> Result<McResultView, String> {
+    let deck = state.with_user(|u| u.get(request.deck_id))?.ok_or("Il deck non esiste più")?;
+    state.mc_cancel.store(false, Ordering::Relaxed);
+    tauri::async_runtime::spawn_blocking(move || {
+        let state = app.state::<AppState>();
+        let engine = state.engine()?;
+        let list = ygo_engine::DeckList { main: deck.main.clone(), extra: deck.extra.clone(), side: deck.side.clone() };
+        if let Some(s) = &request.swap {
+            let db = engine.cards();
+            if !list.main.iter().any(|&c| db.canonical_code(c) == db.canonical_code(s.out)) {
+                return Err("La carta da togliere non è nel Main Deck".to_string());
+            }
+        }
+        let config = ygo_solver::mc_run::McConfig {
+            hands: request.hands,
+            nodes: request.nodes,
+            threshold: None,
+            cheap: ygo_solver::mc_run::STAGED_CHEAP,
+            full: ygo_solver::mc_run::STAGED_FULL,
+            seed: MC_SEED,
+            threads: std::thread::available_parallelism().map_or(4, |n| n.get()),
+            passive: known_hand_traps(&engine),
+            swap: request.swap.as_ref().map(|s| (s.out, s.into)),
+        };
+        let (deck_id, request_id) = (request.deck_id, request.request_id);
+        let sent = |p: ygo_solver::mc_run::McProgress| {
+            let phase = if p.phase == ygo_solver::mc_run::McPhase::Deck { "deck" } else { "swap" };
+            let _ = app.emit(
+                "mc-progress",
+                McProgressView { deck_id, request_id, phase, done: p.done, total: p.total, hand: mc_hand_view(&p.played) },
+            );
+        };
+        let report = ygo_solver::mc_run::run(&engine, &list, &config, &state.mc_cancel, &sent)?;
+        Ok(McResultView {
+            deck_id,
+            request_id,
+            threshold: report.threshold,
+            deck: mc_deck_view(&report.deck),
+            swap: report.swap.as_ref().map(|s| McSwapView {
+                out: s.out,
+                into: s.into,
+                deck: mc_deck_view(&s.deck),
+                dp: s.paired.dp_adjusted,
+                dp_half: s.paired.dp_adjusted_half,
+                dmean: s.paired.dmean,
+                dmean_half: s.paired.dmean_half,
+                changed: s.paired.changed,
+            }),
+            stopped: report.stopped,
+            seconds: report.seconds,
+        })
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+fn mc_cancel(state: State<'_, AppState>) {
+    state.mc_cancel.store(true, Ordering::Relaxed);
+}
+
 fn meta_final(
     app: &tauri::AppHandle,
     state: &AppState,
@@ -3104,6 +3287,7 @@ pub fn run() {
                 meta: Mutex::new(None),
                 tech: Mutex::new(None),
                 second_cancel: AtomicBool::new(false),
+                mc_cancel: AtomicBool::new(false),
             };
             state.open_store();
             app.manage(state);
@@ -3174,6 +3358,8 @@ pub fn run() {
             second_opponents,
             second_run,
             second_cancel,
+            mc_run,
+            mc_cancel,
             deck_links,
             deck_links_compare,
             combo_cancel,
