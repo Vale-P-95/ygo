@@ -18,10 +18,15 @@ Le regole di `AGENTS.md` valgono per tutti. Queste riguardano solo come una sess
 - `/fast` per scrivere documenti già decisi o codice meccanico.
 
 ### Contesto
-- Una sessione, un compito; oltre i 200k token si passa la mano (`AGENTS.md`, «Coordinamento tra sessioni»).
-- Le letture pesanti (molti file, log, confronti) le fa un subagente Haiku che restituisce la conclusione; il contesto principale resta corto.
-- `Read` con `offset`/`limit`; `grep` prima di `cat`; mai `docs/PIANO.md` per intero. L'output dei comandi lunghi va in un file e si legge con `tail`.
-- Screenshot: solo le pagine toccate, nei due temi; non l'intera galleria a ogni modifica.
+Regole complete e motivi in `docs/plans/token-e-contesto.md`.
+- Una sessione, un compito; oltre i 200k token si passa la mano (`AGENTS.md`, «Coordinamento tra sessioni»), con un passaggio di consegne di 40 righe al massimo. `/compact` guidato tra due fasi, a 100-120k, meglio che alla compattazione automatica.
+- All'avvio non si legge `docs/TASKS.md` intero (87 KB): `sed -n 1,12p`, poi `grep -n` del proprio tema e dei file caldi, poi `Read` con `offset`/`limit` sulla voce.
+- Mai `Read` intero su `docs/PIANO.md`, `docs/TASKS.md` e sui piani oltre i 30 KB (`revisione-bibliografica*`, `ricerca-*`, `velocita-ricerca`, `classificazione-board`, `collaudo-strumenti`, `revisione-motore`): `grep -n '^#'` per l'indice, poi la sezione.
+- Output lunghi su file e `tail -30`; `cargo test -q`, `--message-format short`; `git diff --stat` prima del diff. Non si rilegge un file appena modificato né ciò che è già nel contesto. Chiamate indipendenti nello stesso messaggio.
+- GitHub: `minimal_output`, pagine da 5-10; log della CI solo dei job falliti e con poche righe.
+- Le letture pesanti (più di tre `grep`, molti file, log, confronti) le fa un subagente Haiku che risponde in meno di 200 parole con `file:riga`.
+- Voci di `TASKS.md` «In corso» di tre righe; il racconto e i numeri stanno nel piano del tema.
+- Screenshot: solo le pagine toccate, un tema alla volta, il secondo solo se serve il confronto; non l'intera galleria a ogni modifica.
 - `list_events` sulle altre sessioni è vietato, salvo per diagnosticare una sessione bloccata. `list_sessions` solo quando l'utente chiede stato o costi, al massimo una volta per turno.
 
 ### Avviso sui token
