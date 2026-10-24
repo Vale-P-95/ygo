@@ -82,6 +82,12 @@ Quando hai finito: TASKS.md e questo piano aggiornati, PR aperta, fermati.
 - **Prova equa sulle 406 board:** identica per costruzione. La misura (`probe.rs`, `probe-line`) non cambia, e senza l'opzione `combos` dà le stesse board e le stesse misure di `main` (12 mani su 12 a 2000 nodi, obiettivo Invoked compreso).
 
 **Seguito.**
-- L'app (`lib.rs`) può avere la monotonia a costo quasi nullo dove conta per l'utente: tenere la migliore board misurata fra una ripresa e l'altra della stessa ricerca.
+- L'app (`lib.rs`) può avere la monotonia a costo quasi nullo dove conta per l'utente: tenere la migliore board misurata fra una ripresa e l'altra della stessa ricerca. **Fatto il 24/10** (sezione «L'app» qui sotto).
 - `--checkpoints` serve ai test appaiati che devono confrontare budget diversi senza il rumore delle cadute, pagandone il tempo.
 - Le idee dopo restano la 6 (novità e LTS, B11) e la 5.
+
+## L'app: «Continua» non perde le board misurate (24/10)
+- **Il difetto.** «Continua» riprende la ricerca dalla sua frontiera e la lista si rifà con le prime per stima (200 per una mano, 5 per mano in «carta + resto»). I giri di apprendimento cambiano le stime, quindi una board già misurata poteva uscire dalla lista: con più tempo l'utente vedeva una #1 peggiore.
+- **La cura (`run_combo` in `lib.rs`).** Le board della lista precedente che hanno un punteggio (misura economica o completa) e non sono più fra le nuove restano in coda alla loro mano, con la linea e lo stato di prima; punteggi, perdite e meta restano agganciati alla stessa chiave.
+- **La scelta per la misura completa (`combo_score`).** I candidati restano i primi 30 campi della lista, più le board che hanno già la misura economica: costano zero e le 15 per la misura completa si scelgono dall'unione, quindi una board scelta prima non esce. Con un deck avversario nuovo le tenute rientrano nella scelta.
+- **Costo.** Nessuna misura in più: i campi nuovi misurati sono gli stessi di prima; quelli già misurati non si rimisurano. La CLI e la ricerca non cambiano, quindi prova equa e `paired_test.py` sono identici per costruzione.

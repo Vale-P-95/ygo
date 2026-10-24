@@ -1639,7 +1639,18 @@ fn run_combo(app: &tauri::AppHandle, engine: &Engine, job: &mut ComboJob, second
         _ => "Finished".to_owned(),
     };
     job.status = results.iter().map(|r| (r.goal, r.frontier.is_exhausted())).collect();
-    job.boards = results.iter().enumerate().flat_map(|(i, r)| r.boards.iter().map(move |b| (i, b.clone()))).collect();
+    // A board already measured stays in the list when the search goes on,
+    // even when it is no longer among the best kept by the estimate: more
+    // time never loses the best board measured (docs/plans/monotonia-budget.md).
+    let previous = std::mem::take(&mut job.boards);
+    let measured = |h: usize, key: u64| job.scores.contains_key(&(h, key)) || job.cheap.contains_key(&(h, key));
+    let mut boards = Vec::new();
+    for (i, r) in results.iter().enumerate() {
+        let listed: HashSet<u64> = r.boards.iter().map(|b| b.key).collect();
+        boards.extend(r.boards.iter().map(|b| (i, b.clone())));
+        boards.extend(previous.iter().filter(|(h, b)| *h == i && !listed.contains(&b.key) && measured(i, b.key)).cloned());
+    }
+    job.boards = boards;
     job.hands = results.into_iter().map(|r| (r.hand, r.weight, r.frontier)).collect();
     ComboOutcome {
         stop,
@@ -1982,12 +1993,11 @@ const CHEAP_MEASURE: ygo_solver::probe::Cheap = ygo_solver::probe::Cheap { windo
 
 /// The value a cheap measure ranks the boards by: field, hand, floodgates
 /// and the effects to rebuild with on your next turn, with no breaker
-/// played. The floodgates keep 0.8, the weight the staged pick was measured
-/// with, not the 0.4 of the "Bilanciato" profile: lowering it changes which
-/// boards get the full measure.
+/// played. The floodgates weigh 0.4, as in the "Bilanciato" profile, so the
+/// cut to the full measure ranks by the weights of the score.
 fn cheap_value(m: &ygo_solver::Measure) -> f64 {
     let rebuild = m.follow_up.map_or(0.0, |f| f.rebuild as f64);
-    m.field_value + 0.9 * m.hand_value + 0.8 * m.floodgate_value + 0.4 * 0.3 * rebuild
+    m.field_value + 0.9 * m.hand_value + 0.4 * m.floodgate_value + 0.4 * 0.3 * rebuild
 }
 
 /// `work` on each board, on all cores, until `cancel`; one prober per hand
@@ -2065,7 +2075,12 @@ fn combo_score(app: tauri::AppHandle, state: State<'_, AppState>, vs_deck_id: Op
                 }
                 Some((*h, measured.get(&look).map_or(b, |m| *m).clone()))
             })
-            .take(if staged { CHEAP_BOARDS } else { usize::MAX })
+            .enumerate()
+            // Past the first ones, the boards with the cheap measure already
+            // (kept from before "Continua") cost nothing and stay in the
+            // ranking: the full measure never leaves out one it chose before.
+            .filter(|(i, (h, b))| !staged || *i < CHEAP_BOARDS || job.cheap.contains_key(&(*h, b.key)))
+            .map(|(_, c)| c)
             .collect();
         let cheap: Option<HashMap<(usize, u64), f64>> = staged.then(|| job.cheap.iter().map(|(k, (v, _))| (*k, *v)).collect());
         (
