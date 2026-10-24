@@ -23,7 +23,7 @@ Breve indice per chi arriva. Il dettaglio è in `docs/PIANO.md` (v1.11, §30–�
 - **Classificazione delle board** (#47): fatti D0, D2–D4, D10, D13, D14 e D15; coppie sicure giuste 22 su 29, da confermare 16 su 46. D12 (esposizione come valore perso) alla corsia 4; poi D11, D16 e i pesi (D17), che aspettano i giudizi del proprietario. Piano: `docs/plans/classificazione-board.md`.
 - **Interfaccia**: passo 5 (Bottega) unito con la #118, l'ultima PR di Gemini; dal passo 6 in poi lo fa Claude Code con il mockup prima (`docs/plans/ui-revisione-2.md`).
 - **Anteprima dell'app**: `record-fixtures` e il caricamento in `mock.ts` ci sono; la prima anteprima Artifact è pubblicata. `recorded.json` è registrato con i dati veri (24/10); mancano punteggi, legalità e probabilità.
-- **Pesi §7** (resilienza 0,6→0, floodgate 0,8→0,4): da confermare sul banco di generalità, poi da cambiare insieme in `bench.py`, CLI, `lib.rs` e `scoring.ts`.
+- **Pesi §7** (resilienza 0,6→0, floodgate 0,8→0,4): confermati il 24/10 sui 20 deck freschi del banco di generalità, mai usati per tarare. Coppie giuste 80,4% → 86,0% (+40/−8, p < 0,001); con il turno dopo, come ordina l'app, 78,7% → 82,0% (+32/−14, p = 0,011). Cambiati insieme in `bench.py`, CLI, `lib.rs` e `scoring.ts`. La misura economica tiene il floodgate a 0,8: abbassarlo cambia le board misurate, e va provato a parte (`ricerca-esperimenti.md` §7).
 - **Deck lenti**: misura delle istruzioni Lua fatta; il tetto per richiesta è alla corsia 2.
 - **Linee del video Invoked** (#45): la ricerca trova le board; la classifica va rivista insieme alla #47.
 
