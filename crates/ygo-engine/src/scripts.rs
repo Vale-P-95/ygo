@@ -3,7 +3,7 @@
 use std::collections::HashMap;
 use std::ffi::CString;
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, OnceLock};
 
 use crate::Error;
 
@@ -16,7 +16,38 @@ pub struct ScriptStore {
     /// Scripts already read, compiled to Lua bytecode when possible: each
     /// new duel loads them without touching the disk or parsing again.
     loaded: Mutex<HashMap<String, Option<Arc<Vec<u8>>>>>,
+    replacements: OnceLock<Vec<&'static Replacement>>,
 }
+
+/// A faster copy of a function of the base scripts, loaded after them. It
+/// gives the same answers as the upstream function it was written for.
+#[derive(Debug)]
+pub struct Replacement {
+    pub name: &'static str,
+    /// The base script that defines the function.
+    base: &'static str,
+    /// The function as upstream wrote it.
+    upstream: &'static str,
+    pub source: &'static str,
+}
+
+/// The upstream functions of the selection loop by groups enter Lua from
+/// the engine millions of times in one request on some decks
+/// (`docs/plans/robustezza.md`, the Vendread case).
+const REPLACEMENTS: &[Replacement] = &[
+    Replacement {
+        name: "select_unselect.lua",
+        base: "utility.lua",
+        upstream: include_str!("../lua/upstream/select_unselect_loop.lua"),
+        source: include_str!("../lua/select_unselect.lua"),
+    },
+    Replacement {
+        name: "ritual_check.lua",
+        base: "proc_ritual.lua",
+        upstream: include_str!("../lua/upstream/ritual_check.lua"),
+        source: include_str!("../lua/ritual_check.lua"),
+    },
+];
 
 const CARD_SCRIPT_DIRS: &[&str] = &["official", "pre-release", "pre-errata", "unofficial"];
 
@@ -65,6 +96,30 @@ impl ScriptStore {
         let chunk = self.read(base).map(|source| Arc::new(if keep_source { source } else { compile(&source, base).unwrap_or(source) }));
         self.loaded.lock().ok()?.insert(base.to_owned(), chunk.clone());
         chunk
+    }
+
+    /// The replacements to load after the base scripts: those whose upstream
+    /// function is still the one in the base scripts. If CardScripts changes
+    /// it, the replacement is left out rather than undoing the change.
+    /// `DUELFORGE_UPSTREAM_LUA=1` leaves them all out (to compare).
+    pub fn replacements(&self) -> &[&'static Replacement] {
+        self.replacements.get_or_init(|| {
+            if std::env::var_os("DUELFORGE_UPSTREAM_LUA").is_some() {
+                return Vec::new();
+            }
+            REPLACEMENTS
+                .iter()
+                .filter(|r| {
+                    // Checkouts on Windows may have CRLF line endings.
+                    let base = self.read(r.base).map(|s| String::from_utf8_lossy(&s).replace('\r', "")).unwrap_or_default();
+                    let same = base.contains(&r.upstream.replace('\r', ""));
+                    if !same {
+                        eprintln!("{} changed upstream: {} is left out", r.base, r.name);
+                    }
+                    same
+                })
+                .collect()
+        })
     }
 
     pub fn has_card_script(&self, code: u32) -> bool {
