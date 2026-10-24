@@ -360,6 +360,9 @@ def cmd_measure(a):
         deck = os.path.join(ROOT, fx["deck"]) if os.path.exists(os.path.join(ROOT, fx["deck"])) else os.path.join(a.decks, fx["deck"])
         if not os.path.exists(deck):
             deck = os.path.join(a.decks, os.path.basename(fx["deck"]))
+        if not os.path.exists(deck):
+            sys.stderr.write(f"{fx['id']}: {fx['deck']} is not in --decks; left out\n")
+            return None
         if fx.get("deck_hash") and deck_hash(deck) != fx["deck_hash"]:
             sys.stderr.write(f"{fx['id']}: {deck} is not the list the oracle searched; its numbers do not compare\n")
         case = (fx["id"], deck, ";".join(map(str, fx["hand"])), fx["seed"], fx["goal"])
@@ -394,7 +397,7 @@ def cmd_measure(a):
                 "stable": stable}
 
     with cf.ThreadPoolExecutor(a.jobs) as ex:
-        results = list(ex.map(one, fixtures))
+        results = [r for r in ex.map(one, fixtures) if r]
     json.dump(results, open(os.path.join(a.out, "measure.json"), "w"), indent=1)
     print(f"{'hand':34} {'oracle':>7} " + " ".join(f"{b:>8}" for b in budgets) + "   90%    95%   100%  same  as good")
     for r in results:
