@@ -9,8 +9,9 @@ search are added up too.
 
 Prints, over all the searches: the share of nodes and time of each way a
 dive ends, of the dives by the best board they read, the replays, the
-answers that change nothing shown, and where the right answer was in the
-order tried along the best lines.
+answers that change nothing shown, where the right answer was in the
+order tried along the best lines, and in which order the other answers of a
+node came out of the queue.
 """
 import collections
 import glob
@@ -39,6 +40,8 @@ def main():
     boards = collections.defaultdict(lambda: collections.Counter())
     unchanged = collections.Counter()
     ranks = collections.Counter()
+    siblings = collections.Counter()
+    first_rank = [0, 0, 0, 0]
     elapsed = learning = 0.0
     phases = collections.Counter()
     for _, s, ph in runs:
@@ -50,6 +53,9 @@ def main():
             boards[b].update(d)
         unchanged.update(s["no_change"])
         ranks.update("auto" if r is None else min(r, 10) for r in s["best_line_ranks"])
+        if "siblings" in s:
+            siblings.update(popped=s["siblings"]["popped"], inverted=s["siblings"]["inverted"])
+            first_rank = [a + b for a, b in zip(first_rank, s["siblings"]["first_rank"])]
         if "search" in ph:
             last = max(ph.values())
             phases["search"] += ph["search"]
@@ -78,6 +84,11 @@ def main():
     total = sum(ranks.values())
     print(f"\nWhere the answer of the best line was in the order tried ({total} answers):")
     print("  " + ", ".join(f"{'10+' if k == 10 else k}: {100 * v / total:.1f}%" for k, v in sorted(ranks.items(), key=lambda kv: (isinstance(kv[0], str), kv[0]))))
+    if siblings:
+        nodes_left = max(sum(first_rank), 1)
+        print(f"\nOther answers taken from the queue: {siblings['popped']}, {100 * siblings['inverted'] / max(siblings['popped'], 1):.1f}% "
+              f"after one the dive tried later at the same priority; the first one taken at each node was the dive's "
+              + ", ".join(f"{label} {100 * n / nodes_left:.0f}%" for label, n in zip(("2nd", "3rd", "4th", "5th or later"), first_rank)))
 
 
 if __name__ == "__main__":

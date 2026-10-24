@@ -410,7 +410,7 @@ File caldi: `search.rs`, `probe.rs`, `value.rs`, `lib.rs`, `api.ts`, un agente a
 ### Obiettivi misurabili in più
 Quelli di `ricerca-piano-critico.md` restano. Si aggiungono:
 - **Aeon:** la board con Aeon a 3 materiali sta sopra quella a 2 già nella stima della ricerca, non solo nella misura.
-- **Ordine dei fratelli:** nessuna inversione dopo B1a.
+- **Ordine dei fratelli:** nessuna inversione dopo B1a. Misurato il 24/10: le inversioni vanno a 0, ma il risultato è neutro e una mano perde il 42%, quindi B1a non è tenuto; il controllo passa a B1c (`ricerca-piano-critico.md`, B1a).
 - **C5.7:** 60 inversioni su 1110 o meno, dopo B9.
 - **Obiettivi ricchi:** un obiettivo con una Trappola coperta e una carta nel Cimitero si raggiunge su Labrynth e Branded; un obiettivo impossibile riceve il verdetto giusto.
 - **App:** con la misura a gradini, tempo dimezzato a parità di board nella top 3.
