@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { BarChart2, Calculator, GitCompare, Network, Play, ScrollText, Shield, SlidersHorizontal, WandSparkles, type LucideIcon } from "lucide-react";
+import { BarChart2, Calculator, GitCompare, Network, Play, ScrollText, Shield, SlidersHorizontal, Swords, WandSparkles, type LucideIcon } from "lucide-react";
 import { Popover, useOutsideClose } from "../components/Popover";
 import { CalculatorTab } from "../components/lab/CalculatorTab";
 import { CompareTab } from "../components/lab/CompareTab";
@@ -12,6 +12,7 @@ import { OverviewTab } from "../components/lab/OverviewTab";
 import { RolesPanel } from "../components/lab/RolesPanel";
 import { SimulatorTab } from "../components/lab/SimulatorTab";
 import { SpecialTab } from "../components/lab/SpecialTab";
+import { SecondTab } from "../components/lab/SecondTab";
 import { TechTab } from "../components/lab/TechTab";
 import { DeckMenu } from "../components/DeckMenu";
 import { SectionHeader } from "../components/SectionHeader";
@@ -24,7 +25,7 @@ import { sound } from "../lib/sound";
 import { toast } from "../lib/toast";
 import { sectionById } from "../sections";
 
-type Tab = "overview" | "links" | "compare" | "calculator" | "special" | "simulator" | "optimizer" | "meta" | "log";
+type Tab = "overview" | "links" | "compare" | "calculator" | "special" | "simulator" | "optimizer" | "meta" | "second" | "log";
 
 const PRIMARY_TABS: { id: Tab; label: string; icon: LucideIcon }[] = [
   { id: "overview", label: "Panoramica", icon: BarChart2 },
@@ -38,6 +39,7 @@ const SECONDARY_TABS: { id: Tab; label: string; icon: LucideIcon }[] = [
   { id: "simulator", label: "Simulatore", icon: Play },
   { id: "optimizer", label: "Ottimizzatore", icon: SlidersHorizontal },
   { id: "meta", label: "Contro il meta", icon: Shield },
+  { id: "second", label: "Per secondo", icon: Swords },
   { id: "log", label: "Registro partite", icon: ScrollText },
 ];
 
@@ -471,6 +473,8 @@ export function Lab({
               <SpecialTab key={deck.id} deck={deck} roles={roles} hand={hand} getCard={cards.get} request={request} />
             ) : tab === "meta" ? (
               <TechTab key={deck.id} deck={deck} getCard={cards.get} request={request} />
+            ) : tab === "second" ? (
+              <SecondTab key={deck.id} deck={deck} getCard={cards.get} request={request} />
             ) : tab === "simulator" || tab === "optimizer" ? (
               <div className="flex flex-col gap-4">
                 <ConditionPicker root={root} setRoot={setRoot} recipes={recipes} getCard={cards.get} onEdit={() => setTab("calculator")} />

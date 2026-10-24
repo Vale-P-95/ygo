@@ -52,6 +52,10 @@ import type {
   RoleGuess,
   SavedSearch,
   SearchResult,
+  SecondOpponent,
+  SecondProgress,
+  SecondRequest,
+  SecondResult,
   ShelfDeck,
   TechTable,
   SimRule,
@@ -908,6 +912,8 @@ const progressListeners = new Set<(p: Progress) => void>();
 const rolesProgressListeners = new Set<(p: { done: number; total: number }) => void>();
 const simProgressListeners = new Set<(c: Checkpoint) => void>();
 const comboProgressListeners = new Set<(p: ComboProgress) => void>();
+const secondProgressListeners = new Set<(p: SecondProgress) => void>();
+let secondStopped = false;
 const comboScoreListeners = new Set<(s: ComboScore) => void>();
 const linksProgressListeners = new Set<(p: LinksProgress) => void>();
 let lastVsDeckId: number | null = null;
@@ -3199,6 +3205,77 @@ export const mockApi: Api = {
       .filter((r) => r.main + r.side > 0)
       .map((r) => ({ ...r, chance: r.main === 0 ? 0 : pAtLeastOne(deck.main.length, r.main, 5) }));
     return { ...table, deckId, rows };
+  },
+
+  secondOpponents: async (): Promise<SecondOpponent[]> => {
+    await delay(300);
+    return [
+      { name: "Branded", weight: 11.4 },
+      { name: "Ryzeal", weight: 9.1 },
+      { name: "Sky Striker", weight: 7.8 },
+      { name: "Yummy", weight: 5.2 },
+    ];
+  },
+
+  // No recording of the real backend exists for "Per secondo": the numbers are invented, in the shape the backend sends.
+  secondRun: async (request: SecondRequest): Promise<SecondResult> => {
+    const deck = decksState.find((d) => d.id === request.deckId);
+    if (!deck) throw new Error("Il deck non esiste più");
+    secondStopped = false;
+    const pool = [...CARDS.keys()];
+    const board = pool.slice(0, 5);
+    const result: SecondResult = {
+      deckId: request.deckId,
+      vs: request.vs,
+      rival: {
+        hand: pool.slice(5, 10),
+        worth: board.map((code, i) => ({ code, worth: [1.6, 1.1, 0.8, 0.3, 0.3][i] })),
+        responders: board.slice(0, 2),
+        value: 4.1,
+      },
+      breakers: deck.main.slice(0, 3),
+      hands: [],
+      asked: request.hands,
+      seconds: 4,
+      stopped: false,
+    };
+    const emit = () => {
+      for (const l of secondProgressListeners) l({ deckId: request.deckId, vs: request.vs, result: structuredClone(result) });
+    };
+    await delay(400);
+    emit();
+    for (let i = 0; i < request.hands; i++) {
+      if (secondStopped) {
+        result.stopped = true;
+        break;
+      }
+      await delay(500);
+      const hand = Array.from({ length: 6 }, (_, k) => deck.main[(i * 7 + k * 3) % deck.main.length]);
+      const breakers = hand.filter((c) => result.breakers.includes(c)).length;
+      const share = i % 5 === 4 ? 0 : Math.max(0, Math.min(1, 0.9 - breakers * 0.3 - (i % 3) * 0.1));
+      result.hands.push({
+        hand,
+        breakers,
+        share,
+        kept: share === 0 ? [] : board.slice(0, Math.max(1, Math.round(share * 5))),
+        damage: share === 0 ? 8000 : (i % 3) * 1500,
+        line: i % 5 === 3 ? null : ["Evoca " + (CARDS.get(hand[0])?.name ?? hand[0]), "Attiva " + (CARDS.get(hand[1])?.name ?? hand[1]), "Battle Phase"],
+      });
+      result.seconds += 5;
+      emit();
+    }
+    return result;
+  },
+
+  secondCancel: async (): Promise<void> => {
+    secondStopped = true;
+  },
+
+  onSecondProgress: async (handler: (p: SecondProgress) => void): Promise<UnlistenFn> => {
+    secondProgressListeners.add(handler);
+    return () => {
+      secondProgressListeners.delete(handler);
+    };
   },
 
   comboMeta: async (boards?: { hand: number; key: string }[]): Promise<number> => {
