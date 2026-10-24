@@ -243,7 +243,7 @@ Resta la memoria operativa nei giorni con coordinatrice; altrimenti si aggiorna 
    - i due pesi del punteggio proposti dalla §7 (resilienza 0,6 → 0, floodgate 0,8 → 0,4): conferma sul banco di generalità, poi una PR che cambia `bench.py`, CLI, `lib.rs`, `scoring.ts` insieme;
    - [fatto] le board `cheap: true`: scheda e interruttore `SEND_CHEAP_SCORES` nella stessa PR;
    - B8, obiettivi ricchi: mockup, poi contratto e interfaccia (Opus);
-   - i punti 3, 5 e 6 della caccia ai bug, l'arena nel turno di prova, il caso Vendread (Opus);
+   - i punti 3, 5 e 6 della caccia ai bug, l'arena nel turno di prova, il caso Vendread (Opus); *24/10: punti 3, 5 e 6 fatti; caso Vendread risolto nella PR del thread «Risolvere il caso Vendread» (`docs/plans/robustezza.md`).*
    - il simulatore (#36): mockup prima.
 
 ## 10bis. Decisione sul merge (23/10)

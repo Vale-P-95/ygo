@@ -24,7 +24,7 @@ Breve indice per chi arriva. Il dettaglio è in `docs/PIANO.md` (v1.11, §30–�
 - **Interfaccia**: passo 5 (Bottega) unito con la #118, l'ultima PR di Gemini; dal passo 6 in poi lo fa Claude Code con il mockup prima (`docs/plans/ui-revisione-2.md`).
 - **Anteprima dell'app**: `record-fixtures` e il caricamento in `mock.ts` ci sono; la prima anteprima Artifact è pubblicata. `recorded.json` è registrato con i dati veri (24/10); mancano punteggi, legalità e probabilità.
 - **Pesi §7** (resilienza 0,6→0, floodgate 0,8→0,4): da confermare sul banco di generalità, poi da cambiare insieme in `bench.py`, CLI, `lib.rs` e `scoring.ts`.
-- **Deck lenti**: misura delle istruzioni Lua fatta; il tetto per richiesta è alla corsia 2.
+- **Deck lenti**: misura delle istruzioni Lua fatta, tetto di 500 000 ingressi per richiesta. Il caso Vendread dello sweep di robustezza è risolto (24/10): la selezione dei materiali per gruppi degli script di base ha copie più veloci con le stesse risposte (`docs/plans/robustezza.md`).
 - **Linee del video Invoked** (#45): la ricerca trova le board; la classifica va rivista insieme alla #47.
 
 ## Bug e limiti noti

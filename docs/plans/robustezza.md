@@ -35,19 +35,46 @@ Le mani già fatte si tengono: un giro interrotto riprende da dove si era fermat
 | `sweep`, 2000 duelli, 186 269 decisioni: senza risposta / rifiutate / errori del motore | 0 / 0 / 0 |
 | errori degli script registrati dal motore | 0 |
 
-**L'unico caso: Vendread** (deck `153-106-revendread_slayer`, mani 0 e 1).
-- **Cosa succede:** 263 e 38 linee interrotte, tutte con lo stesso errore: «a card script ran too long (DUELFORGE_LUA_LIMIT)».
-- **Non è un ciclo infinito.** Con `DUELFORGE_LUA_LIMIT=20000000` la mano 1 non ha più linee interrotte, ma la ricerca scende a 5 nodi al secondo e si ferma al limite di tempo.
-- **Causa probabile:** è uno script lento. I Rituali Vendread (Vendread Reunion, Revendread Evolution) sommano i Livelli su molte combinazioni.
-- **Il tetto fa il suo lavoro:** la linea si interrompe e la ricerca continua.
-- **Da guardare** (velocità del motore, corsia 2):
-  - quale richiesta conta così tanti ingressi in Lua;
-  - se la scelta dei materiali con somma di Livelli si può dare al motore in un modo che non enumeri tutte le combinazioni.
+**L'unico caso: Vendread** (deck `153-106-revendread_slayer`, mani 0 e 1). Risolto il 24/10, sezione seguente.
+- **Cosa succedeva:** 263 e 38 linee interrotte, tutte con lo stesso errore: «a card script ran too long (DUELFORGE_LUA_LIMIT)».
+- **Non era un ciclo infinito.** Con `DUELFORGE_LUA_LIMIT=20000000` la mano 1 non aveva più linee interrotte, ma la ricerca scendeva a 5 nodi al secondo.
 - **Riproduzione:**
   ```
   duelforge-cli random-decks --count 400 --seed 1 --out $S/rob/decks
   duelforge-cli combos --deck $S/rob/decks/153-106-revendread_slayer.ydk --hand '76871889;2266498;30650147;76871889;7986397' --nodes 2000 --threads 1 --top 5 --seed 7 --probe
   ```
+
+## Il caso Vendread risolto (24/10/2026)
+**Causa.** Revendread Evolution evoca per Rituale con la somma esatta dei Livelli, prendendo i materiali anche dal Deck (al massimo uno). Gli script di base fanno il controllo con `aux.SelectUnselectGroup` e `Ritual.Check`:
+- `SelectUnselectGroup` prova i gruppi di materiali carta per carta e raggiunge ogni gruppo una volta per ogni ordine delle sue carte; per ogni carta provata entra in Lua dal motore (`Group.IsExists`);
+- la condizione di Revendread Evolution («al massimo una carta dal Deck») non ferma mai la ricerca, quindi si provano tutti i gruppi con somma fino al Livello, tra una ventina di mostri Vendread nel Deck;
+- `Ritual.Check` somma i Livelli con `Group.GetSum`, che entra in Lua una volta per carta di ogni gruppo.
+
+Il controllo si ripete a ogni decisione con la carta in mano: richieste da 912 000 ingressi, 0,4 s l'una, oltre il tetto di 500 000.
+
+**Correzione.** Due copie delle funzioni upstream, con le stesse risposte, caricate dopo gli script di base (`crates/ygo-engine/lua/`):
+- `select_unselect.lua`: ogni gruppo si prova una volta per chiamata (si ricorda per gruppo se si può completare) e le carte si scorrono in Lua;
+- `ritual_check.lua`: la somma dei Livelli in Lua, con il Livello di ogni carta chiesto una volta per controllo.
+
+Perché le risposte sono le stesse: se un gruppo si può completare dipende solo dal gruppo (rescon riceve il gruppo e la carta appena aggiunta, che ne fa parte), e durante un controllo lo stato del duello non cambia. La memoria vale per una sola chiamata dall'esterno.
+
+Le copie si caricano solo se la funzione upstream è ancora quella da cui sono state scritte (`lua/upstream/`, confronto del testo in `scripts.rs`): se CardScripts la cambia, la copia resta fuori e il test `the_lua_replacements_answer_as_upstream` lo segnala. `DUELFORGE_UPSTREAM_LUA=1` le toglie per i confronti. Il test confronta copie e originali su gruppi di mostri del Deck (12 condizioni, 6 coppie min/max, Rituale per somma esatta e maggiore); due errori introdotti apposta nelle copie li trova.
+
+Nessuna regola per nome di carta: vale per ogni carta che usa queste due funzioni.
+
+**Numeri** (stesso binario, con e senza `DUELFORGE_UPSTREAM_LUA=1`):
+
+| Misura | Prima | Dopo |
+|---|---|---|
+| Mano Vendread 1 (`combos` sopra): linee interrotte | 38 | 0 |
+| Stessa mano: tempo totale (ricerca e turno di prova) | 24,5 s | 14,2 s |
+| Stessa mano senza tetto: richiesta più grande | 912 182 ingressi | 98 362 ingressi |
+| Stessa mano senza tetto: richieste oltre 100 000 ingressi | 63 | 0 |
+| Test appaiato (92 mani, 4000 nodi) | — | 0 meglio, 0 peggio, 92 pari, ACCEPTED; secondi di ricerca 516 → 529 |
+| Misura delle 22 board delle fixture A1b (`a1b_remeasure.py`) | — | identica, tempi a parte |
+| Sweep di robustezza (286 deck, 572 mani, 2000 duelli) | 1 caso (Vendread) | nessun problema |
+
+La misura non cambia dove il tetto non scattava; la prova equa sulle 406 board richiede le uscite del giro A1b, che non sono nel repository: le 22 board delle fixture sono identiche.
 
 ## Quando rifarlo
 - Dopo ogni modifica a `crates/ygo-engine` (risposte, decisioni, replay, arena) e a quello che la ricerca o il turno di prova chiedono al motore.
