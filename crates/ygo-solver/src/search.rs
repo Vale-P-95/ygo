@@ -73,6 +73,10 @@ pub struct SearchConfig {
     /// ([`crate::Kit::opponent`]), so a line found here plays the same
     /// there. `None`: an opponent with no cards.
     pub opponent: Option<Opponent>,
+    /// Going second: what taking away each of the opponent's cards placed
+    /// on the field ([`Opponent::placed`]) is worth to the estimate, in
+    /// interruptions (a card not listed: as any card taken from the field).
+    pub opponent_field: Vec<(u32, f64)>,
     /// Best boards included in each progress report.
     pub live_top: usize,
     /// Provisional boards played to the end of the turn when the search
@@ -128,6 +132,7 @@ impl SearchConfig {
             goal: Goal::default(),
             policy: AutoPolicy::default(),
             opponent: None,
+            opponent_field: Vec::new(),
             live_top: 10,
             confirm_top: 40,
             zone_top: 20,
@@ -626,10 +631,9 @@ impl Shared<'_> {
         Board {
             key: board_key(&state),
             cards_used: cards_used(&self.config.hand, &state),
-            quick_score: self
-                .values
-                .read()
-                .map_or(0.0, |v| quick_score(self.engine, &state, &self.config.hand_traps, &v, self.config.opponent.as_ref())),
+            quick_score: self.values.read().map_or(0.0, |v| {
+                quick_score(self.engine, &state, &self.config.hand_traps, &v, self.config.opponent.as_ref(), &self.config.opponent_field)
+            }),
             goal_hits: hits.hard,
             goal_soft: hits.soft,
             exact,
@@ -885,7 +889,14 @@ fn card_hash(state: &DuelState, kind: (usize, bool), c: &ygo_engine::FieldCard) 
 /// replaces it at the end with the real score): monsters on the field,
 /// more for Extra Deck monsters, set cards, cards kept in hand, more for
 /// `hand_traps`, and what the cards on the field stop alone (`values`).
-pub fn quick_score(engine: &Engine, state: &DuelState, hand_traps: &[u32], values: &CardValues, opponent: Option<&Opponent>) -> f64 {
+pub fn quick_score(
+    engine: &Engine,
+    state: &DuelState,
+    hand_traps: &[u32],
+    values: &CardValues,
+    opponent: Option<&Opponent>,
+    opponent_field: &[(u32, f64)],
+) -> f64 {
     let me = &state.players[0];
     let mut score = 0.0;
     for (z, c) in me.monsters.iter().enumerate() {
@@ -942,19 +953,39 @@ pub fn quick_score(engine: &Engine, state: &DuelState, hand_traps: &[u32], value
             InHand::Unknown => 0.3,
         })
         .sum::<f64>();
-    score + VALUE_WEIGHT * (values.of_field(engine, state) + opponent.map_or(0.0, |o| taken_from(o, state)))
+    score + VALUE_WEIGHT * (values.of_field(engine, state) + opponent.map_or(0.0, |o| taken_from(o, state, opponent_field)))
 }
 
 /// What your turn took from the opponent (B5a): its cards when the turn
 /// began (`opponent`) against those it still has, pile by pile, at the
 /// weights of the probe turn's [`crate::probe::attrition`]. Its Extra Deck
 /// banished by Hyperinvoked Aeon is worth something to the search too.
-fn taken_from(opponent: &Opponent, state: &DuelState) -> f64 {
+/// Going second, also its cards placed on the field that are gone.
+fn taken_from(opponent: &Opponent, state: &DuelState, field_worth: &[(u32, f64)]) -> f64 {
     let them = &state.players[1];
     let gone = |before: usize, now: usize| before.saturating_sub(now) as f64;
     gone(opponent.extra.len(), them.extra.len()) * taken_weight(location::EXTRA)
         + gone(opponent.hand.len(), them.hand.len()) * taken_weight(location::HAND)
         + gone(opponent.deck.len(), them.deck.len()) * taken_weight(location::DECK)
+        + taken_field(opponent, state, field_worth)
+}
+
+/// The opponent's cards placed on the field when your turn began that are
+/// no longer on its field, each at what taking it away is worth
+/// (`field_worth`, else as any card taken from the field).
+fn taken_field(opponent: &Opponent, state: &DuelState, field_worth: &[(u32, f64)]) -> f64 {
+    let them = &state.players[1];
+    let mut left: Vec<u32> = them.monsters.iter().chain(&them.spells).flatten().map(|c| c.code).collect();
+    let mut taken = 0.0;
+    for p in opponent.placed.iter().filter(|p| matches!(p.location, location::MZONE | location::SZONE)) {
+        match left.iter().position(|&c| c == p.code) {
+            Some(at) => {
+                left.swap_remove(at);
+            }
+            None => taken += field_worth.iter().find(|w| w.0 == p.code).map_or(taken_weight(location::MZONE), |w| w.1),
+        }
+    }
+    taken
 }
 
 /// What a face-up monster whose value was measured adds to the estimate
@@ -2097,7 +2128,8 @@ fn learn_round(shared: &Shared, count: usize) {
     if raised {
         let (Ok(values), Ok(mut boards)) = (shared.values.read(), shared.boards.lock()) else { return };
         for b in boards.values_mut() {
-            b.quick_score = quick_score(shared.engine, &b.state, &config.hand_traps, &values, config.opponent.as_ref());
+            b.quick_score =
+                quick_score(shared.engine, &b.state, &config.hand_traps, &values, config.opponent.as_ref(), &config.opponent_field);
         }
     }
 }

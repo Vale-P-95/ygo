@@ -148,3 +148,25 @@ fn a_turn_goes_on_with_a_card_more_and_its_normal_summon_used() {
     let missing = Prelude { answers: Vec::new(), joining: vec![code(&engine, "Mystical Elf")] };
     assert!(Duel::goldfish_against_from(&engine, &deck, &HAND, 1, None, &[], &missing).is_err());
 }
+
+#[test]
+fn the_opponents_board_is_placed_on_its_side() {
+    let Some((engine, deck)) = setup() else { return };
+    let dragon = code(&engine, "Alexandrite Dragon");
+    let axe = code(&engine, "Axe of Despair");
+    let apollousa = code(&engine, "Apollousa, Bow of the Goddess");
+    let grave = Placement::new(dragon, location::GRAVE, 0, position::FACEUP_ATTACK);
+    let link = Placement { materials: generic_materials(&engine, apollousa), ..monster(apollousa, 5) };
+    let axe_on_dragon = Placement { equip_to: Some(2), ..spell(axe, 1) };
+    let opponent = Opponent { placed: vec![monster(dragon, 2), axe_on_dragon, link, grave], ..Opponent::default() };
+    let mut duel = Duel::goldfish_vs_placed(&engine, &deck, &[], 1, &opponent, &[]).unwrap();
+    duel.advance().unwrap();
+    let state = duel.state();
+    let (me, them) = (&state.players[0], &state.players[1]);
+    assert!(me.monsters.iter().chain(&me.spells).all(Option::is_none), "nothing on your side");
+    // Equipped on its side, and Apollousa with generic materials of its own.
+    assert_eq!(them.spells[1].as_ref().and_then(|c| c.equipped_to), Some((1, location::MZONE, 2)));
+    assert_eq!(them.monsters[2].as_ref().map(|c| c.attack), Some(3000));
+    assert!(them.monsters.iter().flatten().any(|c| c.code == apollousa && c.attack > 0), "{:?}", them.monsters);
+    assert!(them.grave.contains(&dragon));
+}
