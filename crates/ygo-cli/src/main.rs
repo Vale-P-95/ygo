@@ -1590,11 +1590,11 @@ const STAGED_ROUNDS: usize = 1;
 
 /// The value of a cheap measure ([`ygo_solver::Prober::measure_cheap`]):
 /// field, hand and floodgates, and your next turn when the opponent breaks
-/// nothing. The floodgates keep 0.8 here, the weight the staged pick was
-/// measured with: lowering it changes which boards get the full measure.
+/// nothing. The floodgates weigh 0.4, as in [`composite`], so the cut to the
+/// full measure ranks by the weights of the score.
 fn cheap_composite(m: &ygo_solver::Measure) -> f64 {
     let rebuild = m.follow_up.map_or(0.0, |f| f.rebuild as f64);
-    m.field_value + 0.9 * m.hand_value + 0.8 * m.floodgate_value + 0.4 * 0.3 * rebuild
+    m.field_value + 0.9 * m.hand_value + 0.4 * m.floodgate_value + 0.4 * 0.3 * rebuild
 }
 
 /// The measured value of a board with the "Bilanciato" profile of the app:
