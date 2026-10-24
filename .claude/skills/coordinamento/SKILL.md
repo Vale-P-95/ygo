@@ -1,11 +1,11 @@
 ---
 name: coordinamento
-description: Come lavora una sessione coordinatrice di DuelForge nei giorni con più PR in coda (aprire PR, iscriversi agli eventi, merge su delega, aggiornare coordinamento.md, passare la mano). Da usare solo quando l'utente apre una coordinatrice.
+description: Come lavora una sessione coordinatrice di DuelForge nei giorni con più PR in coda (aprire PR, iscriversi agli eventi, merge automatico, aggiornare coordinamento.md, passare la mano). Da usare solo quando l'utente apre una coordinatrice.
 ---
 
 # Coordinare un giro di lavoro
 
-La coordinatrice non è un servizio sempre acceso: lavora a eventi e si chiude a fine giornata. Con tre sessioni o meno non serve: le sessioni aprono le proprie PR e l'utente unisce dalla pagina GitHub.
+La coordinatrice non è un servizio sempre acceso: lavora a eventi e si chiude a fine giornata. Con tre sessioni o meno non serve: le sessioni aprono le proprie PR e le unisce la coordinatrice a CI verde.
 
 ## Memoria
 - `docs/plans/coordinamento.md` è la memoria: sessioni attive con id, branch e compito; PR aperte e unite; decisioni del giorno; costi. Si aggiorna a ogni cambio importante, si pusha sul branch della coordinatrice e si unisce a `main` con una PR di soli documenti a fine giro.
@@ -18,7 +18,7 @@ La coordinatrice non è un servizio sempre acceso: lavora a eventi e si chiude a
 ## Per ogni PR pronta
 1. `git fetch` del branch e `git diff --stat origin/main...<branch>`: area giusta, niente file fuori dal brief, `git merge-tree` pulito.
 2. Aprire la PR con il template e i numeri o gli screenshot mandati dalla sessione; iscriversi agli eventi (`subscribe_pr_activity`).
-3. Al verde: merge su delega dell'utente (squash, SHA completo), oppure dire all'utente che è pronta da unire dalla pagina.
+3. Al verde, senza delega e senza attese a intervalli (ci si sveglia sull'evento): merge in squash con SHA completo; per il motore, solo con la prova equa sulle 406 board non peggiorata. Dopo un push la CI si lancia a mano una volta (`ci.yml`).
 4. Annotare in `coordinamento.md`; dire alla sessione di fermarsi; dire all'utente che la sessione si può archiviare.
 
 ## Messaggi alle sessioni
