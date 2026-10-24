@@ -197,10 +197,8 @@ pub fn opponent_answer(decision: &Decision, actions: &[Action], responders: &[(u
             // Picks are index lists: the one with the most of your cards.
             let yours = |a: &Action| {
                 let Some(picks) = a.response.get(8..).filter(|_| a.kind == ActionKind::Choose) else { return 0 };
-                picks
-                    .chunks_exact(4)
-                    .filter(|i| cards.get(u32::from_le_bytes([i[0], i[1], i[2], i[3]]) as usize).is_some_and(|c| c.controller == 0))
-                    .count()
+                let indices = picks.as_chunks::<4>().0;
+                indices.iter().filter(|&&i| cards.get(u32::from_le_bytes(i) as usize).is_some_and(|c| c.controller == 0)).count()
             };
             let pick = actions.iter().filter(|a| yours(a) > 0).max_by_key(|a| (yours(a), std::cmp::Reverse(a.response.len())));
             if let Some(a) = pick.or_else(|| actions.iter().find(|a| a.kind == ActionKind::Choose)) {
