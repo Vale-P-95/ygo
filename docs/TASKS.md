@@ -27,6 +27,9 @@ Regole in `AGENTS.md`. Per prendere un task, spostalo in "In corso" con agente, 
 - [ ] **Mascotte nei pannelli info** (claude-code, branch `claude/project-thread-v1jfz3`, PR #166). L'Arcimago del design di Valerio in `InfoDialog` su `InfoButton` e `HelpPopover`, con `kind` per il glifo sulla lavagna.
   - File: `Mascot.tsx`, `InfoDialog.tsx`, `InfoButton.tsx`, `ui/HelpPopover.tsx`, `index.css`.
   - Resta: i testi per voce del design (probabilità, interruzioni, passi) non ripresi.
+- [ ] **Motore: non perdere le board migliori già trovate** (punto 1 di `docs/plans/prossimi-passi-motore.md`). Thread del progetto, branch `claude/project-thread-vfjxe2`, classe R.
+  File: `crates/ygo-solver/src/search.rs` (caldo), `crates/ygo-cli/src/main.rs` (`combos`).
+  Le candidate alla misura completa raccolte lungo la ricerca e scelte con la misura economica.
 
 ## Da fare (in ordine di priorità)
 
