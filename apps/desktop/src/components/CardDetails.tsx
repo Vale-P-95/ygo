@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import type { Card } from "../lib/api";
 import { rarityCode } from "./CardTile";
+import { AttributeIcon } from "./AttributeIcon";
 
 export const ATTRIBUTE_COLORS: Record<string, string> = {
   DARK: "#8b5cc8",
@@ -85,7 +86,7 @@ export function CardDetails({ card, onSearch }: { card: Card; onSearch?: (query:
       <div className="flex flex-wrap items-center gap-2 text-xs">
         {card.attribute && (
           <span className="chip" style={{ borderColor: ATTRIBUTE_COLORS[card.attribute], color: ATTRIBUTE_COLORS[card.attribute] }}>
-            ● {card.attribute}
+            <AttributeIcon attribute={card.attribute} />
           </span>
         )}
         {card.level != null && (

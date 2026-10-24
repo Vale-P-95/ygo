@@ -5,6 +5,7 @@ import {
   type ComboBoard,
   ComboBreaker,
   ComboInterruption,
+  type ComboInteraction,
   type ComboMeta,
   ComboRivalBreaker,
   ComboRivalHandTrap,
@@ -15,6 +16,7 @@ import { METRICS, NEGATIVE, parts, pickProfile, PROFILES, score, setWeight, appl
 import { sound } from "../../lib/sound";
 import { toast } from "../../lib/toast";
 import { InfoButton } from "../InfoButton";
+import type { InfoKind } from "../Mascot";
 import { CardImage, type HoverCard } from "./Field";
 import { PieceProtection } from "./PieceProtection";
 
@@ -144,7 +146,7 @@ export function WeightsPanel({
     <div className="flex flex-col gap-2">
       <div className="flex flex-wrap items-center gap-1.5 text-xs">
         <span className="text-muted">Classifica</span>
-        <InfoButton title="Come si ordinano le board">
+        <InfoButton title="Come si ordinano le board" kind="rank">
           <Paragraphs lines={PROFILES_INFO} />
         </InfoButton>
         {PROFILES.map((p) => (
@@ -272,7 +274,7 @@ export function WeightsPanel({
             <div key={m.key} className="flex items-center gap-2 text-xs">
               <span className="h-2.5 w-2.5 shrink-0 rounded-sm" style={{ background: m.color }} />
               <span className={`w-24 shrink-0 ${NEGATIVE.includes(m.key) ? "text-danger" : "text-muted"}`}>{m.label}</span>
-              <InfoButton title={m.label}>
+              <InfoButton title={m.label} kind={infoKind(m.key)}>
                 <Paragraphs lines={m.explain} />
               </InfoButton>
               <input
@@ -317,13 +319,18 @@ function measured(key: MetricKey, s: ComboScore): string {
   }
 }
 
+/** Negative metrics warn, the others read as measures. */
+function infoKind(key: MetricKey): InfoKind {
+  return NEGATIVE.includes(key) ? "warn" : "stat";
+}
+
 /** A titled part of the breakdown, with its "i". */
-function Section({ title, info, children }: { title: string; info: ReactNode; children: ReactNode }) {
+function Section({ title, info, kind, children }: { title: string; info: ReactNode; kind?: InfoKind; children: ReactNode }) {
   return (
     <section className="flex flex-col gap-1.5">
       <div className="flex items-center gap-1.5">
         <h4 className="eyebrow text-[10px] text-faint">{title}</h4>
-        <InfoButton title={title}>{info}</InfoButton>
+        <InfoButton title={title} kind={kind}>{info}</InfoButton>
       </div>
       {children}
     </section>
@@ -338,7 +345,7 @@ function MetricRow({ metric, s, weight, points, profile }: { metric: Metric; s: 
       <div className="min-w-0">
         <div className="flex items-center gap-1.5 text-xs font-medium">
           {metric.label}
-          <InfoButton title={metric.label}>
+          <InfoButton title={metric.label} kind={infoKind(metric.key)}>
             <Paragraphs lines={metric.explain} />
             <p className="border-t border-border pt-1.5 text-faint">
               {profile}, questa voce pesa {fmt2(weight)}: {fmt2(s[metric.key])} × {fmt2(weight)} = {signed(points)} punti.
@@ -748,6 +755,56 @@ function Exposure({ s }: { s: ComboScore }) {
   );
 }
 
+/** What the board stops at the end of the turn, by kind and by place (the "Interazione a fine turno" profile ranks by it). */
+export function InteractionSection({ interaction: x }: { interaction: ComboInteraction }) {
+  const total = x.negations + x.removals + x.others;
+  const kinds: [string, number][] = [
+    ["Negazioni", x.negations],
+    ["Rimozioni", x.removals],
+    ["Altro", x.others],
+  ];
+  const places: [string, number][] = [
+    ["Campo", x.fromField],
+    ["Cimitero", x.fromGrave],
+    ["Bandite", x.fromBanished],
+    ["Mano", x.fromHand],
+  ];
+  const Row = ({ label, items }: { label: string; items: [string, number][] }) => (
+    <div className="flex flex-wrap items-center gap-1.5">
+      <span className="text-[11px] text-faint w-14 shrink-0">{label}</span>
+      {items.map(([name, n]) => (
+        <span key={name} className={`chip !py-0.5 !px-2 text-[11px] ${n > 0 ? "text-text" : "text-faint"}`}>
+          {name} <b className="tabular-nums">{n}</b>
+        </span>
+      ))}
+    </div>
+  );
+  return (
+    <Section
+      title="Interazione a fine turno"
+      info={
+        <>
+          <p>Quanto ferma la board a fine turno, senza pensare al turno dopo: le interruzioni (campo, Cimitero, bandite e mano) più i floodgate, tutte contate uguale.</p>
+          <p>Ogni effetto conta tante volte quante può essere usato, almeno una. Un effetto che ferma qualcosa solo da solo, perché si paga con ciò che usano anche gli altri, non è contato: è segnato a parte.</p>
+          <p>«Carte usabili» sono quelle che il motore ti lascia usare nel turno dell'avversario, anche se non fermano nulla.</p>
+        </>
+      }
+    >
+      <div className="flex flex-col gap-1.5">
+        <p className="text-xs text-muted">
+          <b className="text-text tabular-nums">{total}</b> interruzioni · valore <b className="text-text tabular-nums">{x.value.toFixed(2)}</b>
+        </p>
+        <Row label="Per tipo" items={kinds} />
+        <Row label="Da dove" items={places} />
+        <p className="text-xs text-muted leading-relaxed">
+          {x.activatable} carte usabili nel turno dell'avversario · {x.floodgates} tipi di mosse bloccate dai floodgate · rimaste {x.cardsInHand} in mano e {x.cardsInGrave} nel Cimitero
+          {x.onlyAlone > 0 && ` · ${x.onlyAlone} effetti fermano qualcosa solo da soli`}
+        </p>
+      </div>
+    </Section>
+  );
+}
+
 export function MetaSection({ meta }: { meta: ComboMeta }) {
   return (
     <Section
@@ -898,7 +955,7 @@ export function ScoreBreakdown({
         <div className="flex items-baseline gap-2">
           <span className="text-2xl font-semibold tabular-nums">{fmt2(total)}</span>
           <span className="text-xs text-muted">punti{profileName ? ` · profilo «${profileName}»` : profile === "learned" ? " · Imparato dalle tue scelte" : " · pesi personalizzati"}</span>
-          <InfoButton title="Come si calcola il punteggio" className="ml-auto self-center">
+          <InfoButton title="Come si calcola il punteggio" kind="how" className="ml-auto self-center">
             <p>Il motore mette alla prova la board: gioca il turno dell'avversario con le giocate più comuni e con i board breaker più usati, e guarda cosa riesci a fermare.</p>
             <p>Ogni voce qui sotto dà punti (misura × peso); quelle in rosso li tolgono. I pesi vengono dal profilo scelto sopra la lista delle board.</p>
             <p>Il punteggio serve a confrontare le board della stessa ricerca: non è un voto assoluto.</p>
@@ -907,7 +964,7 @@ export function ScoreBreakdown({
         <ScoreBar s={s} weights={weights} scale={positive} />
       </div>
 
-      <Section title="In breve" info={<p>La board riassunta in poche frasi. I dettagli e i numeri sono più sotto; ogni «i» spiega la sua voce.</p>}>
+      <Section title="In breve" kind="tip" info={<p>La board riassunta in poche frasi. I dettagli e i numeri sono più sotto; ogni «i» spiega la sua voce.</p>}>
         <ul className="flex list-disc flex-col gap-1 pl-4 text-xs leading-relaxed marker:text-faint">
           {summary(s).map((t, i) => (
             <li key={i}>{t}</li>
@@ -973,10 +1030,12 @@ export function ScoreBreakdown({
         )}
       </Section>
 
+      {s.interaction && <InteractionSection interaction={s.interaction} />}
+
       {s.meta && <MetaSection meta={s.meta} />}
 
       {s.floodgateList.length > 0 && (
-        <Section title="Cosa l'avversario non può fare" info={<Paragraphs lines={metric("floodgates").explain} />}>
+        <Section title="Cosa l'avversario non può fare" kind="block" info={<Paragraphs lines={metric("floodgates").explain} />}>
           <div className="flex flex-wrap gap-1">
             {s.floodgateList.map((f) => (
               <span key={f} className="chip !py-0.5 text-[11px] font-normal">

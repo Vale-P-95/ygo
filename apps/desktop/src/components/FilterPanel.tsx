@@ -3,6 +3,7 @@ import type { Facets } from "../lib/api";
 import { getKey, getRange, hasToken, KEYS, KIND_VALUES, removeKeys, setKey, setRange, toggleToken, type Range } from "../lib/query";
 import { sound } from "../lib/sound";
 import { ATTRIBUTE_COLORS } from "./CardDetails";
+import { AttributeIcon } from "./AttributeIcon";
 
 const KINDS = [
   { value: null, label: "Tutte" },
@@ -140,17 +141,19 @@ export function FilterPanel({ query, onChange, facets }: { query: string; onChan
             return (
               <button
                 key={a}
+                title={a}
+                aria-label={a}
+                aria-pressed={active}
                 type="button"
                 onClick={() => apply(toggleToken(query, token))}
-                className="flex items-center gap-1.5 rounded-lg border px-2 py-1 text-caption font-bold tracking-wide transition-all hover:brightness-125"
+                className="flex items-center justify-center rounded-lg border px-2 py-1.5 transition-all hover:brightness-125"
                 style={{
                   borderColor: active ? ATTRIBUTE_COLORS[a] : "var(--df-border)",
                   background: active ? `color-mix(in oklab, ${ATTRIBUTE_COLORS[a]} 22%, var(--df-surface-2))` : "var(--df-bg-2)",
                   boxShadow: active ? `0 0 12px -3px ${ATTRIBUTE_COLORS[a]}` : undefined,
                 }}
               >
-                <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: ATTRIBUTE_COLORS[a] }} />
-                {a}
+                <AttributeIcon attribute={a} className="h-5 w-5" />
               </button>
             );
           })}

@@ -13,7 +13,8 @@
     "tauri": "tauri",
     "test": "vitest run",
     "screens": "node scripts/screens.mjs",
-    "design": "node scripts/design-export.mjs"
+    "design": "node scripts/design-export.mjs",
+    "design:screens": "node scripts/design-screens.mjs"
   },
   "dependencies": {
     "@fontsource-variable/inter": "^5.3.0",
