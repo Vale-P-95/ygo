@@ -717,3 +717,58 @@ Le tarature dei due insiemi concordano su una sola cosa: la resilienza va a 0 (0
   - `composite` in `crates/ygo-cli/src/main.rs`;
   - `balanced` in `apps/desktop/src-tauri/src/lib.rs`;
   - il profilo «Bilanciato» in `apps/desktop/src/lib/scoring.ts`.
+
+### Conferma sui deck freschi del banco di generalità (24/10)
+*Thread «Confermare i nuovi pesi del punteggio», branch `claude/project-thread-4ly968`. CLI di `main` 4059075.*
+
+**Domanda.** I pesi (1; 0,9; 0,4; 0) sono nati dalla taratura su A1b. Reggono su deck su cui nessun peso è mai stato tarato?
+
+**Metodo.**
+- I 20 deck freschi di `tests/fixtures/generality/sets.json`: le liste ricostruite con `generality.py rebuild`, uguali al manifesto (63 su 63).
+- Le board come in A1b:
+  - `combo_hunt.py --hands 2 --top 60 --seed 7 --nodes 3000`;
+  - le prime 5 di ogni mano per la misura completa, con campi diversi (`a1b_setup.py --per-hand 5`).
+- La verità come in A1b: `objective_bench.py --skip lunalight`, livello 2 contro i 19 deck del meta.
+  - I `popRank` di Master Duel Meta sono letti il 24/10 alle 00:01.
+  - Gli avversari sono solo le liste di taratura, così nessun deck fresco gioca contro sé stesso.
+- **Costo:** 720 run, 9,2 ore di CPU, circa 2,5 ore sui 4 core.
+  - Fur Hire mano 0 va oltre il limite di 300 s contro tutti: 195 board su 200.
+  - 591 coppie dello stesso deck, con verità diverse di almeno 0,02.
+- **I pesi erano fissati prima di questo giro: qui non si è tarato niente.** I risultati sono in `tests/fixtures/boards/generality-fresh.json`, compatti come `objective-bench.json`: solo numeri, nessuna lista.
+  ```
+  python3 scripts/research/tune_follow_up.py tests/fixtures/boards/generality-fresh.json --base 1,0.9,0.8,0.6,0 --try 1,0.9,0.4,0,0
+  python3 scripts/research/tune_follow_up.py tests/fixtures/boards/generality-fresh.json --base 1,0.9,0.8,0.6,1 --try 1,0.9,0.4,0,1
+  ```
+  `--base` è nuovo: senza, `--try` si giudica contro i pesi di `bench.py`, che ora sono quelli nuovi.
+
+**Risultati (195 board, 591 coppie).**
+
+| confronto | coppie giuste | guadagnate/perse | p | deck meglio/peggio |
+|---|---|---|---:|---|
+| senza turno dopo: (1; 0,9; 0,8; 0,6) → (1; 0,9; 0,4; 0) | 80,4% → **86,0%** | +40/−8 | < 0,001 | 7/3 |
+| con il turno dopo, come ordina l'app | 78,7% → **82,0%** | +32/−14 | 0,011 | 4/4 |
+
+- **ρ con la verità**, su tutte le board: da 0,70 a 0,78.
+- **Dove guadagna:** HERO +11/−0, Naturia +10/−0, Regenesis +6/−2, Sacred Beasts +4/−0 (con il turno dopo).
+- **Dove perde** (con il turno dopo): Atlantean Mermail −3, Azamina Mitsurugi Dark Magician −3, Magistus Witchcrafter −3, Fiendsmith Unchained −2.
+- **Il floodgate segue la verità al contrario** sui freschi: ρ −0,39 e −0,13 nelle due metà. A 0 la prova darebbe 88,1%, ma 0 non era la proposta: sarebbe tarato su questo giro.
+- **Effetto sulle #1:** la #1 cambia in 2 mani su 39. La verità della #1 nuova è −0,034 e +0,011 rispetto a quella di oggi.
+
+**Le tre prove insieme.**
+
+| insieme | senza turno dopo | con il turno dopo |
+|---|---|---|
+| banco nuovo (185 coppie) | +6/−2 | +2/−3 |
+| A1b (1203 coppie, nel campione) | +63/−33, p = 0,003 | non misurato |
+| **freschi (591 coppie, fuori campione)** | **+40/−8, p < 0,001** | **+32/−14, p = 0,011** |
+
+- **A1b non è rifatto.** I suoi `results.json` non sono nel repository, e rifarli costa circa 9 ore; i pesi vi erano tarati, quindi non sarebbe una prova nuova.
+- **Il punto debole è il turno dopo.** Contato come lo conta l'app, il guadagno resta significativo sulle coppie, ma per deck è pari (4 meglio, 4 peggio). Il banco nuovo con il turno dopo è neutro.
+- **La prova appaiata della ricerca** (`paired_test.py --decks <liste di taratura>`, 94 mani, 4000 nodi, un thread; CLI di `main` 42fe162 contro quella del branch, le due giudicate con i pesi nuovi): 1 meglio, 0 peggio, 93 pari, ACCEPTED. Secondi di ricerca 449 → 454.
+  - La ricerca non legge i pesi. Nella CLI cambiano solo l'ordine finale e la scelta delle varianti di zona dei primi campi: le board elencate cambiano in 2 mani su 94.
+  - La mano meglio è hunt-invoked-siracusa-ewcq2026-1 (+6,7%), per una variante di zona.
+
+**Decisione: i pesi nuovi si accendono**, tutti e quattro i posti insieme: `bench.py`, `composite` della CLI, `balanced` di `lib.rs` e il profilo «Bilanciato» di `scoring.ts`. Il turno dopo resta a 0,4.
+- **La misura economica** (`cheap_composite` della CLI, `cheap_value` di `lib.rs`) tiene il floodgate a 0,8. Sceglie quali board passano alla misura completa, quindi abbassarlo cambia le board misurate: va provato a parte, con la prova appaiata in modalità `--staged`.
+- **Gli script di ricerca** con i pesi copiati (`a1b_report.py`, `b9_order.py`, `l23_final.py`, `objective_bench.py summary`) restano come erano: sono il registro dei loro esperimenti.
+

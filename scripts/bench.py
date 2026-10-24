@@ -20,8 +20,10 @@ import time
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
 HANDS = os.path.join(ROOT, "tests", "fixtures", "hands", "bench.tsv")
 # Weights of field, hand, floodgates and resilience in the measured value
-# (the "Bilanciato" profile).
-WEIGHTS = (1.0, 0.9, 0.8, 0.6)
+# (the "Bilanciato" profile). The resilience weighs 0: the interruptions
+# already count the answers that survive a breaker, so a weight on it counts
+# them twice (docs/plans/ricerca-esperimenti.md, section 7).
+WEIGHTS = (1.0, 0.9, 0.4, 0.0)
 # The follow-up of the "Bilanciato" profile, and what an effect to rebuild
 # with is worth in it (score_view). The cards gained in the End Phase are
 # measured, not weighed (docs/plans/classificazione-board.md, C10).
