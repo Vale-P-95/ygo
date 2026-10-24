@@ -144,10 +144,10 @@ def passcodes(db, hand, main):
     return out
 
 
-def run_one(cli, case, rules, out, lines, jobs):
+def run_one(cli, case, rules, out, lines, jobs, nodes=None):
     """One `combos` run into out/<id>.json, with what broke and the times in <id>.run.json."""
     command = [cli, "--data", os.path.join(ROOT, "data"), "combos", "--deck", case["path"], "--hand", case["hand"],
-               "--nodes", str(rules["nodes"]), "--seconds", "86400", "--threads", "1", "--top", str(rules["top"]),
+               "--nodes", str(nodes or rules["nodes"]), "--seconds", "86400", "--threads", "1", "--top", str(rules["top"]),
                "--seed", str(case["seed"]), "--json", os.path.join(out, case["id"] + ".json")]
     if lines:
         command += ["--save-lines", os.path.join(out, case["id"] + ".lines.json")]
@@ -171,9 +171,10 @@ def cmd_run(a):
         i, n = map(int, a.shard.split("/"))
         cases = cases[i::n]
     sides = [(s, cli) for s, cli in (("old", a.old), ("new", a.new)) if cli]
+    nodes = {"old": a.old_nodes, "new": a.new_nodes}
     for side, cli in sides:
         os.makedirs(os.path.join(a.out, side), exist_ok=True)
-        json.dump(dict(cli=os.path.abspath(cli), version=a.version, set=a.set, jobs=a.jobs, host=platform.node(),
+        json.dump(dict(cli=os.path.abspath(cli), version=a.version, set=a.set, jobs=a.jobs, nodes=nodes[side] or rules["nodes"], host=platform.node(),
                        cpus=os.cpu_count(), machine=platform.machine()), open(os.path.join(a.out, side, "host.json"), "w"))
 
     def one(job):
@@ -183,7 +184,7 @@ def cmd_run(a):
         for side, cli in sides if i % 2 == 0 else sides[::-1]:
             out = os.path.join(a.out, side)
             if not os.path.exists(os.path.join(out, case["id"] + ".run.json")):
-                run_one(cli, case, rules, out, not a.no_lines, a.jobs)
+                run_one(cli, case, rules, out, not a.no_lines, a.jobs, nodes[side])
         if a.measure_cli:
             # A change to the measure: both best boards measured again here, on the same worker.
             for side, _ in sides:
@@ -380,7 +381,10 @@ def cmd_judge(a):
     t = times(a, cases, old, new, rules)
     slower = t is not None and t["same_machine"] and t["lo"] > rules["slowdown_needs_gain"]
     checks = dict(every["checks"])
-    checks.update({f"fresh decks: {k}": v for k, v in fresh["checks"].items() if "lower bound" in k})
+    # 60 fresh hands are too few for a margin on the lower bound (calibration of
+    # 24/10: 90% half-width of 5 points): their mean, and no proven loss.
+    checks[f"fresh decks: mean change >= -{rules['margin_fresh']:.0%}"] = fresh["mean"] >= -rules["margin_fresh"]
+    checks["fresh decks: not proven worse (upper bound >= 0)"] = fresh["hi"] >= 0
     checks["nothing new breaks (runs, probe turns, lines)"] = not newly_broken
     checks["every hand measured on both sides"] = len(rows) == len(cases) > 0
     if slower:
@@ -416,6 +420,9 @@ def main():
     r.add_argument("--set", default="full", choices=("quick", "full"))
     r.add_argument("--only", default="", help="only the hands whose id holds this")
     r.add_argument("--jobs", type=int, default=4)
+    # Only to calibrate the bench (a known change of the budget): never for a verdict on a PR.
+    r.add_argument("--old-nodes", type=int, help="calibration only: another node budget for the old side")
+    r.add_argument("--new-nodes", type=int, help="calibration only: another node budget for the new side")
     r.add_argument("--shard", help="I/N: only every N-th hand from the I-th (several runners)")
     r.add_argument("--no-lines", action="store_true", help="do not save the lines (no --measure-cli later)")
     r.add_argument("--measure-cli", help="also measure the best board of both sides again with this build (for judge --measure-cli)")

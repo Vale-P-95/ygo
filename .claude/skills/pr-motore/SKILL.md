@@ -23,7 +23,7 @@ cargo test --release -p ygo-solver --test search_regression      # ~2 min
 ```
 
 ## Prove lunghe (in background: la sessione chiude il turno e riprende alla notifica)
-- **Banco congelato** (l'arbitro del merge, `docs/plans/regole-motore.md`): classe E, R o M scritta nella PR prima del giro; `python3 scripts/banco.py run out/banco --old <cli di main> --new <cli del branch> --set full --jobs 4` (circa 50 minuti), poi `banco.py same out/banco` (E), `banco.py judge out/banco` (R) o, per M, `run ... --measure-cli <cli del branch>` e `judge out/banco --measure-cli <cli del branch>`. Si unisce solo con ACCEPTED. Senza dati o tempo: `bench.yml` con `bench: banco-full` e `check`.
+- **Banco congelato** (l'arbitro del merge, `docs/plans/regole-motore.md`): classe E, R o M scritta nella PR prima del giro; `python3 scripts/banco.py run out/banco --old <cli di main> --new <cli del branch> --set full --jobs 4` (circa 35 minuti su 4 core), poi `banco.py same out/banco` (E), `banco.py judge out/banco` (R) o, per M, `run ... --measure-cli <cli del branch>` e `judge out/banco --measure-cli <cli del branch>`. Si unisce solo con ACCEPTED. Senza dati o tempo: `bench.yml` con `bench: banco-full` e `check`.
 - **Test appaiato** (`paired_test.py`) e vecchio banco (`bench.py`): solo per gli studi su mani scelte, non per il merge.
 - **Verità della misura**: fino alla verità v1 (`regole-motore.md` §4) un cambio della misura lo decide il proprietario.
 - **Banco di generalità** (per ogni costante nuova): `python3 scripts/generality.py` su tuning e fresh; si respinge se fresh scende di oltre 1 punto con tuning fermo, se lo scarto cresce di oltre 2 punti, o se qualcosa di nuovo si rompe su fresh (`docs/plans/banco-generalita.md`).

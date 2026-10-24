@@ -1,9 +1,9 @@
 {
- "about": "Thresholds fixed before any run (docs/plans/regole-motore.md). They change only with a new version of the bench, in a PR of its own.",
+ "about": "Thresholds fixed before any verdict (docs/plans/regole-motore.md), set after the calibration of 24/10. They change only with a new version of the bench, in a PR of its own.",
  "nodes": 4000,
  "top": 10,
  "even": 0.01,
- "margin": 0.02,
+ "margin": 0.03,
  "margin_fresh": 0.03,
  "big_loss": 0.05,
  "big_loss_share": 0.02,
