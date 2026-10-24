@@ -1,0 +1,1218 @@
+{
+ "table": {
+  "deckId": 0,
+  "decks": [
+   {
+    "name": "Elfnote",
+    "weight": 12.31,
+    "lines": 12,
+    "measured": 9
+   },
+   {
+    "name": "Dracotail",
+    "weight": 5.62,
+    "lines": 12,
+    "measured": 12
+   },
+   {
+    "name": "Invoked",
+    "weight": 4.71,
+    "lines": 12,
+    "measured": 12
+   },
+   {
+    "name": "Branded",
+    "weight": 4.26,
+    "lines": 12,
+    "measured": 12
+   },
+   {
+    "name": "DoomZ",
+    "weight": 3.8,
+    "lines": 12,
+    "measured": 12
+   },
+   {
+    "name": "Elfnote Kewl Tune",
+    "weight": 3.8,
+    "lines": 12,
+    "measured": 12
+   }
+  ],
+  "rows": [
+   {
+    "code": 14558127,
+    "main": 3,
+    "side": 0,
+    "chance": 0.33755060728744934,
+    "value": 0.8627133655394525,
+    "lost": 0.6022110116578715,
+    "perDeck": [
+     {
+      "usable": 7,
+      "stopped": 7,
+      "lost": 0.5345679012345679
+     },
+     {
+      "usable": 10,
+      "stopped": 10,
+      "lost": 0.6285383597883598
+     },
+     {
+      "usable": 11,
+      "stopped": 11,
+      "lost": 0.6154761904761904
+     },
+     {
+      "usable": 11,
+      "stopped": 11,
+      "lost": 0.6335527898027898
+     },
+     {
+      "usable": 12,
+      "stopped": 12,
+      "lost": 0.7362103174603175
+     },
+     {
+      "usable": 11,
+      "stopped": 11,
+      "lost": 0.5968253968253968
+     }
+    ],
+    "step": 2.532258064516129,
+    "at": [
+     {
+      "code": 1984618,
+      "lines": 4
+     },
+     {
+      "code": 25661743,
+      "lines": 4
+     },
+     {
+      "code": 55273560,
+      "lines": 4
+     },
+     {
+      "code": 63926180,
+      "lines": 4
+     },
+     {
+      "code": 28877382,
+      "lines": 3
+     },
+     {
+      "code": 32548318,
+      "lines": 3
+     },
+     {
+      "code": 97556336,
+      "lines": 3
+     },
+     {
+      "code": 13597785,
+      "lines": 2
+     },
+     {
+      "code": 16387555,
+      "lines": 2
+     },
+     {
+      "code": 16509007,
+      "lines": 2
+     },
+     {
+      "code": 32442017,
+      "lines": 2
+     },
+     {
+      "code": 47679935,
+      "lines": 2
+     },
+     {
+      "code": 57294268,
+      "lines": 2
+     },
+     {
+      "code": 62962630,
+      "lines": 2
+     },
+     {
+      "code": 64491754,
+      "lines": 2
+     },
+     {
+      "code": 65848113,
+      "lines": 2
+     },
+     {
+      "code": 73819701,
+      "lines": 2
+     },
+     {
+      "code": 84288367,
+      "lines": 2
+     },
+     {
+      "code": 89392810,
+      "lines": 2
+     },
+     {
+      "code": 97474300,
+      "lines": 2
+     },
+     {
+      "code": 6153210,
+      "lines": 1
+     },
+     {
+      "code": 19096726,
+      "lines": 1
+     },
+     {
+      "code": 24915933,
+      "lines": 1
+     },
+     {
+      "code": 32807846,
+      "lines": 1
+     },
+     {
+      "code": 44362883,
+      "lines": 1
+     },
+     {
+      "code": 45883110,
+      "lines": 1
+     },
+     {
+      "code": 56651978,
+      "lines": 1
+     },
+     {
+      "code": 72323266,
+      "lines": 1
+     },
+     {
+      "code": 75003700,
+      "lines": 1
+     },
+     {
+      "code": 78058681,
+      "lines": 1
+     },
+     {
+      "code": 86120751,
+      "lines": 1
+     }
+    ]
+   },
+   {
+    "code": 59438930,
+    "main": 0,
+    "side": 2,
+    "chance": 0.0,
+    "value": 0.8627133655394525,
+    "lost": 0.5430486167750661,
+    "perDeck": [
+     {
+      "usable": 7,
+      "stopped": 7,
+      "lost": 0.5314814814814814
+     },
+     {
+      "usable": 10,
+      "stopped": 10,
+      "lost": 0.5751984126984128
+     },
+     {
+      "usable": 11,
+      "stopped": 11,
+      "lost": 0.5693452380952381
+     },
+     {
+      "usable": 11,
+      "stopped": 11,
+      "lost": 0.3407287157287157
+     },
+     {
+      "usable": 12,
+      "stopped": 12,
+      "lost": 0.7376984126984127
+     },
+     {
+      "usable": 11,
+      "stopped": 11,
+      "lost": 0.5325396825396825
+     }
+    ],
+    "step": 3.629032258064516,
+    "at": [
+     {
+      "code": 73819701,
+      "lines": 9
+     },
+     {
+      "code": 57294268,
+      "lines": 7
+     },
+     {
+      "code": 28877382,
+      "lines": 4
+     },
+     {
+      "code": 89392810,
+      "lines": 4
+     },
+     {
+      "code": 97556336,
+      "lines": 4
+     },
+     {
+      "code": 16387555,
+      "lines": 3
+     },
+     {
+      "code": 16509007,
+      "lines": 3
+     },
+     {
+      "code": 59581480,
+      "lines": 3
+     },
+     {
+      "code": 86120751,
+      "lines": 3
+     },
+     {
+      "code": 7375867,
+      "lines": 2
+     },
+     {
+      "code": 33760966,
+      "lines": 2
+     },
+     {
+      "code": 54265980,
+      "lines": 2
+     },
+     {
+      "code": 78397661,
+      "lines": 2
+     },
+     {
+      "code": 95515789,
+      "lines": 2
+     },
+     {
+      "code": 12375297,
+      "lines": 1
+     },
+     {
+      "code": 14442329,
+      "lines": 1
+     },
+     {
+      "code": 32442017,
+      "lines": 1
+     },
+     {
+      "code": 43989315,
+      "lines": 1
+     },
+     {
+      "code": 45883110,
+      "lines": 1
+     },
+     {
+      "code": 51669847,
+      "lines": 1
+     },
+     {
+      "code": 62962630,
+      "lines": 1
+     },
+     {
+      "code": 64491754,
+      "lines": 1
+     },
+     {
+      "code": 70369116,
+      "lines": 1
+     },
+     {
+      "code": 70488851,
+      "lines": 1
+     },
+     {
+      "code": 75003700,
+      "lines": 1
+     },
+     {
+      "code": 92472273,
+      "lines": 1
+     }
+    ]
+   },
+   {
+    "code": 97268402,
+    "main": 0,
+    "side": 2,
+    "chance": 0.0,
+    "value": 0.7407971014492752,
+    "lost": 0.49159480763466273,
+    "perDeck": [
+     {
+      "usable": 8,
+      "stopped": 6,
+      "lost": 0.44814814814814813
+     },
+     {
+      "usable": 10,
+      "stopped": 9,
+      "lost": 0.4646164021164021
+     },
+     {
+      "usable": 12,
+      "stopped": 11,
+      "lost": 0.5896825396825397
+     },
+     {
+      "usable": 12,
+      "stopped": 7,
+      "lost": 0.38752104377104374
+     },
+     {
+      "usable": 12,
+      "stopped": 11,
+      "lost": 0.6751984126984127
+     },
+     {
+      "usable": 11,
+      "stopped": 9,
+      "lost": 0.48373015873015873
+     }
+    ],
+    "step": 3.2452830188679247,
+    "at": [
+     {
+      "code": 73819701,
+      "lines": 6
+     },
+     {
+      "code": 16509007,
+      "lines": 4
+     },
+     {
+      "code": 57294268,
+      "lines": 4
+     },
+     {
+      "code": 97556336,
+      "lines": 4
+     },
+     {
+      "code": 28877382,
+      "lines": 3
+     },
+     {
+      "code": 54265980,
+      "lines": 3
+     },
+     {
+      "code": 60303245,
+      "lines": 3
+     },
+     {
+      "code": 89392810,
+      "lines": 3
+     },
+     {
+      "code": 7375867,
+      "lines": 2
+     },
+     {
+      "code": 13597785,
+      "lines": 2
+     },
+     {
+      "code": 16387555,
+      "lines": 2
+     },
+     {
+      "code": 59581480,
+      "lines": 2
+     },
+     {
+      "code": 62962630,
+      "lines": 2
+     },
+     {
+      "code": 65848113,
+      "lines": 2
+     },
+     {
+      "code": 86120751,
+      "lines": 2
+     },
+     {
+      "code": 33760966,
+      "lines": 1
+     },
+     {
+      "code": 43989315,
+      "lines": 1
+     },
+     {
+      "code": 45883110,
+      "lines": 1
+     },
+     {
+      "code": 63926180,
+      "lines": 1
+     },
+     {
+      "code": 70369116,
+      "lines": 1
+     },
+     {
+      "code": 75003700,
+      "lines": 1
+     },
+     {
+      "code": 81650695,
+      "lines": 1
+     },
+     {
+      "code": 82489470,
+      "lines": 1
+     },
+     {
+      "code": 95515789,
+      "lines": 1
+     }
+    ]
+   },
+   {
+    "code": 73642296,
+    "main": 0,
+    "side": 2,
+    "chance": 0.0,
+    "value": 0.8421578099838971,
+    "lost": 0.47011007359074986,
+    "perDeck": [
+     {
+      "usable": 7,
+      "stopped": 7,
+      "lost": 0.35709876543209873
+     },
+     {
+      "usable": 10,
+      "stopped": 10,
+      "lost": 0.4593915343915344
+     },
+     {
+      "usable": 10,
+      "stopped": 10,
+      "lost": 0.47956349206349197
+     },
+     {
+      "usable": 11,
+      "stopped": 11,
+      "lost": 0.5915554353054352
+     },
+     {
+      "usable": 11,
+      "stopped": 11,
+      "lost": 0.6250992063492063
+     },
+     {
+      "usable": 11,
+      "stopped": 11,
+      "lost": 0.5492063492063491
+     }
+    ],
+    "step": 5.25,
+    "at": [
+     {
+      "code": 73819701,
+      "lines": 8
+     },
+     {
+      "code": 1984618,
+      "lines": 6
+     },
+     {
+      "code": 63926180,
+      "lines": 6
+     },
+     {
+      "code": 65848113,
+      "lines": 5
+     },
+     {
+      "code": 16509007,
+      "lines": 4
+     },
+     {
+      "code": 42302563,
+      "lines": 4
+     },
+     {
+      "code": 70488851,
+      "lines": 4
+     },
+     {
+      "code": 16387555,
+      "lines": 3
+     },
+     {
+      "code": 33760966,
+      "lines": 3
+     },
+     {
+      "code": 89392810,
+      "lines": 3
+     },
+     {
+      "code": 43989315,
+      "lines": 2
+     },
+     {
+      "code": 84054556,
+      "lines": 2
+     },
+     {
+      "code": 97556336,
+      "lines": 2
+     },
+     {
+      "code": 613496,
+      "lines": 1
+     },
+     {
+      "code": 24092792,
+      "lines": 1
+     },
+     {
+      "code": 30271097,
+      "lines": 1
+     },
+     {
+      "code": 37432075,
+      "lines": 1
+     },
+     {
+      "code": 55273560,
+      "lines": 1
+     },
+     {
+      "code": 70871153,
+      "lines": 1
+     },
+     {
+      "code": 74063034,
+      "lines": 1
+     },
+     {
+      "code": 89851827,
+      "lines": 1
+     }
+    ]
+   },
+   {
+    "code": 94145021,
+    "main": 2,
+    "side": 0,
+    "chance": 0.23717948717948734,
+    "value": 0.6858293075684381,
+    "lost": 0.34061015172428216,
+    "perDeck": [
+     {
+      "usable": 7,
+      "stopped": 7,
+      "lost": 0.2935185185185185
+     },
+     {
+      "usable": 9,
+      "stopped": 1,
+      "lost": 0.041666666666666664
+     },
+     {
+      "usable": 11,
+      "stopped": 8,
+      "lost": 0.41101190476190474
+     },
+     {
+      "usable": 11,
+      "stopped": 9,
+      "lost": 0.3026244588744589
+     },
+     {
+      "usable": 12,
+      "stopped": 12,
+      "lost": 0.7006613756613757
+     },
+     {
+      "usable": 11,
+      "stopped": 11,
+      "lost": 0.5305555555555556
+     }
+    ],
+    "step": 3.4375,
+    "at": [
+     {
+      "code": 1984618,
+      "lines": 4
+     },
+     {
+      "code": 28877382,
+      "lines": 4
+     },
+     {
+      "code": 12375297,
+      "lines": 3
+     },
+     {
+      "code": 57294268,
+      "lines": 3
+     },
+     {
+      "code": 78058681,
+      "lines": 3
+     },
+     {
+      "code": 89392810,
+      "lines": 3
+     },
+     {
+      "code": 13597785,
+      "lines": 2
+     },
+     {
+      "code": 16509007,
+      "lines": 2
+     },
+     {
+      "code": 25661743,
+      "lines": 2
+     },
+     {
+      "code": 47679935,
+      "lines": 2
+     },
+     {
+      "code": 56651978,
+      "lines": 2
+     },
+     {
+      "code": 70488851,
+      "lines": 2
+     },
+     {
+      "code": 84288367,
+      "lines": 2
+     },
+     {
+      "code": 16387555,
+      "lines": 1
+     },
+     {
+      "code": 19096726,
+      "lines": 1
+     },
+     {
+      "code": 29948294,
+      "lines": 1
+     },
+     {
+      "code": 31010081,
+      "lines": 1
+     },
+     {
+      "code": 32442017,
+      "lines": 1
+     },
+     {
+      "code": 32807846,
+      "lines": 1
+     },
+     {
+      "code": 45484331,
+      "lines": 1
+     },
+     {
+      "code": 45883110,
+      "lines": 1
+     },
+     {
+      "code": 62962630,
+      "lines": 1
+     },
+     {
+      "code": 65848113,
+      "lines": 1
+     },
+     {
+      "code": 72323266,
+      "lines": 1
+     },
+     {
+      "code": 75003700,
+      "lines": 1
+     },
+     {
+      "code": 86120751,
+      "lines": 1
+     },
+     {
+      "code": 92472273,
+      "lines": 1
+     }
+    ]
+   },
+   {
+    "code": 42141493,
+    "main": 3,
+    "side": 0,
+    "chance": 0.33755060728744934,
+    "value": 0.034154589371980675,
+    "lost": 0.00680915434538623,
+    "perDeck": [
+     {
+      "usable": 9,
+      "stopped": 0,
+      "lost": 0.0
+     },
+     {
+      "usable": 12,
+      "stopped": 1,
+      "lost": 0.009259259259259259
+     },
+     {
+      "usable": 12,
+      "stopped": 0,
+      "lost": 0.0
+     },
+     {
+      "usable": 12,
+      "stopped": 2,
+      "lost": 0.04292929292929293
+     },
+     {
+      "usable": 12,
+      "stopped": 0,
+      "lost": 0.0
+     },
+     {
+      "usable": 12,
+      "stopped": 0,
+      "lost": 0.0
+     }
+    ],
+    "step": 11.0,
+    "at": [
+     {
+      "code": 33760966,
+      "lines": 1
+     },
+     {
+      "code": 60303688,
+      "lines": 1
+     },
+     {
+      "code": 95515789,
+      "lines": 1
+     }
+    ]
+   },
+   {
+    "code": 84192580,
+    "main": 2,
+    "side": 0,
+    "chance": 0.23717948717948734,
+    "value": 0.034154589371980675,
+    "lost": 0.00680915434538623,
+    "perDeck": [
+     {
+      "usable": 9,
+      "stopped": 0,
+      "lost": 0.0
+     },
+     {
+      "usable": 12,
+      "stopped": 1,
+      "lost": 0.009259259259259259
+     },
+     {
+      "usable": 12,
+      "stopped": 0,
+      "lost": 0.0
+     },
+     {
+      "usable": 12,
+      "stopped": 2,
+      "lost": 0.04292929292929293
+     },
+     {
+      "usable": 12,
+      "stopped": 0,
+      "lost": 0.0
+     },
+     {
+      "usable": 12,
+      "stopped": 0,
+      "lost": 0.0
+     }
+    ],
+    "step": 11.0,
+    "at": [
+     {
+      "code": 33760966,
+      "lines": 1
+     },
+     {
+      "code": 60303688,
+      "lines": 1
+     },
+     {
+      "code": 95515789,
+      "lines": 1
+     }
+    ]
+   }
+  ]
+ },
+ "cards": [
+  {
+   "id": 613496,
+   "name": "Over Tuning",
+   "kind": "spell"
+  },
+  {
+   "id": 1984618,
+   "name": "Nadir Servant",
+   "kind": "spell"
+  },
+  {
+   "id": 6153210,
+   "name": "Ketu Dracotail",
+   "kind": "spell"
+  },
+  {
+   "id": 7375867,
+   "name": "Dracotail Mululu",
+   "kind": "monster"
+  },
+  {
+   "id": 12375297,
+   "name": "Elfnote Power Patron",
+   "kind": "monster"
+  },
+  {
+   "id": 13597785,
+   "name": "Elfnote Lucina",
+   "kind": "monster"
+  },
+  {
+   "id": 14442329,
+   "name": "JJ \"Kewl Tune\"",
+   "kind": "spell"
+  },
+  {
+   "id": 14558127,
+   "name": "Ash Blossom & Joyous Spring",
+   "kind": "monster"
+  },
+  {
+   "id": 16387555,
+   "name": "Kewl Tune Cue",
+   "kind": "monster"
+  },
+  {
+   "id": 16509007,
+   "name": "Kewl Tune Mix",
+   "kind": "monster"
+  },
+  {
+   "id": 19096726,
+   "name": "Tri-Brigade Mercourier",
+   "kind": "monster"
+  },
+  {
+   "id": 24092792,
+   "name": "Elfnotes: Rhapsodia of Madness",
+   "kind": "trap"
+  },
+  {
+   "id": 24915933,
+   "name": "Granguignol the Dusk Dragon",
+   "kind": "monster"
+  },
+  {
+   "id": 25661743,
+   "name": "Prohibited Power Patron Portal - Terminus",
+   "kind": "spell"
+  },
+  {
+   "id": 28877382,
+   "name": "DoomZ V Five - Amalthe",
+   "kind": "monster"
+  },
+  {
+   "id": 29948294,
+   "name": "Branded in High Spirits",
+   "kind": "spell"
+  },
+  {
+   "id": 30271097,
+   "name": "The Fallen & The Virtuous",
+   "kind": "spell"
+  },
+  {
+   "id": 31010081,
+   "name": "DoomZ Break - Diactorus",
+   "kind": "monster"
+  },
+  {
+   "id": 32442017,
+   "name": "DoomZ Raiders",
+   "kind": "spell"
+  },
+  {
+   "id": 32548318,
+   "name": "Rahu Dracotail",
+   "kind": "spell"
+  },
+  {
+   "id": 32807846,
+   "name": "Reinforcement of the Army",
+   "kind": "spell"
+  },
+  {
+   "id": 33760966,
+   "name": "Dracotail Arthalion",
+   "kind": "monster"
+  },
+  {
+   "id": 37432075,
+   "name": "Invocation - \"Sword\"",
+   "kind": "spell"
+  },
+  {
+   "id": 42141493,
+   "name": "Mulcharmy Fuwalos",
+   "kind": "monster"
+  },
+  {
+   "id": 42302563,
+   "name": "Elfnote Seraphim Strelitzia",
+   "kind": "monster"
+  },
+  {
+   "id": 43989315,
+   "name": "Invoked Sorath",
+   "kind": "monster"
+  },
+  {
+   "id": 44362883,
+   "name": "Branded Fusion",
+   "kind": "spell"
+  },
+  {
+   "id": 45484331,
+   "name": "Springans Kitt",
+   "kind": "monster"
+  },
+  {
+   "id": 45883110,
+   "name": "Guiding Quem, the Virtuous",
+   "kind": "monster"
+  },
+  {
+   "id": 47679935,
+   "name": "Magical Meltdown",
+   "kind": "spell"
+  },
+  {
+   "id": 51669847,
+   "name": "Plundered Power Patron Plane - Vidolia",
+   "kind": "spell"
+  },
+  {
+   "id": 54265980,
+   "name": "DoomZ VII Seven - Elara",
+   "kind": "monster"
+  },
+  {
+   "id": 55273560,
+   "name": "Incredible Ecclesia, the Virtuous",
+   "kind": "monster"
+  },
+  {
+   "id": 56651978,
+   "name": "Elfnote Regina",
+   "kind": "monster"
+  },
+  {
+   "id": 57294268,
+   "name": "Aleister the Reminiscent",
+   "kind": "monster"
+  },
+  {
+   "id": 59438930,
+   "name": "Ghost Ogre & Snow Rabbit",
+   "kind": "monster"
+  },
+  {
+   "id": 59581480,
+   "name": "Elfnote Tinia",
+   "kind": "monster"
+  },
+  {
+   "id": 60303245,
+   "name": "Salamangreat Almiraj",
+   "kind": "monster"
+  },
+  {
+   "id": 60303688,
+   "name": "Dogmatika Ecclesia, the Virtuous",
+   "kind": "monster"
+  },
+  {
+   "id": 62962630,
+   "name": "Aluber the Jester of Despia",
+   "kind": "monster"
+  },
+  {
+   "id": 63926180,
+   "name": "Sacred Spirit Sword Aiwass",
+   "kind": "spell"
+  },
+  {
+   "id": 64491754,
+   "name": "Elfnotes: Welcome Home",
+   "kind": "spell"
+  },
+  {
+   "id": 65848113,
+   "name": "DoomZ XIII Over - Graflareio",
+   "kind": "monster"
+  },
+  {
+   "id": 70369116,
+   "name": "Predaplant Verte Anaconda",
+   "kind": "monster"
+  },
+  {
+   "id": 70488851,
+   "name": "Vidolium the Unstable Power Patron of Unity",
+   "kind": "monster"
+  },
+  {
+   "id": 70871153,
+   "name": "Dracotail Urgula",
+   "kind": "monster"
+  },
+  {
+   "id": 72323266,
+   "name": "Earthbound Prisoner Stone Sweeper",
+   "kind": "monster"
+  },
+  {
+   "id": 73642296,
+   "name": "Ghost Belle & Haunted Mansion",
+   "kind": "monster"
+  },
+  {
+   "id": 73819701,
+   "name": "Fallen of the White Dragon",
+   "kind": "monster"
+  },
+  {
+   "id": 74063034,
+   "name": "Invocation",
+   "kind": "spell"
+  },
+  {
+   "id": 75003700,
+   "name": "Dracotail Lukias",
+   "kind": "monster"
+  },
+  {
+   "id": 78058681,
+   "name": "Kewl Tune Synchro",
+   "kind": "spell"
+  },
+  {
+   "id": 78397661,
+   "name": "Ecclesia and the Dark Dragon",
+   "kind": "monster"
+  },
+  {
+   "id": 81650695,
+   "name": "Power Patron DoomZ",
+   "kind": "monster"
+  },
+  {
+   "id": 82489470,
+   "name": "The Golden Swordsoul",
+   "kind": "monster"
+  },
+  {
+   "id": 84054556,
+   "name": "DoomZ Command \"A.D.R.A.S.T.E.I.A.\"",
+   "kind": "spell"
+  },
+  {
+   "id": 84192580,
+   "name": "Mulcharmy Purulia",
+   "kind": "monster"
+  },
+  {
+   "id": 84288367,
+   "name": "Aiwass, Divine Spirit of the Law",
+   "kind": "monster"
+  },
+  {
+   "id": 89392810,
+   "name": "Kewl Tune Reco",
+   "kind": "monster"
+  },
+  {
+   "id": 89851827,
+   "name": "Secreterion Dragon",
+   "kind": "monster"
+  },
+  {
+   "id": 92472273,
+   "name": "DoomZ XII Zero - Drastea",
+   "kind": "monster"
+  },
+  {
+   "id": 94145021,
+   "name": "Droll & Lock Bird",
+   "kind": "monster"
+  },
+  {
+   "id": 95515789,
+   "name": "Blazing Cartesia, the Virtuous",
+   "kind": "monster"
+  },
+  {
+   "id": 97268402,
+   "name": "Effect Veiler",
+   "kind": "monster"
+  },
+  {
+   "id": 97474300,
+   "name": "Duelist Genesis",
+   "kind": "spell"
+  },
+  {
+   "id": 97556336,
+   "name": "Medius the Pure",
+   "kind": "monster"
+  }
+ ]
+}

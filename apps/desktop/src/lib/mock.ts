@@ -47,6 +47,7 @@ import type {
   SavedSearch,
   SearchResult,
   ShelfDeck,
+  TechTable,
   SimRule,
   WinRecord,
   ZoneCard,
@@ -69,6 +70,14 @@ interface Recorded {
   overview?: LabOverview;
 }
 const recorded: Recorded | null = Object.values(import.meta.glob<Recorded>("./fixtures/recorded.json", { eager: true, import: "default" }))[0] ?? null;
+
+/** A tech table of the real backend for the recorded deck (`duelforge-cli tech-table --json`), with the names of its cards. */
+interface RecordedTech {
+  table: TechTable;
+  cards: { id: number; name: string; kind: CardKind }[];
+}
+const recordedTech: RecordedTech | null =
+  Object.values(import.meta.glob<RecordedTech>("./fixtures/tech-table.json", { eager: true, import: "default" }))[0] ?? null;
 
 interface CardSeed {
   id: number;
@@ -796,6 +805,12 @@ const CARDS = new Map<number, Card>(CARD_SEEDS.map((s) => [s.id, makeCard(s)]));
 // Recorded cards fill the catalog; the seeds keep their placeholder texts.
 for (const c of recorded?.cards ?? []) {
   if (!CARDS.has(c.id)) CARDS.set(c.id, { ...c, desc: c.desc || "Testo della carta non incluso nell'anteprima." });
+}
+// The meta's cards of the recorded tech table, with their names only.
+for (const c of recordedTech?.cards ?? []) {
+  if (!CARDS.has(c.id)) {
+    CARDS.set(c.id, makeCard({ id: c.id, name: c.name, kind: c.kind, frame: c.kind, humanType: "", typeLine: [], desc: "Testo della carta non incluso nell'anteprima.", race: "" }));
+  }
 }
 const HANDTRAP_IDS = new Set<number>(CARD_SEEDS.filter((s) => s.handtrap).map((s) => s.id));
 
@@ -3075,6 +3090,22 @@ export const mockApi: Api = {
       { code: 26268488, place: "campo", holds: ["distruggere"], falls: ["bandire", "girare coperto", "negare"] },
       { code: 10045474, place: "campo", holds: [], falls: ["distruggere", "bandire"] },
     ];
+  },
+
+  techTable: async (deckId: number): Promise<TechTable> => {
+    await delay(900);
+    const deck = decksState.find((d) => d.id === deckId);
+    if (!deck) throw new Error("Il deck non esiste più");
+    if (!recordedTech) throw new Error("Nessuna tabella registrata per l'anteprima");
+    // The recorded rows of the handtraps this deck has, with its copies; the meta's numbers are the recorded deck's.
+    const table = structuredClone(recordedTech.table);
+    if (isRecordedDeck(deck.main, deck.extra, deck.side)) return { ...table, deckId };
+    const count = (ids: number[], code: number) => ids.filter((id) => id === code).length;
+    const rows = table.rows
+      .map((r) => ({ ...r, main: count(deck.main, r.code), side: count(deck.side, r.code) }))
+      .filter((r) => r.main + r.side > 0)
+      .map((r) => ({ ...r, chance: r.main === 0 ? 0 : pAtLeastOne(deck.main.length, r.main, 5) }));
+    return { ...table, deckId, rows };
   },
 
   comboMeta: async (boards?: { hand: number; key: string }[]): Promise<number> => {
