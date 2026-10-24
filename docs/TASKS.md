@@ -21,6 +21,9 @@ Regole in `AGENTS.md`. Per prendere un task, spostalo in "In corso" con agente, 
 - [ ] **Interfaccia: funzioni del motore solo da CLI, primo passo (andare secondo).** Sessione di un thread del progetto, branch `claude/project-thread-mij22g`, PR aperta il 24/10.
   Scheda «Per secondo» del Laboratorio (`SecondTab.tsx`) e comandi `second_*` (`lib.rs`, `api.ts`, `mock.ts`); piano in `docs/plans/andare-secondo.md`. Provata con backend finto e screenshot, non nell'app vera (nessun dato in sessione).
   Seguono nello stesso tema, una PR ciascuna: profilo «Interazione a fine turno» del Combo Lab, ottimizzatore Monte Carlo guidato dal motore.
+- [ ] **Mascotte nei pannelli info** (claude-code, branch `claude/project-thread-v1jfz3`, PR #166). L'Arcimago del design di Valerio in `InfoDialog` su `InfoButton` e `HelpPopover`, con `kind` per il glifo sulla lavagna.
+  - File: `Mascot.tsx`, `InfoDialog.tsx`, `InfoButton.tsx`, `ui/HelpPopover.tsx`, `index.css`.
+  - Resta: i testi per voce del design (probabilità, interruzioni, passi) non ripresi.
 
 ## Da fare (in ordine di priorità)
 
