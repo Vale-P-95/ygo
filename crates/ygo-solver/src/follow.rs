@@ -18,7 +18,7 @@ pub(crate) const PASS: [u8; 4] = (-1i32).to_le_bytes();
 /// The answers of the player of a line, without the other player's (with
 /// another deck the other player is asked at other moments), each with the
 /// kind of decision it answers.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub(crate) struct Script {
     pub(crate) answers: Vec<Vec<u8>>,
     pub(crate) kinds: Vec<Discriminant<Decision>>,

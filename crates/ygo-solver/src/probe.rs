@@ -1322,23 +1322,25 @@ struct TurnCopy {
     used: u64,
 }
 
-/// Your turn in a run: the answers of the line, or ending the turn at once.
-#[derive(PartialEq, Eq)]
+/// Your turn in a run: the answers of the line, a script of yours, or
+/// ending the turn at once.
+#[derive(PartialEq)]
 enum TurnKey {
     Line(Vec<Vec<u8>>),
     Cut(Vec<Vec<u8>>),
+    /// Your answers by what they do: in the same duel they play the same.
+    Own(Script),
     EndAtOnce,
 }
 
 impl TurnKey {
-    /// Your turn when it has copies: what follows a script of yours
-    /// ([`Prelude::Own`]) is played again.
+    /// Your turn, for the copies made where it ends.
     fn of(prelude: Prelude) -> Option<TurnKey> {
         match prelude {
             Prelude::Line(line) => Some(TurnKey::Line(line.answers.clone())),
             Prelude::Cut(line, at) => Some(TurnKey::Cut(line.answers[..at.min(line.answers.len())].to_vec())),
+            Prelude::Own(script) => Some(TurnKey::Own(script.clone())),
             Prelude::EndAtOnce | Prelude::Placed(_) => Some(TurnKey::EndAtOnce),
-            Prelude::Own(_) => None,
         }
     }
 }

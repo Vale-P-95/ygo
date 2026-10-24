@@ -182,6 +182,42 @@ fn the_probe_turn_plays_the_same_from_a_copy_of_the_duel() {
 }
 
 #[test]
+fn level_two_plays_the_same_from_a_copy_of_the_duel() {
+    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
+    let data = std::env::var_os("DUELFORGE_DATA").map(PathBuf::from).unwrap_or_else(|| root.join("data"));
+    if !data.join("scripts/constant.lua").is_file() {
+        eprintln!("skipped: no game data in {}", data.display());
+        return;
+    }
+    let engine = Engine::load(&data).expect("game data loads");
+    let deck = DeckList::from_ydk(&std::fs::read_to_string(root.join("tests/fixtures/decks/invoked-siracusa-md.ydk")).unwrap()).unwrap();
+    let rival =
+        DeckList::from_ydk(&std::fs::read_to_string(root.join("tests/fixtures/decks/invoked-siracusa-ewcq2026.ydk")).unwrap()).unwrap();
+    let kit = Kit::standard(&engine);
+    let hand = vec![ALEISTER, CHALICE, MELTDOWN, ASH, FUWALOS];
+    let mut config = SearchConfig::new(deck.clone(), hand.clone());
+    config.threads = 1;
+    config.max_nodes = 300;
+    config.time_limit = Duration::from_secs(300);
+    config.opponent = Some(kit.opponent().clone());
+    let result = search(&engine, &config, &AtomicBool::new(false), |_| {});
+    let line = &result.boards.first().expect("a board").line;
+    let lines = ygo_solver::rival_lines(&engine, &rival, 1, 2, 300, 1);
+    assert!(lines.iter().any(|l| !l.moves.is_empty()));
+    // Your turn played by your answers' script, then each line of the
+    // rival: every run from a copy is played in a new duel too, and one
+    // that differs fails (a run left out, so the measure differs below).
+    ygo_solver::probe::check_turn_copies(Some(1));
+    let checked = ygo_solver::against_moves(&engine, &deck, &hand, config.seed, line, &rival, &lines, &kit).expect("the same runs");
+    ygo_solver::probe::check_turn_copies(None);
+    assert_eq!(checked.lines, lines.iter().filter(|l| !l.moves.is_empty()).count());
+    // The runs with an answer come from the copies: some of them stop a move.
+    assert!(!checked.stops.is_empty());
+    let again = ygo_solver::against_moves(&engine, &deck, &hand, config.seed, line, &rival, &lines, &kit).unwrap();
+    assert_eq!(format!("{again:?}"), format!("{checked:?}"));
+}
+
+#[test]
 fn cards_alone_on_the_field_are_worth_what_they_stop() {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
     let data = std::env::var_os("DUELFORGE_DATA").map(PathBuf::from).unwrap_or_else(|| root.join("data"));
