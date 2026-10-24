@@ -23,7 +23,7 @@
 | 1 | L2-3 come ultimo gradino di default | #1 migliore in circa 1 mano su 5, nessuna peggiore; coppie giuste dal 68% al 94% | 15-20 $; circa 3 ore di CPU | `l23_fresh.py` e `l23_final.py` | **Non si fa** (resta a richiesta, decisione del 24/10) |
 | 2 | Livello 2 dalle copie del duello | L2-3 a richiesta e banco oggettivo circa −40% di tempo, uscite identiche | 15-20 $; circa 1 ora | Uscite identiche, `DUELFORGE_COPY_CHECK`, tempi | Subito, per prima |
 | 3 | Floodgate della misura economica 0,8 → 0,4 | Il taglio 30 → 15 segue il punteggio; meno #1 tagliati prima della misura completa | 5-8 $; circa 2 ore | `paired_test.py --staged` su taratura e freschi | Subito |
-| 4 | Rappresentante del campo scelto dalla misura economica | Recupera le varianti perse (Labrynth 1,28 → 1,59) | 20-25 $; 3-4 ore | `paired_test.py --staged`, oracolo, banco di generalità | **Fatto in `combos`** il 24/10: 12 meglio, 0 peggio, +14/+23% di tempo; l'app dopo |
+| 4 | Rappresentante del campo scelto dalla misura economica | Recupera le varianti perse (Labrynth 1,28 → 1,59) | 20-25 $; 3-4 ore | `paired_test.py --staged`, oracolo, banco di generalità | **Fatto in `combos`** il 24/10: 12 meglio, 0 peggio, +15/+22% di tempo; l'app dopo |
 | 5 | B1c, poi B11: priorità per rango e novità | Stessa qualità con metà dei nodi (quota a 4000 dal 73% al 79%) | 15 $ (B1c), 25-30 $ (B11); 3-5 ore ciascuna | Oracolo, `paired_test.py`, banco di generalità | Dopo la monotonia |
 
 Le stime in dollari sono a occhio, sul consumo delle sessioni del 23-24/10 con compiti simili.
@@ -107,14 +107,28 @@ Quando hai finito: TASKS.md e questo piano aggiornati, PR aperta, fermati.
 
 | `paired_test.py --staged 30,15`, 4000 nodi, un thread | mani | meglio | peggio | p | peggiore | secondi di tutta la run |
 |---|---|---|---|---|---|---|
-| taratura (fixture dell'oracolo, liste esatte con `oracle.py decks`) | 92 | 3 | 0 | 0,25 | 0% | 1905 → 2348 (+23%) |
-| freschi (liste MDM del 24/10, `mdm_decks.py`) | 91 | 9 | 0 | 0,004 | 0% | 2237 → 2557 (+14%) |
+| *con il floodgate 0,4 della misura economica (#146)* | | | | | | |
+| taratura (fixture dell'oracolo, liste esatte con `oracle.py decks`) | 92 | 3 | 0 | 0,25 | 0% | 1843 → 2129 (+15%) |
+| freschi (liste MDM del 24/10, `mdm_decks.py`) | 91 | 9 | 0 | 0,004 | 0% | 1954 → 2377 (+22%) |
 
-- **Insieme:** 12 meglio, 0 peggio su 183 mani; i guadagni vanno da +1,4% a +25% (blue_eyes-0 1,18 → 1,47, fur_hire-1 0,78 → 0,97, lunalight-1 0,83 → 1,04) e su mani deboli molto di più (gem_knights-1 0,12 → 0,92). Il tempo in più è tutto nei turni di prova, sotto il +30% del brief; la ricerca non cambia.
+- **Insieme:** 12 meglio, 0 peggio su 183 mani, le stesse prima e dopo il floodgate 0,4 (prima del merge di #146: +23% e +14% di tempo); i guadagni vanno da +1,4% a +25% (blue_eyes-0 1,18 → 1,47, fur_hire-1 0,78 → 0,97, lunalight-1 0,83 → 1,04) e su mani deboli molto di più (gem_knights-1 0,12 → 0,92). Il tempo in più è tutto nei turni di prova, sotto il +30% del brief; la ricerca non cambia.
 - **Labrynth:** con la lista del 24/10 la mano hunt-labrynth-0 è un'altra (0,92 prima e dopo, anche a 8000 e 20 000 nodi), quindi il caso 1,28 → 1,59 del §11 della caccia ai bug non si rifà; resta il test appaiato.
 - **Non misurato qui:** le cadute fra 500 e 8000 nodi. Senza `--checkpoints` la monotonia non c'è (21 su 91 su `main`) e questa PR non la promette; con `--checkpoints` la cache resta per linea.
 - **Prova equa sulle 406 board:** identica per costruzione, la misura (`probe.rs`, `probe-line`) non cambia.
 - **Dopo:** l'app (`lib.rs`, `look_key`) con la stessa scelta, in una seconda PR.
+
+**Brief della seconda PR, l'app** (passaggio di consegne: la sessione della prima PR era vicina ai 200k di contesto).
+```
+Compito: in combo_score (lib.rs) ogni aspetto (look_key) dei CHEAP_BOARDS prende la misura economica su fino a 3 varianti con Cimitero e bandite diversi; lo rappresenta la migliore, ed è lei che va alla misura completa.
+Perché: questo piano §4, «Esito» (in combos 12 mani meglio, 0 peggio). Oggi `candidates` tiene la prima board di ogni aspetto nell'ordine della ricerca, col commento «boards that differ only in the Graveyard or the banished cards score the same», che la misura smentisce.
+Branch: claude/<tema>, da main con #149
+File: apps/desktop/src-tauri/src/lib.rs (combo_score; caldo: lock in TASKS.md); Combo.tsx solo se la pagina mostra più board per aspetto quando arrivano i combo-score delle varianti scartate
+Da leggere: combos in crates/ygo-cli/src/main.rs (`variants`, `Measurer::stop`), #150 (le board misurate restano dopo «Continua»: job.cheap è per board.key, le varianti misurate devono restarci senza diventare aspetti in più)
+Verifica: cargo clippy e test; pnpm typecheck e build; app vera (pnpm tauri dev con DUELFORGE_DATA) su una mano Invoked e una Labrynth: numero di aspetti uguale, punteggio del primo uguale o migliore, tempo della valutazione al massimo +30%
+Criterio: nessun aspetto in più nella lista, la misura non cambia (prova equa identica), tempo ≤ +30%
+Modello: Opus 5.5 alto
+Quando hai finito: TASKS.md, STATO.md e questo piano aggiornati, PR aperta, fermati.
+```
 
 ## 5. B1c, poi B11: priorità per rango e novità prima
 **Evidenza.** A 4000 nodi la ricerca arriva al 73% mediano dell'oracolo, e solo 19 mani su 88 al 95%; da 4000 a 8000 nodi si guadagnano 6 punti. Un quarto dei nodi non cambia nulla di visibile e un quarto è già visto (A2). B1a ha mostrato che l'ordine fra fratelli alla **stessa** priorità non conta (15 meglio, 9 peggio, p = 0,31): conta dare priorità diverse, cioè B1c (la penalità di deviazione cresce col rango in `dive_order`, al posto dello 0,6 uguale per tutte) e B11 (novità come chiave, stima come spareggio; idea 6 della seconda revisione). Il guadagno possibile è il più grande, ma tocca il cuore di `search.rs` e il suo test appaiato è rumoroso finché la monotonia non c'è (`monotonia-budget.md`).
