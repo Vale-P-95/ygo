@@ -75,7 +75,14 @@ export function SimulatorTab({ deckId, main, roles, cond, hand, getCard }: Props
 
   const condKey = JSON.stringify(cond);
   useEffect(() => {
-    api.labProbability(main, roles, cond, handSize).then((r) => setExact(r.p));
+    let stale = false;
+    api
+      .labProbability(main, roles, cond, handSize)
+      .then((r) => !stale && setExact(r.p))
+      .catch((e) => !stale && toast(`Probabilità esatta non calcolata: ${e}`, "error"));
+    return () => {
+      stale = true;
+    };
   }, [main, roles, condKey, handSize]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const rule = (id: number) => rules.find((r) => r.id === id);
