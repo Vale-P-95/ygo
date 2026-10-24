@@ -630,6 +630,69 @@ export interface TechTable {
   rows: TechRow[];
 }
 
+/** A deck of the meta to go second against (mirrors `SecondOpponentView`). */
+export interface SecondOpponent {
+  name: string;
+  /** Its `popRank` on Master Duel Meta (share of the ranked top decks, %). */
+  weight: number;
+}
+
+/** What "Per secondo" asks (mirrors `SecondRequest`). */
+export interface SecondRequest {
+  deckId: number;
+  /** Name of the opponent's deck, among `SecondOpponent`. */
+  vs: string;
+  /** Your hands of 6, and the nodes the search spends on each. */
+  hands: number;
+  nodes: number;
+}
+
+/** The opponent's board you play against (mirrors `SecondRivalView`). */
+export interface SecondRival {
+  hand: number[];
+  /** Cards on its field, each with what the board loses without it. */
+  worth: { code: number; worth: number }[];
+  /** Cards whose effects it answers your turn with. */
+  responders: number[];
+  value: number;
+}
+
+/** One hand of yours against the board (mirrors `SecondHandView`). */
+export interface SecondHand {
+  hand: number[];
+  /** Breakers of your deck in the hand. */
+  breakers: number;
+  /** Share of the board's value left after your turn, less the Life Points taken (0-1; 1 when the hand does nothing). */
+  share: number;
+  /** Opponent's cards still on its field. */
+  kept: number[];
+  /** Life Points the opponent lost. */
+  damage: number;
+  /** The line that leaves the opponent the least, step by step; null when the search found no line. */
+  line: string[] | null;
+}
+
+/** "Per secondo" for a deck against a deck of the meta (mirrors `SecondResultView`). */
+export interface SecondResult {
+  deckId: number;
+  vs: string;
+  rival: SecondRival;
+  /** Cards of your deck the engine can play to break a board. */
+  breakers: number[];
+  hands: SecondHand[];
+  /** Hands asked for. */
+  asked: number;
+  seconds: number;
+  stopped: boolean;
+}
+
+/** Progress of "Per secondo": the result so far (`second-progress`). */
+export interface SecondProgress {
+  deckId: number;
+  vs: string;
+  result: SecondResult | null;
+}
+
 /** A deck of the meta in the tech table (mirrors `TechDeckView`). */
 export interface TechDeck {
   name: string;
@@ -1058,6 +1121,16 @@ const tauriApi = {
    * Reading the meta's lines takes a few minutes the first time in a session, then about half a minute a deck.
    */
   techTable: (deckId: number) => invoke<TechTable>("tech_table", { deckId }),
+  /** "Per secondo": the most played decks of the meta, to pick the opponent. Reads the meta the first time in a session. */
+  secondOpponents: () => invoke<SecondOpponent[]>("second_opponents"),
+  /**
+   * "Per secondo": the opponent's best board, then hands of 6 of the deck play against it (answers and Battle Phase). Takes minutes:
+   * each hand arrives on `onSecondProgress`; `secondCancel` stops after the hand being played, and the call returns what was done.
+   */
+  secondRun: (request: SecondRequest) => invoke<SecondResult>("second_run", { request }),
+  secondCancel: () => invoke<void>("second_cancel"),
+  onSecondProgress: (handler: (p: SecondProgress) => void): Promise<UnlistenFn> =>
+    listen<SecondProgress>("second-progress", (e) => handler(e.payload)),
   onComboProgress: (handler: (p: ComboProgress) => void): Promise<UnlistenFn> => listen<ComboProgress>("combo-progress", (e) => handler(e.payload)),
   /** Laboratorio, "Collegamenti": the map of a deck, read by the engine (about half a minute the first time, then kept until its cards change). */
   deckLinks: (deckId: number) => invoke<DeckLinks>("deck_links", { deckId }),

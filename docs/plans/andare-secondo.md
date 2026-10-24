@@ -51,4 +51,5 @@ Il mio turno ora viene dopo il suo, con la Battle Phase, e il valore conta anche
 ## Prossimi passi
 - [fatto il 24/10] Risposte dell'avversario dalle interruzioni misurate (limite 1). Resta il momento giusto per rispondere.
 - [fatto il 24/10] Turno con Battle Phase e danno (limite 2). Poi una tabella «per secondo» per il Laboratorio e il banco della misura (40 mani × 6 deck del meta).
-- Interfaccia: dopo i due punti sopra, con un mockup.
+- [fatto il 24/10] Interfaccia: scheda «Per secondo» nel Laboratorio (menu «Altro»): si sceglie un deck tra i 12 più giocati del meta e 6, 10 o 16 mani; la board avversaria, le mani una per una (quota che resta, LP tolti, linea) e «Ferma». Comandi `second_opponents`, `second_run`, `second_cancel`, evento `second-progress`. Senza mockup di Design e provata solo con il backend finto (numeri inventati, nessuna risposta registrata).
+- Poi: tabella «per secondo» e banco della misura (40 mani × 6 deck).

@@ -40,6 +40,8 @@ struct AppState {
     meta: Mutex<Option<MetaCache>>,
     /// The last tech table, and the cards (Main, Extra, Side) of its deck.
     tech: Mutex<Option<(Vec<u32>, TechTableView)>>,
+    /// Set to stop the running "per secondo" measure.
+    second_cancel: AtomicBool,
 }
 
 /// The decks of the meta and, once read, the most played ones with their
@@ -2500,6 +2502,175 @@ async fn tech_table(app: tauri::AppHandle, state: State<'_, AppState>, deck_id: 
     .map_err(|e| e.to_string())?
 }
 
+/// A deck of the meta to go second against.
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct SecondOpponentView {
+    name: String,
+    /// Its `popRank` on Master Duel Meta (share of the ranked top decks, %).
+    weight: f64,
+}
+
+/// The most played decks of the meta, to pick the opponent of "Per secondo".
+#[tauri::command]
+async fn second_opponents(state: State<'_, AppState>) -> Result<Vec<SecondOpponentView>, String> {
+    let decks = meta_decks(&state).await?;
+    Ok(ygo_solver::most_played(&decks, SECOND_OPPONENTS)
+        .into_iter()
+        .map(|d| SecondOpponentView { name: d.name, weight: d.weight })
+        .collect())
+}
+
+/// Decks offered as the opponent of "Per secondo".
+const SECOND_OPPONENTS: usize = 12;
+/// Seed of "Per secondo": the Combo Lab's default.
+const SECOND_SEED: u64 = 1;
+
+#[derive(serde::Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct SecondRequest {
+    deck_id: i64,
+    /// Name of the opponent's deck, among [`second_opponents`].
+    vs: String,
+    /// Your hands of 6, and the nodes the search spends on each.
+    hands: usize,
+    nodes: u64,
+}
+
+/// The opponent's board: the best of its hands, and what it answers with.
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct SecondRivalView {
+    hand: Vec<u32>,
+    /// Cards on its field, each with what the board loses without it.
+    worth: Vec<SecondWorthView>,
+    /// Cards whose effects it answers your turn with.
+    responders: Vec<u32>,
+    value: f64,
+}
+
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct SecondWorthView {
+    code: u32,
+    worth: f64,
+}
+
+/// One hand of yours against the board ([`ygo_solver::BrokenBoard`]).
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct SecondHandView {
+    hand: Vec<u32>,
+    /// Breakers of your deck in the hand.
+    breakers: usize,
+    /// Share of the board's value left after your turn, less the Life Points taken (0-1; 1 when the hand does nothing).
+    share: f64,
+    /// Opponent's cards still on its field.
+    kept: Vec<u32>,
+    /// Life Points the opponent lost.
+    damage: i32,
+    /// The line that leaves the opponent the least, step by step; none when the search found no line.
+    line: Option<Vec<String>>,
+}
+
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct SecondResultView {
+    deck_id: i64,
+    vs: String,
+    rival: SecondRivalView,
+    /// Cards of your deck the engine can play to break a board.
+    breakers: Vec<u32>,
+    hands: Vec<SecondHandView>,
+    /// Hands asked for: less than that when stopped.
+    asked: usize,
+    seconds: f64,
+    /// Whether the run was stopped before the last hand.
+    stopped: bool,
+}
+
+/// Progress of [`second_run`]: the result so far, `rival` first.
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct SecondProgressView {
+    deck_id: i64,
+    vs: String,
+    result: Option<SecondResultView>,
+}
+
+/// "Per secondo": the best board of a deck of the meta from random hands of
+/// 5, then random hands of 6 of yours play their turn against it, with its
+/// answers and your Battle Phase ([`ygo_solver::break_board`]). Each hand is
+/// sent as it ends (`second-progress`); `second_cancel` stops after the hand
+/// being played.
+#[tauri::command]
+async fn second_run(app: tauri::AppHandle, state: State<'_, AppState>, request: SecondRequest) -> Result<SecondResultView, String> {
+    let deck = state.with_user(|u| u.get(request.deck_id))?.ok_or("Il deck non esiste più")?;
+    let decks = meta_decks(&state).await?;
+    let theirs = decks.iter().find(|d| d.name == request.vs).ok_or("Il deck avversario non è più nel meta")?.list.clone();
+    state.second_cancel.store(false, Ordering::Relaxed);
+    tauri::async_runtime::spawn_blocking(move || {
+        let state = app.state::<AppState>();
+        let engine = state.engine()?;
+        let mine = ygo_engine::DeckList { main: deck.main.clone(), extra: deck.extra.clone(), side: deck.side.clone() };
+        let threads = std::thread::available_parallelism().map_or(4, |n| n.get());
+        let kit = ygo_solver::Kit::standard(&engine);
+        let started = std::time::Instant::now();
+        let rival = ygo_solver::rival_board(&engine, &theirs, SECOND_SEED, 8, request.nodes, threads, &kit)
+            .ok_or("Nessuna mano del deck avversario fa una board")?;
+        let breakers = ygo_solver::Rival::new(&engine, &mine, SECOND_SEED, &kit).breakers().to_vec();
+        let db = engine.cards();
+        let mut view = SecondResultView {
+            deck_id: request.deck_id,
+            vs: request.vs.clone(),
+            rival: SecondRivalView {
+                hand: rival.hand.clone(),
+                worth: rival.worth.iter().map(|&(code, worth)| SecondWorthView { code, worth }).collect(),
+                responders: rival.responders.iter().map(|r| r.0).collect(),
+                value: rival.value,
+            },
+            breakers: breakers.clone(),
+            hands: Vec::new(),
+            asked: request.hands,
+            seconds: started.elapsed().as_secs_f64(),
+            stopped: false,
+        };
+        let progress = |view: &SecondResultView| {
+            let _ =
+                app.emit("second-progress", SecondProgressView { deck_id: view.deck_id, vs: view.vs.clone(), result: Some(view.clone()) });
+        };
+        progress(&view);
+        let config = ygo_solver::BreakConfig { seed: SECOND_SEED, nodes: request.nodes, threads, top: 5, answers: true };
+        for hand in ygo_solver::second::random_hands(&mine.main, 6, request.hands, SECOND_SEED) {
+            if state.second_cancel.load(Ordering::Relaxed) {
+                view.stopped = true;
+                break;
+            }
+            let broken = ygo_solver::break_board(&engine, &mine, &theirs, &hand, &rival, &kit, &config).map_err(|e| e.to_string())?;
+            let count = hand.iter().filter(|c| breakers.iter().any(|b| db.canonical_code(*b) == db.canonical_code(**c))).count();
+            view.hands.push(SecondHandView {
+                hand,
+                breakers: count,
+                share: broken.share,
+                kept: broken.kept,
+                damage: broken.damage,
+                line: broken.line,
+            });
+            view.seconds = started.elapsed().as_secs_f64();
+            progress(&view);
+        }
+        view.seconds = started.elapsed().as_secs_f64();
+        Ok(view)
+    })
+    .await
+    .map_err(|e| e.to_string())?
+}
+
+#[tauri::command]
+fn second_cancel(state: State<'_, AppState>) {
+    state.second_cancel.store(true, Ordering::Relaxed);
+}
+
 fn meta_final(
     app: &tauri::AppHandle,
     state: &AppState,
@@ -2883,6 +3054,7 @@ pub fn run() {
                 rival_lines: Mutex::new(HashMap::new()),
                 meta: Mutex::new(None),
                 tech: Mutex::new(None),
+                second_cancel: AtomicBool::new(false),
             };
             state.open_store();
             app.manage(state);
@@ -2950,6 +3122,9 @@ pub fn run() {
             combo_scores,
             combo_meta,
             tech_table,
+            second_opponents,
+            second_run,
+            second_cancel,
             deck_links,
             deck_links_compare,
             combo_cancel,
