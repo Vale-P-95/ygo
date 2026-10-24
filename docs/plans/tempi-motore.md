@@ -8,7 +8,7 @@
   1. **Giri di selezioni senza fine.** In Fur Hire ed Elfnote molte corse restano chiuse in una selezione che torna al punto di partenza (scegli il Mostro Fusione, scegli i materiali, si torna alla scelta del Fusione) per 1900 volte, fino al tetto di 4000 decisioni, e poi la corsa fallisce comunque. Fur Hire passava l'82% del suo tempo lì.
   2. **Il turno dell'avversario rigiocato fino alla finestra** a ogni corsa: nei deck normali è circa metà del costo di quelle corse.
 - **Fatte tutte e due, con uscite identiche** a `main`: 19 mani del banco di generalità 466 → 337 s (−28%; Fur Hire 167 → 22 s, Elfnote 53 → 22 s); `paired_test.py` su 91 mani senza giri di selezioni 91 pari, tempo −13%.
-- **Il resto** è in ordine di guadagno sul costo nella tabella finale; la prima da fare dopo è la risposta giusta alle selezioni che girano (cambia la misura, va giudicata con la prova equa).
+- **Il resto** è in ordine di guadagno sul costo nella tabella finale; la risposta giusta alle selezioni che girano è fatta (sotto): era una risposta «Annulla» scelta per sbaglio.
 
 ## Come si è misurato
 - **Mani:** 19 del banco di generalità (`tests/fixtures/generality/sets.json`): un deck di taratura ogni cinque (9) e un deck fresco ogni due (10), la mano 0 di ognuno estratta come in `generality.py`. Come `generality.py run`: 4000 nodi, un thread, `--top 10 --probe --seed 7`, quattro mani alla volta.
@@ -71,12 +71,21 @@ Le copie si fanno solo dove servono: farle a ogni finestra durante la corsa senz
 - **19 mani del banco di generalità** (quattro alla volta): 466 → 337 s (−28%). JSON identici in 19 mani su 19, a parte i tempi; con `DUELFORGE_COPY_CHECK=1` (ogni corsa da una copia rigiocata in un duello nuovo e confrontata) 0 differenze. Le due mani con i giri, rifatte da sole: Fur Hire 166,7 → 21,7 s, Elfnote 53,2 → 22,0 s. Le mani normali rifatte da sole: Phantom Knights 20,6 → 17,6 s, Regenesis 34,2 → 25,4 s, Blitzclique 13,4 → 12,0 s, Sacred Beasts 10,5 → 10,2 s; nel giro a quattro alcune sembravano più lente (Blitzclique 13,7 → 24,2 s), ma la macchina compilava in quel momento.
 - **`paired_test.py`** (14 mani del banco e 77 di `combo_hunt --seed 7`, 4000 nodi, un thread, stesse condizioni per i due lati): 91 pari, 0 meglio, 0 peggio, ACCEPTED; tempo delle run 1472 → 1282 s (−13%), ricerca 496 → 447 s (i giri di apprendimento). JSON identici in 87 mani; nelle altre 4 cambia solo l'ultima cifra di `countered`, come fra due giri di `main` (somme fatte in un ordine diverso). Nessuna di queste mani ha i giri di selezioni: il −13% è delle copie alle finestre. La mano più lenta: radiant_typhoon_zoodiac-1 5,4 → 6,4 s; la più veloce heros-1 19,3 → 5,2 s.
 
+## La terza correzione: le selezioni non si annullano più (24/10)
+*Thread «Accelerare ancora il motore», branch `claude/project-thread-gw025y` da `main` 1b25f3e.*
+- **Il perché del giro.** Non era la scelta dei materiali a non chiudere la selezione: era la nostra risposta che sceglieva «Annulla». `forward_by` (le selezioni a una carta alla volta) prendeva come carte da scegliere le prime `selectable.len()` risposte della lista; ma la lista offre una sola volta le copie della stessa carta (due Fur Hire nel Deck sono una risposta), quindi è più corta, e «Annulla» (o una carta da togliere) finiva dentro. Senza carta, «Annulla» ha valore, Livello e ATK zero: per la regola «la più debole prima» vinceva lei. L'effetto tornava alla scelta del Mostro Fusione, e così via fino al taglio delle 64 domande.
+- **La correzione.** Le carte da scegliere sono solo le risposte che prendono una carta di `selectable` (indice nella risposta). Vale per tutte le selezioni di questo tipo nel turno di prova: le tue risposte, quelle dell'avversario del kit e quelle del deck avversario del livello 2 (`matchup.rs` usa la stessa funzione). Un test (`picking_goes_forward_with_copies_offered_once`) riproduce il caso con due copie.
+- **Giri rimasti** (63 mani `quick`, contatore provvisorio sul taglio, non nella PR): su `main` 4 mani con 127 tagli (Magistus Witchcrafter 67, Dracotail 28, Elfnote Kewl Tune 16, Shaddoll 16); dopo, 0.
+- **Banco congelato, classe M** (`banco.py run … --set full --jobs 4 --measure-cli <branch>`, 34 minuti): 185 uscite su 193 identiche; delle 8 cambiate, rimisurate con la CLI del branch, 1 meglio (Tearlaments, mano 1: +6,2%) e 7 pari; nessuna peggiore, nessuna run rotta; media +0,03% (0,00% a +0,10%); freschi 60 pari; tempo 0,991 (0,986-0,996). `judge --measure-cli`: ACCEPTED. `coverage` su Fur Hire (24 mani): una mano 7,1 → 7,3, le altre uguali.
+- **Tempo.** Il guadagno vero l'aveva già dato il taglio: un giro tagliato a 64 domande costava poco. Qui il −1% è il resto; il valore della correzione è che quelle risposte ora si giocano, invece di perdere la finestra.
+- **Verità v1** non c'è ancora (`regole-motore.md` §4): per la regola, una PR della misura la decide il proprietario.
+
 ## Tecniche, in ordine di guadagno sul costo
 | # | Tecnica | Guadagno atteso | Costo e rischio | Stato |
 |---|---|---|---|---|
 | 1 | Taglio dei giri (rilevamento di cicli) | −87% Fur Hire, −59% Elfnote; 0 nei deck senza giri | 30 righe; non dimostrabile, uscite identiche sul campione | **Fatto** |
 | 2 | Copie alle finestre (checkpoint del prefisso comune, come Forge e ygorl) | −30% delle corse `UseAt`, −5/−20% a mano normale | 250 righe sopra B13; esatto | **Fatto** |
-| 3 | Rispondere bene alle selezioni che girano (chiudere la selezione o annullarla) | quanto il taglio, e in più la risposta conta davvero (oggi la finestra si perde) | piccolo in `your_answer`; cambia la misura di quei deck: prova equa e `paired_test.py` | Prossimo |
+| 3 | Rispondere bene alle selezioni che girano (chiudere la selezione o annullarla) | il tempo l'aveva già preso il taglio (−1% sul banco); in più la finestra conta davvero | 10 righe in `forward_by`; cambia la misura di 8 mani su 193 | **Fatto** (sotto) |
 | 4 | Valori delle carte su disco, per deck, script e kit | −3/4 s a mano: −14% sui banchi (4 run per deck nel banco di generalità), 0 nell'app | invalidazione (versione degli script, del kit e del motore) | Da fare per i banchi |
 | 5 | Memoria delle corse (tabella di trasposizione sulle corse: stessa linea, politica, contesto) | 4% | piccolo; chiave completa obbligatoria | Da fare, piccolo |
 | 6 | Extra Deck del kit più leggero (meno copie di mostri con procedura di Evocazione) | fino a un terzo delle azioni dell'avversario, da misurare | cambia la misura: prova equa | Da misurare |
@@ -92,4 +101,4 @@ Le fonti per 2, 4 e 5 sono in `revisione-bibliografica-2.md` §4.4 (Jinnai & Fuk
 - `cargo fmt`, `clippy -D warnings`, `cargo test --release` e `search_regression`: tutti verdi.
 
 ## Prossimo passo
-La 3: quando una selezione torna al punto di partenza, rispondere in un altro modo (un'altra combinazione di materiali, o annullare l'effetto) invece di ripetere la stessa scelta. Giudice: prova equa sulle 406 board e `paired_test.py`; il guadagno di tempo c'è già con il taglio, quindi la 3 si tiene solo se migliora o non cambia le coppie giuste.
+La 4 per i banchi (valori delle carte su disco, −14% sui giri del banco) o la 5 (memoria delle corse, −4%, classe E); per l'app la 7 (misura finale delle 10 board su più thread). Il taglio dei giri resta come rete di sicurezza: su 63 mani non scatta più.

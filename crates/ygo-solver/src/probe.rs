@@ -3249,9 +3249,14 @@ fn forward_by<K: Ord>(decision: &Decision, actions: &[Action], key: impl Fn(&Act
             return Some(a.response.clone());
         }
     }
-    // Picks of the selectable cards come first in the list of answers.
-    let picks = &actions[..selectable.len().min(actions.len())];
-    picks.iter().min_by_key(|a| key(a)).map(|a| a.response.clone())
+    // Only picks of the selectable cards: the list has one per card that
+    // differs (copies of a card are offered once), then the cards to take
+    // back and Cancel, which would take the effect back to its start.
+    let picked = |a: &Action| match *a.response.as_slice() {
+        [_, _, _, _, a, b, c, d] => (i32::from_le_bytes([a, b, c, d]) as usize) < selectable.len(),
+        _ => false,
+    };
+    actions.iter().filter(|a| a.kind == ActionKind::Choose && picked(a)).min_by_key(|a| key(a)).map(|a| a.response.clone())
 }
 
 /// Your other decisions while answering: aim at the opponent's cards, the
@@ -3365,4 +3370,51 @@ pub(crate) fn find_act(engine: &Engine, actions: &[Action], act: Act) -> Option<
             }
         })
         .map(|a| a.response.clone())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ygo_engine::{actions_with, CardDb, CardRef};
+
+    fn card(code: u32, sequence: u32) -> CardRef {
+        CardRef { code, controller: 0, location: location::DECK, sequence, position: 0 }
+    }
+
+    #[test]
+    fn picking_goes_forward_with_copies_offered_once() {
+        // Two copies of a card in the Deck are one answer: the list is
+        // shorter than the cards, and Cancel would come right after them.
+        let decision = Decision::SelectUnselectCard {
+            player: 0,
+            finishable: false,
+            cancelable: true,
+            min: 2,
+            max: 2,
+            selectable: vec![card(20, 1), card(20, 2), card(10, 3)],
+            unselectable: vec![],
+            hint: 0,
+        };
+        let actions = actions_with(&decision, &CardDb::default(), &[]);
+        assert_eq!(actions.len(), 3);
+        let least_code = |a: &Action| a.card.map_or(0, |c| c.code);
+        let mut pick = 1i32.to_le_bytes().to_vec();
+        pick.extend_from_slice(&2i32.to_le_bytes());
+        assert_eq!(forward_by(&decision, &actions, least_code), Some(pick));
+        // A card picked is never taken back, even when it would come first.
+        let decision = Decision::SelectUnselectCard {
+            player: 0,
+            finishable: false,
+            cancelable: true,
+            min: 2,
+            max: 2,
+            selectable: vec![card(20, 1)],
+            unselectable: vec![card(10, 3)],
+            hint: 0,
+        };
+        let actions = actions_with(&decision, &CardDb::default(), &[]);
+        let mut pick = 1i32.to_le_bytes().to_vec();
+        pick.extend_from_slice(&0i32.to_le_bytes());
+        assert_eq!(forward_by(&decision, &actions, least_code), Some(pick));
+    }
 }
