@@ -6,9 +6,6 @@ Le righe storiche con Gemini restano come cronologia; il contratto (`lib.rs`, `a
 Regole in `AGENTS.md`. Per prendere un task, spostalo in "In corso" con agente, branch e file che tocchi (è il lock), poi committa e pusha questa modifica prima di cominciare.
 
 ## In corso
-- [ ] **Icone degli attributi.** Al posto delle scritte DARK/LIGHT/... icone SVG originali (`AttributeIcon.tsx`), nome in tooltip e aria-label. Branch `claude/project-thread-onboun`.
-  File: `components/AttributeIcon.tsx`, `CardDetails`, `CardInspector`, `CardPreview`, `CardList`, `FilterPanel`.
-  Bozza: attende l'OK di Valerio sugli screenshot (`/screens/attributi/`).
 - [ ] **Corsia 2.** Deck lenti (piano P3):
 - [ ] **Corsia 3.** Collaudo:
 - [ ] **Corsia 4, decimo task.** Punto 4 della caccia ai bug (`docs/plans/caccia-bug-motore.md`): nessuna etichetta delle azioni nel turno di prova, dove non si mostrano. Branch `claude/placed-cards`. File: `crates/ygo-engine/src/actions.rs` (etichette a richiesta, `without_labels`), `crates/ygo-engine/src/lib.rs`, in … (testo completo in `docs/archive/TASKS-storico.md`)
