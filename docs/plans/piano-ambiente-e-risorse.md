@@ -243,7 +243,7 @@ Resta la memoria operativa nei giorni con coordinatrice; altrimenti si aggiorna 
 9. **Poi, uno per sessione, al massimo tre in parallelo**:
    - [fatto il 24/10] i due pesi del punteggio proposti dalla §7 (resilienza 0,6 → 0, floodgate 0,8 → 0,4): confermati sui 20 deck freschi del banco di generalità (coppie giuste 80,4% → 86,0%, p < 0,001), cambiati insieme in `bench.py`, CLI, `lib.rs`, `scoring.ts` (`ricerca-esperimenti.md` §7). Resta da provare il floodgate della misura economica;
    - [fatto] le board `cheap: true`: scheda e interruttore `SEND_CHEAP_SCORES` nella stessa PR;
-   - B8, obiettivi ricchi: mockup, poi contratto e interfaccia (Opus);
+   - B8, obiettivi ricchi: motore e contratto fatti il 24/10; restano mockup e interfaccia (Opus);
    - [fatto] i punti 3, 5 e 6 della caccia ai bug; [fatto il 24/10] l'arena nel turno di prova; [fatto il 24/10] il caso Vendread (Opus, `docs/plans/robustezza.md`);
    - il simulatore (#36): mockup prima.
 

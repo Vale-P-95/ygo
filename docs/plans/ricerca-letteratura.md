@@ -300,6 +300,8 @@ Ogni idea ha impatto, sforzo e rischi. Le prime tre sono le più utili.
 
 ## 5. Obiettivi più ricchi
 
+*Il 24/10 sono entrati i posti di ogni carta e i segni duro e morbido (motore e contratto, `ricerca-piano-critico.md` B8); la sezione «Oggi» descrive lo stato di prima.*
+
 ### Oggi
 - `Goal { on_field: Vec<GoalCard { code, zone: Any | Extra | Main }>, all, first_only }`, più `keep_in_hand` come filtro duro separato.
 - `hits()` conta i mostri scoperti nelle Zone Mostri Principali ed Extra, e qualunque carta nella fila Magie e Trappole come `Any`, coperta o no.

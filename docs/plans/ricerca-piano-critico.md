@@ -269,6 +269,15 @@ Ogni correzione è generale: niente nomi di carte. Segue il protocollo del motor
   - Il contratto `lib.rs` ↔ `api.ts` cambia in una PR di Claude; poi Gemini fa l'interfaccia. Gli obiettivi salvati oggi restano validi.
   - In un secondo passo, vincoli sui materiali (ad esempio Aeon con 3 o più materiali).
   - **Controllo:** un obiettivo con una Trappola coperta e una carta nel Cimitero si raggiunge su Labrynth e Branded, e un obiettivo impossibile riceve il verdetto giusto.
+  - **Motore e contratto, fatti (24/10, thread «Aggiungere gli obiettivi ricchi al motore»):**
+    - l'obiettivo sta in `crates/ygo-solver/src/goal.rs`; ogni carta ha un posto (`GoalZone`: campo, Mostro Principale, Extra, Mostro qualsiasi, Magia/Trappola scoperta, coperta, Zona Terreno, Cimitero, bandita, mano) e il segno duro o morbido;
+    - i duri restano la prima chiave di `rank()` e valgono 3 nella stima, come prima; i morbidi valgono 1 nella stima e nel secondo criterio di `rank()`; un obiettivo di soli morbidi non ha verdetto;
+    - le carte fuori dal campo contano per il verdetto solo sulle board giocate fino alla Fase Finale;
+    - ogni posto giudica la scelta a modo suo (`GoalZone::pick`): uno scarto va verso il Cimitero, giocare una carta voluta in mano la allontana;
+    - i conteggi: prima i duri, poi i posti più stretti, così una carta conta una volta sola e il conteggio è il migliore;
+    - CLI: `--goal "Nome@posto;~Nome"` (`extra`, `main`, `monster`, `faceup`, `set`, `fieldzone`, `gy`, `banished`, `hand`); contratto: i posti nuovi in `GoalZone`, `hard` facoltativo (gli obiettivi salvati restano validi), `goalSoft` sulle board.
+    - **Controllo:** Labrynth (Arianna, Big Welcome Labrynth, Dominus Impulse, Trap Trick, Fydraulis Harmonia) «Dominus Impulse coperta + Arianna nel Cimitero» in 31 nodi, «Lady Labrynth + Big Welcome coperta + Trap Trick nel Cimitero» in 46; Branded (Aluber, Branded Fusion, Fallen of Albaz, Ash, Nadir Servant) «Branded in High Spirits coperta + Albaz nel Cimitero» in 320. Nove obiettivi nel `search_regression` (raggiungibili e impossibili per i posti nuovi, morbidi). Senza obiettivo: `paired_test.py` 91 mani pari (ACCEPTED) e board, linee e misure identiche in tutte (a parte l'ultima cifra di `countered` in 3, come tra due giri di `main`).
+    - **Restano:** gli atomi sull'avversario (carte tolte dal suo Extra Deck, dopo B5a), i vincoli sui materiali, il messaggio che dice perché un obiettivo è impossibile, e l'interfaccia dal mockup.
 
 ### La misura (coordinatore, `probe.rs`, `value.rs`, `lib.rs`)
 - **B5a. Attrito avversario** (dopo D17).
