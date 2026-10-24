@@ -294,6 +294,10 @@ pub struct Opponent {
     pub hand: Vec<u32>,
     pub deck: Vec<u32>,
     pub extra: Vec<u32>,
+    /// Its cards already on the field (or in the GY, banished) when the
+    /// duel starts, placed like yours: the board you play your turn
+    /// against when going second. Not in `deck` or `extra`.
+    pub placed: Vec<Placement>,
 }
 
 // Each duel is a self-contained engine instance (its own Lua state); the
@@ -334,7 +338,7 @@ thread_local! {
 /// of the materials and its continuous effects when Special Summoned
 /// ("its original ATK becomes 800 x the materials"). Its optional and
 /// mandatory triggers are not played: the line that made the board used them.
-fn placement_materials(engine: &Engine, placed: &[Placement]) -> String {
+fn placement_materials(engine: &Engine, player: u8, placed: &[Placement]) -> String {
     let db = engine.cards();
     let mut lua = String::new();
     for p in placed {
@@ -350,8 +354,11 @@ fn placement_materials(engine: &Engine, placed: &[Placement]) -> String {
         } else {
             String::new()
         };
-        lua +=
-            &format!("do local c=Duel.GetFieldCard(0,{},{}) if c then {materials} df_summoned(c) end end\n", location::MZONE, p.sequence);
+        lua += &format!(
+            "do local c=Duel.GetFieldCard({player},{},{}) if c then {materials} df_summoned(c) end end\n",
+            location::MZONE,
+            p.sequence
+        );
     }
     if lua.is_empty() {
         return lua;
@@ -360,9 +367,9 @@ fn placement_materials(engine: &Engine, placed: &[Placement]) -> String {
         "local used=Group.CreateGroup()
 local function df_take(c,code)
   local function free(tc) return tc:GetOriginalCode()==code and not used:IsContains(tc) end
-  local pool=Duel.GetMatchingGroup(free,0,{},0,nil)
+  local pool=Duel.GetMatchingGroup(free,{player},{},0,nil)
   pool:Merge(c:GetOverlayGroup():Filter(free,nil))
-  local m=pool:GetFirst() or Debug.AddCard(code,0,0,{},0,{})
+  local m=pool:GetFirst() or Debug.AddCard(code,{player},{player},{},0,{})
   if m then used:AddCard(m) end
   return m
 end
@@ -377,7 +384,7 @@ local function df_summoned(c)
     local t=e:GetType()
     if e:GetCode()==EVENT_SPSUMMON_SUCCESS and t&EFFECT_TYPE_SINGLE~=0 and t&EFFECT_TYPE_CONTINUOUS~=0 then
       local cond,op=e:GetCondition(),e:GetOperation()
-      if op and (not cond or cond(e,0,eg,0,0,nil,0,0)) then pcall(op,e,0,eg,0,0,nil,0,0) end
+      if op and (not cond or cond(e,{player},eg,0,0,nil,0,0)) then pcall(op,e,{player},eg,0,0,nil,0,0) end
     end
   end
 end
@@ -391,7 +398,7 @@ end
 /// Lua that equips each placed face-up card with a target to it, and each
 /// Equip Card without one to the placed monster it can be equipped to that
 /// has the most ATK (none: it stays as it is).
-fn placement_equips(engine: &Engine, placed: &[Placement]) -> String {
+fn placement_equips(engine: &Engine, player: u8, placed: &[Placement]) -> String {
     let db = engine.cards();
     let mut lua = String::new();
     for p in placed {
@@ -400,12 +407,12 @@ fn placement_equips(engine: &Engine, placed: &[Placement]) -> String {
         }
         let equip = db.get(p.code).is_some_and(|c| c.type_ & card_type::EQUIP != 0);
         let target = match p.equip_to {
-            Some(zone) => format!("Duel.GetFieldCard(0,{},{zone})", location::MZONE),
+            Some(zone) => format!("Duel.GetFieldCard({player},{},{zone})", location::MZONE),
             None if equip => "df_best(ec)".to_owned(),
             None => continue,
         };
         lua += &format!(
-            "do local ec=Duel.GetFieldCard(0,{},{}) local tc=ec and {target} if ec and tc then Debug.PreEquip(ec,tc) end end\n",
+            "do local ec=Duel.GetFieldCard({player},{},{}) local tc=ec and {target} if ec and tc then Debug.PreEquip(ec,tc) end end\n",
             location::SZONE,
             p.sequence
         );
@@ -416,7 +423,7 @@ fn placement_equips(engine: &Engine, placed: &[Placement]) -> String {
     format!(
         "local function df_best(ec)
   local best=nil
-  local g=Duel.GetMatchingGroup(function(m) return m:IsFaceup() and ec:CheckEquipTarget(m) end,0,{},0,nil)
+  local g=Duel.GetMatchingGroup(function(m) return m:IsFaceup() and ec:CheckEquipTarget(m) end,{player},{},0,nil)
   local m=g:GetFirst()
   while m do
     if not best or m:GetAttack()>best:GetAttack() then best=m end
@@ -788,15 +795,19 @@ impl Duel {
         };
         let mut duel = Duel::new(engine, &config)?;
         if duel.reusable && !NO_PRELOAD.with(Cell::get) {
-            let theirs = opponent.into_iter().flat_map(|o| o.deck.iter().chain(&o.extra).chain(&o.hand));
+            let theirs = opponent.into_iter().flat_map(|o| o.deck.iter().chain(&o.extra).chain(&o.hand)).copied();
+            let theirs_placed = opponent.into_iter().flat_map(|o| &o.placed);
             let codes: Vec<u32> = main
                 .iter()
                 .chain(&extra)
                 .chain(&hand_codes)
-                .chain(theirs)
                 .copied()
+                .chain(theirs)
                 .chain(
-                    placed.iter().flat_map(|p| std::iter::once(p.code).chain(p.overlay.iter().copied()).chain(p.materials.iter().copied())),
+                    placed
+                        .iter()
+                        .chain(theirs_placed)
+                        .flat_map(|p| std::iter::once(p.code).chain(p.overlay.iter().copied()).chain(p.materials.iter().copied())),
                 )
                 .collect();
             if unsafe { df_duel_preload(duel.raw, codes.as_ptr(), codes.len()) } == 0 {
@@ -824,19 +835,30 @@ impl Duel {
                 }
             }
         }
+        duel.place(engine, 0, placed);
+        if let Some(o) = opponent.filter(|o| !o.placed.is_empty()) {
+            duel.place(engine, 1, &o.placed);
+        }
+        duel.start();
+        Ok(duel)
+    }
+
+    /// Puts `player`'s `placed` cards where they say (see [`Placement`]).
+    fn place(&mut self, engine: &Engine, player: u8, placed: &[Placement]) {
         for p in placed {
             let type_ = engine.cards.get(p.code).map_or(0, |c| c.type_);
             if p.location == location::SZONE && type_ & card_type::PENDULUM != 0 && matches!(p.sequence, 0 | 4) {
                 // A Pendulum Scale: only the Debug library puts a card in a Pendulum Zone.
-                if !duel.known.contains(&p.code) {
-                    duel.known.push(p.code);
+                if !self.known.contains(&p.code) {
+                    self.known.push(p.code);
                 }
                 // LOCATION_PZONE, the left or right scale.
-                let lua = format!("Debug.AddCard({},0,0,0x200,{},{})", p.code, u32::from(p.sequence == 4), position::FACEUP_ATTACK);
-                duel.run_lua_source("placement.lua", &lua);
+                let lua =
+                    format!("Debug.AddCard({},{player},{player},0x200,{},{})", p.code, u32::from(p.sequence == 4), position::FACEUP_ATTACK);
+                self.run_lua_source("placement.lua", &lua);
                 continue;
             }
-            duel.add_card(0, p.code, p.location, p.sequence, p.position);
+            self.add_card(player, p.code, p.location, p.sequence, p.position);
             if p.location == location::MZONE && type_ & card_type::EXTRA != 0 {
                 // Summoned by its own kind of summon ("if this card was Link Summoned").
                 let kind = if type_ & card_type::LINK != 0 {
@@ -848,27 +870,27 @@ impl Duel {
                 } else {
                     summon_type::FUSION
                 };
-                let lua = format!("Debug.PreSummon(Duel.GetFieldCard(0,{},{}),{kind},{})", location::MZONE, p.sequence, location::EXTRA);
-                duel.run_lua_source("placement.lua", &lua);
+                let lua =
+                    format!("Debug.PreSummon(Duel.GetFieldCard({player},{},{}),{kind},{})", location::MZONE, p.sequence, location::EXTRA);
+                self.run_lua_source("placement.lua", &lua);
             }
             // A card added to a taken Monster Zone becomes a material of the monster there.
             for material in &p.overlay {
-                let lua = format!("Debug.AddCard({material},0,0,{},{},{})", location::MZONE, p.sequence, position::FACEUP_ATTACK);
-                duel.run_lua_source("placement.lua", &lua);
+                let lua =
+                    format!("Debug.AddCard({material},{player},{player},{},{},{})", location::MZONE, p.sequence, position::FACEUP_ATTACK);
+                self.run_lua_source("placement.lua", &lua);
             }
         }
         // Once every card is there: what a summon's materials and an Equip
         // Card's target can be.
-        let materials = placement_materials(engine, placed);
+        let materials = placement_materials(engine, player, placed);
         if !materials.is_empty() {
-            duel.run_lua_source("placement.lua", &materials);
+            self.run_lua_source("placement.lua", &materials);
         }
-        let equips = placement_equips(engine, placed);
+        let equips = placement_equips(engine, player, placed);
         if !equips.is_empty() {
-            duel.run_lua_source("placement.lua", &equips);
+            self.run_lua_source("placement.lua", &equips);
         }
-        duel.start();
-        Ok(duel)
     }
 
     /// Runs a script of the script folder in this duel (for diagnostics).

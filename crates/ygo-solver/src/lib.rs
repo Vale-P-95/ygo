@@ -13,6 +13,7 @@ pub mod meta;
 pub mod probe;
 pub mod roles;
 pub mod search;
+pub mod second;
 pub mod value;
 
 pub use card::{resume_card, sample_hands, search_card, CardSearch, HandResult};
@@ -34,4 +35,5 @@ pub use meta::{
 pub use probe::{hand_traps, BreakerResult, Effect, FollowUp, Interruption, Kit, Measure, Probe, Prober, Protection, Removal, ResponderId};
 pub use roles::{guess_roles, RoleGuess};
 pub use search::{look_key, quick_score, resume, search, Board, Frontier, Line, Progress, SearchConfig, SearchResult, Stop};
+pub use second::{break_board, rival_board, BreakConfig, BrokenBoard, RivalBoard};
 pub use value::{card_values, CardValues, InHand, Spot};
