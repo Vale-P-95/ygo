@@ -280,6 +280,29 @@ enum Cmd {
         #[arg(long, default_value_t = 1)]
         seed: u64,
     },
+    /// The handtraps of a deck's Main and Side against the meta: the share of
+    /// the best lines of the decks played the most that each stops, weighed
+    /// by how much each deck is played, and the move it stops them at.
+    TechTable {
+        /// Deck in .ydk format (its Side counts).
+        #[arg(long)]
+        deck: PathBuf,
+        /// Decks of the meta played the most to measure against.
+        #[arg(long, default_value_t = TECH_DECKS)]
+        decks: usize,
+        #[arg(long, default_value_t = 1)]
+        seed: u64,
+        /// The meta from a file (`objective_bench.py`'s meta.json: opponents
+        /// with deck and weight) instead of Master Duel Meta now; the lists
+        /// are <deck>.ydk in --meta-decks.
+        #[arg(long)]
+        meta_file: Option<PathBuf>,
+        #[arg(long)]
+        meta_decks: Option<PathBuf>,
+        /// Also write the table to this JSON file.
+        #[arg(long)]
+        json: Option<PathBuf>,
+    },
     /// The handtraps of a deck, read from the engine: cards it can use from
     /// the hand during the opponent's turn.
     HandTraps {
@@ -458,6 +481,9 @@ fn main() -> Result<()> {
         ),
         Cmd::ProbeLine { setup, lines, index, json, vs, stops, moves, protection } => {
             probe_line(&cli.data, &setup, &lines, index, json.as_deref(), vs.as_deref(), stops, moves, protection)
+        }
+        Cmd::TechTable { deck, decks, seed, meta_file, meta_decks, json } => {
+            tech_table(&cli.data, &deck, decks, seed, MetaFinal { boards: 0, file: meta_file, decks: meta_decks }, json.as_deref())
         }
         Cmd::HandTraps { deck } => hand_traps(&cli.data, &deck),
         Cmd::RivalPlays { deck, hands, nodes, seed } => rival_plays(&cli.data, &deck, hands, nodes, seed),
@@ -2217,6 +2243,65 @@ fn rival_plays(dir: &Path, deck: &Path, hands: usize, nodes: u64, seed: u64) -> 
             engine.cards().name(p.code),
             ygo_engine::consts::location::name(p.location)
         );
+    }
+    Ok(())
+}
+
+/// Decks of the meta `tech-table` measures against by default.
+const TECH_DECKS: usize = 6;
+
+fn tech_table(dir: &Path, deck: &Path, count: usize, seed: u64, meta: MetaFinal, json: Option<&Path>) -> Result<()> {
+    let engine = load_engine(dir)?;
+    let text = std::fs::read_to_string(deck).with_context(|| format!("cannot read {}", deck.display()))?;
+    let deck = DeckList::from_ydk(&text)?;
+    let decks = ygo_solver::most_played(&load_meta(dir, &meta)?, count);
+    let threads = std::thread::available_parallelism().map_or(4, |n| n.get());
+    let kit = ygo_solver::Kit::standard(&engine);
+    let started = std::time::Instant::now();
+    let rivals = ygo_solver::meta_rivals(&engine, &decks, seed, threads);
+    let read = started.elapsed().as_secs_f64();
+    let table = ygo_solver::tech_table(&engine, &deck, &rivals, seed, &kit, threads);
+    let db = engine.cards();
+    println!("lines read in {read:.1} s, played again in {:.1} s", started.elapsed().as_secs_f64() - read);
+    for d in &table.decks {
+        println!("  {:<28} weight {:>5.1}  {} lines, {} measured", d.name, d.weight, d.lines, d.measured);
+    }
+    println!();
+    for r in &table.rows {
+        let per: Vec<String> = r.decks.iter().map(|a| format!("{}/{}", a.stopped, a.usable)).collect();
+        let at: Vec<String> = r.at.iter().take(3).map(|(c, n)| format!("{} ×{n}", db.name(*c))).collect();
+        println!(
+            "{:>4.0}% taken {:>4.0}% of lines  {:<32} {}+{}  in hand {:>3.0}%  step {:<4}  [{}]  at {}",
+            r.lost * 100.0,
+            r.value * 100.0,
+            db.name(r.code),
+            r.main,
+            r.side,
+            r.chance * 100.0,
+            r.step.map_or("-".to_owned(), |s| format!("{:.1}", s)),
+            per.join(" "),
+            at.join(", ")
+        );
+    }
+    if let Some(path) = json {
+        let rows: Vec<serde_json::Value> = table
+            .rows
+            .iter()
+            .map(|r| {
+                serde_json::json!({
+                    "code": r.code, "name": db.name(r.code), "main": r.main, "side": r.side, "chance": r.chance,
+                    "value": r.value, "lost": r.lost, "step": r.step,
+                    "decks": r.decks.iter().map(|a| serde_json::json!({ "usable": a.usable, "stopped": a.stopped, "lost": a.lost })).collect::<Vec<_>>(),
+                    "at": r.at.iter().map(|(c, n)| serde_json::json!({ "code": c, "name": db.name(*c), "lines": n })).collect::<Vec<_>>(),
+                })
+            })
+            .collect();
+        let decks: Vec<serde_json::Value> = table
+            .decks
+            .iter()
+            .map(|d| serde_json::json!({ "name": d.name, "weight": d.weight, "lines": d.lines, "measured": d.measured }))
+            .collect();
+        std::fs::write(path, serde_json::to_string_pretty(&serde_json::json!({ "seed": seed, "decks": decks, "rows": rows }))?)?;
     }
     Ok(())
 }
