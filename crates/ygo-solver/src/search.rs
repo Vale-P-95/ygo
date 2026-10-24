@@ -427,6 +427,9 @@ impl PartialOrd for Edge {
 }
 impl Ord for Edge {
     /// Higher priority first; among equals the newest (deepest search first).
+    /// So the other answers of a node come out from the dive's least
+    /// preferred: taking them in the dive's order was measured and not kept
+    /// (B1a, `docs/plans/ricerca-piano-critico.md`).
     fn cmp(&self, other: &Self) -> CmpOrdering {
         self.priority.total_cmp(&other.priority).then(self.order.cmp(&other.order))
     }
@@ -1462,6 +1465,9 @@ fn work(shared: &Shared, edge: Edge, copies: Option<&mut Copies>) -> Result<(), 
     let started = Instant::now();
     let mut dive =
         Dive { left: Vec::new(), boards: Vec::new(), end: stats::End::Error, nodes: 0, replay: Duration::ZERO, replayed: 0, after_free: 0 };
+    if let Some(stats) = &shared.stats {
+        stats.popped(&edge);
+    }
     let result = play(shared, &edge, &mut dive, copies);
     if let Some(stats) = &shared.stats {
         stats.dive(&dive, started.elapsed());
@@ -2478,7 +2484,7 @@ mod stats {
 
     use ygo_engine::{Action, ActionKind};
 
-    use super::{Board, Dive, Line};
+    use super::{Board, Dive, Edge, Line};
 
     /// Why a dive ended.
     #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -2537,6 +2543,9 @@ mod stats {
         learning: Mutex<Duration>,
         /// Answers cut for what another line taught, by why.
         cut: Mutex<[u64; 3]>,
+        /// Answers taken from the queue, by node: their place in the order
+        /// tried and their priority.
+        popped: Mutex<HashMap<u64, Vec<(u32, f64)>>>,
     }
 
     /// Why an answer was cut: a handtrap learned to do nothing at your idle
@@ -2596,6 +2605,20 @@ mod stats {
                 for (i, a) in actions.iter().enumerate() {
                     o.entry(answers_key(&line.answers, &a.response)).or_insert(i as u32);
                 }
+            }
+        }
+
+        /// An answer taken from the queue: it is out of order when a sibling
+        /// the dive tried after it, at the same priority, came out before.
+        pub(super) fn popped(&self, edge: &Edge) {
+            let Some((answer, _)) = &edge.answer else { return };
+            let Some(rank) = self.order.lock().ok().and_then(|o| o.get(&answers_key(&edge.prefix.answers, answer)).copied()) else {
+                return;
+            };
+            let mut h = DefaultHasher::new();
+            edge.prefix.answers.hash(&mut h);
+            if let Ok(mut p) = self.popped.lock() {
+                p.entry(h.finish()).or_default().push((rank, edge.priority));
             }
         }
 
@@ -2667,8 +2690,25 @@ mod stats {
             let replayed: u64 = dives.iter().map(|d| d.replayed).sum();
             let after_free: u64 = dives.iter().map(|d| d.after_free).sum();
             let [idle, negators, hidden] = self.cut.lock().map_or([0; 3], |s| *s);
+            // Siblings taken from the queue: how many, how many after one the
+            // dive tried later at the same priority, and the place of the first
+            // one taken at each node (1 is the dive's second choice).
+            let (mut pops, mut inverted, mut first) = (0u64, 0u64, [0u64; 4]);
+            if let Ok(p) = self.popped.lock() {
+                for node in p.values() {
+                    pops += node.len() as u64;
+                    first[(node[0].0 as usize).clamp(1, 4) - 1] += 1;
+                    for (i, &(rank, priority)) in node.iter().enumerate() {
+                        inverted += node[..i].iter().any(|&(r, q)| r > rank && q == priority) as u64;
+                    }
+                }
+            }
             eprintln!(
-                "search-stats {{\"replayed\":{replayed},\"after_free\":{after_free},\"cut\":{{\"idle_hand_traps\":{idle},\"own_negators\":{negators},\"hidden\":{hidden}}},\"elapsed_s\":{:.3},\"learning_s\":{:.3},\"best\":{top:.4},\"ends\":{{{}}},\"boards\":{{\"none\":{},\"weak\":{},\"near\":{}}},\"no_change\":{{{}}},\"best_line_ranks\":[{}]}}",
+                "search-stats {{\"siblings\":{{\"popped\":{pops},\"inverted\":{inverted},\"first_rank\":[{},{},{},{}]}},\"replayed\":{replayed},\"after_free\":{after_free},\"cut\":{{\"idle_hand_traps\":{idle},\"own_negators\":{negators},\"hidden\":{hidden}}},\"elapsed_s\":{:.3},\"learning_s\":{:.3},\"best\":{top:.4},\"ends\":{{{}}},\"boards\":{{\"none\":{},\"weak\":{},\"near\":{}}},\"no_change\":{{{}}},\"best_line_ranks\":[{}]}}",
+                first[0],
+                first[1],
+                first[2],
+                first[3],
                 elapsed.as_secs_f64(),
                 self.learning.lock().map_or(0.0, |l| l.as_secs_f64()),
                 ends.join(","),
