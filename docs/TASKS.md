@@ -6,6 +6,7 @@ Le righe storiche con Gemini restano come cronologia; il contratto (`lib.rs`, `a
 Regole in `AGENTS.md`. Per prendere un task, spostalo in "In corso" con agente, branch e file che tocchi (è il lock), poi committa e pusha questa modifica prima di cominciare.
 
 ## In corso
+- [ ] **Classifica per interazione a fine turno, CLI `combos --interaction`** (claude-code, thread «Classificare le linee per interruzioni a fine turno», branch `claude/project-thread-j7r84m`). File: `crates/ygo-cli/src/main.rs`. Le board si ordinano solo per ciò che fermano a fine turno (campo, mano, floodgate; senza breaker, turno dopo ed esposizione), con il riepilogo per tipo di effetto, posto e risorse. Misura e ricerca invariate.
 - [x] **Andare secondo, prototipo CLI `break-board`** (`docs/plans/idee-nuove.md` §5, dettagli in `docs/plans/andare-secondo.md`; claude-code, thread «Supportare il gioco per secondi», branch `claude/project-thread-02nt3o`, PR aperta il 24/10). La board migliore del deck avversario da 12 mani si piazza sul suo campo (`Opponent::placed`); la mia mano da 6 gioca con la ricerca, che conta le sue carte tolte al valore misurato di ciascuna; il valore è la quota della sua board (campo e floodgate, turno di prova girato) che resta. Misura nuova, il primo turno non cambia (`search_regression` invariata). Su 3 coppie, 12 mani: con breaker resta il 9/0/57%, senza il 60/28/80%.
   - [ ] La board avversaria risponde nel mio turno con le interruzioni misurate (oggi non risponde).
   - [ ] Turno 2 con Battle Phase e danno: oggi le negazioni fino a fine turno valgono 0.
