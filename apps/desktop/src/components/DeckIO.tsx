@@ -33,6 +33,12 @@ export function ImportDialog({ onClose, onImported }: { onClose: () => void; onI
   const run = async () => {
     try {
       const result = await api.importDeck(text);
+      // Only unknown passcodes: importing would leave an empty deck.
+      if (result.main.length + result.extra.length + result.side.length === 0) {
+        sound.play("error");
+        setError(`Nessuna carta riconosciuta: ${result.unknown.length} passcode sconosciuti. Aggiorna l'elenco delle carte nelle Impostazioni o controlla il testo.`);
+        return;
+      }
       onImported(result, name);
     } catch (e) {
       sound.play("error");
@@ -54,7 +60,10 @@ export function ImportDialog({ onClose, onImported }: { onClose: () => void; onI
         className="field h-56 resize-none font-mono text-xs"
         placeholder={"#main\n86120751\n…\n#extra\n…\n!side\n…"}
         value={text}
-        onChange={(e) => setText(e.target.value)}
+        onChange={(e) => {
+          setText(e.target.value);
+          setError(null);
+        }}
         spellCheck={false}
       />
       {error && <p className="text-sm text-danger">{error}</p>}

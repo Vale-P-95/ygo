@@ -270,13 +270,16 @@ pub fn parse_ydke(url: &str) -> Result<Sections, Error> {
     Ok((decode_ids(parts[0])?, decode_ids(parts[1])?, decode_ids(parts[2])?))
 }
 
-/// Accepts either format.
+/// Accepts either format. A text with no card is an error: comments alone
+/// would otherwise import an empty deck.
 pub fn parse_any(text: &str) -> Result<Sections, Error> {
-    if text.trim_start().starts_with("ydke://") {
-        parse_ydke(text)
-    } else {
-        parse_ydk(text)
+    let sections = if text.trim_start().starts_with("ydke://") { parse_ydke(text)? } else { parse_ydk(text)? };
+    if sections.0.is_empty() && sections.1.is_empty() && sections.2.is_empty() {
+        return Err(Error::Data(
+            "nessuna carta nel testo: incolla un file .ydk (passcode sotto #main, #extra e !side) o un link ydke://".into(),
+        ));
     }
+    Ok(sections)
 }
 
 #[cfg(test)]
@@ -382,5 +385,7 @@ mod tests {
         assert!(parse_ydk("#main\nabc\n").is_err());
         assert!(parse_ydke("ydke://!!").map(|s| s.0.is_empty()).unwrap_or(false));
         assert!(parse_ydke("ydke://AAA!").is_err());
+        assert!(parse_any("#created by someone\n!side\n").is_err(), "no card at all");
+        assert!(parse_any("ydke://!!!").is_err());
     }
 }
