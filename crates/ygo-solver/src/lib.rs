@@ -4,6 +4,7 @@
 
 pub mod card;
 pub mod coverage;
+pub mod engine_mc;
 pub mod explain;
 mod follow;
 pub mod goal;

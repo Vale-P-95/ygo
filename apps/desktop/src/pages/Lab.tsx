@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { BarChart2, Calculator, GitCompare, Network, Play, ScrollText, Shield, SlidersHorizontal, type LucideIcon } from "lucide-react";
+import { BarChart2, Calculator, GitCompare, Network, Play, ScrollText, Shield, SlidersHorizontal, WandSparkles, type LucideIcon } from "lucide-react";
 import { Popover, useOutsideClose } from "../components/Popover";
 import { CalculatorTab } from "../components/lab/CalculatorTab";
 import { CompareTab } from "../components/lab/CompareTab";
@@ -11,6 +11,7 @@ import { OptimizerTab } from "../components/lab/OptimizerTab";
 import { OverviewTab } from "../components/lab/OverviewTab";
 import { RolesPanel } from "../components/lab/RolesPanel";
 import { SimulatorTab } from "../components/lab/SimulatorTab";
+import { SpecialTab } from "../components/lab/SpecialTab";
 import { TechTab } from "../components/lab/TechTab";
 import { DeckMenu } from "../components/DeckMenu";
 import { SectionHeader } from "../components/SectionHeader";
@@ -23,13 +24,14 @@ import { sound } from "../lib/sound";
 import { toast } from "../lib/toast";
 import { sectionById } from "../sections";
 
-type Tab = "overview" | "links" | "compare" | "calculator" | "simulator" | "optimizer" | "meta" | "log";
+type Tab = "overview" | "links" | "compare" | "calculator" | "special" | "simulator" | "optimizer" | "meta" | "log";
 
 const PRIMARY_TABS: { id: Tab; label: string; icon: LucideIcon }[] = [
   { id: "overview", label: "Panoramica", icon: BarChart2 },
   { id: "links", label: "Collegamenti", icon: Network },
   { id: "compare", label: "Confronto", icon: GitCompare },
   { id: "calculator", label: "Calcolatore", icon: Calculator },
+  { id: "special", label: "Carte speciali", icon: WandSparkles },
 ];
 
 const SECONDARY_TABS: { id: Tab; label: string; icon: LucideIcon }[] = [
@@ -158,7 +160,10 @@ export function Lab({
   useEffect(() => {
     if (!deck) return;
     let cancelled = false;
-    api.labOverview(deck.main, roles).then((o) => !cancelled && setOverview(o));
+    api
+      .labOverview(deck.main, roles)
+      .then((o) => !cancelled && setOverview(o))
+      .catch((e) => !cancelled && toast(`Panoramica non calcolata: ${e}`, "error"));
     return () => {
       cancelled = true;
     };
@@ -333,7 +338,7 @@ export function Lab({
   return (
     <div className="flex h-full flex-col">
       <SectionHeader section={section} artReady={artReady} />
-      <div className="relative z-20 flex flex-wrap items-center gap-3 border-b border-border bg-surface/70 px-6 py-2.5 backdrop-blur">
+      <div className="relative z-20 flex flex-wrap items-center gap-2 border-b border-border bg-surface/70 px-5 py-2.5 backdrop-blur 2xl:gap-3 2xl:px-6">
         <DeckMenu decks={decks} current={deck?.id} onPick={(id) => void open(id)} />
         <div className={`flex gap-1 rounded-xl border border-border bg-bg-2 p-1 ${tab === "log" ? "invisible" : ""}`}>
           {(["first", "second"] as const).map((h) => (
@@ -361,7 +366,7 @@ export function Lab({
                   sound.play("page");
                   setTab(t.id);
                 }}
-                className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm ${
+                className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 2xl:px-3 text-sm ${
                   tab === t.id
                     ? "bg-surface-3 text-text shadow-[inset_0_-2px_0_var(--sec)] font-semibold"
                     : "text-muted hover:text-text"
@@ -381,7 +386,7 @@ export function Lab({
                 sound.play(moreMenu ? "close" : "open");
                 setMoreMenu((v) => !v);
               }}
-              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm ${
+              className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 2xl:px-3 text-sm ${
                 activeSecondary
                   ? "bg-surface-3 text-text shadow-[inset_0_-2px_0_var(--sec)] font-semibold"
                   : "text-muted hover:text-text"
@@ -422,7 +427,7 @@ export function Lab({
           </div>
         </nav>
         {overview && (
-          <span className="ml-auto text-xs whitespace-nowrap text-faint tabular-nums" title="Carte nel Main Deck">
+          <span className="ml-auto hidden text-xs whitespace-nowrap text-faint tabular-nums 2xl:inline" title="Carte nel Main Deck">
             {overview.size} carte
           </span>
         )}
@@ -462,6 +467,8 @@ export function Lab({
               <CompareTab key={deck.id} deck={deck} overview={overview} decks={decks ?? []} hand={hand} getCard={cards.get} request={request} />
             ) : tab === "calculator" ? (
               <CalculatorTab deckId={deck.id!} main={deck.main} roles={roles} hand={hand} getCard={cards.get} root={root} setRoot={setRoot} recipes={recipes} setRecipes={setRecipes} />
+            ) : tab === "special" ? (
+              <SpecialTab key={deck.id} deck={deck} roles={roles} hand={hand} getCard={cards.get} request={request} />
             ) : tab === "meta" ? (
               <TechTab key={deck.id} deck={deck} getCard={cards.get} request={request} />
             ) : tab === "simulator" || tab === "optimizer" ? (

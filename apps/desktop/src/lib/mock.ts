@@ -21,6 +21,12 @@ import type {
   ComboStep,
   BanChange,
   Cond,
+  LabTarget,
+  SpecialFilter,
+  SpecialKnown,
+  SpecialMechanism,
+  SpecialReport,
+  SpecialResult,
   DataStatus,
   Deck,
   DeckBox,
@@ -52,7 +58,7 @@ import type {
   WinRecord,
   ZoneCard,
 } from "./api";
-import { pAtLeastOne, pBoth } from "./probability";
+import { pAtLeastOne, pBoth, pNone } from "./probability";
 import invokedLinksFixture from "./fixtures/invoked-links.json";
 
 type Api = typeof ApiType;
@@ -1108,6 +1114,81 @@ function isRecordedDeck(main: number[], extra?: number[], side?: number[]): bool
 function sameRoles(a: Record<string, number[]>, b: Record<string, number[]>): boolean {
   const keys = (r: Record<string, number[]>) => Object.keys(r).filter((k) => r[k].length > 0);
   return sameList(keys(a), keys(b)) && keys(a).every((k) => sameList(a[k], b[k]));
+}
+
+/** The cards of `crates/ygo-stats/src/special.json`, the mock's copy. */
+const SPECIAL_KNOWN: { name: string; mechanism: SpecialMechanism }[] = [
+  { name: "Pot of Desires", mechanism: { type: "draw", n: 2, banishTop: 10, minExtra: 0 } },
+  { name: "Pot of Extravagance", mechanism: { type: "draw", n: 2, banishTop: 0, minExtra: 3 } },
+  { name: "Pot of Greed", mechanism: { type: "draw", n: 2, banishTop: 0, minExtra: 0 } },
+  { name: "Upstart Goblin", mechanism: { type: "draw", n: 1, banishTop: 0, minExtra: 0 } },
+  { name: "Pot of Prosperity", mechanism: { type: "excavate", n: [3, 6], banishExtra: true } },
+  { name: "Pot of Duality", mechanism: { type: "excavate", n: [3], banishExtra: false } },
+  { name: "Allure of Darkness", mechanism: { type: "drawThenBanish", n: 2, cost: { kind: "monster", attribute: "DARK" } } },
+  { name: "Small World", mechanism: { type: "bridge", share: 1 } },
+  { name: "Seventh Tachyon", mechanism: { type: "revealSearch", reveal: ["Number 101:", "Number 102:", "Number 103:", "Number 104:", "Number 105:", "Number 106:", "Number 107:"], putBack: 1 } },
+  { name: "Reinforcement of the Army", mechanism: { type: "search", filter: { kind: "monster", race: "Warrior", maxLevel: 4 } } },
+  { name: "Terraforming", mechanism: { type: "search", filter: { kind: "spell", race: "Field" } } },
+];
+
+function specialMatches(f: SpecialFilter, c: Card): boolean {
+  return (!f.kind || f.kind === c.kind) && (!f.race || f.race === c.race) && (!f.attribute || f.attribute === c.attribute) && (f.maxLevel == null || (c.level != null && c.level <= f.maxLevel));
+}
+
+/** `ygo_stats::special` for the mock: exact like the backend, except the draw with a cost (an estimate). */
+function mockSpecial(main: number[], extra: number[], roles: Record<string, number[]>, target: LabTarget, hand: number): SpecialReport {
+  const size = main.length;
+  const copies = (f: (id: number) => boolean) => main.filter(f).length;
+  const hits = (id: number) => (target.kind === "card" ? id === target.value : (roles[target.value]?.includes(id) ?? false));
+  const t = copies(hits);
+  const base = 1 - pNone(size, t, hand);
+  const rest = size - hand;
+  const unique = [...new Set(main)];
+  const monsters = unique.map((id) => CARDS.get(id)).filter((c): c is Card => c?.kind === "monster");
+  const shared = (a: Card, b: Card) =>
+    [a.attribute != null && a.attribute === b.attribute, a.race === b.race, a.level != null && a.level === b.level, a.atk != null && a.atk === b.atk, a.def != null && a.def === b.def].filter(Boolean).length;
+  // No target in hand, the card and (when `mark` copies are given) one of them.
+  const withCard = (s: number, mark?: number) => (mark == null ? pNone(size, t, hand) - pNone(size, t + s, hand) : pNone(size, t, hand) - pNone(size, t + s, hand) - pNone(size, t + mark, hand) + pNone(size, t + s + mark, hand));
+  const cards: SpecialResult[] = [];
+  for (const id of unique) {
+    const known = SPECIAL_KNOWN.find((k) => k.name === CARDS.get(id)?.name);
+    if (!known) continue;
+    const m = known.mechanism;
+    const s = copies((x) => x === id);
+    const r: SpecialResult = { id, copies: s, mechanism: m, open: 1 - pNone(size, s, hand), with: base, variants: [], banishRisk: null, loseHand: null, payers: null, blocked: null, chains: [], links: [] };
+    const drawHit = (n: number) => 1 - pNone(rest, t, Math.min(n, rest));
+    if (m.type === "draw") {
+      if (extra.length < m.minExtra) r.blocked = `servono almeno ${m.minExtra} carte nell'Extra Deck`;
+      else r.with = base + withCard(s) * drawHit(m.n);
+      if (m.banishTop > 0) r.banishRisk = 1 - pNone(rest, t, Math.min(m.banishTop, rest));
+    } else if (m.type === "excavate") {
+      r.variants = m.n.filter((k) => !m.banishExtra || extra.length >= k).map((k) => ({ n: k, with: base + withCard(s) * drawHit(k) }));
+      if (r.variants.length) r.with = Math.max(...r.variants.map((v) => v.with));
+      else r.blocked = `servono almeno ${Math.min(...m.n)} carte nell'Extra Deck`;
+    } else if (m.type === "drawThenBanish") {
+      const pays = (x: number) => x !== id && CARDS.get(x) != null && specialMatches(m.cost, CARDS.get(x)!);
+      const payers = copies(pays);
+      r.payers = payers;
+      r.with = base + withCard(s) * drawHit(m.n) * (1 - pNone(rest, payers, m.n + 1));
+      r.loseHand = pNone(size - s, payers, hand - 1) * pNone(rest, payers, m.n);
+    } else if (m.type === "bridge") {
+      for (const a of monsters) for (const b of monsters) if (shared(a, b) === m.share) for (const c of monsters) if (shared(b, c) === m.share) r.chains.push({ from: a.id, via: b.id, to: c.id });
+      r.links = monsters.map((x) => x.id).filter((a) => !hits(a) && r.chains.some((c) => c.from === a && hits(c.to)));
+      r.with = base + withCard(s, copies((x) => r.links.includes(x)));
+    } else {
+      const shown = m.type === "revealSearch" ? extra.map((x) => CARDS.get(x)).filter((x): x is Card => x != null && m.reveal.some((p) => x.name.startsWith(p))) : [];
+      if (m.type === "revealSearch" && shown.length === 0) r.blocked = "nell'Extra Deck non c'è un mostro da rivelare";
+      r.links = unique.filter((x) => {
+        const c = CARDS.get(x);
+        if (!c || x === id) return false;
+        if (m.type === "search") return specialMatches(m.filter, c);
+        return c.kind === "monster" && shown.some((e) => c.level != null && c.level === e.level && (c.race === e.race || (c.attribute != null && c.attribute === e.attribute)));
+      });
+      if (r.links.some(hits)) r.with = base + withCard(s);
+    }
+    cards.push(r);
+  }
+  return { base, targetCopies: t, size, cards };
 }
 
 let nextDeckId = 3;
@@ -2641,6 +2722,18 @@ export const mockApi: Api = {
     p: evalCondProb(main, roles, cond, hand),
     error: null,
   }),
+
+  labSpecial: async (main: number[], extra: number[], roles: Record<string, number[]>, target: LabTarget, hand: number) => {
+    await delay(80);
+    if (hand > main.length) throw new Error("la mano ha più carte del deck");
+    return mockSpecial(main, extra, roles, target, hand);
+  },
+
+  labSpecialKnown: async (): Promise<SpecialKnown[]> =>
+    SPECIAL_KNOWN.flatMap((k) => {
+      const card = [...CARDS.values()].find((c) => c.name === k.name);
+      return card ? [{ id: card.id, name: k.name, mechanism: k.mechanism }] : [];
+    }),
 
   setDeckRoles: async (id: number, roles: Record<string, number[]>) => {
     const d = decksState.find((x) => x.id === id);
