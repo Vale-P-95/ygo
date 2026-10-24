@@ -82,7 +82,7 @@ Ogni gradino riprende da quello prima, come già fa B14 (`measure_cheap` e `Part
 **La proposta** (banco `v2`, in una PR a parte come chiedono le regole):
 - **più ordini del mazzo per mano** (per esempio 3 semi) e il valore di una mano come media: il rumore dell'ordine della coda scende senza mani nuove;
 - **arresto anticipato** come in fishtest (test sequenziale, SPRT): le mani girano in ordine casuale e il giro si ferma quando il verdetto è certo; per la classe E, alla prima uscita diversa;
-- **una CLI per deck invece che per mano**: i valori delle carte si calcolano una volta per deck e restano in memoria nello stesso processo, come già nell'app. Niente su disco, quindi la decisione di Valerio sui valori delle carte resta.
+- **una CLI per deck invece che per mano**: i valori delle carte si calcolano una volta per deck e restano in memoria nello stesso processo, come già nell'app. Niente su disco, quindi la decisione di Valerio sui valori delle carte resta. *Fatto in parte il 24/10* (`combos --cases`, `tempi-motore.md`): i valori dipendono dal seme, quindi a uscite uguali il guadagno è −3%; il −24% del seme fisso è stato bocciato da `judge` su `v1` e va rifatto su `v2`.
 
 **Guadagno.** Circa metà della CPU sulle modifiche chiaramente buone o cattive; −9% del tempo di ogni giro per i valori delle carte; si vedono effetti del 2-3%, che oggi il rumore nasconde.
 

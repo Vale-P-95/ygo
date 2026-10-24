@@ -144,21 +144,61 @@ def passcodes(db, hand, main):
     return out
 
 
+def combos_command(cli, rules, nodes, path):
+    return [cli, "--data", os.path.join(ROOT, "data"), "combos", "--deck", path, "--nodes", str(nodes or rules["nodes"]), "--seconds", "86400",
+            "--threads", "1", "--top", str(rules["top"])]
+
+
+def write_info(out, case, rc, wall, stdout, stderr, jobs):
+    """<id>.run.json: what broke and the times of one hand."""
+    m = re.search(r"after ([\d.]+) s: .*?(\d+) interrupted lines", stdout)
+    info = dict(rc=rc, wall=round(wall, 2), host=platform.node(), jobs=jobs, search=float(m[1]) if m else None, interrupted=int(m[2]) if m else None,
+                probe_failed=stdout.count("probe turn failed"), stderr=stderr[-300:] if rc else "")
+    json.dump(info, open(os.path.join(out, case["id"] + ".run.json"), "w"))
+    return info
+
+
 def run_one(cli, case, rules, out, lines, jobs, nodes=None):
     """One `combos` run into out/<id>.json, with what broke and the times in <id>.run.json."""
-    command = [cli, "--data", os.path.join(ROOT, "data"), "combos", "--deck", case["path"], "--hand", case["hand"],
-               "--nodes", str(nodes or rules["nodes"]), "--seconds", "86400", "--threads", "1", "--top", str(rules["top"]),
-               "--seed", str(case["seed"]), "--json", os.path.join(out, case["id"] + ".json")]
+    command = combos_command(cli, rules, nodes, case["path"]) + ["--hand", case["hand"], "--seed", str(case["seed"]),
+                                                                  "--json", os.path.join(out, case["id"] + ".json")]
     if lines:
         command += ["--save-lines", os.path.join(out, case["id"] + ".lines.json")]
     started = time.time()
     r = subprocess.run(command, capture_output=True, text=True)
-    wall = time.time() - started
-    m = re.search(r"after ([\d.]+) s: .*?(\d+) interrupted lines", r.stdout)
-    info = dict(rc=r.returncode, wall=round(wall, 2), host=platform.node(), jobs=jobs, search=float(m[1]) if m else None, interrupted=int(m[2]) if m else None,
-                probe_failed=r.stdout.count("probe turn failed"), stderr=r.stderr[-300:] if r.returncode else "")
-    json.dump(info, open(os.path.join(out, case["id"] + ".run.json"), "w"))
-    return info
+    return write_info(out, case, r.returncode, time.time() - started, r.stdout, r.stderr, jobs)
+
+
+_batches = {}
+
+
+def batches(cli):
+    """Whether `combos` of this build plays several hands in one run (`--cases`)."""
+    if cli not in _batches:
+        r = subprocess.run([cli, "combos", "--help"], capture_output=True, text=True)
+        _batches[cli] = "--cases" in r.stdout
+    return _batches[cli]
+
+
+def run_deck(cli, cases, rules, out, lines, jobs, nodes=None):
+    """The hands of one deck in one `combos --cases` run: the engine is
+    loaded once. Each hand gets its own files, as with run_one,
+    and its own time from the run (the first one also pays for the loading)."""
+    listing = os.path.join(out, cases[0]["id"] + ".cases.tsv")
+    with open(listing, "w") as f:
+        for c in cases:
+            f.write("\t".join([c["id"], str(c["seed"]), c["hand"], os.path.join(out, c["id"] + ".json"),
+                               os.path.join(out, c["id"] + ".lines.json") if lines else ""]) + "\n")
+    r = subprocess.run(combos_command(cli, rules, nodes, cases[0]["path"]) + ["--cases", listing], capture_output=True, text=True)
+    parts = re.split(r"^=== case (\S+)\n", r.stdout, flags=re.M)
+    sections = dict(zip(parts[1::2], parts[2::2]))
+    for c in cases:
+        text = sections.get(c["id"], "")
+        m = re.search(r"^=== case \S+ (done|failed) in ([\d.]+) s", text, flags=re.M)
+        # A hand without its end marker broke the whole run.
+        rc = 0 if m and m[1] == "done" else 1
+        write_info(out, c, rc, float(m[2]) if m else 0.0, text, r.stderr if rc else "", jobs)
+    os.remove(listing)
 
 
 def cmd_run(a):
@@ -166,10 +206,16 @@ def cmd_run(a):
     if cmd_check(a):
         sys.exit("the lists do not match the manifest")
     cases = [c for c in cases if a.set in c["sets"] and a.only in c["id"]]
+    # The hands of a deck together: a build that can plays them in one run.
+    decks = {}
+    for c in cases:
+        decks.setdefault(c["path"], []).append(c)
+    groups = list(decks.values())
     if a.shard:
-        # One of several runners (bench.yml): every n-th hand.
+        # One of several runners (bench.yml): every n-th deck.
         i, n = map(int, a.shard.split("/"))
-        cases = cases[i::n]
+        groups = groups[i::n]
+        cases = [c for g in groups for c in g]
     sides = [(s, cli) for s, cli in (("old", a.old), ("new", a.new)) if cli]
     nodes = {"old": a.old_nodes, "new": a.new_nodes}
     for side, cli in sides:
@@ -178,25 +224,30 @@ def cmd_run(a):
                        cpus=os.cpu_count(), machine=platform.machine()), open(os.path.join(a.out, side, "host.json"), "w"))
 
     def one(job):
-        i, case = job
+        i, group = job
         # Old then new on the same worker, the order alternating: a machine
         # slower for a while weighs on both sides alike.
         for side, cli in sides if i % 2 == 0 else sides[::-1]:
             out = os.path.join(a.out, side)
-            if not os.path.exists(os.path.join(out, case["id"] + ".run.json")):
-                run_one(cli, case, rules, out, not a.no_lines, a.jobs, nodes[side])
+            todo = [c for c in group if not os.path.exists(os.path.join(out, c["id"] + ".run.json"))]
+            if todo and batches(cli):
+                run_deck(cli, todo, rules, out, not a.no_lines, a.jobs, nodes[side])
+            else:
+                for case in todo:
+                    run_one(cli, case, rules, out, not a.no_lines, a.jobs, nodes[side])
         if a.measure_cli:
             # A change to the measure: both best boards measured again here, on the same worker.
-            for side, _ in sides:
-                info = os.path.join(a.out, side, case["id"] + ".run.json")
-                path = os.path.join(a.out, side, case["id"] + ".json")
-                best_value(a, case, side, (json.load(open(info)), path if os.path.exists(path) else None))
-        return case["id"]
+            for case in group:
+                for side, _ in sides:
+                    info = os.path.join(a.out, side, case["id"] + ".run.json")
+                    path = os.path.join(a.out, side, case["id"] + ".json")
+                    best_value(a, case, side, (json.load(open(info)), path if os.path.exists(path) else None))
+        return os.path.basename(group[0]["path"])
 
     started = time.time()
     with cf.ThreadPoolExecutor(a.jobs) as pool:
-        for n, hid in enumerate(pool.map(one, enumerate(cases)), 1):
-            print(f"{n}/{len(cases)} {hid}", flush=True)
+        for n, deck in enumerate(pool.map(one, enumerate(groups)), 1):
+            print(f"{n}/{len(groups)} {deck}", flush=True)
     broken = {side: [c["id"] for c in cases if json.load(open(os.path.join(a.out, side, c["id"] + ".run.json")))["rc"] != 0]
               for side, _ in sides}
     summary(a.out, [f"banco {a.version}, set {a.set}: {len(cases)} hands, {rules['nodes']} nodes, {a.jobs} jobs, "

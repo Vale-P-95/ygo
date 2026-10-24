@@ -210,6 +210,12 @@ enum Cmd {
         meta_file: Option<PathBuf>,
         #[arg(long)]
         meta_decks: Option<PathBuf>,
+        /// Several hands of the deck in one run, one per line of this file:
+        /// id, seed, hand, JSON file and lines file (tab-separated, the last
+        /// two may be empty). The engine is loaded once, and the card values
+        /// once per seed.
+        #[arg(long)]
+        cases: Option<PathBuf>,
     },
     /// The Monte Carlo played by the engine: hands drawn from the deck, each
     /// searched and measured, and P(best board ≥ threshold) with its 95%
@@ -545,6 +551,7 @@ fn main() -> Result<()> {
             meta_final,
             meta_file,
             meta_decks,
+            cases,
         } => combos(
             &cli.data,
             &setup,
@@ -579,6 +586,7 @@ fn main() -> Result<()> {
                 checkpoint_full,
                 meta: (meta_final > 0).then_some(MetaFinal { boards: meta_final, file: meta_file, decks: meta_decks }),
             },
+            cases.as_deref(),
         ),
         Cmd::ProbeLine { setup, lines, index, json, vs, stops, moves, protection } => {
             probe_line(&cli.data, &setup, &lines, index, json.as_deref(), vs.as_deref(), stops, moves, protection)
@@ -653,6 +661,7 @@ fn random_decks(dir: &Path, count: usize, min_cards: usize, seed: u64, out: &Pat
     Ok(())
 }
 
+#[derive(Clone)]
 struct CombosOptions {
     seconds: u64,
     nodes: Option<u64>,
@@ -682,6 +691,7 @@ struct CombosOptions {
 
 /// `combos --meta-final`: the best `boards` measured again against the
 /// meta, read from `file` (lists in `decks`) or from Master Duel Meta.
+#[derive(Clone)]
 struct MetaFinal {
     boards: usize,
     file: Option<PathBuf>,
@@ -781,7 +791,45 @@ struct Staged {
     measure: ygo_solver::probe::Cheap,
 }
 
-fn combos(dir: &Path, setup: &Setup, options: CombosOptions) -> Result<()> {
+fn combos(dir: &Path, setup: &Setup, options: CombosOptions, cases: Option<&Path>) -> Result<()> {
+    let Some(cases) = cases else {
+        let (engine, deck, hand) = start(dir, setup)?;
+        return combos_with(dir, &engine, setup, deck, hand, options);
+    };
+    // The first case's time also counts the engine's loading.
+    let mut started = std::time::Instant::now();
+    let engine = load_engine(dir)?;
+    let text = std::fs::read_to_string(cases).with_context(|| format!("cannot read {}", cases.display()))?;
+    let mut failed = 0;
+    for line in text.lines().filter(|l| !l.trim().is_empty() && !l.starts_with('#')) {
+        let fields: Vec<&str> = line.split('\t').collect();
+        let [id, seed, hand, json, save_lines] = fields[..] else { bail!("a case needs 5 tab-separated fields: {line}") };
+        let path = |p: &str| (!p.is_empty()).then(|| PathBuf::from(p));
+        let setup =
+            Setup { deck: setup.deck.clone(), hand: hand.to_owned(), seed: seed.parse().with_context(|| format!("bad seed in {line}"))? };
+        let json = path(json);
+        // A JSON file implies the probe turn, as with --json.
+        let options = CombosOptions { probe: options.probe || json.is_some(), json, save_lines: path(save_lines), ..options.clone() };
+        // Each case's output between its markers, with its own time (the
+        // first one also pays for the engine).
+        println!("=== case {id}");
+        let done = prepare(&engine, &setup).and_then(|(deck, hand)| combos_with(dir, &engine, &setup, deck, hand, options));
+        match done {
+            Ok(()) => println!("=== case {id} done in {:.2} s", started.elapsed().as_secs_f64()),
+            Err(e) => {
+                failed += 1;
+                println!("=== case {id} failed in {:.2} s: {e:#}", started.elapsed().as_secs_f64());
+            }
+        }
+        started = std::time::Instant::now();
+    }
+    if failed > 0 {
+        bail!("{failed} cases failed");
+    }
+    Ok(())
+}
+
+fn combos_with(dir: &Path, engine: &Engine, setup: &Setup, deck: DeckList, hand: Vec<u32>, options: CombosOptions) -> Result<()> {
     let CombosOptions {
         seconds,
         nodes,
@@ -808,7 +856,6 @@ fn combos(dir: &Path, setup: &Setup, options: CombosOptions) -> Result<()> {
         checkpoint_full,
         meta,
     } = options;
-    let (engine, deck, hand) = start(dir, setup)?;
     let mut config = ygo_solver::SearchConfig::new(deck, hand);
     config.seed = setup.seed;
     config.time_limit = std::time::Duration::from_secs(seconds);
@@ -819,20 +866,20 @@ fn combos(dir: &Path, setup: &Setup, options: CombosOptions) -> Result<()> {
         config.threads = t;
     }
     // The search plays against the probe turn's opponent: its lines play the same there.
-    let kit = ygo_solver::Kit::standard(&engine);
+    let kit = ygo_solver::Kit::standard(engine);
     config.opponent = Some(kit.opponent().clone());
     // Handtraps, read from the engine: kept in hand they are worth more.
-    config.hand_traps = ygo_solver::hand_traps(&engine, &config.deck, config.seed, &kit);
+    config.hand_traps = ygo_solver::hand_traps(engine, &config.deck, config.seed, &kit);
     // What each card stops alone on the field: the search steers by it,
     // and learns on the way what cards stop together.
     config.values =
-        std::sync::Arc::new(ygo_solver::card_values(&engine, &config.deck, config.seed, &kit, &config.hand_traps, config.threads));
+        std::sync::Arc::new(ygo_solver::card_values(engine, &config.deck, config.seed, &kit, &config.hand_traps, config.threads));
     config.learn = Some(std::sync::Arc::new(kit.clone()));
     if !use_handtraps {
-        config.policy.passive = known_hand_traps(&engine);
+        config.policy.passive = known_hand_traps(engine);
     }
-    config.policy.forbid = resolve_hand(&engine, &forbid)?;
-    config.keep_in_hand = resolve_hand(&engine, &keep)?;
+    config.policy.forbid = resolve_hand(engine, &forbid)?;
+    config.keep_in_hand = resolve_hand(engine, &keep)?;
     // "Name@place" asks for a place, "~Name" for a soft card.
     let mut cards = Vec::new();
     for item in goal.split(';').map(str::trim).filter(|s| !s.is_empty()) {
@@ -844,7 +891,7 @@ fn combos(dir: &Path, setup: &Setup, options: CombosOptions) -> Result<()> {
             Some((name, place)) => (name, goal_zone(place).with_context(|| format!("unknown goal place: {place}"))?),
             None => (item, ygo_solver::GoalZone::Any),
         };
-        let code = *resolve_hand(&engine, name)?.first().context("empty goal card")?;
+        let code = *resolve_hand(engine, name)?.first().context("empty goal card")?;
         cards.push(ygo_solver::GoalCard { code, zone, hard });
     }
     config.goal = ygo_solver::Goal { cards, all: !goal_any, first_only: first };
@@ -855,14 +902,14 @@ fn combos(dir: &Path, setup: &Setup, options: CombosOptions) -> Result<()> {
     };
     let cancel = std::sync::atomic::AtomicBool::new(false);
     if let Some(card) = card {
-        let card = *resolve_hand(&engine, &card)?.first().context("--card names no card")?;
+        let card = *resolve_hand(engine, &card)?.first().context("--card names no card")?;
         // The deck's own copy: a name finds the original artwork, the deck
         // may hold another.
         let db = engine.cards();
         let card = config.deck.main.iter().copied().find(|&c| db.canonical_code(c) == db.canonical_code(card)).unwrap_or(card);
         let hands = hands.max(1);
         let what = ygo_solver::CardSearch { card, hands, per_hand: config.time_limit / hands as u32, keep: top.max(1) };
-        let results = ygo_solver::search_card(&engine, &config, &what, &cancel, |_, _, _| {});
+        let results = ygo_solver::search_card(engine, &config, &what, &cancel, |_, _, _| {});
         if results.is_empty() {
             bail!("{} is not in the Main Deck", engine.cards().name(card));
         }
@@ -898,7 +945,7 @@ fn combos(dir: &Path, setup: &Setup, options: CombosOptions) -> Result<()> {
     config.checkpoint_top = if stops.is_empty() { 0 } else { CHECKPOINT_BOARDS };
     config.checkpoints = stops.clone();
     let mut last = 0;
-    let result = ygo_solver::search(&engine, &config, &cancel, |p| {
+    let result = ygo_solver::search(engine, &config, &cancel, |p| {
         if p.elapsed.as_secs() >= last + 5 {
             last = p.elapsed.as_secs();
             eprintln!(
@@ -929,7 +976,7 @@ fn combos(dir: &Path, setup: &Setup, options: CombosOptions) -> Result<()> {
         result.interrupted
     );
     let db = engine.cards();
-    let mut prober = ygo_solver::Prober::new(&engine, &config.deck, &config.hand, config.seed, &kit);
+    let mut prober = ygo_solver::Prober::new(engine, &config.deck, &config.hand, config.seed, &kit);
     // Measured first: the boards are then printed best measured first (the
     // search's estimate next to it), as the Combo Lab ranks them; the JSON
     // and the saved lines keep the search's order, with the printed rank.
@@ -1140,7 +1187,7 @@ fn combos(dir: &Path, setup: &Setup, options: CombosOptions) -> Result<()> {
     if probe && !interaction {
         for item in boards.iter_mut().filter(|item| !item.cheap && item.measured.is_some()) {
             let points = ygo_solver::explain::exposure_points(
-                &engine,
+                engine,
                 &config.deck,
                 &config.hand,
                 config.seed,
@@ -1194,12 +1241,12 @@ fn combos(dir: &Path, setup: &Setup, options: CombosOptions) -> Result<()> {
     if let Some(meta) = meta.as_ref().filter(|_| probe) {
         let started = std::time::Instant::now();
         let decks = ygo_solver::most_played(&load_meta(dir, meta)?, META_DECKS);
-        let rivals = ygo_solver::meta_rivals(&engine, &decks, config.seed, config.threads);
+        let rivals = ygo_solver::meta_rivals(engine, &decks, config.seed, config.threads);
         let lines_took = started.elapsed();
         let started = std::time::Instant::now();
         let head: Vec<usize> = printed.iter().copied().filter(|&i| measured_value(&boards[i]).is_some()).take(meta.boards).collect();
         for &i in &head {
-            metas[i] = ygo_solver::meta_score(&engine, &config.deck, &config.hand, config.seed, &boards[i].board.line, &rivals, &kit).ok();
+            metas[i] = ygo_solver::meta_score(engine, &config.deck, &config.hand, config.seed, &boards[i].board.line, &rivals, &kit).ok();
         }
         let value = |i: usize| metas[i].as_ref().and_then(|m| m.value).unwrap_or(f64::NEG_INFINITY);
         let mut first = head.clone();
@@ -1266,7 +1313,7 @@ fn combos(dir: &Path, setup: &Setup, options: CombosOptions) -> Result<()> {
                 m.hand_value,
                 m.floodgate_value
             ),
-            Some(Ok(m)) => print_measure(&engine, m, *took),
+            Some(Ok(m)) => print_measure(engine, m, *took),
             Some(Err(e)) => println!("   probe turn failed: {e}"),
             None => {}
         }
@@ -1305,7 +1352,7 @@ fn combos(dir: &Path, setup: &Setup, options: CombosOptions) -> Result<()> {
             println!("   meta (L2-3): {value} · {} · by the measure #{}", decks.join(" · "), by_measure[i] + 1);
         }
         if show_lines {
-            let (_, steps) = ygo_solver::explain(&engine, &config.deck, &config.hand, config.seed, config.opponent.as_ref(), &board.line)?;
+            let (_, steps) = ygo_solver::explain(engine, &config.deck, &config.hand, config.seed, config.opponent.as_ref(), &board.line)?;
             for (k, step) in steps.iter().enumerate() {
                 if let Some(choice) = &step.choice {
                     println!("     {:>2}. {choice}", k);
@@ -1321,7 +1368,7 @@ fn combos(dir: &Path, setup: &Setup, options: CombosOptions) -> Result<()> {
     for (i, item) in boards.iter().enumerate() {
         if probe {
             let measured = item.measured.as_ref().and_then(|m| m.as_ref().ok());
-            let mut b = board_json(&engine, &config, &item.board, i, item.variants, measured, item.took, item.exposure.as_ref());
+            let mut b = board_json(engine, &config, &item.board, i, item.variants, measured, item.took, item.exposure.as_ref());
             b["printed"] = serde_json::json!(rank_of[i]);
             if staged.is_some() {
                 b["stage"] = serde_json::json!(match (&item.measured, item.cheap) {
@@ -2990,9 +3037,15 @@ fn resolve_hand(engine: &Engine, hand: &str) -> Result<Vec<u32>> {
 
 fn start(dir: &Path, setup: &Setup) -> Result<(Engine, DeckList, Vec<u32>)> {
     let engine = load_engine(dir)?;
+    let (deck, hand) = prepare(&engine, setup)?;
+    Ok((engine, deck, hand))
+}
+
+/// The deck and the hand of `setup`, with a warning for each card without a script.
+fn prepare(engine: &Engine, setup: &Setup) -> Result<(DeckList, Vec<u32>)> {
     let text = std::fs::read_to_string(&setup.deck).with_context(|| format!("cannot read {}", setup.deck.display()))?;
     let deck = DeckList::from_ydk(&text)?;
-    let hand = resolve_hand(&engine, &setup.hand)?;
+    let hand = resolve_hand(engine, &setup.hand)?;
     let mut unscripted: Vec<u32> = deck
         .main
         .iter()
@@ -3004,7 +3057,7 @@ fn start(dir: &Path, setup: &Setup) -> Result<(Engine, DeckList, Vec<u32>)> {
     for code in unscripted {
         eprintln!("warning: no script for {} ({code})", engine.cards().name(code));
     }
-    Ok((engine, deck, hand))
+    Ok((deck, hand))
 }
 
 fn print_events(engine: &Engine, events: &[Event]) {
