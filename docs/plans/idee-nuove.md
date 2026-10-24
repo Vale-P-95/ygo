@@ -68,6 +68,8 @@ Quando hai finito: TASKS.md aggiornato, PR aperta, fermati.
 ```
 
 ## 4. Monte Carlo guidato dal motore nell'ottimizzatore
+**Stato (24/10):** fatto nella CLI (`duelforge-cli engine-mc`, `--swap`, `--climb`, `--roles`); numeri e tecniche in `docs/plans/monte-carlo-motore.md`. Con 200 mani l'intervallo è ±6 punti (limite binomiale a p ≈ 50%), con 400 sotto ±5; la cache evita l'87-92% delle ricerche per uno scambio. Manca l'app.
+
 L'ottimizzatore «Quante copie?» oggi massimizza probabilità calcolate sui ruoli. Il PIANO §7.4 prevede il Monte Carlo guidato dal motore, mai fatto. Proposta concreta: si pescano N mani, la ricerca del Combo Lab dà il valore della board migliore di ognuna, e il valore si mette in cache per **multinsieme delle carte che la ricerca ha usato** (le carte mai toccate da nessuna linea contano come vuote), così cambiare una copia ricalcola solo le mani nuove. L'obiettivo dell'ottimizzatore diventa «P(board ≥ soglia)» misurata, non stimata dai ruoli. Calcolo lungo: in background, con `summary.txt`.
 
 ```

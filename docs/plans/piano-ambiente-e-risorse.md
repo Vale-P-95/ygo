@@ -248,6 +248,7 @@ Resta la memoria operativa nei giorni con coordinatrice; altrimenti si aggiorna 
    - B8, obiettivi ricchi: motore e contratto fatti il 24/10; restano mockup e interfaccia (Opus);
    - [fatto] i punti 3, 5 e 6 della caccia ai bug; [fatto il 24/10] l'arena nel turno di prova; [fatto il 24/10] il caso Vendread (Opus, `docs/plans/robustezza.md`);
    - il simulatore (#36): mockup prima.
+   - [fatto il 24/10] il Monte Carlo guidato dal motore nella CLI (`engine-mc`, idea 4): 200 mani costano 4-8 minuti su 4 core (5-9 s per mano), uno scambio di una copia circa 30 s grazie alla cache; scrive `out/engine-mc/summary.txt`. Oltre le 400 mani o con `--climb` lungo va in background.
 
 ## 10bis. Decisione sul merge (23/10)
 - **Cosa**: i merge li fa la coordinatrice in automatico; sostituisce «il merge lo fa l'utente dalla pagina».
