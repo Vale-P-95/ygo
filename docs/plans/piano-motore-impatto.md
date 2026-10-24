@@ -23,7 +23,7 @@
 | 1 | L2-3 come ultimo gradino di default | #1 migliore in circa 1 mano su 5, nessuna peggiore; coppie giuste dal 68% al 94% | 15-20 $; circa 3 ore di CPU | `l23_fresh.py` e `l23_final.py` | **Non si fa** (resta a richiesta, decisione del 24/10) |
 | 2 | Livello 2 dalle copie del duello | L2-3 a richiesta e banco oggettivo circa −40% di tempo, uscite identiche | 15-20 $; circa 1 ora | Uscite identiche, `DUELFORGE_COPY_CHECK`, tempi | Subito, per prima |
 | 3 | Floodgate della misura economica 0,8 → 0,4 | Il taglio 30 → 15 segue il punteggio; meno #1 tagliati prima della misura completa | 5-8 $; circa 2 ore | `paired_test.py --staged` su taratura e freschi | Subito |
-| 4 | Rappresentante del campo scelto dalla misura economica | Recupera le varianti perse (Labrynth 1,28 → 1,59) | 20-25 $; 3-4 ore | `paired_test.py --staged`, oracolo, banco di generalità | **Fatto in `combos`** il 24/10: 12 meglio, 0 peggio, +15/+22% di tempo; l'app dopo |
+| 4 | Rappresentante del campo scelto dalla misura economica | Recupera le varianti perse (Labrynth 1,28 → 1,59) | 20-25 $; 3-4 ore | `paired_test.py --staged`, oracolo, banco di generalità | **Fatto** il 24/10: in `combos` 12 meglio, 0 peggio, +15/+22% di tempo; nell'app primo uguale in 13 mani su 13, valutazione +24% |
 | 5 | B1c, poi B11: priorità per rango e novità (B1c misurato il 24/10, non tenuto: §5) | Stessa qualità con metà dei nodi (quota a 4000 dal 73% al 79%) | 15 $ (B1c), 25-30 $ (B11); 3-5 ore ciascuna | Oracolo, `paired_test.py`, banco di generalità | Dopo la monotonia |
 
 Le stime in dollari sono a occhio, sul consumo delle sessioni del 23-24/10 con compiti simili.
@@ -129,6 +129,22 @@ Criterio: nessun aspetto in più nella lista, la misura non cambia (prova equa i
 Modello: Opus 5.5 alto
 Quando hai finito: TASKS.md, STATO.md e questo piano aggiornati, PR aperta, fermati.
 ```
+
+**Esito della seconda PR, l'app** (thread «Portare il rappresentante del campo nell'app», 24/10, branch `claude/project-thread-bh2om9` da `main` 4b8c9bf; solo `combo_score` in `lib.rs`). Una mano precisa prende la misura economica in due giri: prima la prima variante di ciascuno dei 30 aspetti, come prima; poi le altre varianti (fino a 3 in tutto, le prime nell'ordine della ricerca con Cimitero e bandite diversi) dei 15 aspetti migliori dopo il primo giro, cioè quelli che possono arrivare alla misura completa. Ogni aspetto lo rappresenta la sua variante migliore, che va alla misura completa; alla pagina arriva un solo `combo-score` per aspetto, quando le sue varianti sono misurate, quindi `Combo.tsx` non cambia. Le altre varianti restano in `job.cheap` (dopo «Continua» non si rimisurano) ma non hanno una voce in `job.scores`; se dopo «Continua» un'altra variante diventa la migliore, quella di prima esce da `job.scores`. «Carta + resto» non cambia.
+
+Prova nell'app vera: build release del backend, motore e dati reali, sotto `xvfb-run`, con un aggancio temporaneo in `setup` (non nella PR) che fa la ricerca di 60 s sulla mano e poi valuta la stessa ricerca con 1 variante (come `main`) e con 3, due volte ciascuna. Mani `hunt-<deck>-<k>` di `oracle.py` sulle liste MDM del 24/10, un computer a 4 core.
+
+| Mani (13) | aspetti | primo | 2°-5° | valutazione, somma delle 7 mani lunghe |
+|---|---|---|---|---|
+| 1 variante (`main`) | uguali | — | — | 20,9 s |
+| 3 varianti per tutti i 30 aspetti | uguali in tutte | uguale in 13 | meglio in Lunalight-1 e Fur Hire-1 | 29,3 s (+40%; Blue-Eyes-0 +68%) |
+| **3 varianti per i 15 migliori (tenuto)** | uguali in tutte | uguale in 13 | meglio in Fur Hire-1 (3° e 4°: 0,670 e 0,616 → 0,736 e 0,736) | 25,9 s (+24%; Blue-Eyes-0 +41%, Lunalight-1 +38%) |
+| 3 varianti per gli 8 migliori | uguali | uguale | come `main` | 23,9 s (+14%) |
+
+- Le mani: labrynth-0, labrynth-1, invoked-0, invoked-1 (provate solo con la prima versione, varianti per tutti i 30 aspetti: ricerca esaurita in 2-4 s, valutazione 0,3-2,5 s, nessuna differenza nei primi 5) e le 7 lunghe con tutte le versioni: blue_eyes-0, lunalight-1, gem_knights-1, fur_hire-1, sky_striker-1, kashtira-0, orcust-0 (le prime sei fino al limite di 60 s).
+- **Il primo non migliora in nessuna mano**: i guadagni della CLI (blue_eyes-0 1,18 → 1,47, lunalight-1 0,83 → 1,04) non si rifanno, perché l'app misura per aspetto (`look_key`, la mano compresa) e non per campo, e le sue prime board sono già varianti diverse. Il beneficio è più piccolo che nella CLI.
+- **Tempo:** il criterio del brief (+30%) è rispettato sulla somma, non mano per mano: Blue-Eyes-0 passa da 6,3 a 8,9 s di valutazione, su 64 s di ricerca. Con tutti i 30 aspetti si prende anche Lunalight-1, per +40%.
+- **Prova equa sulle 406 board:** identica per costruzione, la misura (`probe.rs`) non cambia; cambia solo quale board di un aspetto va misurata.
 
 ## 5. B1c, poi B11: priorità per rango e novità prima
 **Evidenza.** A 4000 nodi la ricerca arriva al 73% mediano dell'oracolo, e solo 19 mani su 88 al 95%; da 4000 a 8000 nodi si guadagnano 6 punti. Un quarto dei nodi non cambia nulla di visibile e un quarto è già visto (A2). B1a ha mostrato che l'ordine fra fratelli alla **stessa** priorità non conta (15 meglio, 9 peggio, p = 0,31): conta dare priorità diverse, cioè B1c (la penalità di deviazione cresce col rango in `dive_order`, al posto dello 0,6 uguale per tutte) e B11 (novità come chiave, stima come spareggio; idea 6 della seconda revisione). Il guadagno possibile è il più grande, ma tocca il cuore di `search.rs` e il suo test appaiato è rumoroso finché la monotonia non c'è (`monotonia-budget.md`).
