@@ -4,9 +4,10 @@
 //! the share of the opponent's board value left after your turn: the board
 //! is measured as the probe turn measures yours (its field and floodgates
 //! against the standard kit), from the opponent's side, before and after.
-//! A measure of its own, apart from the first turn's. The board does not
-//! answer your turn (only its lasting effects apply), and your turn is the
-//! duel's first, with no Battle Phase.
+//! A measure of its own, apart from the first turn's. On your turn the
+//! board answers with the effects its measure found as interruptions, aimed
+//! at your cards, and nothing else; your turn is the duel's first, with no
+//! Battle Phase.
 
 use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
@@ -41,6 +42,9 @@ pub struct RivalBoard {
     /// For each card on its field, what the board loses without it (the
     /// measure without that card), at least [`BODY`].
     pub worth: Vec<(u32, f64)>,
+    /// The effects it answers your turn with (code, description): the
+    /// interruptions of its measure, the one worth the most first.
+    pub responders: Vec<(u32, u64)>,
 }
 
 /// One hand of yours against the board.
@@ -134,7 +138,7 @@ pub fn random_hands(main: &[u32], size: usize, count: usize, seed: u64) -> Vec<V
 /// `None` when no hand makes a board.
 pub fn rival_board(engine: &Engine, deck: &DeckList, seed: u64, hands: usize, nodes: u64, threads: usize, kit: &Kit) -> Option<RivalBoard> {
     let traps = hand_traps(engine, deck, seed, kit);
-    let mut best: Option<(f64, Vec<u32>, Arc<DuelState>)> = None;
+    let mut best: Option<(f64, Vec<u32>, Arc<DuelState>, Measure)> = None;
     for hand in random_hands(&deck.main, 5, hands, seed) {
         let mut config = SearchConfig::new(deck.clone(), hand.clone());
         config.seed = seed;
@@ -148,10 +152,19 @@ pub fn rival_board(engine: &Engine, deck: &DeckList, seed: u64, hands: usize, no
         let Ok(m) = measure(engine, deck, &board.state, 0, None, seed, kit) else { continue };
         let value = board_value(&m);
         if best.as_ref().is_none_or(|b| value > b.0) {
-            best = Some((value, hand, board.state.clone()));
+            best = Some((value, hand, board.state.clone(), m));
         }
     }
-    let (value, hand, state) = best?;
+    let (value, hand, state, m) = best?;
+    let mut interruptions: Vec<_> = m.interruptions.iter().filter(|i| i.value > 0.0).collect();
+    interruptions.sort_by(|a, b| b.value.total_cmp(&a.value));
+    let mut responders = Vec::new();
+    for i in interruptions {
+        let id = (i.responder.code, i.responder.description);
+        if !responders.contains(&id) {
+            responders.push(id);
+        }
+    }
     let placed = placements(&state, 0);
     let mut worth = Vec::new();
     for (i, p) in placed.iter().enumerate().filter(|(_, p)| on_field(p)) {
@@ -165,7 +178,7 @@ pub fn rival_board(engine: &Engine, deck: &DeckList, seed: u64, hands: usize, no
         extra: them.extra.iter().map(|e| e.0).collect(),
         placed: placed.clone(),
     };
-    Some(RivalBoard { hand, placed, left, value, worth })
+    Some(RivalBoard { hand, placed, left, value, worth, responders })
 }
 
 /// How to play your turn against the board.
@@ -177,6 +190,9 @@ pub struct BreakConfig {
     /// Your boards measured, the best by the search's estimate: the one
     /// that leaves the opponent the least counts.
     pub top: usize,
+    /// The board answers your turn with its responders (else it does
+    /// nothing, only its lasting effects apply).
+    pub answers: bool,
 }
 
 /// Plays `hand` (yours, 6 cards) against `rival` and measures what is left
@@ -197,6 +213,9 @@ pub fn break_board(
     search_config.time_limit = Duration::from_secs(120);
     search_config.opponent = Some(rival.left.clone());
     search_config.opponent_field = rival.worth.clone();
+    if config.answers {
+        search_config.policy.opponent_responders = rival.responders.clone();
+    }
     search_config.hand_traps = hand_traps(engine, deck, config.seed, kit);
     let result = search(engine, &search_config, &AtomicBool::new(false), |_| {});
     let all: Vec<u32> = rival.placed.iter().filter(|p| on_field(p)).map(|p| p.code).collect();

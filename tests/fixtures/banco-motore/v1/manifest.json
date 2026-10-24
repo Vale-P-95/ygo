@@ -1,0 +1,727 @@
+{
+ "version": "v1",
+ "made": "2026-10-24",
+ "from_manifest": "tests/fixtures/generality/sets.json",
+ "hands_per_deck": 3,
+ "decks": [
+  {
+   "deck": "ancient_gear",
+   "set": "tuning",
+   "source": "masterduelmeta (scripts/mdm_decks.py)",
+   "ref": {
+    "site": "masterduelmeta",
+    "type": "ancient_gear",
+    "names": "cards.db",
+    "id": "6ad97e222d1e1267fefb7dc8"
+   },
+   "hash": "86b09e8f616d8906"
+  },
+  {
+   "deck": "artmage",
+   "set": "tuning",
+   "source": "masterduelmeta (scripts/mdm_decks.py)",
+   "ref": {
+    "site": "masterduelmeta",
+    "type": "artmage",
+    "names": "cards.db",
+    "id": "6ada32dc0a97983c8d08d030"
+   },
+   "hash": "4c77256ac82e8749"
+  },
+  {
+   "deck": "blue_eyes",
+   "set": "tuning",
+   "source": "masterduelmeta (scripts/mdm_decks.py)",
+   "ref": {
+    "site": "masterduelmeta",
+    "type": "blue_eyes",
+    "names": "cards.db",
+    "id": "6ad97cd748005456a5992d25"
+   },
+   "hash": "3a40aad2a244aadc"
+  },
+  {
+   "deck": "branded",
+   "set": "tuning",
+   "source": "masterduelmeta (scripts/mdm_decks.py)",
+   "ref": {
+    "site": "masterduelmeta",
+    "type": "branded",
+    "names": "cards.db",
+    "id": "6ad9aceeac72049297480426"
+   },
+   "hash": "0d6cd297ebcead2e"
+  },
+  {
+   "deck": "clown_crew",
+   "set": "tuning",
+   "source": "masterduelmeta (scripts/mdm_decks.py)",
+   "ref": {
+    "site": "masterduelmeta",
+    "type": "clown_crew",
+    "names": "cards.db",
+    "id": "6ada32dc0a97983c8d08d02e"
+   },
+   "hash": "890a327bc2a8dd4e"
+  },
+  {
+   "deck": "code_talker",
+   "set": "tuning",
+   "source": "masterduelmeta (scripts/mdm_decks.py)",
+   "ref": {
+    "site": "masterduelmeta",
+    "type": "code_talker",
+    "names": "cards.db",
+    "id": "6ad97cd748005456a5992d1b"
+   },
+   "hash": "8a5050fd86779f7f"
+  },
+  {
+   "deck": "d_d_d",
+   "set": "tuning",
+   "source": "masterduelmeta (scripts/mdm_decks.py)",
+   "ref": {
+    "site": "masterduelmeta",
+    "type": "d_d_d",
+    "names": "cards.db",
+    "id": "6ada32dc0a97983c8d08d032"
+   },
+   "hash": "722283b96b4b88c6"
+  },
+  {
+   "deck": "doomz",
+   "set": "tuning",
+   "source": "masterduelmeta (scripts/mdm_decks.py)",
+   "ref": {
+    "site": "masterduelmeta",
+    "type": "doomz",
+    "names": "cards.db",
+    "id": "6ada32dc0a97983c8d08d02f"
+   },
+   "hash": "da15efb2b7dd98cb"
+  },
+  {
+   "deck": "dracotail",
+   "set": "tuning",
+   "source": "masterduelmeta (scripts/mdm_decks.py)",
+   "ref": {
+    "site": "masterduelmeta",
+    "type": "dracotail",
+    "names": "cards.db",
+    "id": "6ada32dc0a97983c8d08d02c"
+   },
+   "hash": "9da55bcb3a0ab416"
+  },
+  {
+   "deck": "elfnote",
+   "set": "tuning",
+   "source": "masterduelmeta (scripts/mdm_decks.py)",
+   "ref": {
+    "site": "masterduelmeta",
+    "type": "elfnote",
+    "names": "cards.db",
+    "id": "6ada32f60060abbbeee9c11d"
+   },
+   "hash": "496ab67241fc9655"
+  },
+  {
+   "deck": "elfnote_kewl_tune",
+   "set": "tuning",
+   "source": "masterduelmeta (scripts/mdm_decks.py)",
+   "ref": {
+    "site": "masterduelmeta",
+    "type": "elfnote_kewl_tune",
+    "names": "cards.db",
+    "id": "6ada32dc0a97983c8d08d02b"
+   },
+   "hash": "0d1de8a3b6a8f768"
+  },
+  {
+   "deck": "exodia",
+   "set": "tuning",
+   "source": "masterduelmeta (scripts/mdm_decks.py)",
+   "ref": {
+    "site": "masterduelmeta",
+    "type": "exodia",
+    "names": "cards.db",
+    "id": "6ad8cb95a425ff2d8faf9c0f"
+   },
+   "hash": "0cc8ef492becfe66"
+  },
+  {
+   "deck": "goblin_biker",
+   "set": "tuning",
+   "source": "masterduelmeta (scripts/mdm_decks.py)",
+   "ref": {
+    "site": "masterduelmeta",
+    "type": "goblin_biker",
+    "names": "cards.db",
+    "id": "6ada32dc0a97983c8d08d02d"
+   },
+   "hash": "bb0d5bd68c98570d"
+  },
+  {
+   "deck": "invoked-siracusa-ewcq2026",
+   "set": "tuning",
+   "source": "tests/fixtures/decks/invoked-siracusa-ewcq2026.ydk",
+   "ref": {
+    "site": "repo",
+    "path": "tests/fixtures/decks/invoked-siracusa-ewcq2026.ydk"
+   },
+   "hash": "e769faae346fe7a4"
+  },
+  {
+   "deck": "invoked-siracusa-md",
+   "set": "tuning",
+   "source": "tests/fixtures/decks/invoked-siracusa-md.ydk",
+   "ref": {
+    "site": "repo",
+    "path": "tests/fixtures/decks/invoked-siracusa-md.ydk"
+   },
+   "hash": "685e77288873ef2c"
+  },
+  {
+   "deck": "invoked",
+   "set": "tuning",
+   "source": "masterduelmeta (scripts/mdm_decks.py)",
+   "ref": {
+    "site": "masterduelmeta",
+    "type": "invoked",
+    "names": "cards.db",
+    "id": "6ad93d4ca01519508f015931"
+   },
+   "hash": "40d1e9e7498b0822",
+   "manifest_hash": "980084436d90ff56"
+  },
+  {
+   "deck": "live_twin",
+   "set": "tuning",
+   "source": "masterduelmeta (scripts/mdm_decks.py)",
+   "ref": {
+    "site": "masterduelmeta",
+    "type": "live_twin",
+    "names": "cards.db",
+    "id": "6ad97e4b52220d884c247730"
+   },
+   "hash": "3fabc33b43c118c8"
+  },
+  {
+   "deck": "lunalight",
+   "set": "tuning",
+   "source": "masterduelmeta (scripts/mdm_decks.py)",
+   "ref": {
+    "site": "masterduelmeta",
+    "type": "lunalight",
+    "names": "cards.db",
+    "id": "6ad97d5552220d884c247092"
+   },
+   "hash": "6d8ef88a6b3fd97a"
+  },
+  {
+   "deck": "magistus_fairy_tail",
+   "set": "tuning",
+   "source": "masterduelmeta (scripts/mdm_decks.py)",
+   "ref": {
+    "site": "masterduelmeta",
+    "type": "magistus_fairy_tail",
+    "names": "cards.db",
+    "id": "6ada32dc0a97983c8d08d028"
+   },
+   "hash": "cf0387478c590a59"
+  },
+  {
+   "deck": "maliss",
+   "set": "tuning",
+   "source": "masterduelmeta (scripts/mdm_decks.py)",
+   "ref": {
+    "site": "masterduelmeta",
+    "type": "maliss",
+    "names": "cards.db",
+    "id": "6ada32dc0a97983c8d08d02a"
+   },
+   "hash": "8dd06dd8b3da79c5"
+  },
+  {
+   "deck": "megalith",
+   "set": "tuning",
+   "source": "masterduelmeta (scripts/mdm_decks.py)",
+   "ref": {
+    "site": "masterduelmeta",
+    "type": "megalith",
+    "names": "cards.db",
+    "id": "6ad90b3ca01519508f000b69"
+   },
+   "hash": "4c885e2035197d7e"
+  },
+  {
+   "deck": "mitsurugi_yummy",
+   "set": "tuning",
+   "source": "masterduelmeta (scripts/mdm_decks.py)",
+   "ref": {
+    "site": "masterduelmeta",
+    "type": "mitsurugi_yummy",
+    "names": "cards.db",
+    "id": "6ad9174d7e3908cc1debb4e6"
+   },
+   "hash": "35767bb4576be86d"
+  },
+  {
+   "deck": "odion",
+   "set": "tuning",
+   "source": "masterduelmeta (scripts/mdm_decks.py)",
+   "ref": {
+    "site": "masterduelmeta",
+    "type": "odion",
+    "names": "cards.db",
+    "id": "6ada256ec526b9ad5159fd08"
+   },
+   "hash": "622ec61b53f71f12"
+  },
+  {
+   "deck": "orcust",
+   "set": "tuning",
+   "source": "masterduelmeta (scripts/mdm_decks.py)",
+   "ref": {
+    "site": "masterduelmeta",
+    "type": "orcust",
+    "names": "cards.db",
+    "id": "6ad996332d1e1267fefc223a"
+   },
+   "hash": "ea531b2e29ee0f89"
+  },
+  {
+   "deck": "paleozoic",
+   "set": "tuning",
+   "source": "masterduelmeta (scripts/mdm_decks.py)",
+   "ref": {
+    "site": "masterduelmeta",
+    "type": "paleozoic",
+    "names": "cards.db",
+    "id": "6ad9aceeac72049297480427"
+   },
+   "hash": "2c3f49a83247260f"
+  },
+  {
+   "deck": "phantom_knights",
+   "set": "tuning",
+   "source": "masterduelmeta (scripts/mdm_decks.py)",
+   "ref": {
+    "site": "masterduelmeta",
+    "type": "phantom_knights",
+    "names": "cards.db",
+    "id": "6ad97cd748005456a5992d1c"
+   },
+   "hash": "44c6cdc236813fd6"
+  },
+  {
+   "deck": "power_patron",
+   "set": "tuning",
+   "source": "masterduelmeta (scripts/mdm_decks.py)",
+   "ref": {
+    "site": "masterduelmeta",
+    "type": "power_patron",
+    "names": "cards.db",
+    "id": "6ad9a6de1dcefe25c65803bd"
+   },
+   "hash": "3c15655884c09bca"
+  },
+  {
+   "deck": "primite",
+   "set": "tuning",
+   "source": "masterduelmeta (scripts/mdm_decks.py)",
+   "ref": {
+    "site": "masterduelmeta",
+    "type": "primite",
+    "names": "cards.db",
+    "id": "6ad97e381dcefe25c6570f96"
+   },
+   "hash": "1b19eeb7fcfc5a22"
+  },
+  {
+   "deck": "psychics",
+   "set": "tuning",
+   "source": "masterduelmeta (scripts/mdm_decks.py)",
+   "ref": {
+    "site": "masterduelmeta",
+    "type": "psychics",
+    "names": "cards.db",
+    "id": "6ad9a6de1dcefe25c65803be"
+   },
+   "hash": "4531c004169268d7"
+  },
+  {
+   "deck": "pumpking_zombies",
+   "set": "tuning",
+   "source": "masterduelmeta (scripts/mdm_decks.py)",
+   "ref": {
+    "site": "masterduelmeta",
+    "type": "pumpking_zombies",
+    "names": "cards.db",
+    "id": "6ada32dc0a97983c8d08d029"
+   },
+   "hash": "a17be60c16f53874"
+  },
+  {
+   "deck": "r_b",
+   "set": "tuning",
+   "source": "masterduelmeta (scripts/mdm_decks.py)",
+   "ref": {
+    "site": "masterduelmeta",
+    "type": "r_b",
+    "names": "cards.db",
+    "id": "6ad97cd748005456a5992d27"
+   },
+   "hash": "ecfdbcecea4fdb00"
+  },
+  {
+   "deck": "radiant_typhoon_zoodiac",
+   "set": "tuning",
+   "source": "masterduelmeta (scripts/mdm_decks.py)",
+   "ref": {
+    "site": "masterduelmeta",
+    "type": "radiant_typhoon_zoodiac",
+    "names": "cards.db",
+    "id": "6ad8cb95a425ff2d8faf9c10"
+   },
+   "hash": "6e74f89a3c417ebc"
+  },
+  {
+   "deck": "railway",
+   "set": "tuning",
+   "source": "masterduelmeta (scripts/mdm_decks.py)",
+   "ref": {
+    "site": "masterduelmeta",
+    "type": "railway",
+    "names": "cards.db",
+    "id": "6ad97ddd0033199169010320"
+   },
+   "hash": "b2bac00faaa9c68e"
+  },
+  {
+   "deck": "resonators",
+   "set": "tuning",
+   "source": "masterduelmeta (scripts/mdm_decks.py)",
+   "ref": {
+    "site": "masterduelmeta",
+    "type": "resonators",
+    "names": "cards.db",
+    "id": "6ad97d0248005456a5992e7b"
+   },
+   "hash": "062cd176b77769cf"
+  },
+  {
+   "deck": "ryu_ge",
+   "set": "tuning",
+   "source": "masterduelmeta (scripts/mdm_decks.py)",
+   "ref": {
+    "site": "masterduelmeta",
+    "type": "ryu_ge",
+    "names": "cards.db",
+    "id": "6ad91ffe52220d884c2209c0"
+   },
+   "hash": "7970d67c365f3e04"
+  },
+  {
+   "deck": "sky_striker",
+   "set": "tuning",
+   "source": "masterduelmeta (scripts/mdm_decks.py)",
+   "ref": {
+    "site": "masterduelmeta",
+    "type": "sky_striker",
+    "names": "cards.db",
+    "id": "6ada256ec526b9ad5159fd09"
+   },
+   "hash": "3201caaacf214d2e"
+  },
+  {
+   "deck": "snake_eye",
+   "set": "tuning",
+   "source": "masterduelmeta (scripts/mdm_decks.py)",
+   "ref": {
+    "site": "masterduelmeta",
+    "type": "snake_eye",
+    "names": "cards.db",
+    "id": "6ad9053ba425ff2d8fb12857"
+   },
+   "hash": "5af9c160612b2d6f"
+  },
+  {
+   "deck": "tearlaments",
+   "set": "tuning",
+   "source": "masterduelmeta (scripts/mdm_decks.py)",
+   "ref": {
+    "site": "masterduelmeta",
+    "type": "tearlaments",
+    "names": "cards.db",
+    "id": "6ada32dc0a97983c8d08d031"
+   },
+   "hash": "bb02f63c0ac2aaf4"
+  },
+  {
+   "deck": "vampire",
+   "set": "tuning",
+   "source": "masterduelmeta (scripts/mdm_decks.py)",
+   "ref": {
+    "site": "masterduelmeta",
+    "type": "vampire",
+    "names": "cards.db",
+    "id": "6ad97db6f0ef9769275e8dbd"
+   },
+   "hash": "30dfdaa21a1f3103"
+  },
+  {
+   "deck": "vanquish_soul_k9",
+   "set": "tuning",
+   "source": "masterduelmeta (scripts/mdm_decks.py)",
+   "ref": {
+    "site": "masterduelmeta",
+    "type": "vanquish_soul_k9",
+    "names": "cards.db",
+    "id": "6ada1a6efd6b4b018d459230"
+   },
+   "hash": "56c98142bd2cb205"
+  },
+  {
+   "deck": "warrior_combo",
+   "set": "tuning",
+   "source": "masterduelmeta (scripts/mdm_decks.py)",
+   "ref": {
+    "site": "masterduelmeta",
+    "type": "warrior_combo",
+    "names": "cards.db",
+    "id": "6ad9a6de1dcefe25c65803c0"
+   },
+   "hash": "919ef7ae8af7a153",
+   "manifest_hash": "dca818d9f97d479e"
+  },
+  {
+   "deck": "white_forest_azamina",
+   "set": "tuning",
+   "source": "masterduelmeta (scripts/mdm_decks.py)",
+   "ref": {
+    "site": "masterduelmeta",
+    "type": "white_forest_azamina",
+    "names": "cards.db",
+    "id": "6ad8cb95a425ff2d8faf9c12"
+   },
+   "hash": "e153dd5b27551581"
+  },
+  {
+   "deck": "yummy",
+   "set": "tuning",
+   "source": "masterduelmeta (scripts/mdm_decks.py)",
+   "ref": {
+    "site": "masterduelmeta",
+    "type": "yummy",
+    "names": "cards.db",
+    "id": "6ad97dc8ac7204929746c91d"
+   },
+   "hash": "15a4c71a53c836c6"
+  },
+  {
+   "deck": "fur_hire_gmx",
+   "set": "fresh",
+   "source": "ygoprodeck Tournament Meta Decks fur-hire-gmx-740206 (Mak Gora Ranking)",
+   "ref": {
+    "site": "ygoprodeck",
+    "url": "fur-hire-gmx-740206"
+   },
+   "hash": "64925c898cb1f196"
+  },
+  {
+   "deck": "atlantean_mermail",
+   "set": "fresh",
+   "source": "ygoprodeck Tournament Meta Decks atlantean-mermail-739425 (Chaguanas WCQ Regional)",
+   "ref": {
+    "site": "ygoprodeck",
+    "url": "atlantean-mermail-739425"
+   },
+   "hash": "c0e7a2f39ac68415"
+  },
+  {
+   "deck": "sacred_beasts",
+   "set": "fresh",
+   "source": "ygoprodeck Tournament Meta Decks sacred-beasts-739200 (Karlsruhe WCQ Regional)",
+   "ref": {
+    "site": "ygoprodeck",
+    "url": "sacred-beasts-739200"
+   },
+   "hash": "43a2580b1e66918e"
+  },
+  {
+   "deck": "azamina_mitsurugi_dark_magician_light_and_darkness_ritual",
+   "set": "fresh",
+   "source": "ygoprodeck Tournament Meta Decks azamina-mitsurugi-dark-magician-light-and-darkness-ritual-737758 (Rio De Janeiro WCQ Regional)",
+   "ref": {
+    "site": "ygoprodeck",
+    "url": "azamina-mitsurugi-dark-magician-light-and-darkness-ritual-737758"
+   },
+   "hash": "ab574a7fd2953ba6"
+  },
+  {
+   "deck": "blitzclique",
+   "set": "fresh",
+   "source": "ygoprodeck Tournament Meta Decks blitzclique-736703 (Bundaberg WCQ Regional)",
+   "ref": {
+    "site": "ygoprodeck",
+    "url": "blitzclique-736703"
+   },
+   "hash": "0f68ea79bbf8471a"
+  },
+  {
+   "deck": "onomat_ryzeal",
+   "set": "fresh",
+   "source": "ygoprodeck Tournament Meta Decks onomat-ryzeal-736503 (YCS Guayaquil)",
+   "ref": {
+    "site": "ygoprodeck",
+    "url": "onomat-ryzeal-736503"
+   },
+   "hash": "fb0804ae741a1243"
+  },
+  {
+   "deck": "regenesis",
+   "set": "fresh",
+   "source": "ygoprodeck Tournament Meta Decks regenesis-736001 (Cannington WCQ Regional)",
+   "ref": {
+    "site": "ygoprodeck",
+    "url": "regenesis-736001"
+   },
+   "hash": "a906dfa3b25f94fe"
+  },
+  {
+   "deck": "memento",
+   "set": "fresh",
+   "source": "ygoprodeck Tournament Meta Decks memento-735584 (Folkestone WCQ Regional)",
+   "ref": {
+    "site": "ygoprodeck",
+    "url": "memento-735584"
+   },
+   "hash": "3d226f454d8c5528"
+  },
+  {
+   "deck": "exosister",
+   "set": "fresh",
+   "source": "ygoprodeck Tournament Meta Decks exosister-735261 (Arapiraca WCQ Regional)",
+   "ref": {
+    "site": "ygoprodeck",
+    "url": "exosister-735261"
+   },
+   "hash": "c51caf5fb3dde9db"
+  },
+  {
+   "deck": "hero",
+   "set": "fresh",
+   "source": "ygoprodeck Tournament Meta Decks hero-735257 (Plymouth WCQ Regional)",
+   "ref": {
+    "site": "ygoprodeck",
+    "url": "hero-735257"
+   },
+   "hash": "16e09cdc22e02856"
+  },
+  {
+   "deck": "toon",
+   "set": "fresh",
+   "source": "ygoprodeck Tournament Meta Decks OCG toon-733185 (Duel Spirits 2026)",
+   "ref": {
+    "site": "ygoprodeck",
+    "url": "toon-733185"
+   },
+   "hash": "fb9226f1ce864349"
+  },
+  {
+   "deck": "magistus_witchcrafter",
+   "set": "fresh",
+   "source": "ygoprodeck Tournament Meta Decks OCG magistus-witchcrafter-724139 (18th Fuwadora Cup 3-Person Team Battle)",
+   "ref": {
+    "site": "ygoprodeck",
+    "url": "magistus-witchcrafter-724139"
+   },
+   "hash": "520088a4c0479dcb"
+  },
+  {
+   "deck": "fiendsmith_unchained",
+   "set": "fresh",
+   "source": "ygoprodeck Tournament Meta Decks OCG fiendsmith-unchained-722014 (Ice CS)",
+   "ref": {
+    "site": "ygoprodeck",
+    "url": "fiendsmith-unchained-722014"
+   },
+   "hash": "d3a364982045955c"
+  },
+  {
+   "deck": "rokket",
+   "set": "fresh",
+   "source": "ygoprodeck Tournament Meta Decks OCG rokket-716532 (YCSJ Osaka)",
+   "ref": {
+    "site": "ygoprodeck",
+    "url": "rokket-716532"
+   },
+   "hash": "bb78266f39fa7e0a"
+  },
+  {
+   "deck": "primite_dark_magician",
+   "set": "fresh",
+   "source": "ygoprodeck Tournament Meta Decks OCG primite-dark-magician-716528 (YCSJ Osaka)",
+   "ref": {
+    "site": "ygoprodeck",
+    "url": "primite-dark-magician-716528"
+   },
+   "hash": "f3c4ec2f77d4b817"
+  },
+  {
+   "deck": "tenpai_dragon",
+   "set": "fresh",
+   "source": "masterduelmeta 6adae69468d7aec32c5a8c6a 2026-10-23",
+   "ref": {
+    "site": "masterduelmeta",
+    "id": "6adae69468d7aec32c5a8c6a",
+    "names": "cdb"
+   },
+   "hash": "83f75d7c8a5a4e17"
+  },
+  {
+   "deck": "shaddoll",
+   "set": "fresh",
+   "source": "masterduelmeta 6adab4f092db7c381850be62 2026-10-23",
+   "ref": {
+    "site": "masterduelmeta",
+    "id": "6adab4f092db7c381850be62",
+    "names": "cdb"
+   },
+   "hash": "69f56d185a394130"
+  },
+  {
+   "deck": "vaalmonica",
+   "set": "fresh",
+   "source": "masterduelmeta 6adab38d7e3908cc1df63881 2026-10-23",
+   "ref": {
+    "site": "masterduelmeta",
+    "id": "6adab38d7e3908cc1df63881",
+    "names": "cdb"
+   },
+   "hash": "a9427d3f54f5a6bb"
+  },
+  {
+   "deck": "naturia",
+   "set": "fresh",
+   "source": "masterduelmeta 6ada7049fd6b4b018d47e585 2026-10-22",
+   "ref": {
+    "site": "masterduelmeta",
+    "id": "6ada7049fd6b4b018d47e585",
+    "names": "cdb"
+   },
+   "hash": "fcf52b21d4e1146f"
+  },
+  {
+   "deck": "magnet_warrior",
+   "set": "fresh",
+   "source": "masterduelmeta 6ada7049fd6b4b018d47e583 2026-10-22",
+   "ref": {
+    "site": "masterduelmeta",
+    "id": "6ada7049fd6b4b018d47e583",
+    "names": "cdb"
+   },
+   "hash": "ef7df05dd88723d9"
+  }
+ ]
+}

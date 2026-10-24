@@ -26,11 +26,22 @@ pub struct AutoPolicy {
     /// Only Traps and Quick-Play Spells are Set: any other Spell can be
     /// activated straight from the hand, and Set it only leaves the hand.
     pub useful_sets_only: bool,
+    /// The opponent's effects (code, description) it uses on your turn, the
+    /// first in the list first; with none it does nothing ([`opponent_answer`]).
+    pub opponent_responders: Vec<(u32, u64)>,
 }
 
 impl Default for AutoPolicy {
     fn default() -> Self {
-        Self { positions: true, skip_battle: true, forbid: Vec::new(), passive: Vec::new(), zones: true, useful_sets_only: true }
+        Self {
+            positions: true,
+            skip_battle: true,
+            forbid: Vec::new(),
+            passive: Vec::new(),
+            zones: true,
+            useful_sets_only: true,
+            opponent_responders: Vec::new(),
+        }
     }
 }
 
@@ -159,6 +170,63 @@ pub fn passive_answer(decision: &Decision, actions: &[Action]) -> Vec<u8> {
     }
 }
 
+/// The opponent's answer on your turn: in a chance to respond, its effect
+/// that comes first in `responders` among those offered; in its own link
+/// (activating or resolving), your cards first; else [`passive_answer`].
+pub fn opponent_answer(decision: &Decision, actions: &[Action], responders: &[(u32, u64)], db: &CardDb, own_link: bool) -> Vec<u8> {
+    let rank = |a: &Action| {
+        let c = a.card.filter(|_| a.kind == ActionKind::Activate)?;
+        let code = db.canonical_code(c.code);
+        responders.iter().position(|&(r, d)| db.canonical_code(r) == code && d == a.description)
+    };
+    match decision {
+        Decision::SelectChain { .. } => {
+            if let Some(a) = actions.iter().filter(|a| rank(a).is_some()).min_by_key(|a| rank(a)) {
+                return a.response.clone();
+            }
+        }
+        Decision::EffectYesNo { card, description, .. } => {
+            let code = db.canonical_code(card.code);
+            if responders.iter().any(|&(r, d)| db.canonical_code(r) == code && d == *description) {
+                return 1i32.to_le_bytes().to_vec();
+            }
+        }
+        // Its own link goes forward: it never cancels (the engine would
+        // offer the effect again), and picks your cards first.
+        Decision::SelectCard { cards, .. } if own_link => {
+            // Picks are index lists: the one with the most of your cards.
+            let yours = |a: &Action| {
+                let Some(picks) = a.response.get(8..).filter(|_| a.kind == ActionKind::Choose) else { return 0 };
+                let indices = picks.as_chunks::<4>().0;
+                indices.iter().filter(|&&i| cards.get(u32::from_le_bytes(i) as usize).is_some_and(|c| c.controller == 0)).count()
+            };
+            let pick = actions.iter().filter(|a| yours(a) > 0).max_by_key(|a| (yours(a), std::cmp::Reverse(a.response.len())));
+            if let Some(a) = pick.or_else(|| actions.iter().find(|a| a.kind == ActionKind::Choose)) {
+                return a.response.clone();
+            }
+        }
+        Decision::SelectUnselectCard { finishable, selectable, .. } if own_link => {
+            let finish = actions.iter().find(|a| *finishable && a.kind == ActionKind::Finish);
+            let picks = &actions[..selectable.len().min(actions.len())];
+            let pick = finish.or_else(|| picks.iter().find(|a| a.card.is_some_and(|c| c.controller == 0))).or(picks.first());
+            if let Some(a) = pick {
+                return a.response.clone();
+            }
+        }
+        Decision::YesNo { .. } => {}
+        _ if own_link => {
+            if let Some(a) = actions.iter().find(|a| a.kind != ActionKind::Cancel) {
+                return a.response.clone();
+            }
+        }
+        _ => {}
+    }
+    passive_answer(decision, actions)
+}
+
+/// See [`Duel::advance_auto_seen`].
+const MAX_OPPONENT_DECISIONS: usize = 200;
+
 impl Duel {
     /// Like [`Duel::advance`], but answers the decisions [`auto_answer`]
     /// takes care of (and the opponent's, passing), appending those answers
@@ -177,13 +245,24 @@ impl Duel {
         mut seen: impl FnMut(&Decision, &[u8]),
     ) -> Result<(Step, Vec<Action>), Error> {
         let mut events = Vec::new();
+        // Past this many of its decisions the opponent stops answering: an
+        // effect it can neither finish nor leave would come back for ever.
+        let mut theirs = 0;
         loop {
             match self.advance()? {
                 Step::Decision { decision, events: mut new } => {
                     events.append(&mut new);
-                    // The opponent does nothing on your turn.
+                    // The opponent does nothing on your turn, but for the
+                    // effects it is given.
                     if decision.player() == Some(1) {
-                        let answer = passive_answer(&decision, &self.actions(&decision));
+                        let actions = self.actions(&decision);
+                        theirs += 1;
+                        let answer = if policy.opponent_responders.is_empty() || theirs > MAX_OPPONENT_DECISIONS {
+                            passive_answer(&decision, &actions)
+                        } else {
+                            let own_link = self.chain().last().is_some_and(|l| l.controller == 1);
+                            opponent_answer(&decision, &actions, &policy.opponent_responders, self.cards(), own_link)
+                        };
                         seen(&decision, &answer);
                         self.respond(&answer);
                         answers.push(answer);
@@ -210,5 +289,42 @@ impl Duel {
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::actions::actions;
+    use crate::message::{Activatable, CardRef};
+
+    fn card(code: u32, controller: u8) -> CardRef {
+        CardRef { code, controller, location: location::MZONE, sequence: 0, position: position::FACEUP_ATTACK }
+    }
+
+    #[test]
+    fn the_opponent_answers_only_with_its_responders() {
+        let db = CardDb::default();
+        let chains = [(10, 100), (20, 200), (30, 300)]
+            .map(|(code, description)| Activatable { card: card(code, 1), description, client_mode: 0 })
+            .to_vec();
+        let decision = Decision::SelectChain { player: 1, forced: false, triggers: false, chains };
+        let offered = actions(&decision, &db);
+        let index = |answer: Vec<u8>| i32::from_le_bytes(answer.try_into().unwrap());
+        // The first in the list among those offered, whatever the order offered.
+        assert_eq!(index(opponent_answer(&decision, &offered, &[(40, 400), (30, 300), (10, 100)], &db, false)), 2);
+        // Another effect of the same card is not one of them.
+        assert_eq!(index(opponent_answer(&decision, &offered, &[(20, 201)], &db, false)), -1);
+        assert_eq!(index(opponent_answer(&decision, &offered, &[], &db, false)), -1);
+    }
+
+    #[test]
+    fn in_its_own_link_the_opponent_aims_at_your_cards() {
+        let db = CardDb::default();
+        let decision =
+            Decision::SelectCard { player: 1, cancelable: false, min: 1, max: 1, cards: vec![card(10, 1), card(20, 0)], hint: 0 };
+        let offered = actions(&decision, &db);
+        assert_eq!(opponent_answer(&decision, &offered, &[(1, 1)], &db, true), offered[1].response);
+        assert_eq!(opponent_answer(&decision, &offered, &[(1, 1)], &db, false), passive_answer(&decision, &offered));
     }
 }

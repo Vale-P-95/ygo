@@ -5,6 +5,8 @@
 //! - `play`: play a starting hand from a deck, interactively or by script.
 //! - `bench`: measure duel creation, playout and replay speed.
 //! - `combos`: search every line from a hand and list the end boards.
+//! - `engine-mc`: P(board ≥ threshold) from many hands played by the engine,
+//!   and the swaps of a copy that raise it.
 //! - `sweep`: random duels between random decks, reporting any decision
 //!   that cannot be answered or any answer the engine rejects.
 
@@ -20,6 +22,8 @@ use ygo_data::{sync, CardStore};
 use ygo_engine::consts::{location, phase, position};
 use ygo_engine::sweep::SweepConfig;
 use ygo_engine::{actions, describe_card, run_script, Action, ActionKind, DeckList, Duel, Engine, Event, ScriptEnd, Step, Trace};
+
+mod engine_mc;
 
 #[derive(Parser)]
 #[command(name = "duelforge-cli", version, about)]
@@ -150,6 +154,13 @@ enum Cmd {
         /// Measure without the board breakers (and the follow-up after them).
         #[arg(long)]
         no_breakers: bool,
+        /// List the boards only by what they stop at the end of the turn: the
+        /// interruptions on the field, in the GY, banished and in hand, and the
+        /// floodgates, with a summary by kind (implies --probe and
+        /// --no-breakers; no exposure). With --staged the cut to the full
+        /// measure and the variant kept still go by the usual value.
+        #[arg(long)]
+        interaction: bool,
         /// Also take the quick value of each board listed (two runs), with its time.
         #[arg(long)]
         quick_value: bool,
@@ -198,6 +209,54 @@ enum Cmd {
         meta_file: Option<PathBuf>,
         #[arg(long)]
         meta_decks: Option<PathBuf>,
+    },
+    /// The Monte Carlo played by the engine: hands drawn from the deck, each
+    /// searched and measured, and P(best board ≥ threshold) with its 95%
+    /// interval. Swaps of a copy are measured on the same draws, with the
+    /// hands already searched taken from a cache; `--climb` lets the
+    /// optimizer pick the swaps. Writes `summary.txt` and `hands.json` to `--out`.
+    EngineMc {
+        /// Deck in .ydk format (its Side Deck: cards that may enter).
+        #[arg(long)]
+        deck: PathBuf,
+        /// Hands drawn (5 cards, going first).
+        #[arg(long, default_value_t = 200)]
+        hands: usize,
+        /// Choices explored per hand.
+        #[arg(long, default_value_t = 2000)]
+        nodes: u64,
+        /// Measured value a hand's best board must reach (default: the
+        /// median of the deck's hands, then kept for every variant).
+        #[arg(long)]
+        threshold: Option<f64>,
+        /// Fields of each hand given the cheap measure.
+        #[arg(long, default_value_t = 10)]
+        cheap: usize,
+        /// Of those, the best by it given the full measure.
+        #[arg(long, default_value_t = 3)]
+        full: usize,
+        /// Swaps to measure: "Out>In", semicolon-separated names or passcodes.
+        #[arg(long, default_value = "")]
+        swap: String,
+        /// Let the optimizer swap copies: decks measured at most (0: none).
+        #[arg(long, default_value_t = 0)]
+        climb: usize,
+        /// Cards that may enter besides the Side Deck (semicolon-separated).
+        #[arg(long, default_value = "")]
+        candidates: String,
+        /// Hands searched at once (each on one thread).
+        #[arg(long)]
+        threads: Option<usize>,
+        /// Seed of the draws, the deck order and the engine.
+        #[arg(long, default_value_t = 1)]
+        seed: u64,
+        #[arg(long, default_value = "out/engine-mc")]
+        out: PathBuf,
+        /// Also find the roles by playing and compare: the exact odds of a
+        /// Starter, and the share of the hands with and without one that
+        /// reached the threshold.
+        #[arg(long)]
+        roles: bool,
     },
     /// Measure lines saved by `combos --save-lines` with the probe turn,
     /// without searching (the same boards before and after a change). The
@@ -308,6 +367,9 @@ enum Cmd {
         /// Your boards measured per hand, the best by the search's estimate.
         #[arg(long, default_value_t = 5)]
         top: usize,
+        /// The opponent's board does not answer your turn (as before it did).
+        #[arg(long)]
+        passive: bool,
         #[arg(long, default_value_t = 1)]
         seed: u64,
         #[arg(long)]
@@ -467,6 +529,7 @@ fn main() -> Result<()> {
             json,
             save_lines,
             no_breakers,
+            interaction,
             quick_value,
             staged,
             staged_cheap,
@@ -497,10 +560,11 @@ fn main() -> Result<()> {
                 goal,
                 goal_any,
                 first,
-                probe: probe || json.is_some() || staged,
+                probe: probe || json.is_some() || staged || interaction,
                 json,
                 save_lines,
-                no_breakers,
+                no_breakers: no_breakers || interaction,
+                interaction,
                 quick_value,
                 staged: staged.then_some(Staged {
                     cheap: staged_cheap,
@@ -517,13 +581,33 @@ fn main() -> Result<()> {
         Cmd::ProbeLine { setup, lines, index, json, vs, stops, moves, protection } => {
             probe_line(&cli.data, &setup, &lines, index, json.as_deref(), vs.as_deref(), stops, moves, protection)
         }
+        Cmd::EngineMc { deck, hands, nodes, threshold, cheap, full, swap, climb, candidates, threads, seed, out, roles } => {
+            engine_mc::engine_mc(
+                &cli.data,
+                engine_mc::Options {
+                    deck,
+                    hands,
+                    nodes,
+                    threshold,
+                    cheap,
+                    full,
+                    swaps: swap,
+                    climb,
+                    candidates,
+                    threads,
+                    seed,
+                    out,
+                    roles,
+                },
+            )
+        }
         Cmd::TechTable { deck, decks, seed, meta_file, meta_decks, json } => {
             tech_table(&cli.data, &deck, decks, seed, MetaFinal { boards: 0, file: meta_file, decks: meta_decks }, json.as_deref())
         }
         Cmd::HandTraps { deck } => hand_traps(&cli.data, &deck),
-        Cmd::BreakBoard { deck, vs, hands, rival_hands, nodes, rival_nodes, top, seed, json } => {
+        Cmd::BreakBoard { deck, vs, hands, rival_hands, nodes, rival_nodes, top, passive, seed, json } => {
             let threads = std::thread::available_parallelism().map_or(4, |n| n.get());
-            let config = ygo_solver::BreakConfig { seed, nodes, threads, top };
+            let config = ygo_solver::BreakConfig { seed, nodes, threads, top, answers: !passive };
             break_board(&cli.data, &deck, &vs, hands, rival_hands, rival_nodes, &config, json.as_deref())
         }
         Cmd::RivalPlays { deck, hands, nodes, seed } => rival_plays(&cli.data, &deck, hands, nodes, seed),
@@ -585,6 +669,7 @@ struct CombosOptions {
     json: Option<PathBuf>,
     save_lines: Option<PathBuf>,
     no_breakers: bool,
+    interaction: bool,
     quick_value: bool,
     staged: Option<Staged>,
     checkpoints: bool,
@@ -713,6 +798,7 @@ fn combos(dir: &Path, setup: &Setup, options: CombosOptions) -> Result<()> {
         json,
         save_lines,
         no_breakers,
+        interaction,
         quick_value,
         staged,
         checkpoints,
@@ -1048,7 +1134,8 @@ fn combos(dir: &Path, setup: &Setup, options: CombosOptions) -> Result<()> {
             None => boards.push(item),
         }
     }
-    if probe {
+    // Ranked by interaction, the opponent's handtraps on your turn do not count.
+    if probe && !interaction {
         for item in boards.iter_mut().filter(|item| !item.cheap && item.measured.is_some()) {
             let points = ygo_solver::explain::exposure_points(
                 &engine,
@@ -1077,8 +1164,11 @@ fn combos(dir: &Path, setup: &Setup, options: CombosOptions) -> Result<()> {
         let full = boards.iter().filter(|item| !item.cheap && item.measured.is_some()).count();
         println!("probe turns: {full} full, {cheap} cheap only, in {probe_seconds:.1} s");
     }
-    let measured_value = |item: &Listed| item.measured.as_ref().and_then(|m| m.as_ref().ok()).filter(|_| !item.cheap).map(composite);
-    let cheap_value = |item: &Listed| item.measured.as_ref().and_then(|m| m.as_ref().ok()).filter(|_| item.cheap).map(cheap_composite);
+    type Value = fn(&ygo_solver::Measure) -> f64;
+    let (full_value, cheap_value_of): (Value, Value) =
+        if interaction { (interaction_value, interaction_value) } else { (composite, cheap_composite) };
+    let measured_value = |item: &Listed| item.measured.as_ref().and_then(|m| m.as_ref().ok()).filter(|_| !item.cheap).map(full_value);
+    let cheap_value = |item: &Listed| item.measured.as_ref().and_then(|m| m.as_ref().ok()).filter(|_| item.cheap).map(cheap_value_of);
     let mut printed: Vec<usize> = (0..boards.len()).collect();
     // A board whose probe turn failed goes after the measured ones, and one
     // with the cheap measure only after those with the full one.
@@ -1177,6 +1267,9 @@ fn combos(dir: &Path, setup: &Setup, options: CombosOptions) -> Result<()> {
             Some(Ok(m)) => print_measure(&engine, m, *took),
             Some(Err(e)) => println!("   probe turn failed: {e}"),
             None => {}
+        }
+        if let Some(Ok(m)) = measured.as_ref().filter(|_| interaction) {
+            print_interaction(&InteractionProfile::of(m, &board.state));
         }
         if let Some(x) = exposure {
             println!(
@@ -1360,6 +1453,7 @@ fn state_json(
         "banished_names": me.banished.iter().map(|&(c, _)| db.name(c)).collect::<Vec<_>>(),
     });
     if let Some(m) = measured {
+        value["interaction"] = InteractionProfile::of(m, state).json();
         value["measure"] = serde_json::json!({
             "seconds": took.as_secs_f64(),
             "field": m.field_value,
@@ -1863,6 +1957,111 @@ fn composite(m: &ygo_solver::Measure) -> f64 {
     WEIGHTS.iter().zip(parts).map(|(w, v)| w * v).sum::<f64>() + FOLLOW_UP * REBUILD * rebuild
 }
 
+/// What a board stops at the end of the turn, with nothing about the
+/// opponent's turn after it: the interruptions (field, GY, banished and
+/// hand) and the floodgates, all in interruptions.
+fn interaction_value(m: &ygo_solver::Measure) -> f64 {
+    m.field_value + m.hand_value + m.floodgate_value
+}
+
+/// A measured board's interaction at the end of the turn, by kind: the
+/// times its effects stop something, by what they do and where they are,
+/// the effects the engine let you use on the opponent's turn, the
+/// floodgates and the cards left in hand and in the GY.
+#[derive(Debug, Default, PartialEq)]
+struct InteractionProfile {
+    value: f64,
+    /// Times your effects stop something: negations (of an activation, a
+    /// summon or an effect), removals (banish, to the Deck, to the hand,
+    /// destroy, to the GY) and the rest (locks, position or control).
+    negations: u32,
+    removals: u32,
+    others: u32,
+    /// The same times, by where the card is: field, GY, banished, hand.
+    by_place: [u32; 4],
+    /// Effects that stop something alone but nothing with your others,
+    /// which need what they use (Invoked Mechaba sends the last card of
+    /// your hand, Ash Blossom): not counted above.
+    shared: usize,
+    /// Cards you can use on the opponent's turn, stopping something or not.
+    activatable: usize,
+    floodgates: usize,
+    hand: usize,
+    grave: usize,
+}
+
+impl InteractionProfile {
+    fn of(m: &ygo_solver::Measure, state: &ygo_engine::DuelState) -> Self {
+        use ygo_solver::Effect;
+        let mut p = InteractionProfile {
+            value: interaction_value(m),
+            activatable: m.offered.len(),
+            floodgates: m.floodgates.len(),
+            hand: state.players[0].hand.len(),
+            grave: state.players[0].grave.len(),
+            ..Default::default()
+        };
+        for i in &m.interruptions {
+            if i.value <= 0.0 {
+                p.shared += usize::from(i.alone > 0.0);
+                continue;
+            }
+            let times = i.uses.max(1);
+            match i.effect {
+                Effect::NegateAndRemove | Effect::NegateSummon | Effect::NegateActivation | Effect::NegateEffect => p.negations += times,
+                Effect::Banish | Effect::ToDeck | Effect::Bounce | Effect::Destroy | Effect::ToGrave => p.removals += times,
+                Effect::Lock | Effect::Position => p.others += times,
+            }
+            let place = match i.location {
+                location::HAND => 3,
+                location::GRAVE => 1,
+                location::REMOVED => 2,
+                _ => 0,
+            };
+            p.by_place[place] += times;
+        }
+        p
+    }
+
+    fn total(&self) -> u32 {
+        self.negations + self.removals + self.others
+    }
+
+    fn json(&self) -> serde_json::Value {
+        let [field, grave, banished, hand] = self.by_place;
+        serde_json::json!({
+            "value": self.value,
+            "interruptions": self.total(),
+            "negations": self.negations,
+            "removals": self.removals,
+            "others": self.others,
+            "from": { "field": field, "grave": grave, "banished": banished, "hand": hand },
+            "only_alone": self.shared,
+            "activatable": self.activatable,
+            "floodgates": self.floodgates,
+            "cards_in_hand": self.hand,
+            "cards_in_grave": self.grave,
+        })
+    }
+}
+
+fn print_interaction(p: &InteractionProfile) {
+    let [field, grave, banished, hand] = p.by_place;
+    println!(
+        "   interaction {:.2}: {} interruptions (negations {} · removals {} · other {}) · from field {field}, GY {grave}, banished {banished}, hand {hand}{} · {} cards usable on the opponent's turn · {} kinds of moves floodgated · left: {} cards in hand, {} in the GY",
+        p.value,
+        p.total(),
+        p.negations,
+        p.removals,
+        p.others,
+        if p.shared > 0 { format!(" · {} more only alone", p.shared) } else { String::new() },
+        p.activatable,
+        p.floodgates,
+        p.hand,
+        p.grave
+    );
+}
+
 fn print_measure(engine: &Engine, m: &ygo_solver::Measure, took: std::time::Duration) {
     let db = engine.cards();
     println!(
@@ -2360,6 +2559,8 @@ fn break_board(
     for (code, worth) in &rival.worth {
         println!("   {:<40} worth {worth:.2}", db.name(*code));
     }
+    let answers: Vec<u32> = if config.answers { rival.responders.iter().map(|r| r.0).collect() } else { Vec::new() };
+    println!("it answers with: {}", if answers.is_empty() { "nothing".to_owned() } else { names(&answers) });
     // The breakers of your deck the engine can play, to tell the hands apart.
     let breakers = ygo_solver::Rival::new(&engine, &mine, config.seed, &kit).breakers().to_vec();
     println!("your breakers: {}", if breakers.is_empty() { "none".to_owned() } else { names(&breakers) });
@@ -2395,7 +2596,7 @@ fn break_board(
     );
     if let Some(path) = json {
         let out = serde_json::json!({
-            "rival": { "hand": rival.hand, "value": rival.value, "worth": rival.worth },
+            "rival": { "hand": rival.hand, "value": rival.value, "worth": rival.worth, "responders": answers },
             "hands": rows,
         });
         std::fs::write(path, serde_json::to_string_pretty(&out)?)?;
@@ -3119,6 +3320,46 @@ fn bench(dir: &Path, setup: &Setup, playouts: u32, max_decisions: u32) -> Result
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn interaction_profile_counts_by_kind_and_place() {
+        let stop = |location, effect, uses, value| ygo_solver::Interruption {
+            responder: ygo_solver::ResponderId { code: 1, description: 0 },
+            location,
+            effect,
+            targeted: false,
+            uses,
+            covers: vec![],
+            coverage: 0.0,
+            value,
+            alone: 0.5,
+        };
+        let m = ygo_solver::Measure {
+            interruptions: vec![
+                stop(location::MZONE, ygo_solver::Effect::NegateActivation, 2, 0.5),
+                stop(location::HAND, ygo_solver::Effect::NegateEffect, 1, 0.5),
+                stop(location::GRAVE, ygo_solver::Effect::Banish, 0, 0.5),
+                stop(location::REMOVED, ygo_solver::Effect::Lock, 1, 0.5),
+                stop(location::HAND, ygo_solver::Effect::NegateEffect, 1, 0.0),
+            ],
+            floodgates: vec![ygo_solver::Probe::ExtraSummon],
+            field_value: 1.5,
+            hand_value: 0.8,
+            floodgate_value: 0.6,
+            offered: vec![(1, location::MZONE), (2, location::HAND)],
+            ..Default::default()
+        };
+        let mut state = ygo_engine::DuelState::default();
+        state.players[0].hand = vec![10, 11];
+        state.players[0].grave = vec![12, 13, 14];
+        let p = InteractionProfile::of(&m, &state);
+        // Each response counts its uses, and once at least.
+        assert_eq!((p.negations, p.removals, p.others, p.total()), (3, 1, 1, 5));
+        assert_eq!((p.by_place, p.shared), ([2, 1, 1, 1], 1));
+        assert_eq!((p.activatable, p.floodgates, p.hand, p.grave), (2, 1, 2, 3));
+        assert!((p.value - 2.9).abs() < 1e-9);
+        assert_eq!(p.json()["from"]["hand"], serde_json::json!(1));
+    }
 
     #[test]
     fn recorded_fixtures_cover_each_query_once() {

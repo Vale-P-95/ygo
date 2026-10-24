@@ -77,7 +77,7 @@ Le leve aggiunte il 24/10 (avvio sessione, documenti grandi, output, GitHub, com
 Due finestre, 5 ore e 7 giorni. Il 23/10 quella settimanale era in «avviso» alle 14.
 - Al massimo **tre sessioni in parallelo**. Dieci corsie in un giorno hanno consumato in otto ore quello che tre consumano in una settimana, soprattutto aspettando.
 - Il lavoro che consuma CPU (banchi, sweep) va in coda su una sessione o su Actions.
-- **Il merge lo fa la coordinatrice, senza attese.** Decisione di Valerio del 23/10 (sostituisce «il merge lo fa l'utente»): merge automatico in squash, solo con CI verde e, per il motore, con la prova equa sulle 406 board non peggiorata. La coordinatrice si iscrive agli eventi della PR e si sveglia sull'esito della CI: niente controlli a intervalli. I thread aprono la PR e si fermano. Dopo l'ultimo push la CI si lancia a mano una volta (`ci.yml`).
+- **Il merge lo fa la coordinatrice, senza attese.** Decisione di Valerio del 23/10 (sostituisce «il merge lo fa l'utente»): merge automatico in squash, solo con CI verde e, per il motore, con `banco.py` ACCEPTED sul banco congelato (regola del 24/10, `docs/plans/regole-motore.md`, che sostituisce la prova equa sulle 406 board). La coordinatrice si iscrive agli eventi della PR e si sveglia sull'esito della CI: niente controlli a intervalli. I thread aprono la PR e si fermano. Dopo l'ultimo push la CI si lancia a mano una volta (`ci.yml`).
 - A fine giornata, un `list_sessions` e tre righe in `coordinamento.md`: spesa per sessione e contesto. Una sessione sopra i 250k si chiude il giorno dopo con un passaggio di consegne.
 
 ## 3. Il frontend torna su Claude: la filiera
@@ -103,7 +103,7 @@ Oggi l'interfaccia è in `apps/desktop/src/` (React 19, TypeScript, Tailwind 4, 
 
 ### 3.4 La prova nell'app vera e il merge
 - Anteprima Artifact per l'utente (§6.1), screenshot nella PR tramite gli artifact della CI (§6.2), prova nell'app Tauri sul computer per le PR che toccano pagine intere, 3D o suoni (§6.4).
-- Merge automatico della coordinatrice (CI verde, prova equa per il motore).
+- Merge automatico della coordinatrice (CI verde, `banco.py` ACCEPTED per il motore).
 
 ### 3.5 Perché costa meno di Gemini
 Nessun prompt da preparare e incollare; nessuna revisione incrociata obbligatoria; contratto in una PR sola, senza stub provvisori; nessuna PR unita «non provata nell'app vera»; i mockup si rivedono prima di scrivere codice, quindi meno giri di correzione; un solo insieme di regole (`AGENTS.md` e `CLAUDE.md` tornano a coincidere).
@@ -119,6 +119,7 @@ Nessun prompt da preparare e incollare; nessuna revisione incrociata obbligatori
 - Container Linux con Rust, Node, pnpm, Chromium per Playwright, Xvfb, repository, CI via GitHub, messaggi tra sessioni.
 - Vi si fa tutto il codice: `crates/`, `src-tauri/`, `apps/desktop/src/`, `scripts/`. Il frontend si prova nel browser headless con il backend finto; il backend dell'app con `cargo check -p duelforge-desktop` e la CLI.
 - **App Tauri sotto Xvfb: provato il 23/10, funziona.** WebKitGTK si installa con apt (`scripts/cloud-setup.sh`); `scripts/cloud-app.sh <png>` lancia `pnpm tauri dev` senza finestra e scatta lo screenshot (prima build debug ~8 minuti, poi pochi secondi; in background). Provato con `VITE_MOCK=1`; con il motore vero serve `data/` (`cloud-setup.sh --data`). Non sostituisce la prova sul computer per suoni, prestazioni e 3D con la GPU (qui rendering software). Per cliccare c'è `xdotool` (lo installa `cloud-setup.sh`): WebKitGTK a volte ignora `click`, mentre `mousedown`, una pausa di 0,1 s e `mouseup` funzionano sempre; `type --file` perde gli a capo, quindi un `.ydk` si scrive riga per riga con `key Return`. Un cambio al frontend ricarica la pagina con Vite, ma lo stato del backend (ricerca, punteggi, meta) resta. I deck per una prova si caricano più in fretta scrivendoli in `~/.local/share/app.duelforge.desktop/user.db` (tabella `decks`, `main`/`extra`/`side` come array JSON) da un `.ydk` di `mdm_decks.py` che scrivendoli a mano (24/10); i tasti funzione (F4…) via `xdotool key` non arrivano, si clicca la barra laterale.
+- Verificato il 24/10 (thread «Portare il rappresentante del campo nell'app»): un comando del backend dell'app si prova senza cliccare con un aggancio temporaneo in `setup` di `lib.rs` (non si committa) che chiama i comandi Tauri come funzioni (`combo_search`, poi `combo_score` con `app.state()`), stampa tempi e risultati su stderr ed esce; si compila `cargo build --release` in `apps/desktop/src-tauri` (circa 5 minuti la prima volta, poi meno di uno) e si lancia `xvfb-run -a target/release/duelforge-desktop` con `DUELFORGE_DATA` e un `DUELFORGE_USER_DB` usa e getta. La pagina non serve (senza `custom-protocol` la finestra resta vuota). Preparazione da container vuoto circa 20 minuti (`cloud-setup.sh`, `fetch-data`, `update-cards`, `mdm_decks.py`); circa un minuto e mezzo per mano con 60 s di ricerca.
 - L'ambiente va sistemato una volta: script di avvio con `pnpm install` e `cargo fetch`; `fetch-data` solo quando serve (le sessioni di frontend non ne hanno bisogno); variabili `DUELFORGE_DATA`, `VITE_MOCK`; rete verso Master Duel Meta, YGOPRODeck, crates.io, npm, ambientCG/Poly Haven per le texture.
 - Verificato il 24/10 (thread «Provare le correzioni dei bug del motore»): la rete verso Master Duel Meta e YGOPRODeck è aperta. Una sessione del motore da container vuoto si prepara in circa 15 minuti (build release, `fetch-data`, `update-cards`, `mdm_decks.py`, build di `main` per il confronto); `paired_test.py` su 92 mani a 4000 nodi con 4 job dura circa 20 minuti per lato, e il lato `--old` si riusa come cartella per le varianti. Per la memoria: massif vede solo lo heap Rust, perché il motore alloca con mimalloc (`arena.cpp`); il picco si misura con VmHWM.
 - Verificato il 24/10 (thread «Rendere la ricerca monotona nel budget»): le liste del giorno di Master Duel Meta cambiano, e 42 delle 91 fixture dell'oracolo avevano un deck che non c'era più. `oracle.py decks tests/fixtures/oracle <cartella>` le ritrova per impronta tra le ultime 3000 top deck (circa 10 minuti, 41 su 41); `oracle.py measure --staged 30,15` sulle 91 mani a 500-8000 nodi dura circa 40 minuti per lato con 4 job. `--combos-args` va scritto con `=` quando comincia con `--`.
@@ -152,7 +153,7 @@ Vedi §6.1.
 Con il frontend su Claude il Progetto diventa lo **studio** del prodotto: il posto dove si decide, si disegna e si guarda, senza aprire sessioni Code.
 
 - **Conoscenza**: `docs/STATO.md`, `AGENTS.md`, questo piano, `coordinamento.md`, un glossario (board, kit, turno di prova, oracolo, A1b, banco di generalità, misura a gradini), gli screenshot correnti delle sei pagine nei due temi (rinnovati a ogni release). Si aggiorna quando `main` cambia davvero, non a ogni PR.
-- **Istruzioni**: lingua e convenzioni di `AGENTS.md`, i principi non negoziabili (motore generale, niente linee precalcolate, prova equa sulle 406 board), «ogni decisione finisce in `docs/plans/`», «i mockup si fanno sul sistema di design DuelForge».
+- **Istruzioni**: lingua e convenzioni di `AGENTS.md`, i principi non negoziabili (motore generale, niente linee precalcolate, ogni modifica al motore giudicata da `banco.py` sul banco congelato), «ogni decisione finisce in `docs/plans/`», «i mockup si fanno sul sistema di design DuelForge».
 - **Cosa ci si fa**:
   1. le **decisioni** (opzioni della misura, priorità del giro, cosa tenere e cosa no) con i numeri delle PR davanti;
   2. i **mockup** in Claude Design e la loro revisione, dal telefono, con i commenti;
@@ -181,7 +182,7 @@ Regola: 1 e 2 per ogni PR dell'interfaccia; 4 per i passi grandi; 6 settimanale.
 
 | Parte | Dove | Come si prova | Modello |
 |---|---|---|---|
-| Motore, dati, statistiche, CLI | Code web | `cargo test --release`, CLI, `paired_test.py`, prova equa, banco di generalità; banchi lunghi su Actions | Opus (algoritmi), Sonnet (script, documenti) |
+| Motore, dati, statistiche, CLI | Code web | `cargo test --release`, CLI, `banco.py` sul banco congelato (in background nella sessione), banco di generalità; banchi lunghi su Actions | Opus (algoritmi), Sonnet (script, documenti) |
 | Backend dell'app (`lib.rs`) | Code web | `cargo check -p duelforge-desktop`, clippy; la funzione dalla CLI che la copre | Opus per il contratto, Sonnet per il resto |
 | Contratto `lib.rs` ↔ `api.ts` ↔ `mock.ts` | Una PR sola | `cargo check` più `pnpm typecheck`; fixture registrate aggiornate | Opus |
 | Interfaccia | Code web, mockup prima in Claude Design | Screenshot propri, Vitest, Playwright fumo, anteprima Artifact; app vera sul computer per i passi grandi | Sonnet; Opus per stato e asincronia |
@@ -200,7 +201,7 @@ Regole del contratto: un campo nuovo nasce in una PR che tocca `lib.rs`, `api.ts
 5. **Lavoro** in una sessione sola: commit piccoli che compilano, push dopo ogni passo, calcoli lunghi in background con il turno chiuso, screenshot propri prima di dire «pronto».
 6. **PR** dal template, aperta dalla sessione; CI all'apertura; un solo rilancio a mano dopo l'ultimo push, se ce n'è stato uno.
 7. **Revisione**: per le PR piccole basta la sessione stessa con la lista del template; per quelle grandi una sessione Sonnet separata con brief corto (diff, lista, screenshot).
-8. **Merge** automatico della coordinatrice a CI verde (e prova equa non peggiorata per il motore), squash, branch cancellato.
+8. **Merge** automatico della coordinatrice a CI verde (e `banco.py` ACCEPTED per il motore), squash, branch cancellato.
 9. **Chiusura**: `TASKS.md` aggiornato, `STATO.md` se cambiano decisioni, sessione archiviata.
 
 ## 9. Le regole stabili, nei file giusti
@@ -250,12 +251,15 @@ Resta la memoria operativa nei giorni con coordinatrice; altrimenti si aggiorna 
    - [fatto] le board `cheap: true`: scheda e interruttore `SEND_CHEAP_SCORES` nella stessa PR;
    - B8, obiettivi ricchi: motore e contratto fatti il 24/10; restano mockup e interfaccia (Opus);
    - [fatto] i punti 3, 5 e 6 della caccia ai bug; [fatto il 24/10] l'arena nel turno di prova; [fatto il 24/10] il caso Vendread (Opus, `docs/plans/robustezza.md`);
+   - [fatto il 24/10] il Monte Carlo guidato dal motore nella CLI (`engine-mc`, idea 4): 200 mani costano 4-8 minuti su 4 core (5-9 s per mano), uno scambio di una copia circa 30 s grazie alla cache; scrive `out/engine-mc/summary.txt`. Oltre le 400 mani o con `--climb` lungo va in background;
    - il simulatore (#36): mockup prima;
    - [fatto il 24/10] andare secondo, prototipo CLI `break-board` (idea 5 di `idee-nuove.md`, Opus alto): una sessione, contesto sotto 100k, prove su 3 coppie in pochi minuti di CPU.
+   - [fatto il 24/10] andare secondo, passo 1: la board avversaria risponde con le sue interruzioni misurate (Opus alto, una sessione, contesto sotto 100k; le 3 coppie prima e dopo in 4 minuti di CPU con `--passive`).
+   - [fatto il 24/10] classifica per interazione a fine turno, CLI `combos --interaction` (richiesta di Valerio, Opus): solo CLI, misura invariata, una prova da pochi secondi; contesto sotto 100k.
 
 ## 10bis. Decisione sul merge (23/10)
 - **Cosa**: i merge li fa la coordinatrice in automatico; sostituisce «il merge lo fa l'utente dalla pagina».
-- **Condizioni**: CI verde, nessun conflitto; per il motore, prova equa sulle 406 board non peggiorata.
+- **Condizioni**: CI verde, nessun conflitto; per il motore, `banco.py` ACCEPTED nella PR (`docs/plans/regole-motore.md`).
 - **Come**: iscrizione agli eventi della PR e risveglio sull'esito, mai attese a intervalli; squash con `expectedHeadSha` completo.
 - **Thread**: aprono la PR e si fermano; dopo l'ultimo push la CI si lancia a mano una volta con `ci.yml`.
 - **Perché**: meno token e nessun intervento di Valerio per ogni PR.

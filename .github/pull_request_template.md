@@ -4,7 +4,7 @@
 <!-- Due o tre frasi: cosa esiste ora che prima non c'era, e perché. Link al piano in docs/plans/ e all'issue (Closes #n). -->
 
 ## Numeri prima/dopo
-<!-- Solo per il motore (crates/ygo-engine, crates/ygo-solver). Tabella di .claude/skills/pr-motore: paired_test, banco, search_regression, tempi; prova equa se cambia la misura; generalità se c'è una costante nuova. Altrimenti: «Non tocca il motore». -->
+<!-- Solo per il motore (crates/ygo-engine, crates/ygo-solver). Classe (E, R, M) scritta prima del giro, e summary.txt di scripts/banco.py (docs/plans/regole-motore.md); search_regression, tempi; generalità se c'è una costante nuova. Altrimenti: «Non tocca il motore». -->
 
 ## Verifica
 <!-- Per l'interfaccia (apps/desktop/src): per ogni punto del protocollo di AGENTS.md, come è stato verificato (app vera, screenshot, backend finto, solo typecheck), e il link agli screenshot delle pagine toccate nei due temi e all'anteprima Artifact. Per il resto: i comandi lanciati. -->
