@@ -563,6 +563,29 @@ Nessun codice nella ricerca: misure e stime, per decidere.
 - **La prova equa sulle 406 board** non serve: la misura non cambia (stesse uscite di `main`). Le linee del giro A1b in `tests/fixtures/research/a1b` non si rigiocano con le liste MDM di oggi, su nessuno dei due binari.
 - **Memoria:** una copia è la parte usata dell'arena (circa 2-3 MB); con 4 copie e 3 prober per thread restano sotto i 40 MB per thread, e il picco scende perché le run non fanno più un duello nuovo ciascuna.
 
+### B13, PR 5: il livello 2 dalle copie (24/10/2026)
+- **Come:** le run del livello 2 contro un deck (`probe-line --vs --moves`, L2-3, banco oggettivo e di generalità) giocano il tuo turno col tuo script (`Prelude::Own`), che ritrova le risposte per quello che fanno. Nello stesso duello lo script gioca sempre allo stesso modo, quindi ora è una chiave delle copie del prober come la linea (`TurnKey::Own`): le run dopo la prima della stessa linea dell'avversario rigiocano solo il suo turno. Ne beneficia anche il livello 1 contro il deck (i breaker del deck, `rival_breakers`).
+- **Controllo:** il test `level_two_plays_the_same_from_a_copy_of_the_duel` gioca ogni run da una copia anche in un duello nuovo (`check_turn_copies(Some(1))`) e fallisce se una differisce (provato guastando il ripristino di proposito).
+- **Profilo:** il guadagno dice quanto del livello 2 era il tuo turno rigiocato: circa il 42% in media, dal 17% (Invoked) al 55% (Yummy). Le linee del deck avversario (12 mani da 1000 nodi, circa 9 s a invocazione) non cambiano.
+- **Protocollo** (`main` 9f18298 contro il branch, 40 liste MDM del 24/10, 4 processi su 4 core, prima `main` poi il branch): 8 deck × 4 board con campi diversi (`objective_bench.py` select da `combo_hunt --hands 2 --top 8 --seed 1`), contro i 6 deck più giocati (elfnote, dracotail, invoked, branded, doomz, clown_crew), 48 invocazioni di `probe-line --vs --moves --json`.
+
+| deck | livello 2, main | branch | |
+|---|---:|---:|---:|
+| branded | 206,5 s | 139,4 s | −32% |
+| dracotail | 512,8 s | 277,6 s | −46% |
+| invoked | 77,2 s | 64,3 s | −17% |
+| labrynth | 167,6 s | 95,1 s | −43% |
+| maliss | 129,9 s | 75,0 s | −42% |
+| sky_striker | 258,5 s | 155,8 s | −40% |
+| snake_eye_rescue_ace | 50,3 s | 40,4 s | −20% |
+| yummy | 264,8 s | 119,1 s | −55% |
+| **totale** (192 board-avversario) | **1667,6 s** (8,7 s a board) | **966,7 s** (5,0 s) | **−42%** |
+
+- Tempo delle 48 invocazioni 2381 → 1695 s (−29%; le linee del deck avversario 427 → 441 s, il livello 1 117 → 112 s); a muro 627 → 446 s.
+- **Uscite:** 48 JSON su 48 identici a `main` (misura, livello 1 e livello 2); con `DUELFORGE_COPY_CHECK=1` nessuna run differisce e i 48 JSON sono gli stessi.
+- `paired_test.py` (91 mani, 4000 nodi): 91 pari, ACCEPTED (la ricerca e il turno di prova di `combos` non usano lo script). La prova equa sulle 406 board non serve: la misura non cambia.
+- Restano senza copie i valori delle carte piazzate (un duello per posto) e i giri di debug.
+
 ### B14, seguito: 8 finestre, 1 giro degli usi e il turno dopo (22-23/10/2026, corsia 8)
 **Cosa cambia rispetto alla scala sicura.**
 - **Gradino più corto.** Il gradino prova ogni risposta alle prime 8 finestre e conta gli usi in 1 giro, invece di 16 e 3. La misura completa riprende dalle finestre 9-16 e dagli altri giri, senza rigiocare quelli fatti.

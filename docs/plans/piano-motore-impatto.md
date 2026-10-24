@@ -47,6 +47,8 @@ Le stime in dollari sono a occhio, sul consumo delle sessioni del 23-24/10 con c
 ## 2. Il livello 2 dalle copie del duello
 **Evidenza.** È la prima da fare dopo la decisione sulla 1. Con l'arena nel turno di prova le run dopo la prima della stessa linea rigiocano solo il turno dell'avversario: turni di prova 1213 → 654 s (−46%) su 80 mani, board identiche. Restano senza copie le run del livello 2 col tuo script (`Prelude::Own`, `--vs --moves`) e i valori delle carte piazzate (`TASKS.md`). Il livello 2 è il costo di L2-3 (circa 38 s a board), del banco oggettivo, della prova equa e del banco di generalità (9,2 ore di CPU l'ultimo giro): ogni prova futura costa meno.
 
+**Fatto il 24/10** (thread «Calcolare il livello 2 dalle copie del duello», branch `claude/project-thread-3fjy0b`): livello 2 −42% su 32 board contro i 6 deck più giocati (8,7 → 5,0 s a board), uscite identiche, `paired_test.py` 91 pari. Il tuo turno era dal 17% al 55% del livello 2 secondo il deck. Dettagli in `velocita-ricerca.md`, «B13, PR 5». Bastava `probe.rs` (e `PartialEq` sullo script in `follow.rs`): `matchup.rs` non cambia.
+
 **Cosa costruire.** In `probe.rs` e `matchup.rs` le run di `Prelude::Own` partono dalla copia del duello dove comincia il turno dell'avversario, come le altre run del prober. Prima un profilo di una run del livello 2, per sapere quanto è replay del tuo turno e quanto turno avversario: se il tuo turno è meno di un terzo, il guadagno è sotto il −40% e la PR lo dice.
 
 **Brief.**
