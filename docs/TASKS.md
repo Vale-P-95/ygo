@@ -18,6 +18,8 @@ Regole in `AGENTS.md`. Per prendere un task, spostalo in "In corso" con agente, 
 - [ ] **Corsia 8.** B14, valutazione delle board a gradini (`docs/plans/ricerca-piano-critico.md`, `ricerca-esperimenti.md` §1 sul branch `claude/research-lab`): stima → prime 40 → misura economica (2 finestre per risposta, niente ciclo degli usi, breaker e `countered`) → prime 15 → misura completa. Controllo: nessuna mano con … (testo completo in `docs/archive/TASKS-storico.md`)
 - [ ] Classificazione delle board più profonda, con criteri validati sui deck di Master Duel Meta (#47): D10, D13, D14 (corsia 4, PR #50) e D15 (PR #48) in `main`. D12 (esposizione come valore perso, PR #65) e D17 (taratura dei pesi, `docs/plans/taratura-pesi.md`: i quattro pesi restano, l'esposizione passa alla scala nuova) … (testo completo in `docs/archive/TASKS-storico.md`)
   - [ ] D1–D7: correzioni della misura (bersagli, fermate, copertura, copie, run congiunta, floodgate finti). D2, D3 e D4 fatti (piano §C8); D5–D7 saltati il 22/10: toccano poco le coppie, si passa … (testo completo in `docs/archive/TASKS-storico.md`)
+- [ ] **Tempi del motore, tecnica 3** (`docs/plans/tempi-motore.md`): rispondere in un altro modo alle selezioni che tornano al punto di partenza, invece di tagliarle. Branch `claude/project-thread-gw025y`.
+  File: `crates/ygo-solver/src/probe.rs` (risposte nel turno avversario), `docs/plans/tempi-motore.md`. Classe M, banco `full` con `--measure-cli`.
 ## Da fare (in ordine di priorità)
 
 ### Interfaccia
