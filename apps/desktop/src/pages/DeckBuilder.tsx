@@ -40,6 +40,11 @@ import { toast } from "../lib/toast";
 import { sectionById } from "../sections";
 
 const NONE = new Set<number>();
+// The card inspector docks as a third column from the default window size (1280 px) up; below it is an overlay.
+// The key changed when the dock width did, so a panel hidden by the old 1440 px default opens again once.
+const INSPECTOR_KEY = "df_panel_forge_inspector_column";
+const INSPECTOR_DOCK_MIN = 1200;
+const INSPECTOR_WIDTH = "clamp(250px, 20vw, 320px)";
 
 export function DeckBuilder({
   status,
@@ -94,12 +99,13 @@ function DeckEditor({ onGoCombo }: { onGoCombo?: () => void }) {
   const favorites = useFavorites();
   const [inspectorOpen, setInspectorOpen] = useState<boolean>(() => {
     try {
-      const saved = localStorage.getItem("df_panel_forge_inspector");
+      const saved = localStorage.getItem(INSPECTOR_KEY);
       if (saved !== null) return saved === "true";
     } catch {
       // Ignore storage error
     }
-    return typeof window !== "undefined" ? window.innerWidth >= 1440 : true;
+    // The inspector is the left column of the Master Duel layout: open unless the window is too narrow to dock it.
+    return typeof window !== "undefined" ? window.innerWidth >= INSPECTOR_DOCK_MIN : true;
   });
   const [pinnedCardId, setPinnedCardId] = useState<number | null>(null);
   const [hoveredCardId, setHoveredCardId] = useState<number | null>(null);
@@ -498,7 +504,7 @@ function DeckEditor({ onGoCombo }: { onGoCombo?: () => void }) {
     setInspectorOpen((prev) => {
       const next = typeof nextState === "boolean" ? nextState : !prev;
       try {
-        localStorage.setItem("df_panel_forge_inspector", String(next));
+        localStorage.setItem(INSPECTOR_KEY, String(next));
       } catch {
         // Ignore storage error
       }
@@ -510,9 +516,9 @@ function DeckEditor({ onGoCombo }: { onGoCombo?: () => void }) {
     (id: number) => {
       sound.play("select");
       setPinnedCardId(id);
-      // Sotto i 1440 px non aprire automaticamente il pannello modale al clic,
-      // per consentire al doppio clic di aprire il visore a tutto schermo senza cadere sul backdrop.
-      if (typeof window !== "undefined" && window.innerWidth >= 1440) {
+      // Below the dock width the inspector is a modal overlay: opening it on click would put
+      // its backdrop under the second click of a double click, so the zoom would never open.
+      if (typeof window !== "undefined" && window.innerWidth >= INSPECTOR_DOCK_MIN) {
         handleToggleInspector(true);
       }
     },
@@ -602,8 +608,8 @@ function DeckEditor({ onGoCombo }: { onGoCombo?: () => void }) {
           title="Ispettore"
           icon={<Eye size={16} />}
           position="left"
-          width={300}
-          overlayBelow={1440}
+          width={INSPECTOR_WIDTH}
+          overlayBelow={INSPECTOR_DOCK_MIN}
           isOpen={inspectorOpen}
           onToggle={handleToggleInspector}
         >
