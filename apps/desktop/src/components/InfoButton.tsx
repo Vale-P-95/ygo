@@ -1,12 +1,24 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
+import { INFO_KINDS, Mascot, type InfoKind } from "./Mascot";
 
 /**
  * A small "i" button that opens a short explanation next to it. The panel
  * is put in the page's body (a scrolling or animated column would cut it)
  * and closes on a click elsewhere, on Escape or when the page scrolls.
+ * The mascot beside the title takes its face and icon from `kind`.
  */
-export function InfoButton({ title, children, className = "" }: { title: string; children: ReactNode; className?: string }) {
+export function InfoButton({
+  title,
+  children,
+  className = "",
+  kind = "what",
+}: {
+  title: string;
+  children: ReactNode;
+  className?: string;
+  kind?: InfoKind;
+}) {
   const [open, setOpen] = useState(false);
   const button = useRef<HTMLButtonElement>(null);
   const panel = useRef<HTMLDivElement>(null);
@@ -66,7 +78,15 @@ export function InfoButton({ title, children, className = "" }: { title: string;
             className="info-panel anim-fade"
             style={pos ? { top: pos.top, left: pos.left } : { visibility: "hidden", top: 0, left: 0 }}
           >
-            <p className="mb-1.5 text-[13px] font-semibold text-text">{title}</p>
+            <div className="mb-2 flex items-center gap-2.5">
+              <Mascot kind={kind} />
+              <div className="min-w-0">
+                <p className="eyebrow text-[9px]" style={{ color: INFO_KINDS[kind].color }}>
+                  {INFO_KINDS[kind].label}
+                </p>
+                <p className="text-[13px] font-semibold leading-tight text-text">{title}</p>
+              </div>
+            </div>
             <div className="flex flex-col gap-1.5 text-xs leading-relaxed text-muted">{children}</div>
           </div>,
           document.body,

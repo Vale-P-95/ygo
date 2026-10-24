@@ -1835,3 +1835,35 @@ body {
   height: 100%;
   border-radius: 999px;
 }
+
+/* The mascot in info panels: a slow bob and a blink. */
+.mascot-body {
+  animation: mascot-bob 2.6s ease-in-out infinite;
+  transform-origin: 50% 90%;
+}
+.mascot-eyes {
+  animation: mascot-blink 4.5s infinite;
+  transform-origin: 50% 19px;
+  transform-box: fill-box;
+}
+@keyframes mascot-bob {
+  50% {
+    transform: translateY(-1.5px) scale(1.03);
+  }
+}
+@keyframes mascot-blink {
+  0%,
+  94%,
+  100% {
+    transform: scaleY(1);
+  }
+  97% {
+    transform: scaleY(0.1);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mascot-body,
+  .mascot-eyes {
+    animation: none;
+  }
+}
