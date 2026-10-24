@@ -6,6 +6,7 @@ Le righe storiche con Gemini restano come cronologia; il contratto (`lib.rs`, `a
 Regole in `AGENTS.md`. Per prendere un task, spostalo in "In corso" con agente, branch e file che tocchi (è il lock), poi committa e pusha questa modifica prima di cominciare.
 
 ## In corso
+- [ ] **B13, turno di prova e giri di apprendimento dalle copie del duello** (claude-code, thread «Portare l'arena nel turno di prova», branch `claude/project-thread-0b7e7s`). File: `crates/ygo-solver/src/probe.rs`, `crates/ygo-engine/src/duel.rs` (se serve), `crates/ygo-solver/tests/probe.rs`, `docs/plans/velocita-ricerca.md`.
 - [x] **Sistema di design (piano ambiente §10 punto 6)** (claude-code, thread «Costruire il sistema di design», branch `claude/project-thread-cc5k7p`, PR aperta il 24/10): pagina `/galleria` solo in modo mock (16 schede, due temi affiancati, stati vuoto, caricamento, errore, dati), anteprime generate in `apps/desktop/design/` con `@dsCard` e `pnpm design` (`scripts/design-export.mjs`), anteprima Artifact https://claude.ai/artifact/UQsPmQuirQoVtSeUgoZxG9. Decisioni e prossimi passi in `docs/plans/sistema-di-design.md`. Lock tolto all'apertura della PR.
   - [ ] Primo `/design-sync` verso il progetto «Sistema di design DuelForge»: lo lancia l'utente.
 Stato al 23/10/2026: è ancora in corso la corsia 6 (A1b, branch `claude/oracle-a1b`) e la PR #118 di Gemini (passo 5 dell'interfaccia, in revisione, la sua ultima). Il resto del 23/10 è fatto o in pausa (voci in "Da fare").
