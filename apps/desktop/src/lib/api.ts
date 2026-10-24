@@ -197,6 +197,70 @@ export interface LabOverview {
   opponent: number[];
 }
 
+/** Which cards a search finds or a cost takes (`ygo_stats::special::Filter`). */
+export interface SpecialFilter {
+  kind?: "monster" | "spell" | "trap" | null;
+  race?: string | null;
+  attribute?: string | null;
+  maxLevel?: number | null;
+}
+
+/** How a card changes what a hand reaches (`ygo_stats::Mechanism`). */
+export type SpecialMechanism =
+  | { type: "draw"; n: number; banishTop: number; minExtra: number }
+  | { type: "excavate"; n: number[]; banishExtra: boolean }
+  | { type: "drawThenBanish"; n: number; cost: SpecialFilter }
+  | { type: "bridge"; share: number }
+  | { type: "search"; filter: SpecialFilter }
+  | { type: "revealSearch"; reveal: string[]; putBack: number };
+
+/** A path of a bridge: `from` in hand, `via` banished from the Deck, `to` added. */
+export interface SpecialChain {
+  from: number;
+  via: number;
+  to: number;
+}
+
+/** Mirrors `ygo_stats::special::SpecialResult`. */
+export interface SpecialResult {
+  id: number;
+  copies: number;
+  mechanism: SpecialMechanism;
+  /** Chance to open the card. */
+  open: number;
+  /** Chance to have the target in hand, or to reach it with this card. */
+  with: number;
+  /** One per number of cards the player can choose to excavate. */
+  variants: { n: number; with: number }[];
+  /** Without the target in hand: chance that the cost banishes a copy of it. */
+  banishRisk: number | null;
+  /** With the card in hand: chance that its cost cannot be paid and the hand is lost. */
+  loseHand: number | null;
+  /** Copies in the Main Deck that pay the cost. */
+  payers: number | null;
+  /** Why the card cannot resolve in this deck. */
+  blocked: string | null;
+  chains: SpecialChain[];
+  /** Cards it adds from the Deck, or that reach the target through a bridge. */
+  links: number[];
+}
+
+/** Mirrors `ygo_stats::SpecialReport`. */
+export interface SpecialReport {
+  /** Chance to open the target, without any special card. */
+  base: number;
+  targetCopies: number;
+  size: number;
+  cards: SpecialResult[];
+}
+
+/** A card the lab knows, by passcode. */
+export interface SpecialKnown {
+  id: number;
+  name: string;
+  mechanism: SpecialMechanism;
+}
+
 /** Simulator rules for one card (`ygo_stats::CardRule`). */
 export type SimEffect = { type: "draw"; n: number; banishTop: number } | { type: "excavate"; n: number } | { type: "search"; targets: number[] };
 export interface SimRule {
@@ -881,6 +945,10 @@ const tauriApi = {
   labOverview: (main: number[], roles: Record<string, number[]>) => invoke<LabOverview>("lab_overview", { main, roles }),
   labProbability: (main: number[], roles: Record<string, number[]>, cond: Cond, hand: number) =>
     invoke<{ p: number | null; error: string | null }>("lab_probability", { main, roles, cond, hand }),
+  /** Laboratorio, "Carte speciali": how the deck's draw spells, excavators, bridges and searches change the chance of reaching `target`. */
+  labSpecial: (main: number[], extra: number[], roles: Record<string, number[]>, target: LabTarget, hand: number) =>
+    invoke<SpecialReport>("lab_special", { main, extra, roles, target, hand }),
+  labSpecialKnown: () => invoke<SpecialKnown[]>("lab_special_known"),
   setDeckRoles: (id: number, roles: Record<string, number[]>) => invoke<void>("set_deck_roles", { id, roles }),
   guessDeckRoles: (id: number) => invoke<RoleGuess[]>("guess_deck_roles", { id }),
   onRolesProgress: (handler: (p: { done: number; total: number }) => void): Promise<UnlistenFn> =>
