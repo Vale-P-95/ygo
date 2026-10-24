@@ -72,9 +72,10 @@ Nessuna regola per nome di carta: vale per ogni carta che usa queste due funzion
 | Stessa mano senza tetto: richieste oltre 100 000 ingressi | 63 | 0 |
 | Test appaiato (92 mani, 4000 nodi) | — | 0 meglio, 0 peggio, 92 pari, ACCEPTED; secondi di ricerca 516 → 529 |
 | Misura delle 22 board delle fixture A1b (`a1b_remeasure.py`) | — | identica, tempi a parte |
+| Misura delle 396 board della caccia A1b rifatta | — | identica (3 differenze di 2·10⁻¹⁶, presenti anche tra due giri uguali) |
 | Sweep di robustezza (286 deck, 572 mani, 2000 duelli) | 1 caso (Vendread) | nessun problema |
 
-La misura non cambia dove il tetto non scattava; la prova equa sulle 406 board richiede le uscite del giro A1b, che non sono nel repository: le 22 board delle fixture sono identiche.
+**Prova equa.** La verità del livello 2 del giro A1b non cambia (costa circa 9 ore e non dipende da questa correzione); cambia solo la misura, e solo dove scattava il tetto. Quindi si è rifatta la caccia del giro A1b su `main` (`combo_hunt.py --nodes 4000 --top 8 --seed 7`, poi `a1b_setup.py`: 396 board in 80 file di linee) e si è misurata ogni board con lo stesso binario, con e senza `DUELFORGE_UPSTREAM_LUA=1` (`probe-line --json`, sola misura). Risultato: 393 board identiche; nelle altre 3 cambia solo l'ultima cifra di `countered` (0,9576271186440678 contro …676), che cambia allo stesso modo tra due giri dello stesso binario. La prova equa è quindi la stessa per costruzione.
 
 ## Quando rifarlo
 - Dopo ogni modifica a `crates/ygo-engine` (risposte, decisioni, replay, arena) e a quello che la ricerca o il turno di prova chiedono al motore.
