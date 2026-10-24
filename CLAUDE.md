@@ -41,7 +41,7 @@ Regole complete e motivi in `docs/plans/token-e-contesto.md`.
 
 ### PR e merge
 - La PR si apre con il template di `.github/pull_request_template.md`; la CI parte da sola all'apertura. Dopo un push, si rilancia a mano una volta sola (`actions_run_trigger`, `run_workflow`, `ci.yml`), dopo l'ultimo push.
-- Il merge lo fa la coordinatrice in automatico (squash, `expectedHeadSha` con lo SHA completo): solo con CI verde, nessun conflitto e, per il motore, la prova equa sulle 406 board non peggiorata. Non attende la CI a intervalli: si iscrive agli eventi della PR e si sveglia sull'esito. I thread aprono la PR e si fermano. Dopo l'ultimo push la CI si lancia a mano una volta (`ci.yml`).
+- Il merge lo fa la coordinatrice in automatico (squash, `expectedHeadSha` con lo SHA completo): solo con CI verde, nessun conflitto e, per il motore, `banco.py` ACCEPTED sul banco congelato (`docs/plans/regole-motore.md`). Non attende la CI a intervalli: si iscrive agli eventi della PR e si sveglia sull'esito. I thread aprono la PR e si fermano. Dopo l'ultimo push la CI si lancia a mano una volta (`ci.yml`).
 - I workflow multi-agente consumano molta quota: solo per revisioni o analisi grandi, su richiesta.
 - Per verificare il motore si usa la CLI (`combos`, `coverage`, `card-values`, `roles`). Per l'app si usa il build release con `--features tauri/custom-protocol`.
 

@@ -154,6 +154,13 @@ enum Cmd {
         /// Measure without the board breakers (and the follow-up after them).
         #[arg(long)]
         no_breakers: bool,
+        /// List the boards only by what they stop at the end of the turn: the
+        /// interruptions on the field, in the GY, banished and in hand, and the
+        /// floodgates, with a summary by kind (implies --probe and
+        /// --no-breakers; no exposure). With --staged the cut to the full
+        /// measure and the variant kept still go by the usual value.
+        #[arg(long)]
+        interaction: bool,
         /// Also take the quick value of each board listed (two runs), with its time.
         #[arg(long)]
         quick_value: bool,
@@ -523,6 +530,7 @@ fn main() -> Result<()> {
             json,
             save_lines,
             no_breakers,
+            interaction,
             quick_value,
             staged,
             staged_cheap,
@@ -553,10 +561,11 @@ fn main() -> Result<()> {
                 goal,
                 goal_any,
                 first,
-                probe: probe || json.is_some() || staged,
+                probe: probe || json.is_some() || staged || interaction,
                 json,
                 save_lines,
-                no_breakers,
+                no_breakers: no_breakers || interaction,
+                interaction,
                 quick_value,
                 staged: staged.then_some(Staged {
                     cheap: staged_cheap,
@@ -661,6 +670,7 @@ struct CombosOptions {
     json: Option<PathBuf>,
     save_lines: Option<PathBuf>,
     no_breakers: bool,
+    interaction: bool,
     quick_value: bool,
     staged: Option<Staged>,
     checkpoints: bool,
@@ -789,6 +799,7 @@ fn combos(dir: &Path, setup: &Setup, options: CombosOptions) -> Result<()> {
         json,
         save_lines,
         no_breakers,
+        interaction,
         quick_value,
         staged,
         checkpoints,
@@ -1124,7 +1135,8 @@ fn combos(dir: &Path, setup: &Setup, options: CombosOptions) -> Result<()> {
             None => boards.push(item),
         }
     }
-    if probe {
+    // Ranked by interaction, the opponent's handtraps on your turn do not count.
+    if probe && !interaction {
         for item in boards.iter_mut().filter(|item| !item.cheap && item.measured.is_some()) {
             let points = ygo_solver::explain::exposure_points(
                 &engine,
@@ -1153,8 +1165,11 @@ fn combos(dir: &Path, setup: &Setup, options: CombosOptions) -> Result<()> {
         let full = boards.iter().filter(|item| !item.cheap && item.measured.is_some()).count();
         println!("probe turns: {full} full, {cheap} cheap only, in {probe_seconds:.1} s");
     }
-    let measured_value = |item: &Listed| item.measured.as_ref().and_then(|m| m.as_ref().ok()).filter(|_| !item.cheap).map(composite);
-    let cheap_value = |item: &Listed| item.measured.as_ref().and_then(|m| m.as_ref().ok()).filter(|_| item.cheap).map(cheap_composite);
+    type Value = fn(&ygo_solver::Measure) -> f64;
+    let (full_value, cheap_value_of): (Value, Value) =
+        if interaction { (interaction_value, interaction_value) } else { (composite, cheap_composite) };
+    let measured_value = |item: &Listed| item.measured.as_ref().and_then(|m| m.as_ref().ok()).filter(|_| !item.cheap).map(full_value);
+    let cheap_value = |item: &Listed| item.measured.as_ref().and_then(|m| m.as_ref().ok()).filter(|_| item.cheap).map(cheap_value_of);
     let mut printed: Vec<usize> = (0..boards.len()).collect();
     // A board whose probe turn failed goes after the measured ones, and one
     // with the cheap measure only after those with the full one.
@@ -1253,6 +1268,9 @@ fn combos(dir: &Path, setup: &Setup, options: CombosOptions) -> Result<()> {
             Some(Ok(m)) => print_measure(&engine, m, *took),
             Some(Err(e)) => println!("   probe turn failed: {e}"),
             None => {}
+        }
+        if let Some(Ok(m)) = measured.as_ref().filter(|_| interaction) {
+            print_interaction(&InteractionProfile::of(m, &board.state));
         }
         if let Some(x) = exposure {
             println!(
@@ -1436,6 +1454,7 @@ fn state_json(
         "banished_names": me.banished.iter().map(|&(c, _)| db.name(c)).collect::<Vec<_>>(),
     });
     if let Some(m) = measured {
+        value["interaction"] = InteractionProfile::of(m, state).json();
         value["measure"] = serde_json::json!({
             "seconds": took.as_secs_f64(),
             "field": m.field_value,
@@ -1937,6 +1956,111 @@ fn composite(m: &ygo_solver::Measure) -> f64 {
     let parts = [m.field_value, m.hand_value, m.floodgate_value, m.resilience];
     let rebuild = m.follow_up.map_or(0.0, |f| f.rebuild as f64);
     WEIGHTS.iter().zip(parts).map(|(w, v)| w * v).sum::<f64>() + FOLLOW_UP * REBUILD * rebuild
+}
+
+/// What a board stops at the end of the turn, with nothing about the
+/// opponent's turn after it: the interruptions (field, GY, banished and
+/// hand) and the floodgates, all in interruptions.
+fn interaction_value(m: &ygo_solver::Measure) -> f64 {
+    m.field_value + m.hand_value + m.floodgate_value
+}
+
+/// A measured board's interaction at the end of the turn, by kind: the
+/// times its effects stop something, by what they do and where they are,
+/// the effects the engine let you use on the opponent's turn, the
+/// floodgates and the cards left in hand and in the GY.
+#[derive(Debug, Default, PartialEq)]
+struct InteractionProfile {
+    value: f64,
+    /// Times your effects stop something: negations (of an activation, a
+    /// summon or an effect), removals (banish, to the Deck, to the hand,
+    /// destroy, to the GY) and the rest (locks, position or control).
+    negations: u32,
+    removals: u32,
+    others: u32,
+    /// The same times, by where the card is: field, GY, banished, hand.
+    by_place: [u32; 4],
+    /// Effects that stop something alone but nothing with your others,
+    /// which need what they use (Invoked Mechaba sends the last card of
+    /// your hand, Ash Blossom): not counted above.
+    shared: usize,
+    /// Cards you can use on the opponent's turn, stopping something or not.
+    activatable: usize,
+    floodgates: usize,
+    hand: usize,
+    grave: usize,
+}
+
+impl InteractionProfile {
+    fn of(m: &ygo_solver::Measure, state: &ygo_engine::DuelState) -> Self {
+        use ygo_solver::Effect;
+        let mut p = InteractionProfile {
+            value: interaction_value(m),
+            activatable: m.offered.len(),
+            floodgates: m.floodgates.len(),
+            hand: state.players[0].hand.len(),
+            grave: state.players[0].grave.len(),
+            ..Default::default()
+        };
+        for i in &m.interruptions {
+            if i.value <= 0.0 {
+                p.shared += usize::from(i.alone > 0.0);
+                continue;
+            }
+            let times = i.uses.max(1);
+            match i.effect {
+                Effect::NegateAndRemove | Effect::NegateSummon | Effect::NegateActivation | Effect::NegateEffect => p.negations += times,
+                Effect::Banish | Effect::ToDeck | Effect::Bounce | Effect::Destroy | Effect::ToGrave => p.removals += times,
+                Effect::Lock | Effect::Position => p.others += times,
+            }
+            let place = match i.location {
+                location::HAND => 3,
+                location::GRAVE => 1,
+                location::REMOVED => 2,
+                _ => 0,
+            };
+            p.by_place[place] += times;
+        }
+        p
+    }
+
+    fn total(&self) -> u32 {
+        self.negations + self.removals + self.others
+    }
+
+    fn json(&self) -> serde_json::Value {
+        let [field, grave, banished, hand] = self.by_place;
+        serde_json::json!({
+            "value": self.value,
+            "interruptions": self.total(),
+            "negations": self.negations,
+            "removals": self.removals,
+            "others": self.others,
+            "from": { "field": field, "grave": grave, "banished": banished, "hand": hand },
+            "only_alone": self.shared,
+            "activatable": self.activatable,
+            "floodgates": self.floodgates,
+            "cards_in_hand": self.hand,
+            "cards_in_grave": self.grave,
+        })
+    }
+}
+
+fn print_interaction(p: &InteractionProfile) {
+    let [field, grave, banished, hand] = p.by_place;
+    println!(
+        "   interaction {:.2}: {} interruptions (negations {} · removals {} · other {}) · from field {field}, GY {grave}, banished {banished}, hand {hand}{} · {} cards usable on the opponent's turn · {} kinds of moves floodgated · left: {} cards in hand, {} in the GY",
+        p.value,
+        p.total(),
+        p.negations,
+        p.removals,
+        p.others,
+        if p.shared > 0 { format!(" · {} more only alone", p.shared) } else { String::new() },
+        p.activatable,
+        p.floodgates,
+        p.hand,
+        p.grave
+    );
 }
 
 fn print_measure(engine: &Engine, m: &ygo_solver::Measure, took: std::time::Duration) {
@@ -3198,6 +3322,46 @@ fn bench(dir: &Path, setup: &Setup, playouts: u32, max_decisions: u32) -> Result
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn interaction_profile_counts_by_kind_and_place() {
+        let stop = |location, effect, uses, value| ygo_solver::Interruption {
+            responder: ygo_solver::ResponderId { code: 1, description: 0 },
+            location,
+            effect,
+            targeted: false,
+            uses,
+            covers: vec![],
+            coverage: 0.0,
+            value,
+            alone: 0.5,
+        };
+        let m = ygo_solver::Measure {
+            interruptions: vec![
+                stop(location::MZONE, ygo_solver::Effect::NegateActivation, 2, 0.5),
+                stop(location::HAND, ygo_solver::Effect::NegateEffect, 1, 0.5),
+                stop(location::GRAVE, ygo_solver::Effect::Banish, 0, 0.5),
+                stop(location::REMOVED, ygo_solver::Effect::Lock, 1, 0.5),
+                stop(location::HAND, ygo_solver::Effect::NegateEffect, 1, 0.0),
+            ],
+            floodgates: vec![ygo_solver::Probe::ExtraSummon],
+            field_value: 1.5,
+            hand_value: 0.8,
+            floodgate_value: 0.6,
+            offered: vec![(1, location::MZONE), (2, location::HAND)],
+            ..Default::default()
+        };
+        let mut state = ygo_engine::DuelState::default();
+        state.players[0].hand = vec![10, 11];
+        state.players[0].grave = vec![12, 13, 14];
+        let p = InteractionProfile::of(&m, &state);
+        // Each response counts its uses, and once at least.
+        assert_eq!((p.negations, p.removals, p.others, p.total()), (3, 1, 1, 5));
+        assert_eq!((p.by_place, p.shared), ([2, 1, 1, 1], 1));
+        assert_eq!((p.activatable, p.floodgates, p.hand, p.grave), (2, 1, 2, 3));
+        assert!((p.value - 2.9).abs() < 1e-9);
+        assert_eq!(p.json()["from"]["hand"], serde_json::json!(1));
+    }
 
     #[test]
     fn recorded_fixtures_cover_each_query_once() {
