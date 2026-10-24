@@ -324,7 +324,7 @@ export function Gallery() {
         <DsCard id="aiuto" group="Componenti" name="Aiuto e pannello laterale" note="HelpPopover, SidePanel" accent={accent}>
           <Row label="«?» al posto dei testi fissi">
             <span className="text-small text-muted">Probabilità di aprire uno starter</span>
-            <HelpPopover title="Come si calcola">La probabilità è esatta: ipergeometrica sulle carte del deck.</HelpPopover>
+            <HelpPopover title="Come si calcola" kind="how">La probabilità è esatta: ipergeometrica sulle carte del deck.</HelpPopover>
           </Row>
           <div className="relative flex h-56 overflow-hidden rounded-xl border border-border bg-bg-2">
             <div className="flex-1 p-3 text-small text-faint">Contenuto della pagina</div>

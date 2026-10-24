@@ -7,7 +7,8 @@ Regole in `AGENTS.md`. Per prendere un task, spostalo in "In corso" con agente, 
 
 ## In corso
 - [x] **Mascotte nei pannelli info** (claude-code, thread «Aggiungere la mascotte nei pannelli info», branch `claude/project-thread-v1jfz3`, PR aperta il 24/10). `Mascot.tsx` + `InfoButton` con `kind` (what, how, rank, stat, block, tip, warn): faccia e icona seguono il tipo di informazione. Design Claude Design non leggibile (niente `/design-login` in cloud): mascotte disegnata con i token dell'app.
-  - [ ] Da fare: confronto con `ComboLab.dc.html` quando Valerio allega l'export; usare `kind` anche negli altri pannelli info (oggi solo `Score.tsx`).
+  - [ ] Da fare: confronto con `ComboLab.dc.html` quando Valerio allega l'export.
+  - [x] `kind` anche in `HelpPopover` (Fucina, Catalogo, Galleria): ora tutti i pannelli info hanno la mascotte.
 - [x] **Tempi del motore: profilo e sprechi** (claude-code, thread «Abbattere i tempi di calcolo del motore», branch `claude/project-thread-jnnjz3`, PR aperta il 24/10). Profilo su 19 mani del banco di generalità: la ricerca vera è il 14% del tempo, il turno di prova l'82% (le corse «una risposta a una finestra» il 62%). Due correzioni in `probe.rs` con uscite identiche: copie del duello alle finestre del turno avversario (le corse ripartono dalla finestra invece che dall'inizio del turno avversario) e taglio delle corse chiuse in un giro di selezioni (la stessa domanda 64 volte senza eventi, che finiva comunque al tetto di 4000 decisioni). 19 mani 466 → 337 s (−28%; Fur Hire 167 → 22 s, Elfnote 53 → 22 s), JSON identici, `DUELFORGE_COPY_CHECK=1` pulito; `paired_test.py` 91 pari, ACCEPTED, −13%. Tecniche ordinate per guadagno sul costo in `docs/plans/tempi-motore.md`. Lock tolto.
   - [ ] Prossimo: rispondere bene alle selezioni che tornano indietro (cambia la misura: prova equa e `paired_test.py`).
   - [ ] Valori delle carte su disco per i banchi (−3/4 s a mano); memoria delle corse uguali (4%).

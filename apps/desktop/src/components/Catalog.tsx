@@ -361,7 +361,7 @@ export function Catalog({
         {/* Title row with discrete counter and single-button view menu */}
         <div className="flex items-center gap-2">
           <p className="display text-sm font-bold tracking-[0.12em] uppercase">Catalogo</p>
-          <HelpPopover title="Guida al catalogo e scorciatoie" tooltip="Guida del catalogo" align="left">
+          <HelpPopover title="Guida al catalogo e scorciatoie" tooltip="Guida del catalogo" align="left" kind="tip">
             <div className="flex flex-col gap-2 text-xs text-text/90">
               <p className="font-semibold text-text">Azioni rapide sulle carte</p>
               <ul className="list-disc pl-4 space-y-1 text-muted">

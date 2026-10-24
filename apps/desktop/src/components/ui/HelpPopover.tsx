@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { HelpCircle, X } from "lucide-react";
 import { IconButton } from "./IconButton";
+import { INFO_KINDS, Mascot, type InfoKind } from "../Mascot";
 
 export interface HelpPopoverProps {
   /** Optional header title for the popover card. */
@@ -13,6 +14,8 @@ export interface HelpPopoverProps {
   ariaLabel?: string;
   /** Alignment of the popover dialog relative to the trigger button. */
   align?: "left" | "right";
+  /** What the guide is about: the mascot takes its face and icon from it. */
+  kind?: InfoKind;
   /** Optional custom CSS classes for the trigger wrapper. */
   className?: string;
 }
@@ -27,6 +30,7 @@ export function HelpPopover({
   tooltip = "Guida e suggerimenti",
   ariaLabel = "Mostra suggerimenti e guida",
   align = "right",
+  kind = "tip",
   className = "",
 }: HelpPopoverProps) {
   const [open, setOpen] = useState(false);
@@ -80,9 +84,15 @@ export function HelpPopover({
           }`}
         >
           <div className="flex items-center justify-between gap-2 border-b border-border/80 pb-2 mb-2.5">
-            <h4 className="font-semibold text-small tracking-wide text-text flex items-center gap-1.5">
-              <span className="text-gold font-bold">ℹ</span> {title}
-            </h4>
+            <div className="flex min-w-0 items-center gap-2.5">
+              <Mascot kind={kind} size={36} />
+              <div className="min-w-0">
+                <p className="eyebrow text-[9px]" style={{ color: INFO_KINDS[kind].color }}>
+                  {INFO_KINDS[kind].label}
+                </p>
+                <h4 className="font-semibold text-small leading-tight tracking-wide text-text">{title}</h4>
+              </div>
+            </div>
             <IconButton
               icon={<X size={13} aria-hidden="true" />}
               tooltip="Chiudi guida (Esc)"
