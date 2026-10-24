@@ -42,7 +42,7 @@ Breve indice per chi arriva. Il dettaglio è in `docs/PIANO.md` (v1.11, §30–�
 - **Ricerca con replay**: il motore non copia una partita in corso, quindi ogni nodo si raggiunge rigiocando la linea. Tutte le ottimizzazioni puntano a ridurre i replay o a renderli più economici (§23, §25, §29.4).
 - **Punteggio misurato** con un turno di prova vero invece che stimato dal testo delle carte (§22, §26).
 - **Correzioni sempre generali**, validate su molti deck, mai per nome di carta (§28, §29.3).
-- **Una sola famiglia di agenti dal 24/10/2026**: sessioni di Claude Code per motore, backend e interfaccia; mockup in Claude Design; decisioni nel Progetto Claude; un compito per sessione; il merge lo decide l'utente (§30.5, §32, `docs/plans/piano-ambiente-e-risorse.md`, `AGENTS.md`).
+- **Una sola famiglia di agenti dal 24/10/2026**: sessioni di Claude Code per motore, backend e interfaccia; mockup in Claude Design; decisioni nel Progetto Claude; un compito per sessione; il merge lo fa la coordinatrice in automatico a CI verde, per il motore con la prova equa non peggiorata (decisione del 23/10; §30.5, §32, `docs/plans/piano-ambiente-e-risorse.md`, `AGENTS.md`).
 - **Minuti di GitHub Actions contati** (repository privato): CI solo sulle parti toccate, bench solo a mano.
 
 ## Richieste dell'utente non ancora fatte
