@@ -4842,6 +4842,7 @@ dependencies = [
  "ygo-data",
  "ygo-engine",
  "ygo-solver",
+ "ygo-stats",
 ]
 
 [[package]]

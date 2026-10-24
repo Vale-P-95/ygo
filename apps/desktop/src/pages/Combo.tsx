@@ -75,6 +75,7 @@ function store(key: string, value: unknown) {
 }
 
 const boardId = (b: ComboBoard) => `${b.hand}:${b.key}`;
+const num2 = (n: number) => n.toLocaleString("it-IT", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const pairKey = (id1: string, id2: string) => (id1 < id2 ? `${id1}<->${id2}` : `${id2}<->${id1}`);
 
 /**
@@ -193,6 +194,7 @@ export function Combo({ artReady, onGoForge }: { artReady: boolean; onGoForge: (
   const [handFilter, setHandFilter] = useState<number | null>(null);
   const [hover, setHover] = useState<{ code: number; rect: DOMRect; el: HTMLElement } | null>(null);
   const explained = useRef(new Map<string, ComboStep[]>());
+  const autoPick = useRef(true);
   const run = useCombo();
   const { profile, weights } = useWeights();
   const [weightsOpen, setWeightsOpen] = useState(false);
@@ -408,13 +410,13 @@ export function Combo({ artReady, onGoForge }: { artReady: boolean; onGoForge: (
     request([...codes]);
   }, [boards, hands, request]);
 
-  // The best board is shown as soon as a search ends.
+  // The first board of the list is shown as soon as a search ends, and follows the list while scores and meta
+  // reorder it, until a board is picked or closed by hand.
   const outcome = ours ? run.outcome : null;
+  const top = groups[0]?.board ?? null;
   useEffect(() => {
-    if (!outcome) return;
-    const best = [...outcome.boards].sort(byRank)[0];
-    setSelected(best ?? null);
-  }, [outcome]);
+    if (outcome && autoPick.current) setSelected(top);
+  }, [outcome, top]);
   const goal = (ours && run.request?.goal) || null;
 
   // The line is told once the search is over (it plays the line again).
@@ -450,6 +452,7 @@ export function Combo({ artReady, onGoForge }: { artReady: boolean; onGoForge: (
     if (byHand && setup.hand.length === 0) return toast("Scegli le carte della mano", "error");
     if (!byHand && setup.card == null) return toast("Scegli la carta da cui partire", "error");
     sound.play("open");
+    autoPick.current = true;
     setSelected(null);
     setPinned(null);
     setCompareTarget(null);
@@ -492,7 +495,11 @@ export function Combo({ artReady, onGoForge }: { artReady: boolean; onGoForge: (
     if (!deck || deck.id == null || run.running || run.scoring || run.metaLoading) return;
     sound.play("select");
     const currentDeckId = deck.id;
-    const measuredBoards = boards.filter((b) => scoreOf(b) != null);
+    // The best 4 by the chosen weights: `boards` puts the ones with a meta measure first, so a second run with
+    // another profile would only pick those again.
+    const measuredBoards = boards
+      .filter((b) => scoreOf(b) != null)
+      .sort((x, y) => score(scoreOf(y)!, weights) - score(scoreOf(x)!, weights));
     const targetBoards =
       profile === "balanced"
         ? undefined
@@ -827,6 +834,7 @@ export function Combo({ artReady, onGoForge }: { artReady: boolean; onGoForge: (
                 name={name}
                 onShow={(b) => {
                   sound.play("page");
+                  autoPick.current = false;
                   setSelected(b);
                 }}
               />
@@ -1060,12 +1068,14 @@ export function Combo({ artReady, onGoForge }: { artReady: boolean; onGoForge: (
                       tabIndex={0}
                       onClick={() => {
                         sound.play("page");
+                        autoPick.current = false;
                         setSelected(active ? null : b);
                       }}
                       onKeyDown={(e) => {
                         if (e.key === "Enter" || e.key === " ") {
                           e.preventDefault();
                           sound.play("page");
+                          autoPick.current = false;
                           setSelected(active ? null : b);
                         }
                       }}
@@ -1080,7 +1090,7 @@ export function Combo({ artReady, onGoForge }: { artReady: boolean; onGoForge: (
                       <span className="flex flex-col items-end text-xs whitespace-nowrap text-muted tabular-nums">
                         {scoreOf(b) ? (
                           <b className="text-sm text-text" title="Punteggio misurato">
-                            {score(scoreOf(b)!, weights).toFixed(2)}
+                            {num2(score(scoreOf(b)!, weights))}
                           </b>
                         ) : cheapOf(b) ? (
                           <span
@@ -1116,10 +1126,10 @@ export function Combo({ artReady, onGoForge }: { artReady: boolean; onGoForge: (
                             title={
                               scoreOf(b)!.matchup!.error
                                 ? `Calcolo contro ${scoreOf(b)!.matchup!.deckName} fallito: ${scoreOf(b)!.matchup!.error}`
-                                : `Resilienza contro ${scoreOf(b)!.matchup!.deckName}: in media restano ${scoreOf(b)!.matchup!.resilience.toFixed(2)} su ${scoreOf(b)!.interruptions.toFixed(2)}`
+                                : `Resilienza contro ${scoreOf(b)!.matchup!.deckName}: in media restano ${num2(scoreOf(b)!.matchup!.resilience)} su ${num2(scoreOf(b)!.interruptions)}`
                             }
                           >
-                            vs {scoreOf(b)!.matchup!.deckName}: {scoreOf(b)!.matchup!.error ? "errore" : scoreOf(b)!.matchup!.resilience.toFixed(2)}
+                            vs {scoreOf(b)!.matchup!.deckName}: {scoreOf(b)!.matchup!.error ? "errore" : num2(scoreOf(b)!.matchup!.resilience)}
                           </span>
                         )}
                         <span>
@@ -1128,7 +1138,7 @@ export function Combo({ artReady, onGoForge }: { artReady: boolean; onGoForge: (
                               ≈
                             </span>
                           )}
-                          {b.cardsUsed} carte · {b.choices} scelte
+                          {plural(b.cardsUsed, "carta", "carte")} · {b.choices} scelte
                         </span>
                         {goal && (reaches(b, goal) ? <span className="text-[11px] font-semibold text-ok">✓ obiettivo</span> : <span className="text-[11px] text-faint">obiettivo {b.goalHits}/{goal.cards.filter(isHard).length}</span>)}
                         {goal && b.goalSoft > 0 && <span className="text-[11px] text-faint">+{b.goalSoft} {b.goalSoft === 1 ? "preferita" : "preferite"}</span>}
@@ -1226,7 +1236,11 @@ export function Combo({ artReady, onGoForge }: { artReady: boolean; onGoForge: (
                       )}
                     </button>
                   )}
-                  <button type="button" className="text-xs text-muted hover:text-text" onClick={() => setSelected(null)}>
+                  <button type="button" className="text-xs text-muted hover:text-text" onClick={() => {
+                      autoPick.current = false;
+                      setSelected(null);
+                    }}
+                  >
                     Chiudi
                   </button>
                 </div>

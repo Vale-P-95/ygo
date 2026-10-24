@@ -16,11 +16,11 @@ done
 git submodule update --init --recursive
 
 # System libraries of the Tauri backend (WebKitGTK) and Xvfb for the real app without a window.
-if ! dpkg -s libwebkit2gtk-4.1-dev >/dev/null 2>&1 || ! command -v xvfb-run >/dev/null 2>&1; then
+if ! dpkg -s libwebkit2gtk-4.1-dev >/dev/null 2>&1 || ! command -v xvfb-run >/dev/null 2>&1 || ! command -v xdotool >/dev/null 2>&1; then
   SUDO=""; [ "$(id -u)" -ne 0 ] && SUDO="sudo"
   $SUDO apt-get update -qq
   DEBIAN_FRONTEND=noninteractive $SUDO apt-get install -y -qq --no-install-recommends \
-    libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev libxdo-dev xauth xvfb
+    libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev libxdo-dev xdotool xauth xvfb
 fi
 
 (cd apps/desktop && pnpm install --frozen-lockfile)

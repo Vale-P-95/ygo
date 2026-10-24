@@ -488,3 +488,32 @@ fn lines_started_from_copies_play_like_replayed_ones() {
     assert_eq!((replayed.progress.nodes, replayed.interrupted), (copied.progress.nodes, copied.interrupted));
     assert!(boards(&replayed) == boards(&copied), "{}\n{}", lab.describe(&replayed), lab.describe(&copied));
 }
+
+#[test]
+#[cfg_attr(debug_assertions, ignore = "slow in debug: run with --release")]
+fn checkpoints_change_nothing_and_a_longer_search_takes_the_same() {
+    // The copies of the best boards at the checkpoints leave the search as
+    // it is, and a search with more nodes takes the copies of a shorter one
+    // first (docs/plans/monotonia-budget.md).
+    let Some(lab) = lab() else { return };
+    let hand: Vec<u32> = ["Aleister the Invoker", GRAIL, "Magical Meltdown", "Ash Blossom & Joyous Spring", "Mulcharmy Fuwalos"]
+        .iter()
+        .map(|n| lab.card(n))
+        .collect();
+    let run = |nodes: u64, checkpoints: &[u64]| {
+        let mut config = lab.config(&hand, false, Goal::default());
+        config.max_nodes = nodes;
+        config.checkpoints = checkpoints.to_vec();
+        config.checkpoint_top = 50;
+        search(&lab.engine, &config, &AtomicBool::new(false), |_| {})
+    };
+    let boards = |b: &[ygo_solver::Board]| b.iter().map(|b| (b.key, b.line.answers.clone(), b.quick_score.to_bits())).collect::<Vec<_>>();
+    let (plain, short, long) = (run(1000, &[]), run(1000, &[250, 500, 1000]), run(2000, &[250, 500, 1000, 2000]));
+    assert!(boards(&plain.boards) == boards(&short.boards), "{}\n{}", lab.describe(&plain), lab.describe(&short));
+    assert_eq!(short.checkpoints.len(), 3);
+    assert_eq!(long.checkpoints.len(), 4);
+    for ((n_short, b_short), (n_long, b_long)) in short.checkpoints.iter().zip(&long.checkpoints) {
+        assert_eq!(n_short, n_long);
+        assert!(!b_short.is_empty() && boards(b_short) == boards(b_long), "checkpoint at {n_short} nodes");
+    }
+}

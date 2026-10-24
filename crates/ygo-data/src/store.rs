@@ -385,10 +385,35 @@ impl CardStore {
         Ok(ids)
     }
 
-    /// Cards for `ids`, in the same order (unknown ids are skipped).
+    /// Cards for `ids`, in the same order (unknown ids are skipped). A
+    /// passcode of another artwork gives its card under that passcode: the
+    /// engine and decks may use one that YGOPRODeck lists only among the
+    /// images, when it puts another artwork first.
     pub fn get_many(&self, ids: &[u32]) -> Result<Vec<Card>, Error> {
+        let mut found = self.by_id(ids)?;
+        let mut artworks = Vec::new();
+        for &id in ids {
+            if found.contains_key(&id) {
+                continue;
+            }
+            if let Some(card) = self.resolve_id(id)? {
+                artworks.push((id, card));
+            }
+        }
+        if !artworks.is_empty() {
+            let cards = self.by_id(&artworks.iter().map(|&(_, card)| card).collect::<Vec<_>>())?;
+            for (id, card) in artworks {
+                if let Some(card) = cards.get(&card) {
+                    found.insert(id, Card { id, ..card.clone() });
+                }
+            }
+        }
+        Ok(ids.iter().filter_map(|id| found.remove(id)).collect())
+    }
+
+    fn by_id(&self, ids: &[u32]) -> Result<HashMap<u32, Card>, Error> {
         if ids.is_empty() {
-            return Ok(Vec::new());
+            return Ok(HashMap::new());
         }
         let sql = format!(
             "SELECT {COLUMNS}, (SELECT status FROM banlists b WHERE b.format = 'md' AND b.id = cards.id) FROM cards WHERE id IN ({})",
@@ -431,7 +456,7 @@ impl CardStore {
             let card = card?;
             found.insert(card.id, card);
         }
-        Ok(ids.iter().filter_map(|id| found.remove(id)).collect())
+        Ok(found)
     }
 
     /// The card a passcode belongs to. Decks may use the passcode of an

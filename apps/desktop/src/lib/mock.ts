@@ -61,6 +61,12 @@ interface Recorded {
   searches: Record<string, SearchResult>;
   facets: Facets;
   banChanges: BanChange[];
+  /** The sample deck; files recorded before 25/10 have no roles, cards, legality or overview. */
+  deck?: { main: number[]; extra: number[]; side: number[]; roles?: Record<string, number[]> };
+  /** Every card the recorded searches and the deck show, without texts. */
+  cards?: Card[];
+  legality?: Legality;
+  overview?: LabOverview;
 }
 const recorded: Recorded | null = Object.values(import.meta.glob<Recorded>("./fixtures/recorded.json", { eager: true, import: "default" }))[0] ?? null;
 
@@ -787,6 +793,10 @@ const CARD_SEEDS: CardSeed[] = [
 ];
 
 const CARDS = new Map<number, Card>(CARD_SEEDS.map((s) => [s.id, makeCard(s)]));
+// Recorded cards fill the catalog; the seeds keep their placeholder texts.
+for (const c of recorded?.cards ?? []) {
+  if (!CARDS.has(c.id)) CARDS.set(c.id, { ...c, desc: c.desc || "Testo della carta non incluso nell'anteprima." });
+}
 const HANDTRAP_IDS = new Set<number>(CARD_SEEDS.filter((s) => s.handtrap).map((s) => s.id));
 
 const FRAME_PALETTE: Record<string, [string, string, string]> = {
@@ -1053,6 +1063,37 @@ let decksState: Deck[] = [
     updatedAt: "2026-10-19",
   },
 ];
+if (recorded?.deck) {
+  const { main, extra, side, roles } = recorded.deck;
+  decksState.push({
+    id: 3,
+    name: "Invoked (registrato)",
+    format: "md",
+    main: [...main],
+    extra: [...extra],
+    side: [...side],
+    maybe: [],
+    roles: structuredClone(roles ?? {}),
+    box: { color: "obsidian", material: "metal", shape: "monolith", showcase: main.slice(0, 3) },
+    updatedAt: "2026-10-24",
+  });
+}
+
+function sameList<T>(a: T[], b: T[]): boolean {
+  const [x, y] = [[...a].sort(), [...b].sort()];
+  return x.length === y.length && x.every((v, i) => v === y[i]);
+}
+
+/** Whether the deck is the recorded one, so the recorded answers stand for it. */
+function isRecordedDeck(main: number[], extra?: number[], side?: number[]): boolean {
+  const r = recorded?.deck;
+  return r != null && sameList(main, r.main) && (extra == null || sameList(extra, r.extra)) && (side == null || sameList(side, r.side));
+}
+
+function sameRoles(a: Record<string, number[]>, b: Record<string, number[]>): boolean {
+  const keys = (r: Record<string, number[]>) => Object.keys(r).filter((k) => r[k].length > 0);
+  return sameList(keys(a), keys(b)) && keys(a).every((k) => sameList(a[k], b[k]));
+}
 
 let nextDeckId = 3;
 
@@ -1074,6 +1115,7 @@ function toSummary(d: Deck): DeckSummary {
 }
 
 function validateDeckInternal(deck: Deck): Legality {
+  if (recorded?.legality && deck.format === "md" && isRecordedDeck(deck.main, deck.extra, deck.side)) return structuredClone(recorded.legality);
   const issues: Legality["issues"] = [];
   if (deck.main.length < 40 || deck.main.length > 60) {
     issues.push({
@@ -1112,6 +1154,27 @@ function validateDeckInternal(deck: Deck): Legality {
   };
 }
 
+const SORT_ALIASES: Record<string, string> = {
+  name: "name",
+  nome: "name",
+  atk: "atk",
+  def: "def",
+  level: "level",
+  livello: "level",
+  lv: "level",
+  popular: "popular",
+  popolari: "popular",
+  views: "popular",
+  new: "new",
+  nuove: "new",
+  recenti: "new",
+  relevance: "relevance",
+  rilevanza: "relevance",
+};
+
+/** `format:` values as ygo-data's `format_alias` names them, for the cards' `formats`. */
+const FORMAT_NAMES: Record<string, string> = { md: "Master Duel", masterduel: "Master Duel", tcg: "TCG", ocg: "OCG" };
+
 function searchCatalog(rawQuery: string): SearchResult {
   const q = rawQuery.trim();
   const chips: Chip[] = [];
@@ -1127,10 +1190,20 @@ function searchCatalog(rawQuery: string): SearchResult {
   let filterHandtrap = false;
   const filterBans: string[] = [];
   let filterFormat: string | null = null;
+  let sort: string | null = null;
 
   for (const tok of tokens) {
     const lower = tok.toLowerCase();
-    if (lower === "tag:handtrap") {
+    if (lower.startsWith("sort:") || lower.startsWith("ordina:")) {
+      // The same keys as `sort_alias` in ygo-data; an unknown one is an error there too.
+      const key = SORT_ALIASES[lower.split(":")[1] ?? ""];
+      if (key) {
+        sort = key;
+        chips.push({ token: tok, label: `Ordina: ${key}` });
+      } else {
+        errors.push(`Ordinamento sconosciuto: ${tok}`);
+      }
+    } else if (lower === "tag:handtrap") {
       filterHandtrap = true;
       chips.push({ token: tok, label: "Handtrap" });
     } else if (lower.startsWith("ban:")) {
@@ -1189,6 +1262,8 @@ function searchCatalog(rawQuery: string): SearchResult {
         if (!c.banTcg || !normalizedBans.includes(c.banTcg)) return false;
       }
     }
+    const formatName = filterFormat ? FORMAT_NAMES[filterFormat] : undefined;
+    if (formatName && !c.formats.includes(formatName)) return false;
     if (filterKind && c.kind !== filterKind && c.frame !== filterKind) return false;
     if (filterAttr && c.attribute?.toUpperCase() !== filterAttr) return false;
     if (filterRace && !c.race.toLowerCase().includes(filterRace)) return false;
@@ -1201,6 +1276,16 @@ function searchCatalog(rawQuery: string): SearchResult {
     }
     return true;
   });
+
+  const by: Record<string, (a: Card, b: Card) => number> = {
+    name: (a, b) => a.name.localeCompare(b.name),
+    atk: (a, b) => (b.atk ?? -1) - (a.atk ?? -1),
+    def: (a, b) => (b.def ?? -1) - (a.def ?? -1),
+    level: (a, b) => (b.level ?? b.linkRating ?? -1) - (a.level ?? a.linkRating ?? -1),
+    popular: (a, b) => b.views - a.views,
+    new: (a, b) => (b.tcgDate ?? b.ocgDate ?? "").localeCompare(a.tcgDate ?? a.ocgDate ?? ""),
+  };
+  if (sort && by[sort]) matches.sort(by[sort]);
 
   return {
     ids: matches.map((c) => c.id),
@@ -2477,15 +2562,13 @@ export const mockApi: Api = {
         else if (section === "extra") extra.push(id);
         else if (section === "side") side.push(id);
         else main.push(id);
+      } else if (!line.startsWith("#") && !line.startsWith("!")) {
+        // Same errors as `deck::parse_any`.
+        throw `riga non valida nel file .ydk: ${JSON.stringify(line)}`;
       }
     }
-    if (main.length === 0 && extra.length === 0) {
-      return {
-        main: [...decksState[0].main],
-        extra: [...decksState[0].extra],
-        side: [...decksState[0].side],
-        unknown: [],
-      };
+    if (main.length + extra.length + side.length + unknown.length === 0) {
+      throw "nessuna carta nel testo: incolla un file .ydk (passcode sotto #main, #extra e !side) o un link ydke://";
     }
     return { main, extra, side, unknown };
   },
@@ -2508,6 +2591,8 @@ export const mockApi: Api = {
   },
 
   labOverview: async (main: number[], roles: Record<string, number[]>): Promise<LabOverview> => {
+    const deckRoles = recorded?.deck?.roles;
+    if (recorded?.overview && deckRoles && isRecordedDeck(main) && sameRoles(roles, deckRoles)) return structuredClone(recorded.overview);
     const N = Math.max(1, main.length);
     const roleCounts: Record<string, number> = {};
     for (const [k, list] of Object.entries(roles)) {
