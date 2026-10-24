@@ -258,6 +258,7 @@ Resta la memoria operativa nei giorni con coordinatrice; altrimenti si aggiorna 
    - [fatto il 24/10] andare secondo, passo 2: Battle Phase e danno (Opus alto, una sessione, contesto sotto 100k; le 3 coppie prima e dopo in 4 minuti di CPU; la prova del primo turno identico con `combos` a nodi fissi su 21 mani).
    - [fatto il 24/10] classifica per interazione a fine turno, CLI `combos --interaction` (richiesta di Valerio, Opus): solo CLI, misura invariata, una prova da pochi secondi; contesto sotto 100k.
    - [fatto il 24/10] interazione a fine turno nel Combo Lab (Sonnet medio, thread del progetto): il profilo passa da `ygo-cli` a `ygo-solver`, contratto `lib.rs` ↔ `api.ts`; provato con backend finto, non nell'app vera.
+   - [fatto il 24/10] non perdere le board migliori già trovate (punto 1 di `prossimi-passi-motore.md`, Opus, thread del progetto): solo `combos` in `main.rs`, nessun file caldo; banco congelato `full` (20 minuti su 4 core) più 4000 contro 16 000 nodi sulle 63 mani `quick` (20 minuti), tutto in background.
 
 ## 10bis. Decisione sul merge (23/10)
 - **Cosa**: i merge li fa la coordinatrice in automatico; sostituisce «il merge lo fa l'utente dalla pagina».

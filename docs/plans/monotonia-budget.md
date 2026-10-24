@@ -91,3 +91,24 @@ Quando hai finito: TASKS.md e questo piano aggiornati, PR aperta, fermati.
 - **La cura (`run_combo` in `lib.rs`).** Le board della lista precedente che hanno un punteggio (misura economica o completa) e non sono più fra le nuove restano in coda alla loro mano, con la linea e lo stato di prima; punteggi, perdite e meta restano agganciati alla stessa chiave.
 - **La scelta per la misura completa (`combo_score`).** I candidati restano i primi 30 campi della lista, più le board che hanno già la misura economica: costano zero e le 15 per la misura completa si scelgono dall'unione, quindi una board scelta prima non esce. Con un deck avversario nuovo le tenute rientrano nella scelta.
 - **Costo.** Nessuna misura in più: i campi nuovi misurati sono gli stessi di prima; quelli già misurati non si rimisurano. La CLI e la ricerca non cambiano, quindi prova equa e `paired_test.py` sono identici per costruzione.
+
+## Le board già trovate (25/10, thread «Non perdere le board migliori già trovate», branch `claude/project-thread-vfjxe2`)
+**Il difetto** (punto 1 del secondo giro di `prossimi-passi-motore.md`, branch `claude/project-thread-5uicmc`): con un thread una ricerca a 16 000 nodi passa per le board di una a 4000, ma `combos` misurava per intero solo i primi 10 campi della fine per stima. Board che la stima mette davanti e la misura dietro scalzavano quella buona: 12 mani su 63 del set `quick` scendevano da 4000 a 16 000 nodi (Fur Hire 1,96 → 1,26, Vampire 1,91 → 1,46).
+
+**Cosa cambia** (classe R, solo `combos` in `crates/ygo-cli/src/main.rs`; ricerca e misura invariate):
+- la ricerca copia le sue migliori board a 500, 1000, 2000… nodi, con il meccanismo di `--checkpoints` (non cambia la ricerca);
+- i candidati sono i primi `--top` campi della fine, poi quelli di ogni punto non già presenti (in genere 25-40 campi);
+- tutti ricevono la misura economica (8 finestre, un giro), i migliori `--top` per misura economica la completa, che riparte da quella economica; gli altri restano in lista come `cheap`;
+- `--no-gather` torna alla scelta di prima; con `--staged` o `--checkpoints` non cambia niente.
+
+**Prove** (CLI di `main` b2810df contro il branch, un thread, 4 mani alla volta su 4 core):
+| | risultato |
+|---|---|
+| banco congelato v1, `full`, 4000 nodi (`banco.py judge`) | 193 mani: 18 meglio, 2 peggio, 173 pari; media +2,10% (+1,12/+3,23); freschi +2,84%; tempo 1,134 (1,122-1,147); **ACCEPTED, BETTER** |
+| cadute da 4000 a 16 000 nodi, 63 mani `quick` | `main` 12 (salite 18); branch **4** (salite 16): ancient_gear, goblin_biker, megalith (−3%), psychics |
+| branch contro `main` a pari nodi, 63 mani | 4000: 5 meglio, 1 peggio; 16 000: 13 meglio, 2 peggio |
+| Fur Hire GMX | 16 000 nodi: 1,26 → 1,96 (uguale a 4000) |
+
+**Le due perdite grandi del banco.** `tuning.lunalight.0` 1,03 → 0,60: la board migliore di `main` è fra i candidati, ma la misura economica le dà 0,47 contro 0,48 di altre dieci, e resta fuori dalla completa (è il limite noto della misura economica, che non vede i breaker né il turno dopo). `fresh.blitzclique.1` 1,04 → 0,96: stesso campo misurato per intero, ma un'altra variante; in `main` la variante migliore veniva dalle varianti dei primi 3 campi, qui il campo non è fra i primi 3.
+
+**Seguito.** Le 4 cadute rimaste vengono dalle fasi dopo la ricerca o dalla misura economica che non ordina come la completa. Nell'app (`lib.rs`, `combo_score`) i candidati sono ancora i primi 30 della fine per stima: aggiungere i punti della ricerca è una PR a parte, con la prova nell'app vera. Il terzo punto della proposta (una sola board per insieme di mostri) non è fatto.
