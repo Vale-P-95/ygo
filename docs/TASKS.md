@@ -7,7 +7,7 @@ Regole in `AGENTS.md`. Per prendere un task, spostalo in "In corso" con agente, 
 
 ## In corso
 Stato al 23/10/2026: è ancora in corso la corsia 6 (A1b, branch `claude/oracle-a1b`) e la PR #118 di Gemini (passo 5 dell'interfaccia, in revisione, la sua ultima). Il resto del 23/10 è fatto o in pausa (voci in "Da fare").
-- [ ] **Caccia ai bug del motore, punti 3, 5 e 6** (`docs/plans/caccia-bug-motore.md`). Codice scritto (branch `claude/project-thread-nben5n`, passaggio di consegne nel piano, §10); prove sui 41 deck MDM in corso. Agente: claude-code, thread «Provare le correzioni dei bug del motore». Branch: `claude/project-thread-az5qgt`. File: `crates/ygo-solver/src/search.rs` (punti 3 e 6), `crates/ygo-solver/src/matchup.rs` (punto 5), in `crates/ygo-cli/src/main.rs` solo l'uscita di `probe-line` per i rifiuti, `docs/plans/caccia-bug-motore.md`.
+- [x] **Caccia ai bug del motore, punti 3, 5 e 6** (`docs/plans/caccia-bug-motore.md`, §11). Punto 3 misurato e non tenuto (una mano Labrynth −19,8% per il rappresentante del punto 1, nessuna meglio; il taglio resta, con un contatore); punto 5 tenuto (rifiuti contati nel livello 1, nessun verdetto cambiato contro i 6 deck più giocati); punto 6: stato delle board condiviso, VmHWM −3/−19% a 40 000 nodi, la memoria che resta è del motore (mimalloc), non della ricerca. Versione finale contro `main`: 92 mani pari. Agente: claude-code, thread «Provare le correzioni dei bug del motore». Branch: `claude/project-thread-az5qgt`. Lock tolto.
 Corsie di lavoro in parallelo del 22/10/2026 (piano in `docs/plans/piano-prossimi-passi.md`): ogni corsia tocca solo i suoi file.
 - [x] **Revisione dell'interfaccia, passo 5: Bottega (scatole e mensole)** (Gemini, PR #118): scatole CSS 3D con smussatura visibile dei bordi, texture CC0 ad alta fedeltà (pelle, metallo spazzolato, legno, plastica opaca, cartoncino), illuminazione dinamica a riflesso speculare, cerniera metallica, ombra di contatto centrata e morbida nei due temi, ripiani in legno con staffe e parete di fondo, salvataggio immediato allo smontaggio, token colore nei temi, code splitting con React.lazy e test Vitest.
 - [x] **Revisione dell'interfaccia, passo 4: Passata su tutte le sezioni (scritte piccole, testi fissi, barre affollate)** (Gemini, PR aperta il 23/10): armonizzazione tipografica (scritte < 12px normalizzate a text-xs o text-caption), eliminazione testi fissi prolissi a favore di tooltip e popover contestuali, pulizia barre con icone Lucide (Undo, Redo, Dices, Search, Plus, Scale, History, Boxes, ArrowLeftRight, Play, Sparkles), didascalie decorative SectionHeader reattive (`hidden xl:block`), 7 schede del Laboratorio riorganizzate con icone e menu reattivo «Altro ▾». 137 test Vitest, lint, typecheck e build superati. Lock tolto.
@@ -290,7 +290,7 @@ Corsie di lavoro in parallelo del 22/10/2026 (piano in `docs/plans/piano-prossim
     - [ ] B13, dopo: turno di prova e giri di apprendimento (passano da `probe.rs`, dopo le corsie 4 e 8).
     - [x] Caccia ai bug, punto 1, prima parte (corsia 2): fasi dopo la ricerca in proporzione alle board. Il rappresentante con un criterio fisso è misurato e non tenuto (`velocita-ricerca.md`); resta aperto un rappresentante scelto con la misura.
     - [x] Caccia ai bug, punto 2 (tabella delle trasposizioni): misurata, non tenuta.
-    - [ ] Caccia ai bug punti 3, 5 e 6: in corso (voce in «In corso»). L'arena nel turno di prova resta in coda.
+    - [x] Caccia ai bug punti 3, 5 e 6 (§11 del piano): 3 non tenuto, 5 tenuto, 6 in parte. L'arena nel turno di prova resta in coda, con la misura della memoria delle arene.
   - [ ] B1a, B2, B2b, B3, B1b-c, poi B8 (motore e contratto), B10, B11, B16, B4. Corsia 2, una PR l'una.
   - [x] B4a (corsia 2): nel modo obiettivo una carta dell'obiettivo scelta dove il motore la manda via (costo, materiale, scarto) va per ultima, e perde priorità se era l'ultima copia. Obiettivo Invoked «Oceanus + S:P» da 0/4 a 4/4 mani in 60 s, con Oceanus nella Zona Mostri Extra anche. File: `crates/ygo-solver/src/search.rs`, `tests/search_regression.rs`.
   - [ ] B5a (attrito avversario, caso Aeon), B14 (quali board misurare), B5b-d, B9. Coordinatore, dopo D17.
@@ -305,7 +305,7 @@ Corsie di lavoro in parallelo del 22/10/2026 (piano in `docs/plans/piano-prossim
 - [ ] **Pesi del punteggio da cambiare (§7, corsia 7, PR #117):** resilienza 0,6 → 0 e floodgate 0,8 → 0,4. Prima si confermano sul banco di generalità; poi si cambiano insieme in `scripts/bench.py`, nel comando `composite` della CLI, in `balanced` di `lib.rs` e in `scoring.ts`.
 - [ ] Board `cheap: true`: scheda del punteggio e `SEND_CHEAP_SCORES` nella stessa PR (vedi la voce della corsia 8 qui sopra).
 - [ ] B8, obiettivi ricchi: mockup in Claude Design, poi contratto e interfaccia (vedi B8 sopra).
-- [ ] Caccia ai bug del motore: punti 3, 5 e 6, e l'arena nel turno di prova (`docs/plans/caccia-bug-motore.md`).
+- [ ] Caccia ai bug del motore: l'arena nel turno di prova e la memoria delle arene dei duelli (`docs/plans/caccia-bug-motore.md`, §11). Punti 3, 5 e 6 fatti.
 - [ ] Caso Vendread, il tetto Lua (500 000 ingressi) che scatta nello sweep di robustezza (`docs/plans/robustezza.md`).
 - [ ] Fixture registrate (`duelforge-cli record-fixtures`) e anteprima Artifact dell'app.
 - [ ] Sistema di design con `/design-sync` e pagina `/galleria`.
