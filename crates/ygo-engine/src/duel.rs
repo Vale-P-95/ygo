@@ -525,6 +525,11 @@ impl Duel {
                 return Err(Error::Engine(format!("cannot load {base}: {}", duel.log().join("; "))));
             }
         }
+        for replacement in engine.scripts.replacements() {
+            if !duel.run_lua_source(replacement.name, replacement.source) {
+                return Err(Error::Engine(format!("cannot load {}: {}", replacement.name, duel.log().join("; "))));
+            }
+        }
         Ok(duel)
     }
 
@@ -1273,6 +1278,29 @@ mod tests {
         sorted.sort();
         assert_eq!(sorted, (0..40).collect::<Vec<_>>());
         assert_ne!(a, (0..40).collect::<Vec<_>>());
+    }
+
+    #[test]
+    fn the_lua_replacements_answer_as_upstream() {
+        let root = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let data = std::env::var_os("DUELFORGE_DATA").map(std::path::PathBuf::from).unwrap_or_else(|| root.join("data"));
+        if !data.join("scripts/constant.lua").is_file() {
+            eprintln!("skipped: no game data in {}", data.display());
+            return;
+        }
+        let engine = Engine::load(&data).unwrap();
+        // Both apply on the scripts they were written for (a failure here:
+        // CardScripts changed the upstream function, see `scripts.rs`).
+        let names: Vec<&str> = engine.scripts().replacements().iter().map(|r| r.name).collect();
+        assert_eq!(names, ["select_unselect.lua", "ritual_check.lua"]);
+        let ydk = std::fs::read_to_string(root.join("tests/fixtures/decks/invoked-siracusa-md.ydk")).unwrap();
+        let mut duel = Duel::goldfish_vs(&engine, &DeckList::from_ydk(&ydk).unwrap(), &[], 1, &Opponent::default()).unwrap();
+        assert!(duel.run_lua_source("save.lua", "DF_FAST_LOOP = Auxiliary.SelectUnselectLoop DF_FAST_CHECK = Ritual.Check"));
+        for upstream in [include_str!("../lua/upstream/select_unselect_loop.lua"), include_str!("../lua/upstream/ritual_check.lua")] {
+            assert!(duel.run_lua_source("upstream.lua", upstream));
+        }
+        assert!(duel.run_lua_source("compare.lua", include_str!("../lua/replacements_test.lua")), "{:?}", duel.log());
+        duel.reusable = false;
     }
 
     #[test]

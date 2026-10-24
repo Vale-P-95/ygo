@@ -223,6 +223,7 @@ Permessi senza conferma: `cargo fmt/clippy/test/check`, `pnpm lint/typecheck/tes
 
 ### 9.5 `.github/`
 `pull_request_template.md`; in `ci.yml` gli screenshot e la prova fumo Playwright sul job frontend; cancellazione automatica dei branch uniti.
+*24/10: screenshot e prova fumo fatti: il job frontend compila in modo mock (`VITE_MOCK=1`, `dist-mock/`), serve con `vite preview` e lancia `node scripts/screens.mjs --smoke` (16 screenshot a 1280×800, ~1 minuto con Chromium); fallisce su errori di pagina, risposte ≥ 400 o sezioni vuote; screenshot come artifact per 7 giorni.*
 
 ### 9.6 Il Progetto Claude
 Istruzioni e conoscenza come in §5.
@@ -236,14 +237,14 @@ Resta la memoria operativa nei giorni con coordinatrice; altrimenti si aggiorna 
 3. ~~**Ambiente cloud**~~ fatto il 23/10: `scripts/cloud-setup.sh`, variabili in `.cloud-env`, prova di WebKitGTK sotto Xvfb riuscita (§6.5). Da impostare nell'ambiente su claude.ai: come setup script `scripts/cloud-setup.sh`.
 4. **Progetto Claude**: conoscenza, istruzioni, collegamento con Code; Remote Control sul computer.
 5. **Fixture registrate e anteprima**: ~~il comando `record-fixtures`, `mock.ts` che le serve, la prima anteprima Artifact~~ fatto il 23/10 nella struttura: `record-fixtures` scrive `fixtures/recorded.json` (ricerche, faccette, banlist, deck; niente testi), `mock.ts` lo serve se presente, anteprima pubblicata con `vite build --base ./` (percorsi relativi, serve per l'Artifact). I dati veri sono registrati dal 24/10 (rete aperta su ygoprodeck e masterduelmeta, 17 ricerche, solo id); resta da aggiungere punteggi, legalità e probabilità.
-6. **Sistema di design**: la galleria `/galleria`, le anteprime in `apps/desktop/design/`, `/design-sync` (Opus la prima volta). *24/10: galleria, anteprime e script `pnpm design` nella PR del thread «Costruire il sistema di design»; il primo `/design-sync` lo lancia l'utente (`docs/plans/sistema-di-design.md`). Il §9 è fatto, salvo gli screenshot in CI del §9.5, in coda in `TASKS.md`.*
+6. **Sistema di design**: la galleria `/galleria`, le anteprime in `apps/desktop/design/`, `/design-sync` (Opus la prima volta). *24/10: galleria, anteprime e script `pnpm design` nella PR del thread «Costruire il sistema di design»; il primo `/design-sync` lo lancia l'utente (`docs/plans/sistema-di-design.md`). Il §9 è fatto; gli screenshot in CI del §9.5 sono nella PR del thread «Aggiungere screenshot e prova fumo in CI».*
 7. **Passo 5 di Gemini**: revisione con screenshot e merge; poi Gemini si ferma e i branch si puliscono.
 8. **Primo compito con la filiera completa**: il passo 6 (effetti e suoni, ognuno spegnibile): mockup delle Impostazioni in Claude Design, sessione Sonnet, screenshot, anteprima, prova sul computer. Serve a collaudare la filiera su un compito piccolo prima di quelli grandi.
 9. **Poi, uno per sessione, al massimo tre in parallelo**:
    - [fatto il 24/10] i due pesi del punteggio proposti dalla §7 (resilienza 0,6 → 0, floodgate 0,8 → 0,4): confermati sui 20 deck freschi del banco di generalità (coppie giuste 80,4% → 86,0%, p < 0,001), cambiati insieme in `bench.py`, CLI, `lib.rs`, `scoring.ts` (`ricerca-esperimenti.md` §7). Resta da provare il floodgate della misura economica;
    - [fatto] le board `cheap: true`: scheda e interruttore `SEND_CHEAP_SCORES` nella stessa PR;
    - B8, obiettivi ricchi: mockup, poi contratto e interfaccia (Opus);
-   - [fatto] i punti 3, 5 e 6 della caccia ai bug; [fatto il 24/10] l'arena nel turno di prova; il caso Vendread (Opus);
+   - [fatto] i punti 3, 5 e 6 della caccia ai bug; [fatto il 24/10] l'arena nel turno di prova; [fatto il 24/10] il caso Vendread (Opus, `docs/plans/robustezza.md`);
    - il simulatore (#36): mockup prima.
 
 ## 10bis. Decisione sul merge (23/10)

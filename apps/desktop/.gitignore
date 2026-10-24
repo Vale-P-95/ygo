@@ -3,3 +3,4 @@ dist/
 *.tsbuildinfo
 src-tauri/gen/
 screenshots/
+dist-mock/
