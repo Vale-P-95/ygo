@@ -235,8 +235,10 @@ Ogni correzione è generale: niente nomi di carte. Segue il protocollo del motor
   - Lettura: tra fratelli alla stessa priorità l'ordine conta poco, perché a 4000 nodi la ricerca li prova quasi tutti; spostare l'ordine sposta a caso quali board finiscono nella top 10. L'ordinamento che conta va fatto con priorità diverse, cioè B1b e B1c (history e penalità per rango), che rendono B1a inutile: lì il contatore serve da controllo.
 - **B2. Ordini scambiabili.** Riduzione per ordine parziale, solo nella forma prudente (sleep set): DPOR presuppone una ricerca in profondità.
   - **Controllo:** i nodi doppi «altro ordine» scendono dal 9,3% a meno del 3%, con le stesse board migliori.
+  - **Misurato il 24/10, non fatto.** Dopo B13 i doppi «altro ordine» sono l'8,3% dei nodi; quelli a un momento libero, il caso dei sleep set, il 6,3% dei nodi e il 3,4% del tempo della ricerca. È il tetto del guadagno, sotto il costo di una prova di commutatività e il rischio di perdere stati (`velocita-ricerca.md`, «B2 e B2b»).
 - **B2b. Selezioni a più carte come un solo passo**, e l'Evocazione con i suoi materiali.
   - **Controllo:** nodi del banco −15% senza perdere stati distinti (confronto delle chiavi).
+  - **Misurato il 24/10, non fatto.** Le scelte di una selezione si incontrano già come insieme: i doppi che restano sono lo 0,4% dei nodi. I nodi senza cambi visibili (22,3%) sono ramificazioni vere; contarli come un passo cambierebbe il conto del budget, non il lavoro.
 - **B3. Chiave dei nodi con le scelte che contano** (bersagli e nomi dichiarati, §30.8). In più, in debug, un controllo a campione che due cammini verso lo stesso nodo offrano le stesse azioni.
 - **B1b e B1c. Ordinamento imparato durante la ricerca.**
   - B1b, history relativa e di continuazione per offerta (tipo di azione, codice, luogo);

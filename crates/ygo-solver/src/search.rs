@@ -1792,8 +1792,19 @@ fn play(shared: &Shared, edge: &Edge, dive: &mut Dive, copies: Option<&mut Copie
         let key = node_key(canonical, duel.chain(), &decision, &pending);
         if !shared.first_visit(key) {
             shared.duplicates.fetch_add(1, Ordering::Relaxed);
+            // Another order of the same choices: met at a free moment (whole
+            // plays swapped, B2), in a selection with cards picked (B2b), or
+            // at another step of something being done.
             dive.end = match &shared.stats {
-                Some(stats) if stats.same_choices(key, &line) => stats::End::OtherOrder,
+                Some(stats) if stats.same_choices(key, &line) => {
+                    if free {
+                        stats::End::OtherOrder
+                    } else if pending.picks != 0 {
+                        stats::End::OtherOrderPicks
+                    } else {
+                        stats::End::OtherOrderInside
+                    }
+                }
                 _ => stats::End::Duplicate,
             };
             return Ok(());
@@ -2491,8 +2502,13 @@ mod stats {
     pub enum End {
         /// The turn ended: a board was read.
         Board,
-        /// A node already explored, reached by another order of the same choices.
+        /// A node already explored, reached by another order of the same
+        /// choices, at a free moment.
         OtherOrder,
+        /// The same, inside a selection with cards already picked.
+        OtherOrderPicks,
+        /// The same, at another step of something being done.
+        OtherOrderInside,
         /// A node already explored, reached by other choices.
         Duplicate,
         /// The same situation again since the last free moment.
