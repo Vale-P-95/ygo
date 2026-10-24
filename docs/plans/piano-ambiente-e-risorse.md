@@ -49,7 +49,7 @@ Le leve aggiunte il 24/10 (avvio sessione, documenti grandi, output, GitHub, com
 - Un calcolo oltre i dieci minuti (banco, sweep, oracolo, `paired_test`) parte con `run_in_background` e un timeout generoso, e **la sessione finisce il turno**. Il risultato arriva come notifica: un solo risveglio.
 - Niente `Monitor` con `while true` sui log; niente `sleep`; niente «controllo a che punto è».
 - Oltre le due ore si va su GitHub Actions (`bench.yml`, a mano) o sul computer dell'utente; la sessione si chiude e la riapre il risultato.
-- Ordine di grandezza nel container a 4 core: `oracle.py measure --staged 30,15 --jobs 4` sulle 91 mani a 4000 nodi circa 12 minuti; a 1000, 4000 e 16 000 nodi circa un'ora.
+- Ordine di grandezza nel container a 4 core: `oracle.py measure --staged 30,15 --jobs 4` sulle 91 mani a 4000 nodi circa 12 minuti; a 1000, 4000 e 16 000 nodi circa un'ora. `banco.py run --set full --jobs 3` (193 mani, due CLI) circa 40 minuti: oltre il tetto di 30 minuti del background predefinito, quindi un timeout esplicito (fino a due ore); `banco.py run` riprende le mani già fatte.
 - Ogni script lungo scrive un **riassunto di dieci righe** (`out/<nome>/summary.txt`). La sessione legge il riassunto, non il log.
 
 ### 2.3 Svegliarsi solo per eventi

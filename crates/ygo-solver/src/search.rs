@@ -426,6 +426,53 @@ struct Queue {
     edges: BinaryHeap<Edge>,
     busy: usize,
     next_order: u64,
+    /// The queued edges by the beginnings of their lines, for the copies of
+    /// the duel ([`Copies`]): by [`prefix_hashes`], how many lines pass
+    /// there and how many have their node there.
+    waiting: HashMap<u64, Waiting>,
+}
+
+#[derive(Default)]
+struct Waiting {
+    through: u32,
+    at: u32,
+}
+
+impl Queue {
+    fn new(edges: Vec<Edge>, next_order: u64) -> Self {
+        let mut q = Queue { edges: BinaryHeap::new(), busy: 0, next_order, waiting: HashMap::new() };
+        for e in edges {
+            q.add(e);
+        }
+        q
+    }
+
+    fn add(&mut self, edge: Edge) {
+        let hashes = prefix_hashes(&edge.prefix.answers);
+        for h in &hashes[1..] {
+            self.waiting.entry(*h).or_default().through += 1;
+        }
+        if let Some(last) = hashes.last().filter(|_| hashes.len() > 1) {
+            self.waiting.entry(*last).or_default().at += 1;
+        }
+        self.edges.push(edge);
+    }
+
+    fn take(&mut self) -> Option<Edge> {
+        let edge = self.edges.pop()?;
+        let hashes = prefix_hashes(&edge.prefix.answers);
+        let n = hashes.len();
+        for (k, h) in hashes.iter().enumerate().skip(1) {
+            if let Some(w) = self.waiting.get_mut(h) {
+                w.through -= 1;
+                w.at -= u32::from(k + 1 == n);
+                if w.through == 0 {
+                    self.waiting.remove(h);
+                }
+            }
+        }
+        Some(edge)
+    }
 }
 
 const SEEN_SHARDS: usize = 64;
@@ -528,7 +575,7 @@ impl Shared<'_> {
             for e in edges {
                 let order = q.next_order;
                 q.next_order += 1;
-                q.edges.push(Edge {
+                q.add(Edge {
                     prefix: e.prefix,
                     answer: e.answer,
                     priority: e.priority,
@@ -549,7 +596,7 @@ impl Shared<'_> {
             if self.stopped() {
                 return None;
             }
-            if let Some(edge) = q.edges.pop() {
+            if let Some(edge) = q.take() {
                 q.busy += 1;
                 return Some(edge);
             }
@@ -1164,8 +1211,10 @@ impl Track {
 /// from the longest copy of its beginning instead of from the start of the
 /// duel. A copy puts back the whole duel, so what follows is the same.
 /// Copies are made where a line replayed ends, as the other answers of its
-/// last choice start there too, and the lines after them (copies on the way
-/// as well were measured slower: they cost more than the replay they save).
+/// last choice start there too, and the lines after them; and on the way,
+/// where a queued line leaves it at least [`COPY_GAP`] answers after the
+/// last copy (a copy every few answers was measured slower: most were never
+/// used). The copies no queued line passes through go first.
 struct Copies {
     duel: Duel,
     store: Store,
@@ -1193,6 +1242,11 @@ struct Copy {
     track: Track,
     used: u64,
 }
+
+/// Answers replayed at least, from the last copy, before another copy on
+/// the way: copying costs about four answers replayed (measured with 2 to
+/// 32, 4 to 16 gave the same time).
+const COPY_GAP: usize = 8;
 
 /// The hash of each beginning of `answers`, the empty one first.
 fn prefix_hashes(answers: &[Vec<u8>]) -> Vec<u64> {
@@ -1245,12 +1299,27 @@ impl Copies {
                 check_copy(shared, &self.duel, &answers[..from], &track)?;
             }
         }
-        for answer in &answers[from..] {
+        // Where queued lines leave the part to replay, far enough from the
+        // last copy: a copy there starts them (and the lines after them).
+        let branches: Vec<usize> = match shared.queue.lock() {
+            Ok(q) if from + COPY_GAP < answers.len() => {
+                (from + COPY_GAP..answers.len()).filter(|&i| q.waiting.get(&hashes[i]).is_some_and(|w| w.at > 0)).collect()
+            }
+            _ => Vec::new(),
+        };
+        let mut branches = branches.into_iter().peekable();
+        let mut last = from;
+        for (i, answer) in answers.iter().enumerate().skip(from) {
             dive.replayed += 1;
             track.replay(&mut self.duel, db, answer)?;
+            let at = i + 1;
+            if branches.next_if_eq(&at).is_some() && at >= last + COPY_GAP {
+                self.store.keep(shared, &self.duel, &answers[..at], hashes[at], &track);
+                last = at;
+            }
         }
         if from < answers.len() {
-            self.store.keep(&self.duel, answers, hashes[answers.len()], &track);
+            self.store.keep(shared, &self.duel, answers, hashes[answers.len()], &track);
         }
         Ok(track)
     }
@@ -1278,16 +1347,22 @@ impl Shared<'_> {
 }
 
 impl Store {
-    fn keep(&mut self, duel: &Duel, answers: &[Vec<u8>], hash: u64, track: &Track) {
+    fn keep(&mut self, shared: &Shared, duel: &Duel, answers: &[Vec<u8>], hash: u64, track: &Track) {
         if self.full || self.cap == 0 || self.copies.contains_key(&hash) {
             return;
         }
-        // The copies used least recently go first, and the memory of the
-        // last one makes the new copy.
+        // The copies no queued line starts from go first, then the ones used
+        // least recently; the memory of the last one makes the new copy.
         let mut spare = None;
-        while self.bytes + self.start.size() > self.cap {
-            let Some(c) = self.evict() else { break };
-            spare = Some(c.saved);
+        if self.bytes + self.start.size() > self.cap {
+            let live: HashSet<u64> = match shared.queue.lock() {
+                Ok(q) => self.copies.keys().filter(|h| q.waiting.contains_key(h)).copied().collect(),
+                _ => HashSet::new(),
+            };
+            while self.bytes + self.start.size() > self.cap {
+                let Some(c) = self.evict(&live) else { break };
+                spare = Some(c.saved);
+            }
         }
         let saved = match spare.map_or_else(|| duel.save(), |old| duel.save_over(old)) {
             Ok(saved) => saved,
@@ -1300,12 +1375,13 @@ impl Store {
         };
         self.bytes += saved.size();
         self.copies.insert(hash, Copy { answers: answers.to_vec(), saved, track: track.clone(), used: self.clock });
-        while self.bytes > self.cap && self.evict().is_some() {}
+        while self.bytes > self.cap && self.evict(&HashSet::new()).is_some() {}
     }
 
-    /// Takes out the copy used least recently.
-    fn evict(&mut self) -> Option<Copy> {
-        let oldest = *self.copies.iter().min_by_key(|(_, c)| c.used)?.0;
+    /// Takes out the copy used least recently, among those not in `live`
+    /// first.
+    fn evict(&mut self, live: &HashSet<u64>) -> Option<Copy> {
+        let oldest = *self.copies.iter().min_by_key(|(h, c)| (live.contains(h), c.used))?.0;
         let c = self.copies.remove(&oldest)?;
         self.bytes -= c.saved.size();
         Some(c)
@@ -2358,7 +2434,7 @@ pub fn resume(
         start: Instant::now(),
         before: elapsed,
         cancel,
-        queue: Mutex::new(Queue { edges: edges.into_iter().collect(), busy: 0, next_order }),
+        queue: Mutex::new(Queue::new(edges, next_order)),
         wake: Condvar::new(),
         seen: seen.into_iter().map(Mutex::new).collect(),
         boards: Mutex::new(boards),
