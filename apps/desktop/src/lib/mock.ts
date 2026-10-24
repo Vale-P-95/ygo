@@ -2477,15 +2477,13 @@ export const mockApi: Api = {
         else if (section === "extra") extra.push(id);
         else if (section === "side") side.push(id);
         else main.push(id);
+      } else if (!line.startsWith("#") && !line.startsWith("!")) {
+        // Same errors as `deck::parse_any`.
+        throw `riga non valida nel file .ydk: ${JSON.stringify(line)}`;
       }
     }
-    if (main.length === 0 && extra.length === 0) {
-      return {
-        main: [...decksState[0].main],
-        extra: [...decksState[0].extra],
-        side: [...decksState[0].side],
-        unknown: [],
-      };
+    if (main.length + extra.length + side.length + unknown.length === 0) {
+      throw "nessuna carta nel testo: incolla un file .ydk (passcode sotto #main, #extra e !side) o un link ydke://";
     }
     return { main, extra, side, unknown };
   },

@@ -112,6 +112,10 @@ fn resolves_alternate_artwork_passcodes() {
     assert_eq!(store.resolve_id(1001).unwrap(), Some(1001));
     assert_eq!(store.resolve_id(1002).unwrap(), Some(1001), "second artwork of Forge Golem");
     assert_eq!(store.resolve_id(100).unwrap(), None, "no partial matches");
+    // The engine may name a card by the passcode YGOPRODeck lists second.
+    let cards = store.get_many(&[1002, 1003, 9999]).unwrap();
+    assert_eq!(cards.iter().map(|c| c.id).collect::<Vec<_>>(), [1002, 1003], "kept under the passcode asked for");
+    assert_eq!(cards[0].name, store.get_many(&[1001]).unwrap()[0].name);
     assert_eq!(store.resolve_id(9999).unwrap(), None);
 }
 
