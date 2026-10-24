@@ -27,6 +27,8 @@ Regole in `AGENTS.md`. Per prendere un task, spostalo in "In corso" con agente, 
 - [ ] **Mascotte nei pannelli info** (claude-code, branch `claude/project-thread-v1jfz3`, PR #166). L'Arcimago del design di Valerio in `InfoDialog` su `InfoButton` e `HelpPopover`, con `kind` per il glifo sulla lavagna.
   - File: `Mascot.tsx`, `InfoDialog.tsx`, `InfoButton.tsx`, `ui/HelpPopover.tsx`, `index.css`.
   - Resta: i testi per voce del design (probabilità, interruzioni, passi) non ripresi.
+- [ ] **Valori delle carte una volta per deck** (punto 5 di `prossimi-passi-motore.md`, «una CLI per deck»). Sessione thread «Calcolare una volta i valori delle carte», branch `claude/project-thread-yawbbl`.
+  File: `crates/ygo-cli/src/main.rs` (solo `combos`: `--cases`, seme dei valori), `scripts/banco.py` (un processo per deck). Niente `value.rs`, `search.rs`, `probe.rs`, `lib.rs`.
 
 ## Da fare (in ordine di priorità)
 
