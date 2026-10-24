@@ -307,8 +307,10 @@ pub struct Board {
     pub key: u64,
     pub line: Line,
     /// The duel when the opponent's turn begins; for a provisional board,
-    /// when the turn was ended (End Phase effects not played yet).
-    pub state: DuelState,
+    /// when the turn was ended (End Phase effects not played yet). Shared:
+    /// the boards are copied for the progress, the phases after the search
+    /// and the result, and a state is most of a board's memory.
+    pub state: Arc<DuelState>,
     pub exact: bool,
     /// Cards of the starting hand no longer in the hand.
     pub cards_used: usize,
@@ -685,9 +687,16 @@ impl Shared<'_> {
             .boards
             .lock()
             .map(|b| {
+                // Only the best few sorted: this runs four times a second
+                // under the lock that every new board waits for.
                 let mut top: Vec<&Board> = b.values().collect();
+                let k = self.config.live_top.min(top.len());
+                if k > 0 && k < top.len() {
+                    top.select_nth_unstable_by(k - 1, |x, y| rank(x, y));
+                }
+                top.truncate(k);
                 top.sort_by(|x, y| rank(x, y));
-                let top = top.into_iter().take(self.config.live_top).cloned().collect();
+                let top = top.into_iter().cloned().collect();
                 (b.len(), b.values().map(|b| b.quick_score).fold(0.0, f64::max), top)
             })
             .unwrap_or_default();
@@ -714,7 +723,7 @@ impl Shared<'_> {
             goal_hits: self.config.goal.hits(self.engine, &state),
             exact,
             line,
-            state,
+            state: Arc::new(state),
             found_after: self.elapsed(),
         }
     }
@@ -1586,6 +1595,9 @@ fn play(shared: &Shared, edge: &Edge, dive: &mut Dive, copies: Option<&mut Copie
                             && a.card.is_some_and(|c| c.location == location::HAND && idle.contains(&db.canonical_code(c.code)))
                     })
             }) {
+                if let Some(stats) = &shared.stats {
+                    stats.cut(stats::Cut::IdleHandTrap, 1);
+                }
                 shared.duplicates.fetch_add(1, Ordering::Relaxed);
                 dive.end = stats::End::IdleHandTrap;
                 return Ok(());
@@ -1744,7 +1756,11 @@ fn play(shared: &Shared, edge: &Edge, dive: &mut Dive, copies: Option<&mut Copie
         // kind there lead to this same key: a replay each to find a duplicate.
         if let Some((depth, kind, before)) = hidden.take() {
             if (freed || is_free(&decision)) && !resolved && shown_state(&state) == before {
-                dive.left.retain(|l| l.depth != depth || l.kind != kind);
+                let same = |l: &LeftAnswer| l.depth == depth && l.kind == kind;
+                if let Some(stats) = &shared.stats {
+                    stats.cut(stats::Cut::Hidden, dive.left.iter().filter(|l| same(l)).count() as u64);
+                }
+                dive.left.retain(|l| !same(l));
             }
         }
         shared.nodes.fetch_add(1, Ordering::Relaxed);
@@ -1784,19 +1800,27 @@ fn play(shared: &Shared, edge: &Edge, dive: &mut Dive, copies: Option<&mut Copie
         if matches!(decision, Decision::SelectChain { .. }) && duel.open_chain() > 0 {
             if let Ok(negators) = shared.own_negators.read() {
                 if !negators.is_empty() {
+                    let before = actions.len();
                     actions.retain(|a| {
                         a.kind != ActionKind::Activate || !coverage::mechanic(db, &decision, a).is_some_and(|(m, _)| negators.contains(&m))
                     });
+                    if let Some(stats) = &shared.stats {
+                        stats.cut(stats::Cut::OwnNegator, (before - actions.len()) as u64);
+                    }
                 }
             }
         }
         // Handtraps known to do nothing on your turn stay in the hand.
         if let Ok(idle) = shared.idle_hand_traps.read() {
             if !idle.is_empty() {
+                let before = actions.len();
                 actions.retain(|a| {
                     a.kind != ActionKind::Activate
                         || !a.card.is_some_and(|c| c.location == location::HAND && idle.contains(&db.canonical_code(c.code)))
                 });
+                if let Some(stats) = &shared.stats {
+                    stats.cut(stats::Cut::IdleHandTrap, (before - actions.len()) as u64);
+                }
             }
         }
         // The cards to keep in the hand are not played or paid from it
@@ -2511,6 +2535,18 @@ mod stats {
         /// Answers after which nothing shown changed, by kind.
         no_change: Mutex<HashMap<String, u64>>,
         learning: Mutex<Duration>,
+        /// Answers cut for what another line taught, by why.
+        cut: Mutex<[u64; 3]>,
+    }
+
+    /// Why an answer was cut: a handtrap learned to do nothing at your idle
+    /// moment, one of your effects learned to negate your own chain, the
+    /// other targets of an answer that changed nothing shown.
+    #[derive(Debug, Clone, Copy)]
+    pub enum Cut {
+        IdleHandTrap,
+        OwnNegator,
+        Hidden,
     }
 
     fn choices_key(line: &Line) -> u64 {
@@ -2575,6 +2611,12 @@ mod stats {
             }
         }
 
+        pub(super) fn cut(&self, why: Cut, n: u64) {
+            if let (true, Ok(mut s)) = (n > 0, self.cut.lock()) {
+                s[why as usize] += n;
+            }
+        }
+
         /// Prints the stats: `best` is the best board and `top` its estimate.
         pub(super) fn report(&self, best: Option<&Board>, top: f64, elapsed: Duration) {
             let Ok(dives) = self.dives.lock() else { return };
@@ -2624,8 +2666,9 @@ mod stats {
             unchanged.sort();
             let replayed: u64 = dives.iter().map(|d| d.replayed).sum();
             let after_free: u64 = dives.iter().map(|d| d.after_free).sum();
+            let [idle, negators, hidden] = self.cut.lock().map_or([0; 3], |s| *s);
             eprintln!(
-                "search-stats {{\"replayed\":{replayed},\"after_free\":{after_free},\"elapsed_s\":{:.3},\"learning_s\":{:.3},\"best\":{top:.4},\"ends\":{{{}}},\"boards\":{{\"none\":{},\"weak\":{},\"near\":{}}},\"no_change\":{{{}}},\"best_line_ranks\":[{}]}}",
+                "search-stats {{\"replayed\":{replayed},\"after_free\":{after_free},\"cut\":{{\"idle_hand_traps\":{idle},\"own_negators\":{negators},\"hidden\":{hidden}}},\"elapsed_s\":{:.3},\"learning_s\":{:.3},\"best\":{top:.4},\"ends\":{{{}}},\"boards\":{{\"none\":{},\"weak\":{},\"near\":{}}},\"no_change\":{{{}}},\"best_line_ranks\":[{}]}}",
                 elapsed.as_secs_f64(),
                 self.learning.lock().map_or(0.0, |l| l.as_secs_f64()),
                 ends.join(","),

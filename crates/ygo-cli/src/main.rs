@@ -1508,13 +1508,17 @@ fn matchup_json(x: &ygo_solver::Matchup) -> serde_json::Value {
         "standard_breakers": x.standard_breakers,
         "breaker_chance": x.breaker_chance,
         "hand_trap_chance": x.hand_trap_chance,
+        "rejected": x.rejected,
+        "diverged": x.diverged,
         "breakers": x.breakers.iter().map(|b| serde_json::json!({
             "code": b.code, "chance": b.chance, "remaining": b.remaining,
             "stopped_by": b.stopped_by.map(|r| r.code), "not_applicable": b.not_applicable,
         })).collect::<Vec<_>>(),
         "hand_traps": x.hand_traps.iter().map(|h| serde_json::json!({
             "code": h.code, "chance": h.chance, "windows": h.windows, "stops": h.stops, "at": h.at, "drawn": h.drawn,
-            "moments": h.moments.iter().map(|m| serde_json::json!({ "playing": m.playing, "stops": m.stops, "drawn": m.drawn })).collect::<Vec<_>>(),
+            "moments": h.moments.iter().map(|m| serde_json::json!({
+                "playing": m.playing, "stops": m.stops, "drawn": m.drawn, "rejected": m.rejected,
+            })).collect::<Vec<_>>(),
         })).collect::<Vec<_>>(),
     })
 }
