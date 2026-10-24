@@ -86,6 +86,8 @@ Quando hai finito: TASKS.md aggiornato, PR aperta, fermati.
 ```
 
 ## 5. Andare secondo: quanta board del meta rompe la mia mano
+*24/10: prototipo CLI fatto (`break-board`), numeri e limiti in `docs/plans/andare-secondo.md`.*
+
 Oggi tutto il Combo Lab gioca per primo (PIANO §22.7, punto 1: «per secondo nella Fase 6»). Proposta: l'avversario è un deck del meta, la sua board è la migliore che la ricerca trova da una sua mano; la mia mano da 6 gioca il turno 2 con la ricerca che c'è, e il valore è **quanta parte del valore misurato della board avversaria resta** dopo il mio turno (con la stessa misura del turno di prova, girata). È una misura nuova per il secondo turno, che non tocca quella del primo, quindi niente prova equa sulle 406 board; serve però un suo banco. È il lavoro più grosso: la ricerca deve partire da uno stato con il campo avversario pieno.
 
 ```

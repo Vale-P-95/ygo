@@ -125,7 +125,7 @@ impl Rival {
     fn replay_opponent(&self) -> Opponent {
         let standard = self.standard.opponent();
         let deck = self.main.iter().copied().cycle().take(standard.deck.len()).collect();
-        Opponent { hand: self.hand_traps.clone(), deck, extra: standard.extra.clone() }
+        Opponent { hand: self.hand_traps.clone(), deck, extra: standard.extra.clone(), placed: Vec::new() }
     }
 
     fn copies(&self, code: u32) -> u32 {
@@ -236,6 +236,11 @@ pub struct HandTrapMoment {
     /// Answers of your line the engine rejected (each answered simply), more
     /// than without the handtrap; over [`MAX_REJECTED`] the line has changed.
     pub rejected: u32,
+    /// Answers of your line given before it.
+    pub answer: usize,
+    /// Cards of the field and hand you end with that are missing (all of
+    /// them when the replay failed).
+    pub lost: u32,
 }
 
 /// The board and its line against the opponent's deck.
@@ -560,6 +565,59 @@ pub fn plays_of(lines: &[RivalLine]) -> Vec<RivalPlay> {
     plays
 }
 
+/// One of your handtraps against a line of another deck (the tech table):
+/// the moments of the line the engine let you use it, those where using it
+/// changes the field or hand the line ends with, and the best of them.
+#[derive(Debug, Clone)]
+pub struct LineStop {
+    pub code: u32,
+    pub windows: u32,
+    pub stops: u32,
+    /// Share of the field and hand the line ends with that is missing when
+    /// it is used at its best moment (the first of the best).
+    pub lost: f64,
+    /// Moves of the line played before that moment, and the last of them
+    /// (the card it answers); none when it stops nothing.
+    pub step: Option<usize>,
+    pub playing: Option<u32>,
+}
+
+/// A line of `rival` ([`rival_lines`]) played again going first, with you
+/// holding `hand_traps` (cards of `yours`) during its turn: which of them
+/// stop it, and from which move. `None` when the line does not play as it
+/// was found with no handtrap used (it is not counted). Your Deck is cut to
+/// as many cards as the kit's opponent the line was found against, and your
+/// Extra Deck is the kit's (see [`Rival::replay_opponent`]).
+pub fn line_stops(
+    engine: &Engine,
+    rival: &DeckList,
+    line: &RivalLine,
+    seed: u64,
+    yours: &DeckList,
+    hand_traps: &[u32],
+    standard: &Kit,
+) -> Result<Option<Vec<LineStop>>, Error> {
+    let kit = standard.opponent();
+    let deck = yours.main.iter().copied().cycle().take(kit.deck.len()).collect();
+    let opponent = Opponent { hand: hand_traps.to_vec(), deck, extra: kit.extra.clone(), placed: Vec::new() };
+    let (found, base) = hand_trap_stops(engine, rival, &line.hand, seed, &opponent, &line.script, hand_traps)?;
+    if base.diverged {
+        return Ok(None);
+    }
+    let out = found
+        .into_iter()
+        .map(|h| {
+            // The first moment that takes the most (a failed line, all of it).
+            let best = h.moments.iter().filter(|m| m.stops).min_by_key(|m| std::cmp::Reverse(m.lost));
+            let step = best.map(|m| line.move_of.iter().take(m.answer).flatten().count());
+            let playing = step.filter(|&s| s > 0).and_then(|s| line.moves.get(s - 1)).map(|m| m.0);
+            let lost = best.map_or(0.0, |m| (f64::from(m.lost) / base.end.len().max(1) as f64).min(1.0));
+            LineStop { code: h.code, windows: h.windows, stops: h.stops, lost, step, playing }
+        })
+        .collect();
+    Ok(Some(out))
+}
+
 /// One of the opponent's moves as the probe turn plays it.
 #[derive(Debug, Clone)]
 pub struct RivalMove {
@@ -689,6 +747,8 @@ pub(crate) fn none_drawn(size: usize, copies: u32, drawn: usize) -> f64 {
 struct Moment {
     offered: Vec<(u32, usize)>,
     playing: Option<u32>,
+    /// Answers of the line given before it.
+    answer: usize,
 }
 
 /// Your line played again with the opponent holding its handtraps.
@@ -913,7 +973,7 @@ fn replay(
             }
             None => duel.respond(&passive_answer(&decision, &actions)),
         }
-        out.windows.push(Moment { offered, playing: last });
+        out.windows.push(Moment { offered, playing: last, answer: next });
     }
     out.drawn = drawn.max(0) as u32;
     let me = &duel.state().players[0];
@@ -973,14 +1033,22 @@ fn hand_trap_stops(
             // (ending with more, as when it lets you summon one more card, is not).
             let drawn = tried.as_ref().map_or(0, |r| r.drawn);
             let rejected = tried.as_ref().map_or(0, |r| r.rejected.saturating_sub(base.rejected));
-            let stopped = tried.ok().is_none_or(|r| r.diverged || !missing(&base.end, &r.end).is_empty());
+            let lost = tried.as_ref().map_or(base.end.len(), |r| missing(&base.end, &r.end).len()) as u32;
+            let stopped = tried.ok().is_none_or(|r| r.diverged || lost > 0);
             if stopped {
                 stops += 1;
                 if let Some(card) = base.windows[w].playing.filter(|c| !at.contains(c)) {
                     at.push(card);
                 }
             }
-            moments.push(HandTrapMoment { playing: base.windows[w].playing, stops: stopped, drawn, rejected });
+            moments.push(HandTrapMoment {
+                playing: base.windows[w].playing,
+                stops: stopped,
+                drawn,
+                rejected,
+                answer: base.windows[w].answer,
+                lost,
+            });
         }
         let drawn = moments.iter().map(|m| m.drawn).max().unwrap_or(0);
         out.push(RivalHandTrap { code, chance: 0.0, windows: windows.len() as u32, stops, at, drawn, moments });
@@ -1034,7 +1102,7 @@ fn playable(engine: &Engine, rival: &DeckList, cards: &[u32], seed: u64) -> Vec<
     // that no card a breaker needs from the Deck is drawn.
     let mut rival_deck = rival.main.clone();
     rival_deck.push(filler);
-    let opponent = Opponent { hand: cards.to_vec(), deck: rival_deck, extra: rival.extra.clone() };
+    let opponent = Opponent { hand: cards.to_vec(), deck: rival_deck, extra: rival.extra.clone(), placed: Vec::new() };
     // The duel at the opponent's first Main Phase.
     let start = || -> Option<(Duel, Decision)> {
         let mut duel = Duel::goldfish_vs_placed(engine, &deck, &[], seed, &opponent, &placed).ok()?;

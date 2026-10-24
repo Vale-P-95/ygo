@@ -169,6 +169,10 @@ enum Cmd {
         /// With --staged: of those, the best by it given the full measure.
         #[arg(long, default_value_t = STAGED_FULL)]
         staged_full: usize,
+        /// With --staged: variants of each field given the cheap measure (another
+        /// hand, Graveyard or banishment), the best by it standing for the field.
+        #[arg(long, default_value_t = STAGED_VARIANTS)]
+        staged_variants: usize,
         /// With --staged: windows each response is tried at in the cheap measure.
         #[arg(long, default_value_t = STAGED_WINDOWS)]
         staged_windows: usize,
@@ -332,6 +336,58 @@ enum Cmd {
         #[arg(long, default_value_t = 1)]
         seed: u64,
     },
+    /// Going second: the best board of `--vs` from random hands of 5, then
+    /// random hands of 6 of `--deck` play their turn against it; each hand
+    /// is worth the share of the board's value left after its turn (a
+    /// measure apart from the first turn's).
+    BreakBoard {
+        /// Your deck, in .ydk format.
+        #[arg(long)]
+        deck: PathBuf,
+        /// The opponent's deck, in .ydk format.
+        #[arg(long)]
+        vs: PathBuf,
+        /// Your hands of 6.
+        #[arg(long, default_value_t = 10)]
+        hands: usize,
+        /// The opponent's hands of 5 whose best board is kept.
+        #[arg(long, default_value_t = 12)]
+        rival_hands: usize,
+        #[arg(long, default_value_t = 4000)]
+        nodes: u64,
+        #[arg(long, default_value_t = 4000)]
+        rival_nodes: u64,
+        /// Your boards measured per hand, the best by the search's estimate.
+        #[arg(long, default_value_t = 5)]
+        top: usize,
+        #[arg(long, default_value_t = 1)]
+        seed: u64,
+        #[arg(long)]
+        json: Option<PathBuf>,
+    },
+    /// The handtraps of a deck's Main and Side against the meta: the share of
+    /// the best lines of the decks played the most that each stops, weighed
+    /// by how much each deck is played, and the move it stops them at.
+    TechTable {
+        /// Deck in .ydk format (its Side counts).
+        #[arg(long)]
+        deck: PathBuf,
+        /// Decks of the meta played the most to measure against.
+        #[arg(long, default_value_t = TECH_DECKS)]
+        decks: usize,
+        #[arg(long, default_value_t = 1)]
+        seed: u64,
+        /// The meta from a file (`objective_bench.py`'s meta.json: opponents
+        /// with deck and weight) instead of Master Duel Meta now; the lists
+        /// are <deck>.ydk in --meta-decks.
+        #[arg(long)]
+        meta_file: Option<PathBuf>,
+        #[arg(long)]
+        meta_decks: Option<PathBuf>,
+        /// Also write the table to this JSON file.
+        #[arg(long)]
+        json: Option<PathBuf>,
+    },
     /// The handtraps of a deck, read from the engine: cards it can use from
     /// the hand during the opponent's turn.
     HandTraps {
@@ -467,6 +523,7 @@ fn main() -> Result<()> {
             staged,
             staged_cheap,
             staged_full,
+            staged_variants,
             staged_windows,
             staged_rounds,
             checkpoints,
@@ -500,6 +557,7 @@ fn main() -> Result<()> {
                 staged: staged.then_some(Staged {
                     cheap: staged_cheap,
                     full: staged_full,
+                    variants: staged_variants.max(1),
                     measure: ygo_solver::probe::Cheap { windows: staged_windows, use_rounds: staged_rounds },
                 }),
                 checkpoints,
@@ -531,7 +589,15 @@ fn main() -> Result<()> {
                 },
             )
         }
+        Cmd::TechTable { deck, decks, seed, meta_file, meta_decks, json } => {
+            tech_table(&cli.data, &deck, decks, seed, MetaFinal { boards: 0, file: meta_file, decks: meta_decks }, json.as_deref())
+        }
         Cmd::HandTraps { deck } => hand_traps(&cli.data, &deck),
+        Cmd::BreakBoard { deck, vs, hands, rival_hands, nodes, rival_nodes, top, seed, json } => {
+            let threads = std::thread::available_parallelism().map_or(4, |n| n.get());
+            let config = ygo_solver::BreakConfig { seed, nodes, threads, top };
+            break_board(&cli.data, &deck, &vs, hands, rival_hands, rival_nodes, &config, json.as_deref())
+        }
         Cmd::RivalPlays { deck, hands, nodes, seed } => rival_plays(&cli.data, &deck, hands, nodes, seed),
         Cmd::Links { deck, nodes, hands, threads, json, after, diff, truth, seed, hands_json } => {
             let out = LinksOut { json: json.as_deref(), hands_json: hands_json.as_deref() };
@@ -669,12 +735,34 @@ fn fields(boards: &[ygo_solver::Board], top: usize) -> Vec<(u64, Vec<ygo_solver:
     groups
 }
 
+/// The variants of a field in the search's order, the first of each hand,
+/// Graveyard and banishment: those differ in what the probe turn can still
+/// use, while other zones alone are the zone phase's work.
+fn variants(group: &[ygo_solver::Board], top: usize) -> Vec<&ygo_solver::Board> {
+    let mut seen = std::collections::HashSet::new();
+    let mut out = Vec::new();
+    for board in group {
+        let p = &board.state.players[0];
+        let mut rest = (p.hand.clone(), p.grave.clone(), p.banished.clone());
+        rest.0.sort_unstable();
+        rest.1.sort_unstable();
+        rest.2.sort_unstable();
+        if out.len() < top && seen.insert(rest) {
+            out.push(board);
+        }
+    }
+    out
+}
+
 /// `combos --staged`: the cheap measure of the first `cheap` fields, then
-/// the full one of the best `full` by it.
+/// the full one of the best `full` by it. Each field stands for its first
+/// `variants` variants with another hand, Graveyard or banishment, and the
+/// best of them by the cheap measure stands for it.
 #[derive(Clone, Copy)]
 struct Staged {
     cheap: usize,
     full: usize,
+    variants: usize,
     measure: ygo_solver::probe::Cheap,
 }
 
@@ -946,8 +1034,17 @@ fn combos(dir: &Path, setup: &Setup, options: CombosOptions) -> Result<()> {
             let mut items: Vec<Listed> = groups.iter().map(|(_, group)| Listed::new(&group[0], group.len() - 1)).collect();
             match staged {
                 Some(staged) => {
-                    for item in items.iter_mut().take(staged.cheap) {
-                        self.cheap(item, staged.measure);
+                    // The first variant found need not be the best: the field
+                    // keeps the best of its variants by the cheap measure.
+                    for (i, item) in items.iter_mut().enumerate().take(staged.cheap) {
+                        let group = &groups[i].1;
+                        for board in variants(group, staged.variants) {
+                            let mut variant = Listed::new(board, group.len() - 1);
+                            self.cheap(&mut variant, staged.measure);
+                            if item.measured.is_none() || variant.rank().1 > item.rank().1 {
+                                *item = variant;
+                            }
+                        }
                     }
                     let mut order: Vec<usize> = (0..items.len()).filter(|&i| items[i].cheap_value.is_some()).collect();
                     order.sort_by(|&a, &b| {
@@ -973,8 +1070,21 @@ fn combos(dir: &Path, setup: &Setup, options: CombosOptions) -> Result<()> {
                     if items[i].cheap || items[i].measured.is_none() {
                         continue;
                     }
+                    // The variants measured cheap first, best first, then the
+                    // others in the search's order.
                     let group = &groups[i].1;
-                    for board in group.iter().skip(1).take(MEASURED_VARIANTS - 1) {
+                    let shown = &items[i].board.line.answers;
+                    let mut others: Vec<(f64, &ygo_solver::Board)> = group
+                        .iter()
+                        .filter(|b| &b.line.answers != shown)
+                        .map(|b| {
+                            let cheap = self.cheap.get(&b.line.answers).and_then(|c| c.0.as_ref().ok()).map(cheap_composite);
+                            (cheap.unwrap_or(f64::NEG_INFINITY), b)
+                        })
+                        .collect();
+                    others.sort_by(|a, b| b.0.total_cmp(&a.0));
+                    let others: Vec<&ygo_solver::Board> = others.into_iter().map(|(_, b)| b).take(MEASURED_VARIANTS - 1).collect();
+                    for board in others {
                         let mut item = Listed::new(board, group.len() - 1);
                         self.full(&mut item);
                         if item.rank().0 > items[i].rank().0 {
@@ -1799,6 +1909,8 @@ const FIELDS_WITH_VARIANTS: usize = 3;
 /// (`docs/plans/velocita-ricerca.md`, B14); what the cheap measure tries.
 const STAGED_CHEAP: usize = 30;
 const STAGED_FULL: usize = 15;
+/// Variants of each field given the cheap measure (`docs/plans/piano-motore-impatto.md` §4).
+const STAGED_VARIANTS: usize = 3;
 const STAGED_WINDOWS: usize = 8;
 const STAGED_ROUNDS: usize = 1;
 
@@ -2289,6 +2401,135 @@ fn rival_plays(dir: &Path, deck: &Path, hands: usize, nodes: u64, seed: u64) -> 
             engine.cards().name(p.code),
             ygo_engine::consts::location::name(p.location)
         );
+    }
+    Ok(())
+}
+
+#[allow(clippy::too_many_arguments)]
+fn break_board(
+    dir: &Path,
+    deck: &Path,
+    vs: &Path,
+    hands: usize,
+    rival_hands: usize,
+    rival_nodes: u64,
+    config: &ygo_solver::BreakConfig,
+    json: Option<&Path>,
+) -> Result<()> {
+    let engine = load_engine(dir)?;
+    let read = |path: &Path| -> Result<DeckList> {
+        let text = std::fs::read_to_string(path).with_context(|| format!("cannot read {}", path.display()))?;
+        Ok(DeckList::from_ydk(&text)?)
+    };
+    let (mine, theirs) = (read(deck)?, read(vs)?);
+    let db = engine.cards();
+    let names = |codes: &[u32]| codes.iter().map(|&c| db.name(c)).collect::<Vec<_>>().join(", ");
+    let kit = ygo_solver::Kit::standard(&engine);
+    let started = std::time::Instant::now();
+    let rival = ygo_solver::rival_board(&engine, &theirs, config.seed, rival_hands, rival_nodes, config.threads, &kit)
+        .context("no hand of the opponent's deck makes a board")?;
+    println!("opponent's board ({:.1} s), value {:.2}, from {}", started.elapsed().as_secs_f64(), rival.value, names(&rival.hand));
+    for (code, worth) in &rival.worth {
+        println!("   {:<40} worth {worth:.2}", db.name(*code));
+    }
+    // The breakers of your deck the engine can play, to tell the hands apart.
+    let breakers = ygo_solver::Rival::new(&engine, &mine, config.seed, &kit).breakers().to_vec();
+    println!("your breakers: {}", if breakers.is_empty() { "none".to_owned() } else { names(&breakers) });
+    let mut rows = Vec::new();
+    let (mut with, mut without) = (Vec::new(), Vec::new());
+    for hand in ygo_solver::second::random_hands(&mine.main, 6, hands, config.seed) {
+        let at = std::time::Instant::now();
+        let broken = ygo_solver::break_board(&engine, &mine, &theirs, &hand, &rival, &kit, config)?;
+        let count = hand.iter().filter(|c| breakers.iter().any(|b| db.canonical_code(*b) == db.canonical_code(**c))).count();
+        if count > 0 { &mut with } else { &mut without }.push(broken.share);
+        println!(
+            "{:>4.0}% left  {} breaker(s)  {:>5.1} s  {:>6} nodes  {}\n      kept: {}",
+            broken.share * 100.0,
+            count,
+            at.elapsed().as_secs_f64(),
+            broken.nodes,
+            names(&hand),
+            names(&broken.kept)
+        );
+        rows.push(serde_json::json!({
+            "hand": hand, "breakers": count, "share": broken.share, "left": broken.left,
+            "kept": broken.kept, "line": broken.line, "nodes": broken.nodes,
+        }));
+    }
+    let mean = |v: &[f64]| if v.is_empty() { f64::NAN } else { v.iter().sum::<f64>() / v.len() as f64 };
+    println!(
+        "left on average: {:.0}% with a breaker ({} hands), {:.0}% without ({} hands); {:.1} s in all",
+        mean(&with) * 100.0,
+        with.len(),
+        mean(&without) * 100.0,
+        without.len(),
+        started.elapsed().as_secs_f64()
+    );
+    if let Some(path) = json {
+        let out = serde_json::json!({
+            "rival": { "hand": rival.hand, "value": rival.value, "worth": rival.worth },
+            "hands": rows,
+        });
+        std::fs::write(path, serde_json::to_string_pretty(&out)?)?;
+    }
+    Ok(())
+}
+
+/// Decks of the meta `tech-table` measures against by default.
+const TECH_DECKS: usize = 6;
+
+fn tech_table(dir: &Path, deck: &Path, count: usize, seed: u64, meta: MetaFinal, json: Option<&Path>) -> Result<()> {
+    let engine = load_engine(dir)?;
+    let text = std::fs::read_to_string(deck).with_context(|| format!("cannot read {}", deck.display()))?;
+    let deck = DeckList::from_ydk(&text)?;
+    let decks = ygo_solver::most_played(&load_meta(dir, &meta)?, count);
+    let threads = std::thread::available_parallelism().map_or(4, |n| n.get());
+    let kit = ygo_solver::Kit::standard(&engine);
+    let started = std::time::Instant::now();
+    let rivals = ygo_solver::meta_rivals(&engine, &decks, seed, threads);
+    let read = started.elapsed().as_secs_f64();
+    let table = ygo_solver::tech_table(&engine, &deck, &rivals, seed, &kit, threads);
+    let db = engine.cards();
+    println!("lines read in {read:.1} s, played again in {:.1} s", started.elapsed().as_secs_f64() - read);
+    for d in &table.decks {
+        println!("  {:<28} weight {:>5.1}  {} lines, {} measured", d.name, d.weight, d.lines, d.measured);
+    }
+    println!();
+    for r in &table.rows {
+        let per: Vec<String> = r.decks.iter().map(|a| format!("{}/{}", a.stopped, a.usable)).collect();
+        let at: Vec<String> = r.at.iter().take(3).map(|(c, n)| format!("{} ×{n}", db.name(*c))).collect();
+        println!(
+            "{:>4.0}% taken {:>4.0}% of lines  {:<32} {}+{}  in hand {:>3.0}%  step {:<4}  [{}]  at {}",
+            r.lost * 100.0,
+            r.value * 100.0,
+            db.name(r.code),
+            r.main,
+            r.side,
+            r.chance * 100.0,
+            r.step.map_or("-".to_owned(), |s| format!("{:.1}", s)),
+            per.join(" "),
+            at.join(", ")
+        );
+    }
+    if let Some(path) = json {
+        let rows: Vec<serde_json::Value> = table
+            .rows
+            .iter()
+            .map(|r| {
+                serde_json::json!({
+                    "code": r.code, "name": db.name(r.code), "main": r.main, "side": r.side, "chance": r.chance,
+                    "value": r.value, "lost": r.lost, "step": r.step,
+                    "decks": r.decks.iter().map(|a| serde_json::json!({ "usable": a.usable, "stopped": a.stopped, "lost": a.lost })).collect::<Vec<_>>(),
+                    "at": r.at.iter().map(|(c, n)| serde_json::json!({ "code": c, "name": db.name(*c), "lines": n })).collect::<Vec<_>>(),
+                })
+            })
+            .collect();
+        let decks: Vec<serde_json::Value> = table
+            .decks
+            .iter()
+            .map(|d| serde_json::json!({ "name": d.name, "weight": d.weight, "lines": d.lines, "measured": d.measured }))
+            .collect();
+        std::fs::write(path, serde_json::to_string_pretty(&serde_json::json!({ "seed": seed, "decks": decks, "rows": rows }))?)?;
     }
     Ok(())
 }

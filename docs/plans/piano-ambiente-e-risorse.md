@@ -34,6 +34,7 @@ Le cause, in ordine di peso:
 ## 2. Regole per i token
 
 Valgono per ogni sessione Claude del progetto. Vanno in `CLAUDE.md` (§9) perché si applichino da sole.
+Le leve aggiunte il 24/10 (avvio sessione, documenti grandi, output, GitHub, compattazione) sono in `docs/plans/token-e-contesto.md`.
 
 ### 2.1 Una sessione, un compito, un contesto corto
 - **Una sessione per compito**, creata da `main` con un brief di dieci righe, chiusa e archiviata quando la PR è unita. Mai un secondo compito nella stessa sessione.
@@ -48,6 +49,7 @@ Valgono per ogni sessione Claude del progetto. Vanno in `CLAUDE.md` (§9) perch�
 - Un calcolo oltre i dieci minuti (banco, sweep, oracolo, `paired_test`) parte con `run_in_background` e un timeout generoso, e **la sessione finisce il turno**. Il risultato arriva come notifica: un solo risveglio.
 - Niente `Monitor` con `while true` sui log; niente `sleep`; niente «controllo a che punto è».
 - Oltre le due ore si va su GitHub Actions (`bench.yml`, a mano) o sul computer dell'utente; la sessione si chiude e la riapre il risultato.
+- Ordine di grandezza nel container a 4 core: `oracle.py measure --staged 30,15 --jobs 4` sulle 91 mani a 4000 nodi circa 12 minuti; a 1000, 4000 e 16 000 nodi circa un'ora.
 - Ogni script lungo scrive un **riassunto di dieci righe** (`out/<nome>/summary.txt`). La sessione legge il riassunto, non il log.
 
 ### 2.3 Svegliarsi solo per eventi
@@ -116,7 +118,7 @@ Nessun prompt da preparare e incollare; nessuna revisione incrociata obbligatori
 ### 4.1 Claude Code sul web (claude.ai/code): motore, backend, frontend
 - Container Linux con Rust, Node, pnpm, Chromium per Playwright, Xvfb, repository, CI via GitHub, messaggi tra sessioni.
 - Vi si fa tutto il codice: `crates/`, `src-tauri/`, `apps/desktop/src/`, `scripts/`. Il frontend si prova nel browser headless con il backend finto; il backend dell'app con `cargo check -p duelforge-desktop` e la CLI.
-- **App Tauri sotto Xvfb: provato il 23/10, funziona.** WebKitGTK si installa con apt (`scripts/cloud-setup.sh`); `scripts/cloud-app.sh <png>` lancia `pnpm tauri dev` senza finestra e scatta lo screenshot (prima build debug ~8 minuti, poi pochi secondi; in background). Provato con `VITE_MOCK=1`; con il motore vero serve `data/` (`cloud-setup.sh --data`). Non sostituisce la prova sul computer per suoni, prestazioni e 3D con la GPU (qui rendering software). Per cliccare c'è `xdotool` (lo installa `cloud-setup.sh`): WebKitGTK a volte ignora `click`, mentre `mousedown`, una pausa di 0,1 s e `mouseup` funzionano sempre; `type --file` perde gli a capo, quindi un `.ydk` si scrive riga per riga con `key Return`. Un cambio al frontend ricarica la pagina con Vite, ma lo stato del backend (ricerca, punteggi, meta) resta.
+- **App Tauri sotto Xvfb: provato il 23/10, funziona.** WebKitGTK si installa con apt (`scripts/cloud-setup.sh`); `scripts/cloud-app.sh <png>` lancia `pnpm tauri dev` senza finestra e scatta lo screenshot (prima build debug ~8 minuti, poi pochi secondi; in background). Provato con `VITE_MOCK=1`; con il motore vero serve `data/` (`cloud-setup.sh --data`). Non sostituisce la prova sul computer per suoni, prestazioni e 3D con la GPU (qui rendering software). Per cliccare c'è `xdotool` (lo installa `cloud-setup.sh`): WebKitGTK a volte ignora `click`, mentre `mousedown`, una pausa di 0,1 s e `mouseup` funzionano sempre; `type --file` perde gli a capo, quindi un `.ydk` si scrive riga per riga con `key Return`. Un cambio al frontend ricarica la pagina con Vite, ma lo stato del backend (ricerca, punteggi, meta) resta. I deck per una prova si caricano più in fretta scrivendoli in `~/.local/share/app.duelforge.desktop/user.db` (tabella `decks`, `main`/`extra`/`side` come array JSON) da un `.ydk` di `mdm_decks.py` che scrivendoli a mano (24/10); i tasti funzione (F4…) via `xdotool key` non arrivano, si clicca la barra laterale.
 - L'ambiente va sistemato una volta: script di avvio con `pnpm install` e `cargo fetch`; `fetch-data` solo quando serve (le sessioni di frontend non ne hanno bisogno); variabili `DUELFORGE_DATA`, `VITE_MOCK`; rete verso Master Duel Meta, YGOPRODeck, crates.io, npm, ambientCG/Poly Haven per le texture.
 - Verificato il 24/10 (thread «Provare le correzioni dei bug del motore»): la rete verso Master Duel Meta e YGOPRODeck è aperta. Una sessione del motore da container vuoto si prepara in circa 15 minuti (build release, `fetch-data`, `update-cards`, `mdm_decks.py`, build di `main` per il confronto); `paired_test.py` su 92 mani a 4000 nodi con 4 job dura circa 20 minuti per lato, e il lato `--old` si riusa come cartella per le varianti. Per la memoria: massif vede solo lo heap Rust, perché il motore alloca con mimalloc (`arena.cpp`); il picco si misura con VmHWM.
 - Verificato il 24/10 (thread «Rendere la ricerca monotona nel budget»): le liste del giorno di Master Duel Meta cambiano, e 42 delle 91 fixture dell'oracolo avevano un deck che non c'era più. `oracle.py decks tests/fixtures/oracle <cartella>` le ritrova per impronta tra le ultime 3000 top deck (circa 10 minuti, 41 su 41); `oracle.py measure --staged 30,15` sulle 91 mani a 500-8000 nodi dura circa 40 minuti per lato con 4 job. `--combos-args` va scritto con `=` quando comincia con `--`.
@@ -247,8 +249,9 @@ Resta la memoria operativa nei giorni con coordinatrice; altrimenti si aggiorna 
    - [fatto] le board `cheap: true`: scheda e interruttore `SEND_CHEAP_SCORES` nella stessa PR;
    - B8, obiettivi ricchi: motore e contratto fatti il 24/10; restano mockup e interfaccia (Opus);
    - [fatto] i punti 3, 5 e 6 della caccia ai bug; [fatto il 24/10] l'arena nel turno di prova; [fatto il 24/10] il caso Vendread (Opus, `docs/plans/robustezza.md`);
-   - il simulatore (#36): mockup prima.
-   - [fatto il 24/10] il Monte Carlo guidato dal motore nella CLI (`engine-mc`, idea 4): 200 mani costano 4-8 minuti su 4 core (5-9 s per mano), uno scambio di una copia circa 30 s grazie alla cache; scrive `out/engine-mc/summary.txt`. Oltre le 400 mani o con `--climb` lungo va in background.
+   - [fatto il 24/10] il Monte Carlo guidato dal motore nella CLI (`engine-mc`, idea 4): 200 mani costano 4-8 minuti su 4 core (5-9 s per mano), uno scambio di una copia circa 30 s grazie alla cache; scrive `out/engine-mc/summary.txt`. Oltre le 400 mani o con `--climb` lungo va in background;
+   - il simulatore (#36): mockup prima;
+   - [fatto il 24/10] andare secondo, prototipo CLI `break-board` (idea 5 di `idee-nuove.md`, Opus alto): una sessione, contesto sotto 100k, prove su 3 coppie in pochi minuti di CPU.
 
 ## 10bis. Decisione sul merge (23/10)
 - **Cosa**: i merge li fa la coordinatrice in automatico; sostituisce «il merge lo fa l'utente dalla pagina».
