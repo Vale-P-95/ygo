@@ -304,6 +304,7 @@ Corsie di lavoro in parallelo del 22/10/2026 (piano in `docs/plans/piano-prossim
     - [x] Caccia ai bug, punto 1, prima parte (corsia 2): fasi dopo la ricerca in proporzione alle board. Il rappresentante con un criterio fisso è misurato e non tenuto (`velocita-ricerca.md`); resta aperto un rappresentante scelto con la misura.
     - [x] Caccia ai bug, punto 2 (tabella delle trasposizioni): misurata, non tenuta.
     - [x] Caccia ai bug punti 3, 5 e 6 (§11 del piano): 3 non tenuto, 5 tenuto, 6 in parte. L'arena nel turno di prova è entrata il 24/10 (VmHWM di un `combos` a 4 thread 570 → 512 MB).
+  - [ ] **Piano delle modifiche con più beneficio per il costo** (24/10, `docs/plans/piano-motore-impatto.md`, con i brief): L2-3 resta a richiesta (decisione di Valerio del 24/10; sui deck freschi il pulsante cambia il #1 in 10 mani su 39, 8 meglio e 0 peggio); in ordine: 2. livello 2 dalle copie del duello; 3. floodgate della misura economica a 0,4; 4. rappresentante del campo dalla misura economica e 5. B1c poi B11, entrambi dopo la monotonia.
   - [ ] **Monotonia nel budget** (idea 2 della seconda revisione bibliografica, scelta il 24/10): in `combos --staged` la migliore board misurata non scende con più nodi (oggi 27 mani su 88). Brief e giudice in `docs/plans/monotonia-budget.md`; poi l'app in una seconda PR. Dopo: B11 (novità e LTS, idea 6).
   - [x] B1a: misurato e non tenuto il 24/10 (voce in «In corso»), resta il contatore.
   - [ ] B2, B2b, B3, B1b-c, poi B8 (motore e contratto), B10, B11, B16, B4. Corsia 2, una PR l'una.
