@@ -5,6 +5,7 @@ import {
   type ComboBoard,
   ComboBreaker,
   ComboInterruption,
+  type ComboInteraction,
   type ComboMeta,
   ComboRivalBreaker,
   ComboRivalHandTrap,
@@ -754,6 +755,56 @@ function Exposure({ s }: { s: ComboScore }) {
   );
 }
 
+/** What the board stops at the end of the turn, by kind and by place (the "Interazione a fine turno" profile ranks by it). */
+export function InteractionSection({ interaction: x }: { interaction: ComboInteraction }) {
+  const total = x.negations + x.removals + x.others;
+  const kinds: [string, number][] = [
+    ["Negazioni", x.negations],
+    ["Rimozioni", x.removals],
+    ["Altro", x.others],
+  ];
+  const places: [string, number][] = [
+    ["Campo", x.fromField],
+    ["Cimitero", x.fromGrave],
+    ["Bandite", x.fromBanished],
+    ["Mano", x.fromHand],
+  ];
+  const Row = ({ label, items }: { label: string; items: [string, number][] }) => (
+    <div className="flex flex-wrap items-center gap-1.5">
+      <span className="text-[11px] text-faint w-14 shrink-0">{label}</span>
+      {items.map(([name, n]) => (
+        <span key={name} className={`chip !py-0.5 !px-2 text-[11px] ${n > 0 ? "text-text" : "text-faint"}`}>
+          {name} <b className="tabular-nums">{n}</b>
+        </span>
+      ))}
+    </div>
+  );
+  return (
+    <Section
+      title="Interazione a fine turno"
+      info={
+        <>
+          <p>Quanto ferma la board a fine turno, senza pensare al turno dopo: le interruzioni (campo, Cimitero, bandite e mano) più i floodgate, tutte contate uguale.</p>
+          <p>Ogni effetto conta tante volte quante può essere usato, almeno una. Un effetto che ferma qualcosa solo da solo, perché si paga con ciò che usano anche gli altri, non è contato: è segnato a parte.</p>
+          <p>«Carte usabili» sono quelle che il motore ti lascia usare nel turno dell'avversario, anche se non fermano nulla.</p>
+        </>
+      }
+    >
+      <div className="flex flex-col gap-1.5">
+        <p className="text-xs text-muted">
+          <b className="text-text tabular-nums">{total}</b> interruzioni · valore <b className="text-text tabular-nums">{x.value.toFixed(2)}</b>
+        </p>
+        <Row label="Per tipo" items={kinds} />
+        <Row label="Da dove" items={places} />
+        <p className="text-xs text-muted leading-relaxed">
+          {x.activatable} carte usabili nel turno dell'avversario · {x.floodgates} tipi di mosse bloccate dai floodgate · rimaste {x.cardsInHand} in mano e {x.cardsInGrave} nel Cimitero
+          {x.onlyAlone > 0 && ` · ${x.onlyAlone} effetti fermano qualcosa solo da soli`}
+        </p>
+      </div>
+    </Section>
+  );
+}
+
 export function MetaSection({ meta }: { meta: ComboMeta }) {
   return (
     <Section
@@ -978,6 +1029,8 @@ export function ScoreBreakdown({
           </div>
         )}
       </Section>
+
+      {s.interaction && <InteractionSection interaction={s.interaction} />}
 
       {s.meta && <MetaSection meta={s.meta} />}
 

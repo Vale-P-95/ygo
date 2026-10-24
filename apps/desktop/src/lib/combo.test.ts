@@ -22,6 +22,7 @@ function makeScore(hand: number, key: string, partial: Partial<ComboScore> = {})
     exposureNote: partial.exposureNote ?? "",
     exposureDetail: partial.exposureDetail ?? null,
     countered: partial.countered ?? null,
+    interaction: partial.interaction ?? null,
     meta: partial.meta ?? null,
     error: partial.error ?? null,
   };

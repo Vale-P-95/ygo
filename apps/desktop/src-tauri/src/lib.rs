@@ -788,6 +788,9 @@ struct ScoreView {
     /// Impermanence ([`ygo_solver::Measure::countered`]): none if it can
     /// answer none, or they stop nothing. Shown, not weighed.
     countered: Option<f64>,
+    /// What the board stops at the end of the turn, by kind and place; none
+    /// when the probe turn failed.
+    interaction: Option<InteractionView>,
     /// The probe turn could not be played (the board is left out of the ranking).
     error: Option<String>,
     /// Only the cheap measure ([`ygo_solver::Prober::measure_cheap`]): the
@@ -798,6 +801,50 @@ struct ScoreView {
     /// Level 2 against the meta's most played decks ([`combo_meta`]): the
     /// best boards are ranked by it, ahead of the measure.
     meta: Option<MetaView>,
+}
+
+/// What a board stops at the end of the turn, by kind and place
+/// ([`ygo_solver::InteractionProfile`]); weights all 1, so `value` is
+/// interruptions + hand traps + floodgates.
+#[derive(Serialize, Clone)]
+#[serde(rename_all = "camelCase")]
+struct InteractionView {
+    value: f64,
+    /// Times your effects stop something, by what they do.
+    negations: u32,
+    removals: u32,
+    others: u32,
+    /// The same times, by where the card is.
+    from_field: u32,
+    from_grave: u32,
+    from_banished: u32,
+    from_hand: u32,
+    /// Effects that stop something only alone, not counted above.
+    only_alone: usize,
+    /// Cards you can use on the opponent's turn.
+    activatable: usize,
+    floodgates: usize,
+    cards_in_hand: usize,
+    cards_in_grave: usize,
+}
+
+fn interaction_view(p: &ygo_solver::InteractionProfile) -> InteractionView {
+    let [from_field, from_grave, from_banished, from_hand] = p.by_place;
+    InteractionView {
+        value: p.value,
+        negations: p.negations,
+        removals: p.removals,
+        others: p.others,
+        from_field,
+        from_grave,
+        from_banished,
+        from_hand,
+        only_alone: p.shared,
+        activatable: p.activatable,
+        floodgates: p.floodgates,
+        cards_in_hand: p.hand,
+        cards_in_grave: p.grave,
+    }
 }
 
 /// A board against the 3 decks of the meta played the most (L2-3,
@@ -1445,6 +1492,7 @@ fn score_view(
         }),
         matchup: None,
         countered: None,
+        interaction: None,
         error: None,
         cheap: false,
         meta: None,
@@ -1452,6 +1500,7 @@ fn score_view(
     match measured {
         Ok(m) => {
             view.countered = m.countered;
+            view.interaction = Some(interaction_view(&ygo_solver::InteractionProfile::of(&m, me.hand.len(), me.grave.len())));
             view.interruptions = m.field_value;
             view.hand_traps = m.hand_value;
             view.floodgates = m.floodgate_value;

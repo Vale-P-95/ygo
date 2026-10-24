@@ -13,7 +13,7 @@ Breve indice per chi arriva. Il dettaglio è in `docs/PIANO.md` (v1.11, §30–�
 | Combo Lab (punteggio) | Turno di prova contro un avversario con carte vere: interruzioni, handtrap, floodgate, resilienza (anche contro i breaker che i deck giocano davvero), turno dopo, risorse, costo, esposizione; risposta alla tua prima interruzione e protezione dei pezzi; profili e pesi; scheda del punteggio spiegata; la board #1 è sempre la migliore misurata. Contro un deck della Bottega: resilienza contro i suoi breaker, handtrap che fermano la linea, Maxx "C" e Mulcharmy; livello 2, l'avversario rigioca le sue linee vere | §26, §29.9, §30.10, §31.1, §31.2 |
 | Combo Lab (interfaccia) | Confronto affiancato tra due board, pesi imparati dalle tue scelte e frontiera di Pareto, riproduttore passo-passo della linea con il campo a ogni passo, frecce Link, copia della guida | — |
 | Tech contro il meta | Laboratorio → «Contro il meta» e CLI `tech-table`: per ogni handtrap del Main e del Side, quanto toglie alle linee vere dei 6 deck più giocati di Master Duel Meta, rigiocate dal motore; non cambia la misura | `docs/plans/tech-table.md` |
-| Interazione a fine turno (CLI) | `combos --interaction`: le board ordinate solo per ciò che fermano a fine turno (campo, mano, floodgate, pesi 1), con negazioni, rimozioni, posto, carte usabili nel turno avversario e risorse | `docs/plans/interazione-fine-turno.md` |
+| Interazione a fine turno | Profilo «Interazione a fine turno» nel Combo Lab (classifica e sezione nel dettaglio della board) e CLI `combos --interaction`: le board ordinate solo per ciò che fermano a fine turno (campo, mano, floodgate, pesi 1), con negazioni, rimozioni, posto, carte usabili nel turno avversario e risorse | `docs/plans/interazione-fine-turno.md` |
 | Andare secondo (prototipo) | CLI `break-board`: la board migliore di un deck del meta piazzata sul campo avversario, la mia mano da 6 la rompe con la ricerca; valore = quota della sua board che resta. Misura a parte; la board risponde con le interruzioni che la sua misura ha trovato; il mio turno ha la Battle Phase e il valore toglie gli LP persi (letale = board rotta) | `docs/plans/andare-secondo.md` |
 | Il Banditore | Confronto delle liste Master Duel, TCG e OCG e impatto sui deck salvati; storico dei cambi di lista | §31.3 |
 | App | Guida di benvenuto, palette dei comandi (`Ctrl+K`), scorciatoie, tema chiaro e scuro a 1280×800 | — |
@@ -57,7 +57,7 @@ Breve indice per chi arriva. Il dettaglio è in `docs/PIANO.md` (v1.11, §30–�
 ## Richieste dell'utente non ancora fatte
 - Turno di prova contro un deck avversario a scelta (#44): livelli 1 e 2 fatti; livello 3 dopo.
 - Andare secondo (§22.7 punto 1): prototipo CLI fatto il 24/10, risposte della board avversaria e Battle Phase il 24/10; restano la tabella «per secondo», il banco della misura e l'interfaccia (`docs/plans/andare-secondo.md`).
-- Classifica per interazione a fine turno: CLI fatta il 24/10; restano l'interfaccia (un profilo nel Combo Lab) e `--card` (`docs/plans/interazione-fine-turno.md`).
+- Classifica per interazione a fine turno: CLI e Combo Lab fatti il 24/10 (l'app vera da provare); resta `--card` (`docs/plans/interazione-fine-turno.md`).
 - Il valutatore imparato (rete neurale), più avanti: `docs/plans/valutatore-imparato.md`.
 - Simulatore passo per passo di una combo (#36, alla fine).
 

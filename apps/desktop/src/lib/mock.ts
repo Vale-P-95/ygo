@@ -1990,7 +1990,7 @@ function mockBoards(handIdx: number, deckId: number): MockBoard[] {
   ];
 }
 
-function buildMockScoreForBoard(b: ComboBoard, vsDeckId?: number | null): ComboScore {
+function buildMockScoreBase(b: ComboBoard, vsDeckId?: number | null): Omit<ComboScore, "interaction"> {
   const getMatchup = (deckId: number | null | undefined): ComboMatchup | undefined => {
     if (deckId == null) return undefined;
     const rival = decksState.find((d) => d.id === deckId);
@@ -2389,6 +2389,38 @@ function buildMockScoreForBoard(b: ComboBoard, vsDeckId?: number | null): ComboS
     },
     countered: 1,
     error: null,
+  };
+}
+
+/** The end-of-turn interaction of a mock score, counted from its details like the backend does from the measure. */
+function buildMockScoreForBoard(b: ComboBoard, vsDeckId?: number | null): ComboScore {
+  const base = buildMockScoreBase(b, vsDeckId);
+  if (base.error) return { ...base, interaction: null };
+  const x = { negations: 0, removals: 0, others: 0, fromField: 0, fromGrave: 0, fromBanished: 0, fromHand: 0, onlyAlone: 0 };
+  for (const d of base.details) {
+    if (d.value <= 0) {
+      if (d.alone > 0) x.onlyAlone += 1;
+      continue;
+    }
+    const times = Math.max(d.uses, 1);
+    if (d.effect.startsWith("nega")) x.negations += times;
+    else if (/^(bandisce|distrugge|manda|rimanda)/.test(d.effect)) x.removals += times;
+    else x.others += times;
+    if (d.place === "mano") x.fromHand += times;
+    else if (d.place === "Cimitero") x.fromGrave += times;
+    else if (d.place === "bandita") x.fromBanished += times;
+    else x.fromField += times;
+  }
+  return {
+    ...base,
+    interaction: {
+      ...x,
+      value: base.interruptions + base.handTraps + base.floodgates,
+      activatable: base.details.length + (base.handTraps > 0 ? 1 : 0),
+      floodgates: base.floodgateList.length,
+      cardsInHand: 2,
+      cardsInGrave: 3,
+    },
   };
 }
 

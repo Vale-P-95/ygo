@@ -20,7 +20,10 @@ Regole in `AGENTS.md`. Per prendere un task, spostalo in "In corso" con agente, 
   - [ ] D1–D7: correzioni della misura (bersagli, fermate, copertura, copie, run congiunta, floodgate finti). D2, D3 e D4 fatti (piano §C8); D5–D7 saltati il 22/10: toccano poco le coppie, si passa … (testo completo in `docs/archive/TASKS-storico.md`)
 - [ ] **Interfaccia: funzioni del motore solo da CLI, primo passo (andare secondo).** Sessione di un thread del progetto, branch `claude/project-thread-mij22g`, PR aperta il 24/10.
   Scheda «Per secondo» del Laboratorio (`SecondTab.tsx`) e comandi `second_*` (`lib.rs`, `api.ts`, `mock.ts`); piano in `docs/plans/andare-secondo.md`. Provata con backend finto e screenshot, non nell'app vera (nessun dato in sessione).
-  Seguono nello stesso tema, una PR ciascuna: profilo «Interazione a fine turno» del Combo Lab, ottimizzatore Monte Carlo guidato dal motore.
+  Segue nello stesso tema, in una PR a parte: ottimizzatore Monte Carlo guidato dal motore.
+- [ ] **Interfaccia: funzioni del motore solo da CLI, secondo passo (interazione a fine turno).** Thread del progetto, branch `claude/project-thread-bwh2cy`, PR aperta il 24/10.
+  Profilo «Interazione a fine turno» nel Combo Lab: `InteractionProfile` in `ygo-solver/src/interaction.rs`, `ScoreView.interaction` (`lib.rs`) ↔ `ComboScore.interaction` (`api.ts`, `mock.ts`), sezione in `Score.tsx`, profilo in `scoring.ts`.
+  Provato con backend finto e screenshot nei due temi, non nell'app vera (nessun dato in sessione); piano in `docs/plans/interazione-fine-turno.md`.
 - [ ] **Mascotte nei pannelli info** (claude-code, branch `claude/project-thread-v1jfz3`, PR #166). L'Arcimago del design di Valerio in `InfoDialog` su `InfoButton` e `HelpPopover`, con `kind` per il glifo sulla lavagna.
   - File: `Mascot.tsx`, `InfoDialog.tsx`, `InfoButton.tsx`, `ui/HelpPopover.tsx`, `index.css`.
   - Resta: i testi per voce del design (probabilità, interruzioni, passi) non ripresi.

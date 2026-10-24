@@ -538,6 +538,28 @@ export interface ExposureLoss {
   chance: number;
 }
 
+/** What a board stops at the end of the turn, by kind and place (mirrors `InteractionView`). */
+export interface ComboInteraction {
+  /** Interruptions + handtraps + floodgates, all weighed 1. */
+  value: number;
+  /** Times your effects stop something, by what they do. */
+  negations: number;
+  removals: number;
+  others: number;
+  /** The same times, by where the card is. */
+  fromField: number;
+  fromGrave: number;
+  fromBanished: number;
+  fromHand: number;
+  /** Effects that stop something only alone (they need what they use): not counted above. */
+  onlyAlone: number;
+  /** Cards you can use on the opponent's turn, stopping something or not. */
+  activatable: number;
+  floodgates: number;
+  cardsInHand: number;
+  cardsInGrave: number;
+}
+
 /** What the probe turn measured on a board (mirrors `ScoreView`). */
 export interface ComboScore {
   hand: number;
@@ -582,6 +604,8 @@ export interface ComboScore {
    * with Infinite Impermanence. `null` when it can answer none, or they stop nothing. Shown, not weighed.
    */
   countered: number | null;
+  /** What the board stops at the end of the turn, by kind and place. `null` when the probe turn failed. */
+  interaction: ComboInteraction | null;
   error: string | null;
   /**
    * Only the cheap measure: the board was not among the best by it, so it has no breakers (`resilience` is all its field),

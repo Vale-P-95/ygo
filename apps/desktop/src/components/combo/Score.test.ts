@@ -29,6 +29,7 @@ function makeScore(partial: Partial<ComboScore> = {}): ComboScore {
     exposureNote: partial.exposureNote ?? "",
     exposureDetail: partial.exposureDetail ?? null,
     countered: partial.countered ?? null,
+    interaction: null,
     meta: partial.meta ?? null,
     error: partial.error ?? null,
   };
