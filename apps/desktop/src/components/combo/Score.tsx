@@ -23,7 +23,8 @@ const fmt = (n: number) => n.toLocaleString("it-IT", { minimumFractionDigits: 1,
 const num = (n: number) => (Math.abs(n) > 0.005 && Math.abs(n) < 0.1 ? fmt2(n) : fmt(n));
 const fmt2 = (n: number) => n.toLocaleString("it-IT", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const signed = (n: number) => (n > 0.005 ? `+${fmt2(n)}` : n < -0.005 ? `−${fmt2(-n)}` : "0");
-export const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+/** Counts as the measure gives them (0.7000000000000001 is a rounding artefact): up to two decimals, comma as in the rest. */
+export const plural = (n: number, one: string, many: string) => `${String(Number(n.toFixed(2))).replace(".", ",")} ${n === 1 ? one : many}`;
 
 export const HANDTRAP_NAMES: Record<string, string> = {
   ash: "Ash Blossom",

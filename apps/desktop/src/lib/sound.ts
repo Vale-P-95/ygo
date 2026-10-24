@@ -9,6 +9,25 @@ import { getSettings, subscribeSettings } from "./settings";
 
 export type SoundName = "hover" | "select" | "open" | "close" | "page" | "toggle" | "chime" | "error" | "forge" | "knock" | "latch" | "bubble" | "glass";
 
+type SoundGroup = "soundUi" | "soundEvents" | "soundShelf";
+
+/** Which switch in the settings owns each sound. */
+const GROUP: Record<SoundName, SoundGroup> = {
+  hover: "soundUi",
+  select: "soundUi",
+  open: "soundUi",
+  close: "soundUi",
+  page: "soundUi",
+  toggle: "soundUi",
+  chime: "soundEvents",
+  error: "soundEvents",
+  forge: "soundEvents",
+  bubble: "soundEvents",
+  glass: "soundEvents",
+  knock: "soundShelf",
+  latch: "soundShelf",
+};
+
 const UI_SOUNDS: ReadonlySet<SoundName> = new Set(["hover", "page", "toggle"]);
 
 class SoundEngine {
@@ -99,9 +118,11 @@ class SoundEngine {
     this.noiseBurst(out, start, 0.03, gain * 0.4, "highpass", 3500);
   }
 
-  play(name: SoundName) {
+  /** `force` is for the "Prova" buttons, which play even when the group is off. */
+  play(name: SoundName, force = false) {
     const s = getSettings();
     if (!s.sound || s.masterVolume === 0) return;
+    if (!force && !s[GROUP[name]]) return;
     if (name === "hover") {
       const now = performance.now();
       if (now - this.lastHover < 45) return;

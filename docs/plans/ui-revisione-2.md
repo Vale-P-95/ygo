@@ -112,6 +112,7 @@ File: `src/pages/DeckBuilder.tsx`, un componente nuovo `src/components/CardInspe
 - **Sotto i 1440 px** l'ispettore si apre sopra il deck come pannello sovrapposto, con un pulsante, invece di stringere il deck.
 - Le istruzioni fisse («Trascina le carte · clic destro…» in alto e in fondo al catalogo) vanno nel pulsante «?».
 - *Completato il 22/10/2026 (Gemini):* creato componente accessibile `CardInspector` (artwork grande, statistiche mostro, testo normale e pendulum, rarità MD, banlist nei 3 formati, ruoli, copie nel deck); integrato `SidePanel` richiudibile a sinistra (300 px, overlay reattivo < 1440 px con pulsante dedicato e auto-apertura al clic, soppressione anteprima fluttuante `CardPreview`); interazione con clic singolo (fissa carta, sblocco Esc) e passaggio mouse (anteprima); azioni rapide (+1 Main/Extra, +1 Side, preferita, visore zoom); istruzioni fisse sostituite da `HelpPopover`; 8 test Vitest unitari in `CardInspector.test.tsx`.
+- *Corretto il 24/10/2026 (Claude Code):* la finestra dell'app si apre a 1280 px, quindi con la soglia a 1440 px l'ispettore restava un pannello sovrapposto chiuso e non si vedeva. Ora si aggancia come terza colonna da 1200 px in su, largo `clamp(250px, 20vw, 320px)`, aperto di default; il clic su una carta lo apre.
 
 ### Passo 3. Ricerca e filtri del catalogo (`gemini/ui-catalog-search`)
 File: `src/components/Catalog.tsx`, `FilterPanel.tsx`.
@@ -156,6 +157,7 @@ File: `src/components/DeckBox3D.tsx`, `src/pages/Shelf.tsx`, `src/lib/boxes.ts`,
 - *Completato il 23/10/2026 (Gemini):* scatole 3D arricchite con materiali e texture CC0 ad alta fedeltà (pelle, metallo, legno, plastica opaca, cartoncino) e licenze in `LICENSE.md`, illuminazione dinamica a riflesso speculare che traccia il puntatore (`--light-x`, `--light-y`), cerniera metallica visibile (`.dbox-hinge`), ombra di contatto morbida multilivello che reagisce a sollevamento ed estrazione, ripiani in legno con texture Wood049, bordo smussato e staffe metalliche con rivetti, parete di fondo leggera per temi dark e light, animazione di estrazione su clic, pieno supporto a `prefers-reduced-motion` e code splitting con `React.lazy` e `Suspense` per la Bottega (-14 KB sul bundle iniziale).
 
 ### Passo 6. Effetti visivi e suoni, ognuno spegnibile (`claude/ui-effects`)
+*Fatto il 24/10/2026 (Claude, senza mockup): gli interruttori per gli effetti e i suoni che già ci sono (sei effetti visivi, tre gruppi di suoni, «Prova» anche a gruppo spento, `prefers-reduced-motion` rispettato). Mancano gli effetti e i suoni nuovi elencati sotto.*
 Chi: Claude, non più Gemini. Prima il mockup in Claude Design sul sistema di design DuelForge, poi una sessione Code.
 
 File: `src/lib/settings.ts`, `src/lib/sound.ts`, `src/lib/sparks.ts`, `src/pages/Settings.tsx`, e i punti dove gli effetti si usano.
