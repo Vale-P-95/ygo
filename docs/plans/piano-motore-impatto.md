@@ -3,8 +3,8 @@
 *Thread «Pianificare le modifiche più utili al motore», 24/10/2026, branch `claude/project-thread-ymnr67` da `main` 9f18298. Solo analisi; l'unico calcolo nuovo è il controllo di L2-3 sui deck freschi (§1, `scripts/research/l23_fresh.py`, nessuna run nuova). Fonti: `STATO.md`, `TASKS.md`, `ricerca-esperimenti.md` §1, §5, §6b, §6c, §7, `velocita-ricerca.md` («L2-3 come ultimo gradino», «Il campo che cambia con il budget», B13), `ricerca-piano-critico.md` (A1, A1b, B1a), `caccia-bug-motore.md` §11, `monotonia-budget.md`, `revisione-bibliografica-2.md` §0, `extra-deck-a1b.md`.*
 
 ## Decisione
-1. **Prima la classifica, poi la velocità, poi la ricerca.** Il distacco più grande e più facile da chiudere sta nell'ordine finale: la misura mette nel giusto ordine il 68% delle coppie dei deck freschi, L2-3 il 94%. L'ordine dei lavori è 1 → 2 → 3 subito, 4 e 5 dopo la monotonia nel budget, che è in corso.
-2. **1. L2-3 come ultimo gradino di default** sulle 4 migliori board: sui 20 deck freschi il #1 cambia in 10 mani su 39, 8 meglio e 0 peggio. **2. Il livello 2 dalle copie del duello**: le run col tuo script non usano ancora l'arena; il turno di prova con l'arena ha fatto −46%.
+1. **Prima la velocità e il taglio, poi la ricerca.** Il distacco più grande sta nell'ordine finale (la misura mette nel giusto ordine il 68% delle coppie dei deck freschi, L2-3 il 94%), ma **Valerio ha deciso il 24/10 che L2-3 resta a richiesta** (pulsante «Confronta con il meta»). L'ordine dei lavori è quindi 2 → 3 subito, 4 e 5 dopo la monotonia nel budget, che è in corso; la 1 è chiusa.
+2. **1. L2-3 come ultimo gradino di default: non si fa**, resta a richiesta. Il controllo sui deck freschi (il #1 cambia in 10 mani su 39, 8 meglio e 0 peggio) resta qui come dato per chi usa il pulsante. **2. Il livello 2 dalle copie del duello** diventa la prima: le run col tuo script non usano ancora l'arena (il turno di prova con l'arena ha fatto −46%), e rende più veloci il pulsante e tutti i banchi.
 3. **3. Il floodgate della misura economica a 0,4**, come nel punteggio: oggi il taglio 30 → 15 sceglie con un peso che il punteggio ha già abbassato. Piccolo, quasi gratis.
 4. **4. Il rappresentante del campo scelto dalla misura** (caccia ai bug, punto 1, seconda parte) e **5. B1c e poi B11** (penalità per rango, novità prima): aspettano la monotonia, che tocca gli stessi file e toglie il rumore ai loro test appaiati.
 5. **Non ora:** ripianificare dopo una handtrap, i breaker dall'Extra Deck e le risposte non di negazione (B5b) non spostano il punteggio, perché la resilienza pesa 0 e le handtrap avversarie non ci entrano. B1a, B2, B2b, B3, la tabella a penalità minima, il kit concatenato, l'opzione (d) e la stima lineare sono chiusi dalle prove.
@@ -20,9 +20,9 @@
 ## Le cinque modifiche
 | # | Modifica | Beneficio atteso | Costo (sessione, CPU) | Giudice | Quando |
 |---|---|---|---|---|---|
-| 1 | L2-3 come ultimo gradino di default | #1 migliore in circa 1 mano su 5, nessuna peggiore; coppie giuste dal 68% al 94% | 15-20 $; circa 3 ore di CPU | `l23_fresh.py` e `l23_final.py`, giro dal vivo sui freschi, prova equa | Subito |
-| 2 | Livello 2 dalle copie del duello | L2-3 e banco oggettivo circa −40% di tempo, uscite identiche | 15-20 $; circa 1 ora | Uscite identiche, `DUELFORGE_COPY_CHECK`, tempi | Subito |
-| 3 | Floodgate della misura economica 0,8 → 0,4 | Il taglio 30 → 15 segue il punteggio; meno #1 tagliati prima della misura completa | 5-8 $; circa 2 ore | `paired_test.py --staged` su taratura e freschi | Dopo la 1 (stesso `lib.rs`) |
+| 1 | L2-3 come ultimo gradino di default | #1 migliore in circa 1 mano su 5, nessuna peggiore; coppie giuste dal 68% al 94% | 15-20 $; circa 3 ore di CPU | `l23_fresh.py` e `l23_final.py` | **Non si fa** (resta a richiesta, decisione del 24/10) |
+| 2 | Livello 2 dalle copie del duello | L2-3 a richiesta e banco oggettivo circa −40% di tempo, uscite identiche | 15-20 $; circa 1 ora | Uscite identiche, `DUELFORGE_COPY_CHECK`, tempi | Subito, per prima |
+| 3 | Floodgate della misura economica 0,8 → 0,4 | Il taglio 30 → 15 segue il punteggio; meno #1 tagliati prima della misura completa | 5-8 $; circa 2 ore | `paired_test.py --staged` su taratura e freschi | Subito |
 | 4 | Rappresentante del campo scelto dalla misura economica | Recupera le varianti perse (Labrynth 1,28 → 1,59) | 20-25 $; 3-4 ore | `paired_test.py --staged`, oracolo, banco di generalità | Dopo la monotonia |
 | 5 | B1c, poi B11: priorità per rango e novità | Stessa qualità con metà dei nodi (quota a 4000 dal 73% al 79%) | 15 $ (B1c), 25-30 $ (B11); 3-5 ore ciascuna | Oracolo, `paired_test.py`, banco di generalità | Dopo la monotonia |
 
@@ -42,26 +42,10 @@ Le stime in dollari sono a occhio, sul consumo delle sessioni del 23-24/10 con c
   Coppie giuste, sulle 5 board di ogni mano: misura 122/178 (68,5%), L2-3 167/178 (93,8%). Senza i parenti dei tre deck nella verità (`--exclude elfnote_kewl_tune,magistus_fairy_tail`) 67,6% contro 92,6%, e il #1 resta 7 meglio, 0 peggio. Dove cambia, la verità del #1 sale in media di 0,061 (mediana 0,040), fino a +0,20 (memento-1).
 - **Limite**: la verità è anch'essa il livello 2 contro altri deck, quindi L2-3 ne condivide il meccanismo (§6b). È anche la cura che `extra-deck-a1b.md` chiede per M1 e M2 (rimozioni su mostri appena evocati, prima grande negazione), senza linee salvate.
 
-**Cosa costruire.** Oggi L2-3 c'è nella CLI (`combos --meta-final N`) e nell'app a richiesta (`combo_meta`, pulsante «Confronta con il meta»). Il passo è farlo partire da solo dopo la scala di B14, sulle 4 migliori, in sottofondo: la prima classifica si vede subito, poi le 4 si riordinano. Le linee dei tre deck restano in memoria per la sessione e non si salvano mai. Senza rete o senza linee che si rigiocano, la classifica resta quella della misura con un avviso in italiano.
-
-**Decisione di Valerio** (prima di questo brief): automatico in sottofondo (consigliato) o a richiesta come oggi. Costa 2-4 minuti di CPU in più per valutazione la prima volta, circa 40 s a board dopo; con la 2 circa il 40% in meno.
-
-**Brief.**
-```
-Compito: nell'app L2-3 parte da solo dopo la scala di B14 sulle 4 migliori board e le riordina in sottofondo; la prima classifica resta visibile subito.
-Perché: docs/plans/piano-motore-impatto.md §1 (#1 migliore in 8 mani su 39 sui deck freschi, 0 peggiori).
-Branch: claude/l23-default, da main
-File da toccare: apps/desktop/src-tauri/src/lib.rs (caldo: lock in TASKS.md), apps/desktop/src/lib/api.ts, mock.ts, store combo.ts, pages/Combo.tsx
-Da leggere: docs/STATO.md, questo piano §1, velocita-ricerca.md «L2-3 come ultimo gradino», combo-meta.md
-Verifica: l23_fresh.py (numeri del §1); combo_hunt --hands 2 --seed 7 --staged --meta-final 4 sui 20 deck freschi in background (tempo, #1 cambiati); pnpm typecheck, pnpm build, screens.mjs nei due temi; app vera con pnpm tauri dev
-Criterio di accettazione: dal vivo nessun #1 peggiore di oltre 0,02 sulla verità del banco; la prima classifica non aspetta L2-3; senza rete un avviso e la classifica della misura; caricamenti con id di richiesta
-PR: template; tabella dei #1 e dei tempi, screenshot nei due temi
-Modello: Opus 5.5, effort alto per lib.rs; Sonnet 5.5 medio per l'interfaccia
-Quando hai finito: TASKS.md, STATO.md e questo piano aggiornati, PR aperta, fermati.
-```
+**Decisione di Valerio (24/10): resta a richiesta.** L2-3 c'è nella CLI (`combos --meta-final N`) e nell'app con il pulsante «Confronta con il meta» (`combo_meta`); non parte da solo dopo la scala di B14. Nessun brief. I numeri qui sopra dicono che il pulsante, quando si usa, cambia il #1 in circa una mano su quattro e quasi sempre in meglio; la 2 lo rende più veloce.
 
 ## 2. Il livello 2 dalle copie del duello
-**Evidenza.** Con l'arena nel turno di prova le run dopo la prima della stessa linea rigiocano solo il turno dell'avversario: turni di prova 1213 → 654 s (−46%) su 80 mani, board identiche. Restano senza copie le run del livello 2 col tuo script (`Prelude::Own`, `--vs --moves`) e i valori delle carte piazzate (`TASKS.md`). Il livello 2 è il costo di L2-3 (circa 38 s a board), del banco oggettivo, della prova equa e del banco di generalità (9,2 ore di CPU l'ultimo giro): ogni prova futura costa meno.
+**Evidenza.** È la prima da fare dopo la decisione sulla 1. Con l'arena nel turno di prova le run dopo la prima della stessa linea rigiocano solo il turno dell'avversario: turni di prova 1213 → 654 s (−46%) su 80 mani, board identiche. Restano senza copie le run del livello 2 col tuo script (`Prelude::Own`, `--vs --moves`) e i valori delle carte piazzate (`TASKS.md`). Il livello 2 è il costo di L2-3 (circa 38 s a board), del banco oggettivo, della prova equa e del banco di generalità (9,2 ore di CPU l'ultimo giro): ogni prova futura costa meno.
 
 **Cosa costruire.** In `probe.rs` e `matchup.rs` le run di `Prelude::Own` partono dalla copia del duello dove comincia il turno dell'avversario, come le altre run del prober. Prima un profilo di una run del livello 2, per sapere quanto è replay del tuo turno e quanto turno avversario: se il tuo turno è meno di un terzo, il guadagno è sotto il −40% e la PR lo dice.
 
@@ -145,4 +129,4 @@ Quando hai finito: TASKS.md e questo piano aggiornati, PR aperta, fermati.
 | Stima lineare tarata (B9) | Fuori campione peggiora; servono caratteristiche che il motore non esporta (materiali Xyz, «una volta per turno» usato, carte tolte all'avversario). |
 
 ## Parallelo
-Al massimo tre sessioni. Ora: la monotonia (in corso: `search.rs`, `combos`), la 1 (`lib.rs`, interfaccia) e la 2 (`probe.rs`, `matchup.rs`): file diversi. La 3 dopo la 1, perché tocca anche `lib.rs`. La 4 e la 5 dopo la monotonia, una alla volta su `search.rs`.
+Al massimo tre sessioni. Ora: la monotonia (in corso: `search.rs`, `combos`), la 2 (`probe.rs`, `matchup.rs`) e la 3 (`cheap_composite` in `main.rs`, `cheap_value` in `lib.rs`; tocca `main.rs` lontano da `combos`, da avvisare la monotonia). La 4 e la 5 dopo la monotonia, una alla volta su `search.rs`.

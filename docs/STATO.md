@@ -56,5 +56,5 @@ Il piano con le priorità e il lavoro in parallelo è in `docs/plans/piano-pross
 2. Deck lenti: tetto di istruzioni Lua per richiesta (corsia 2).
 3. Collaudo del livello 2 dopo le correzioni (corsia 3).
 4. Interfaccia: primo `/design-sync` del sistema di design (lo lancia l'utente), poi dal passo 6 in poi con Claude Code (mockup in Claude Design, poi una sessione Code); B8 (motore e contratto degli obiettivi ricchi fatti il 24/10: posto per carta, duri e morbidi; l'editor dell'obiettivo (posto per carta, obbligatoria o preferita) c'è in prima versione senza mockup, da rifinire col mockup; le board `cheap: true` sono nella scheda del punteggio).
-5. Motore: le cinque modifiche con più beneficio per il costo, in ordine, in `docs/plans/piano-motore-impatto.md` (prima L2-3 di default e il livello 2 dalle copie; dopo la monotonia il rappresentante del campo e B1c).
+5. Motore: le cinque modifiche con più beneficio per il costo, in ordine, in `docs/plans/piano-motore-impatto.md` (prima il livello 2 dalle copie e il floodgate della misura economica; L2-3 resta a richiesta; dopo la monotonia il rappresentante del campo e B1c).
 6. Mappa dei collegamenti (probabilità sature), simulatore (#36), valutatore imparato.
