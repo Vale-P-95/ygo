@@ -13,7 +13,7 @@
 | Distacco | Numero | Fonte |
 |---|---|---|
 | Ordine finale delle board | Coppie giuste: misura 68,5%, L2-3 93,8% (deck freschi, verità sugli altri 16 avversari); su A1b 80% contro 94% | §1 qui sotto, `ricerca-esperimenti.md` §6b |
-| Ricerca contro l'oracolo | Quota mediana 73% a 4000 nodi, 79% a 8000, 83% a 16 000; 19 mani su 88 al 95% a 4000 | `ricerca-piano-critico.md`, A1 a gradini |
+| Ricerca contro l'oracolo | Quota mediana 73% a 4000 nodi, 79% a 8000, 83% a 16 000; 19 mani su 88 al 95% a 4000 (con la misura di prima del 24/10; con `--staged` e i pesi di oggi 59% e 4 mani su 88, §5) | `ricerca-piano-critico.md`, A1 a gradini |
 | Stabilità col budget | 27 mani su 88 scendono di oltre l'1% con più nodi; Labrynth −19,8% per il rappresentante | `monotonia-budget.md`, `caccia-bug-motore.md` §11 |
 | Costo del livello 2 | Circa 38 s a board e 77-86 s per le linee dei tre deck; il banco di generalità 9,2 ore di CPU | `velocita-ricerca.md` «L2-3», `ricerca-esperimenti.md` §7 |
 
@@ -24,7 +24,7 @@
 | 2 | Livello 2 dalle copie del duello | L2-3 a richiesta e banco oggettivo circa −40% di tempo, uscite identiche | 15-20 $; circa 1 ora | Uscite identiche, `DUELFORGE_COPY_CHECK`, tempi | Subito, per prima |
 | 3 | Floodgate della misura economica 0,8 → 0,4 | Il taglio 30 → 15 segue il punteggio; meno #1 tagliati prima della misura completa | 5-8 $; circa 2 ore | `paired_test.py --staged` su taratura e freschi | Subito |
 | 4 | Rappresentante del campo scelto dalla misura economica | Recupera le varianti perse (Labrynth 1,28 → 1,59) | 20-25 $; 3-4 ore | `paired_test.py --staged`, oracolo, banco di generalità | Dopo la monotonia |
-| 5 | B1c, poi B11: priorità per rango e novità | Stessa qualità con metà dei nodi (quota a 4000 dal 73% al 79%) | 15 $ (B1c), 25-30 $ (B11); 3-5 ore ciascuna | Oracolo, `paired_test.py`, banco di generalità | Dopo la monotonia |
+| 5 | B1c, poi B11: priorità per rango e novità (B1c misurato il 24/10, non tenuto: §5) | Stessa qualità con metà dei nodi (quota a 4000 dal 73% al 79%) | 15 $ (B1c), 25-30 $ (B11); 3-5 ore ciascuna | Oracolo, `paired_test.py`, banco di generalità | Dopo la monotonia |
 
 Le stime in dollari sono a occhio, sul consumo delle sessioni del 23-24/10 con compiti simili.
 
@@ -108,7 +108,26 @@ Quando hai finito: TASKS.md e questo piano aggiornati, PR aperta, fermati.
 
 **Ordine.** Prima B1c, che è una costante per rango e si giudica in un giorno; B11 dopo, con un brief scritto sui numeri di B1c.
 
-**Brief di B1c** (dopo il merge della monotonia).
+**Esito di B1c (24/10, thread «Aggiungere la penalità per rango nella coda»): non tenuto.** Nessuna forma della penalità per rango migliora: tutte abbassano la quota sui deck di taratura e hanno più mani peggio che meglio. `search.rs` resta com'è; restano i numeri. Misura: 91 mani dell'oracolo (liste da `oracle.py decks`, 41 su 42; manca invoked-siracusa-md), `oracle.py measure --staged 30,15`, un thread; le mani a 4000 nodi sono quelle di `paired_test.py`, quindi le colonne contro `main` sono il test appaiato (segno, p a due code).
+
+| penalità per risposta fuori dal tuffo (base + passo · (rango − 1)) | quota media taratura | quota media verifica | meglio / peggio contro `main` (p) | mani oltre −5% | peggiore |
+|---|---|---|---|---|---|
+| `main` (0,6 uguale per tutte) | 57,0% | 62,5% | — | — | — |
+| 0,4 · rango (0,4 + 0,4) | 52,2% | 65,6% | 29 / 31 (0,90) | 27 | −83% |
+| 0,6 + 0,3 | 52,5% | 64,2% | 24 / 37 (0,12) | 34 | −62% |
+| 0,3 · rango | 51,6% | 62,3% | 25 / 36 (0,20) | 32 | −82% |
+| 0,6 · rango | 52,0% | 62,1% | 24 / 38 (0,10) | 31 | −87% |
+| 0,2 · rango | 54,8% | 60,8% | 25 / 40 (0,08) | 35 | −82% |
+| 0,6 + 0,1 | 54,2% | 61,1% | 22 / 32 (0,22) | 28 | −62% |
+| 0,4 + 0,1 | 53,2% | 63,6% | 23 / 34 (0,18) | 27 | −60% |
+| rumore: 0,5 senza rango | 55,9% | 62,7% | 18 / 22 (0,64) | 18 | −83% |
+| rumore: 0,7 senza rango | 56,2% | 61,4% | 12 / 22 (0,12) | 18 | −57% |
+
+- **Il numero di partenza è un altro.** Con la misura di oggi (`--staged` 30/15) `main` arriva al 59% mediano dell'oracolo a 4000 nodi, non al 73%, e solo 4 mani su 88 al 95% (6 su 91 a 16 000): a 1000, 4000 e 16 000 nodi la quota media è 47/57/61% sulla taratura, 56/62/66% sulla verifica. Il 73% veniva, a quanto pare, da una misura di prima (la misura completa delle prime 10, i pesi di prima del 24/10; non verificato): i valori delle fixture vanno ricalcolati con la misura di oggi prima del brief di B11.
+- **Il rumore è grande quanto l'effetto cercato.** Una costante diversa senza rango (0,5 o 0,7) cambia 34-40 mani su 91 oltre l'1% e una mano fino a −83%. Un giudice per B11 deve togliere questo rumore: più semi per mano (l'ordine del mazzo) o la media su più budget, e un criterio sulla media e sul segno, non «nessuna mano oltre −5%».
+- **Costo:** circa 4 ore di CPU nel container a 4 core (`main` a tre budget 1 ora, ogni variante a 4000 nodi 12 minuti con `--jobs 4`).
+
+**Brief di B1c** (dopo il merge della monotonia; eseguito il 24/10, esito sopra).
 ```
 Compito: la penalità di deviazione in coda cresce col rango della risposta in dive_order (per esempio 0,4 · rango, tarata su taratura e provata sui freschi).
 Perché: docs/plans/piano-motore-impatto.md §5 (quota mediana dell'oracolo 73% a 4000 nodi; B1a ha mostrato che serve una priorità diversa, non un ordine diverso).
