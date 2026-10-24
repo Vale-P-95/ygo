@@ -13,4 +13,6 @@ pnpm design --chromium /opt/pw-browsers/chromium         # nel container cloud
 pnpm design --shots <cartella> --artifact <cartella>     # anche gli screenshot e l'anteprima Artifact
 ```
 
+La cartella `schermate/` non viene dalla galleria: sono gli screenshot di ogni sezione dell'app (1280×800, Fucina e Pergamena, backend finto), con una scheda `@dsCard` per ciascuno. Si rigenerano con `VITE_MOCK=1 pnpm dev` in un terminale e `pnpm design:screens --chromium <chromium>` in un altro (circa 4 minuti).
+
 Il caricamento su claude.ai si fa con `/design-sync` verso il progetto «Sistema di design DuelForge», per differenza (`docs/plans/sistema-di-design.md`).
