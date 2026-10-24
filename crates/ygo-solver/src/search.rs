@@ -238,8 +238,12 @@ pub struct SearchResult {
 impl SearchResult {
     /// `Some(true)` when a board reaches the goal, `Some(false)` when no
     /// line can (every line was tried, none lost to an engine error),
-    /// `None` while it is unknown.
+    /// `None` while it is unknown or there is nothing to reach (only soft
+    /// cards).
     pub fn goal_reached(&self, goal: &Goal) -> Option<bool> {
+        if !goal.has_target() {
+            return None;
+        }
         // Cards wanted off the field are only known once the End Phase is played.
         if self.boards.iter().any(|b| goal.reached(b.goal_hits) && (b.exact || !goal.off_field())) {
             Some(true)
