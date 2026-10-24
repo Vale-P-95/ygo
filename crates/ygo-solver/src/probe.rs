@@ -919,6 +919,7 @@ impl Response {
 
 /// The opponent's hand and GY, what the goals of a step look at (cheaper
 /// to read than the whole duel).
+#[derive(Clone)]
 struct Piles {
     hand: Vec<u32>,
     grave: Vec<u32>,
@@ -929,6 +930,13 @@ impl Piles {
         let codes = |loc| duel.query_location(1, loc).into_iter().flatten().map(|(code, _)| code).collect();
         Piles { hand: codes(location::HAND), grave: codes(location::GRAVE) }
     }
+}
+
+/// Times the same question may come back with nothing happening before a
+/// run is taken to go round (`DUELFORGE_ROUND_CUT`, 0 for never).
+fn round_cut() -> usize {
+    static CUT: OnceLock<usize> = OnceLock::new();
+    *CUT.get_or_init(|| std::env::var("DUELFORGE_ROUND_CUT").ok().and_then(|n| n.parse().ok()).unwrap_or(64))
 }
 
 /// A moment to respond in a run: `(step, window in the step)`.
@@ -1268,6 +1276,14 @@ impl Drop for ProberId {
     }
 }
 
+/// How many copies of the duel at the windows of the opponent's turn a
+/// prober keeps for a board (`DUELFORGE_WINDOW_COPIES`, 0 for none): 16 were
+/// measured faster than 4, 8 and 32 (docs/plans/tempi-motore.md).
+fn window_copies_cap() -> usize {
+    static CAP: OnceLock<usize> = OnceLock::new();
+    *CAP.get_or_init(|| std::env::var("DUELFORGE_WINDOW_COPIES").ok().and_then(|n| n.parse().ok()).unwrap_or(16))
+}
+
 /// How many copies of the duel where your turn ends a prober keeps
 /// (`DUELFORGE_PROBE_COPIES`, 0 for none): the runs of a board come one
 /// after the other, so a few are enough.
@@ -1308,6 +1324,10 @@ struct TurnCopies {
     /// The duel as made: a turn with no copy is played from here.
     start: SavedDuel,
     copies: Vec<TurnCopy>,
+    /// Copies at the windows of the opponent's turn after one turn of yours,
+    /// and the windows of that turn when nothing is used, in order.
+    windows: Vec<WindowCopy>,
+    path: Option<(TurnKey, Vec<WindowAt>)>,
     clock: u64,
     /// With `DUELFORGE_COPY_CHECK=n`, every n-th run from a copy is also
     /// played in a new duel, and the two must be the same.
@@ -1322,9 +1342,60 @@ struct TurnCopy {
     used: u64,
 }
 
+/// A copy of the duel at a window of the opponent's turn, before it is
+/// answered (docs/plans/tempi-motore.md): a run that uses a response only
+/// at that window plays the same as any run that used nothing up to there,
+/// so it starts from the copy and plays only the rest of the turn.
+struct WindowCopy {
+    turn: TurnKey,
+    at: WindowAt,
+    /// Your cards (by code) offered in an answer of yours before the
+    /// window that were not offered at a window: a run using one of them
+    /// may have answered there otherwise ([`your_answer`] prefers them).
+    sensitive: Vec<u32>,
+    saved: SavedDuel,
+    start: WindowStart,
+}
+
+/// Where a run is at a window of the opponent's turn, before it is
+/// answered: all the run keeps, to play on from a copy of the duel there.
+#[derive(Clone)]
+struct WindowStart {
+    decision: Decision,
+    events: Vec<Event>,
+    decisions: usize,
+    trace: RunTrace,
+    observer: Observer,
+    idle_effects: HashSet<(u32, u64)>,
+    mine_on_top: bool,
+    your_link: Option<u32>,
+    aiming: Option<KitStep>,
+    next: usize,
+    current: Option<(usize, Piles)>,
+    windows_in_step: usize,
+    battled: bool,
+    last_use: Option<usize>,
+    sensitive: Vec<u32>,
+}
+
+/// What a run does for the copies at the windows: the copy it makes at
+/// the window it uses its response at (`at`), and the windows it gets to
+/// with nothing used, in order (`path`).
+struct Windows {
+    at: Option<WindowAt>,
+    made: Option<(Vec<u32>, SavedDuel, WindowStart)>,
+    path: Option<Vec<WindowAt>>,
+}
+
+/// The copies a run makes: where the opponent's turn begins, and at its windows.
+struct Made<'m> {
+    turn: Option<&'m mut Option<(SavedDuel, TurnStart)>>,
+    windows: Option<&'m mut Windows>,
+}
+
 /// Your turn in a run: the answers of the line, a script of yours, or
 /// ending the turn at once.
-#[derive(PartialEq)]
+#[derive(PartialEq, Clone)]
 enum TurnKey {
     Line(Vec<Vec<u8>>),
     Cut(Vec<Vec<u8>>),
@@ -1363,6 +1434,21 @@ struct TurnStart {
 }
 
 impl TurnCopies {
+    /// Keeps what a run made for the copies at the windows after `turn`:
+    /// the copies after another turn of yours go (the probe turn measures
+    /// one board at a time).
+    fn keep_windows(&mut self, turn: &TurnKey, made: Windows) {
+        if let Some(path) = made.path {
+            let known = self.path.as_ref().filter(|(t, _)| t == turn).map_or(0, |(_, p)| p.len());
+            if path.len() > known {
+                self.path = Some((turn.clone(), path));
+            }
+        }
+        let (Some(at), Some((sensitive, saved, start))) = (made.at, made.made) else { return };
+        self.windows.retain(|c| c.turn == *turn);
+        self.windows.push(WindowCopy { turn: turn.clone(), at, sensitive, saved, start });
+    }
+
     fn keep(&mut self, turn: TurnKey, saved: SavedDuel, at: TurnStart) {
         // The copy used least recently goes first.
         while self.copies.len() >= turn_copies_cap() {
@@ -2318,39 +2404,89 @@ impl<'a> Prober<'a> {
         let turn = TurnKey::of(prelude).filter(|_| !verbose);
         let Some((turn, mut copies)) = turn.and_then(|t| Some((t, self.take_copies(prelude, opponent)?))) else {
             let mut duel = self.new_duel(prelude, opponent)?;
-            return self.play(prelude, steps, policy, context, &mut duel, None, None);
+            return self.play(prelude, steps, policy, context, &mut duel, None, None, None);
         };
         copies.clock += 1;
         let clock = copies.clock;
-        let found = copies.copies.iter_mut().find(|c| c.turn == turn);
-        let played = match found {
-            Some(copy) => {
-                copy.used = clock;
-                let at = copy.at.clone();
-                match copies.duel.restore(&copy.saved) {
-                    Ok(()) => {
-                        let played = self.play(prelude, steps, policy, context, &mut copies.duel, Some(at), None);
-                        copies.started += 1;
-                        match copies.check.filter(|n| copies.started.is_multiple_of(*n)) {
-                            Some(_) => self.check_copy(prelude, steps, policy, context, opponent, played),
-                            None => played,
-                        }
+        // Copies at the windows of the opponent's turn: for the runs that use
+        // one response at one window, with all the kit's steps and nothing
+        // that changes your answers (what each response is worth, the
+        // opponent's answer to your links, its own line).
+        let windowed = matches!(policy, Policy::Pass | Policy::UseAt(..))
+            && steps.len() == self.kit.steps.len()
+            && self.kit.script.is_none()
+            && context.worth.is_none()
+            && context.counter.is_none();
+        // The latest copy on the way to the window used: the run plays from
+        // there, and leaves a copy at its own window.
+        let target = match policy {
+            Policy::UseAt(id, at) if windowed => Some((id, at)),
+            _ => None,
+        };
+        let path = copies.path.as_ref().filter(|(t, _)| *t == turn).map(|(_, p)| p.as_slice()).unwrap_or_default();
+        let at_window = target.and_then(|(id, at)| {
+            let upto = path.iter().position(|w| *w == at);
+            copies
+                .windows
+                .iter()
+                .enumerate()
+                .filter(|(_, c)| c.turn == turn && !c.sensitive.contains(&id.code))
+                .filter_map(|(i, c)| {
+                    if c.at == at {
+                        return Some((usize::MAX, i));
                     }
-                    Err(e) => Err(e),
+                    let k = path.iter().position(|w| *w == c.at)?;
+                    (k < upto?).then_some((k, i))
+                })
+                .max()
+                .map(|(_, i)| i)
+        });
+        let have: Vec<WindowAt> = copies.windows.iter().filter(|c| c.turn == turn).map(|c| c.at).collect();
+        let mut made_windows = Windows {
+            at: target.map(|(_, at)| at).filter(|at| !have.contains(at) && have.len() < window_copies_cap()),
+            made: None,
+            path: windowed.then(Vec::new),
+        };
+        // From a copy at a window, or where the opponent's turn begins.
+        let from_copy = match (at_window, copies.copies.iter().position(|c| c.turn == turn)) {
+            (Some(i), _) => {
+                // The path up to the copy is the one recorded already.
+                made_windows.path = None;
+                let window = copies.windows[i].start.clone();
+                Some(copies.duel.restore(&copies.windows[i].saved).map(|()| (None, Some(window))))
+            }
+            (None, Some(i)) => {
+                copies.copies[i].used = clock;
+                let at = copies.copies[i].at.clone();
+                Some(copies.duel.restore(&copies.copies[i].saved).map(|()| (Some(at), None)))
+            }
+            (None, None) => None,
+        };
+        let played = match from_copy {
+            Some(Ok((from, window))) => {
+                let keep = Made { turn: None, windows: Some(&mut made_windows) };
+                let played = self.play(prelude, steps, policy, context, &mut copies.duel, from, window, Some(keep));
+                copies.started += 1;
+                match copies.check.filter(|n| copies.started.is_multiple_of(*n)) {
+                    Some(_) => self.check_copy(prelude, steps, policy, context, opponent, played),
+                    None => played,
                 }
             }
+            Some(Err(e)) => Err(e),
             None => match copies.duel.restore(&copies.start) {
                 Ok(()) => {
                     let mut made = None;
-                    let played = self.play(prelude, steps, policy, context, &mut copies.duel, None, Some(&mut made));
+                    let keep = Made { turn: Some(&mut made), windows: Some(&mut made_windows) };
+                    let played = self.play(prelude, steps, policy, context, &mut copies.duel, None, None, Some(keep));
                     if let Some((saved, at)) = made {
-                        copies.keep(turn, saved, at);
+                        copies.keep(turn.clone(), saved, at);
                     }
                     played
                 }
                 Err(e) => Err(e),
             },
         };
+        copies.keep_windows(&turn, made_windows);
         self.give_back(copies);
         played
     }
@@ -2401,6 +2537,8 @@ impl<'a> Prober<'a> {
                 duel,
                 start,
                 copies: Vec::new(),
+                windows: Vec::new(),
+                path: None,
                 clock: 0,
                 check: CHECK_COPIES
                     .with(Cell::get)
@@ -2438,7 +2576,7 @@ impl<'a> Prober<'a> {
         played: Result<RunTrace, Error>,
     ) -> Result<RunTrace, Error> {
         let mut duel = self.new_duel(prelude, opponent)?;
-        let expected = self.play(prelude, steps, policy, context, &mut duel, None, None);
+        let expected = self.play(prelude, steps, policy, context, &mut duel, None, None, None);
         if format!("{played:?}") != format!("{expected:?}") {
             eprintln!("probe turn: a run from a copy of the duel is not the run in a new duel");
             return Err(Error::Engine("a run from a copy of the duel is not the run in a new duel".to_owned()));
@@ -2446,9 +2584,9 @@ impl<'a> Prober<'a> {
         played
     }
 
-    /// Plays a run in `duel`, from the start of the duel or from where the
-    /// opponent's turn begins (`from`, a copy put back); with `made`, a copy
-    /// of the duel there.
+    /// Plays a run in `duel`, from the start of the duel, from where the
+    /// opponent's turn begins (`from`, a copy put back) or from a window of
+    /// its turn (`window`); with `made`, copies of the duel there.
     #[allow(clippy::too_many_arguments)]
     fn play(
         &self,
@@ -2458,8 +2596,10 @@ impl<'a> Prober<'a> {
         context: Context,
         duel: &mut Duel,
         from: Option<TurnStart>,
-        mut made: Option<&mut Option<(SavedDuel, TurnStart)>>,
+        window: Option<WindowStart>,
+        made: Option<Made>,
     ) -> Result<RunTrace, Error> {
+        let (mut made, mut made_windows) = made.map_or((None, None), |m| (m.turn, m.windows));
         let engine = self.engine;
         // Your line was found against the kit's opponent: against another one
         // (other cards in its Extra Deck), the opponent's cards it picks are
@@ -2540,6 +2680,36 @@ impl<'a> Prober<'a> {
             start = at.decisions;
             first = Some((at.decision, at.events));
         }
+        // Your cards offered in your answers before any use, not at a window.
+        let mut sensitive: Vec<u32> = Vec::new();
+        if let Some(at) = window {
+            trace = at.trace;
+            observer = at.observer;
+            idle_effects = at.idle_effects;
+            mine_on_top = at.mine_on_top;
+            your_link = at.your_link;
+            aiming = at.aiming;
+            next = at.next;
+            current = at.current;
+            windows_in_step = at.windows_in_step;
+            battled = at.battled;
+            last_use = at.last_use;
+            sensitive = at.sensitive;
+            start = at.decisions;
+            first = Some((at.decision, at.events));
+        }
+        // Your cards a run uses: the answers of yours that prefer them
+        // (`your_answer`) may differ from a run that uses others.
+        let used: &[ResponderId] = match &policy {
+            Policy::Use(id, _) | Policy::UseAt(id, _) => std::slice::from_ref(id),
+            Policy::UseAll(ids) => ids,
+            Policy::Pass => &[],
+        };
+        // The questions asked since the last event of the opponent's turn,
+        // and how many times each: a run asked the same again and again with
+        // nothing happening is going round (a selection that goes back to its
+        // start), and would only end when its decisions run out.
+        let mut asked: HashMap<u64, usize> = HashMap::new();
         for decisions in start..4000 {
             if self.out_of_time() {
                 return Err(Error::Engine("the probe turn ran out of time".to_owned()));
@@ -2551,6 +2721,56 @@ impl<'a> Prober<'a> {
                     Step::End { .. } => break,
                 },
             };
+            if !events.is_empty() || duel.turn_info().0 <= 1 {
+                asked.clear();
+            } else if round_cut() > 0 {
+                use std::hash::{Hash, Hasher};
+                let mut h = std::collections::hash_map::DefaultHasher::new();
+                decision.hash(&mut h);
+                let times = asked.entry(h.finish()).or_default();
+                *times += 1;
+                if *times >= round_cut() {
+                    return Err(Error::Engine("the probe turn did not get through its steps".into()));
+                }
+            }
+            // The window this run uses its response at, with nothing used
+            // before: a copy of the duel there, kept below if it is that
+            // window indeed (not a chance to answer your own link).
+            let mut window_copy = None;
+            if let Some(Windows { at: Some(at), made: None, .. }) = made_windows.as_deref() {
+                let maybe_window = match &decision {
+                    Decision::SelectChain { forced: false, chains, .. } => !chains.is_empty(),
+                    Decision::EffectYesNo { .. } => true,
+                    _ => false,
+                };
+                if maybe_window
+                    && decision.player() != Some(1)
+                    && duel.turn_info().0 > 1
+                    && trace.uses.is_empty()
+                    && *at == (current.as_ref().map_or(steps.len(), |(i, _)| *i), windows_in_step)
+                {
+                    window_copy = duel.save().ok().map(|saved| {
+                        let start = WindowStart {
+                            decision: decision.clone(),
+                            events: events.clone(),
+                            decisions,
+                            trace: trace.clone(),
+                            observer: observer.clone(),
+                            idle_effects: idle_effects.clone(),
+                            mine_on_top,
+                            your_link,
+                            aiming: aiming.clone(),
+                            next,
+                            current: current.clone(),
+                            windows_in_step,
+                            battled,
+                            last_use,
+                            sensitive: sensitive.clone(),
+                        };
+                        (*at, saved, start)
+                    });
+                }
+            }
             // The opponent's turn begins: your turn is over, a copy of the
             // duel here serves every run after the same turn.
             if made.is_some() && duel.turn_info().0 > 1 {
@@ -2856,6 +3076,20 @@ impl<'a> Prober<'a> {
                         Some(options) => {
                             let at = windows_in_step;
                             windows_in_step += 1;
+                            // With nothing used so far, the run's answers up to here
+                            // are those of any run that uses nothing before, if
+                            // they did not prefer a card it uses: the window is on
+                            // their way, and the copy before it serves them.
+                            if let Some(windows) = made_windows.as_deref_mut() {
+                                if trace.uses.is_empty() && !used.iter().any(|u| sensitive.contains(&u.code)) {
+                                    if let Some(path) = windows.path.as_mut() {
+                                        path.push((step, at));
+                                    }
+                                    if let Some((_, saved, start)) = window_copy.take().filter(|(w, ..)| *w == (step, at)) {
+                                        windows.made = Some((sensitive.clone(), saved, start));
+                                    }
+                                }
+                            }
                             let pick = match policy {
                                 Policy::Use(id, skip) if !skip.contains(&(step, at)) => options.iter().position(|(o, _)| *o == id),
                                 // All together: nothing to stop before the first step.
@@ -2887,12 +3121,17 @@ impl<'a> Prober<'a> {
                         }
                         None => {
                             let db = engine.cards();
+                            if made_windows.is_some() && trace.uses.is_empty() {
+                                for c in actions.iter().filter_map(|a| a.card).filter(|c| c.controller == 0) {
+                                    let code = db.canonical_code(c.code);
+                                    if !sensitive.contains(&code)
+                                        && !trace.windows.iter().any(|w| w.options.iter().any(|(r, _)| r.code == code))
+                                    {
+                                        sensitive.push(code);
+                                    }
+                                }
+                            }
                             // Your cards seen answering in this run, or the ones it uses.
-                            let used: &[ResponderId] = match &policy {
-                                Policy::Use(id, _) | Policy::UseAt(id, _) => std::slice::from_ref(id),
-                                Policy::UseAll(ids) => ids,
-                                Policy::Pass => &[],
-                            };
                             let answers = |a: &Action| {
                                 a.card.is_some_and(|c| {
                                     let code = db.canonical_code(c.code);
