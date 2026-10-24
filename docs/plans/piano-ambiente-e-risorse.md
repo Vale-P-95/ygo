@@ -251,6 +251,7 @@ Resta la memoria operativa nei giorni con coordinatrice; altrimenti si aggiorna 
    - [fatto] i punti 3, 5 e 6 della caccia ai bug; [fatto il 24/10] l'arena nel turno di prova; [fatto il 24/10] il caso Vendread (Opus, `docs/plans/robustezza.md`);
    - il simulatore (#36): mockup prima;
    - [fatto il 24/10] andare secondo, prototipo CLI `break-board` (idea 5 di `idee-nuove.md`, Opus alto): una sessione, contesto sotto 100k, prove su 3 coppie in pochi minuti di CPU.
+   - [fatto il 24/10] classifica per interazione a fine turno, CLI `combos --interaction` (richiesta di Valerio, Opus): solo CLI, misura invariata, una prova da pochi secondi; contesto sotto 100k.
 
 ## 10bis. Decisione sul merge (23/10)
 - **Cosa**: i merge li fa la coordinatrice in automatico; sostituisce «il merge lo fa l'utente dalla pagina».
