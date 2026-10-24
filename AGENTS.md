@@ -87,7 +87,7 @@ Vale per `apps/desktop/src`. Nasce dagli errori ricorrenti delle revisioni: PR d
 - Force push, rebase o commit sul branch di un'altra sessione o di un altro agente.
 - Cambiare i tipi condivisi tra backend e interfaccia (`apps/desktop/src-tauri/src/lib.rs` ↔ `apps/desktop/src/lib/api.ts`) senza aggiornare entrambi nella stessa PR.
 - Lanciare benchmark o build lunghe senza che l'utente lo chieda.
-- Fare il merge in `main` senza la richiesta esplicita dell'utente.
+- Fare il merge in `main` se non si è la coordinatrice, o senza CI verde (e, per il motore, senza la prova equa non peggiorata).
 
 ## Coordinamento tra sessioni
 Le sessioni Claude Code fanno tutto il codice: motore, backend dell'app e interfaccia. Gemini (Antigravity) finisce il passo 5 dell'interfaccia su `gemini/ui-shelf` e poi si ferma; i suoi branch si puliscono.
@@ -100,4 +100,4 @@ Le sessioni Claude Code fanno tutto il codice: motore, backend dell'app e interf
 - **Calcoli lunghi** (oltre dieci minuti): partono in background e la sessione chiude il turno; il risultato arriva come notifica. Niente controlli ripetuti, niente monitor sui log. Oltre le due ore si usa `bench.yml` su GitHub Actions.
 - **Lavoro interrotto** (la quota può finire in qualsiasi momento): fare piccoli commit che compilano, pushare sul proprio branch dopo ogni passo funzionante e spuntare i sotto-passi in `docs/TASKS.md`.
 - **Fine sessione**: aggiornare `docs/TASKS.md` (e `docs/STATO.md` se cambiano decisioni importanti), committare e pushare.
-- **PR e merge**: la PR la apre la sessione stessa, con il template. Le PR piccole le rivede la sessione stessa con la lista del template; quelle grandi una sessione separata con brief corto. Il merge lo fa l'utente dalla pagina GitHub (squash), o chi lui delega.
+- **PR e merge**: la PR la apre la sessione stessa, con il template. Le PR piccole le rivede la sessione stessa con la lista del template; quelle grandi una sessione separata con brief corto. Il merge lo fa la coordinatrice in automatico (squash, SHA completo), solo con CI verde e, per il motore, con la prova equa sulle 406 board non peggiorata; si sveglia sull'esito della CI dagli eventi della PR, senza attese a intervalli. I thread aprono la PR e si fermano; dopo l'ultimo push la CI si lancia a mano una volta (`ci.yml`).
