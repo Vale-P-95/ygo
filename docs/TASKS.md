@@ -347,6 +347,7 @@ Corsie di lavoro in parallelo del 22/10/2026 (piano in `docs/plans/piano-prossim
 Nessuna aperta. Un dato nuovo per l'interfaccia lo aggiunge la stessa sessione di Claude che fa la schermata, nella stessa PR.
 
 ## Completati (recenti; lo storico è in `docs/PIANO.md`)
+- [x] Idee nuove dalla ricerca sul web (24/10): cinque proposte con brief, in ordine di beneficio sul costo (tabella delle tech contro il meta, allenamento sulla combo, piano di side, Monte Carlo guidato dal motore, andare secondo). Piano: `docs/plans/idee-nuove.md`.
 - [x] Test automatici dell'interfaccia con Vitest nella CI: 75 unit test per funzioni pure (`probability`, `query`, `conditions`, `deck`, `scoring`, `Banditore.tsx`), script `"test": "vitest run"` e step CI nel job Frontend (TypeScript) (PR #57, piano `docs/plans/archivio/test-interfaccia.md`).
 - [x] Pagina «Il Banditore» (Novità) v1: confronto tra formati (Master Duel, TCG, OCG) con ricerca e filtri, apertura Visore Carta, data banlistMd, e impatto sui deck salvati nella Bottega per formato scelto con apertura nella Fucina (PR #37, piano `docs/plans/archivio/banditore-v1.md`).
 - [x] Giri di apprendimento della ricerca con una scadenza (10 secondi dopo il limite di tempo): su Elfnote Kewl Tune una ricerca da 60 secondi finiva dopo 170, ora dopo 116; banco identico. `probe-line` rigioca le linee salvate con il loro seme (`docs/plans/velocita-ricerca.md`).
