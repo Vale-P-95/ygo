@@ -298,6 +298,7 @@ Oggi esistono solo calcolatori ipergeometrici di base. Qui l'obiettivo è un ver
 - Si campionano N mani reali e su ognuna gira il **solver** con un budget di tempo: si ottiene la **distribuzione del punteggio della board**, il numero atteso di interruzioni, la % di mani che arrivano a una board "≥ X" e le cause dei fallimenti (perché quella mano non parte).
 - **Classificazione automatica dei ruoli**: il motore stabilisce quali carte sono starter (da sole arrivano a una board accettabile), estensori (alzano il punteggio se aggiunte) e brick (lo abbassano), invece di affidarsi solo all'etichetta manuale.
 - **Valore atteso di una carta**: si enumerano le mani che la contengono raggruppate per classi equivalenti, pesate con la loro probabilità esatta, e si valuta ognuna con il solver.
+- **Stato (24/10/2026)**: fatto nella CLI, `duelforge-cli engine-mc`: P(board ≥ soglia) misurata da N mani giocate dal motore, con mani a posizioni comuni, cache per carte usate e variabili di controllo; l'ottimizzatore `climb` scambia una copia alla volta e tiene solo i guadagni sicuri al 95% (`docs/plans/monte-carlo-motore.md`). Mancano l'app, i fallimenti spiegati e andare secondo.
 
 ### 7.5 Interazione con l'avversario
 - Probabilità che l'avversario abbia almeno k handtrap, dato un deck tipo o un rapporto medio del meta.

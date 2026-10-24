@@ -5,6 +5,8 @@
 //! - `play`: play a starting hand from a deck, interactively or by script.
 //! - `bench`: measure duel creation, playout and replay speed.
 //! - `combos`: search every line from a hand and list the end boards.
+//! - `engine-mc`: P(board ≥ threshold) from many hands played by the engine,
+//!   and the swaps of a copy that raise it.
 //! - `sweep`: random duels between random decks, reporting any decision
 //!   that cannot be answered or any answer the engine rejects.
 
@@ -20,6 +22,8 @@ use ygo_data::{sync, CardStore};
 use ygo_engine::consts::{location, phase, position};
 use ygo_engine::sweep::SweepConfig;
 use ygo_engine::{actions, describe_card, run_script, Action, ActionKind, DeckList, Duel, Engine, Event, ScriptEnd, Step, Trace};
+
+mod engine_mc;
 
 #[derive(Parser)]
 #[command(name = "duelforge-cli", version, about)]
@@ -198,6 +202,54 @@ enum Cmd {
         meta_file: Option<PathBuf>,
         #[arg(long)]
         meta_decks: Option<PathBuf>,
+    },
+    /// The Monte Carlo played by the engine: hands drawn from the deck, each
+    /// searched and measured, and P(best board ≥ threshold) with its 95%
+    /// interval. Swaps of a copy are measured on the same draws, with the
+    /// hands already searched taken from a cache; `--climb` lets the
+    /// optimizer pick the swaps. Writes `summary.txt` and `hands.json` to `--out`.
+    EngineMc {
+        /// Deck in .ydk format (its Side Deck: cards that may enter).
+        #[arg(long)]
+        deck: PathBuf,
+        /// Hands drawn (5 cards, going first).
+        #[arg(long, default_value_t = 200)]
+        hands: usize,
+        /// Choices explored per hand.
+        #[arg(long, default_value_t = 2000)]
+        nodes: u64,
+        /// Measured value a hand's best board must reach (default: the
+        /// median of the deck's hands, then kept for every variant).
+        #[arg(long)]
+        threshold: Option<f64>,
+        /// Fields of each hand given the cheap measure.
+        #[arg(long, default_value_t = 10)]
+        cheap: usize,
+        /// Of those, the best by it given the full measure.
+        #[arg(long, default_value_t = 3)]
+        full: usize,
+        /// Swaps to measure: "Out>In", semicolon-separated names or passcodes.
+        #[arg(long, default_value = "")]
+        swap: String,
+        /// Let the optimizer swap copies: decks measured at most (0: none).
+        #[arg(long, default_value_t = 0)]
+        climb: usize,
+        /// Cards that may enter besides the Side Deck (semicolon-separated).
+        #[arg(long, default_value = "")]
+        candidates: String,
+        /// Hands searched at once (each on one thread).
+        #[arg(long)]
+        threads: Option<usize>,
+        /// Seed of the draws, the deck order and the engine.
+        #[arg(long, default_value_t = 1)]
+        seed: u64,
+        #[arg(long, default_value = "out/engine-mc")]
+        out: PathBuf,
+        /// Also find the roles by playing and compare: the exact odds of a
+        /// Starter, and the share of the hands with and without one that
+        /// reached the threshold.
+        #[arg(long)]
+        roles: bool,
     },
     /// Measure lines saved by `combos --save-lines` with the probe turn,
     /// without searching (the same boards before and after a change). The
@@ -516,6 +568,26 @@ fn main() -> Result<()> {
         ),
         Cmd::ProbeLine { setup, lines, index, json, vs, stops, moves, protection } => {
             probe_line(&cli.data, &setup, &lines, index, json.as_deref(), vs.as_deref(), stops, moves, protection)
+        }
+        Cmd::EngineMc { deck, hands, nodes, threshold, cheap, full, swap, climb, candidates, threads, seed, out, roles } => {
+            engine_mc::engine_mc(
+                &cli.data,
+                engine_mc::Options {
+                    deck,
+                    hands,
+                    nodes,
+                    threshold,
+                    cheap,
+                    full,
+                    swaps: swap,
+                    climb,
+                    candidates,
+                    threads,
+                    seed,
+                    out,
+                    roles,
+                },
+            )
         }
         Cmd::TechTable { deck, decks, seed, meta_file, meta_decks, json } => {
             tech_table(&cli.data, &deck, decks, seed, MetaFinal { boards: 0, file: meta_file, decks: meta_decks }, json.as_deref())
