@@ -156,7 +156,10 @@ export function Lab({
   useEffect(() => {
     if (!deck) return;
     let cancelled = false;
-    api.labOverview(deck.main, roles).then((o) => !cancelled && setOverview(o));
+    api
+      .labOverview(deck.main, roles)
+      .then((o) => !cancelled && setOverview(o))
+      .catch((e) => !cancelled && toast(`Panoramica non calcolata: ${e}`, "error"));
     return () => {
       cancelled = true;
     };
@@ -420,7 +423,7 @@ export function Lab({
           </div>
         </nav>
         {overview && (
-          <span className="ml-auto text-xs whitespace-nowrap text-faint tabular-nums" title="Carte nel Main Deck">
+          <span className="ml-auto hidden text-xs whitespace-nowrap text-faint tabular-nums 2xl:inline" title="Carte nel Main Deck">
             {overview.size} carte
           </span>
         )}
