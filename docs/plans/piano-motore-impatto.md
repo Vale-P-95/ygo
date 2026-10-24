@@ -5,7 +5,7 @@
 ## Decisione
 1. **Prima la velocità e il taglio, poi la ricerca.** Il distacco più grande sta nell'ordine finale (la misura mette nel giusto ordine il 68% delle coppie dei deck freschi, L2-3 il 94%), ma **Valerio ha deciso il 24/10 che L2-3 resta a richiesta** (pulsante «Confronta con il meta»). L'ordine dei lavori è quindi 2 → 3 subito, 4 e 5 dopo la monotonia nel budget, che è in corso; la 1 è chiusa.
 2. **1. L2-3 come ultimo gradino di default: non si fa**, resta a richiesta. Il controllo sui deck freschi (il #1 cambia in 10 mani su 39, 8 meglio e 0 peggio) resta qui come dato per chi usa il pulsante. **2. Il livello 2 dalle copie del duello** diventa la prima: le run col tuo script non usano ancora l'arena (il turno di prova con l'arena ha fatto −46%), e rende più veloci il pulsante e tutti i banchi.
-3. **3. Il floodgate della misura economica a 0,4**, come nel punteggio: oggi il taglio 30 → 15 sceglie con un peso che il punteggio ha già abbassato. Piccolo, quasi gratis.
+3. **3. Il floodgate della misura economica a 0,4**, come nel punteggio: il taglio 30 → 15 sceglieva con un peso che il punteggio aveva già abbassato. **Fatto il 24/10**: #1 identico in 126 mani su 126, la migliore sale di posto in 5 mani e scende in 1.
 4. **4. Il rappresentante del campo scelto dalla misura** (caccia ai bug, punto 1, seconda parte) e **5. B1c e poi B11** (penalità per rango, novità prima): aspettano la monotonia, che tocca gli stessi file e toglie il rumore ai loro test appaiati.
 5. **Non ora:** ripianificare dopo una handtrap, i breaker dall'Extra Deck e le risposte non di negazione (B5b) non spostano il punteggio, perché la resilienza pesa 0 e le handtrap avversarie non ci entrano. B1a, B2, B2b, B3, la tabella a penalità minima, il kit concatenato, l'opzione (d) e la stima lineare sono chiusi dalle prove.
 
@@ -67,6 +67,8 @@ Quando hai finito: TASKS.md, velocita-ricerca.md e questo piano aggiornati, PR a
 
 ## 3. Il floodgate della misura economica a 0,4
 **Evidenza.** Il punteggio pesa il floodgate 0,4 dal 24/10; la misura economica (`cheap_composite` della CLI, `cheap_value` di `lib.rs`) lo pesa ancora 0,8 e decide quali 15 board su 30 arrivano alla misura completa. Sui deck freschi il floodgate segue la verità al contrario (ρ −0,39 e −0,13 nelle due metà, `ricerca-esperimenti.md` §7); in Warrior Combo board con floodgate 0,26 hanno verità 0 (`extra-deck-a1b.md`). La scala di B14 tiene il #1 in 82 mani su 82, ma con una sola board di margine (Paleozoic-0, la migliore è la 14ª per valore economico) e misurata con i pesi vecchi.
+
+**Fatto il 24/10** (thread «Portare il floodgate a 0,4 nella misura economica», branch `claude/project-thread-v0a5f8`): tenuto. Sulle 126 mani del banco di generalità (taratura 86, freschi 40, 4000 nodi, seed 7) il #1 non cambia in nessuna mano (`paired_test.py` su `combos --staged`: 126 pari); il taglio a 15 cambia in 8 mani (20 campi), la migliore sale di posto in 5 mani e scende in 1, il margine resta quello di oggi (14ª nei casi più vicini). La prova equa sulle 406 board non cambia: la misura completa è la stessa. Dettagli in `velocita-ricerca.md`, «B14, floodgate 0,4».
 
 **Brief.**
 ```

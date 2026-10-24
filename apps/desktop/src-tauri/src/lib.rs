@@ -1993,12 +1993,11 @@ const CHEAP_MEASURE: ygo_solver::probe::Cheap = ygo_solver::probe::Cheap { windo
 
 /// The value a cheap measure ranks the boards by: field, hand, floodgates
 /// and the effects to rebuild with on your next turn, with no breaker
-/// played. The floodgates keep 0.8, the weight the staged pick was measured
-/// with, not the 0.4 of the "Bilanciato" profile: lowering it changes which
-/// boards get the full measure.
+/// played. The floodgates weigh 0.4, as in the "Bilanciato" profile, so the
+/// cut to the full measure ranks by the weights of the score.
 fn cheap_value(m: &ygo_solver::Measure) -> f64 {
     let rebuild = m.follow_up.map_or(0.0, |f| f.rebuild as f64);
-    m.field_value + 0.9 * m.hand_value + 0.8 * m.floodgate_value + 0.4 * 0.3 * rebuild
+    m.field_value + 0.9 * m.hand_value + 0.4 * m.floodgate_value + 0.4 * 0.3 * rebuild
 }
 
 /// `work` on each board, on all cores, until `cancel`; one prober per hand

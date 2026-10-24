@@ -769,6 +769,6 @@ Le tarature dei due insiemi concordano su una sola cosa: la resilienza va a 0 (0
   - La mano meglio è hunt-invoked-siracusa-ewcq2026-1 (+6,7%), per una variante di zona.
 
 **Decisione: i pesi nuovi si accendono**, tutti e quattro i posti insieme: `bench.py`, `composite` della CLI, `balanced` di `lib.rs` e il profilo «Bilanciato» di `scoring.ts`. Il turno dopo resta a 0,4.
-- **La misura economica** (`cheap_composite` della CLI, `cheap_value` di `lib.rs`) tiene il floodgate a 0,8. Sceglie quali board passano alla misura completa, quindi abbassarlo cambia le board misurate: va provato a parte, con la prova appaiata in modalità `--staged`.
+- **La misura economica** (`cheap_composite` della CLI, `cheap_value` di `lib.rs`) teneva il floodgate a 0,8, provato a parte: dal 24/10 pesa 0,4 anche lei, #1 identico in 126 mani su 126 (`velocita-ricerca.md`, «B14, floodgate 0,4»).
 - **Gli script di ricerca** con i pesi copiati (`a1b_report.py`, `b9_order.py`, `l23_final.py`, `objective_bench.py summary`) restano come erano: sono il registro dei loro esperimenti.
 
