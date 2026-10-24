@@ -34,6 +34,7 @@ Le cause, in ordine di peso:
 ## 2. Regole per i token
 
 Valgono per ogni sessione Claude del progetto. Vanno in `CLAUDE.md` (§9) perché si applichino da sole.
+Le leve aggiunte il 24/10 (avvio sessione, documenti grandi, output, GitHub, compattazione) sono in `docs/plans/token-e-contesto.md`.
 
 ### 2.1 Una sessione, un compito, un contesto corto
 - **Una sessione per compito**, creata da `main` con un brief di dieci righe, chiusa e archiviata quando la PR è unita. Mai un secondo compito nella stessa sessione.
