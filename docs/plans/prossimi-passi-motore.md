@@ -1,135 +1,83 @@
-# Prossimi passi del motore: cinque proposte
+# Prossimi passi del motore: difetti e sprechi misurati
 
-*Thread «Proporre i prossimi miglioramenti del motore», 24/10/2026, branch `claude/project-thread-5uicmc` da `main` 12d6f9d. Solo analisi, nessun codice e nessun calcolo nuovo. Fonti: `STATO.md`, `TASKS.md`, `tempi-motore.md`, `regole-motore.md`, `piano-motore-impatto.md`, `monotonia-budget.md`, `caccia-bug-motore.md`, `revisione-motore.md`, `ricerca-piano-critico.md`, `revisione-bibliografica.md` §4, la PR #173 e il codice di `probe.rs`, `search.rs`, `follow.rs` e `scripts/banco.py`.*
+*Thread «Proporre i prossimi miglioramenti del motore», 24/10/2026, branch `claude/project-thread-5uicmc`. Secondo giro: la prima lista (linee fortunate, dimezzamenti, verità v1, sonda nella ricerca, giudice) non convinceva Valerio ed è sostituita da questa, fatta girando il motore. CLI release di `main` 12d6f9d, 63 mani `quick` del banco congelato v1, un thread, `--top 10`, 4 mani alla volta su 4 core.*
 
-## In breve
-- **Dove va il tempo:** il turno di prova (la misura delle board) è l'82% del tempo, la ricerca vera il 14% (`tempi-motore.md`). Le idee sulla ricerca da sola valgono poco sul tempo.
-- **Dove va la qualità:** a 4000 nodi la ricerca arriva al 57-62% dell'oracolo (`piano-motore-impatto.md` §5), e la stima che la guida ordina le board con Spearman 0,57 contro la misura (`revisione-motore.md` §2). Le modifiche all'ordine con una costante uguale per tutti (B1a, B1c) sono fallite: il rumore è grande quanto l'effetto.
-- **Cosa blocca:** la verità v1 del banco non c'è, quindi ogni PR della misura (classe M, come la #173) la decide Valerio a mano.
-- **Consiglio:** i primi tre, in parallelo: non toccano gli stessi file caldi.
+## Cosa si è fatto girare
+| Giro | Cosa | Esito |
+|---|---|---|
+| H1 | 63 mani a 4000 nodi con `DUELFORGE_COPY_CHECK=1`, `DUELFORGE_CHECK_REUSE=1`, `DUELFORGE_SEARCH_STATS=1` | 0 copie diverse dal rigioco, 0 duelli riusati diversi da uno nuovo, 0 linee interrotte, 0 turni di prova falliti, 0 crash |
+| H2 | `banco.py run --set quick`: `main` contro `main` con l'Extra Deck del kit a 2 + 2 copie invece di 7 + 7 | tempo 0,918 (0,907-0,930), ma 59 uscite su 63 diverse |
+| H3 | le stesse 63 mani a 16 000 nodi, con le statistiche della ricerca | 18 mani meglio di oltre l'1%, 13 peggio, 32 pari |
 
-| # | Proposta | Cosa risolve | Guadagno atteso | Rischio | Classe | Taglia |
-|---|---|---|---|---|---|---|
-| 1 | Linee fortunate: ogni linea rigiocata con altri ordini del mazzo | Linee che riescono solo con una pescata fortunata, mostrate come sicure | Ogni linea con pescate o scavi dice «riesce in X su 8» | Basso | E (opzione spenta di base), poi M se entra nel punteggio | M, 15-20 $ |
-| 2 | Misura a dimezzamenti fra le finaliste | Le 15 board finaliste misurate tutte per intero anche quando la #1 è già chiara | −15/−20% del tempo totale; più nodi a parità di tempo | Medio | R | M, 15-20 $ |
-| 3 | Verità v1 del banco | Le PR della misura non si possono giudicare in automatico | Sblocca ogni modifica della classe M | Basso | 0 (script e fixture) | M, 10-15 $ più 1-2 ore di CPU |
-| 4 | Sonda economica dentro la ricerca al posto dei giri di apprendimento | La bussola della ricerca (stima) è storta; i giri di apprendimento costano il 24% e alzano solo i valori delle carte | Il più grande sulla qualità: oracolo dal 57-62% verso il 70% a 4000 nodi | Alto | R | L, 25-35 $ |
-| 5 | Giudice più preciso e più rapido per la ricerca | Esperimenti bocciati che costano ore; effetti piccoli nascosti dal rumore | Metà della CPU sulle decisioni chiare; si vedono effetti del 2-3% | Basso | 0 (banco v2) | M, 10-15 $ |
+**Dove va il tempo oggi** (H2, lato `main`, 965 s per 63 mani): ricerca 34%, turno di prova 38%, il resto 29% (circa 4,4 s a mano: valori delle carte e avvio). Il profilo di `tempi-motore.md` (14% / 82%) era su mani più pesanti; sul banco la ricerca e i valori delle carte pesano molto di più.
 
-Le stime in dollari sono a occhio, sul consumo delle sessioni del 23-24/10 con compiti simili.
+**La macchina delle copie è sana.** H1 non trova nessun difetto nel rigioco, nelle copie del duello o nel riuso delle partite. I problemi veri stanno in cosa la ricerca sceglie di misurare e in quanto costa un nodo.
 
-## 1. Linee fortunate: rigiocare ogni linea con altri ordini del mazzo
-**Il difetto.** La ricerca gioca con un solo seme (`SearchConfig::seed`, di base 1): l'ordine del mazzo è fisso. Una linea che usa Pot of Extravagance, uno scavo o una pescata vede sempre le stesse carte, e l'app la mostra come se riuscisse sempre. È la priorità 8 di `revisione-motore.md` §7 e il PIANO lo chiede da sempre («una combo che dipende dalla fortuna riporta la sua probabilità di riuscita»), ma nel codice non c'è.
+## In breve: tre proposte
+| # | Proposta | Prova | Guadagno atteso | Classe | Taglia |
+|---|---|---|---|---|---|
+| 1 | Non buttare le board già trovate: scegliere cosa misurare con la misura, non con la stima | 13 mani su 63 peggiorano con 4 volte i nodi; in 11 la board migliore era già stata trovata e non è stata misurata | Via le cadute (fino a −36%); più board diverse misurate allo stesso costo | R | M, 20-25 $ |
+| 2 | Valori delle carte: calcolarli una volta per deck, non per seme, e dalle copie | 29% del tempo di ogni mano della CLI; la chiave della cache contiene il seme | −19/−29% sul banco e su ogni comando della CLI; prima ricerca più rapida nell'app | E | S-M, 10-15 $ |
+| 3 | Nodi più economici: il rigioco è il 72% del tempo delle discese | 1,5 ms a nodo, di cui 0,9 ms di rigioco; con 16 000 nodi 7 mani salgono di oltre il 50% | Con il rigioco dimezzato, circa 1,5 volte i nodi a parità di tempo | E | M, 20 $ |
 
-**La proposta.**
-- Dopo la ricerca, le prime board si rigiocano con 8 semi diversi, con `follow.rs`, che ritrova ogni risposta da ciò che fa e non dal suo posto nella lista.
-- Per ogni linea: in quanti semi arriva alla stessa board, o a una del valore almeno uguale. Le linee senza eventi casuali danno 8 su 8 senza rigiocare niente: basta sapere se la linea ha pescato o scavato.
-- Prima solo da mostrare (scheda della board, `combos --seeds 8`); se pesarlo nel punteggio si decide dopo, con i numeri.
+Consiglio: la 1 per prima (è il difetto che l'utente vede: più tempo, board peggiore), poi la 2 (piccola ed esatta), poi la 3.
 
-**Guadagno.** Nessuna linea fortunata mostrata come sicura. Il primo numero da contare: quante board #1 del banco hanno almeno un evento casuale.
+## 1. Non buttare le board già trovate
+**Il difetto.** Con un thread la ricerca è deterministica: una ricerca a 16 000 nodi passa per gli stessi primi 4000 nodi di una a 4000 e trova le stesse board. Eppure in 13 mani su 63 la migliore misurata a 16 000 nodi vale meno di quella a 4000. In 11 di queste la board migliore di 4000 nodi ha una stima più bassa di tutte le 10 board misurate a 16 000: era stata trovata, ma è uscita dalle 10 da misurare, scalzata da board che la stima giudica meglio e la misura peggio.
 
-**Rischio.** Basso: la ricerca e la misura non cambiano. Costo: un rigioco per seme e linea, pochi decimi di secondo con le copie del duello.
+| Mano | 4000 nodi | 16 000 nodi | |
+|---|---:|---:|---:|
+| fresh.fur_hire_gmx.0 | 1,96 | 1,26 | −36% |
+| fresh.magnet_warrior.0 | 0,48 | 0,35 | −27% |
+| tuning.ancient_gear.0 | 0,49 | 0,37 | −24% |
+| tuning.vampire.0 | 1,91 | 1,46 | −24% |
 
-**Validazione.** Classe E con l'opzione spenta (`banco.py same`, 193 uscite uguali); se un giorno entra nel punteggio, classe M. Il contratto cambia (`lib.rs`, `api.ts`, `mock.ts`, fixture), quindi due file caldi.
-
-## 2. Misura a dimezzamenti fra le finaliste
-**Lo spreco.** Oggi la scala di B14 misura per intero le 15 migliori della misura economica: tutte le finestre, i breaker, il turno dopo. La misura delle finaliste è circa metà del tempo (45,6% nel profilo di `tempi-motore.md`), anche quando dopo poche finestre la #1 è già lontana dalle altre.
-
-**La proposta.** Dimezzamenti successivi (Sequential Halving, Karnin et al. 2013; la stessa idea è alla radice di Gumbel MuZero, già in `revisione-bibliografica.md` G3.12):
-- tutte le 15 ricevono un pezzo di misura in più (per esempio le finestre 3-8); si tengono le migliori 8;
-- le 8 ricevono il pezzo dopo (finestre 9-12); si tengono 4;
-- solo le ultime 4 hanno la misura completa, con i breaker e il turno dopo.
-Ogni gradino riprende da quello prima, come già fa B14 (`measure_cheap` e `Partial`): nessuna corsa si rigioca. Le board escluse restano in lista con la misura che hanno, segnate come parziali.
-
-**Guadagno.** Circa −30/−40% della misura delle finaliste, quindi −15/−20% del tempo totale. Il tempo risparmiato vale di più dei nodi: sul banco, passare da 2000 a 4000 nodi alza il valore medio del 10,7% con solo +17% di tempo (`regole-motore.md` §6). Rende anche meno cara la monotonia nel budget (`combos --checkpoints` costava +91%, tutto nei turni di prova).
-
-**Rischio.** Medio: in qualche mano la #1 vera può uscire a un dimezzamento. Si tarano le dimensioni dei gradini sulle mani di taratura e si provano sui freschi.
-
-**Validazione.** Classe R, `banco.py judge` sul set `full`; in più, la #1 uguale alla scala di oggi in almeno il 95% delle mani.
-
-**Prova veloce nello stesso thread (facoltativa).** L'Extra Deck del kit ha 7 Flame Swordsman e 7 Gaia Saber (`GENERIC_EXTRA` in `probe.rs`), e il motore controlla l'Evocazione di ognuna a ogni azione dell'avversario: è la decisione più cara nel profilo (3,75 s su 12,2 s di `advance`). Con 2 + 2 copie, se `banco.py same` dà 193 uscite uguali è un guadagno gratis di classe E; se no si lascia, perché tocca la misura. Da coordinare con l'ottavo task della corsia 4, che lavora sull'Extra Deck del kit.
-
-## 3. Verità v1 del banco
-**Cosa blocca.** `regole-motore.md` §4 e §7: una PR della misura si giudica con le coppie di board nell'ordine giusto rispetto alla verità (il livello 2 contro i deck più giocati). La verità del banco congelato non è stata costruita, quindi la PR #173 e tutte le prossime di classe M (pesi, kit, D11, D16) non si possono unire in automatico.
-
-**La proposta.** Come scritto nelle regole: le linee di 5 board per deck del banco (63 deck, 315 board) e il loro livello 2 contro i deck più giocati, con le loro linee congelate insieme, committati in `tests/fixtures/banco-motore/v1/verita/`; poi `banco.py judge --measure-cli` calcola le coppie e il test di McNemar.
-
-**Guadagno.** Ogni modifica della misura ha un giudice automatico, in minuti invece che in ore. Si sa finalmente se la misura economica e quella completa si avvicinano alla verità.
-
-**Rischio.** Basso: nessun codice del motore. L'unico punto delicato è scegliere gli avversari (6 come la tabella delle tech, non 3) e congelarne le linee, perché le liste di Master Duel Meta cambiano ogni giorno.
-
-**Validazione.** Classe 0. Controlli: rimisurare la verità con la CLI di `main` dà le stesse coppie; la scala di oggi contro quella di prima del 24/10 rifà, sulle coppie, il verso del risultato dei pesi §7.
-
-**Costo.** Il livello 2 costa circa 38 s a board prima delle copie e il 42% in meno con le copie: per 315 board e 6 avversari, circa 1-2 ore su 4 core, in background o con `bench.yml`.
-
-## 4. Sonda economica dentro la ricerca
-**Il difetto.** Ogni 1500 nodi la ricerca misura per intero le 2 board migliori non ancora misurate e alza i valori delle carte (`learn` in `search.rs`). Questi giri costano il 24% del tempo (11,5% durante, 13% alla fine) e correggono la bussola solo di lato. `revisione-motore.md` §2.2 e §8 li mette fra le cose da fermare; B1c ha mostrato che serve un segnale che venga dalla mano stessa, non una costante uguale per tutti.
-
-**La proposta** (`revisione-motore.md` §7, priorità 3; è B10 riformulato):
-- a ogni giro, la misura economica (2 finestre per risposta) su 10-20 board nuove, non la completa su 2;
-- la differenza con segno fra misura e stima corregge la priorità delle risposte lasciate in coda da quelle linee;
-- le board da misurare alla fine si scelgono anche da queste misure, non solo dalla stima.
-
-**Guadagno.** Il più grande sulla qualità: l'obiettivo della revisione è Spearman fra stima e misura da 0,57 a 0,75 e la #1 vera fra le prime 15 nel 95% delle mani. Sul tempo, a pari CPU spesa nei giri.
-
-**Rischio.** Alto: cambia il cuore di `search.rs` (file caldo) e l'ordine della coda, che a 4000 nodi è caotico. Meglio dopo la 5, che rende visibile un effetto piccolo. B11 (novità prima, Lipovetzky & Geffner 2017) resta l'alternativa da provare dopo, con la stessa misura.
-
-**Validazione.** Classe R, `banco.py judge` sul set `full`, più l'oracolo a 4000 nodi con le fixture ricalcolate con la misura di oggi.
-
-## 5. Giudice più preciso e più rapido per la ricerca
-**Lo spreco.** Le modifiche della ricerca bocciate del 23-24/10 (B1a, B1c, B2, B3, punto 3 della caccia) sono costate ore di CPU ciascuna (B1c circa 4 ore), e una costante cambiata a caso sposta oltre l'1% fra 34 e 40 mani su 91. Inoltre ogni mano del banco è un processo nuovo che ricalcola i valori delle carte (3-4 s, il 14% del tempo dei banchi), uguali per le 3 mani dello stesso deck.
-
-**La proposta** (banco `v2`, in una PR a parte come chiedono le regole):
-- **più ordini del mazzo per mano** (per esempio 3 semi) e il valore di una mano come media: il rumore dell'ordine della coda scende senza mani nuove;
-- **arresto anticipato** come in fishtest (test sequenziale, SPRT): le mani girano in ordine casuale e il giro si ferma quando il verdetto è certo; per la classe E, alla prima uscita diversa;
-- **una CLI per deck invece che per mano**: i valori delle carte si calcolano una volta per deck e restano in memoria nello stesso processo, come già nell'app. Niente su disco, quindi la decisione di Valerio sui valori delle carte resta.
-
-**Guadagno.** Circa metà della CPU sulle modifiche chiaramente buone o cattive; −9% del tempo di ogni giro per i valori delle carte; si vedono effetti del 2-3%, che oggi il rumore nasconde.
-
-**Rischio.** Basso, ma le soglie vanno ritarate (come al §6 delle regole: `main` contro `main`, 2000 contro 4000 nodi) prima del primo verdetto.
-
-**Validazione.** Classe 0: la taratura del §6 di `regole-motore.md` rifatta su `v2`.
-
-## Già in corso o chiuse (non riproposte)
-- Selezioni che girano (tecnica 3 di `tempi-motore.md`): PR #173 aperta, classe M, aspetta la decisione di Valerio o la verità v1.
-- Deck lenti e tetto Lua (corsia 2), etichette nel turno di prova (decimo task), Extra Deck del kit contro A1b (ottavo task).
-- Valori delle carte su disco: respinti da Valerio. L2-3 di default: respinto, resta a richiesta.
-- B1a, B1c, B2, B2b, B3, tabella a penalità minima, punto 3 della caccia, kit concatenato, stima lineare: misurati e non tenuti.
-- Monotonia con `--checkpoints`: c'è, spenta di base; diventa più economica con la 2.
-
-## Brief dei primi tre
+**Riproduzione.**
 ```
-Compito: combos --seeds N: le prime board si rigiocano con N ordini del mazzo (follow.rs); per ogni linea «riesce in X su N», poi nella scheda della board
-Perché: docs/plans/prossimi-passi-motore.md §1; revisione-motore.md §7 priorità 8; PIANO, eventi casuali
-Branch: claude/lucky-lines, da main
-File da toccare: crates/ygo-solver/src/follow.rs, crates/ygo-cli/src/main.rs; poi lib.rs, api.ts, mock.ts, fixture (caldi: lock in TASKS.md) e la scheda della board
-Da leggere: docs/STATO.md, regole-motore.md, follow.rs
-Verifica: cargo test; banco.py same sul set full con l'opzione spenta; conteggio delle #1 del banco con eventi casuali; pnpm typecheck e build; screenshot nei due temi
-Criterio di accettazione: 193 uscite uguali senza --seeds; una linea senza eventi casuali dà N su N senza rigiocare; una con Pot of Extravagance dà meno di N su un deck di prova
-PR: template, classe E; Modello: Opus 5.5 alto per follow.rs, Sonnet medio per l'interfaccia
-```
-```
-Compito: la misura delle 15 finaliste a dimezzamenti (15 → 8 → 4), ogni gradino ripreso dal precedente con Partial
-Perché: docs/plans/prossimi-passi-motore.md §2; tempi-motore.md (misura delle finaliste 45,6%)
-Branch: claude/halving-measure, da main
-File da toccare: crates/ygo-solver/src/probe.rs (caldo), crates/ygo-cli/src/main.rs (combos --staged), apps/desktop/src-tauri/src/lib.rs (combo_score; caldo)
-Da leggere: docs/STATO.md, regole-motore.md, velocita-ricerca.md «B14»
-Verifica: banco.py run --set full e judge, in background; #1 uguale alla scala di oggi; tempo new/old in summary.txt
-Criterio di accettazione: ACCEPTED; #1 uguale in almeno il 95% delle mani; tempo almeno −15%
-PR: template, classe R; Modello: Opus 5.5 alto
-```
-```
-Compito: costruire la verità v1 del banco: linee di 5 board per deck e livello 2 contro 6 avversari congelati, in tests/fixtures/banco-motore/v1/verita/; McNemar in banco.py judge --measure-cli
-Perché: docs/plans/prossimi-passi-motore.md §3; regole-motore.md §4 e §7
-Branch: claude/banco-truth, da main
-File da toccare: scripts/banco.py, scripts/objective_bench.py, tests/fixtures/banco-motore/v1/verita/
-Da leggere: docs/STATO.md, regole-motore.md, banco-oggettivo.md
-Verifica: il giro in background (1-2 ore su 4 core) con summary.txt; rimisurare con la CLI di main dà le stesse coppie; la PR #173 giudicata con la verità
-Criterio di accettazione: 315 board con verità; judge --measure-cli dà un verdetto senza intervento; controlli verdi
-PR: template, classe 0; Modello: Sonnet 5.5 medio (Opus alto per la scelta degli avversari)
+duelforge-cli combos --deck tests/fixtures/banco-motore/v1/decks/fresh/fur_hire_gmx.ydk \
+  --hand '47325505;10045474;23434538;47647354;29927283' --seed 1 --threads 1 --top 10 --nodes 4000   # poi --nodes 16000
 ```
 
-## Fonti nuove
-- Karnin, Koren, Somekh, *Almost Optimal Exploration in Multi-Armed Bandits*, ICML 2013 ([PDF](https://proceedings.mlr.press/v28/karnin13.html)): Sequential Halving, già citato in `ricerca-letteratura.md` n. 48.
-- Fishtest, [FAQ](https://github.com/official-stockfish/fishtest/wiki/Fishtest-faq) e [SPRT su chessprogramming](https://chessprogramming.org/Sequential_Probability_Ratio_Test): test sequenziale per accettare le patch di Stockfish.
-- Lipovetzky & Geffner 2017, best-first width search; seguiti in [Corrêa & Seipp, ICAPS 2025](https://ai.dmi.unibas.ch/papers/correa-seipp-icaps2025.pdf) e [Approximate Novelty Search](https://arxiv.org/pdf/2105.07691).
+**Uno spreco nello stesso punto.** Fra le 10 board misurate, il 6-8% ha gli stessi mostri di un'altra (solo le zone cambiano), e in alcune mani la metà: Vaalmonica 4 campi diversi su 10, Lunalight, Zoodiac e Railway 5 su 10.
+
+**La proposta** (generale, nessuna carta per nome):
+- le candidate alla misura si scelgono con la misura economica su un insieme più largo, raccolto lungo tutta la ricerca (non solo le prime per stima alla fine), come chiede `revisione-motore.md` §2.2 punto 4;
+- una board misurata resta in classifica con il suo valore: una board nuova la supera solo con una misura migliore (è la monotonia, ma senza misurare di nuovo a ogni punto di controllo, che costava +91%);
+- al massimo una board per insieme di mostri fra le misurate per intero; le altre varianti di zona solo se la prima vince.
+
+**Guadagno.** Le 13 cadute spariscono per costruzione nelle mani dove la board era già trovata; le misure tolte alle varianti vanno a board diverse. **Rischio:** medio, la misura economica costa: il numero di candidate va tarato sul tempo (oggi la misura è il 38%). **Validazione:** classe R, `banco.py judge --set full`, più il confronto 4000/16 000 sulle 63 mani (cadute da 13 a 0-2).
+
+## 2. Valori delle carte: una volta per deck, dalle copie
+**Lo spreco.** Ogni mano della CLI passa circa 4,4 s fuori dalla ricerca e dal turno di prova (29% del banco). Quasi tutto è `card_values` (`value.rs`): un turno di prova per ogni carta e posto (Branded: 135 turni, 1,9 s su 4 core, circa 6 s su uno). La cache in memoria ha nella chiave anche il seme (`(&deck.main, &deck.extra, seed, hand_traps)`), quindi le 3 mani dello stesso deck del banco (semi 1, 2 e 3) li ricalcolano tre volte, e lo stesso succede nell'app a ogni seme diverso.
+
+**La proposta** (dal vivo, niente su disco):
+- verificare che i valori non dipendano dal seme (stessi valori con i semi 1-5 su 20 deck); se è così, il seme esce dalla chiave e i valori si calcolano una volta per deck nello stesso processo;
+- i turni di prova delle carte piazzate partono da una copia del duello con il campo vuoto (arena di B13), invece che da un duello nuovo per carta.
+
+**Guadagno.** Con la sola chiave senza seme, −19% sul banco (2 calcoli su 3 tolti) e su ogni comando che gira più mani dello stesso deck (`engine-mc`, `coverage`, `tech-table`); con le copie, fino a −29%. **Rischio:** basso. **Validazione:** classe E, `banco.py same` sul set `full`: 193 uscite uguali.
+
+## 3. Nodi più economici
+**Lo spreco.** Nel giro a 16 000 nodi (847 582 nodi, 1254 s di ricerca) un nodo costa 1,5 ms; 0,9 ms sono rigioco, cioè il 72% del tempo delle discese. I giri di apprendimento sono il 10%. Oggi le copie si fanno solo dove una linea finisce, perché farle lungo la strada era risultato più lento (`velocita-ricerca.md`, B13, su linee più corte).
+
+**Perché conta.** Le board che si perdono a 4000 nodi stanno in fondo a linee lunghe: nelle mani che migliorano a 16 000 nodi la linea migliore ha 41 scelte (31 nelle altre) e arriva tardi (mediana al nodo 11 814). Sette mani salgono di oltre il 50%: Fiendsmith Unchained 0,44 → 1,28, Rokket 0,57 → 1,60, Paleozoic 0,55 → 1,40, Radiant Typhoon Zoodiac 0,29 → 0,72, Live☆Twin, Code Talker e Shaddoll da +49% a +67%. Sul banco, passare da 2000 a 4000 nodi alza il valore medio del 10,7% con +17% di tempo (`regole-motore.md` §6).
+
+**La proposta.** Riprovare le copie lungo la strada solo dove rendono: ogni k scelte nelle linee oltre le 20, con il contatore del rigioco per profondità prima e dopo. È esatta per costruzione (le copie rimettono tutto il duello).
+
+**Guadagno.** Con il rigioco dimezzato la ricerca scende di circa un terzo: circa 1,5 volte i nodi nello stesso tempo, quindi più board nelle mani dalle combo lunghe. **Rischio:** basso sulle uscite, medio sul guadagno (va misurato). **Validazione:** classe E, `banco.py same` e tempo new/old.
+
+**Riproduzione.**
+```
+DUELFORGE_SEARCH_STATS=1 duelforge-cli combos --deck tests/fixtures/banco-motore/v1/decks/fresh/fiendsmith_unchained.ydk \
+  --hand '94145021;53624265;27412542;41165831;67803035' --seed 1 --threads 1 --top 10 --nodes 16000
+```
+
+## Altre cose trovate
+- **Extra Deck del kit 7 + 7 → 2 + 2** (H2): −8% di tempo, ma cambia 59 uscite su 63, anche la ricerca (attraverso i valori delle carte). Non è un guadagno gratis: è una modifica della misura (classe M), da giudicare solo con la verità v1.
+- **Stesso schema del difetto della #173 in `crates/ygo-engine/src/auto.rs:210`**: `&actions[..selectable.len()]` presume una risposta per carta, ma la lista offre le copie una volta sola. Oggi non fa danni (la scelta di ripiego è la prima risposta, sempre una carta vera); da correggere insieme alla #173 per non lasciare la trappola.
+- **Ordine della ricerca.** Sulla linea migliore, la risposta giusta è la prima provata nel 76,5% dei passi e oltre la terza nell'8%; le deviazioni nei primi 5 passi sono tante nelle mani che migliorano quanto nelle altre. Il distacco non sta nell'ordine ma nel budget e nella scelta delle board da misurare: per questo B1a e B1c non rendevano.
+- **Già visti** (stessi numeri del 24/10, nessuna proposta nuova): il 27,7% dei nodi finisce su uno stato già visto, il 23,8% non cambia niente di visibile, 10 582 risposte tolte come bersagli nascosti (`velocita-ricerca.md`, B2 e B2b).
+
+## Fonti
+- Determinismo con un thread e cadute fra budget: `monotonia-budget.md`, `caccia-bug-motore.md` punto 1.
+- Scegliere le board da misurare con la misura economica: `revisione-motore.md` §2.2.
+- Copie del duello e tetto: `velocita-ricerca.md`, B13.
