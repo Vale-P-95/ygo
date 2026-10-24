@@ -181,8 +181,8 @@ def batches(cli):
 
 
 def run_deck(cli, cases, rules, out, lines, jobs, nodes=None):
-    """The hands of one deck in one `combos --cases` run: the engine and the
-    card values are loaded once. Each hand gets its own files, as with run_one,
+    """The hands of one deck in one `combos --cases` run: the engine is
+    loaded once. Each hand gets its own files, as with run_one,
     and its own time from the run (the first one also pays for the loading)."""
     listing = os.path.join(out, cases[0]["id"] + ".cases.tsv")
     with open(listing, "w") as f:

@@ -104,5 +104,12 @@ Le fonti per 2, 4 e 5 sono in `revisione-bibliografica-2.md` §4.4 (Jinnai & Fuk
 - **Respinta la tecnica 4.** Decisione di Valerio: il motore valuta sul momento, e in modo indipendente dal meta, le linee più forti da una mano o da una carta. Niente salvato su disco fra un avvio e l'altro, come per le linee precalcolate (`coordinamento.md`, `progetto-claude.md`).
 - **Cosa resta possibile.** I valori in memoria nello stesso processo, come già nell'app; per i banchi, una CLI che giochi tutte le mani di un deck in un solo processo (`prossimi-passi-motore.md`).
 
+## Valori delle carte una volta per deck (24/10, classe E)
+- **I valori dipendono dal seme.** `card-values` con i semi 1, 2 e 3 sui 63 deck del banco: in 49 deck cambiano da 2 a 14 voci su 200-350 (Maxx "C" in Code Talker vale 0 col seme 1 e 0,09 col seme 2; alcune voci esistono solo con un seme, perché il turno di prova fallisce). Il calcolo è deterministico; i handtrap trovati sono gli stessi con i tre semi. Calcolarli una volta per deck con uscite identiche quindi non si può.
+- **Provato il seme fisso** (valori col seme 1, come la Fucina e il Combo Lab dell'app): tempo del banco ×0,76 (0,737-0,782), ma 16 mani su 193 cambiano, tutte con seme 2 o 3, e `judge` dice REJECTED: 3 meglio, 7 peggio, 5 mani oltre −5% (Branded, Code Talker, Mitsurugi Yummy ×2, HERO). Non tenuto.
+- **Tenuto: una CLI per deck.** `combos --cases <file>` gioca più mani dello stesso deck in un processo (riga: id, seme, mano, JSON, linee); il motore si carica una volta, i valori restano nella cache in memoria per seme (nessun file su disco). `banco.py run` usa un processo per deck quando la CLI lo sa fare (lo chiede a `combos --help`) e dà a ogni mano il suo tempo (la prima paga anche il caricamento); con la CLI di `main` gioca una mano per processo come prima. Con `--shard` i runner si dividono i deck, non le mani.
+- **Banco:** `banco.py same`, set `full`: 193 mani, 0 uscite diverse, ACCEPTED; tempo ×0,969 (0,954-0,981).
+- **Cosa resta.** Il −24% c'è solo se le mani di un deck condividono i valori, cioè con un banco `v2` che abbia lo stesso seme per le mani di un deck o i valori di un seme fisso, giudicato come R con la taratura del §6 di `regole-motore.md` (proposta 5 di `prossimi-passi-motore.md`).
+
 ## Prossimo passo
 La 5 (memoria delle corse, −4%, classe E); per l'app la 7 (misura finale delle 10 board su più thread). La 4 non si fa (decisione sopra). Il taglio dei giri resta come rete di sicurezza: su 63 mani non scatta più.

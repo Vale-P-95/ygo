@@ -66,6 +66,7 @@ Misurato il 24/10 nel contenitore cloud (4 core): mediana di 16 s per mano a 400
 python3 scripts/banco.py check
 python3 scripts/banco.py run $S/banco --old <cli di main> --new <cli del branch> --set full --jobs 4
 python3 scripts/banco.py same $S/banco             # classe E
+# con una CLI che ha `combos --cases`, run gioca le mani di un deck in un processo; con quella di main, una mano per processo
 python3 scripts/banco.py judge $S/banco            # classe R
 python3 scripts/banco.py run $S/banco ... --measure-cli <cli del branch>; python3 scripts/banco.py judge $S/banco --measure-cli <cli del branch>   # classe M
 ```
