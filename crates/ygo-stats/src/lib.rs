@@ -10,6 +10,7 @@ pub mod optimize;
 pub mod overview;
 pub mod prefs;
 pub mod sim;
+pub mod special;
 
 pub use cond::{Cond, Op, Target};
 pub use exact::{probability, CardEntry, DeckModel, ExactError};
@@ -18,6 +19,7 @@ pub use optimize::{heatmap, optimize, sensitivity, size_curve, Heatmap, Optimize
 pub use overview::{overview, Overview};
 pub use prefs::{learn_weights, Choice, Learned};
 pub use sim::{simulate, CardRule, Checkpoint, Effect, SimConfig, SimResult};
+pub use special::{special, Facts, Mechanism, SpecialInput, SpecialReport};
 
 /// Role keys the app knows by name; any other key is a custom role.
 pub mod roles {

@@ -610,7 +610,7 @@ impl Kit {
         for (name, copies) in GENERIC_EXTRA {
             extra.extend(code(name).into_iter().flat_map(|c| std::iter::repeat_n(c, copies)));
         }
-        Kit { opponent: Opponent { hand, deck, extra }, steps, breakers, counters, removals, script: None }
+        Kit { opponent: Opponent { hand, deck, extra, placed: Vec::new() }, steps, breakers, counters, removals, script: None }
     }
 
     /// The opponent's cards: give them to the search too
@@ -715,7 +715,7 @@ impl Kit {
             })
             .collect();
         Kit {
-            opponent: Opponent { hand: line.hand.clone(), deck: main, extra: rival.extra.clone() },
+            opponent: Opponent { hand: line.hand.clone(), deck: main, extra: rival.extra.clone(), placed: Vec::new() },
             steps,
             breakers: Vec::new(),
             counters: Vec::new(),

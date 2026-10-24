@@ -197,6 +197,70 @@ export interface LabOverview {
   opponent: number[];
 }
 
+/** Which cards a search finds or a cost takes (`ygo_stats::special::Filter`). */
+export interface SpecialFilter {
+  kind?: "monster" | "spell" | "trap" | null;
+  race?: string | null;
+  attribute?: string | null;
+  maxLevel?: number | null;
+}
+
+/** How a card changes what a hand reaches (`ygo_stats::Mechanism`). */
+export type SpecialMechanism =
+  | { type: "draw"; n: number; banishTop: number; minExtra: number }
+  | { type: "excavate"; n: number[]; banishExtra: boolean }
+  | { type: "drawThenBanish"; n: number; cost: SpecialFilter }
+  | { type: "bridge"; share: number }
+  | { type: "search"; filter: SpecialFilter }
+  | { type: "revealSearch"; reveal: string[]; putBack: number };
+
+/** A path of a bridge: `from` in hand, `via` banished from the Deck, `to` added. */
+export interface SpecialChain {
+  from: number;
+  via: number;
+  to: number;
+}
+
+/** Mirrors `ygo_stats::special::SpecialResult`. */
+export interface SpecialResult {
+  id: number;
+  copies: number;
+  mechanism: SpecialMechanism;
+  /** Chance to open the card. */
+  open: number;
+  /** Chance to have the target in hand, or to reach it with this card. */
+  with: number;
+  /** One per number of cards the player can choose to excavate. */
+  variants: { n: number; with: number }[];
+  /** Without the target in hand: chance that the cost banishes a copy of it. */
+  banishRisk: number | null;
+  /** With the card in hand: chance that its cost cannot be paid and the hand is lost. */
+  loseHand: number | null;
+  /** Copies in the Main Deck that pay the cost. */
+  payers: number | null;
+  /** Why the card cannot resolve in this deck. */
+  blocked: string | null;
+  chains: SpecialChain[];
+  /** Cards it adds from the Deck, or that reach the target through a bridge. */
+  links: number[];
+}
+
+/** Mirrors `ygo_stats::SpecialReport`. */
+export interface SpecialReport {
+  /** Chance to open the target, without any special card. */
+  base: number;
+  targetCopies: number;
+  size: number;
+  cards: SpecialResult[];
+}
+
+/** A card the lab knows, by passcode. */
+export interface SpecialKnown {
+  id: number;
+  name: string;
+  mechanism: SpecialMechanism;
+}
+
 /** Simulator rules for one card (`ygo_stats::CardRule`). */
 export type SimEffect = { type: "draw"; n: number; banishTop: number } | { type: "excavate"; n: number } | { type: "search"; targets: number[] };
 export interface SimRule {
@@ -555,6 +619,56 @@ export interface ComboMetaDeck {
   left: number | null;
 }
 
+/**
+ * Laboratorio, "Contro il meta" (mirrors `TechTableView`): each handtrap of the deck's Main and Side against the best
+ * lines of the decks of the meta played the most, played again by the engine with it in your hand.
+ */
+export interface TechTable {
+  deckId: number;
+  decks: TechDeck[];
+  /** The handtrap that takes the most first (`lost`). */
+  rows: TechRow[];
+}
+
+/** A deck of the meta in the tech table (mirrors `TechDeckView`). */
+export interface TechDeck {
+  name: string;
+  /** Its `popRank` on Master Duel Meta: share of the ranked top decks, in %. */
+  weight: number;
+  /** Lines found, and those that play as found with no handtrap used: only these are counted. */
+  lines: number;
+  measured: number;
+}
+
+/** One of your handtraps against the meta (mirrors `TechRowView`). */
+export interface TechRow {
+  code: number;
+  /** Copies in the Main and in the Side Deck. */
+  main: number;
+  side: number;
+  /** Chance of at least one among the 5 cards you hold in the opponent's first turn, with the Main Deck as it is. */
+  chance: number;
+  /** Share of the meta's lines it stops (changes the field or hand they end with), 0-1, each deck weighed by its `weight`. */
+  value: number;
+  /** The same weighed share of the field and hand the lines end with that it takes at its best moment (0-1): rows are ordered by it. */
+  lost: number;
+  /** Against each deck of `TechTable.decks`, in its order. */
+  perDeck: TechAgainst[];
+  /** Moves of a line played before it stops it, averaged over the lines it stops; `null` when it stops none. */
+  step: number | null;
+  /** Cards of the lines it answers when it stops them, with how many lines, the most often first. */
+  at: { code: number; lines: number }[];
+}
+
+/** A handtrap against one deck of the meta (mirrors `TechAgainstView`). */
+export interface TechAgainst {
+  /** Lines counted where the engine lets you use it, and those it stops. */
+  usable: number;
+  stopped: number;
+  /** Share of the field and hand the deck's lines end with that it takes, averaged over the lines counted. */
+  lost: number;
+}
+
 /** A card of the board that interrupts, against removals aimed at it with only its own effects to answer (mirrors `PieceView`). */
 export interface ComboPiece {
   code: number;
@@ -881,6 +995,10 @@ const tauriApi = {
   labOverview: (main: number[], roles: Record<string, number[]>) => invoke<LabOverview>("lab_overview", { main, roles }),
   labProbability: (main: number[], roles: Record<string, number[]>, cond: Cond, hand: number) =>
     invoke<{ p: number | null; error: string | null }>("lab_probability", { main, roles, cond, hand }),
+  /** Laboratorio, "Carte speciali": how the deck's draw spells, excavators, bridges and searches change the chance of reaching `target`. */
+  labSpecial: (main: number[], extra: number[], roles: Record<string, number[]>, target: LabTarget, hand: number) =>
+    invoke<SpecialReport>("lab_special", { main, extra, roles, target, hand }),
+  labSpecialKnown: () => invoke<SpecialKnown[]>("lab_special_known"),
   setDeckRoles: (id: number, roles: Record<string, number[]>) => invoke<void>("set_deck_roles", { id, roles }),
   guessDeckRoles: (id: number) => invoke<RoleGuess[]>("guess_deck_roles", { id }),
   onRolesProgress: (handler: (p: { done: number; total: number }) => void): Promise<UnlistenFn> =>
@@ -935,6 +1053,11 @@ const tauriApi = {
   boardProtection: (hand: number, key: string) => invoke<ComboPiece[]>("board_protection", { hand, key }),
   /** Level 2 against the meta's most played decks (L2-3): takes about a minute the first time, then ~20s a board. */
   comboMeta: (boards?: { hand: number; key: string }[]) => invoke<number>("combo_meta", { boards: boards ?? null }),
+  /**
+   * Laboratorio, "Contro il meta": the deck's handtraps against the lines of the 6 decks of the meta played the most.
+   * Reading the meta's lines takes a few minutes the first time in a session, then about half a minute a deck.
+   */
+  techTable: (deckId: number) => invoke<TechTable>("tech_table", { deckId }),
   onComboProgress: (handler: (p: ComboProgress) => void): Promise<UnlistenFn> => listen<ComboProgress>("combo-progress", (e) => handler(e.payload)),
   /** Laboratorio, "Collegamenti": the map of a deck, read by the engine (about half a minute the first time, then kept until its cards change). */
   deckLinks: (deckId: number) => invoke<DeckLinks>("deck_links", { deckId }),
