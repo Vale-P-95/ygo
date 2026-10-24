@@ -2,15 +2,17 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AlertTriangle, ArrowLeftRight, Check, RefreshCw, Sparkles, X } from "lucide-react";
 import { BoardCompareModal } from "../components/combo/BoardCompareModal";
 import { BoardDetail } from "../components/combo/BoardDetail";
+import { GoalEditor } from "../components/combo/GoalEditor";
 import { BoardStrip, CardImage } from "../components/combo/Field";
 import { plural, ScoreBar, WeightsPanel } from "../components/combo/Score";
 import { CardPreview } from "../components/CardPreview";
 import { CardTile } from "../components/CardTile";
 import { DeckMenu } from "../components/DeckMenu";
 import { SectionHeader } from "../components/SectionHeader";
-import { api, type ComboBoard, type ComboGoal, type ComboHand, type ComboScore, type ComboStep, type GoalCard, type GoalZone, type Deck, type DeckSummary, type ZoneCard } from "../lib/api";
+import { api, type ComboBoard, type ComboGoal, type ComboHand, type ComboScore, type ComboStep, type GoalCard, type Deck, type DeckSummary, type ZoneCard } from "../lib/api";
 import { useCardCache } from "../lib/cards";
 import { clearMetaError, compareMeta, continueCombo, scoreBoards, startCombo, stopCombo, useCombo } from "../lib/combo";
+import { describeGoal, goalCards, isHard, reaches } from "../lib/goal";
 import { dominates, isCheap, score, useWeights } from "../lib/scoring";
 import { lastDeck, rememberDeck } from "../lib/deck";
 import { sound } from "../lib/sound";
@@ -75,18 +77,6 @@ function store(key: string, value: unknown) {
 const boardId = (b: ComboBoard) => `${b.hand}:${b.key}`;
 const pairKey = (id1: string, id2: string) => (id1 < id2 ? `${id1}<->${id2}` : `${id2}<->${id1}`);
 
-const ZONES: { zone: GoalZone; label: string; hint: string }[] = [
-  { zone: "any", label: "ovunque", hint: "in qualsiasi zona" },
-  { zone: "extra", label: "Zona Extra", hint: "nella Zona Mostri Extra" },
-  { zone: "main", label: "zona principale", hint: "in una Zona Mostri principale" },
-];
-
-/** A goal as saved before zones existed (plain codes) still loads. */
-function goalCards(saved: unknown): GoalCard[] {
-  if (!Array.isArray(saved)) return [];
-  return saved.map((g) => (typeof g === "number" ? { code: g, zone: "any" as GoalZone } : (g as GoalCard)));
-}
-
 /**
  * What the player sees of a board: the field (with the Extra Monster Zone
  * apart, since some monsters work differently there) and the hand; the
@@ -99,9 +89,6 @@ function lookKey(b: ComboBoard): string {
 }
 
 const byRank = (a: ComboBoard, b: ComboBoard) => b.goalHits - a.goalHits || b.quickScore - a.quickScore || a.cardsUsed - b.cardsUsed || a.choices - b.choices;
-
-/** Whether a board has the goal's cards (all of them, or one). */
-const reaches = (b: ComboBoard, goal: ComboGoal | null) => !!goal && (goal.all ? b.goalHits >= goal.cards.length : b.goalHits > 0);
 
 function duration(ms: number): string {
   const s = Math.round(ms / 1000);
@@ -147,8 +134,7 @@ function GoalBanner(props: {
   onShow: (b: ComboBoard) => void;
 }) {
   const { goal, running, byCard, groups, hands, elapsedMs, name, onShow } = props;
-  const names = goal.cards.map((g) => `${name(g.code)}${g.zone === "extra" ? " (Zona Extra)" : g.zone === "main" ? " (zona principale)" : ""}`);
-  const wanted = names.length === 1 ? names[0] : goal.all ? names.join(" + ") : `una tra ${names.join(", ")}`;
+  const wanted = describeGoal(goal, name);
   const best = groups.map((g) => g.board).find((b) => reaches(b, goal));
   let tone = "border-border";
   let title: string;
@@ -206,7 +192,6 @@ export function Combo({ artReady, onGoForge }: { artReady: boolean; onGoForge: (
   const [steps, setSteps] = useState<ComboStep[] | null>(null);
   const [handFilter, setHandFilter] = useState<number | null>(null);
   const [hover, setHover] = useState<{ code: number; rect: DOMRect; el: HTMLElement } | null>(null);
-  const [picker, setPicker] = useState<"extra" | "main" | null>(null);
   const explained = useRef(new Map<string, ComboStep[]>());
   const run = useCombo();
   const { profile, weights } = useWeights();
@@ -251,7 +236,6 @@ export function Combo({ artReady, onGoForge }: { artReady: boolean; onGoForge: (
       clearMetaError();
       const saved = load(`duelforge.combo.${id}`, NO_SETUP);
       setSetupState({ ...saved, goal: goalCards(saved.goal) });
-      setPicker(null);
       request([...new Set([...d.main, ...d.extra])]);
     },
     [request],
@@ -270,7 +254,6 @@ export function Combo({ artReady, onGoForge }: { artReady: boolean; onGoForge: (
   }, [open]);
 
   const unique = useMemo(() => [...new Set(deck?.main ?? [])], [deck]);
-  const extraUnique = useMemo(() => [...new Set(deck?.extra ?? [])], [deck]);
   const copies = useMemo(() => {
     const m = new Map<number, number>();
     deck?.main.forEach((id) => m.set(id, (m.get(id) ?? 0) + 1));
@@ -528,13 +511,6 @@ export function Combo({ artReady, onGoForge }: { artReady: boolean; onGoForge: (
     }
   };
 
-  const addToGoal = (id: number) => {
-    const max = (deck?.main.filter((c) => c === id).length ?? 0) + (deck?.extra.filter((c) => c === id).length ?? 0);
-    if (setup.goal.filter((g) => g.code === id).length >= max || setup.goal.length >= 5) return sound.play("error");
-    sound.play("select");
-    setSetup((s) => ({ ...s, goal: [...s.goal, { code: id, zone: "any" }] }));
-  };
-
   const addToHand = (id: number) => {
     if (setup.mode === "card") {
       sound.play("select");
@@ -719,105 +695,17 @@ export function Combo({ artReady, onGoForge }: { artReady: boolean; onGoForge: (
               </section>
             )}
 
-            <section className="flex flex-col gap-2">
-              <div className="flex items-baseline justify-between">
-                <h3 className="text-sm font-semibold">Obiettivo</h3>
-                <span className="text-xs text-faint">facoltativo</span>
-              </div>
-              <p className="text-xs leading-relaxed text-faint">Carte da avere sul campo a fine turno: il motore cerca la linea che ci arriva, o prova che non esiste.</p>
-              {setup.goal.length > 0 && (
-                <div className="flex flex-wrap gap-1.5">
-                  {setup.goal.map(({ code: id, zone }, i) => (
-                    <span key={i} className="chip !py-0.5 !pl-1 text-xs" onPointerEnter={(e) => onHover(id, e.currentTarget)} onPointerLeave={onHoverEnd}>
-                      <CardImage code={id} card={cards.get(id)} className="h-[22px] w-[15px]" />
-                      <span className="max-w-32 truncate">{name(id)}</span>
-                      {extraUnique.includes(id) && (
-                        <button
-                          type="button"
-                          className={`rounded px-1.5 py-0.5 text-xs font-semibold ${zone === "any" ? "text-faint hover:text-text" : "bg-sec text-bg"}`}
-                          title={`Sul campo ${ZONES.find((z) => z.zone === zone)?.hint}: tocca per cambiare`}
-                          onClick={() => {
-                            sound.play("toggle");
-                            const next = ZONES[(ZONES.findIndex((z) => z.zone === zone) + 1) % ZONES.length].zone;
-                            setSetup((s) => ({ ...s, goal: s.goal.map((g, j) => (j === i ? { ...g, zone: next } : g)) }));
-                          }}
-                        >
-                          {ZONES.find((z) => z.zone === zone)?.label}
-                        </button>
-                      )}
-                      <button
-                        type="button"
-                        aria-label={`Togli ${name(id)} dall'obiettivo`}
-                        className="text-faint hover:text-danger"
-                        onClick={() => {
-                          sound.play("close");
-                          setSetup((s) => ({ ...s, goal: s.goal.filter((_, j) => j !== i) }));
-                        }}
-                      >
-                        ×
-                      </button>
-                    </span>
-                  ))}
-                </div>
-              )}
-              <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted">
-                {(
-                  [
-                    ["extra", "+ dall'Extra Deck"],
-                    ["main", "+ dal Main Deck"],
-                  ] as const
-                ).map(([where, label]) => (
-                  <button
-                    key={where}
-                    type="button"
-                    className={`chip !py-0.5 ${picker === where ? "chip-active" : ""}`}
-                    onClick={() => {
-                      sound.play(picker === where ? "close" : "open");
-                      setPicker((p) => (p === where ? null : where));
-                    }}
-                    aria-expanded={picker === where}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
-              {picker && (
-                <div className="grid grid-cols-6 gap-1 rounded-lg border border-border bg-bg-2 p-1.5 anim-fade">
-                  {(picker === "extra" ? extraUnique : unique).map((id) => (
-                    <button key={id} type="button" title={name(id)} onClick={() => addToGoal(id)} onPointerEnter={(e) => onHover(id, e.currentTarget)} onPointerLeave={onHoverEnd}>
-                      <CardImage code={id} card={cards.get(id)} className="aspect-[59/86] w-full" />
-                    </button>
-                  ))}
-                </div>
-              )}
-              {setup.goal.length > 1 && (
-                <div className="flex gap-1 self-start rounded-lg border border-border bg-bg-2 p-0.5 text-xs" role="radiogroup" aria-label="Quante carte dell'obiettivo">
-                  {(
-                    [
-                      [true, "tutte"],
-                      [false, "almeno una"],
-                    ] as const
-                  ).map(([all, label]) => (
-                    <button
-                      key={label}
-                      type="button"
-                      role="radio"
-                      aria-checked={setup.goalAll === all}
-                      onClick={() => setSetup((s) => ({ ...s, goalAll: all }))}
-                      className={`rounded-md px-2 py-0.5 font-semibold ${setup.goalAll === all ? "bg-sec text-bg" : "text-muted hover:text-text"}`}
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
-              )}
-              {setup.goal.length > 0 && (
-                <label className="flex items-center gap-2 text-xs text-muted">
-                  <input type="checkbox" className="accent-[var(--sec)]" checked={setup.goalFirst} onChange={(e) => setSetup((s) => ({ ...s, goalFirst: e.target.checked }))} />
-                  Fermati alla prima linea che ci arriva
-                </label>
-              )}
-            </section>
+            <GoalEditor
+              key={deck?.id}
+              value={{ cards: setup.goal, all: setup.goalAll, first: setup.goalFirst }}
+              onChange={(g) => setSetup((st) => ({ ...st, goal: g.cards, goalAll: g.all, goalFirst: g.first }))}
+              main={deck?.main ?? []}
+              extra={deck?.extra ?? []}
+              cards={cards}
+              name={name}
+              onHover={onHover}
+              onHoverEnd={onHoverEnd}
+            />
 
             <section className="flex flex-col gap-2">
               <div className="flex items-baseline justify-between">
@@ -1242,7 +1130,8 @@ export function Combo({ artReady, onGoForge }: { artReady: boolean; onGoForge: (
                           )}
                           {b.cardsUsed} carte · {b.choices} scelte
                         </span>
-                        {goal && (reaches(b, goal) ? <span className="text-[11px] font-semibold text-ok">✓ obiettivo</span> : <span className="text-[11px] text-faint">obiettivo {b.goalHits}/{goal.cards.length}</span>)}
+                        {goal && (reaches(b, goal) ? <span className="text-[11px] font-semibold text-ok">✓ obiettivo</span> : <span className="text-[11px] text-faint">obiettivo {b.goalHits}/{goal.cards.filter(isHard).length}</span>)}
+                        {goal && b.goalSoft > 0 && <span className="text-[11px] text-faint">+{b.goalSoft} {b.goalSoft === 1 ? "preferita" : "preferite"}</span>}
                         {variants > 0 && <span className="text-[11px] text-faint">+{variants} {variants === 1 ? "variante" : "varianti"}</span>}
                         {groups.length > 1 && (
                           <button
