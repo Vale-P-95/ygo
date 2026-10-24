@@ -125,7 +125,7 @@ impl Rival {
     fn replay_opponent(&self) -> Opponent {
         let standard = self.standard.opponent();
         let deck = self.main.iter().copied().cycle().take(standard.deck.len()).collect();
-        Opponent { hand: self.hand_traps.clone(), deck, extra: standard.extra.clone() }
+        Opponent { hand: self.hand_traps.clone(), deck, extra: standard.extra.clone(), placed: Vec::new() }
     }
 
     fn copies(&self, code: u32) -> u32 {
@@ -599,7 +599,7 @@ pub fn line_stops(
 ) -> Result<Option<Vec<LineStop>>, Error> {
     let kit = standard.opponent();
     let deck = yours.main.iter().copied().cycle().take(kit.deck.len()).collect();
-    let opponent = Opponent { hand: hand_traps.to_vec(), deck, extra: kit.extra.clone() };
+    let opponent = Opponent { hand: hand_traps.to_vec(), deck, extra: kit.extra.clone(), placed: Vec::new() };
     let (found, base) = hand_trap_stops(engine, rival, &line.hand, seed, &opponent, &line.script, hand_traps)?;
     if base.diverged {
         return Ok(None);
@@ -1102,7 +1102,7 @@ fn playable(engine: &Engine, rival: &DeckList, cards: &[u32], seed: u64) -> Vec<
     // that no card a breaker needs from the Deck is drawn.
     let mut rival_deck = rival.main.clone();
     rival_deck.push(filler);
-    let opponent = Opponent { hand: cards.to_vec(), deck: rival_deck, extra: rival.extra.clone() };
+    let opponent = Opponent { hand: cards.to_vec(), deck: rival_deck, extra: rival.extra.clone(), placed: Vec::new() };
     // The duel at the opponent's first Main Phase.
     let start = || -> Option<(Duel, Decision)> {
         let mut duel = Duel::goldfish_vs_placed(engine, &deck, &[], seed, &opponent, &placed).ok()?;

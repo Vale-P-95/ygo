@@ -284,6 +284,35 @@ enum Cmd {
         #[arg(long, default_value_t = 1)]
         seed: u64,
     },
+    /// Going second: the best board of `--vs` from random hands of 5, then
+    /// random hands of 6 of `--deck` play their turn against it; each hand
+    /// is worth the share of the board's value left after its turn (a
+    /// measure apart from the first turn's).
+    BreakBoard {
+        /// Your deck, in .ydk format.
+        #[arg(long)]
+        deck: PathBuf,
+        /// The opponent's deck, in .ydk format.
+        #[arg(long)]
+        vs: PathBuf,
+        /// Your hands of 6.
+        #[arg(long, default_value_t = 10)]
+        hands: usize,
+        /// The opponent's hands of 5 whose best board is kept.
+        #[arg(long, default_value_t = 12)]
+        rival_hands: usize,
+        #[arg(long, default_value_t = 4000)]
+        nodes: u64,
+        #[arg(long, default_value_t = 4000)]
+        rival_nodes: u64,
+        /// Your boards measured per hand, the best by the search's estimate.
+        #[arg(long, default_value_t = 5)]
+        top: usize,
+        #[arg(long, default_value_t = 1)]
+        seed: u64,
+        #[arg(long)]
+        json: Option<PathBuf>,
+    },
     /// The handtraps of a deck's Main and Side against the meta: the share of
     /// the best lines of the decks played the most that each stops, weighed
     /// by how much each deck is played, and the move it stops them at.
@@ -492,6 +521,11 @@ fn main() -> Result<()> {
             tech_table(&cli.data, &deck, decks, seed, MetaFinal { boards: 0, file: meta_file, decks: meta_decks }, json.as_deref())
         }
         Cmd::HandTraps { deck } => hand_traps(&cli.data, &deck),
+        Cmd::BreakBoard { deck, vs, hands, rival_hands, nodes, rival_nodes, top, seed, json } => {
+            let threads = std::thread::available_parallelism().map_or(4, |n| n.get());
+            let config = ygo_solver::BreakConfig { seed, nodes, threads, top };
+            break_board(&cli.data, &deck, &vs, hands, rival_hands, rival_nodes, &config, json.as_deref())
+        }
         Cmd::RivalPlays { deck, hands, nodes, seed } => rival_plays(&cli.data, &deck, hands, nodes, seed),
         Cmd::Links { deck, nodes, hands, threads, json, after, diff, truth, seed, hands_json } => {
             let out = LinksOut { json: json.as_deref(), hands_json: hands_json.as_deref() };
@@ -2295,6 +2329,76 @@ fn rival_plays(dir: &Path, deck: &Path, hands: usize, nodes: u64, seed: u64) -> 
             engine.cards().name(p.code),
             ygo_engine::consts::location::name(p.location)
         );
+    }
+    Ok(())
+}
+
+#[allow(clippy::too_many_arguments)]
+fn break_board(
+    dir: &Path,
+    deck: &Path,
+    vs: &Path,
+    hands: usize,
+    rival_hands: usize,
+    rival_nodes: u64,
+    config: &ygo_solver::BreakConfig,
+    json: Option<&Path>,
+) -> Result<()> {
+    let engine = load_engine(dir)?;
+    let read = |path: &Path| -> Result<DeckList> {
+        let text = std::fs::read_to_string(path).with_context(|| format!("cannot read {}", path.display()))?;
+        Ok(DeckList::from_ydk(&text)?)
+    };
+    let (mine, theirs) = (read(deck)?, read(vs)?);
+    let db = engine.cards();
+    let names = |codes: &[u32]| codes.iter().map(|&c| db.name(c)).collect::<Vec<_>>().join(", ");
+    let kit = ygo_solver::Kit::standard(&engine);
+    let started = std::time::Instant::now();
+    let rival = ygo_solver::rival_board(&engine, &theirs, config.seed, rival_hands, rival_nodes, config.threads, &kit)
+        .context("no hand of the opponent's deck makes a board")?;
+    println!("opponent's board ({:.1} s), value {:.2}, from {}", started.elapsed().as_secs_f64(), rival.value, names(&rival.hand));
+    for (code, worth) in &rival.worth {
+        println!("   {:<40} worth {worth:.2}", db.name(*code));
+    }
+    // The breakers of your deck the engine can play, to tell the hands apart.
+    let breakers = ygo_solver::Rival::new(&engine, &mine, config.seed, &kit).breakers().to_vec();
+    println!("your breakers: {}", if breakers.is_empty() { "none".to_owned() } else { names(&breakers) });
+    let mut rows = Vec::new();
+    let (mut with, mut without) = (Vec::new(), Vec::new());
+    for hand in ygo_solver::second::random_hands(&mine.main, 6, hands, config.seed) {
+        let at = std::time::Instant::now();
+        let broken = ygo_solver::break_board(&engine, &mine, &theirs, &hand, &rival, &kit, config)?;
+        let count = hand.iter().filter(|c| breakers.iter().any(|b| db.canonical_code(*b) == db.canonical_code(**c))).count();
+        if count > 0 { &mut with } else { &mut without }.push(broken.share);
+        println!(
+            "{:>4.0}% left  {} breaker(s)  {:>5.1} s  {:>6} nodes  {}\n      kept: {}",
+            broken.share * 100.0,
+            count,
+            at.elapsed().as_secs_f64(),
+            broken.nodes,
+            names(&hand),
+            names(&broken.kept)
+        );
+        rows.push(serde_json::json!({
+            "hand": hand, "breakers": count, "share": broken.share, "left": broken.left,
+            "kept": broken.kept, "line": broken.line, "nodes": broken.nodes,
+        }));
+    }
+    let mean = |v: &[f64]| if v.is_empty() { f64::NAN } else { v.iter().sum::<f64>() / v.len() as f64 };
+    println!(
+        "left on average: {:.0}% with a breaker ({} hands), {:.0}% without ({} hands); {:.1} s in all",
+        mean(&with) * 100.0,
+        with.len(),
+        mean(&without) * 100.0,
+        without.len(),
+        started.elapsed().as_secs_f64()
+    );
+    if let Some(path) = json {
+        let out = serde_json::json!({
+            "rival": { "hand": rival.hand, "value": rival.value, "worth": rival.worth },
+            "hands": rows,
+        });
+        std::fs::write(path, serde_json::to_string_pretty(&out)?)?;
     }
     Ok(())
 }

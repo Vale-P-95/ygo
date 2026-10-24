@@ -12,7 +12,7 @@ Compito: <una frase: cosa deve esistere alla fine>
 Perché: <una frase, o il link alla decisione in docs/plans/<tema>.md>
 Branch: claude/<tema>, da main
 File da toccare: <elenco; i file caldi vanno chiesti in docs/TASKS.md>
-Da leggere: docs/STATO.md, docs/plans/<tema>.md §<n>, <mockup: link all'artifact Design, se c'è>
+Da leggere: docs/STATO.md (solo la riga dell'area), docs/plans/<tema>.md §<n> (sezioni, non il documento), <mockup: link all'artifact Design, se c'è>
 Verifica: <comandi esatti: cargo test -p ..., pnpm typecheck, node scripts/screens.mjs, paired_test.py ...>
 Criterio di accettazione: <numeri o comportamento osservabile>
 PR: template di .github/pull_request_template.md; numeri prima/dopo o screenshot

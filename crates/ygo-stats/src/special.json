@@ -1,0 +1,20 @@
+[
+  { "name": "Pot of Desires", "mechanism": { "type": "draw", "n": 2, "banishTop": 10 } },
+  { "name": "Pot of Extravagance", "mechanism": { "type": "draw", "n": 2, "minExtra": 3 } },
+  { "name": "Pot of Greed", "mechanism": { "type": "draw", "n": 2 } },
+  { "name": "Upstart Goblin", "mechanism": { "type": "draw", "n": 1 } },
+  { "name": "Pot of Prosperity", "mechanism": { "type": "excavate", "n": [3, 6], "banishExtra": true } },
+  { "name": "Pot of Duality", "mechanism": { "type": "excavate", "n": [3] } },
+  { "name": "Allure of Darkness", "mechanism": { "type": "drawThenBanish", "n": 2, "cost": { "kind": "monster", "attribute": "DARK" } } },
+  { "name": "Small World", "mechanism": { "type": "bridge", "share": 1 } },
+  {
+    "name": "Seventh Tachyon",
+    "mechanism": {
+      "type": "revealSearch",
+      "reveal": ["Number 101:", "Number 102:", "Number 103:", "Number 104:", "Number 105:", "Number 106:", "Number 107:"],
+      "putBack": 1
+    }
+  },
+  { "name": "Reinforcement of the Army", "mechanism": { "type": "search", "filter": { "kind": "monster", "race": "Warrior", "maxLevel": 4 } } },
+  { "name": "Terraforming", "mechanism": { "type": "search", "filter": { "kind": "spell", "race": "Field" } } }
+]

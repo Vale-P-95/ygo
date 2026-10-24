@@ -36,20 +36,30 @@ export function CalculatorTab({ deckId, main, roles, hand, getCard, root, setRoo
   const key = JSON.stringify([cond, draws, main, roles]);
 
   useEffect(() => {
+    // An answer for an older condition must not overwrite a newer one.
+    let stale = false;
     const t = window.setTimeout(async () => {
-      const [a, b] = await Promise.all([
-        api.labProbability(main, roles, cond, 5 + draws),
-        api.labProbability(main, roles, cond, 6 + draws),
-      ]);
-      setResult({
-        first: a.p,
-        second: b.p,
-        firstError: a.error,
-        secondError: b.error,
-      });
-      sound.play("bubble");
+      try {
+        const [a, b] = await Promise.all([
+          api.labProbability(main, roles, cond, 5 + draws),
+          api.labProbability(main, roles, cond, 6 + draws),
+        ]);
+        if (stale) return;
+        setResult({
+          first: a.p,
+          second: b.p,
+          firstError: a.error,
+          secondError: b.error,
+        });
+        sound.play("bubble");
+      } catch (e) {
+        if (!stale) toast(`Probabilità non calcolata: ${e}`, "error");
+      }
     }, 140);
-    return () => window.clearTimeout(t);
+    return () => {
+      stale = true;
+      window.clearTimeout(t);
+    };
     // `key` covers the condition, the draws and the deck.
   }, [key]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -113,7 +123,7 @@ export function CalculatorTab({ deckId, main, roles, hand, getCard, root, setRoo
         <optgroup label="Ruoli">
           {defs.map((d) => (
             <option key={d.key} value={`role:${d.key}`}>
-              {d.label} ({roles[d.key]?.length ?? 0})
+              {d.label} ({main.filter((id) => roles[d.key]?.includes(id)).length})
             </option>
           ))}
         </optgroup>

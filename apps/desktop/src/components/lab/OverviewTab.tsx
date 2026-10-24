@@ -51,7 +51,7 @@ export function OverviewTab({ overview: o, hand, roles, getCard, onExploreCombo 
     <div className="flex flex-col gap-4">
       {noStarters && (
         <p className="lab-card px-4 py-3 text-sm text-muted">
-          Segna gli <b className="text-text">Starter</b> nel pannello Ruoli: quasi tutte le probabilità partono da lì. Le handtrap e i board breaker li trovi con «Suggerisci».
+          Segna gli <b className="text-text">Starter</b> nel pannello Ruoli: quasi tutte le probabilità partono da lì. Le handtrap e i board breaker li trovi con «Riconosci».
         </p>
       )}
       <div className="grid grid-cols-4 gap-3">

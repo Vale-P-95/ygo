@@ -8,8 +8,8 @@ use tauri::http::{Response, StatusCode};
 use tauri::{Emitter, Manager, State};
 use ygo_data::sync::{self, Progress};
 use ygo_data::{
-    banlist, deck, matchlog, BanChange, Banlist, Card, CardChange, CardStore, Chip, Deck, DeckBox, DeckList, DeckSummary, Facets, Format,
-    ImageCache, ImageSize, Legality, MatchEntry, Recipe, SavedSearch, Tag, UserStore,
+    banlist, deck, matchlog, BanChange, Banlist, Card, CardChange, CardKind, CardStore, Chip, Deck, DeckBox, DeckList, DeckSummary, Facets,
+    Format, ImageCache, ImageSize, Legality, MatchEntry, Recipe, SavedSearch, Tag, UserStore,
 };
 use ygo_engine::{Engine, ScriptStore};
 
@@ -297,6 +297,81 @@ fn lab_probability(main: Vec<u32>, roles: BTreeMap<String, Vec<u32>>, cond: ygo_
         Ok(p) => LabResult { p: Some(p), error: None },
         Err(e) => LabResult { p: None, error: Some(e.to_string()) },
     }
+}
+
+fn lab_facts(card: &Card) -> ygo_stats::Facts {
+    let kind = match card.kind {
+        CardKind::Monster => "monster",
+        CardKind::Spell => "spell",
+        CardKind::Trap => "trap",
+        _ => "other",
+    };
+    ygo_stats::Facts {
+        id: card.id,
+        name: card.name.clone(),
+        kind: kind.to_owned(),
+        race: Some(card.race.clone()).filter(|r| !r.is_empty()),
+        attribute: card.attribute.clone(),
+        level: card.level,
+        atk: card.atk,
+        def: card.def,
+    }
+}
+
+/// A card the lab's "Carte speciali" knows, for trying it in a deck that lacks it.
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct SpecialKnown {
+    id: u32,
+    name: String,
+    mechanism: ygo_stats::Mechanism,
+}
+
+/// Lab, "Carte speciali": the cards whose mechanism the lab knows, with their passcode.
+#[tauri::command(async)]
+fn lab_special_known(state: State<'_, AppState>) -> Result<Vec<SpecialKnown>, String> {
+    state.with_store(|s| {
+        let mut out = Vec::new();
+        for k in ygo_stats::special::known() {
+            if let Some(id) = s.id_by_name(&k.name)? {
+                out.push(SpecialKnown { id, name: k.name.clone(), mechanism: k.mechanism.clone() });
+            }
+        }
+        Ok(out)
+    })
+}
+
+/// Lab, "Carte speciali": how the deck's draw spells, excavators, bridges
+/// and searches change the chance of reaching `target`. The mechanism of a
+/// card comes from its name (`special.json`), the rest from its data.
+#[tauri::command(async)]
+fn lab_special(
+    state: State<'_, AppState>,
+    main: Vec<u32>,
+    extra: Vec<u32>,
+    roles: BTreeMap<String, Vec<u32>>,
+    target: ygo_stats::Target,
+    hand: u32,
+) -> Result<ygo_stats::SpecialReport, String> {
+    let mut ids: Vec<u32> = main.iter().chain(&extra).copied().collect();
+    ids.sort_unstable();
+    ids.dedup();
+    let cards: HashMap<u32, Card> = state.with_store(|s| s.get_many(&ids))?.into_iter().map(|c| (c.id, c)).collect();
+    let deck = ygo_stats::DeckModel::from_ids(&main, &roles);
+    let special = deck
+        .cards
+        .iter()
+        .filter_map(|c| cards.get(&c.id).and_then(|card| ygo_stats::special::mechanism_of(&card.name)).map(|m| (c.id, m.clone())))
+        .collect();
+    let input = ygo_stats::SpecialInput {
+        cards: deck.cards.iter().filter_map(|c| cards.get(&c.id)).map(lab_facts).collect(),
+        extra: extra.iter().filter_map(|id| cards.get(id)).map(lab_facts).collect(),
+        deck,
+        hand,
+        target,
+        special,
+    };
+    ygo_stats::special(&input).map_err(|e| e.to_string())
 }
 
 /// Lab: Monte Carlo simulation. Sends `lab-sim-progress` checkpoints while it runs.
@@ -2848,6 +2923,8 @@ pub fn run() {
             list_decks,
             lab_overview,
             lab_probability,
+            lab_special,
+            lab_special_known,
             lab_simulate,
             lab_cancel_simulation,
             lab_analyze,
