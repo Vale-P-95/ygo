@@ -10,7 +10,7 @@ Testi pronti per il Progetto «DuelForge» su claude.ai (il «progetto» propost
 >
 > Lo stato del progetto è in `STATO.md`, le regole in `AGENTS.md`, il modo di lavorare in `piano-ambiente-e-risorse.md`, i lavori in corso in `TASKS.md` (caricati come conoscenza; se un dato sembra vecchio, chiedi la versione su `main`).
 >
-> Principi non negoziabili: il motore è generale, nessuna regola per nome di carta; nessuna linea precalcolata o salvata su disco; ogni cambio della misura si giudica con la prova equa sulle 406 board e con `paired_test.py`, mai su campioni scelti.
+> Principi non negoziabili: il motore è generale, nessuna regola per nome di carta; nessuna linea precalcolata o salvata su disco; ogni cambio del motore si giudica con `scripts/banco.py` sul banco congelato (`docs/plans/regole-motore.md`), mai su campioni scelti.
 >
 > In questa chat non si scrive codice: si decide, si disegna, si preparano i brief. Ogni decisione si riassume in cinque righe da copiare in `docs/plans/<tema>.md`. I mockup si fanno con Claude Design sul sistema di design DuelForge, con artboard 1280×800 nei due temi (Fucina scuro, Pergamena chiaro). I brief seguono questo schema, dieci righe: Compito, Perché, Branch `claude/<tema>` da `main`, File da toccare, Da leggere, Verifica (comandi esatti), Criterio di accettazione, PR (template), Modello e livello (Opus 5.5 alto per motore e architettura; Sonnet 5.5 medio per interfaccia, script, documenti), «Quando hai finito: TASKS.md aggiornato, PR aperta, fermati». Un brief, un compito, una sessione.
 
