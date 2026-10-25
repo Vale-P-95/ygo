@@ -62,8 +62,10 @@ import type {
   WinRecord,
   ZoneCard,
 } from "./api";
+import type { CardAnatomy, EffectAnatomy, TextPiece } from "./api";
 import { pAtLeastOne, pBoth, pNone } from "./probability";
 import invokedLinksFixture from "./fixtures/invoked-links.json";
+import anatomyFixture from "./fixtures/anatomy.json";
 
 type Api = typeof ApiType;
 
@@ -2428,6 +2430,48 @@ let lastScoredBoards: ComboBoard[] = [];
 
 let mockBoardChoices = 0;
 
+/**
+ * The text of a mock card in pieces, by the same punctuation rules as
+ * `ygo_data::psct` (colon, semicolon, limit and restriction sentences), in
+ * short: the mock texts are not Konami's.
+ */
+function mockTextPieces(text: string): { pieces: TextPiece[]; activated: number[] } {
+  const pieces: TextPiece[] = [];
+  const activated: number[] = [];
+  let effect = -1;
+  const sentences = text.match(/[^.]+(?:\.|$)\s*/g) ?? [text];
+  for (const sentence of sentences) {
+    const lower = sentence.trim().toLowerCase();
+    if (lower.startsWith("you can only")) {
+      pieces.push({ text: sentence, part: "limit", effect: null });
+      continue;
+    }
+    if (lower.startsWith("you cannot")) {
+      pieces.push({ text: sentence, part: "restriction", effect: null });
+      continue;
+    }
+    effect += 1;
+    let rest = sentence;
+    const colon = rest.indexOf(":");
+    if (colon >= 0) {
+      pieces.push({ text: rest.slice(0, colon + 1), part: "condition", effect });
+      rest = rest.slice(colon + 1);
+    }
+    const semicolon = rest.indexOf(";");
+    if (semicolon >= 0) {
+      const setup = rest.slice(0, semicolon + 1);
+      const cost = !/target|declare/i.test(setup) && /discard|tribute|pay |banish|send|detach|shuffle|reveal/i.test(setup);
+      pieces.push({ text: setup, part: cost ? "cost" : "action", effect });
+      rest = rest.slice(semicolon + 1);
+    }
+    pieces.push({ text: rest, part: "action", effect });
+    if (colon >= 0 || semicolon >= 0 || lower.startsWith("you can")) activated.push(effect);
+  }
+  return { pieces, activated };
+}
+
+const ANATOMY_EFFECTS = (anatomyFixture as { effects: Record<string, EffectAnatomy[]> }).effects;
+
 export const mockApi: Api = {
   dataStatus: async () => structuredClone(statusState),
 
@@ -2459,6 +2503,26 @@ export const mockApi: Api = {
   },
 
   getCards: async (ids: number[]) => ids.map((id) => CARDS.get(id)).filter((c): c is Card => c != null),
+
+  cardAnatomy: async (id: number): Promise<CardAnatomy> => {
+    await delay(120);
+    const card = CARDS.get(id);
+    if (!card) throw new Error("Carta non trovata");
+    const { pieces, activated } = mockTextPieces(card.desc);
+    const effects = ANATOMY_EFFECTS[String(id)] ?? [];
+    const scripted = effects.filter((e) => !["continuous", "procedure"].includes(e.kind));
+    const matched = scripted.length === activated.length;
+    let next = 0;
+    return {
+      text: pieces,
+      pendulum: card.pendDesc ? mockTextPieces(card.pendDesc).pieces : [],
+      effects: effects.map((e) => ({
+        ...e,
+        textEffect: matched && !["continuous", "procedure"].includes(e.kind) ? (activated[next++] ?? null) : null,
+      })),
+      scriptError: null,
+    };
+  },
 
   facets: async (): Promise<Facets> =>
     recorded?.facets ?? {

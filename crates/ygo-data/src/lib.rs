@@ -8,6 +8,7 @@ pub mod import;
 pub mod matchlog;
 pub mod meta;
 pub mod model;
+pub mod psct;
 pub mod query;
 pub mod store;
 pub mod sync;

@@ -1,0 +1,1540 @@
+{
+ "_source": "duelforge-cli anatomy --json on the mock catalog, read by the same rules as card_anatomy in lib.rs; card strings left out",
+ "effects": {
+  "98159737": [
+   {
+    "kind": "ignition",
+    "mandatory": false,
+    "zones": [
+     "hand"
+    ],
+    "limit": {
+     "count": 1,
+     "sharedWith": [],
+     "perDuel": false
+    },
+    "categories": [
+     "Special Summon"
+    ],
+    "textOnly": [],
+    "targets": false,
+    "cost": false,
+    "condition": true,
+    "description": "",
+    "textEffect": null
+   },
+   {
+    "kind": "ignition",
+    "mandatory": false,
+    "zones": [
+     "hand",
+     "gy"
+    ],
+    "limit": {
+     "count": 1,
+     "sharedWith": [],
+     "perDuel": false
+    },
+    "categories": [
+     "to hand"
+    ],
+    "textOnly": [],
+    "targets": true,
+    "cost": true,
+    "condition": true,
+    "description": "",
+    "textEffect": null
+   }
+  ],
+  "81674782": [
+   {
+    "kind": "activation",
+    "mandatory": false,
+    "zones": [
+     "hand",
+     "spellTrap",
+     "fieldZone"
+    ],
+    "limit": null,
+    "categories": [],
+    "textOnly": [],
+    "targets": false,
+    "cost": false,
+    "condition": false,
+    "description": "",
+    "textEffect": null
+   }
+  ],
+  "45298492": [
+   {
+    "kind": "procedure",
+    "mandatory": false,
+    "zones": [
+     "extra"
+    ],
+    "limit": null,
+    "categories": [],
+    "textOnly": [],
+    "targets": false,
+    "cost": false,
+    "condition": true,
+    "description": "",
+    "textEffect": null
+   }
+  ],
+  "11264180": [
+   {
+    "kind": "activation",
+    "mandatory": false,
+    "zones": [
+     "hand",
+     "spellTrap",
+     "fieldZone"
+    ],
+    "limit": null,
+    "categories": [
+     "destroy",
+     "ATK change"
+    ],
+    "textOnly": [],
+    "targets": true,
+    "cost": false,
+    "condition": true,
+    "description": "",
+    "textEffect": null
+   }
+  ],
+  "72270339": [
+   {
+    "kind": "procedure",
+    "mandatory": false,
+    "zones": [
+     "extra"
+    ],
+    "limit": {
+     "count": 1,
+     "sharedWith": [],
+     "perDuel": false
+    },
+    "categories": [],
+    "textOnly": [],
+    "targets": false,
+    "cost": false,
+    "condition": true,
+    "description": "",
+    "textEffect": null
+   },
+   {
+    "kind": "trigger",
+    "mandatory": false,
+    "zones": [],
+    "limit": {
+     "count": 1,
+     "sharedWith": [],
+     "perDuel": false
+    },
+    "categories": [
+     "set"
+    ],
+    "textOnly": [],
+    "targets": false,
+    "cost": false,
+    "condition": false,
+    "description": "",
+    "textEffect": null
+   },
+   {
+    "kind": "trigger",
+    "mandatory": false,
+    "zones": [],
+    "limit": {
+     "count": 1,
+     "sharedWith": [],
+     "perDuel": false
+    },
+    "categories": [
+     "to GY",
+     "Special Summon"
+    ],
+    "textOnly": [],
+    "targets": false,
+    "cost": false,
+    "condition": true,
+    "description": "",
+    "textEffect": null
+   }
+  ],
+  "58074572": [
+   {
+    "kind": "activation",
+    "mandatory": false,
+    "zones": [
+     "hand",
+     "spellTrap",
+     "fieldZone"
+    ],
+    "limit": null,
+    "categories": [
+     "recover"
+    ],
+    "textOnly": [],
+    "targets": false,
+    "cost": false,
+    "condition": false,
+    "description": "",
+    "textEffect": null
+   }
+  ],
+  "34267821": [
+   {
+    "kind": "trigger",
+    "mandatory": true,
+    "zones": [],
+    "limit": null,
+    "categories": [
+     "Special Summon"
+    ],
+    "textOnly": [],
+    "targets": false,
+    "cost": false,
+    "condition": true,
+    "description": "",
+    "textEffect": null
+   },
+   {
+    "kind": "quick",
+    "mandatory": false,
+    "zones": [
+     "hand",
+     "field"
+    ],
+    "limit": null,
+    "categories": [],
+    "textOnly": [],
+    "targets": false,
+    "cost": true,
+    "condition": true,
+    "description": "",
+    "textEffect": null
+   }
+  ],
+  "69105797": [
+   {
+    "kind": "ignition",
+    "mandatory": false,
+    "zones": [
+     "hand"
+    ],
+    "limit": null,
+    "categories": [],
+    "textOnly": [],
+    "targets": true,
+    "cost": true,
+    "condition": true,
+    "description": "",
+    "textEffect": null
+   },
+   {
+    "kind": "trigger",
+    "mandatory": true,
+    "zones": [],
+    "limit": null,
+    "categories": [
+     "counter"
+    ],
+    "textOnly": [],
+    "targets": false,
+    "cost": false,
+    "condition": true,
+    "description": "",
+    "textEffect": null
+   }
+  ],
+  "97045737": [
+   {
+    "kind": "activation",
+    "mandatory": false,
+    "zones": [
+     "hand",
+     "spellTrap",
+     "fieldZone"
+    ],
+    "limit": {
+     "count": 1,
+     "sharedWith": [],
+     "perDuel": false
+    },
+    "categories": [
+     "destroy",
+     "negate effect"
+    ],
+    "textOnly": [],
+    "targets": false,
+    "cost": false,
+    "condition": true,
+    "description": "",
+    "textEffect": null
+   },
+   {
+    "kind": "continuous",
+    "mandatory": false,
+    "zones": [],
+    "limit": null,
+    "categories": [],
+    "textOnly": [],
+    "targets": false,
+    "cost": false,
+    "condition": true,
+    "description": "",
+    "textEffect": null
+   }
+  ],
+  "13002461": [
+   {
+    "kind": "ignition",
+    "mandatory": false,
+    "zones": [
+     "field"
+    ],
+    "limit": {
+     "count": 1,
+     "sharedWith": [],
+     "perDuel": false
+    },
+    "categories": [
+     "ATK change"
+    ],
+    "textOnly": [],
+    "targets": true,
+    "cost": true,
+    "condition": false,
+    "description": "",
+    "textEffect": null
+   }
+  ],
+  "75392615": [
+   {
+    "kind": "activation",
+    "mandatory": false,
+    "zones": [
+     "hand",
+     "spellTrap",
+     "fieldZone"
+    ],
+    "limit": null,
+    "categories": [],
+    "textOnly": [],
+    "targets": false,
+    "cost": true,
+    "condition": false,
+    "description": "",
+    "textEffect": null
+   }
+  ],
+  "57554544": [
+   {
+    "kind": "activation",
+    "mandatory": false,
+    "zones": [
+     "hand",
+     "spellTrap",
+     "fieldZone"
+    ],
+    "limit": null,
+    "categories": [],
+    "textOnly": [],
+    "targets": false,
+    "cost": false,
+    "condition": false,
+    "description": "",
+    "textEffect": null
+   },
+   {
+    "kind": "ignition",
+    "mandatory": false,
+    "zones": [
+     "fieldZone"
+    ],
+    "limit": {
+     "count": 1,
+     "sharedWith": [
+      2
+     ],
+     "perDuel": false
+    },
+    "categories": [
+     "destroy",
+     "to hand",
+     "search"
+    ],
+    "textOnly": [],
+    "targets": false,
+    "cost": false,
+    "condition": false,
+    "description": "",
+    "textEffect": null
+   },
+   {
+    "kind": "ignition",
+    "mandatory": false,
+    "zones": [
+     "fieldZone"
+    ],
+    "limit": {
+     "count": 1,
+     "sharedWith": [
+      1
+     ],
+     "perDuel": false
+    },
+    "categories": [
+     "Special Summon"
+    ],
+    "textOnly": [],
+    "targets": false,
+    "cost": false,
+    "condition": true,
+    "description": "",
+    "textEffect": null
+   },
+   {
+    "kind": "trigger",
+    "mandatory": true,
+    "zones": [],
+    "limit": null,
+    "categories": [
+     "destroy"
+    ],
+    "textOnly": [],
+    "targets": false,
+    "cost": false,
+    "condition": true,
+    "description": "",
+    "textEffect": null
+   }
+  ],
+  "14558127": [
+   {
+    "kind": "quick",
+    "mandatory": false,
+    "zones": [
+     "hand"
+    ],
+    "limit": {
+     "count": 1,
+     "sharedWith": [],
+     "perDuel": false
+    },
+    "categories": [
+     "negate effect"
+    ],
+    "textOnly": [],
+    "targets": false,
+    "cost": true,
+    "condition": true,
+    "description": "",
+    "textEffect": null
+   }
+  ],
+  "23434538": [
+   {
+    "kind": "quick",
+    "mandatory": false,
+    "zones": [
+     "hand"
+    ],
+    "limit": {
+     "count": 1,
+     "sharedWith": [],
+     "perDuel": false
+    },
+    "categories": [
+     "draw"
+    ],
+    "textOnly": [],
+    "targets": false,
+    "cost": true,
+    "condition": false,
+    "description": "",
+    "textEffect": null
+   }
+  ],
+  "97268402": [
+   {
+    "kind": "quick",
+    "mandatory": false,
+    "zones": [
+     "hand"
+    ],
+    "limit": null,
+    "categories": [
+     "negate effect"
+    ],
+    "textOnly": [],
+    "targets": true,
+    "cost": true,
+    "condition": true,
+    "description": "",
+    "textEffect": null
+   }
+  ],
+  "27204311": [
+   {
+    "kind": "quick",
+    "mandatory": false,
+    "zones": [
+     "hand"
+    ],
+    "limit": {
+     "count": 1,
+     "sharedWith": [],
+     "perDuel": false
+    },
+    "categories": [
+     "release",
+     "Special Summon",
+     "token"
+    ],
+    "textOnly": [],
+    "targets": false,
+    "cost": false,
+    "condition": true,
+    "description": "",
+    "textEffect": null
+   }
+  ],
+  "94145021": [
+   {
+    "kind": "quick",
+    "mandatory": false,
+    "zones": [
+     "hand"
+    ],
+    "limit": null,
+    "categories": [
+     "negate effect"
+    ],
+    "textOnly": [],
+    "targets": false,
+    "cost": true,
+    "condition": true,
+    "description": "",
+    "textEffect": null
+   }
+  ],
+  "10045474": [
+   {
+    "kind": "activation",
+    "mandatory": false,
+    "zones": [
+     "hand",
+     "spellTrap",
+     "fieldZone"
+    ],
+    "limit": null,
+    "categories": [
+     "negate effect"
+    ],
+    "textOnly": [],
+    "targets": true,
+    "cost": false,
+    "condition": false,
+    "description": "",
+    "textEffect": null
+   },
+   {
+    "kind": "continuous",
+    "mandatory": false,
+    "zones": [],
+    "limit": null,
+    "categories": [],
+    "textOnly": [],
+    "targets": false,
+    "cost": false,
+    "condition": true,
+    "description": "",
+    "textEffect": null
+   }
+  ],
+  "24224830": [
+   {
+    "kind": "activation",
+    "mandatory": false,
+    "zones": [
+     "hand",
+     "spellTrap",
+     "fieldZone"
+    ],
+    "limit": null,
+    "categories": [
+     "banish"
+    ],
+    "textOnly": [],
+    "targets": true,
+    "cost": false,
+    "condition": false,
+    "description": "",
+    "textEffect": null
+   }
+  ],
+  "65681983": [
+   {
+    "kind": "activation",
+    "mandatory": false,
+    "zones": [
+     "hand",
+     "spellTrap",
+     "fieldZone"
+    ],
+    "limit": {
+     "count": 1,
+     "sharedWith": [],
+     "perDuel": false
+    },
+    "categories": [
+     "banish"
+    ],
+    "textOnly": [],
+    "targets": false,
+    "cost": false,
+    "condition": false,
+    "description": "",
+    "textEffect": null
+   }
+  ],
+  "54693926": [
+   {
+    "kind": "activation",
+    "mandatory": false,
+    "zones": [
+     "hand",
+     "spellTrap",
+     "fieldZone"
+    ],
+    "limit": null,
+    "categories": [
+     "negate effect"
+    ],
+    "textOnly": [],
+    "targets": false,
+    "cost": false,
+    "condition": false,
+    "description": "",
+    "textEffect": null
+   }
+  ],
+  "14532163": [
+   {
+    "kind": "activation",
+    "mandatory": false,
+    "zones": [
+     "hand",
+     "spellTrap",
+     "fieldZone"
+    ],
+    "limit": {
+     "count": 1,
+     "sharedWith": [],
+     "perDuel": false
+    },
+    "categories": [
+     "destroy"
+    ],
+    "textOnly": [],
+    "targets": false,
+    "cost": false,
+    "condition": true,
+    "description": "",
+    "textEffect": null
+   }
+  ],
+  "15693423": [
+   {
+    "kind": "activation",
+    "mandatory": false,
+    "zones": [
+     "hand",
+     "spellTrap",
+     "fieldZone"
+    ],
+    "limit": null,
+    "categories": [
+     "banish"
+    ],
+    "textOnly": [],
+    "targets": false,
+    "cost": false,
+    "condition": true,
+    "description": "",
+    "textEffect": null
+   },
+   {
+    "kind": "continuous",
+    "mandatory": false,
+    "zones": [],
+    "limit": null,
+    "categories": [],
+    "textOnly": [],
+    "targets": false,
+    "cost": false,
+    "condition": true,
+    "description": "",
+    "textEffect": null
+   }
+  ],
+  "27548199": [
+   {
+    "kind": "procedure",
+    "mandatory": false,
+    "zones": [
+     "extra"
+    ],
+    "limit": null,
+    "categories": [],
+    "textOnly": [],
+    "targets": false,
+    "cost": false,
+    "condition": true,
+    "description": "",
+    "textEffect": null
+   },
+   {
+    "kind": "trigger",
+    "mandatory": false,
+    "zones": [],
+    "limit": null,
+    "categories": [
+     "equip"
+    ],
+    "textOnly": [],
+    "targets": false,
+    "cost": false,
+    "condition": true,
+    "description": "",
+    "textEffect": null
+   },
+   {
+    "kind": "quick",
+    "mandatory": false,
+    "zones": [
+     "field"
+    ],
+    "limit": {
+     "count": 1,
+     "sharedWith": [],
+     "perDuel": false
+    },
+    "categories": [
+     "negate activation"
+    ],
+    "textOnly": [],
+    "targets": false,
+    "cost": true,
+    "condition": true,
+    "description": "",
+    "textEffect": null
+   }
+  ],
+  "29301450": [
+   {
+    "kind": "procedure",
+    "mandatory": false,
+    "zones": [
+     "extra"
+    ],
+    "limit": null,
+    "categories": [],
+    "textOnly": [],
+    "targets": false,
+    "cost": false,
+    "condition": true,
+    "description": "",
+    "textEffect": null
+   },
+   {
+    "kind": "trigger",
+    "mandatory": false,
+    "zones": [],
+    "limit": {
+     "count": 1,
+     "sharedWith": [],
+     "perDuel": false
+    },
+    "categories": [
+     "banish"
+    ],
+    "textOnly": [],
+    "targets": true,
+    "cost": false,
+    "condition": true,
+    "description": "",
+    "textEffect": null
+   },
+   {
+    "kind": "quick",
+    "mandatory": false,
+    "zones": [
+     "field"
+    ],
+    "limit": {
+     "count": 1,
+     "sharedWith": [],
+     "perDuel": false
+    },
+    "categories": [
+     "banish"
+    ],
+    "textOnly": [],
+    "targets": true,
+    "cost": false,
+    "condition": true,
+    "description": "",
+    "textEffect": null
+   }
+  ],
+  "65741786": [
+   {
+    "kind": "procedure",
+    "mandatory": false,
+    "zones": [
+     "extra"
+    ],
+    "limit": null,
+    "categories": [],
+    "textOnly": [],
+    "targets": false,
+    "cost": false,
+    "condition": true,
+    "description": "",
+    "textEffect": null
+   },
+   {
+    "kind": "quick",
+    "mandatory": false,
+    "zones": [
+     "field"
+    ],
+    "limit": {
+     "count": 1,
+     "sharedWith": [],
+     "perDuel": false
+    },
+    "categories": [
+     "Special Summon"
+    ],
+    "textOnly": [],
+    "targets": false,
+    "cost": false,
+    "condition": true,
+    "description": "",
+    "textEffect": null
+   }
+  ],
+  "4280258": [
+   {
+    "kind": "procedure",
+    "mandatory": false,
+    "zones": [
+     "extra"
+    ],
+    "limit": null,
+    "categories": [],
+    "textOnly": [],
+    "targets": false,
+    "cost": false,
+    "condition": true,
+    "description": "",
+    "textEffect": null
+   },
+   {
+    "kind": "quick",
+    "mandatory": false,
+    "zones": [
+     "field"
+    ],
+    "limit": null,
+    "categories": [
+     "ATK change",
+     "negate activation"
+    ],
+    "textOnly": [],
+    "targets": false,
+    "cost": false,
+    "condition": true,
+    "description": "",
+    "textEffect": null
+   }
+  ],
+  "87835759": [
+   {
+    "kind": "trigger",
+    "mandatory": false,
+    "zones": [],
+    "limit": null,
+    "categories": [
+     "to GY"
+    ],
+    "textOnly": [],
+    "targets": false,
+    "cost": false,
+    "condition": true,
+    "description": "",
+    "textEffect": null
+   },
+   {
+    "kind": "ignition",
+    "mandatory": false,
+    "zones": [
+     "field"
+    ],
+    "limit": {
+     "count": 1,
+     "sharedWith": [],
+     "perDuel": false
+    },
+    "categories": [
+     "to GY",
+     "Special Summon"
+    ],
+    "textOnly": [],
+    "targets": true,
+    "cost": true,
+    "condition": false,
+    "description": "",
+    "textEffect": null
+   }
+  ],
+  "18940556": [
+   {
+    "kind": "procedure",
+    "mandatory": false,
+    "zones": [
+     "extra"
+    ],
+    "limit": null,
+    "categories": [],
+    "textOnly": [],
+    "targets": false,
+    "cost": false,
+    "condition": true,
+    "description": "",
+    "textEffect": null
+   },
+   {
+    "kind": "quick",
+    "mandatory": false,
+    "zones": [
+     "field"
+    ],
+    "limit": {
+     "count": 1,
+     "sharedWith": [],
+     "perDuel": false
+    },
+    "categories": [
+     "destroy",
+     "position",
+     "set"
+    ],
+    "textOnly": [],
+    "targets": false,
+    "cost": false,
+    "condition": true,
+    "description": "",
+    "textEffect": null
+   },
+   {
+    "kind": "trigger",
+    "mandatory": false,
+    "zones": [],
+    "limit": null,
+    "categories": [
+     "to GY",
+     "damage"
+    ],
+    "textOnly": [],
+    "targets": false,
+    "cost": false,
+    "condition": false,
+    "description": "",
+    "textEffect": null
+   }
+  ],
+  "48815792": [
+   {
+    "kind": "procedure",
+    "mandatory": false,
+    "zones": [
+     "extra"
+    ],
+    "limit": null,
+    "categories": [],
+    "textOnly": [],
+    "targets": false,
+    "cost": false,
+    "condition": true,
+    "description": "",
+    "textEffect": null
+   },
+   {
+    "kind": "ignition",
+    "mandatory": false,
+    "zones": [
+     "field"
+    ],
+    "limit": {
+     "count": 1,
+     "sharedWith": [],
+     "perDuel": false
+    },
+    "categories": [
+     "Special Summon"
+    ],
+    "textOnly": [],
+    "targets": true,
+    "cost": false,
+    "condition": false,
+    "description": "",
+    "textEffect": null
+   },
+   {
+    "kind": "trigger",
+    "mandatory": false,
+    "zones": [],
+    "limit": {
+     "count": 1,
+     "sharedWith": [],
+     "perDuel": false
+    },
+    "categories": [
+     "to hand",
+     "search"
+    ],
+    "textOnly": [],
+    "targets": false,
+    "cost": false,
+    "condition": true,
+    "description": "",
+    "textEffect": null
+   }
+  ],
+  "41999284": [
+   {
+    "kind": "procedure",
+    "mandatory": false,
+    "zones": [
+     "extra"
+    ],
+    "limit": null,
+    "categories": [],
+    "textOnly": [],
+    "targets": false,
+    "cost": false,
+    "condition": true,
+    "description": "",
+    "textEffect": null
+   },
+   {
+    "kind": "trigger",
+    "mandatory": false,
+    "zones": [
+     "field"
+    ],
+    "limit": null,
+    "categories": [
+     "ATK change"
+    ],
+    "textOnly": [],
+    "targets": false,
+    "cost": true,
+    "condition": true,
+    "description": "",
+    "textEffect": null
+   },
+   {
+    "kind": "quick",
+    "mandatory": false,
+    "zones": [
+     "gy"
+    ],
+    "limit": {
+     "count": 1,
+     "sharedWith": [],
+     "perDuel": false
+    },
+    "categories": [
+     "Special Summon"
+    ],
+    "textOnly": [],
+    "targets": false,
+    "cost": true,
+    "condition": false,
+    "description": "",
+    "textEffect": null
+   }
+  ],
+  "84815190": [
+   {
+    "kind": "procedure",
+    "mandatory": false,
+    "zones": [
+     "extra"
+    ],
+    "limit": null,
+    "categories": [],
+    "textOnly": [],
+    "targets": false,
+    "cost": false,
+    "condition": true,
+    "description": "",
+    "textEffect": null
+   },
+   {
+    "kind": "ignition",
+    "mandatory": false,
+    "zones": [
+     "field"
+    ],
+    "limit": {
+     "count": 1,
+     "sharedWith": [],
+     "perDuel": false
+    },
+    "categories": [
+     "destroy"
+    ],
+    "textOnly": [],
+    "targets": true,
+    "cost": false,
+    "condition": false,
+    "description": "",
+    "textEffect": null
+   },
+   {
+    "kind": "quick",
+    "mandatory": false,
+    "zones": [
+     "field"
+    ],
+    "limit": {
+     "count": 1,
+     "sharedWith": [],
+     "perDuel": false
+    },
+    "categories": [
+     "destroy",
+     "negate activation"
+    ],
+    "textOnly": [],
+    "targets": false,
+    "cost": false,
+    "condition": true,
+    "description": "",
+    "textEffect": null
+   },
+   {
+    "kind": "trigger",
+    "mandatory": false,
+    "zones": [
+     "field"
+    ],
+    "limit": {
+     "count": 1,
+     "sharedWith": [],
+     "perDuel": false
+    },
+    "categories": [
+     "Special Summon",
+     "to Extra Deck"
+    ],
+    "textOnly": [],
+    "targets": true,
+    "cost": false,
+    "condition": false,
+    "description": "",
+    "textEffect": null
+   }
+  ],
+  "50954680": [
+   {
+    "kind": "procedure",
+    "mandatory": false,
+    "zones": [
+     "extra"
+    ],
+    "limit": null,
+    "categories": [],
+    "textOnly": [],
+    "targets": false,
+    "cost": false,
+    "condition": true,
+    "description": "",
+    "textEffect": null
+   },
+   {
+    "kind": "quick",
+    "mandatory": false,
+    "zones": [
+     "field"
+    ],
+    "limit": {
+     "count": 1,
+     "sharedWith": [],
+     "perDuel": false
+    },
+    "categories": [
+     "destroy",
+     "negate activation"
+    ],
+    "textOnly": [],
+    "targets": false,
+    "cost": false,
+    "condition": true,
+    "description": "",
+    "textEffect": null
+   },
+   {
+    "kind": "trigger",
+    "mandatory": true,
+    "zones": [],
+    "limit": null,
+    "categories": [
+     "ATK change"
+    ],
+    "textOnly": [],
+    "targets": false,
+    "cost": false,
+    "condition": true,
+    "description": "",
+    "textEffect": null
+   }
+  ],
+  "75286621": [
+   {
+    "kind": "procedure",
+    "mandatory": false,
+    "zones": [
+     "extra"
+    ],
+    "limit": null,
+    "categories": [],
+    "textOnly": [],
+    "targets": false,
+    "cost": false,
+    "condition": true,
+    "description": "",
+    "textEffect": null
+   },
+   {
+    "kind": "quick",
+    "mandatory": false,
+    "zones": [
+     "field"
+    ],
+    "limit": {
+     "count": 1,
+     "sharedWith": [],
+     "perDuel": false
+    },
+    "categories": [
+     "banish",
+     "negate activation"
+    ],
+    "textOnly": [],
+    "targets": false,
+    "cost": true,
+    "condition": true,
+    "description": "",
+    "textEffect": null
+   }
+  ],
+  "59811955": [
+   {
+    "kind": "activation",
+    "mandatory": false,
+    "zones": [
+     "hand",
+     "spellTrap",
+     "fieldZone"
+    ],
+    "limit": null,
+    "categories": [
+     "to hand"
+    ],
+    "textOnly": [],
+    "targets": true,
+    "cost": false,
+    "condition": false,
+    "description": "",
+    "textEffect": null
+   }
+  ],
+  "60764609": [
+   {
+    "kind": "ignition",
+    "mandatory": false,
+    "zones": [
+     "hand"
+    ],
+    "limit": {
+     "count": 1,
+     "sharedWith": [],
+     "perDuel": false
+    },
+    "categories": [
+     "to hand",
+     "search"
+    ],
+    "textOnly": [],
+    "targets": false,
+    "cost": true,
+    "condition": false,
+    "description": "",
+    "textEffect": null
+   },
+   {
+    "kind": "ignition",
+    "mandatory": false,
+    "zones": [
+     "field"
+    ],
+    "limit": {
+     "count": 1,
+     "sharedWith": [],
+     "perDuel": false
+    },
+    "categories": [
+     "to GY"
+    ],
+    "textOnly": [],
+    "targets": true,
+    "cost": false,
+    "condition": false,
+    "description": "",
+    "textEffect": null
+   },
+   {
+    "kind": "ignition",
+    "mandatory": false,
+    "zones": [
+     "gy"
+    ],
+    "limit": {
+     "count": 1,
+     "sharedWith": [],
+     "perDuel": false
+    },
+    "categories": [
+     "Special Summon"
+    ],
+    "textOnly": [],
+    "targets": false,
+    "cost": true,
+    "condition": false,
+    "description": "",
+    "textEffect": null
+   }
+  ],
+  "21744288": [
+   {
+    "kind": "quick",
+    "mandatory": false,
+    "zones": [
+     "field"
+    ],
+    "limit": {
+     "count": 1,
+     "sharedWith": [],
+     "perDuel": false
+    },
+    "categories": [
+     "Special Summon"
+    ],
+    "textOnly": [],
+    "targets": false,
+    "cost": true,
+    "condition": true,
+    "description": "",
+    "textEffect": null
+   },
+   {
+    "kind": "ignition",
+    "mandatory": false,
+    "zones": [
+     "gy"
+    ],
+    "limit": {
+     "count": 1,
+     "sharedWith": [],
+     "perDuel": false
+    },
+    "categories": [
+     "to GY"
+    ],
+    "textOnly": [],
+    "targets": false,
+    "cost": true,
+    "condition": false,
+    "description": "",
+    "textEffect": null
+   }
+  ],
+  "85668449": [
+   {
+    "kind": "activation",
+    "mandatory": false,
+    "zones": [
+     "hand",
+     "spellTrap",
+     "fieldZone"
+    ],
+    "limit": null,
+    "categories": [],
+    "textOnly": [],
+    "targets": false,
+    "cost": false,
+    "condition": false,
+    "description": "",
+    "textEffect": null
+   },
+   {
+    "kind": "continuous",
+    "mandatory": false,
+    "zones": [
+     "fieldZone"
+    ],
+    "limit": null,
+    "categories": [],
+    "textOnly": [],
+    "targets": false,
+    "cost": false,
+    "condition": false,
+    "description": "",
+    "textEffect": null
+   },
+   {
+    "kind": "continuous",
+    "mandatory": false,
+    "zones": [
+     "fieldZone"
+    ],
+    "limit": null,
+    "categories": [],
+    "textOnly": [],
+    "targets": false,
+    "cost": false,
+    "condition": true,
+    "description": "",
+    "textEffect": null
+   }
+  ],
+  "74063034": [
+   {
+    "kind": "activation",
+    "mandatory": false,
+    "zones": [
+     "hand",
+     "spellTrap",
+     "fieldZone"
+    ],
+    "limit": null,
+    "categories": [
+     "Special Summon",
+     "Fusion Summon"
+    ],
+    "textOnly": [],
+    "targets": false,
+    "cost": false,
+    "condition": false,
+    "description": "",
+    "textEffect": null
+   },
+   {
+    "kind": "ignition",
+    "mandatory": false,
+    "zones": [
+     "gy"
+    ],
+    "limit": {
+     "count": 1,
+     "sharedWith": [],
+     "perDuel": false
+    },
+    "categories": [
+     "to hand",
+     "to deck"
+    ],
+    "textOnly": [],
+    "targets": true,
+    "cost": false,
+    "condition": false,
+    "description": "",
+    "textEffect": null
+   }
+  ],
+  "55144522": [
+   {
+    "kind": "activation",
+    "mandatory": false,
+    "zones": [
+     "hand",
+     "spellTrap",
+     "fieldZone"
+    ],
+    "limit": null,
+    "categories": [
+     "draw"
+    ],
+    "textOnly": [],
+    "targets": false,
+    "cost": false,
+    "condition": false,
+    "description": "",
+    "textEffect": null
+   }
+  ],
+  "19613556": [
+   {
+    "kind": "activation",
+    "mandatory": false,
+    "zones": [
+     "hand",
+     "spellTrap",
+     "fieldZone"
+    ],
+    "limit": null,
+    "categories": [
+     "destroy"
+    ],
+    "textOnly": [],
+    "targets": false,
+    "cost": false,
+    "condition": false,
+    "description": "",
+    "textEffect": null
+   }
+  ],
+  "48130397": [
+   {
+    "kind": "activation",
+    "mandatory": false,
+    "zones": [
+     "hand",
+     "spellTrap",
+     "fieldZone"
+    ],
+    "limit": null,
+    "categories": [
+     "Special Summon",
+     "Fusion Summon"
+    ],
+    "textOnly": [],
+    "targets": false,
+    "cost": true,
+    "condition": false,
+    "description": "",
+    "textEffect": null
+   }
+  ]
+ }
+}

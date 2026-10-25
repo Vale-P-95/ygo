@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import type { Card } from "../lib/api";
 import { rarityCode } from "./CardTile";
 import { AttributeIcon } from "./AttributeIcon";
+import { AnatomyEffects, AnatomyLegend, AnatomyStatus, AnatomyText, AnatomyToggle, useAnatomyToggle, useCardAnatomy } from "./CardAnatomy";
 
 export const ATTRIBUTE_COLORS: Record<string, string> = {
   DARK: "#8b5cc8",
@@ -40,23 +41,6 @@ function LinkArrows({ markers }: { markers: string[] }) {
   );
 }
 
-/** Effect text with "quoted card names" turned into search links. */
-function EffectText({ text, onSearch }: { text: string; onSearch?: (query: string) => void }) {
-  const parts = text.split(/("[^"\n]+")/g);
-  return (
-    <p className="whitespace-pre-line text-[13px] leading-relaxed text-text/90 select-text">
-      {parts.map((part, i) =>
-        part.startsWith('"') && onSearch ? (
-          <button key={i} type="button" className="text-sec underline decoration-dotted underline-offset-2 hover:text-sec-2" onClick={() => onSearch(part)}>
-            {part}
-          </button>
-        ) : (
-          <span key={i}>{part}</span>
-        ),
-      )}
-    </p>
-  );
-}
 
 function Stat({ label, value }: { label: string; value: ReactNode }) {
   return (
@@ -75,6 +59,9 @@ export function CardDetails({ card, onSearch }: { card: Card; onSearch?: (query:
   const isMonster = card.kind === "monster";
   const isXyz = card.typeLine.includes("Xyz");
   const rarity = rarityCode(card);
+  const [anatomyOn, toggleAnatomy] = useAnatomyToggle();
+  const { anatomy, error, loading } = useCardAnatomy(card.id, anatomyOn);
+  const shown = anatomyOn ? anatomy : null;
   return (
     <div className="flex flex-col gap-4">
       <div>
@@ -126,13 +113,19 @@ export function CardDetails({ card, onSearch }: { card: Card; onSearch?: (query:
       {card.pendDesc && (
         <div className="rounded-lg border border-border bg-bg-2 p-3">
           <p className="eyebrow mb-1">Effetto Pendulum</p>
-          <EffectText text={card.pendDesc} onSearch={onSearch} />
+          <AnatomyText text={card.pendDesc} pieces={shown?.pendulum} onSearch={onSearch} />
         </div>
       )}
-      <div className="rounded-lg border border-border bg-bg-2 p-3">
-        <p className="eyebrow mb-1">{card.pendDesc ? "Effetto del mostro" : "Testo"}</p>
-        <EffectText text={card.desc} onSearch={onSearch} />
+      <div className="flex flex-col gap-2 rounded-lg border border-border bg-bg-2 p-3">
+        <div className="flex items-center justify-between gap-2">
+          <p className="eyebrow">{card.pendDesc ? "Effetto del mostro" : "Testo"}</p>
+          <AnatomyToggle on={anatomyOn} onToggle={toggleAnatomy} />
+        </div>
+        <AnatomyText text={card.desc} pieces={shown?.text} onSearch={onSearch} />
+        {shown && <AnatomyLegend pieces={[...shown.text, ...shown.pendulum]} />}
+        {anatomyOn && <AnatomyStatus loading={loading} error={error} />}
       </div>
+      {shown && <AnatomyEffects anatomy={shown} />}
 
       <dl className="grid grid-cols-[max-content_1fr] gap-x-4 gap-y-1 text-xs">
         <dt className="text-faint">Formati</dt>

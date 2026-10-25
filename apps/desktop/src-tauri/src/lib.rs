@@ -235,6 +235,161 @@ fn get_cards(state: State<'_, AppState>, ids: Vec<u32>) -> Result<Vec<Card>, Str
     state.with_store(|s| s.get_many(&ids))
 }
 
+/// One effect of a card as its script registers it, for the anatomy view
+/// (`docs/plans/anatomia-effetti.md` §3).
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct EffectView {
+    /// `activation`, `ignition`, `trigger`, `quick`, `flip`, `continuous`,
+    /// `procedure`.
+    kind: &'static str,
+    /// A trigger or Quick Effect the player must use.
+    mandatory: bool,
+    /// Where it is used from: `hand`, `field`, `spellTrap`, `gy`,
+    /// `banished`, `deck`, `extra`, `fieldZone`, `pendulumZone`.
+    zones: Vec<&'static str>,
+    limit: Option<LimitView>,
+    /// The engine's category names (`ygo_engine::consts::category::NAMES`).
+    categories: Vec<&'static str>,
+    /// Categories the text names that the script does not declare.
+    text_only: Vec<&'static str>,
+    targets: bool,
+    cost: bool,
+    condition: bool,
+    /// The card's string for the effect (English), empty when it has none.
+    description: String,
+    /// The effect of the text it is, when the text and the script have as
+    /// many activated effects (`AnatomyView::text`, `Piece::effect`).
+    text_effect: Option<usize>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct LimitView {
+    count: u32,
+    /// Other effects of the list (indexes) that use up the same limit.
+    shared_with: Vec<usize>,
+    per_duel: bool,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct AnatomyView {
+    /// The card text in pieces (condition, cost, action, restriction, limit,
+    /// materials); put together they give the text back.
+    text: Vec<ygo_data::psct::Piece>,
+    /// The same for the Pendulum Effect; empty without one.
+    pendulum: Vec<ygo_data::psct::Piece>,
+    effects: Vec<EffectView>,
+    /// Why the script could not be read (only the text is shown then).
+    script_error: Option<String>,
+}
+
+/// The anatomy of a card: its text by its punctuation and its effects as the
+/// script registers them.
+#[tauri::command(async)]
+fn card_anatomy(state: State<'_, AppState>, id: u32) -> Result<AnatomyView, String> {
+    use ygo_data::psct::Frame;
+    let card = state.with_store(|s| s.get_many(&[id]))?.into_iter().next().ok_or("Carta non trovata")?;
+    let frame = match card.kind {
+        ygo_data::CardKind::Monster if ["fusion", "synchro", "xyz", "link"].iter().any(|f| card.frame.starts_with(f)) => Frame::ExtraDeck,
+        ygo_data::CardKind::Monster => Frame::Monster,
+        _ => Frame::SpellTrap,
+    };
+    anatomy_view(id, &card.desc, card.pend_desc.as_deref(), frame, state.engine())
+}
+
+fn anatomy_view(
+    id: u32,
+    desc: &str,
+    pend_desc: Option<&str>,
+    frame: ygo_data::psct::Frame,
+    engine: Result<Engine, String>,
+) -> Result<AnatomyView, String> {
+    use ygo_data::psct::{self, Frame};
+    use ygo_engine::EffectKind;
+    let text = psct::read(desc, frame);
+    let pendulum = pend_desc.map(|d| psct::read(d, Frame::Monster).pieces).unwrap_or_default();
+    let engine = match engine {
+        Ok(engine) => engine,
+        Err(e) => return Ok(AnatomyView { text: text.pieces, pendulum, effects: Vec::new(), script_error: Some(e) }),
+    };
+    let code = engine.cards().canonical_code(id);
+    let read = ygo_engine::read_anatomy(&engine, &[code]).pop().ok_or("Lettura dello script non riuscita")?;
+    // The effects worth showing: activated ones (one per description: the
+    // same trigger on several events is one effect of the text), the
+    // materials, and the continuous ones the card names with a string.
+    let mut shown: Vec<&ygo_engine::EffectAnatomy> = Vec::new();
+    for e in &read.effects {
+        let keep = match e.kind {
+            EffectKind::Procedure => !shown.iter().any(|s| s.kind == EffectKind::Procedure),
+            EffectKind::Granted => false,
+            EffectKind::Continuous => e.description != 0,
+            _ => true,
+        };
+        if keep && (e.description == 0 || !shown.iter().any(|s| s.description == e.description)) {
+            shown.push(e);
+        }
+    }
+    let activated_text: Vec<usize> = text.effects.iter().enumerate().filter(|(_, e)| e.activated).map(|(i, _)| i).collect();
+    let activated_script = shown.iter().filter(|e| e.kind.activated()).count();
+    let mut next_text = activated_text.iter().copied();
+    let zone_names = |mask: u32| {
+        [
+            (0x2, "hand"),
+            (0x4, "field"),
+            (0x8, "spellTrap"),
+            (0x10, "gy"),
+            (0x20, "banished"),
+            (0x1, "deck"),
+            (0x40, "extra"),
+            (0x100, "fieldZone"),
+            (0x200, "pendulumZone"),
+        ]
+        .iter()
+        .filter(|(bit, _)| mask & bit != 0)
+        .map(|(_, name)| *name)
+        .collect::<Vec<_>>()
+    };
+    let effects = shown
+        .iter()
+        .enumerate()
+        .map(|(k, e)| {
+            let text_effect = (e.kind.activated() && activated_script == activated_text.len()).then(|| next_text.next()).flatten();
+            let categories = e.categories();
+            let text_only = text_effect
+                .map(|t| text.effects[t].categories.iter().copied().filter(|c| !categories.contains(c)).collect())
+                .unwrap_or_default();
+            EffectView {
+                kind: match e.kind {
+                    EffectKind::Activation => "activation",
+                    EffectKind::Ignition => "ignition",
+                    EffectKind::Trigger { .. } => "trigger",
+                    EffectKind::Quick { .. } => "quick",
+                    EffectKind::Flip => "flip",
+                    EffectKind::Continuous => "continuous",
+                    EffectKind::Procedure | EffectKind::Granted => "procedure",
+                },
+                mandatory: matches!(e.kind, EffectKind::Trigger { optional: false } | EffectKind::Quick { optional: false }),
+                zones: zone_names(if e.kind == EffectKind::Procedure { 0x40 } else { e.range }),
+                limit: e.count_limit.map(|l| LimitView {
+                    count: l.count,
+                    shared_with: shown.iter().enumerate().filter(|&(j, o)| j != k && e.shares_limit(o)).map(|(j, _)| j).collect(),
+                    per_duel: l.flag & 0x2 != 0,
+                }),
+                categories,
+                text_only,
+                targets: e.targets(),
+                cost: e.has_cost,
+                condition: e.has_condition,
+                description: if e.description >> 20 != 0 { engine.cards().describe(e.description) } else { String::new() },
+                text_effect,
+            }
+        })
+        .collect();
+    Ok(AnatomyView { text: text.pieces, pendulum, effects, script_error: read.error })
+}
+
 #[tauri::command(async)]
 fn card_facets(state: State<'_, AppState>) -> Result<Facets, String> {
     state.with_store(|s| s.facets())
@@ -3134,6 +3289,7 @@ pub fn run() {
             update_data,
             search_cards,
             get_cards,
+            card_anatomy,
             card_facets,
             ban_changes,
             list_favorites,
@@ -3207,5 +3363,28 @@ mod tests {
         assert_eq!(file_stem("Invoked Siracusa è / MD"), "Invoked Siracusa è _ MD");
         assert_eq!(file_stem("  ../  "), "___", "no way out of the folder");
         assert_eq!(file_stem(""), "deck");
+    }
+
+    /// Hyperinvoked Aeon read from the engine's data: its text in parts and
+    /// its three effects, the text ones matched to the script ones. Skipped
+    /// without the downloaded game data.
+    #[test]
+    fn anatomy_of_aeon() {
+        let data = std::env::var_os("DUELFORGE_DATA").map(PathBuf::from).unwrap_or_else(|| PathBuf::from("../../../data"));
+        if !data.join("scripts/constant.lua").is_file() {
+            eprintln!("skipped: no game data in {}", data.display());
+            return;
+        }
+        let engine = Engine::load(&data).unwrap();
+        let aeon = engine.cards().find_by_name("Hyperinvoked Aeon").unwrap().clone();
+        let view = anatomy_view(aeon.code, &aeon.desc, None, ygo_data::psct::Frame::ExtraDeck, Ok(engine)).unwrap();
+        assert_eq!(view.script_error, None);
+        assert_eq!(view.text.first().and_then(|p| p.part), Some(ygo_data::psct::Part::Materials));
+        assert_eq!(view.effects.iter().map(|e| e.kind).collect::<Vec<_>>(), ["procedure", "trigger", "quick"]);
+        let trigger = &view.effects[1];
+        assert_eq!(trigger.text_effect, Some(0));
+        assert!(trigger.categories.contains(&"banish"));
+        assert_eq!(trigger.limit.as_ref().map(|l| l.shared_with.clone()), Some(vec![2]));
+        assert_eq!(view.effects[2].text_effect, Some(1));
     }
 }
