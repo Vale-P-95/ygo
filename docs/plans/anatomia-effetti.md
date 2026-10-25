@@ -63,7 +63,7 @@ Un segmentatore a regole (Rust, in `ygo-data`) basta per la vista: divide il tes
 - Una riga per effetto: tipo (chip: Ignizione, Innescato, Rapido, Continuo), zona da cui si usa, limite («1 volta per turno, per nome»).
 - Quattro campi, ognuno solo se c'è: **Condizione** (quando), **Costo**, **Azione** (verbo con categoria, quantità e luogo: «bandisce fino a 3 · Extra Deck avversario · coperte»), **Restrizione**.
 - Bersaglio sì/no come icona: conta per le carte che lo evitano (ad esempio chi non può essere bersaglio).
-- Il testo inglese originale resta, con le parti sottolineate nei colori dei quattro campi (token di `index.css`, temi chiaro e scuro). Le etichette sono in italiano, il testo della carta in inglese.
+- **Tasto «Anatomia» nel dettaglio della carta** (richiesta di Valerio del 25/10): un'icona accanto al testo che, accesa, colora nel testo inglese le parti che parlano di condizione, costo, azione, restrizione e limite, ognuna col suo colore (token di `index.css`, temi chiaro e scuro), con una piccola legenda. Spenta, il testo resta com'è. Lo stato del tasto si ricorda per sessione. Le etichette sono in italiano, il testo della carta in inglese.
 - Un «da verificare» discreto dove le due fonti non concordano.
 
 **Filtri del catalogo per categoria**: «nega», «bandisce», «cerca», «Evoca dal Deck», «tocca l'Extra Deck avversario», «effetto rapido», «dalla mano», «dal Cimitero». Sostituiscono nel tempo le liste di nomi di `tags.rs` per gli handtrap (mostro + zona mano + tipo Rapido o Innescato nel turno avversario) e i breaker; le liste restano finché i filtri nuovi non le coprono.
@@ -117,11 +117,11 @@ Quando hai finito: TASKS.md e questo piano aggiornati, PR aperta, fermati.
 
 ### Brief B: segmentatore PSCT e sezione «Anatomia» nell'ispettore (interfaccia e dati)
 ```
-Compito: l'ispettore della carta mostra la sezione «Anatomia» (per effetto: tipo, zona, limite, condizione, costo, azione con quantità e luogo, restrizione, bersaglio) unendo l'anatomia Lua del Brief A e un segmentatore PSCT; il testo inglese con le parti sottolineate.
+Compito: l'ispettore della carta mostra la sezione «Anatomia» (per effetto: tipo, zona, limite, condizione, costo, azione con quantità e luogo, restrizione, bersaglio) unendo l'anatomia Lua del Brief A e un segmentatore PSCT; nel dettaglio della carta un tasto con icona «anatomia» colora nel testo inglese condizione, costo, azione, restrizione e limite, con la legenda.
 Perché: docs/plans/anatomia-effetti.md §2.2 e §3.
 Branch: claude/anatomia-ispettore, da main dopo il Brief A
 File da toccare: crates/ygo-data/src/psct.rs (nuovo), apps/desktop/src-tauri/src/lib.rs e src/lib/api.ts (comando card_anatomy: file caldi, chiederli in TASKS.md), src/lib/mock.ts, src/lib/fixtures/, src/components/CardInspector.tsx.
-Da leggere: anatomia-effetti.md §2.2-§3; mockup di Claude Design della sezione (da fare prima: artboard 1280×800, due temi).
+Da leggere: anatomia-effetti.md §2.2-§3; mockup di Claude Design del dettaglio della carta con il tasto acceso e spento e della sezione (da fare prima: artboard 1280×800, due temi).
 Verifica: cargo test -p ygo-data psct (testi di prova scritti da noi, niente testi Konami nel repo); pnpm typecheck; pnpm build; VITE_MOCK=1 + node scripts/screens.mjs, pagina Deck builder nei due temi; app vera con DUELFORGE_DATA.
 Criterio di accettazione: su 10 carte di prova (handtrap, Fusion, Link, Magia rapida, Trappola continua) i quattro campi giusti; disaccordi Lua/PSCT contati e mostrati come «da verificare».
 PR: template; screenshot nei due temi, anteprima Artifact.
