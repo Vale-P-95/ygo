@@ -27,9 +27,9 @@ Regole in `AGENTS.md`. Per prendere un task, spostalo in "In corso" con agente, 
 - [ ] **Mascotte nei pannelli info** (claude-code, branch `claude/project-thread-v1jfz3`, PR #166). L'Arcimago del design di Valerio in `InfoDialog` su `InfoButton` e `HelpPopover`, con `kind` per il glifo sulla lavagna.
   - File: `Mascot.tsx`, `InfoDialog.tsx`, `InfoButton.tsx`, `ui/HelpPopover.tsx`, `index.css`.
   - Resta: i testi per voce del design (probabilità, interruzioni, passi) non ripresi.
-- [ ] **Anatomia degli effetti, filtri del catalogo e brief C** (thread del progetto, branch `claude/project-thread-s3j17c`; piano `docs/plans/anatomia-effetti.md` §3-§4).
-  File: `ygo-data/src/query.rs`, `apps/desktop/src-tauri/src/lib.rs` e `effects.rs`, `Catalog.tsx`, `mock.ts`; poi, per il brief C, `crates/ygo-solver/src/search.rs` e `value.rs`.
-  Filtri per effetto fatti (§9, PR aperta); ora il brief C sul banco congelato, in un'altra PR.
+- [ ] **Anatomia degli effetti, filtri del catalogo** (thread del progetto, branch `claude/project-thread-s3j17c`, PR #181; piano `docs/plans/anatomia-effetti.md` §9-§10).
+  File: `ygo-data/src/query.rs` e `effects.rs`, `apps/desktop/src-tauri/src/lib.rs` e `effect_index.rs`, `FilterPanel.tsx`, `mock.ts`, `query.ts`.
+  Brief C parte 1 misurata e non tenuta (§10); la parte 2 ha il suo brief (C2) per una sessione nuova.
 
 ## Da fare (in ordine di priorità)
 
@@ -74,7 +74,7 @@ Regole in `AGENTS.md`. Per prendere un task, spostalo in "In corso" con agente, 
 - [x] Sistema di design: galleria, anteprime e primo `/design-sync` fatti (vedi sopra).
 - [x] Script di avvio dell'ambiente cloud (PR in revisione): `scripts/cloud-setup.sh` (sottomodulo, WebKitGTK e Xvfb, `pnpm install`, `cargo fetch`, `--data` per `fetch-data`; variabili in `.cloud-env`) e `scripts/cloud-app.sh` (l'app vera sotto Xvfb con screenshot). Prova di WebKitGTK riuscita (§6.5 del piano).
 - [x] CI: screenshot e prova fumo con Playwright (PR in revisione): `screens.mjs --smoke` (1280×800, due temi, tutte le sezioni; fallisce su errori di pagina, risposte HTTP ≥ 400 o sezioni vuote) sul job frontend di `ci.yml`, in modo mock; gli screenshot sono l'artifact `screenshots-<sha>`.
-- [ ] Anatomia degli effetti (richiesta di Valerio del 24/10): leggere dagli script Lua e dal testo PSCT costo, condizione, azione, quantità e restrizioni, per l'ispettore del deck building e per il motore. Piano e brief A, B, C in `docs/plans/anatomia-effetti.md`, da fare in ordine (Valerio, 25/10). A fatto il 25/10 (`duelforge-cli anatomy`, §7 del piano); B fatto il 25/10 (tasto «Anatomia» nel visore e nell'ispettore, §8); filtri del catalogo per effetto (`eff:`, §9) in PR il 25/10; restano il riepilogo del deck e C.
+- [ ] Anatomia degli effetti (richiesta di Valerio del 24/10): leggere dagli script Lua e dal testo PSCT costo, condizione, azione, quantità e restrizioni, per l'ispettore del deck building e per il motore. Piano e brief A, B, C in `docs/plans/anatomia-effetti.md`, da fare in ordine (Valerio, 25/10). A fatto il 25/10 (`duelforge-cli anatomy`, §7 del piano); B fatto il 25/10 (tasto «Anatomia» nel visore e nell'ispettore, §8); filtri del catalogo per effetto (`eff:`, §9) in PR il 25/10; C parte 1 misurata e non tenuta (§10); restano il riepilogo del deck e C2.
 ### Richieste dal backend per l'interfaccia
 Nessuna aperta. Un dato nuovo per l'interfaccia lo aggiunge la stessa sessione di Claude che fa la schermata, nella stessa PR.
 
