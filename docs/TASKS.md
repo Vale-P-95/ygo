@@ -27,6 +27,9 @@ Regole in `AGENTS.md`. Per prendere un task, spostalo in "In corso" con agente, 
 - [ ] **Mascotte nei pannelli info** (claude-code, branch `claude/project-thread-v1jfz3`, PR #166). L'Arcimago del design di Valerio in `InfoDialog` su `InfoButton` e `HelpPopover`, con `kind` per il glifo sulla lavagna.
   - File: `Mascot.tsx`, `InfoDialog.tsx`, `InfoButton.tsx`, `ui/HelpPopover.tsx`, `index.css`.
   - Resta: i testi per voce del design (probabilità, interruzioni, passi) non ripresi.
+- [ ] **Sinergie F0: deck di lettura e censimento** (thread del progetto, branch `claude/project-thread-fpy867`; brief F0 di `docs/plans/sinergie-archetipi.md`).
+  File: `crates/ygo-solver/src/synergy/` (nuovo: `mod.rs`, `census.rs`, `read.rs`), `crates/ygo-solver/src/lib.rs`, `crates/ygo-cli/src/main.rs`.
+  CLI `synergy-census`: numeri del §2 dai dati del motore e prova del deck con tutto il pool su 30 carte.
 
 ## Da fare (in ordine di priorità)
 
