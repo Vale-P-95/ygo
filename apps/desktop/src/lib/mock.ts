@@ -52,6 +52,9 @@ import type {
   RoleGuess,
   SavedSearch,
   SearchResult,
+  McProgress,
+  McRequest,
+  McResult,
   SecondOpponent,
   SecondProgress,
   SecondRequest,
@@ -917,6 +920,8 @@ const simProgressListeners = new Set<(c: Checkpoint) => void>();
 const comboProgressListeners = new Set<(p: ComboProgress) => void>();
 const secondProgressListeners = new Set<(p: SecondProgress) => void>();
 let secondStopped = false;
+const mcProgressListeners = new Set<(p: McProgress) => void>();
+let mcStopped = false;
 const comboScoreListeners = new Set<(s: ComboScore) => void>();
 const linksProgressListeners = new Set<(p: LinksProgress) => void>();
 let lastVsDeckId: number | null = null;
@@ -3412,6 +3417,54 @@ export const mockApi: Api = {
     secondProgressListeners.add(handler);
     return () => {
       secondProgressListeners.delete(handler);
+    };
+  },
+
+  // No recording of the real backend exists for the engine Monte Carlo: the numbers are invented, in the shape the backend sends.
+  mcRun: async (request: McRequest): Promise<McResult> => {
+    const deck = decksState.find((d) => d.id === request.deckId);
+    if (!deck) throw new Error("Il deck non esiste più");
+    mcStopped = false;
+    const run = async (main: number[], phase: "deck" | "swap", boost: number) => {
+      const hands: McResult["deck"]["hands"] = [];
+      for (let i = 0; i < request.hands && !mcStopped; i++) {
+        await delay(250);
+        const hand = Array.from({ length: 5 }, (_, k) => main[(i * 7 + k * 3) % main.length]);
+        const value = Math.max(0, 0.4 + ((i * 37) % 17) / 6 + boost * (i % 4 === 0 ? 1 : 0));
+        const played = { hand, value, used: hand.slice(0, 1 + (i % 3)) };
+        hands.push(played);
+        for (const l of mcProgressListeners) l({ deckId: request.deckId, requestId: request.requestId, phase, done: hands.length, total: request.hands, hand: played });
+      }
+      return hands;
+    };
+    const deckHands = await run(deck.main, "deck", 0);
+    const threshold = [...deckHands.map((h) => h.value)].sort((a, b) => a - b)[Math.floor(deckHands.length / 2)] ?? 0;
+    const share = (hs: McResult["deck"]["hands"]) => (hs.length ? hs.filter((h) => h.value >= threshold).length / hs.length : 0);
+    const measured = (hs: McResult["deck"]["hands"]): McResult["deck"] => {
+      const p = share(hs);
+      const half = hs.length ? 1.96 * Math.sqrt((p * (1 - p)) / hs.length) * 0.85 : 0;
+      const mean = hs.length ? hs.reduce((a, h) => a + h.value, 0) / hs.length : 0;
+      return { p, pHalf: half, pSample: p, low: Math.max(0, p - half * 1.15), high: Math.min(1, p + half * 1.15), mean, meanHalf: 0.3, hands: hs, searched: hs.length, seconds: hs.length * 0.25 };
+    };
+    const result: McResult = { deckId: request.deckId, requestId: request.requestId, threshold, deck: measured(deckHands), swap: null, stopped: mcStopped, seconds: deckHands.length * 0.25 };
+    if (request.swap && !mcStopped) {
+      const main = deck.main.map((c, i) => (c === request.swap!.out && i === deck.main.lastIndexOf(c) ? request.swap!.into : c));
+      const swapHands = await run(main, "swap", 1.2);
+      const s = measured(swapHands);
+      result.stopped = mcStopped;
+      result.swap = { out: request.swap.out, into: request.swap.into, deck: s, dp: s.p - result.deck.p, dpHalf: 0.04, dmean: s.mean - result.deck.mean, dmeanHalf: 0.15, changed: Math.ceil(swapHands.length / 8) };
+    }
+    return result;
+  },
+
+  mcCancel: async (): Promise<void> => {
+    mcStopped = true;
+  },
+
+  onMcProgress: async (handler: (p: McProgress) => void): Promise<UnlistenFn> => {
+    mcProgressListeners.add(handler);
+    return () => {
+      mcProgressListeners.delete(handler);
     };
   },
 

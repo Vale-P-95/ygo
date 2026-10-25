@@ -756,6 +756,81 @@ export interface SecondProgress {
   result: SecondResult | null;
 }
 
+/** What the engine Monte Carlo asks (mirrors `McRequest`). */
+export interface McRequest {
+  deckId: number;
+  /** Echoed on every progress event and on the result, so the page drops those of an older run. */
+  requestId: number;
+  /** Hands of 5 drawn from the Main Deck, and the nodes the search spends on each. */
+  hands: number;
+  nodes: number;
+  /** One copy of `out` turned into `into`, measured on the same hands. */
+  swap?: { out: number; into: number } | null;
+}
+
+/** One hand played by the engine (mirrors `McHandView`). */
+export interface McHand {
+  hand: number[];
+  /** Value of the best board the hand reached (0 when none). */
+  value: number;
+  /** Cards of the hand the best line used. */
+  used: number[];
+}
+
+/** A deck measured by the engine Monte Carlo (mirrors `McDeckView`). */
+export interface McDeck {
+  /** Share of the hands that reached the threshold, corrected by the odds of the cards (0-1), with the half width of its 95% interval. */
+  p: number;
+  pHalf: number;
+  /** The share of the sample alone, with its Wilson interval. */
+  pSample: number;
+  low: number;
+  high: number;
+  mean: number;
+  meanHalf: number;
+  hands: McHand[];
+  /** Hands the engine searched (the others took the value of a similar one). */
+  searched: number;
+  seconds: number;
+}
+
+/** A swap of a copy measured on the same hands as the deck (mirrors `McSwapView`). */
+export interface McSwap {
+  out: number;
+  into: number;
+  deck: McDeck;
+  /** Change of P with the half width of its 95% interval, measured on the same hands. */
+  dp: number;
+  dpHalf: number;
+  dmean: number;
+  dmeanHalf: number;
+  /** Hands that changed with the swap. */
+  changed: number;
+}
+
+/** The engine Monte Carlo of a deck (mirrors `McResultView`). */
+export interface McResult {
+  deckId: number;
+  requestId: number;
+  /** Value a board must reach: the median of the deck's hands. */
+  threshold: number;
+  deck: McDeck;
+  swap: McSwap | null;
+  /** Stopped before the last hand: the numbers use the hands done. */
+  stopped: boolean;
+  seconds: number;
+}
+
+/** A hand finished while the Monte Carlo goes on (`mc-progress`, mirrors `McProgressView`). */
+export interface McProgress {
+  deckId: number;
+  requestId: number;
+  phase: "deck" | "swap";
+  done: number;
+  total: number;
+  hand: McHand;
+}
+
 /** A deck of the meta in the tech table (mirrors `TechDeckView`). */
 export interface TechDeck {
   name: string;
@@ -1193,6 +1268,14 @@ const tauriApi = {
    */
   secondRun: (request: SecondRequest) => invoke<SecondResult>("second_run", { request }),
   secondCancel: () => invoke<void>("second_cancel"),
+  /**
+   * The Monte Carlo played by the engine: hands of 5 of the deck, each searched by the Combo Lab, and the share whose best board
+   * reaches the median of the deck, with one swap of a copy if asked. Takes minutes: each hand arrives on `onMcProgress`;
+   * `mcCancel` stops it and the call returns the hands done.
+   */
+  mcRun: (request: McRequest) => invoke<McResult>("mc_run", { request }),
+  mcCancel: () => invoke<void>("mc_cancel"),
+  onMcProgress: (handler: (p: McProgress) => void): Promise<UnlistenFn> => listen<McProgress>("mc-progress", (e) => handler(e.payload)),
   onSecondProgress: (handler: (p: SecondProgress) => void): Promise<UnlistenFn> =>
     listen<SecondProgress>("second-progress", (e) => handler(e.payload)),
   onComboProgress: (handler: (p: ComboProgress) => void): Promise<UnlistenFn> => listen<ComboProgress>("combo-progress", (e) => handler(e.payload)),

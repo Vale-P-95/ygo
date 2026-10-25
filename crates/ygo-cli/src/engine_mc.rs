@@ -11,19 +11,15 @@ use std::collections::{BTreeMap, HashMap};
 use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::AtomicBool;
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 use anyhow::{bail, Context, Result};
 use ygo_engine::{DeckList, Engine};
 use ygo_solver::engine_mc::{
-    draw_positions, estimate, hands_at, paired, presence, respell, used_cards, Controls, Estimate, HandCache, Outcome, Paired,
+    draw_positions, estimate, hands_at, paired, presence, respell, Controls, Estimate, HandCache, Outcome, Paired,
 };
+use ygo_solver::mc_run::{play_hand, HAND, PER_HAND};
 use ygo_stats::{CardEntry, DeckModel};
-
-/// Cards in a hand going first.
-const HAND: usize = 5;
-/// A hand's search stops here even if its nodes are not spent (a slow deck).
-const PER_HAND: Duration = Duration::from_secs(120);
 
 pub(crate) struct Options {
     pub deck: PathBuf,
@@ -98,7 +94,7 @@ pub(crate) fn engine_mc(dir: &Path, o: Options) -> Result<()> {
         variant.main = main.to_vec();
         let hands = hands_at(main, &draws);
         let before = cache.borrow().misses;
-        let play = |hand: &[u32]| play_hand(&engine, &base, &kit, &variant, hand, o.cheap, o.full);
+        let play = |hand: &[u32]| play_hand(&engine, &base, &kit, &variant, hand, o.cheap, o.full, &AtomicBool::new(false));
         let outcomes = cache.borrow_mut().values(&hands, threads, play);
         let searched = cache.borrow().misses - before;
         let values = outcomes.iter().map(|x| x.value).collect();
@@ -226,55 +222,6 @@ fn swapped(main: &[u32], out: u32, into: u32) -> Vec<u32> {
         main[i] = into;
     }
     main
-}
-
-/// The cards of a search's hand and the measured value of its best board:
-/// the search with its node budget, the cheap measure of the first `cheap`
-/// fields, and the full one of the best `full` by it.
-fn play_hand(
-    engine: &Engine,
-    base: &ygo_solver::SearchConfig,
-    kit: &ygo_solver::Kit,
-    deck: &DeckList,
-    hand: &[u32],
-    cheap: usize,
-    full: usize,
-) -> Outcome {
-    let begun = Instant::now();
-    let mut config = base.clone();
-    config.deck = deck.clone();
-    config.hand = hand.to_vec();
-    let result = ygo_solver::search(engine, &config, &AtomicBool::new(false), |_| {});
-    let mut prober = ygo_solver::Prober::new(engine, deck, hand, base.seed, kit);
-    let how = ygo_solver::probe::Cheap { windows: crate::STAGED_WINDOWS, use_rounds: crate::STAGED_ROUNDS };
-    let mut ranked = Vec::new();
-    for (_, group) in crate::fields(&result.boards, cheap.max(1)) {
-        let board = group[0].clone();
-        if let Ok((m, partial)) = prober.measure_cheap(&board.line, how) {
-            ranked.push((crate::cheap_composite(&m), board, partial));
-        }
-    }
-    ranked.sort_by(|a, b| b.0.total_cmp(&a.0));
-    let mut best: Option<(f64, ygo_solver::Board)> = None;
-    for (_, board, partial) in ranked.into_iter().take(full.max(1)) {
-        if let Ok(m) = prober.measure_resumed(&board.line, partial) {
-            let v = crate::composite(&m);
-            if best.as_ref().is_none_or(|(b, _)| v > *b) {
-                best = Some((v, board));
-            }
-        }
-    }
-    // The value depends on the cards the best line used, and on the
-    // handtraps, which count kept in the hand.
-    let db = engine.cards();
-    let traps: Vec<u32> = base.hand_traps.iter().map(|&c| db.canonical_code(c)).collect();
-    let is_trap = |c: &u32| traps.contains(&db.canonical_code(*c));
-    let mut used = best.as_ref().map(|(_, b)| used_cards(hand, std::slice::from_ref(b))).unwrap_or_default();
-    used.retain(|c| !is_trap(c));
-    used.extend(hand.iter().filter(|c| is_trap(c)));
-    used.sort_unstable();
-    let value = best.map_or(0.0, |(v, _)| v);
-    Outcome { value, used, nodes: result.progress.nodes, seconds: begun.elapsed().as_secs_f64() }
 }
 
 /// How often each card of `main` made a good board: the share of the draws
