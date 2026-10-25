@@ -89,3 +89,6 @@
 - `docs/plans/caccia-bug-motore.md`: caccia ai bug.
 - `docs/plans/revisione-motore.md`, `docs/plans/revisione-bibliografica.md` e `-2.md`.
 - `docs/plans/ui-revisione-2.md`: passi dell'interfaccia (fino al passo 5 Gemini, poi Claude).
+
+## Anteprima dell'app
+- L'anteprima del frontend con il backend finto (`VITE_MOCK=1 pnpm build`) sta sempre a https://claude.ai/artifact/DY3eamcB7ZU4AT2shZdL9p (skill `pr-interfaccia`, §3).

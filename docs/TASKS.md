@@ -27,9 +27,6 @@ Regole in `AGENTS.md`. Per prendere un task, spostalo in "In corso" con agente, 
 - [ ] **Mascotte nei pannelli info** (claude-code, branch `claude/project-thread-v1jfz3`, PR #166). L'Arcimago del design di Valerio in `InfoDialog` su `InfoButton` e `HelpPopover`, con `kind` per il glifo sulla lavagna.
   - File: `Mascot.tsx`, `InfoDialog.tsx`, `InfoButton.tsx`, `ui/HelpPopover.tsx`, `index.css`.
   - Resta: i testi per voce del design (probabilità, interruzioni, passi) non ripresi.
-- [ ] **Anatomia degli effetti, brief B** (thread «Far leggere al motore gli effetti delle carte», branch `claude/anatomia-ispettore`). Tasto «Anatomia» nel dettaglio della carta e nell'ispettore, segmentatore PSCT.
-  File: `crates/ygo-data/src/psct.rs`, `apps/desktop/src-tauri/src/lib.rs` (comando `card_anatomy`), `src/lib/api.ts`, `src/lib/mock.ts`, `src/lib/fixtures/`, `CardDetails.tsx`, `CardInspector.tsx`, `index.css`.
-  Mockup: https://claude.ai/artifact/P17uXCzpHkPyqCLKhzmdNd; piano `docs/plans/anatomia-effetti.md` §3 e §5.
 
 ## Da fare (in ordine di priorità)
 
@@ -73,7 +70,7 @@ Regole in `AGENTS.md`. Per prendere un task, spostalo in "In corso" con agente, 
 - [x] Sistema di design: galleria, anteprime e primo `/design-sync` fatti (vedi sopra).
 - [x] Script di avvio dell'ambiente cloud (PR in revisione): `scripts/cloud-setup.sh` (sottomodulo, WebKitGTK e Xvfb, `pnpm install`, `cargo fetch`, `--data` per `fetch-data`; variabili in `.cloud-env`) e `scripts/cloud-app.sh` (l'app vera sotto Xvfb con screenshot). Prova di WebKitGTK riuscita (§6.5 del piano).
 - [x] CI: screenshot e prova fumo con Playwright (PR in revisione): `screens.mjs --smoke` (1280×800, due temi, tutte le sezioni; fallisce su errori di pagina, risposte HTTP ≥ 400 o sezioni vuote) sul job frontend di `ci.yml`, in modo mock; gli screenshot sono l'artifact `screenshots-<sha>`.
-- [ ] Anatomia degli effetti (richiesta di Valerio del 24/10): leggere dagli script Lua e dal testo PSCT costo, condizione, azione, quantità e restrizioni, per l'ispettore del deck building e per il motore. Piano e brief A, B, C in `docs/plans/anatomia-effetti.md`, da fare in ordine (Valerio, 25/10). A fatto il 25/10 (`duelforge-cli anatomy`, §7 del piano); poi B (mockup prima), poi C.
+- [ ] Anatomia degli effetti (richiesta di Valerio del 24/10): leggere dagli script Lua e dal testo PSCT costo, condizione, azione, quantità e restrizioni, per l'ispettore del deck building e per il motore. Piano e brief A, B, C in `docs/plans/anatomia-effetti.md`, da fare in ordine (Valerio, 25/10). A fatto il 25/10 (`duelforge-cli anatomy`, §7 del piano); B fatto il 25/10 (tasto «Anatomia» nel visore e nell'ispettore, §8); restano i filtri del catalogo per categoria e il riepilogo del deck, poi C.
 ### Richieste dal backend per l'interfaccia
 Nessuna aperta. Un dato nuovo per l'interfaccia lo aggiunge la stessa sessione di Claude che fa la schermata, nella stessa PR.
 

@@ -16,6 +16,7 @@ import { copyLimit, isExtraDeckCard } from "../lib/deck";
 import { roleDefs } from "../lib/roles";
 import { ATTRIBUTE_COLORS, frameColor } from "./CardDetails";
 import { AttributeIcon } from "./AttributeIcon";
+import { AnatomyEffects, AnatomyLegend, AnatomyStatus, AnatomyText, AnatomyToggle, useAnatomyToggle, useCardAnatomy } from "./CardAnatomy";
 import { rarityCode } from "./CardTile";
 import { IconButton } from "./ui/IconButton";
 
@@ -94,6 +95,11 @@ export const CardInspector = memo(function CardInspector({
     const allRoles = roleDefs(deck.roles);
     return allRoles.filter((def) => (deck.roles?.[def.key] ?? []).includes(card.id));
   }, [card, deck.roles]);
+
+  // The «Anatomia» button: the text coloured by parts, the effects listed.
+  const [anatomyOn, toggleAnatomy] = useAnatomyToggle();
+  const { anatomy, error: anatomyError, loading: anatomyLoading } = useCardAnatomy(card?.id ?? 0, anatomyOn && card != null);
+  const shownAnatomy = anatomyOn && card ? anatomy : null;
 
   if (!card) {
     return (
@@ -420,21 +426,21 @@ export const CardInspector = memo(function CardInspector({
       {card.pendDesc && (
         <div className="rounded-lg border border-border/80 bg-surface-2/60 p-2.5 text-xs">
           <p className="eyebrow text-xs text-text mb-1 font-bold uppercase tracking-wider">Effetto Pendulum</p>
-          <p className="whitespace-pre-line text-xs leading-relaxed text-text">
-            {card.pendDesc}
-          </p>
+          <AnatomyText text={card.pendDesc} pieces={shownAnatomy?.pendulum} className="whitespace-pre-line text-xs leading-relaxed text-text" />
         </div>
       )}
 
-      {/* Main card description */}
-      <div className="rounded-lg border border-border/80 bg-surface-2/60 p-2.5 text-xs">
-        <p className="eyebrow text-xs text-text mb-1 font-bold uppercase tracking-wider">
-          {card.pendDesc ? "Effetto Mostro" : "Testo della carta"}
-        </p>
-        <p className="whitespace-pre-line text-xs leading-relaxed text-text">
-          {card.desc}
-        </p>
+      {/* Main card description, coloured by parts with the «Anatomia» button */}
+      <div className="flex flex-col gap-2 rounded-lg border border-border/80 bg-surface-2/60 p-2.5 text-xs">
+        <div className="flex items-center justify-between gap-2">
+          <p className="eyebrow text-xs text-text font-bold uppercase tracking-wider">{card.pendDesc ? "Effetto Mostro" : "Testo della carta"}</p>
+          <AnatomyToggle on={anatomyOn} onToggle={toggleAnatomy} />
+        </div>
+        <AnatomyText text={card.desc} pieces={shownAnatomy?.text} className="whitespace-pre-line text-xs leading-relaxed text-text" />
+        {shownAnatomy && <AnatomyLegend pieces={[...shownAnatomy.text, ...shownAnatomy.pendulum]} />}
+        {anatomyOn && <AnatomyStatus loading={anatomyLoading} error={anatomyError} />}
       </div>
+      {shownAnatomy && <AnatomyEffects anatomy={shownAnatomy} />}
 
       {/* Passcode footer */}
       <div className="flex items-center justify-between text-xs text-muted px-1 pb-1">
