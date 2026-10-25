@@ -107,6 +107,13 @@ Modello: Sonnet 5.5, effort medio
 Quando hai finito: TASKS.md aggiornato, PR aperta, fermati.
 ```
 
-## Decisioni da prendere (Valerio)
-- Il Brief 1 passa il banco `full` ma non sposta il valore medio (+1%, non significativo): si accetta come guadagno di velocità (stesse board con meno nodi) o si chiede anche un guadagno di valore?
-- Il Brief 2 costa circa il 9% di tempo in più: va bene per le partite lunghe, o solo dietro un'opzione?
+## Fatto (25/10, stessa PR #182)
+Valerio ha scelto i Brief 1 e 2, le finaliste adattive sempre attive.
+- **Chiave dei momenti liberi** (`free_key` in `search.rs`): la ricerca dimentica l'ordine della mano e, senza Mostri Link scoperti, quale zona principale tiene una carta. Test `a_free_moment_forgets_the_zones_without_link_arrows`. Sul banco `full` dà le stesse uscite del prototipo in 191 mani su 193 (le altre 2 cambiano solo nel conteggio di nodi e board).
+- **Finaliste adattive** (`combos --probe`): se la migliore misurata è tra le ultime 4, si misurano le 10 successive, fino a 40. Sul banco `full` si allargano 19 mani su 193, tutte a 20. L'app non cambia: misura già 30 board con la misura economica prima delle 15 complete (`lib.rs`, file caldo, da fare in una PR a parte se serve).
+- **Banco `full`, le due insieme contro `main` 411361e** (classe R): 25 meglio, 16 peggio, 152 pari, media +1,25% (−0,54% a +3,37%), segno p 0,94, freschi +0,25%, tempo 1,027 (1,011-1,044), nessuna rottura, grandi perdite artmage 0 e 1, code_talker 0, doomz 0 e 1 compensate dalle grandi vincite: **ACCEPTED** («non peggiora»). `search_regression` verde.
+- **Perché le grandi perdite.** La ricerca a 4000 nodi non è monotona: con i nodi liberati esplora altri rami e in quelle mani non ritrova la board di prima (artmage 0: trova 1507 board invece di 1117, ma non quella con Odd-Eyes Vortex Dragon). Lo stesso succede raddoppiando i nodi (`regole-motore.md` §6).
+
+## Decisioni prese (Valerio, 25/10)
+- Brief 1: si unisce.
+- Brief 2: sempre attivo; ai tempi si penserà dopo (sul banco +2,7%).

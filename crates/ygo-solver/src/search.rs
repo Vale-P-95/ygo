@@ -751,6 +751,56 @@ fn node_key(state: u64, chain: &[ChainLink], decision: &Decision, pending: &Pend
     h.finish()
 }
 
+/// Key of a free moment: the state and what can be done there, without the
+/// order of the hand and, while no Link Monster is face-up, without which
+/// Main Monster Zone or Spell & Trap Zone holds a card. Two orders of the
+/// same plays leave the cards in other zones (A then B in zones 1 and 2, B
+/// then A in 2 and 1): the same moment, which `node_key` saw twice (a fifth
+/// of the nodes of the bench, `docs/plans/sprechi-ricerca.md`). The zones
+/// of the best boards are played at the end anyway (`zone_variants`). Link
+/// arrows make the zones matter, so with a Link Monster face-up they stay.
+fn free_key(state: &DuelState, chain: &[ChainLink], actions: &[Action]) -> u64 {
+    let links = state.players.iter().any(|p| p.monsters.iter().flatten().any(|c| c.link.1 != 0 && c.is_face_up()));
+    let fp = if links {
+        canonical_fingerprint(state)
+    } else {
+        let mut s = state.clone();
+        for p in &mut s.players {
+            let main = p.monsters.len().min(5);
+            let (main_zones, extra_zones) = p.monsters.split_at_mut(main);
+            let spells = p.spells.len().min(5);
+            for zones in [main_zones, extra_zones, &mut p.spells[..spells]] {
+                // An equipped card names its target by zone: the zones are gone.
+                zones.iter_mut().flatten().for_each(|c| c.equipped_to = None);
+                zones.sort_by_cached_key(|c| {
+                    c.as_ref().map(|c| {
+                        let mut h = DefaultHasher::new();
+                        c.hash(&mut h);
+                        h.finish()
+                    })
+                });
+            }
+        }
+        fingerprint(&s)
+    };
+    // The cards each answer is about, by kind of place: the hand's order
+    // never counts, the zones only with Link arrows.
+    let mut offered: Vec<_> = actions
+        .iter()
+        .map(|a| {
+            let card = a.card.map(|c| {
+                let sequence = if links && c.location != location::HAND { c.sequence } else { 0 };
+                (c.code, c.controller, c.location, sequence, c.position)
+            });
+            (a.kind as u8, card, a.description)
+        })
+        .collect();
+    offered.sort_unstable();
+    let mut h = DefaultHasher::new();
+    (fp, chain, offered).hash(&mut h);
+    h.finish()
+}
+
 /// A moment where you choose what to do next (not a step of something
 /// already started).
 fn is_free(decision: &Decision) -> bool {
@@ -1828,7 +1878,11 @@ fn play(shared: &Shared, edge: &Edge, dive: &mut Dive, copies: Option<&mut Copie
             dive.end = stats::End::Loop;
             return Ok(());
         }
-        let key = node_key(canonical, duel.chain(), &decision, &pending);
+        let key = if free {
+            free_key(&state, duel.chain(), &duel.actions(&decision))
+        } else {
+            node_key(canonical, duel.chain(), &decision, &pending)
+        };
         if !shared.first_visit(key) {
             shared.duplicates.fetch_add(1, Ordering::Relaxed);
             // Another order of the same choices: met at a free moment (whole
@@ -2911,6 +2965,41 @@ mod tests {
         assert!(!starts(&window, ActionKind::Pass));
         assert!(starts(&select, ActionKind::Choose));
         assert!(!starts(&select, ActionKind::Cancel));
+    }
+
+    #[test]
+    fn a_free_moment_forgets_the_zones_without_link_arrows() {
+        let field = |zones: [usize; 2], link: u32| {
+            let mut state = DuelState::default();
+            state.players[0].monsters = vec![None; 7];
+            state.players[0].spells = vec![None; 8];
+            state.players[0].monsters[zones[0]] =
+                Some(ygo_engine::FieldCard { code: 10, position: 1, link: (link, link), ..Default::default() });
+            state.players[0].spells[zones[1]] = Some(ygo_engine::FieldCard { code: 20, position: 1, ..Default::default() });
+            state.players[0].hand = vec![30, 40];
+            state
+        };
+        let hand = |order: [u32; 2]| -> Vec<Action> {
+            order
+                .iter()
+                .enumerate()
+                .map(|(i, &code)| Action {
+                    kind: ActionKind::Activate,
+                    label: String::new(),
+                    response: vec![i as u8],
+                    card: Some(CardRef { code, controller: 0, location: location::HAND, sequence: i as u32, position: 0 }),
+                    description: 0,
+                })
+                .collect()
+        };
+        let key = |state: &DuelState, actions: &[Action]| free_key(state, &[], actions);
+        // Other zones, and the hand in another order: the same moment.
+        assert_eq!(key(&field([0, 1], 0), &hand([30, 40])), key(&field([3, 2], 0), &hand([40, 30])));
+        // With a Link Monster face-up, its arrows make the zones matter.
+        assert_ne!(key(&field([0, 1], 1), &hand([30, 40])), key(&field([3, 1], 1), &hand([30, 40])));
+        assert_eq!(key(&field([0, 1], 1), &hand([30, 40])), key(&field([0, 1], 1), &hand([40, 30])));
+        // The Extra Monster Zone stays a zone of its own.
+        assert_ne!(key(&field([0, 1], 0), &hand([30, 40])), key(&field([5, 1], 0), &hand([30, 40])));
     }
 
     #[test]

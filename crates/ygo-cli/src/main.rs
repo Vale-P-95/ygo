@@ -1169,8 +1169,27 @@ fn combos_with(dir: &Path, engine: &Engine, setup: &Setup, deck: DeckList, hand:
     let checkpoint_fields = if staged.is_some() { top.max(checkpoint_cheap) } else { checkpoint_full };
     let at_stops: Vec<Vec<Listed>> =
         result.checkpoints.iter().map(|(_, boards)| measurer.stop(&fields(boards, checkpoint_fields), at_checkpoint)).collect();
-    let groups = fields(&result.boards, top);
+    let mut groups = fields(&result.boards, top);
     let mut boards = measurer.stop(&groups, staged);
+    // The search's estimate does not see the opponent's turn, and the best
+    // board measured is often low in its order (docs/plans/sprechi-ricerca.md
+    // §7): while it is among the last fields measured, the next ones are
+    // measured too.
+    if probe && staged.is_none() && !interaction && top > 0 {
+        loop {
+            let best = (0..boards.len()).max_by(|&a, &b| boards[a].rank().0.total_cmp(&boards[b].rank().0).then(b.cmp(&a)));
+            let Some(best) = best else { break };
+            if best + LAST_FINALISTS < boards.len() || boards.len() >= MAX_FINALISTS {
+                break;
+            }
+            let more = fields(&result.boards, (boards.len() + top).min(MAX_FINALISTS));
+            if more.len() <= groups.len() {
+                break;
+            }
+            boards.extend(measurer.stop(&more[groups.len()..], None));
+            groups = more;
+        }
+    }
     let measured_again = measurer.again;
     // The fields of the search's end in its order, then those measured
     // only at a checkpoint; a field measured better at a checkpoint
@@ -1973,6 +1992,10 @@ fn loss_json(l: &ygo_solver::probe::ExpectedLoss, took: std::time::Duration) -> 
 /// search found: the best measured is shown. Only for the first
 /// `FIELDS_WITH_VARIANTS` fields printed; the others are measured once.
 const MEASURED_VARIANTS: usize = 3;
+/// The best board measured among this many last finalists: the next ones
+/// are measured too (`combos --probe`), up to [`MAX_FINALISTS`].
+const LAST_FINALISTS: usize = 4;
+const MAX_FINALISTS: usize = 40;
 const FIELDS_WITH_VARIANTS: usize = 3;
 
 /// `combos --staged` by default: fields given the cheap measure, and of
