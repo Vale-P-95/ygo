@@ -1295,7 +1295,7 @@ fn combos_with(dir: &Path, engine: &Engine, setup: &Setup, deck: DeckList, hand:
     // By capacity: what your cards can stop on the opponent's turn, read
     // from their effects; the order before breaks ties.
     let started = std::time::Instant::now();
-    let capacities: Vec<Option<Result<(Vec<ygo_engine::DryEffect>, ygo_solver::Capacity), ygo_engine::Error>>> =
+    let capacities: Vec<Option<Result<Checked, ygo_engine::Error>>> =
         boards.iter().map(|item| capacity.then(|| ygo_solver::board_capacity(engine, &config, &item.board.line))).collect();
     if capacity {
         let key = |i: usize| match &capacities[i] {
@@ -2107,6 +2107,9 @@ fn composite(m: &ygo_solver::Measure) -> f64 {
 fn profile_of(m: &ygo_solver::Measure, state: &ygo_engine::DuelState) -> InteractionProfile {
     InteractionProfile::of(m, state.players[0].hand.len(), state.players[0].grave.len())
 }
+
+/// A board's dry check and its capacity.
+type Checked = (Vec<ygo_engine::DryEffect>, ygo_solver::Capacity);
 
 const PLACES: [&str; 4] = ["field", "gy", "banished", "hand"];
 
