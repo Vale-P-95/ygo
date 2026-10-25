@@ -261,6 +261,7 @@ Resta la memoria operativa nei giorni con coordinatrice; altrimenti si aggiorna 
    - [fatto il 24/10] interazione a fine turno nel Combo Lab (Sonnet medio, thread del progetto): il profilo passa da `ygo-cli` a `ygo-solver`, contratto `lib.rs` ↔ `api.ts`; provato con backend finto, non nell'app vera.
    - la sezione «Sinergie» (Il Crogiolo), richiesta di Valerio del 25/10: piano in `docs/plans/sinergie-archetipi.md`, otto PR in sei fasi (F0-F3 Opus alto in fila, F4 contratto, F5 interfaccia Sonnet medio dopo il mockup rifinito), circa 170-215 $ in tutto, nessun file caldo del motore.
    - [fatto il 25/10] sinergie F0, deck di lettura e censimento (Opus alto, thread del progetto): solo codice nuovo in `ygo-solver/src/synergy/` e un comando della CLI, classe E; la prova sulle 30 carte costa 75 s di CPU su 4 core, il banco `same` circa 35 minuti in background; contesto sotto 200k.
+   - [fatto il 25/10] sinergie F1, predicati, materiali e profili (Opus alto, thread del progetto): contesto oltre i 200k, sopra il previsto, per i giri prova-correggi sulla copertura (Cimitero pieno troppo lento, aiutanti per gli innescati); da qui la regola per la prossima: una sessione breve con un solo obiettivo di copertura e misura su campione, mai la lettura di tutto il pool dentro la sessione.
 
 ## 10bis. Decisione sul merge (23/10)
 - **Cosa**: i merge li fa la coordinatrice in automatico; sostituisce «il merge lo fa l'utente dalla pagina».

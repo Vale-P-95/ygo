@@ -33,9 +33,6 @@ Regole in `AGENTS.md`. Per prendere un task, spostalo in "In corso" con agente, 
 - [ ] **Anatomia degli effetti, filtri del catalogo** (thread del progetto, branch `claude/project-thread-s3j17c`, PR #181; piano `docs/plans/anatomia-effetti.md` §9-§10).
   File: `ygo-data/src/query.rs` e `effects.rs`, `apps/desktop/src-tauri/src/lib.rs` e `effect_index.rs`, `FilterPanel.tsx`, `mock.ts`, `query.ts`.
   Brief C parte 1 misurata e non tenuta (§10); la parte 2 ha il suo brief (C2) per una sessione nuova.
-- [ ] **Sinergie F1: predicati, materiali e profili** (thread del progetto, branch `claude/project-thread-ehvrl1`; brief F1 di `docs/plans/sinergie-archetipi.md` §8).
-  File: `crates/ygo-engine/src/scripts.rs` e `lua/` (lettura dei materiali), `crates/ygo-solver/src/synergy/{read,rule,materials,profile,cache}.rs`, `crates/ygo-cli/src/main.rs`.
-  Classe E: non tocca `search.rs`, `probe.rs`, `value.rs`.
 
 ## Da fare (in ordine di priorità)
 
@@ -83,7 +80,7 @@ Regole in `AGENTS.md`. Per prendere un task, spostalo in "In corso" con agente, 
 - [x] CI: screenshot e prova fumo con Playwright (PR in revisione): `screens.mjs --smoke` (1280×800, due temi, tutte le sezioni; fallisce su errori di pagina, risposte HTTP ≥ 400 o sezioni vuote) sul job frontend di `ci.yml`, in modo mock; gli screenshot sono l'artifact `screenshots-<sha>`.
 - [ ] Anatomia degli effetti (richiesta di Valerio del 24/10): leggere dagli script Lua e dal testo PSCT costo, condizione, azione, quantità e restrizioni, per l'ispettore del deck building e per il motore. Piano e brief A, B, C in `docs/plans/anatomia-effetti.md`, da fare in ordine (Valerio, 25/10). A fatto il 25/10 (`duelforge-cli anatomy`, §7 del piano); B fatto il 25/10 (tasto «Anatomia» nel visore e nell'ispettore, §8); filtri del catalogo per effetto (`eff:`, §9) in PR il 25/10; C parte 1 misurata e non tenuta (§10); restano il riepilogo del deck e C2.
 ### Sinergie tra archetipi (Il Crogiolo)
-- [ ] **Sezione «Sinergie» (Il Crogiolo)** (richiesta di Valerio del 25/10, piano approvato il 25/10 con le decisioni del §11): partner di un archetipo, ponti (ricerche per proprietà, materiali, Small World, eventi, motori condivisi), prova del mix col motore e linee nuove. Piano, brief F0-F5b e costi: `docs/plans/sinergie-archetipi.md`; mockup https://claude.ai/artifact/WDzepFuEQTNKsXL5CDMhoJ. F0 fatto il 25/10: `duelforge-cli synergy-census`, il deck con tutto il pool regge (3,1 s a carta, 29 carte su 30 uguali al deck vero; §2 e §3.3 del piano). Prossima fase: F1 (predicati, materiali e profili).
+- [ ] **Sezione «Sinergie» (Il Crogiolo)** (richiesta di Valerio del 25/10, piano approvato il 25/10 con le decisioni del §11): partner di un archetipo, ponti (ricerche per proprietà, materiali, Small World, eventi, motori condivisi), prova del mix col motore e linee nuove. Piano, brief F0-F5b e costi: `docs/plans/sinergie-archetipi.md`; mockup https://claude.ai/artifact/WDzepFuEQTNKsXL5CDMhoJ. F0 fatto il 25/10: `duelforge-cli synergy-census`, il deck con tutto il pool regge (3,1 s a carta, 29 carte su 30 uguali al deck vero; §2 e §3.3 del piano). F1 fatto il 25/10 (PR aperta): `synergy-read`, `accepts`, `archetype --profile`, materiali dell'Extra Deck al 99%, effetti che spostano carte giocati al 57% sugli archetipi del banco (criterio del 90% non raggiunto; passaggio di consegne nel §3.3). Prossimo: alzare la copertura in una sessione breve, poi F2.
 
 ### Richieste dal backend per l'interfaccia
 Nessuna aperta. Un dato nuovo per l'interfaccia lo aggiunge la stessa sessione di Claude che fa la schermata, nella stessa PR.
