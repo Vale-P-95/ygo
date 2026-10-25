@@ -31,6 +31,7 @@ mod duel;
 mod ffi;
 pub mod italian;
 mod message;
+pub mod reading;
 mod script;
 mod scripts;
 pub mod state;

@@ -120,6 +120,11 @@ impl CardDb {
         Ok(())
     }
 
+    /// A database of these cards only (for tests and small readings).
+    pub fn from_cards(cards: impl IntoIterator<Item = Card>) -> Self {
+        CardDb { cards: cards.into_iter().map(|c| (c.code, c)).collect() }
+    }
+
     pub fn get(&self, code: u32) -> Option<&Card> {
         self.cards.get(&code)
     }
