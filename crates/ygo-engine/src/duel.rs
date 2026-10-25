@@ -681,7 +681,7 @@ impl Duel {
     /// duel ends when the opponent's turn begins: the state then is the
     /// board you pass with (not after your next draw).
     pub fn goldfish(engine: &Engine, deck: &DeckList, hand: &[u32], seed: u64) -> Result<Self, Error> {
-        let mut duel = Self::solitaire(engine, deck, hand, seed, None, &[])?;
+        let mut duel = Self::solitaire(engine, deck, hand, seed, None, &[], &[])?;
         duel.last_turn = Some(1);
         Ok(duel)
     }
@@ -705,7 +705,7 @@ impl Duel {
         opponent: Option<&Opponent>,
         placed: &[Placement],
     ) -> Result<Self, Error> {
-        let mut duel = Self::solitaire(engine, deck, hand, seed, opponent, placed)?;
+        let mut duel = Self::solitaire(engine, deck, hand, seed, opponent, placed, &[])?;
         duel.last_turn = Some(duel.first_turn);
         Ok(duel)
     }
@@ -758,7 +758,7 @@ impl Duel {
     /// opponent's cards are dealt in the order given: the last card of its
     /// Deck is drawn first.
     pub fn goldfish_vs(engine: &Engine, deck: &DeckList, hand: &[u32], seed: u64, opponent: &Opponent) -> Result<Self, Error> {
-        Self::solitaire(engine, deck, hand, seed, Some(opponent), &[])
+        Self::solitaire(engine, deck, hand, seed, Some(opponent), &[], &[])
     }
 
     /// Like [`Duel::goldfish_vs`], with cards of yours already on the field
@@ -772,7 +772,24 @@ impl Duel {
         opponent: &Opponent,
         placed: &[Placement],
     ) -> Result<Self, Error> {
-        Self::solitaire(engine, deck, hand, seed, Some(opponent), placed)
+        Self::solitaire(engine, deck, hand, seed, Some(opponent), placed, &[])
+    }
+
+    /// Like [`Duel::goldfish`], with cards of yours already where `placed`
+    /// puts them and `grave` in your GY, more copies besides the deck's:
+    /// a duel for reading what a card's effects accept from the GY too
+    /// (`ygo_solver::synergy`).
+    pub fn goldfish_reading(
+        engine: &Engine,
+        deck: &DeckList,
+        hand: &[u32],
+        seed: u64,
+        placed: &[Placement],
+        grave: &[u32],
+    ) -> Result<Self, Error> {
+        let mut duel = Self::solitaire(engine, deck, hand, seed, None, placed, grave)?;
+        duel.last_turn = Some(1);
+        Ok(duel)
     }
 
     fn solitaire(
@@ -782,6 +799,7 @@ impl Duel {
         seed: u64,
         opponent: Option<&Opponent>,
         placed: &[Placement],
+        grave: &[u32],
     ) -> Result<Self, Error> {
         let mut main = deck.main.clone();
         let mut hand_codes = Vec::with_capacity(hand.len());
@@ -850,6 +868,9 @@ impl Duel {
         }
         for (i, &code) in hand_codes.iter().enumerate() {
             duel.add_card(0, code, location::HAND, i as u32, position::FACEDOWN_DEFENSE);
+        }
+        for (i, &code) in grave.iter().enumerate() {
+            duel.add_card(0, code, location::GRAVE, i as u32, position::FACEUP_ATTACK);
         }
         if let Some(o) = opponent {
             for (cards, loc) in [(&o.deck, location::DECK), (&o.extra, location::EXTRA), (&o.hand, location::HAND)] {

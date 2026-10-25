@@ -10,6 +10,7 @@
 //! - `sweep`: random duels between random decks, reporting any decision
 //!   that cannot be answered or any answer the engine rejects.
 //! - `synergy-census`: the census of the synergy plan and the reading deck.
+//! - `synergy-read`, `accepts`, `archetype`: what the pool accepts, kept in `data/synergy/`.
 
 use std::collections::HashMap;
 use std::io::{BufRead, Write};
@@ -27,6 +28,7 @@ use ygo_solver::mc_run::{cheap_composite, composite, fields, STAGED_CHEAP, STAGE
 use ygo_solver::InteractionProfile;
 
 mod engine_mc;
+mod synergy;
 
 #[derive(Parser)]
 #[command(name = "duelforge-cli", version, about)]
@@ -533,6 +535,48 @@ enum Cmd {
         #[arg(long, default_value = "out/synergy-census")]
         out: PathBuf,
     },
+    /// Read what every card of the pool accepts (from the hand, the field
+    /// and the GY) and the materials of the Extra Deck into
+    /// `data/synergy/`, going on from what is already there
+    /// (`docs/plans/sinergie-archetipi.md` §3.3). Writes `summary.txt`.
+    SynergyRead {
+        /// Cards to read, by name or passcode (default: the whole pool).
+        #[arg(long)]
+        card: Vec<String>,
+        /// Cards of these archetypes, by name or set code.
+        #[arg(long)]
+        archetype: Vec<String>,
+        /// Read only this many cards with effects that move cards, spread
+        /// over the pool.
+        #[arg(long)]
+        sample: Option<usize>,
+        /// Places to read from: hand, field, GY (default: all three).
+        #[arg(long, value_delimiter = ',')]
+        places: Vec<String>,
+        #[arg(long)]
+        threads: Option<usize>,
+        #[arg(long, default_value_t = 1)]
+        seed: u64,
+        #[arg(long, default_value = "out/synergy-data")]
+        out: PathBuf,
+        /// Forget what the store has and read again.
+        #[arg(long)]
+        fresh: bool,
+    },
+    /// What a card's effects accept, from the readings in `data/synergy/`
+    /// (read now if missing), with the rules read from them.
+    Accepts {
+        #[arg(long)]
+        card: String,
+        #[arg(long, default_value_t = 1)]
+        seed: u64,
+    },
+    /// The profile of an archetype from the readings in `data/synergy/`.
+    Archetype {
+        /// Name ("Blue-Eyes") or set code ("0xdd").
+        #[arg(long)]
+        profile: String,
+    },
     /// Write decks of random archetypes of the card pool as .ydk, for the
     /// robustness sweep of the search and the probe turn
     /// (scripts/robustness.py).
@@ -697,6 +741,12 @@ fn main() -> Result<()> {
         }
         Cmd::RandomDecks { count, min_cards, seed, out } => random_decks(&cli.data, count, min_cards, seed, &out),
         Cmd::SynergyCensus { card, decks, threads, seed, out } => synergy_census(&cli.data, &card, &decks, threads, seed, &out),
+        Cmd::SynergyRead { card, archetype, sample, places, threads, seed, out, fresh } => synergy::read(
+            &cli.data,
+            synergy::ReadArgs { cards: &card, archetypes: &archetype, sample, places: &places, threads, seed, out: &out, fresh },
+        ),
+        Cmd::Accepts { card, seed } => synergy::accepts(&cli.data, &card, seed),
+        Cmd::Archetype { profile } => synergy::archetype(&cli.data, &profile),
     }
 }
 
