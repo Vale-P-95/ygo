@@ -27,6 +27,9 @@ Regole in `AGENTS.md`. Per prendere un task, spostalo in "In corso" con agente, 
 - [ ] **Mascotte nei pannelli info** (claude-code, branch `claude/project-thread-v1jfz3`, PR #166). L'Arcimago del design di Valerio in `InfoDialog` su `InfoButton` e `HelpPopover`, con `kind` per il glifo sulla lavagna.
   - File: `Mascot.tsx`, `InfoDialog.tsx`, `InfoButton.tsx`, `ui/HelpPopover.tsx`, `index.css`.
   - Resta: i testi per voce del design (probabilità, interruzioni, passi) non ripresi.
+- [ ] **Anatomia degli effetti, brief B** (thread «Far leggere al motore gli effetti delle carte», branch `claude/anatomia-ispettore`). Tasto «Anatomia» nel dettaglio della carta e nell'ispettore, segmentatore PSCT.
+  File: `crates/ygo-data/src/psct.rs`, `apps/desktop/src-tauri/src/lib.rs` (comando `card_anatomy`), `src/lib/api.ts`, `src/lib/mock.ts`, `src/lib/fixtures/`, `CardDetails.tsx`, `CardInspector.tsx`, `index.css`.
+  Mockup: https://claude.ai/artifact/P17uXCzpHkPyqCLKhzmdNd; piano `docs/plans/anatomia-effetti.md` §3 e §5.
 
 ## Da fare (in ordine di priorità)
 
