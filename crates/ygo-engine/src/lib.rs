@@ -26,6 +26,7 @@ pub mod auto;
 mod carddb;
 pub mod consts;
 mod deck;
+mod dry;
 mod duel;
 mod ffi;
 pub mod italian;
@@ -40,6 +41,7 @@ pub use anatomy::{read_anatomy, CardAnatomy, CountLimit, EffectAnatomy, EffectKi
 pub use announce::is_declarable;
 pub use carddb::{Card, CardDb};
 pub use deck::DeckList;
+pub use dry::{assume, dry_check, Blocked, Demand, DryEffect};
 pub use duel::{
     arena_duels, fresh_duels, generic_materials, shuffle, ChainLink, Duel, DuelConfig, Engine, Opponent, Placement, Prelude, SavedDuel,
     Step, STARTING_LP,

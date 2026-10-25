@@ -200,7 +200,7 @@ fn kind(type_: u32, code: u32) -> EffectKind {
 }
 
 /// One line of the wrapper: the card's code and its effect.
-fn parse(line: &str) -> Option<(u32, EffectAnatomy)> {
+pub(crate) fn parse(line: &str) -> Option<(u32, EffectAnatomy)> {
     let mut fields = line.strip_prefix("dfa ")?.split(' ').map(|f| f.parse::<i64>());
     let mut next = || fields.next()?.ok();
     let code = next()? as u32;
