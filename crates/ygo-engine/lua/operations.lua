@@ -8,6 +8,10 @@ local df_set_possible=Duel.SetPossibleOperationInfo
 local df_seen={}
 -- Categories whose last parameter is a count of cards, not a location.
 local df_counted={[CATEGORY_HANDES]=LOCATION_HAND,[CATEGORY_DECKDES]=LOCATION_DECK}
+-- A card of the opponent's: not one of yours you gave it (a token).
+local function df_theirs(c,tp)
+  return c:GetControler()==1-tp and c:GetOwner()==1-tp
+end
 local function df_report(ct,cate,targets,count,p,param)
   local e,tp=Duel.GetChainInfo(ct,CHAININFO_TRIGGERING_EFFECT,CHAININFO_TRIGGERING_PLAYER)
   if not e or not tp then return end
@@ -18,7 +22,7 @@ local function df_report(ct,cate,targets,count,p,param)
     -- The cards named: those of the opponent, wherever they are.
     local g=Group.CreateGroup()
     g:Merge(targets)
-    local theirs=g:Filter(Card.IsControler,nil,1-tp)
+    local theirs=g:Filter(df_theirs,nil,tp)
     if #theirs==0 then return end
     local tc=theirs:GetFirst()
     while tc do
@@ -33,6 +37,12 @@ local function df_report(ct,cate,targets,count,p,param)
       if (param or 0)>n then n=param end
     else
       loc=param or 0
+    end
+    -- Declared also when there is nothing to take (a field empty going
+    -- first, with the other half of the effect possible): only what is there.
+    if loc~=0 then
+      local there=Duel.GetMatchingGroupCount(df_theirs,tp,0,loc,nil,tp)
+      if there<n then n=there end
     end
   end
   if loc==0 or n<=0 then return end
