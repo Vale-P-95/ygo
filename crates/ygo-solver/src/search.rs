@@ -1149,12 +1149,14 @@ fn dive_order(actions: &mut [Action], responding: bool, goal: impl Fn(&Action) -
     actions.sort_by_key(rank);
 }
 
-/// The activated effects of the deck's cards (not the activation of a Spell
-/// or Trap, which puts the card on the field) whose script declares no
-/// category: changes of Attribute, position or name, rather than what
-/// searches, Summons or hits the opponent. The dive tries them after the
-/// other activations (`docs/plans/anatomia-effetti.md` §4.1): Hyperinvoked
-/// Aeon's Attribute change shares its limit with its banish.
+/// The Quick Effects of the deck's cards whose script declares no category:
+/// changes of Attribute or of an effect on the opponent's turn, rather than
+/// what searches, Summons or hits the opponent. The dive tries them after
+/// the other activations (`docs/plans/anatomia-effetti.md` §4.1): Hyperinvoked
+/// Aeon's Attribute change shares its limit with its banish. Ignition
+/// effects without a category stay where they are: many choose what they do
+/// on activation ("Activate 1 of these effects") or place cards from the
+/// Deck, and trying them later lost boards on the frozen bench.
 fn quiet_effects(engine: &Engine, deck: &DeckList) -> HashSet<(u32, u64)> {
     let db = engine.cards();
     let mut codes: Vec<u32> = deck.main.iter().chain(&deck.extra).chain(&deck.side).map(|&c| db.canonical_code(c)).collect();
@@ -1163,7 +1165,7 @@ fn quiet_effects(engine: &Engine, deck: &DeckList) -> HashSet<(u32, u64)> {
     let mut quiet = HashSet::new();
     for card in ygo_engine::read_anatomy(engine, &codes) {
         for e in &card.effects {
-            let activated = e.kind.activated() && e.kind != EffectKind::Activation;
+            let activated = matches!(e.kind, EffectKind::Quick { .. });
             // Effects sharing a description are told apart by none of them.
             let alone = card.effects.iter().filter(|o| o.description == e.description && o.kind.activated()).count() == 1;
             if activated && alone && e.description != 0 && e.category == 0 {
