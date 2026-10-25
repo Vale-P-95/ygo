@@ -12,12 +12,14 @@
 //! format:md  rarity:ur          Master Duel availability and rarity
 //! ban:limited                   Forbidden/Limited status (Master Duel list with format:md, OCG with format:ocg, else TCG)
 //! tag:handtrap                  quick groups: handtrap, staple, breaker, fav (favourites)
+//! eff:negate  eff:gy            what the effects do (negate, banish, search, quick, hand, ...)
 //! sort:atk                      name, atk, def, level, popular, new
 //! ```
 //! Italian aliases are accepted (`tipo`, `attributo`, `livello`, `magia`, ...).
 
 use serde::{Deserialize, Serialize};
 
+use crate::effects::EffectFilter;
 use crate::model::CardKind;
 use crate::tags::Tag;
 
@@ -72,6 +74,10 @@ pub struct SearchQuery {
     /// The user's favourites, filled in by the caller when `tags` has `Favorite`.
     #[serde(default)]
     pub favorites: Vec<u32>,
+    /// What the effects must do. The store does not apply it: the caller
+    /// keeps the cards whose mask (`effects::effect_mask`) has them all.
+    #[serde(default)]
+    pub effects: Vec<EffectFilter>,
     pub sort: Sort,
 }
 
@@ -350,6 +356,12 @@ pub fn parse(input: &str) -> Parsed {
                 out.query.tags.push(t);
                 t.label().to_owned()
             }),
+            "eff" | "effect" | "effetto" => EffectFilter::parse(&v).map(|f| {
+                if !out.query.effects.contains(&f) {
+                    out.query.effects.push(f);
+                }
+                f.label().to_owned()
+            }),
             "sort" | "ordina" => sort_alias(&v).map(|s| {
                 out.query.sort = s;
                 let label = match s {
@@ -403,6 +415,14 @@ mod tests {
         assert_eq!(p.query.level, Range { min: Some(4), max: Some(6) });
         assert_eq!(p.chips.len(), 5);
         assert!(p.errors.is_empty());
+    }
+
+    #[test]
+    fn effect_filters() {
+        let p = parse("eff:negate effetto:cimitero eff:nothing");
+        assert_eq!(p.query.effects, [EffectFilter::Negate, EffectFilter::Graveyard]);
+        assert_eq!(p.chips[1].label, "Effetto dal Cimitero");
+        assert_eq!(p.errors, ["eff:nothing"]);
     }
 
     #[test]

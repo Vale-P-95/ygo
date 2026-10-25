@@ -1,7 +1,7 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 
 use serde::Serialize;
 use tauri::http::{Response, StatusCode};
@@ -12,6 +12,8 @@ use ygo_data::{
     Format, ImageCache, ImageSize, Legality, MatchEntry, Recipe, SavedSearch, Tag, UserStore,
 };
 use ygo_engine::{Engine, ScriptStore};
+
+mod effect_index;
 
 /// Shared by every command. The card database connection is not `Sync`, so
 /// it sits behind a mutex; it is `None` until the card list is downloaded.
@@ -27,6 +29,8 @@ struct AppState {
     sim_cancel: AtomicBool,
     /// Duel engine data, loaded on the first combo search.
     engine: Mutex<Option<Engine>>,
+    /// What each card's effects do, for the `eff:` filters (read on the first one).
+    effects: Mutex<Option<Arc<HashMap<u32, u16>>>>,
     /// The last combo search, to explain its boards.
     combo: Mutex<Option<ComboJob>>,
     /// Set to stop the running combo search.
@@ -88,6 +92,20 @@ impl AppState {
             }
         }
         *self.store.lock().expect("store lock") = store;
+        *self.effects.lock().expect("effects lock") = None;
+    }
+
+    /// The masks of the `eff:` filters, read once per card data and scripts.
+    fn effect_index(&self) -> Result<Arc<HashMap<u32, u16>>, String> {
+        if let Some(index) = self.effects.lock().map_err(|e| e.to_string())?.as_ref() {
+            return Ok(index.clone());
+        }
+        // Without the engine's data the texts alone still answer.
+        let engine = self.engine().ok();
+        let cards = self.with_store(effect_index::all_cards)?;
+        let index = Arc::new(effect_index::build(&cards, engine.as_ref()));
+        *self.effects.lock().map_err(|e| e.to_string())? = Some(index.clone());
+        Ok(index)
     }
 
     fn with_store<T>(&self, f: impl FnOnce(&CardStore) -> Result<T, ygo_data::Error>) -> Result<T, String> {
@@ -209,6 +227,8 @@ async fn update_data(app: tauri::AppHandle, state: State<'_, AppState>, force: b
         Err(e) => eprintln!("Master Duel banlist not updated: {e}"),
     }
     let engine = sync::update_engine_data(&state.client, &state.data_dir, &report).await;
+    // New scripts may change what the effects do.
+    *state.effects.lock().map_err(|e| e.to_string())? = None;
     Ok(DataStatus { engine_error: engine.err().map(|e| e.to_string()), ..status(&state) })
 }
 
@@ -226,7 +246,12 @@ fn search_cards(state: State<'_, AppState>, query: String) -> Result<SearchResul
     if parsed.query.tags.contains(&Tag::Favorite) {
         parsed.query.favorites = state.with_user(|u| u.favorites())?;
     }
-    let ids = state.with_store(|s| s.search(&parsed.query))?;
+    let mut ids = state.with_store(|s| s.search(&parsed.query))?;
+    if !parsed.query.effects.is_empty() {
+        let wanted = parsed.query.effects.iter().fold(0, |m, f| m | f.bit());
+        let index = state.effect_index()?;
+        ids.retain(|id| index.get(id).is_some_and(|m| m & wanted == wanted));
+    }
     Ok(SearchResult { ids, chips: parsed.chips, errors: parsed.errors })
 }
 
@@ -289,14 +314,8 @@ struct AnatomyView {
 /// script registers them.
 #[tauri::command(async)]
 fn card_anatomy(state: State<'_, AppState>, id: u32) -> Result<AnatomyView, String> {
-    use ygo_data::psct::Frame;
     let card = state.with_store(|s| s.get_many(&[id]))?.into_iter().next().ok_or("Carta non trovata")?;
-    let frame = match card.kind {
-        ygo_data::CardKind::Monster if ["fusion", "synchro", "xyz", "link"].iter().any(|f| card.frame.starts_with(f)) => Frame::ExtraDeck,
-        ygo_data::CardKind::Monster => Frame::Monster,
-        _ => Frame::SpellTrap,
-    };
-    anatomy_view(id, &card.desc, card.pend_desc.as_deref(), frame, state.engine())
+    anatomy_view(id, &card.desc, card.pend_desc.as_deref(), effect_index::frame_of(&card), state.engine())
 }
 
 fn anatomy_view(
@@ -3252,6 +3271,7 @@ pub fn run() {
                 updating: tokio::sync::Mutex::new(()),
                 sim_cancel: AtomicBool::new(false),
                 engine: Mutex::new(None),
+                effects: Mutex::new(None),
                 combo: Mutex::new(None),
                 combo_cancel: AtomicBool::new(false),
                 links: Mutex::new(HashMap::new()),

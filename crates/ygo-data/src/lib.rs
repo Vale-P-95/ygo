@@ -3,6 +3,7 @@
 
 pub mod banlist;
 pub mod deck;
+pub mod effects;
 pub mod images;
 pub mod import;
 pub mod matchlog;
@@ -17,6 +18,7 @@ pub mod userdb;
 
 pub use banlist::Banlist;
 pub use deck::{Deck, DeckBox, Format, Issue, Legality, Severity};
+pub use effects::EffectFilter;
 pub use images::{ImageCache, ImageSize};
 pub use matchlog::{CardChange, DeckList, MatchEntry};
 pub use model::{BanChange, Card, CardKind, Facets};
