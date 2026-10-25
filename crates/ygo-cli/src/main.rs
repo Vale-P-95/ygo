@@ -9,6 +9,7 @@
 //!   and the swaps of a copy that raise it.
 //! - `sweep`: random duels between random decks, reporting any decision
 //!   that cannot be answered or any answer the engine rejects.
+//! - `synergy-census`: the census of the synergy plan and the reading deck.
 
 use std::collections::HashMap;
 use std::io::{BufRead, Write};
@@ -505,6 +506,26 @@ enum Cmd {
         #[arg(long)]
         script_errors: bool,
     },
+    /// The census of the synergy plan from the engine's data, and the
+    /// reading deck tried on a few cards: a duel holding the whole pool,
+    /// where each card's effects offer what they accept
+    /// (`docs/plans/sinergie-archetipi.md` §2-§3). Writes `summary.txt`
+    /// and `readings.tsv` to `--out`.
+    SynergyCensus {
+        /// Cards to read, by name or passcode (default: 30 test cards).
+        #[arg(long)]
+        card: Vec<String>,
+        /// Folder of .ydk lists (sub-folders included) searched for a real
+        /// deck holding each card; a deck is built when none does.
+        #[arg(long, default_value = "tests/fixtures/banco-motore/v1/decks")]
+        decks: PathBuf,
+        #[arg(long)]
+        threads: Option<usize>,
+        #[arg(long, default_value_t = 1)]
+        seed: u64,
+        #[arg(long, default_value = "out/synergy-census")]
+        out: PathBuf,
+    },
     /// Write decks of random archetypes of the card pool as .ydk, for the
     /// robustness sweep of the search and the probe turn
     /// (scripts/robustness.py).
@@ -666,6 +687,7 @@ fn main() -> Result<()> {
             sweep(&cli.data, &SweepConfig { duels, max_decisions, max_turns, seed, threads }, script_errors)
         }
         Cmd::RandomDecks { count, min_cards, seed, out } => random_decks(&cli.data, count, min_cards, seed, &out),
+        Cmd::SynergyCensus { card, decks, threads, seed, out } => synergy_census(&cli.data, &card, &decks, threads, seed, &out),
     }
 }
 
@@ -687,6 +709,278 @@ fn random_decks(dir: &Path, count: usize, min_cards: usize, seed: u64, out: &Pat
         std::fs::write(out.join(format!("{name}.ydk")), text)?;
     }
     println!("{} decks of {} archetypes with {min_cards}+ Main Deck cards in {}", decks.len(), pool.archetypes(), out.display());
+    Ok(())
+}
+
+/// The cards `synergy-census` reads by default: searches and summons from
+/// the Deck by Attribute, Type, Level or kind of card, by archetype or by
+/// name, Small World, and the Extra Deck (Instant Fusion, Gale Dogra).
+const SYNERGY_CARDS: [&str; 30] = [
+    "Reinforcement of the Army",
+    "Fossil Dig",
+    "Bonfire",
+    "Rescue Cat",
+    "Tour Guide From the Underworld",
+    "Sage with Eyes of Blue",
+    "Armageddon Knight",
+    "Summoner Monk",
+    "Unexpected Dai",
+    "One for One",
+    "Lonefire Blossom",
+    "Dragon Shrine",
+    "Foolish Burial",
+    "Foolish Burial Goods",
+    "Gold Sarcophagus",
+    "Terraforming",
+    "Small World",
+    "Instant Fusion",
+    "Gale Dogra",
+    "Fiendsmith's Tract",
+    "Spellbook of Secrets",
+    "E - Emergency Call",
+    "Elemental HERO Stratos",
+    "Sky Striker Mobilize - Engage!",
+    "Cyber Dragon Core",
+    "Speedroid Terrortop",
+    "Branded Opening",
+    "Quick Launch",
+    "Magician's Rod",
+    "Charge of the Light Brigade",
+];
+
+/// Cards of a deck built for a card no list holds: some of those its
+/// reading offers, and the rest drawn from the pool.
+const BUILT_OFFERED: usize = 15;
+const BUILT_OFFERED_EXTRA: usize = 8;
+
+fn synergy_census(dir: &Path, cards: &[String], decks: &Path, threads: Option<usize>, seed: u64, out: &Path) -> Result<()> {
+    use std::collections::HashSet;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    use ygo_solver::synergy::{self, OfferShape, Pool, ReadBudget, Reading};
+
+    let engine = load_engine(dir)?;
+    let db = engine.cards();
+    let threads = threads.unwrap_or_else(|| std::thread::available_parallelism().map_or(4, |n| n.get()));
+    std::fs::create_dir_all(out)?;
+    let started = Instant::now();
+    let pool = Pool::new(&engine);
+    let census = synergy::census(&engine, &pool);
+    let census_time = started.elapsed().as_secs_f64();
+    let names = synergy::archetype_names(&engine);
+    let archetype = |code: u16| names.get(&code).cloned().unwrap_or_else(|| format!("0x{code:x}"));
+
+    let wanted: Vec<String> = if cards.is_empty() { SYNERGY_CARDS.iter().map(|s| s.to_string()).collect() } else { cards.to_vec() };
+    let mut codes = Vec::new();
+    for name in &wanted {
+        let code = match name.parse::<u32>() {
+            Ok(code) => code,
+            Err(_) => db.find_by_name(name).with_context(|| format!("no card named {name}"))?.code,
+        };
+        codes.push(db.canonical_code(code));
+    }
+
+    // The lists a card is looked for in, by file name.
+    let mut lists: Vec<(String, DeckList)> = Vec::new();
+    let mut folders = vec![decks.to_path_buf()];
+    while let Some(folder) = folders.pop() {
+        let Ok(entries) = std::fs::read_dir(&folder) else { continue };
+        for path in entries.filter_map(|e| e.ok().map(|e| e.path())) {
+            if path.is_dir() {
+                folders.push(path);
+            } else if path.extension().is_some_and(|x| x == "ydk") {
+                let list = DeckList::from_ydk(&std::fs::read_to_string(&path)?)?;
+                lists.push((path.file_stem().unwrap_or_default().to_string_lossy().into_owned(), list));
+            }
+        }
+    }
+    lists.sort_by(|a, b| a.0.cmp(&b.0));
+
+    // Each card read in the whole pool with nothing preferred, the reading
+    // a later phase keeps; then in a real deck holding it, and in the pool
+    // again preferring that deck's cards, to compare the two.
+    let reading_deck = pool.deck();
+    let budget = ReadBudget::default();
+    let parallel = |jobs: &[(u32, DeckList, HashSet<u32>)]| -> Vec<Reading> {
+        let next = AtomicUsize::new(0);
+        let results: std::sync::Mutex<Vec<Option<Reading>>> = std::sync::Mutex::new(vec![None; jobs.len()]);
+        std::thread::scope(|s| {
+            for _ in 0..threads.clamp(1, jobs.len().max(1)) {
+                s.spawn(|| loop {
+                    let i = next.fetch_add(1, Ordering::Relaxed);
+                    let Some((code, deck, prefer)) = jobs.get(i) else { break };
+                    let reading = synergy::read_card(&engine, deck, *code, prefer, budget, seed);
+                    if let Ok(mut all) = results.lock() {
+                        all[i] = Some(reading);
+                    }
+                });
+            }
+        });
+        results.into_inner().unwrap_or_default().into_iter().map(Option::unwrap_or_default).collect()
+    };
+    let read_started = Instant::now();
+    let plain = parallel(&codes.iter().map(|&c| (c, reading_deck.clone(), HashSet::new())).collect::<Vec<_>>());
+    let read_time = read_started.elapsed().as_secs_f64();
+
+    let mut rng = seed ^ 0x5e1e_c7ed;
+    let mut draw = |n: usize| {
+        rng ^= rng << 13;
+        rng ^= rng >> 7;
+        rng ^= rng << 17;
+        (rng % n.max(1) as u64) as usize
+    };
+    let mut real: Vec<(String, DeckList)> = Vec::new();
+    for (&code, reading) in codes.iter().zip(&plain) {
+        if let Some((name, list)) = lists.iter().find(|(_, l)| l.main.iter().any(|&c| db.canonical_code(c) == code)) {
+            real.push((name.clone(), list.clone()));
+            continue;
+        }
+        // Evenly spread over the cards offered, the first one included.
+        let offered = |extra: bool| -> Vec<u32> {
+            let mut all: Vec<u32> = reading
+                .offers
+                .iter()
+                .flat_map(|o| o.cards.iter().copied())
+                .filter(|&c| db.get(c).is_some_and(|d| d.is_extra_deck_monster() == extra) && c != code)
+                .collect();
+            all.sort_unstable();
+            all.dedup();
+            all
+        };
+        let spread = |all: Vec<u32>, n: usize| -> Vec<u32> {
+            if all.len() <= n {
+                return all;
+            }
+            (0..n).map(|k| all[k * all.len() / n]).collect()
+        };
+        let mut deck = DeckList { main: vec![code], ..DeckList::default() };
+        deck.main.extend(spread(offered(false), BUILT_OFFERED));
+        while deck.main.len() < 40 {
+            deck.main.push(pool.main[draw(pool.main.len())]);
+        }
+        deck.extra = spread(offered(true), BUILT_OFFERED_EXTRA);
+        while deck.extra.len() < 15 {
+            deck.extra.push(pool.extra[draw(pool.extra.len())]);
+        }
+        real.push(("built".to_owned(), deck));
+    }
+    let deck_cards: Vec<HashSet<u32>> =
+        real.iter().map(|(_, d)| d.main.iter().chain(&d.extra).map(|&c| db.canonical_code(c)).collect()).collect();
+    let in_deck =
+        parallel(&codes.iter().zip(&real).zip(&deck_cards).map(|((&c, (_, d)), k)| (c, d.clone(), k.clone())).collect::<Vec<_>>());
+    let in_pool = parallel(&codes.iter().zip(&deck_cards).map(|(&c, k)| (c, reading_deck.clone(), k.clone())).collect::<Vec<_>>());
+
+    let mut tsv = String::from("card\tcode\tdeck\tpurpose\thint\tlocation\toffered\tin_deck\tagrees\tshape\n");
+    let mut agreeing = 0;
+    let mut disagreements = Vec::new();
+    let mut errors = Vec::new();
+    let (mut offers, mut generic, mut with_offers) = (0, 0, 0);
+    for (k, &code) in codes.iter().enumerate() {
+        let name = db.name(code);
+        let agreement = synergy::compare(&in_pool[k], &in_deck[k], &deck_cards[k]);
+        if agreement.agrees() {
+            agreeing += 1;
+        } else {
+            let names = |codes: &[u32]| codes.iter().take(4).map(|&c| db.name(c)).collect::<Vec<_>>().join(", ");
+            disagreements.push(format!(
+                "{name} in {}: {} of {} offers the same; only in the deck: {}; only in the pool: {}",
+                real[k].0,
+                agreement.same,
+                agreement.offers,
+                names(&agreement.only_deck),
+                names(&agreement.only_pool)
+            ));
+        }
+        for (r, which) in [(&plain[k], "pool"), (&in_deck[k], "deck")] {
+            if let Some(e) = &r.error {
+                errors.push(format!("{name} ({which}): {e}"));
+            }
+        }
+        with_offers += usize::from(!plain[k].offers.is_empty());
+        let mut parts = Vec::new();
+        for o in &plain[k].offers {
+            let shape = OfferShape::of(&engine, o);
+            offers += 1;
+            // Generic: the cards span several archetypes, or have none.
+            let is_generic = shape.archetypes >= 3 || shape.plain > 0;
+            generic += usize::from(is_generic);
+            let in_real = o.cards.iter().filter(|c| deck_cards[k].contains(c)).count();
+            let agrees = in_deck[k].offers.iter().find(|d| d.hint == o.hint && d.location == o.location).map_or(in_real == 0, |d| {
+                let pool_cards: HashSet<u32> = o.cards.iter().copied().filter(|c| deck_cards[k].contains(c)).collect();
+                d.cards.iter().copied().collect::<HashSet<u32>>() == pool_cards
+            });
+            tsv.push_str(&format!(
+                "{name}\t{code}\t{}\t{}\t{}\t{}\t{}\t{in_real}\t{agrees}\t{}\n",
+                real[k].0,
+                o.purpose(),
+                o.hint,
+                ygo_engine::consts::location::name(o.location),
+                o.cards.len(),
+                shape.describe()
+            ));
+            parts.push(format!(
+                "{} from {} {} ({})",
+                o.purpose(),
+                ygo_engine::consts::location::name(o.location),
+                o.cards.len(),
+                shape.describe()
+            ));
+        }
+        println!(
+            "{name}: {} turns, {:.2} s{}{}",
+            plain[k].walks,
+            plain[k].time.as_secs_f64(),
+            if parts.is_empty() { ", nothing offered".to_owned() } else { format!("; {}", parts.join("; ")) },
+            if agreement.agrees() { String::new() } else { "; DISAGREES".to_owned() }
+        );
+    }
+    std::fs::write(out.join("readings.tsv"), tsv)?;
+
+    let mut times: Vec<f64> = plain.iter().map(|r| r.time.as_secs_f64()).collect();
+    times.sort_by(f64::total_cmp);
+    let mean = times.iter().sum::<f64>() / times.len().max(1) as f64;
+    let setup = plain.iter().map(|r| r.setup.as_secs_f64()).sum::<f64>() / plain.iter().map(|r| r.walks).sum::<usize>().max(1) as f64;
+    let median = times.get(times.len() / 2).copied().unwrap_or(0.0);
+    let peak = std::fs::read_to_string("/proc/self/status")
+        .ok()
+        .and_then(|s| s.lines().find(|l| l.starts_with("VmHWM")).and_then(|l| l.split_whitespace().nth(1)?.parse::<f64>().ok()))
+        .map_or_else(|| "not measured".to_owned(), |kb| format!("{:.0} MB", kb / 1024.0));
+    let built = real.iter().filter(|(n, _)| n == "built").count();
+    let top: Vec<String> = census.top_pairs.iter().map(|&(a, b, n)| format!("{}–{} {n}", archetype(a), archetype(b))).collect();
+    let at_least: Vec<String> = census.at_least.iter().map(|(n, k)| format!("{n}+: {k}")).collect();
+    let mut lines = vec![
+        format!("pool: {} cards with a script ({} Main Deck, {} Extra Deck), alternate artworks and tokens left out", pool.len(), census.main, census.extra),
+        format!("with an archetype: {}; in 2+ base archetypes: {}", census.with_archetype, census.in_two),
+        format!("base archetypes: {} ({}); pairs sharing a card: {}", census.archetypes, at_least.join(", "), census.pairs),
+        format!("most shared: {}", top.join(", ")),
+        format!(
+            "cards with an effect that searches, adds to the hand, Special Summons or sends to the GY: {}; Extra Deck monsters with a summon procedure: {} of {}; scripts not set up: {} ({census_time:.1} s)",
+            census.movers, census.extra_with_procedure, census.extra, census.errors
+        ),
+        format!(
+            "reading deck: {} Main + {} Extra; {} cards read on {threads} threads in {read_time:.1} s: per card mean {mean:.2} s, median {median:.2} s, max {:.2} s; a duel made in {setup:.2} s; peak memory {peak}",
+            pool.main.len(),
+            pool.extra.len(),
+            codes.len(),
+            times.last().copied().unwrap_or(0.0)
+        ),
+        format!(
+            "whole Main Deck pool at this pace: about {:.0} min on {threads} threads",
+            mean * pool.main.len() as f64 / threads as f64 / 60.0
+        ),
+        format!("cards with offers: {with_offers} of {}; offers: {offers}, generic (3+ archetypes or cards of none): {generic}", codes.len()),
+        format!(
+            "same offers as in a real deck: {agreeing} of {} cards ({} in a list of {}, {built} in a deck built from the pool)",
+            codes.len(),
+            codes.len() - built,
+            decks.display()
+        ),
+    ];
+    lines.extend(disagreements.iter().map(|d| format!("  disagrees: {d}")));
+    lines.push(format!("errors: {}", errors.len()));
+    lines.extend(errors.iter().map(|e| format!("  {e}")));
+    let summary = lines.join("\n") + "\n";
+    print!("{summary}");
+    std::fs::write(out.join("summary.txt"), summary)?;
     Ok(())
 }
 
