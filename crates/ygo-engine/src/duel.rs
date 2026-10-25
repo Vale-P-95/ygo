@@ -137,7 +137,7 @@ unsafe extern "C" fn script_reader(payload: *mut c_void, duel: OCG_Duel, name: *
 
 /// Lines of the engine's log kept for each duel: a request stopped by the
 /// Lua limit logs a failure for every entry into Lua after it.
-const LOG_LINES: usize = 100;
+pub(crate) const LOG_LINES: usize = 100;
 
 unsafe extern "C" fn log_handler(payload: *mut c_void, text: *const c_char, _kind: c_int) {
     let ctx = &*(payload as *const Context);
@@ -521,7 +521,7 @@ impl Duel {
 
     /// A duel with the base scripts loaded just now, in `arena` (or null),
     /// which it takes: on an error the arena is freed already.
-    fn fresh(engine: &Engine, config: &DuelConfig, arena: *mut c_void) -> Result<Self, Error> {
+    pub(crate) fn fresh(engine: &Engine, config: &DuelConfig, arena: *mut c_void) -> Result<Self, Error> {
         let ctx = Box::new(Context {
             cards: engine.cards.clone(),
             scripts: engine.scripts.clone(),
@@ -925,7 +925,7 @@ impl Duel {
     }
 
     /// Runs Lua code in this duel (the `Debug` library included).
-    fn run_lua_source(&self, name: &str, source: &str) -> bool {
+    pub(crate) fn run_lua_source(&self, name: &str, source: &str) -> bool {
         if let Some(shadow) = &self.shadow {
             shadow.run_lua_source(name, source);
         }
@@ -1197,6 +1197,11 @@ impl Duel {
     /// Messages logged by the engine and by card scripts (errors included).
     pub fn log(&self) -> Vec<String> {
         self.ctx.log.borrow().clone()
+    }
+
+    /// The log so far, emptied: the next lines start from the first again.
+    pub(crate) fn take_log(&self) -> Vec<String> {
+        std::mem::take(&mut *self.ctx.log.borrow_mut())
     }
 
     pub fn cards(&self) -> &CardDb {
