@@ -57,6 +57,45 @@ export interface Facets {
   formats: string[];
 }
 
+/** What a piece of a card's text says (`ygo_data::psct::Part`). */
+export type TextPart = "materials" | "condition" | "cost" | "action" | "restriction" | "limit";
+
+/** Mirrors `ygo_data::psct::Piece`: the pieces put together give the text back. */
+export interface TextPiece {
+  text: string;
+  part: TextPart | null;
+  /** The effect of the text it belongs to, from 0. */
+  effect: number | null;
+}
+
+/** Mirrors `EffectView` (lib.rs): one effect as the card's script registers it. */
+export interface EffectAnatomy {
+  kind: "activation" | "ignition" | "trigger" | "quick" | "flip" | "continuous" | "procedure";
+  mandatory: boolean;
+  zones: ("hand" | "field" | "spellTrap" | "gy" | "banished" | "deck" | "extra" | "fieldZone" | "pendulumZone")[];
+  limit: { count: number; sharedWith: number[]; perDuel: boolean } | null;
+  /** The engine's category names, in English (`consts::category::NAMES`). */
+  categories: string[];
+  /** Categories the text names that the script does not declare. */
+  textOnly: string[];
+  targets: boolean;
+  cost: boolean;
+  condition: boolean;
+  /** The card's string for the effect (English); empty when it has none. */
+  description: string;
+  /** Its effect of the text (`TextPiece.effect`), when text and script match one to one. */
+  textEffect: number | null;
+}
+
+/** Mirrors `AnatomyView` (lib.rs): `card_anatomy`. */
+export interface CardAnatomy {
+  text: TextPiece[];
+  pendulum: TextPiece[];
+  effects: EffectAnatomy[];
+  /** Why the script could not be read: only the text is shown. */
+  scriptError: string | null;
+}
+
 /** A card whose Forbidden & Limited status changed with a list update. */
 export interface BanChange {
   format: "tcg" | "ocg" | "md";
@@ -1069,6 +1108,7 @@ const tauriApi = {
   updateData: (force = false) => invoke<DataStatus>("update_data", { force }),
   search: (query: string) => invoke<SearchResult>("search_cards", { query }),
   getCards: (ids: number[]) => invoke<Card[]>("get_cards", { ids }),
+  cardAnatomy: (id: number) => invoke<CardAnatomy>("card_anatomy", { id }),
   facets: () => invoke<Facets>("card_facets"),
   /** Status changes of every list update, newest first; only `format`'s when given. */
   banChanges: (format?: BanChange["format"]) => invoke<BanChange[]>("ban_changes", { format: format ?? null }),

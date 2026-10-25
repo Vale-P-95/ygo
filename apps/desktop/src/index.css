@@ -63,6 +63,13 @@
   --role-custom-1: #4f8fdc;
   --role-custom-2: #6c9a35;
   --role-custom-3: #8a7d73;
+  /* Parts of a card text in the anatomy view (CardAnatomy.tsx). */
+  --anat-condition: #1fa89e;
+  --anat-cost: #e0702c;
+  --anat-action: #f2b544;
+  --anat-restriction: #ff6464;
+  --anat-limit: #9a72d4;
+  --anat-materials: #ab9f95;
   --lab-second: #9a72d4;
 
   /* Yu-Gi-Oh card frames (contrast >= 3:1 on forge dark surface, distinct from roles). */
@@ -103,6 +110,12 @@
   --role-custom-1: #2f6fbd;
   --role-custom-2: #4f7d1c;
   --role-custom-3: #8c7a68;
+  --anat-condition: #0a8d82;
+  --anat-cost: #c94a17;
+  --anat-action: #a8700c;
+  --anat-restriction: #c23030;
+  --anat-limit: #7445b8;
+  --anat-materials: #6c5c4e;
   --lab-second: #7445b8;
 
   /* Yu-Gi-Oh card frames (contrast >= 3:1 on light pergamena surface, distinct from roles). */
