@@ -20,6 +20,7 @@
 use libmimalloc_sys as _;
 
 mod actions;
+mod anatomy;
 mod announce;
 pub mod auto;
 mod carddb;
@@ -35,6 +36,7 @@ pub mod state;
 pub mod sweep;
 
 pub use actions::{actions, actions_with, describe_card, without_labels, Action, ActionKind, MAX_ANNOUNCE};
+pub use anatomy::{read_anatomy, CardAnatomy, CountLimit, EffectAnatomy, EffectKind};
 pub use announce::is_declarable;
 pub use carddb::{Card, CardDb};
 pub use deck::DeckList;

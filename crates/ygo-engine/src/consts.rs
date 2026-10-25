@@ -23,6 +23,19 @@ pub mod location {
             _ => "?",
         }
     }
+
+    /// The locations of a mask (`LOCATION_*` bits, the Field and Pendulum
+    /// Zones included), joined.
+    pub fn names(mask: u32) -> String {
+        let mut names: Vec<_> = (0..8).map(|bit| 1u8 << bit).filter(|&loc| mask & loc as u32 != 0).map(name).collect();
+        if mask & 0x100 != 0 {
+            names.push("Field Zone");
+        }
+        if mask & 0x200 != 0 {
+            names.push("Pendulum Zone");
+        }
+        names.join(", ")
+    }
 }
 
 pub mod position {
@@ -72,6 +85,7 @@ pub mod card_type {
     pub const MONSTER: u32 = 0x1;
     pub const SPELL: u32 = 0x2;
     pub const TRAP: u32 = 0x4;
+    pub const NORMAL: u32 = 0x10;
     pub const FUSION: u32 = 0x40;
     pub const QUICKPLAY: u32 = 0x1_0000;
     pub const CONTINUOUS: u32 = 0x2_0000;
@@ -169,5 +183,126 @@ pub mod phase {
             0x200 => "End Phase",
             _ => "?",
         }
+    }
+}
+
+/// Effect types (`EFFECT_TYPE_*` of `constant.lua`).
+pub mod effect_type {
+    pub const SINGLE: u32 = 0x1;
+    pub const FIELD: u32 = 0x2;
+    pub const EQUIP: u32 = 0x4;
+    pub const ACTIVATE: u32 = 0x10;
+    pub const FLIP: u32 = 0x20;
+    pub const IGNITION: u32 = 0x40;
+    pub const TRIGGER_O: u32 = 0x80;
+    pub const QUICK_O: u32 = 0x100;
+    pub const TRIGGER_F: u32 = 0x200;
+    pub const QUICK_F: u32 = 0x400;
+    pub const CONTINUOUS: u32 = 0x800;
+    pub const XMATERIAL: u32 = 0x1000;
+    pub const GRANT: u32 = 0x2000;
+}
+
+/// What an effect declares it does (`CATEGORY_*` of `constant.lua`), in bit
+/// order, with the names the anatomy prints.
+pub mod category {
+    pub const DESTROY: u64 = 0x1;
+    pub const REMOVE: u64 = 0x4;
+    pub const TOHAND: u64 = 0x8;
+    pub const TODECK: u64 = 0x10;
+    pub const SPECIAL_SUMMON: u64 = 0x200;
+    pub const DISABLE: u64 = 0x4000;
+    pub const DISABLE_SUMMON: u64 = 0x8000;
+    pub const SEARCH: u64 = 0x2_0000;
+    pub const NEGATE: u64 = 0x1000_0000;
+
+    pub const NAMES: [&str; 33] = [
+        "destroy",
+        "release",
+        "banish",
+        "to hand",
+        "to deck",
+        "to GY",
+        "mill",
+        "discard",
+        "Normal Summon",
+        "Special Summon",
+        "token",
+        "flip",
+        "position",
+        "control",
+        "negate effect",
+        "negate summon",
+        "draw",
+        "search",
+        "equip",
+        "damage",
+        "recover",
+        "ATK change",
+        "DEF change",
+        "counter",
+        "coin",
+        "dice",
+        "leave GY",
+        "level change",
+        "negate activation",
+        "announce",
+        "Fusion Summon",
+        "to Extra Deck",
+        "set",
+    ];
+
+    /// The names of the categories in `mask`.
+    pub fn names(mask: u64) -> Vec<&'static str> {
+        NAMES.iter().enumerate().filter(|(bit, _)| mask & (1 << bit) != 0).map(|(_, name)| *name).collect()
+    }
+}
+
+/// Effect codes of the summoning procedures and conditions (`EFFECT_*`).
+pub mod effect_code {
+    pub const SPSUMMON_CONDITION: u32 = 30;
+    pub const REVIVE_LIMIT: u32 = 31;
+    pub const SPSUMMON_PROC: u32 = 34;
+    pub const FUSION_MATERIAL: u32 = 230;
+    pub const SPSUMMON_PROC_G: u32 = 320;
+}
+
+/// Events that trigger effects (`EVENT_*`), the ones the anatomy names.
+pub mod event {
+    pub const FREE_CHAIN: u32 = 1002;
+    pub const REMOVE: u32 = 1011;
+    pub const TO_HAND: u32 = 1012;
+    pub const TO_GRAVE: u32 = 1014;
+    pub const LEAVE_FIELD: u32 = 1015;
+    pub const CHAINING: u32 = 1027;
+    pub const DESTROYED: u32 = 1029;
+    pub const SUMMON_SUCCESS: u32 = 1100;
+    pub const FLIP_SUMMON_SUCCESS: u32 = 1101;
+    pub const SPSUMMON_SUCCESS: u32 = 1102;
+    pub const SUMMON: u32 = 1103;
+    pub const SPSUMMON: u32 = 1105;
+    pub const BE_MATERIAL: u32 = 1108;
+    pub const ATTACK_ANNOUNCE: u32 = 1130;
+    pub const PHASE: u32 = 0x1000;
+
+    pub fn name(code: u32) -> Option<&'static str> {
+        Some(match code {
+            FREE_CHAIN => "any time",
+            REMOVE => "banished",
+            TO_HAND => "added to the hand",
+            TO_GRAVE => "sent to the GY",
+            LEAVE_FIELD => "leaves the field",
+            CHAINING => "an effect is activated",
+            DESTROYED => "destroyed",
+            SUMMON_SUCCESS => "Normal Summoned",
+            FLIP_SUMMON_SUCCESS => "Flip Summoned",
+            SPSUMMON_SUCCESS => "Special Summoned",
+            SUMMON => "a monster would be Normal Summoned",
+            SPSUMMON => "a monster would be Special Summoned",
+            BE_MATERIAL => "used as material",
+            ATTACK_ANNOUNCE => "an attack is declared",
+            c if c & PHASE != 0 && c < 0x2000 => "phase",
+            _ => return None,
+        })
     }
 }

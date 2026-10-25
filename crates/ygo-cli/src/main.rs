@@ -434,6 +434,32 @@ enum Cmd {
         #[arg(long)]
         deck: PathBuf,
     },
+    /// The anatomy of card effects read from their scripts: for each effect
+    /// its kind, event, zone, once-per-turn limit, categories and whether it
+    /// has a cost, a condition and targets (`docs/plans/anatomia-effetti.md`).
+    Anatomy {
+        /// Cards by name or passcode.
+        #[arg(long)]
+        card: Vec<String>,
+        /// Every card of a deck in .ydk format.
+        #[arg(long)]
+        deck: Option<PathBuf>,
+        /// Every card of the database (alternate artworks left out).
+        #[arg(long)]
+        all: bool,
+        /// With --deck: random turns played from the deck, to count the
+        /// activations linked to their effect by their description.
+        #[arg(long, default_value_t = 0)]
+        link: u32,
+        #[arg(long, default_value_t = 1)]
+        seed: u64,
+        /// Write the anatomy as JSON to this file.
+        #[arg(long)]
+        json: Option<PathBuf>,
+        /// Write `summary.txt` (coverage) to this folder.
+        #[arg(long)]
+        out: Option<PathBuf>,
+    },
     /// The role of each card of a deck (starter, extender, handtrap,
     /// board breaker, brick), found by playing it.
     Roles {
@@ -630,6 +656,9 @@ fn main() -> Result<()> {
         }
         Cmd::CardValues { deck } => card_values(&cli.data, &deck),
         Cmd::KitMix { lines, top, seed } => kit_mix(&cli.data, &lines, top, seed),
+        Cmd::Anatomy { card, deck, all, link, seed, json, out } => {
+            anatomy(&cli.data, &card, deck.as_deref(), all, link, seed, json.as_deref(), out.as_deref())
+        }
         Cmd::Roles { deck } => roles(&cli.data, &deck),
         Cmd::Coverage { deck, nodes, threads, seed, all } => coverage(&cli.data, &deck, nodes, threads, seed, all),
         Cmd::Sweep { duels, max_decisions, max_turns, seed, threads, script_errors } => {
@@ -2644,6 +2673,215 @@ fn tech_table(dir: &Path, deck: &Path, count: usize, seed: u64, meta: MetaFinal,
         std::fs::write(path, serde_json::to_string_pretty(&serde_json::json!({ "seed": seed, "decks": decks, "rows": rows }))?)?;
     }
     Ok(())
+}
+
+#[allow(clippy::too_many_arguments)]
+fn anatomy(
+    dir: &Path,
+    cards: &[String],
+    deck: Option<&Path>,
+    all: bool,
+    link: u32,
+    seed: u64,
+    json: Option<&Path>,
+    out: Option<&Path>,
+) -> Result<()> {
+    use ygo_engine::consts::event;
+    let engine = load_engine(dir)?;
+    let db = engine.cards();
+    let mut codes = Vec::new();
+    for name in cards {
+        let code = match name.parse::<u32>() {
+            Ok(code) => code,
+            Err(_) => db.find_by_name(name).with_context(|| format!("no card named {name}"))?.code,
+        };
+        codes.push(code);
+    }
+    let list = match deck {
+        Some(path) => Some(DeckList::from_ydk(&std::fs::read_to_string(path).with_context(|| format!("cannot read {}", path.display()))?)?),
+        None => None,
+    };
+    if let Some(list) = &list {
+        codes.extend(list.main.iter().chain(&list.extra).map(|&c| db.canonical_code(c)));
+    }
+    if all {
+        codes.extend(db.iter().filter(|c| c.alias == 0 && c.type_ & ygo_engine::consts::card_type::TOKEN == 0).map(|c| c.code));
+        codes.sort_unstable();
+    }
+    let mut seen = std::collections::HashSet::new();
+    codes.retain(|c| seen.insert(*c));
+    let started = std::time::Instant::now();
+    let read = ygo_engine::read_anatomy(&engine, &codes);
+    let elapsed = started.elapsed().as_secs_f64();
+    let verbose = !all;
+    let mut lines = Vec::new();
+    let (mut effects, mut activated, mut with_category, mut errors) = (0, 0, 0, 0);
+    for card in &read {
+        effects += card.effects.len();
+        activated += card.effects.iter().filter(|e| e.kind.activated()).count();
+        with_category += card.effects.iter().filter(|e| e.kind.activated() && e.category != 0).count();
+        if card.error.is_some() {
+            errors += 1;
+        }
+        if !verbose {
+            continue;
+        }
+        println!("{} ({})", db.name(card.code), card.code);
+        if let Some(error) = &card.error {
+            println!("  error: {error}");
+        }
+        for (k, e) in card.effects.iter().enumerate() {
+            let mut parts = vec![e.kind.name().to_owned()];
+            if e.kind.activated() {
+                if let Some(when) = event::name(e.code) {
+                    parts.push(format!("when {when}"));
+                }
+            }
+            let from = ygo_engine::consts::location::names(e.range);
+            if !from.is_empty() {
+                parts.push(format!("from {from}"));
+            }
+            if let Some(limit) = e.count_limit {
+                let shared: Vec<_> = card
+                    .effects
+                    .iter()
+                    .enumerate()
+                    .filter(|&(j, o)| j != k && e.shares_limit(o))
+                    .map(|(j, _)| (j + 1).to_string())
+                    .collect();
+                let shared = if shared.is_empty() { String::new() } else { format!(", shared with {}", shared.join(", ")) };
+                parts.push(format!("{}× per turn{shared}", limit.count));
+            }
+            if !e.categories().is_empty() {
+                parts.push(e.categories().join(", "));
+            }
+            let steps: Vec<_> = [(e.has_condition, "condition"), (e.has_cost, "cost"), (e.targets(), "targets")]
+                .iter()
+                .filter(|(on, _)| *on)
+                .map(|(_, name)| *name)
+                .collect();
+            if !steps.is_empty() {
+                parts.push(steps.join(" + "));
+            }
+            let text = if e.description != 0 { db.describe(e.description) } else { String::new() };
+            println!("  {}. {}{}", k + 1, parts.join(" · "), if text.is_empty() { String::new() } else { format!("  «{text}»") });
+        }
+    }
+    let share = |n: usize, of: usize| if of == 0 { 0.0 } else { 100.0 * n as f64 / of as f64 };
+    lines.push(format!(
+        "cards: {}, read without errors: {} ({:.1}%)",
+        read.len(),
+        read.len() - errors,
+        share(read.len() - errors, read.len())
+    ));
+    lines.push(format!(
+        "effects: {effects}, activated: {activated}, activated with a category: {with_category} ({:.1}%)",
+        share(with_category, activated)
+    ));
+    lines.push(format!("time: {elapsed:.1} s ({:.2} ms per card)", 1000.0 * elapsed / read.len().max(1) as f64));
+    let mut by_error: std::collections::BTreeMap<String, usize> = Default::default();
+    for card in read.iter().filter_map(|c| c.error.as_ref()) {
+        let kind: String = card.split(':').next().unwrap_or_default().chars().take(60).collect();
+        *by_error.entry(kind).or_default() += 1;
+    }
+    let mut by_error: Vec<_> = by_error.into_iter().collect();
+    by_error.sort_by_key(|e| std::cmp::Reverse(e.1));
+    for (kind, n) in by_error.iter().take(3) {
+        lines.push(format!("error ×{n}: {kind}"));
+    }
+    if let (Some(list), true) = (&list, link > 0) {
+        let (offered, linked, undescribed) = link_activations(&engine, list, &read, link, seed);
+        lines.push(format!(
+            "activations offered in {link} random turns: {offered}, linked to their effect: {linked} ({:.1}%), without a description: {undescribed}",
+            share(linked, offered)
+        ));
+    }
+    for line in &lines {
+        println!("{line}");
+    }
+    if let Some(out) = out {
+        std::fs::create_dir_all(out)?;
+        std::fs::write(out.join("summary.txt"), lines.join("\n") + "\n")?;
+    }
+    if let Some(path) = json {
+        let cards: Vec<_> = read
+            .iter()
+            .map(|c| {
+                serde_json::json!({
+                    "code": c.code,
+                    "name": db.name(c.code),
+                    "error": c.error,
+                    "effects": c.effects.iter().map(|e| serde_json::json!({
+                        "kind": e.kind.name(),
+                        "type": e.type_,
+                        "code": e.code,
+                        "event": if e.kind.activated() { event::name(e.code) } else { None },
+                        "categories": e.categories(),
+                        "range": e.range,
+                        "targetRange": [e.target_range.0, e.target_range.1],
+                        "countLimit": e.count_limit.map(|l| serde_json::json!({"count": l.count, "code": l.code, "flag": l.flag, "index": l.index})),
+                        "targets": e.targets(),
+                        "delayed": e.delayed(),
+                        "description": e.description,
+                        "text": if e.description != 0 { db.describe(e.description) } else { String::new() },
+                        "value": e.value,
+                        "cost": e.has_cost,
+                        "condition": e.has_condition,
+                        "target": e.has_target,
+                        "operation": e.has_operation,
+                    })).collect::<Vec<_>>(),
+                })
+            })
+            .collect();
+        std::fs::write(path, serde_json::to_string_pretty(&cards)?)?;
+    }
+    Ok(())
+}
+
+/// Random turns from `deck`: the activations offered (with a description of
+/// one of the deck's cards), those whose effect the anatomy finds, and those
+/// without a description.
+fn link_activations(engine: &Engine, deck: &DeckList, read: &[ygo_engine::CardAnatomy], turns: u32, seed: u64) -> (usize, usize, usize) {
+    let by_code: HashMap<u32, &ygo_engine::CardAnatomy> = read.iter().map(|c| (c.code, c)).collect();
+    let (mut offered, mut linked, mut undescribed) = (0, 0, 0);
+    let mut state = seed.wrapping_mul(0x9e37_79b9_7f4a_7c15) | 1;
+    let mut below = |n: usize| {
+        state ^= state << 13;
+        state ^= state >> 7;
+        state ^= state << 17;
+        (state % n.max(1) as u64) as usize
+    };
+    for turn in 0..turns {
+        let mut main = deck.main.clone();
+        ygo_engine::shuffle(&mut main, seed ^ turn as u64);
+        let Ok(mut duel) = Duel::goldfish(engine, deck, &main[..5.min(main.len())], seed ^ turn as u64) else { continue };
+        for _ in 0..200 {
+            let Ok(Step::Decision { decision, .. }) = duel.advance() else { break };
+            let list = duel.actions(&decision);
+            if list.is_empty() {
+                break;
+            }
+            for a in list
+                .iter()
+                .filter(|a| matches!(a.kind, ActionKind::Activate | ActionKind::Yes) && a.card.is_some_and(|c| c.controller == 0))
+            {
+                let owner = engine.cards().canonical_code(a.card.map_or(0, |c| c.code));
+                let Some(card) = by_code.get(&owner) else { continue };
+                offered += 1;
+                if a.description == 0 || (a.description >> 20) as u32 != owner {
+                    undescribed += 1;
+                }
+                let described = by_code.get(&((a.description >> 20) as u32)).copied().unwrap_or(card);
+                if described.effect_of(a.description).is_some() {
+                    linked += 1;
+                }
+            }
+            let rest: Vec<_> = list.iter().filter(|a| a.kind != ActionKind::EndTurn).collect();
+            let action = if rest.is_empty() { &list[0] } else { rest[below(rest.len())] };
+            duel.respond(&action.response);
+        }
+    }
+    (offered, linked, undescribed)
 }
 
 fn hand_traps(dir: &Path, deck: &Path) -> Result<()> {
