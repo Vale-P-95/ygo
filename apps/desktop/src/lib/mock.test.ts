@@ -15,6 +15,13 @@ describe("mock search", () => {
     expect(atks).toEqual([...atks].sort((a, b) => b - a));
   });
 
+  it("finds the handtraps by what their effects do", async () => {
+    const r = await mockApi.search("eff:hand eff:quick");
+    expect(r.ids).toContain(14558127); // Ash Blossom & Joyous Spring
+    expect(r.chips.map((c) => c.label)).toEqual(["Effetto dalla mano", "Effetto rapido"]);
+    expect((await mockApi.search("eff:nothing")).errors).toEqual(["eff:nothing"]);
+  });
+
   it("reports an unknown sort instead of matching no card", async () => {
     const r = await mockApi.search("sort:boh");
     expect(r.errors.length).toBe(1);

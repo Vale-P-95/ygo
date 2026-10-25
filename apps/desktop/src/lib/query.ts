@@ -121,4 +121,22 @@ export const KEYS = {
   sort: ["sort", "ordina"],
 };
 
+/**
+ * The `eff:` filters (`ygo_data::effects::EffectFilter`): what a card's
+ * effects do, read from its script and its text. `chip` is the label the
+ * backend gives the filter.
+ */
+export const EFFECT_FILTERS = [
+  { token: "eff:negate", label: "Nega", chip: "Effetto: nega" },
+  { token: "eff:destroy", label: "Distrugge", chip: "Effetto: distrugge" },
+  { token: "eff:banish", label: "Bandisce", chip: "Effetto: bandisce" },
+  { token: "eff:search", label: "Cerca nel Deck", chip: "Effetto: cerca nel Deck" },
+  { token: "eff:draw", label: "Pesca", chip: "Effetto: pesca" },
+  { token: "eff:deck-summon", label: "Evoca dal Deck", chip: "Effetto: Evoca dal Deck" },
+  { token: "eff:opp-extra", label: "Extra Deck avversario", chip: "Effetto: Extra Deck avversario" },
+  { token: "eff:quick", label: "Effetto rapido", chip: "Effetto rapido" },
+  { token: "eff:hand", label: "Dalla mano", chip: "Effetto dalla mano" },
+  { token: "eff:gy", label: "Dal Cimitero", chip: "Effetto dal Cimitero" },
+] as const;
+
 export const KIND_VALUES = ["monster", "mostro", "mostri", "spell", "magia", "magie", "trap", "trappola", "trappole"];

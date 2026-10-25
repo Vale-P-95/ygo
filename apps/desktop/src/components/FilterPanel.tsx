@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import type { Facets } from "../lib/api";
-import { getKey, getRange, hasToken, KEYS, KIND_VALUES, removeKeys, setKey, setRange, toggleToken, type Range } from "../lib/query";
+import { EFFECT_FILTERS, getKey, getRange, hasToken, KEYS, KIND_VALUES, removeKeys, setKey, setRange, toggleToken, type Range } from "../lib/query";
 import { sound } from "../lib/sound";
 import { ATTRIBUTE_COLORS } from "./CardDetails";
 import { AttributeIcon } from "./AttributeIcon";
@@ -131,6 +131,23 @@ export function FilterPanel({ query, onChange, facets }: { query: string; onChan
             })}
           </div>
         )}
+      </Group>
+
+      <Group title="Che cosa fa">
+        <div className="flex flex-wrap gap-1.5">
+          {EFFECT_FILTERS.map((f) => (
+            <button
+              key={f.token}
+              type="button"
+              aria-pressed={hasToken(query, f.token)}
+              className={`chip ${hasToken(query, f.token) ? "chip-active" : "text-muted hover:text-text"}`}
+              onClick={() => apply(toggleToken(query, f.token))}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
+        <p className="text-xs text-faint">Letto dallo script e dal testo di ogni carta. «Dalla mano» con «Effetto rapido» trova gli handtrap.</p>
       </Group>
 
       <Group title="Attributo">

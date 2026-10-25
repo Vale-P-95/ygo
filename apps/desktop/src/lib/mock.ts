@@ -66,6 +66,7 @@ import type { CardAnatomy, EffectAnatomy, TextPiece } from "./api";
 import { pAtLeastOne, pBoth, pNone } from "./probability";
 import invokedLinksFixture from "./fixtures/invoked-links.json";
 import anatomyFixture from "./fixtures/anatomy.json";
+import { EFFECT_FILTERS } from "./query";
 
 type Api = typeof ApiType;
 
@@ -1279,6 +1280,36 @@ const SORT_ALIASES: Record<string, string> = {
 /** `format:` values as ygo-data's `format_alias` names them, for the cards' `formats`. */
 const FORMAT_NAMES: Record<string, string> = { md: "Master Duel", masterduel: "Master Duel", tcg: "TCG", ocg: "OCG" };
 
+/**
+ * An `eff:` filter on the recorded script effects (`fixtures/anatomy.json`);
+ * the mock texts are not card texts, so what only the text says is not found.
+ */
+function mockEffectMatches(id: number, token: string): boolean {
+  const effects = (ANATOMY_EFFECTS[String(id)] ?? []).filter((e) => e.kind !== "continuous" && e.kind !== "procedure");
+  const has = (...names: string[]) => effects.some((e) => e.categories.some((c) => names.includes(c)));
+  const usedFrom = (zone: EffectAnatomy["zones"][number]) => effects.some((e) => e.kind !== "activation" && e.zones.includes(zone));
+  switch (token) {
+    case "eff:negate":
+      return has("negate effect", "negate activation", "negate summon");
+    case "eff:destroy":
+      return has("destroy");
+    case "eff:banish":
+      return has("banish");
+    case "eff:search":
+      return has("search");
+    case "eff:draw":
+      return has("draw");
+    case "eff:quick":
+      return effects.some((e) => e.kind === "quick");
+    case "eff:hand":
+      return usedFrom("hand");
+    case "eff:gy":
+      return usedFrom("gy");
+    default:
+      return false;
+  }
+}
+
 function searchCatalog(rawQuery: string): SearchResult {
   const q = rawQuery.trim();
   const chips: Chip[] = [];
@@ -1292,6 +1323,7 @@ function searchCatalog(rawQuery: string): SearchResult {
   let filterFrame: string | null = null;
   let filterLevel: number | null = null;
   let filterHandtrap = false;
+  const filterEffects: string[] = [];
   const filterBans: string[] = [];
   let filterFormat: string | null = null;
   let sort: string | null = null;
@@ -1310,6 +1342,14 @@ function searchCatalog(rawQuery: string): SearchResult {
     } else if (lower === "tag:handtrap") {
       filterHandtrap = true;
       chips.push({ token: tok, label: "Handtrap" });
+    } else if (lower.startsWith("eff:")) {
+      const filter = EFFECT_FILTERS.find((f) => f.token === lower);
+      if (filter) {
+        filterEffects.push(lower);
+        chips.push({ token: tok, label: filter.chip });
+      } else {
+        errors.push(tok);
+      }
     } else if (lower.startsWith("ban:")) {
       const b = lower.split(":")[1] ?? "";
       filterBans.push(b);
@@ -1346,6 +1386,7 @@ function searchCatalog(rawQuery: string): SearchResult {
 
   const matches = [...CARDS.values()].filter((c) => {
     if (filterHandtrap && !HANDTRAP_IDS.has(c.id)) return false;
+    if (filterEffects.some((f) => !mockEffectMatches(c.id, f))) return false;
     if (filterBans.length > 0) {
       const normalizedBans = filterBans.map((b) => {
         const bl = b.toLowerCase();

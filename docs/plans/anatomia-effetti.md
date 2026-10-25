@@ -166,3 +166,29 @@ Il §4.3 (peso delle carte tolte dal deck avversario) va dopo il livello 2 del t
 - **Differenze dal mockup**: sotto ogni effetto si mostrano i pezzi del testo inglese (condizione, costo, azione), non una parafrasi italiana, che richiederebbe di capire il testo. «Solo dal testo» compare per i verbi che il testo nomina e lo script non dichiara; per Aeon non compare, perché lo script dichiara «bandisce» (manca la quantità e il luogo, che verranno dalla lettura dinamica del Brief C). Dove testo e script non combaciano uno a uno, le parti restano colorate nel testo e una riga lo dice.
 - **Verifica**: test di `psct.rs` (testi di prova scritti da noi), test di `anatomy_view` su Aeon con i dati veri, test dei componenti (`CardAnatomy.test.tsx`), screenshot del backend finto nei due temi, anteprima Artifact. L'app vera non è stata provata cliccando (nessun desktop nella sessione cloud).
 - **Prossimi passi**: i filtri del catalogo per categoria e il riepilogo del deck (§3), dopo che Valerio ha provato il tasto; poi il Brief C.
+
+## 9. Filtri del catalogo per effetto (25/10/2026)
+- **Ricerca**: `eff:` nella lingua della ricerca (`eff:negate`, `eff:gy`, alias italiani come `effetto:cimitero`), dieci filtri in `crates/ygo-data/src/effects.rs` (`EffectFilter`): nega, distrugge, bandisce, cerca nel Deck, pesca, Evoca dal Deck, Extra Deck avversario, effetto rapido, dalla mano, dal Cimitero. Nel pannello «Filtri» del catalogo c'è il gruppo «Che cosa fa»; «Dalla mano» con «Effetto rapido» trova gli handtrap senza liste di nomi.
+- **Fonte**: per ogni carta una maschera da `effect_mask`, che unisce le categorie e le zone degli effetti attivati dello script (brief A) con il testo (brief B): il testo aggiunge ciò che lo script lascia dentro l'operazione, come il bando dall'Extra Deck avversario di Aeon e le Evocazioni dal Deck. Senza i dati del motore resta il solo testo.
+- **Contratto invariato**: i filtri passano nel testo della ricerca; `search_cards` (`lib.rs`) scarta le carte la cui maschera non li ha tutti. Le maschere si leggono alla prima ricerca con `eff:` (`effect_index.rs`: 14 412 carte in 4,9 s in release) e si rileggono dopo un aggiornamento dei dati. `CardStore::search` ignora `eff:`: la CLI non li applica.
+- **Numeri sui dati veri** (carte trovate, script e testo / solo testo): nega 1512/1452, distrugge 4009/3882, bandisce 1562/1442, cerca 1791/1379, pesca 848/738, Evoca dal Deck 1464/1464, Extra Deck avversario 29/29, rapido 2027/1150, dalla mano 1521/1242, dal Cimitero 1701/1147.
+- **Resta**: il riepilogo del deck (quante carte negano, cercano, Evocano dal Deck; restrizioni che si contraddicono), che chiede un comando nuovo nel contratto; e la sostituzione delle liste di `tags.rs`, quando i filtri saranno provati nell'app vera.
+
+## 10. Brief C, parte 1: priore delle mosse, misurato e non tenuto (25/10/2026)
+Branch `claude/anatomia-motore` (non unito). CLI di `main` cfeda39, banco v1, set `full`, 4 job.
+- **Prima versione**: nell'ordine delle discese (`dive_order`), gli effetti attivati senza categorie nello script (non le attivazioni di Magie e Trappole) andavano dopo le altre attivazioni, insieme alle Magie Rapide. `banco.py judge`: 193 mani, 4 meglio, 12 peggio, 177 pari; media −0,30% (−1,04% / +0,54%), segno p 0,038; grandi perdite su artmage.1, branded.1, elfnote.2, elfnote_kewl_tune.2, lunalight.0. **REJECTED**. Il motivo: molti effetti chiave delle combo non dichiarano categorie, perché scelgono che cosa fare all'attivazione («Activate 1 of these effects»: Vidolium, Lunalight Black Sheep, Dugares), piazzano carte dal Deck (Elfnote Fortuna e Tinia), dichiarano la categoria solo in `target` (Albion) o cambiano il nome per una Fusione (Kaleido Chick). «Nessuna categoria» non vuol dire «effetto inutile».
+- **Seconda versione**: solo gli effetti rapidi senza categorie (il cambio di Attributo di Aeon, di Mudragon). `judge`: 193 mani tutte pari, tempo 0,99. **ACCEPTED**, ma senza effetto: sulla mano Invoked del §29.2 di `PIANO.md` (Reminiscent con quattro handtrap del deck, 8000 nodi, un thread) la ricerca è identica nodo per nodo (stessa board con Aeon, Caliga e S:P Little Knight, trovata allo stesso punto), perché l'effetto rapido di Aeon è già messo dopo dalle regole sulla End Phase e sulle risposte alla propria catena.
+- **Decisione**: non si apre la PR. La parte utile dell'idea, cioè sapere che cosa fa davvero un effetto, richiede le categorie dinamiche (`SetOperationInfo` letto quando l'effetto si attiva): è la parte 2 (§4.2).
+
+
+### Brief C2: valore di riserva dalle categorie dinamiche (per una sessione nuova)
+```
+Compito: leggere SetOperationInfo (categoria, quantità, giocatore e zona) quando un effetto si attiva nella ricerca, e usarlo come valore di riserva dei trigger di arrivo in CardValues::get e quick_score (§4.2), mai nella misura finale.
+Perché: §4.2 e §10. Le categorie statiche non bastano: molti effetti le dichiarano solo in target, o scelgono che cosa fare all'attivazione.
+Branch: claude/anatomia-riserva, da main. Non riusare claude/anatomia-motore (priore non tenuto).
+File: crates/ygo-engine (un wrapper Lua di Duel.SetOperationInfo nello stile di lua/anatomy.lua, letto dal log solo per le carte non ancora lette), crates/ygo-solver/src/value.rs (file caldo: lock in TASKS.md).
+Pesi: solo quelli che esistono (scala di Effect in probe.rs, tabella dell'attrito di B5a); nessun peso nuovo senza taratura D17.
+Verifica: banco.py run --set full in background, poi judge (cambia la stima della ricerca, non la misura); mano Invoked del §29.2 di PIANO.md con --checkpoints, main contro branch, per vedere se la board con Aeon arriva con meno nodi.
+Criterio: ACCEPTED, e un effetto visibile su Aeon; altrimenti «misurata, non tenuta» qui.
+Modello: Opus 5.5, effort alto.
+```
