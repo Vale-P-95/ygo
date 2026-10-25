@@ -41,7 +41,7 @@ use ygo_engine::auto::AutoPolicy;
 use ygo_engine::consts::{card_type, location};
 use ygo_engine::{
     canonical_fingerprint, fingerprint, italian, Action, ActionKind, CardDb, CardRef, ChainLink, Decision, DeckList, Duel, DuelState,
-    Engine, Error, Event, Opponent, Placement, Prelude, SavedDuel, Step, STARTING_LP,
+    EffectKind, Engine, Error, Event, Opponent, Placement, Prelude, SavedDuel, Step, STARTING_LP,
 };
 
 use crate::coverage::{self, Audit, Coverage, Links, Mechanic};
@@ -420,6 +420,9 @@ struct Shared<'a> {
     stats: Option<stats::Stats>,
     /// The best boards at the checkpoints passed ([`SearchConfig::checkpoints`]).
     checkpoints: Mutex<Vec<(u64, Vec<Board>)>>,
+    /// Effects of the deck's cards whose script declares nothing they do
+    /// ([`quiet_effects`]), by card and description.
+    quiet: HashSet<(u32, u64)>,
 }
 
 struct Queue {
@@ -1124,6 +1127,8 @@ const VALUE_WEIGHT: f64 = 5.0;
 /// longer: Quick-Play Spells and Traps after the other activations, and
 /// handtraps after the Sets (an effect that only lets you do something
 /// more, like Labrynth Cooclock's, needs the cards Set first).
+/// Effects whose script declares nothing they do ([`quiet_effects`]) wait
+/// with the Quick-Play Spells.
 ///
 /// Answers that pick or play a card of the goal come before everything, and
 /// those that send one away after everything.
@@ -1142,6 +1147,31 @@ fn dive_order(actions: &mut [Action], responding: bool, goal: impl Fn(&Action) -
         },
     };
     actions.sort_by_key(rank);
+}
+
+/// The activated effects of the deck's cards (not the activation of a Spell
+/// or Trap, which puts the card on the field) whose script declares no
+/// category: changes of Attribute, position or name, rather than what
+/// searches, Summons or hits the opponent. The dive tries them after the
+/// other activations (`docs/plans/anatomia-effetti.md` §4.1): Hyperinvoked
+/// Aeon's Attribute change shares its limit with its banish.
+fn quiet_effects(engine: &Engine, deck: &DeckList) -> HashSet<(u32, u64)> {
+    let db = engine.cards();
+    let mut codes: Vec<u32> = deck.main.iter().chain(&deck.extra).chain(&deck.side).map(|&c| db.canonical_code(c)).collect();
+    codes.sort_unstable();
+    codes.dedup();
+    let mut quiet = HashSet::new();
+    for card in ygo_engine::read_anatomy(engine, &codes) {
+        for e in &card.effects {
+            let activated = e.kind.activated() && e.kind != EffectKind::Activation;
+            // Effects sharing a description are told apart by none of them.
+            let alone = card.effects.iter().filter(|o| o.description == e.description && o.kind.activated()).count() == 1;
+            if activated && alone && e.description != 0 && e.category == 0 {
+                quiet.insert((card.code, e.description));
+            }
+        }
+    }
+    quiet
 }
 
 fn cards_used(hand: &[u32], state: &DuelState) -> usize {
@@ -2008,7 +2038,8 @@ fn play(shared: &Shared, edge: &Edge, dive: &mut Dive, copies: Option<&mut Copie
                 return Some(3);
             }
             let quick = db.get(c.code).is_some_and(|d| d.type_ & (card_type::QUICKPLAY | card_type::TRAP) != 0);
-            (quick && c.location & (location::HAND | location::SZONE) != 0).then_some(1)
+            let quiet = shared.quiet.contains(&(db.canonical_code(c.code), a.description));
+            (quiet || quick && c.location & (location::HAND | location::SZONE) != 0).then_some(1)
         };
         dive_order(&mut actions, responding, goal, held);
         // A goal card wanted in a kind of zone goes there; while one wants
@@ -2510,6 +2541,7 @@ pub fn resume(
         idle_strikes: Mutex::default(),
         stats: std::env::var_os("DUELFORGE_SEARCH_STATS").map(|_| stats::Stats::default()),
         checkpoints: Mutex::default(),
+        quiet: quiet_effects(engine, &config.deck),
     };
     if !started {
         shared.push(vec![NewEdge {
