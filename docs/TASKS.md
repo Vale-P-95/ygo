@@ -33,6 +33,9 @@ Regole in `AGENTS.md`. Per prendere un task, spostalo in "In corso" con agente, 
 - [ ] **Anatomia degli effetti, filtri del catalogo** (thread del progetto, branch `claude/project-thread-s3j17c`, PR #181; piano `docs/plans/anatomia-effetti.md` §9-§10).
   File: `ygo-data/src/query.rs` e `effects.rs`, `apps/desktop/src-tauri/src/lib.rs` e `effect_index.rs`, `FilterPanel.tsx`, `mock.ts`, `query.ts`.
   Brief C parte 1 misurata e non tenuta (§10); la parte 2 ha il suo brief (C2) per una sessione nuova.
+- [ ] **Sinergie F1: predicati, materiali e profili** (thread del progetto, branch `claude/project-thread-ehvrl1`; brief F1 di `docs/plans/sinergie-archetipi.md` §8).
+  File: `crates/ygo-engine/src/scripts.rs` e `lua/` (lettura dei materiali), `crates/ygo-solver/src/synergy/{read,rule,materials,profile,cache}.rs`, `crates/ygo-cli/src/main.rs`.
+  Classe E: non tocca `search.rs`, `probe.rs`, `value.rs`.
 
 ## Da fare (in ordine di priorità)
 
