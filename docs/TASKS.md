@@ -70,6 +70,7 @@ Regole in `AGENTS.md`. Per prendere un task, spostalo in "In corso" con agente, 
 - [x] Sistema di design: galleria, anteprime e primo `/design-sync` fatti (vedi sopra).
 - [x] Script di avvio dell'ambiente cloud (PR in revisione): `scripts/cloud-setup.sh` (sottomodulo, WebKitGTK e Xvfb, `pnpm install`, `cargo fetch`, `--data` per `fetch-data`; variabili in `.cloud-env`) e `scripts/cloud-app.sh` (l'app vera sotto Xvfb con screenshot). Prova di WebKitGTK riuscita (§6.5 del piano).
 - [x] CI: screenshot e prova fumo con Playwright (PR in revisione): `screens.mjs --smoke` (1280×800, due temi, tutte le sezioni; fallisce su errori di pagina, risposte HTTP ≥ 400 o sezioni vuote) sul job frontend di `ci.yml`, in modo mock; gli screenshot sono l'artifact `screenshots-<sha>`.
+- [ ] Anatomia degli effetti (richiesta di Valerio del 24/10): leggere dagli script Lua e dal testo PSCT costo, condizione, azione, quantità e restrizioni, per l'ispettore del deck building e per il motore. Piano e brief A, B, C in `docs/plans/anatomia-effetti.md`; A per primo.
 ### Richieste dal backend per l'interfaccia
 Nessuna aperta. Un dato nuovo per l'interfaccia lo aggiunge la stessa sessione di Claude che fa la schermata, nella stessa PR.
 
