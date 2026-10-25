@@ -27,6 +27,9 @@ Regole in `AGENTS.md`. Per prendere un task, spostalo in "In corso" con agente, 
 - [ ] **Mascotte nei pannelli info** (claude-code, branch `claude/project-thread-v1jfz3`, PR #166). L'Arcimago del design di Valerio in `InfoDialog` su `InfoButton` e `HelpPopover`, con `kind` per il glifo sulla lavagna.
   - File: `Mascot.tsx`, `InfoDialog.tsx`, `InfoButton.tsx`, `ui/HelpPopover.tsx`, `index.css`.
   - Resta: i testi per voce del design (probabilità, interruzioni, passi) non ripresi.
+- [ ] **Anatomia degli effetti, filtri del catalogo e brief C** (thread del progetto, branch `claude/project-thread-s3j17c`; piano `docs/plans/anatomia-effetti.md` §3-§4).
+  File: `ygo-data/src/query.rs`, `apps/desktop/src-tauri/src/lib.rs` e `effects.rs`, `Catalog.tsx`, `mock.ts`; poi, per il brief C, `crates/ygo-solver/src/search.rs` e `value.rs`.
+  Prima i filtri per effetto (una PR), poi il brief C sul banco congelato (un'altra PR).
 
 ## Da fare (in ordine di priorità)
 
