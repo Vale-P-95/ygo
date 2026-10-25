@@ -1,6 +1,6 @@
 # Il Crogiolo: sinergie tra archetipi (piano, 25/10/2026)
 
-Richiesta di Valerio del 25/10: una sezione che esplori come mescolare un archetipo con uno o più altri per fare un deck nuovo con linee di combo nuove, leggendo gli effetti delle carte e le loro caratteristiche (archetipo, Attributo, Tipo, Livello). Valerio la considera una sezione importante. Questo documento è solo progetto: nessun codice da unire.
+Richiesta di Valerio del 25/10: una sezione che esplori come mescolare un archetipo con uno o più altri per fare un deck nuovo con linee di combo nuove, leggendo gli effetti delle carte e le loro caratteristiche (archetipo, Attributo, Tipo, Livello). Valerio la considera una sezione importante. Questo documento è solo progetto: nessun codice da unire. **Approvato da Valerio il 25/10, con le quattro decisioni consigliate del §11**; si parte dalla fase F0.
 
 Mockup (Claude Design, 1280×800, temi Fucina e Pergamena): https://claude.ai/artifact/WDzepFuEQTNKsXL5CDMhoJ. Carte e numeri del mockup sono esempi per il disegno, non risultati.
 
@@ -369,7 +369,7 @@ Ogni criterio si scrive nella PR della sua fase prima di misurare.
 - **Evocazione Normale e limiti per turno**: due Starter che vogliono la stessa Evocazione Normale non si sommano. La stima lo segna come anti-ponte; il motore lo vede da solo.
 - **Nuovo non vuol dire buono**: le etichette «nuovo» e «noto nel meta» stanno accanto all'esito, non al posto.
 
-## 11. Decisioni per Valerio
+## 11. Decisioni (approvate da Valerio il 25/10: tutte e quattro come consigliato)
 1. **Nome e posto**: sezione propria «Sinergie» / «Il Crogiolo» nella barra (consigliato), oppure una scheda del Laboratorio. La sezione propria regge tre viste e i collegamenti verso tutte le altre.
 2. **Da dove si parte**: dal deck della Bottega, con l'archetipo nudo come seconda scelta (consigliato), oppure solo dall'archetipo.
 3. **Liste del meta**: solo Master Duel Meta, come oggi (consigliato), oppure anche le liste di YGOPRODeck, dopo averne controllato i termini d'uso.

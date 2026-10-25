@@ -71,7 +71,7 @@ Regole in `AGENTS.md`. Per prendere un task, spostalo in "In corso" con agente, 
 - [x] Script di avvio dell'ambiente cloud (PR in revisione): `scripts/cloud-setup.sh` (sottomodulo, WebKitGTK e Xvfb, `pnpm install`, `cargo fetch`, `--data` per `fetch-data`; variabili in `.cloud-env`) e `scripts/cloud-app.sh` (l'app vera sotto Xvfb con screenshot). Prova di WebKitGTK riuscita (§6.5 del piano).
 - [x] CI: screenshot e prova fumo con Playwright (PR in revisione): `screens.mjs --smoke` (1280×800, due temi, tutte le sezioni; fallisce su errori di pagina, risposte HTTP ≥ 400 o sezioni vuote) sul job frontend di `ci.yml`, in modo mock; gli screenshot sono l'artifact `screenshots-<sha>`.
 ### Sinergie tra archetipi (Il Crogiolo)
-- [ ] **Sezione «Sinergie» (Il Crogiolo)** (richiesta di Valerio del 25/10, piano da approvare): partner di un archetipo, ponti (ricerche per proprietà, materiali, Small World, eventi, motori condivisi), prova del mix col motore e linee nuove. Piano, brief F0-F5b e costi: `docs/plans/sinergie-archetipi.md`; mockup https://claude.ai/artifact/WDzepFuEQTNKsXL5CDMhoJ. Prima fase: F0 (deck di lettura e censimento).
+- [ ] **Sezione «Sinergie» (Il Crogiolo)** (richiesta di Valerio del 25/10, piano approvato il 25/10 con le decisioni del §11): partner di un archetipo, ponti (ricerche per proprietà, materiali, Small World, eventi, motori condivisi), prova del mix col motore e linee nuove. Piano, brief F0-F5b e costi: `docs/plans/sinergie-archetipi.md`; mockup https://claude.ai/artifact/WDzepFuEQTNKsXL5CDMhoJ. Prima fase: F0 (deck di lettura e censimento).
 
 ### Richieste dal backend per l'interfaccia
 Nessuna aperta. Un dato nuovo per l'interfaccia lo aggiunge la stessa sessione di Claude che fa la schermata, nella stessa PR.
