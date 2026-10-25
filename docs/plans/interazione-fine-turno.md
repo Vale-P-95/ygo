@@ -19,3 +19,4 @@ Esempio (Invoked, mano Aleister, Crowley, Ash, Meltdown, Droll; 3000 nodi): con 
 ## Prossimi passi
 - ~~Interfaccia~~ fatta il 24/10: il conteggio sta in `ygo-solver/src/interaction.rs` (la CLI lo usa da lì), `ScoreView.interaction` ↔ `ComboScore.interaction`, profilo «Interazione a fine turno» in `scoring.ts` (pesi 1 su interruzioni, handtrap, floodgate; 0 sul resto) e sezione nel dettaglio della board (`InteractionSection`). Senza mockup di Valerio: stile delle sezioni esistenti. Da provare nell'app vera.
 - `--card`: misurare la board migliore di ogni mano e mediare l'interazione.
+- Il passo successivo, con la ricerca che insegue l'interazione e la statistica da una carta: `docs/plans/linee-interazione.md`.

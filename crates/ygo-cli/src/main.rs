@@ -163,6 +163,12 @@ enum Cmd {
         /// measure and the variant kept still go by the usual value.
         #[arg(long)]
         interaction: bool,
+        /// Rank the boards by what you can use on the opponent's turn, read
+        /// from your cards' effects with no opponent playing: how many
+        /// separate interruptions, with the limits and costs they share
+        /// (docs/plans/linee-interazione.md). Needs no probe turn.
+        #[arg(long)]
+        capacity: bool,
         /// Also take the quick value of each board listed (two runs), with its time.
         #[arg(long)]
         quick_value: bool,
@@ -585,6 +591,7 @@ fn main() -> Result<()> {
             save_lines,
             no_breakers,
             interaction,
+            capacity,
             quick_value,
             staged,
             staged_cheap,
@@ -616,11 +623,12 @@ fn main() -> Result<()> {
                 goal,
                 goal_any,
                 first,
-                probe: probe || json.is_some() || staged || interaction,
+                probe: probe || (json.is_some() && !capacity) || staged || interaction,
                 json,
                 save_lines,
                 no_breakers: no_breakers || interaction,
                 interaction,
+                capacity,
                 quick_value,
                 staged: staged.then_some(Staged {
                     cheap: staged_cheap,
@@ -1004,6 +1012,7 @@ struct CombosOptions {
     save_lines: Option<PathBuf>,
     no_breakers: bool,
     interaction: bool,
+    capacity: bool,
     quick_value: bool,
     staged: Option<Staged>,
     checkpoints: bool,
@@ -1132,7 +1141,12 @@ fn combos(dir: &Path, setup: &Setup, options: CombosOptions, cases: Option<&Path
             Setup { deck: setup.deck.clone(), hand: hand.to_owned(), seed: seed.parse().with_context(|| format!("bad seed in {line}"))? };
         let json = path(json);
         // A JSON file implies the probe turn, as with --json.
-        let options = CombosOptions { probe: options.probe || json.is_some(), json, save_lines: path(save_lines), ..options.clone() };
+        let options = CombosOptions {
+            probe: options.probe || (json.is_some() && !options.capacity),
+            json,
+            save_lines: path(save_lines),
+            ..options.clone()
+        };
         // Each case's output between its markers, with its own time (the
         // first one also pays for the engine).
         println!("=== case {id}");
@@ -1172,6 +1186,7 @@ fn combos_with(dir: &Path, engine: &Engine, setup: &Setup, deck: DeckList, hand:
         save_lines,
         no_breakers,
         interaction,
+        capacity,
         quick_value,
         staged,
         checkpoints,
@@ -1571,6 +1586,27 @@ fn combos_with(dir: &Path, engine: &Engine, setup: &Setup, deck: DeckList, hand:
             .then(cb.unwrap_or(f64::NEG_INFINITY).total_cmp(&ca.unwrap_or(f64::NEG_INFINITY)))
             .then(a.cmp(&b))
     });
+    // By capacity: what your cards can stop on the opponent's turn, read
+    // from their effects; the order before breaks ties.
+    let started = std::time::Instant::now();
+    let capacities: Vec<Option<Result<Checked, ygo_engine::Error>>> =
+        boards.iter().map(|item| capacity.then(|| ygo_solver::board_capacity(engine, &config, &item.board.line))).collect();
+    if capacity {
+        let key = |i: usize| match &capacities[i] {
+            Some(Ok((_, c))) => (c.count, c.quality, c.without_opponent, c.off_field(), c.floodgates.len()),
+            _ => (0, f64::NEG_INFINITY, 0, 0, 0),
+        };
+        printed.sort_by(|&a, &b| {
+            let (ka, kb) = (key(a), key(b));
+            kb.0.cmp(&ka.0)
+                .then(kb.1.total_cmp(&ka.1))
+                .then(kb.2.cmp(&ka.2))
+                .then(kb.3.cmp(&ka.3))
+                .then(kb.4.cmp(&ka.4))
+                .then(boards[a].board.line.choices.len().cmp(&boards[b].board.line.choices.len()))
+        });
+        println!("capacity: {} boards checked in {:.2} s", boards.len(), started.elapsed().as_secs_f64());
+    }
     // The last step: the best boards by the measure against the meta's
     // most played decks, listed first by it.
     let mut by_measure = vec![0; boards.len()];
@@ -1662,6 +1698,11 @@ fn combos_with(dir: &Path, engine: &Engine, setup: &Setup, deck: DeckList, hand:
         if let Some(Ok(m)) = measured.as_ref().filter(|_| interaction) {
             print_interaction(&profile_of(m, &board.state));
         }
+        match &capacities[i] {
+            Some(Ok((_, c))) => print_capacity(db, c),
+            Some(Err(e)) => println!("   capacity: dry check failed: {e}"),
+            None => {}
+        }
         if let Some(x) = exposure {
             println!(
                 "   exposure: {} choke points · Ash {} · on-field negation {} · summons {} (special {}) · searches {} · Deck cost {} · LP paid {}",
@@ -1708,10 +1749,15 @@ fn combos_with(dir: &Path, engine: &Engine, setup: &Setup, deck: DeckList, hand:
     let mut measured_boards = Vec::new();
     let mut saved_lines = Vec::new();
     for (i, item) in boards.iter().enumerate() {
-        if probe {
+        if probe || capacity {
             let measured = item.measured.as_ref().and_then(|m| m.as_ref().ok());
             let mut b = board_json(engine, &config, &item.board, i, item.variants, measured, item.took, item.exposure.as_ref());
             b["printed"] = serde_json::json!(rank_of[i]);
+            match &capacities[i] {
+                Some(Ok((effects, c))) => b["capacity"] = capacity_json(engine.cards(), c, effects),
+                Some(Err(e)) => b["capacity"] = serde_json::json!({ "error": e.to_string() }),
+                None => {}
+            }
             if staged.is_some() {
                 b["stage"] = serde_json::json!(match (&item.measured, item.cheap) {
                     (None, _) => "none",
@@ -2354,6 +2400,97 @@ fn composite(m: &ygo_solver::Measure) -> f64 {
 
 fn profile_of(m: &ygo_solver::Measure, state: &ygo_engine::DuelState) -> InteractionProfile {
     InteractionProfile::of(m, state.players[0].hand.len(), state.players[0].grave.len())
+}
+
+/// A board's dry check and its capacity.
+type Checked = (Vec<ygo_engine::DryEffect>, ygo_solver::Capacity);
+
+const PLACES: [&str; 4] = ["field", "gy", "banished", "hand"];
+
+fn capacity_json(db: &ygo_engine::CardDb, c: &ygo_solver::Capacity, effects: &[ygo_engine::DryEffect]) -> serde_json::Value {
+    let by_class: serde_json::Map<String, serde_json::Value> = ygo_solver::InterruptionClass::ALL
+        .iter()
+        .zip(c.by_class)
+        .filter(|(_, n)| *n > 0)
+        .map(|(class, n)| (class.label().to_owned(), serde_json::json!(n)))
+        .collect();
+    serde_json::json!({
+        "count": c.count,
+        "quality": c.quality,
+        "negations": c.negations(),
+        "removals": c.removals(),
+        "by_class": by_class,
+        "by_place": { "field": c.by_place[0], "gy": c.by_place[1], "banished": c.by_place[2], "hand": c.by_place[3] },
+        "without_opponent": c.without_opponent,
+        "floodgates": c.floodgates.iter().map(|(card, code)| serde_json::json!({ "card": card, "effect": code })).collect::<Vec<_>>(),
+        "responses": c.responses,
+        "unchecked": c.unchecked,
+        "exact": c.exact,
+        "interruptions": c.interruptions.iter().zip(&c.plan).map(|(it, &n)| serde_json::json!({
+            "card": it.code,
+            "name": db.name(it.code),
+            "place": PLACES[it.place()],
+            "class": it.class.label(),
+            "kind": it.kind.name(),
+            "uses": it.uses,
+            "in_plan": n,
+            "assumes": assumption_names(it.assumes),
+            "blocked": it.blocked.map(|b| b.label()),
+        })).collect::<Vec<_>>(),
+        "effects_checked": effects.len(),
+    })
+}
+
+fn assumption_names(bits: u32) -> Vec<&'static str> {
+    use ygo_engine::assume;
+    [(assume::OPPONENT, "opponent's cards"), (assume::EVENT, "the event"), (assume::PHASE, "a phase"), (assume::ERROR, "unchecked")]
+        .into_iter()
+        .filter(|(bit, _)| bits & bit != 0)
+        .map(|(_, name)| name)
+        .collect()
+}
+
+fn print_capacity(db: &ygo_engine::CardDb, c: &ygo_solver::Capacity) {
+    let classes: Vec<String> = ygo_solver::InterruptionClass::ALL
+        .iter()
+        .zip(c.by_class)
+        .filter(|(_, n)| *n > 0)
+        .map(|(class, n)| format!("{} {n}", class.label()))
+        .collect();
+    println!(
+        "   capacity {} ({:.2} weighed{}): {} · from field {}, GY {}, banished {}, hand {} · {} without assuming the opponent's cards · {} floodgates · {} other quick effects",
+        c.count,
+        c.quality,
+        if c.exact { "" } else { ", greedy" },
+        if classes.is_empty() { "nothing".to_owned() } else { classes.join(", ") },
+        c.by_place[0],
+        c.by_place[1],
+        c.by_place[2],
+        c.by_place[3],
+        c.without_opponent,
+        c.floodgates.len(),
+        c.responses.len()
+    );
+    for (it, &n) in c.interruptions.iter().zip(&c.plan) {
+        let state = match (it.blocked, n) {
+            (Some(b), _) => format!("not usable: {}", b.label()),
+            (None, 0) => "left out (shared limit or cost)".to_owned(),
+            (None, n) => format!("{n} use{}", if n > 1 { "s" } else { "" }),
+        };
+        let assumes = assumption_names(it.assumes);
+        println!(
+            "     {} ({}, {}): {} · {}{}",
+            db.name(it.code),
+            ["field", "GY", "banished", "hand"][it.place()],
+            it.kind.name(),
+            it.class.label(),
+            state,
+            if assumes.is_empty() { String::new() } else { format!(" · assumes {}", assumes.join(", ")) }
+        );
+    }
+    for (card, code) in &c.floodgates {
+        println!("     {}: floodgate (effect {code})", db.name(*card));
+    }
 }
 
 fn interaction_json(p: &InteractionProfile) -> serde_json::Value {
