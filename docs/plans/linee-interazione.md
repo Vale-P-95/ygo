@@ -209,7 +209,7 @@ S0 e S1 reggono sul brief A di `anatomia-effetti.md`. Campi e appigli che servon
 5. **il riferimento all'effetto registrato**, tenuto in una tabella Lua dal wrapper di `Card.RegisterEffect`, perché la verifica a secco possa chiamarne condizione, costo e bersaglio a fine turno;
 6. **il collegamento attivazione → effetto** già previsto.
 
-I punti 1-4 sono stati mandati al thread del lettore il 25/10 con la prima versione; il 5 con questa.
+Il 25/10 il thread del lettore ha confermato che i punti 1-4 arrivano dal brief A (nel JSON: `countLimit` con count, code, flag e index; `targetRange` [tuo lato, avversario]; tutte le categorie per nome; code ed evento dei trigger). Il punto 5 no: il wrapper del brief A si carica solo nei duelli di lettura, quindi la tabella dei riferimenti, caricata anche nei duelli giocati, la fa il brief I1 (tocca `duel.rs`).
 
 ## 9. Brief
 Ordine: dopo il brief A dell'anatomia, I1 → I2; I3 può andare in parallelo a I2 (file diversi); I4 dopo il mockup e dopo I2.
@@ -219,7 +219,7 @@ Ordine: dopo il brief A dell'anatomia, I1 → I2; I3 può andare in parallelo a 
 Compito: duelforge-cli combos --interaction e probe-line stampano per ogni board la capacità C e C_q (§2.2), il profilo con le assunzioni (§2.3) e per ogni effetto candidato l'esito della verifica a secco (attivabile, con assunzioni, non attivabile e perché, §3.2), senza nessun avversario; la modalità normale non cambia.
 Perché: docs/plans/linee-interazione.md §2-§3.
 Branch: claude/interazione-inventario, da main dopo il brief A dell'anatomia
-File da toccare: crates/ygo-engine/src/scripts.rs (Replacement con i segnaposto di Duel e dell'evento), crates/ygo-engine/src/anatomy.rs, crates/ygo-solver/src/inventory.rs (nuovo: S0, S1 e capacità), interaction.rs, crates/ygo-cli; test con fixture.
+File da toccare: crates/ygo-engine/src/scripts.rs (Replacement con la tabella degli effetti registrati e i segnaposto di Duel e dell'evento), crates/ygo-engine/src/duel.rs (caricarla nei duelli giocati, solo nella modalità), crates/ygo-engine/src/anatomy.rs, crates/ygo-solver/src/inventory.rs (nuovo: S0, S1 e capacità), interaction.rs, crates/ygo-cli; test con fixture.
 Da leggere: linee-interazione.md §2-§3, §6.2; anatomia-effetti.md §2.1. Prima cosa: verificare nel submodule Effect.IsActivatable, Duel.IsPlayerAffectedByEffect e un getter del raggio dei bersagli.
 Verifica: cargo test -p ygo-engine -p ygo-solver -p ygo-cli; banco.py same --set full (193 uscite uguali); out/interazione/summary.txt con copertura, motivi di esclusione e coerenza con il motore (§6.2) sulle board del banco; il foglio delle 30 board per Valerio (§6.1).
 Criterio di accettazione: banco ACCEPTED (E); copertura ≥ 95%; due copie di un effetto con limite per nome contano 1; un Xyz senza materiali non conta l'effetto che li stacca; un handtrap che si scarta da solo conta 1; nessuna differenza di stato tra la copia e il duello dopo la verifica.
