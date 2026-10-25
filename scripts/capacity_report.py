@@ -11,10 +11,7 @@ hand, then over all the boards listed:
   capacity: how often ranking by capacity changes the board on top.
 
 Writes <out>/<hand id>.json, <out>/report.json and a ten-line
-<out>/summary.txt. With --sheet, also the owner's sheet of §6.1: 30 boards
-(6 decks with the most different capacities, 5 boards each) to count by
-hand, in <sheet>.tsv, and what the dry check counts for them in
-<sheet>-check.tsv (apart, not to lead the count).
+<out>/summary.txt.
 
     python3 scripts/capacity_report.py $S/capacity --cli target/release/duelforge-cli --set quick --jobs 4
 """
@@ -52,7 +49,6 @@ def main():
     p.add_argument("--top", type=int, default=10)
     p.add_argument("--jobs", type=int, default=4)
     p.add_argument("--version", default="v1")
-    p.add_argument("--sheet", help="path without extension of the owner's sheet")
     a = p.parse_args()
     os.makedirs(a.out, exist_ok=True)
     _, _, cases = banco.load(a.version)
@@ -116,37 +112,7 @@ def main():
         f"failed: {', '.join(failed) if failed else 'none'}",
     ]
     open(os.path.join(a.out, "summary.txt"), "w").write("\n".join(lines) + "\n")
-    if a.sheet:
-        write_sheet(a.sheet, cases, done)
     print("\n".join(lines))
-
-
-def write_sheet(sheet, cases, done, decks=6, per_deck=5):
-    by_deck = {}
-    for c, (path, rc) in zip(cases, done):
-        if rc != 0 or not os.path.exists(path):
-            continue
-        items = [i for i in json.load(open(path))["items"] if "count" in i.get("capacity", {})]
-        by_deck.setdefault(c["deck"], []).extend(items)
-    spread = lambda items: len({i["capacity"]["count"] for i in items})  # noqa: E731
-    chosen = sorted(by_deck, key=lambda d: (-spread(by_deck[d]), d))[:decks]
-    rows, check = [], []
-    for deck in sorted(chosen):
-        items = sorted(by_deck[deck], key=lambda i: i["capacity"]["count"])
-        # Spread over the capacities, from the lowest to the highest.
-        picks = [items[round(k * (len(items) - 1) / max(per_deck - 1, 1))] for k in range(min(per_deck, len(items)))]
-        for item in picks:
-            n = len(rows) + 1
-            rows.append([str(n), deck, ", ".join(item["field"]), ", ".join(item["hand_names"]), ", ".join(item["grave_names"]),
-                         ", ".join(item["banished_names"]), "", ""])
-            cap = item["capacity"]
-            used = [f"{it.get('name', it['card'])} ({it['class']}) x{it['in_plan']}" for it in cap["interruptions"] if it["in_plan"]]
-            check.append([str(n), str(cap["count"]), f"{cap['quality']:.2f}", "; ".join(used)])
-    head = ["n", "deck", "campo", "mano", "Cimitero", "bandite", "interruzioni (Valerio)", "quali (Valerio)"]
-    with open(sheet + ".tsv", "w", encoding="utf-8") as f:
-        f.write("\n".join("\t".join(r) for r in [head] + rows) + "\n")
-    with open(sheet + "-check.tsv", "w", encoding="utf-8") as f:
-        f.write("\n".join("\t".join(r) for r in [["n", "C", "C_q", "interruzioni contate"]] + check) + "\n")
 
 
 if __name__ == "__main__":

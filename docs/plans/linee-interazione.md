@@ -11,7 +11,7 @@ Questo documento è solo analisi e progetto: nessun codice. Dipende dal lettore 
 - **Il numero che si massimizza è la capacità d'interruzione**: quante interruzioni separate puoi usare nello stesso turno avversario, con i limiti condivisi e le carte che i costi si contendono. Accanto ci sono il profilo per tipo e per zona e gli effetti permanenti.
 - **La ricerca cerca quel numero, non lo riordina dopo.** Nella modalità «interazione» la stima delle board di fine turno è la capacità stessa, perché la verifica a secco costa pochi millisecondi. Le finaliste si mostrano diverse tra loro (fronte di Pareto).
 - **Da una carta, la risposta è una distribuzione**: su mani campionate con la carta, la capacità media e la probabilità di avere almeno 1, 2, 3… interruzioni, con intervalli di confidenza, e il contributo della carta stimato con mani gemelle.
-- **La modalità normale non cambia** (classe E sul banco congelato). La modalità nuova si giudica sul suo numero con le regole del banco e con una verità etichettata da Valerio.
+- **La modalità normale non cambia** (classe E sul banco congelato). La modalità nuova si giudica sul suo numero con le regole del banco e con le verifiche automatiche del §6.1.
 
 ## 1. Che cosa c'è oggi
 - **Il turno di prova** (`crates/ygo-solver/src/probe.rs`) gioca un avversario generico, il kit (`Kit::standard`, `probe.rs:367`), con 13 tipi di mossa (`enum Probe`, `probe.rs:41`), e riconosce le interruzioni dagli esiti (`enum Effect`, `probe.rs:139`). Resta la misura della modalità normale; **questa modalità non lo usa**, per le due ragioni di Valerio. In più non vede la battaglia, gli scarti dalla mano avversaria e le rimozioni che chiedono un bersaglio quando il kit non ne ha.
@@ -156,17 +156,15 @@ Sul contenitore cloud una mano costa in mediana 16 s a 4000 nodi su un thread (`
 Per «quale carta del deck aggiunge più interazione» si ripete §5.3 su ogni carta: è il valore di Shapley della carta nel gioco «mano → capacità» ristretto alle coppie con una sola carta scambiata (Shapley 1953; stima per campionamento di Castro, Gómez e Tejada 2009). Costa una corsa per carta: solo su richiesta.
 
 ## 6. Validazione
-### 6.1 La verità di Valerio
-Nessuna lettura automatica sa da sola che cosa conta un giocatore come interruzione. Serve un piccolo insieme etichettato:
-- 30 board di fine turno (6 deck × 5, scelti tra quelli del banco congelato con interazione diversa), stampate con la linea e le carte per zona;
-- per ognuna Valerio scrive quante interruzioni separate conta e quali (carta e classe del §2.1). Circa 20 minuti; un file TSV come `owner-verdicts.tsv`.
+### 6.1 Verifica automatica, senza conteggi a mano
+**Revisione del 25/10:** Valerio non conta board a mano; il motore e il codice devono stabilire da soli quante interruzioni ci sono e di che tipo. Il foglio delle 30 board è tolto. Al suo posto quattro verifiche che girano da sole, con soglie fissate prima; nessuna usa un avversario per contare, e la quarta usa il turno di prova solo come controllo, mai nella misura.
 
-Con 30 board e circa 4 interruzioni l'una ci sono circa 120 effetti etichettati: il richiamo di una misura vicino a 0,95 si stima con ±0,04 (Wilson). Metriche, fissate prima:
-- per effetto, **richiamo e precisione** di S0 e di S0 + S1 rispetto alle etichette;
-- per board, l'errore assoluto medio di C rispetto al numero di Valerio, e l'accordo sulla classe (kappa di Cohen, Cohen 1960);
-- per coppie di board dello stesso deck, l'ordine giusto, con il test di McNemar esatto quando si confrontano due versioni della misura (McNemar 1947).
+1. **Il motore come oracolo.** Nel tuo turno e nelle finestre del turno avversario che si aprono senza che l'avversario faccia nulla (cambi di fase con priorità a te), il motore stesso elenca gli effetti che puoi attivare. Per gli effetti che non aspettano un evento (Magie Rapide, Trappole, effetti rapidi «senza innesco», effetti d'attivazione nella tua Main Phase) la verifica a secco deve dare la stessa risposta del motore: attivabile se il motore lo offre, bloccato se non lo offre per un motivo tuo (costo, limite, materiali, condizione). Metrica: accordo per effetto, con Wilson; soglia ≥ 99%, e ogni disaccordo elencato con carta e motivo.
+2. **Casi costruiti dagli script.** Per ogni carta del banco con un effetto candidato, un generatore mette la carta da sola nella sua zona e poi ne toglie le risorse una alla volta, leggendo dall'anatomia che cosa chiede il costo: materiali staccati, mano vuota, Cimitero vuoto, limite già usato (si attiva una volta nel tuo turno), Trappola coperta in questo turno. Ogni versione ha una risposta attesa che non dipende dal nome della carta: con le risorse C = 1, senza quella che il costo chiede l'effetto è bloccato con quel motivo. Soglia: 0 errori sui casi senza assunzioni, gli altri elencati.
+3. **Relazioni che devono valere sempre** (test metamorfici, Chen e altri 1998; Segura e altri 2016). Su tutte le board del banco: una copia in più di una carta con limite per nome non alza C; togliere una carta dalla mano, dal Cimitero o un materiale non alza mai C; l'ordine delle zone e delle carte non cambia C; la verifica ripetuta dà lo stesso risultato e lascia lo stato uguale; C ≤ numero di effetti usabili. Soglia: 0 violazioni.
+4. **Due letture indipendenti della classe.** La classe viene dalle categorie dello script (lettore A); il lettore del testo PSCT dell'anatomia ne dà un'altra. Si misura l'accordo con la kappa di Cohen (Cohen 1960); soglia ≥ 0,8, e i disaccordi elencati (Droll & Lock Bird, che dichiara `DISABLE`, è il caso noto). Come controllo in più, sulle board del banco il turno di prova esistente dice quali interruzioni ha usato davvero: ognuna deve risultare usabile nella verifica a secco (soglia ≥ 98%); quelle che la verifica conta e il turno di prova non usa non sono errori, perché dipendono da che cosa gioca l'avversario.
 
-Obiettivo per l'uscita della modalità: richiamo di S0 + S1 ≥ 0,95, precisione ≥ 0,9, errore medio di C ≤ 0,5 interruzioni.
+Le verifiche 1-3 diventano test e una riga di `out/interazione/summary.txt`; la 4 una riga dello stesso rapporto. Una PR della misura passa solo se nessuna soglia scende.
 
 ### 6.2 Controlli automatici, senza etichette
 Su tutte le board di fine turno del banco congelato (decine di migliaia di effetti):
@@ -178,7 +176,7 @@ Su tutte le board di fine turno del banco congelato (decine di migliaia di effet
 ### 6.3 Come si accetta ogni PR
 - **La modalità normale.** Ogni PR del motore di questo piano lascia uguale la modalità solita: classe E, `banco.py same` sul set `full`, tutte le 193 uscite uguali (`regole-motore.md` §2). Nota: dal 24/10 la prova equa sulle 406 board è sostituita dal banco congelato, perché non si può rifare; `paired_test.py` resta per gli studi su mani scelte.
 - **La modalità «interazione».** Il suo numero è C. Il confronto è *ricerca guidata* (questo piano) contro *riordino dopo la ricerca* (PR #171), stesse 193 mani, stesso seme e budget, con le board migliori dei due lati rimisurate con S0 + S1: sono le regole R del banco sulla scala di C (non inferiorità con bootstrap per deck, test del segno, grandi perdite, deck freschi). Serve un'opzione `--metric interaction` in `banco.py` e `paired_test.py`. Si dice «migliora» solo con il limite basso dell'intervallo sopra 0.
-- **La misura S0 + S1** si giudica sulla verità del §6.1. Il turno di prova non cambia.
+- **La misura S0 + S1** si giudica con le verifiche automatiche del §6.1. Il turno di prova non cambia.
 
 ## 7. Letteratura
 Citate a memoria e non ricontrollate online in questa sessione: le referenze sono classiche, ma anno e sede vanno verificati prima di citarle in un documento di misura (come in `ricerca-letteratura.md` §8).
@@ -197,7 +195,8 @@ Citate a memoria e non ricontrollate online in questa sessione: le referenze son
 | Arresto sequenziale | A. Maurer, M. Pontil, «Empirical Bernstein bounds and sample variance penalization», COLT 2009; V. Mnih, C. Szepesvári, J.-Y. Audibert, «Empirical Bernstein stopping», ICML 2008 | quando smettere di campionare (§5.2) |
 | Riduzione della varianza | P. Glasserman, *Monte Carlo Methods in Financial Engineering*, 2004, cap. 4; A. B. Owen, *Monte Carlo theory, methods and examples*, 2013; M. B. Giles, «Multilevel Monte Carlo path simulation», *Operations Research* 56(3), 2008 | mani gemelle, stratificazione, due fedeltà (§5.3) |
 | Contributo di una carta | L. S. Shapley, 1953; J. Castro, D. Gómez, J. Tejada, «Polynomial calculation of the Shapley value based on sampling», *Computers & OR* 36(5), 2009 | §5.5 |
-| Accordo e coppie | J. Cohen, *Educ. Psych. Meas.* 20, 1960; Q. McNemar, *Psychometrika* 12, 1947 | §6.1 |
+| Accordo tra letture | J. Cohen, *Educ. Psych. Meas.* 20, 1960 | §6.1 punto 4 |
+| Test metamorfici | T. Y. Chen, S. C. Cheung, S. M. Yiu, «Metamorphic testing: a new approach for generating next test cases», HKUST-CS98-01, 1998; S. Segura e altri, «A survey on metamorphic testing», *IEEE TSE* 42(9), 2016 | §6.1 punto 3 |
 | Giochi di carte | C. D. Ward, P. I. Cowling, «Monte Carlo search applied to card selection in Magic: The Gathering», IEEE CIG 2009 | precedente di Monte Carlo sulle mani per scegliere carte |
 
 ## 8. Coordinamento con il lettore degli effetti
@@ -221,7 +220,7 @@ Perché: docs/plans/linee-interazione.md §2-§3.
 Branch: claude/interazione-inventario, da main dopo il brief A dell'anatomia
 File da toccare: crates/ygo-engine/src/scripts.rs (Replacement con la tabella degli effetti registrati e i segnaposto di Duel e dell'evento), crates/ygo-engine/src/duel.rs (caricarla nei duelli giocati, solo nella modalità), crates/ygo-engine/src/anatomy.rs, crates/ygo-solver/src/inventory.rs (nuovo: S0, S1 e capacità), interaction.rs, crates/ygo-cli; test con fixture.
 Da leggere: linee-interazione.md §2-§3, §6.2; anatomia-effetti.md §2.1. Prima cosa: verificare nel submodule Effect.IsActivatable, Duel.IsPlayerAffectedByEffect e un getter del raggio dei bersagli.
-Verifica: cargo test -p ygo-engine -p ygo-solver -p ygo-cli; banco.py same --set full (193 uscite uguali); out/interazione/summary.txt con copertura, motivi di esclusione e coerenza con il motore (§6.2) sulle board del banco; il foglio delle 30 board per Valerio (§6.1).
+Verifica: cargo test -p ygo-engine -p ygo-solver -p ygo-cli; banco.py same --set full (193 uscite uguali); out/interazione/summary.txt con copertura, motivi di esclusione e coerenza con il motore (§6.2) sulle board del banco; (il foglio delle 30 board è tolto il 25/10, §6.1).
 Criterio di accettazione: banco ACCEPTED (E); copertura ≥ 95%; due copie di un effetto con limite per nome contano 1; un Xyz senza materiali non conta l'effetto che li stacca; un handtrap che si scarta da solo conta 1; nessuna differenza di stato tra la copia e il duello dopo la verifica.
 PR: template; summary.txt per intero; classe E.
 Modello: Opus 5.5, effort alto.
@@ -284,5 +283,5 @@ Nella stessa PR del piano (#183). Classe E: la modalità normale non cambia.
 - **Test** (`crates/ygo-solver/tests/capacity.rs`, con i dati): due Ash Blossom contano 1 e una paga il costo di Mechaba (C = 2); Mechaba senza carte in mano è bloccata dal costo; Tornado Dragon senza materiali è bloccato dal costo; la verifica non cambia lo stato e, ripetuta, dà lo stesso risultato.
 - **Banco** (`banco.py same`, set `full`, 193 mani, 4000 nodi): 0 uscite diverse, tempo 0,998 (0,988-1,008), ACCEPTED.
 - **Rapporto** (`scripts/capacity_report.py`, set `quick`, 63 mani, 1000 nodi, 10 board per mano): 626 board, 4512 effetti controllati, 3 controlli senza risposta per un errore Lua (0,1%: copertura oltre il 99%). Interruzioni usabili 1116 (negano un effetto 583, un'attivazione 174, bandiscono 145, distruggono 93, rimbalzano in mano 55, negano un'Evocazione 40, nel Deck 14, scarti 10); bloccate dalla propria board 118 (condizione 61, costo 39, bersaglio 10, carta negata 4, coperta 4). Dal campo 704, dalla mano 402, dal Cimitero 10. La prima board della ricerca ha in media C = 2,13; la migliore delle 10 per capacità 2,43; in 16 mani su 63 l'ordine per capacità mette in cima un'altra board con più interruzioni.
-- **Il foglio per Valerio** (§6.1): `verita-interruzioni.tsv` nei file del progetto (cartella `interazione/`), 30 board di 6 deck, con due colonne da riempire; quello che conta la verifica a secco sta a parte in `verita-interruzioni-check.tsv`, per non guidare il conteggio.
+- **Il foglio per Valerio** è tolto il 25/10: Valerio non conta a mano. Le verifiche automatiche del §6.1 sono il prossimo passo, da fare all'inizio di I2 (il punto 1 è il controllo di coerenza del §6.2 rimasto aperto).
 - **Limiti visti.** La classe viene dalle categorie dichiarate dallo script: Droll & Lock Bird dichiara `DISABLE` e conta come «nega un effetto». Il controllo della coerenza con il motore del §6.2 (effetti che il motore non offre nel tuo turno per un motivo tuo) non è fatto: resta per I2. `probe-line` non stampa ancora la capacità.
