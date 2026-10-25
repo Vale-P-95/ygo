@@ -30,6 +30,9 @@ Regole in `AGENTS.md`. Per prendere un task, spostalo in "In corso" con agente, 
 - [ ] **Anatomia degli effetti, filtri del catalogo** (thread del progetto, branch `claude/project-thread-s3j17c`, PR #181; piano `docs/plans/anatomia-effetti.md` §9-§10).
   File: `ygo-data/src/query.rs` e `effects.rs`, `apps/desktop/src-tauri/src/lib.rs` e `effect_index.rs`, `FilterPanel.tsx`, `mock.ts`, `query.ts`.
   Brief C parte 1 misurata e non tenuta (§10); la parte 2 ha il suo brief (C2) per una sessione nuova.
+- [ ] **Anatomia degli effetti, Brief C2: valore di riserva dalle categorie dinamiche** (thread del progetto, branch `claude/project-thread-4z6kd6`; piano `docs/plans/anatomia-effetti.md` §10).
+  File: `ygo-engine/lua/operations.lua` (nuovo), `ygo-engine/src/duel.rs` e `operations.rs` (nuovo), `ygo-solver/src/value.rs` e `search.rs` (file caldi).
+  Classe R: `banco.py judge` sul set full e mano Invoked del §29.2 di `PIANO.md` con `--checkpoints`.
 
 ## Da fare (in ordine di priorità)
 
