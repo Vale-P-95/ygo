@@ -180,3 +180,15 @@ Branch `claude/anatomia-motore` (non unito). CLI di `main` cfeda39, banco v1, se
 - **Seconda versione**: solo gli effetti rapidi senza categorie (il cambio di Attributo di Aeon, di Mudragon). `judge`: 193 mani tutte pari, tempo 0,99. **ACCEPTED**, ma senza effetto: sulla mano Invoked del §29.2 di `PIANO.md` (Reminiscent con quattro handtrap del deck, 8000 nodi, un thread) la ricerca è identica nodo per nodo (stessa board con Aeon, Caliga e S:P Little Knight, trovata allo stesso punto), perché l'effetto rapido di Aeon è già messo dopo dalle regole sulla End Phase e sulle risposte alla propria catena.
 - **Decisione**: non si apre la PR. La parte utile dell'idea, cioè sapere che cosa fa davvero un effetto, richiede le categorie dinamiche (`SetOperationInfo` letto quando l'effetto si attiva): è la parte 2 (§4.2).
 
+
+### Brief C2: valore di riserva dalle categorie dinamiche (per una sessione nuova)
+```
+Compito: leggere SetOperationInfo (categoria, quantità, giocatore e zona) quando un effetto si attiva nella ricerca, e usarlo come valore di riserva dei trigger di arrivo in CardValues::get e quick_score (§4.2), mai nella misura finale.
+Perché: §4.2 e §10. Le categorie statiche non bastano: molti effetti le dichiarano solo in target, o scelgono che cosa fare all'attivazione.
+Branch: claude/anatomia-riserva, da main. Non riusare claude/anatomia-motore (priore non tenuto).
+File: crates/ygo-engine (un wrapper Lua di Duel.SetOperationInfo nello stile di lua/anatomy.lua, letto dal log solo per le carte non ancora lette), crates/ygo-solver/src/value.rs (file caldo: lock in TASKS.md).
+Pesi: solo quelli che esistono (scala di Effect in probe.rs, tabella dell'attrito di B5a); nessun peso nuovo senza taratura D17.
+Verifica: banco.py run --set full in background, poi judge (cambia la stima della ricerca, non la misura); mano Invoked del §29.2 di PIANO.md con --checkpoints, main contro branch, per vedere se la board con Aeon arriva con meno nodi.
+Criterio: ACCEPTED, e un effetto visibile su Aeon; altrimenti «misurata, non tenuta» qui.
+Modello: Opus 5.5, effort alto.
+```
