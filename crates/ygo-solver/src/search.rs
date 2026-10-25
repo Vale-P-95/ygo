@@ -47,7 +47,7 @@ use ygo_engine::{
 use crate::coverage::{self, Audit, Coverage, Links, Mechanic};
 use crate::goal::{Goal, GoalPick, GoalZone};
 use crate::probe::{taken_weight, Kit, Prober};
-use crate::value::{CardValues, InHand, Spot};
+use crate::value::{arrival_value, CardValues, InHand, Spot};
 
 #[derive(Debug, Clone)]
 pub struct SearchConfig {
@@ -544,6 +544,25 @@ impl Shared<'_> {
         // Past more than one at once: the same boards for each.
         while checkpoints.get(taken.len()).is_some_and(|&c| nodes >= c) {
             taken.push((nodes, best.clone()));
+        }
+    }
+
+    /// What the effects activated in `duel` since the last call declared
+    /// they do to the opponent's cards arriving: the estimate counts it for
+    /// those monsters on the field ([`CardValues::arrival`]).
+    fn learn_arrivals(&self, duel: &Duel) {
+        for op in duel.take_operations() {
+            let Some(value) = arrival_value(&op) else { continue };
+            if !self.values.read().is_ok_and(|v| v.arrival_below(self.engine, op.code, op.description, value)) {
+                continue;
+            }
+            if let Ok(mut values) = self.values.write() {
+                values.arrival(self.engine, op.code, op.description, value);
+            }
+            if std::env::var_os("DUELFORGE_DEBUG_ARRIVALS").is_some() {
+                let name = self.engine.cards().get(op.code).map_or("?", |c| c.name.as_str());
+                eprintln!("arrival: {name} {} x{} from {:#x}: {value:.3}", op.category, op.count, op.location);
+            }
         }
     }
 
@@ -1748,6 +1767,7 @@ fn play(shared: &Shared, edge: &Edge, dive: &mut Dive, copies: Option<&mut Copie
             after_answer(&mut last_set, d, a);
             freed |= is_free(d);
         })?;
+        shared.learn_arrivals(duel);
         let (turn, _, phase) = duel.turn_info();
         let (Step::Decision { events, .. } | Step::End { events }) = &step;
         let mut negated = false;

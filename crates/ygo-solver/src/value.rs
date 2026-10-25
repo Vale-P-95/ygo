@@ -25,9 +25,9 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Mutex, OnceLock};
 
 use ygo_engine::consts::{card_type, location, position};
-use ygo_engine::{generic_materials, DeckList, DuelState, Engine, FieldCard, Placement};
+use ygo_engine::{generic_materials, DeckList, DuelState, Engine, FieldCard, Operation, Placement};
 
-use crate::probe::{Kit, Prober};
+use crate::probe::{taken_weight, Effect, Kit, Prober};
 
 /// Where a card is at the end of the turn, as far as its value goes.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -111,6 +111,15 @@ pub struct CardValues {
     values: HashMap<(u32, Spot), f64>,
     /// Handtraps the engine let you use from the hand there.
     usable: HashSet<(u32, Spot)>,
+    /// What monsters do arriving, effect by effect (`(code, description)`):
+    /// their Summon triggers on the opponent's cards, as declared when they
+    /// were activated in a search ([`arrival_value`]). Placed on the field
+    /// to be measured, a monster does not arrive: Hyperinvoked Aeon alone
+    /// stops nothing, Summoned it banishes 3 cards of the opponent's Extra
+    /// Deck. The estimate counts it when the value measured is lower.
+    arrivals: HashMap<(u32, u64), f64>,
+    /// [`CardValues::arrivals`] summed by card.
+    floors: HashMap<u32, f64>,
 }
 
 /// What a card in your hand is worth with a given field.
@@ -130,10 +139,36 @@ pub enum InHand {
 const FLOODGATE_WEIGHT: f64 = 0.8;
 
 impl CardValues {
-    /// The value of `code` at `spot` (0 for a card never measured).
+    /// The value of `code` at `spot` (0 for a card never measured); for a
+    /// face-up monster, at least what it does arriving.
     pub fn get(&self, engine: &Engine, code: u32, spot: Spot) -> f64 {
         let code = engine.cards().canonical_code(code);
-        self.values.get(&(code, spot)).copied().unwrap_or(0.0)
+        let measured = self.values.get(&(code, spot)).copied().unwrap_or(0.0);
+        match spot {
+            Spot::Main | Spot::Extra | Spot::MainNoHand | Spot::ExtraNoHand => measured.max(self.floors.get(&code).copied().unwrap_or(0.0)),
+            _ => measured,
+        }
+    }
+
+    /// Raises what the effect `description` of `code` does arriving to
+    /// `value`; true if it was lower.
+    pub fn arrival(&mut self, engine: &Engine, code: u32, description: u64, value: f64) -> bool {
+        let code = engine.cards().canonical_code(code);
+        let entry = self.arrivals.entry((code, description)).or_insert(0.0);
+        if value <= *entry + 1e-9 {
+            return false;
+        }
+        *entry = value;
+        let total = self.arrivals.iter().filter(|(k, _)| k.0 == code).map(|(_, v)| v).sum();
+        self.floors.insert(code, total);
+        true
+    }
+
+    /// Whether `value` is more than what is known of the effect
+    /// `description` of `code` arriving.
+    pub fn arrival_below(&self, engine: &Engine, code: u32, description: u64, value: f64) -> bool {
+        let code = engine.cards().canonical_code(code);
+        value > self.arrivals.get(&(code, description)).copied().unwrap_or(0.0) + 1e-9
     }
 
     /// The sum of the values of your cards on the field in `state` (with
@@ -212,6 +247,13 @@ impl CardValues {
         } else {
             false
         }
+    }
+
+    /// What each card does arriving, as far as known (for diagnostics).
+    pub fn arrivals(&self) -> Vec<(u32, f64)> {
+        let mut out: Vec<_> = self.floors.iter().map(|(&c, &v)| (c, v)).collect();
+        out.sort_by(|a, b| b.1.total_cmp(&a.1).then(a.0.cmp(&b.0)));
+        out
     }
 
     /// The cards measured, best first (for diagnostics).
@@ -384,9 +426,73 @@ pub fn card_values(engine: &Engine, deck: &DeckList, seed: u64, kit: &Kit, hand_
     let values = CardValues {
         values: found.iter().map(|(&k, &(v, _))| (k, v)).collect(),
         usable: found.iter().filter(|(k, &(_, u))| u && matches!(k.1, Spot::Hand | Spot::HandWithField)).map(|(&k, _)| k).collect(),
+        ..CardValues::default()
     };
     if let Ok(mut c) = cache().lock() {
         c.insert(key, values.clone());
     }
     values
+}
+
+/// What a declaration of a Summon trigger is worth to the estimate, in
+/// interruptions (`None`: not one on the opponent's cards that the weights
+/// know). With the weights that exist, no new ones (§4.4 of
+/// `docs/plans/anatomia-effetti.md`): how well the category takes a card
+/// away ([`Effect::value`]), times the cards, times what one card of the
+/// opponent is worth where it is ([`taken_weight`]: the least, for a
+/// declaration of more places), times 0.85 when it targets, as for the
+/// interruptions of the probe turn.
+pub fn arrival_value(op: &Operation) -> Option<f64> {
+    if !op.on_arrival() || op.count == 0 {
+        return None;
+    }
+    let effect = match op.category {
+        0x1 => Effect::Destroy,
+        0x4 => Effect::Banish,
+        0x8 => Effect::Bounce,
+        0x10 => Effect::ToDeck,
+        // Tributed, sent, milled or discarded.
+        0x2 | 0x20 | 0x40 | 0x80 => Effect::ToGrave,
+        0x1000 | 0x2000 => Effect::Position,
+        0x4000 => Effect::NegateEffect,
+        _ => return None,
+    };
+    let weight = [location::EXTRA, location::HAND, location::DECK, location::MZONE, location::SZONE]
+        .into_iter()
+        .filter(|&loc| op.location & loc as u32 != 0)
+        .map(taken_weight)
+        .min_by(f64::total_cmp)?;
+    Some(effect.value() * op.count as f64 * weight * if op.targets { 0.85 } else { 1.0 })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ygo_engine::consts::{effect_type, event};
+
+    fn op(event: u32, category: u64, count: u32, location: u32, targets: bool) -> Operation {
+        Operation {
+            code: 33166263,
+            description: 0,
+            effect_type: effect_type::SINGLE | effect_type::TRIGGER_O,
+            event,
+            category,
+            count,
+            location,
+            targets,
+        }
+    }
+
+    #[test]
+    fn arrivals_are_worth_what_the_probe_turn_weighs() {
+        // Hyperinvoked Aeon: 3 cards of the opponent's Extra Deck banished.
+        let aeon = arrival_value(&op(event::SPSUMMON_SUCCESS, 0x4, 3, location::EXTRA as u32, false)).unwrap();
+        assert!((aeon - Effect::Banish.value() * 3.0 * taken_weight(location::EXTRA)).abs() < 1e-9);
+        // A targeted destruction on the field, from the hand or the field: the least.
+        let field = arrival_value(&op(event::SUMMON_SUCCESS, 0x1, 1, (location::MZONE | location::HAND) as u32, true)).unwrap();
+        assert!((field - Effect::Destroy.value() * taken_weight(location::HAND) * 0.85).abs() < 1e-9);
+        // Not a trigger of its own Summon, or a category the weights do not know.
+        assert!(arrival_value(&op(event::DESTROYED, 0x4, 3, location::EXTRA as u32, false)).is_none());
+        assert!(arrival_value(&op(event::SPSUMMON_SUCCESS, 0x10000, 1, location::HAND as u32, false)).is_none());
+    }
 }

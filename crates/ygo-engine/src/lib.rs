@@ -31,6 +31,7 @@ mod duel;
 mod ffi;
 pub mod italian;
 mod message;
+mod operations;
 mod script;
 mod scripts;
 pub mod state;
@@ -47,6 +48,7 @@ pub use duel::{
     Step, STARTING_LP,
 };
 pub use message::{Activatable, CardRef, Decision, Event};
+pub use operations::Operation;
 pub use script::{run_script, ScriptEnd, Trace};
 pub use scripts::ScriptStore;
 pub use state::{canonical_fingerprint, fingerprint, DuelState, FieldCard, PlayerState, TurnActivity};

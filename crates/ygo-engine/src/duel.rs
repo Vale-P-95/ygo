@@ -14,6 +14,7 @@ use crate::consts::{card_type, duel_flags, location, position, summon_type};
 use crate::deck::DeckList;
 use crate::ffi::*;
 use crate::message::{self, Decision, Event, Parsed};
+use crate::operations::{self, Operation, OPERATION_LINES};
 use crate::scripts::ScriptStore;
 use crate::state::TurnActivity;
 use crate::Error;
@@ -84,6 +85,9 @@ struct Context {
     scripts: Arc<ScriptStore>,
     missing_scripts: RefCell<Vec<String>>,
     log: RefCell<Vec<String>>,
+    /// What activated effects declared (`operations.lua`), kept apart from
+    /// the log so that they never fill it.
+    operations: RefCell<Vec<Operation>>,
 }
 
 unsafe extern "C" fn card_reader(payload: *mut c_void, code: u32, data: *mut OCG_CardData) {
@@ -141,9 +145,17 @@ pub(crate) const LOG_LINES: usize = 100;
 
 unsafe extern "C" fn log_handler(payload: *mut c_void, text: *const c_char, _kind: c_int) {
     let ctx = &*(payload as *const Context);
+    let text = CStr::from_ptr(text).to_string_lossy();
+    if text.starts_with("dfo ") {
+        let mut operations = ctx.operations.borrow_mut();
+        if let Some(op) = Operation::parse(&text).filter(|_| operations.len() < OPERATION_LINES) {
+            operations.push(op);
+        }
+        return;
+    }
     let mut log = ctx.log.borrow_mut();
     if log.len() < LOG_LINES {
-        log.push(CStr::from_ptr(text).to_string_lossy().into_owned());
+        log.push(text.into_owned());
     }
 }
 
@@ -527,6 +539,7 @@ impl Duel {
             scripts: engine.scripts.clone(),
             missing_scripts: RefCell::default(),
             log: RefCell::default(),
+            operations: RefCell::default(),
         });
         let options = duel_options(config, &ctx);
         let mut raw: OCG_Duel = std::ptr::null_mut();
@@ -552,6 +565,9 @@ impl Duel {
                 return Err(Error::Engine(format!("cannot load {}: {}", replacement.name, duel.log().join("; "))));
             }
         }
+        if !duel.run_lua_source("operations.lua", operations::SCRIPT) {
+            return Err(Error::Engine(format!("cannot load operations.lua: {}", duel.log().join("; "))));
+        }
         Ok(duel)
     }
 
@@ -563,6 +579,7 @@ impl Duel {
             return None;
         }
         spare.ctx.log.borrow_mut().clear();
+        spare.ctx.operations.borrow_mut().clear();
         spare.ctx.missing_scripts.borrow_mut().clear();
         let options = duel_options(config, &spare.ctx);
         if unsafe { df_duel_reset(spare.raw, &options) } == 0 {
@@ -1197,6 +1214,12 @@ impl Duel {
     /// Messages logged by the engine and by card scripts (errors included).
     pub fn log(&self) -> Vec<String> {
         self.ctx.log.borrow().clone()
+    }
+
+    /// What the effects activated so far declared they do to the opponent's
+    /// cards, each declaration once per duel, emptied.
+    pub fn take_operations(&self) -> Vec<Operation> {
+        std::mem::take(&mut *self.ctx.operations.borrow_mut())
     }
 
     /// The log so far, emptied: the next lines start from the first again.
