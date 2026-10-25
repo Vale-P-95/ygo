@@ -61,6 +61,19 @@ Che cosa dicono:
 - **Le liste vere sono già mix.** Nel banco congelato ci sono Azamina Mitsurugi Dark Magician, Fiendsmith Unchained, Atlantean Mermail, White Forest Azamina, Radiant Typhoon Zoodiac, Vanquish Soul K9, Magistus Witchcrafter, Onomat Ryzeal: sono la prova che i giocatori mescolano, e una verità da riscoprire per misurare la stima (§9).
 - **Gli archetipi «di famiglia»** (Number, Xyz, Chaos, Hero/Neos) dominano le carte condivise: vanno trattati con la gerarchia dei setcode (i 4 bit alti sono il sottoarchetipo) e non contati come ponti veri.
 
+Lo stesso censimento dai dati del motore (F0, 25/10, `synergy-census`), con il pool del deck di lettura: anche le carte dei database `release-*` e `prerelease-*` e i Mostri Normali senza script, quindi un po' più grande.
+
+| Che cosa | Quante |
+|---|---|
+| Carte del pool (Main Deck + Extra Deck) | 14 403 (12 186 + 2 217) |
+| Con almeno un archetipo / in due o più archetipi di base | 8 105 / 681 |
+| Archetipi di base con almeno 5 / 10 / 20 carte | 419 / 337 / 143 (494 in tutto) |
+| Coppie di archetipi che condividono almeno una carta | 443 |
+| Carte con un effetto attivato che cerca, aggiunge alla mano, Evoca Specialmente o manda al Cimitero (categorie dell'anatomia) | 7 452 |
+| Mostri dell'Extra Deck con una procedura di Evocazione (materiali o altro modo) | 2 195 su 2 217 |
+
+Delle 32 scelte lette sulle 30 carte di prova, 27 offrono carte di almeno 3 archetipi o senza archetipo: sono ponti generici, letti dal motore e non più da espressioni regolari.
+
 ## 3. I dati che servono
 
 ### 3.1 Che cosa c'è già
@@ -89,7 +102,10 @@ La sezione può cominciare senza l'anatomia (fasi 0-1 leggono i predicati da sol
 **(a) Che cosa accetta ogni effetto che sceglie carte.** È il dato centrale. Oggi `links.rs` registra le carte che il motore offre quando un effetto chiede di scegliere, ma solo tra le carte del deck. Per sapere se A può prendere una carta di B bisogna chiederlo sull'intero pool.
 - **Metodo: il deck di lettura.** Un duello in cui il Deck contiene tutte le carte del pool (o un campione stratificato: almeno una carta per ogni combinazione di tipo, Attributo, Tipo e Livello, più tutti i membri degli archetipi in gruppi). Si gioca una ricerca breve da una mano con la carta da leggere, come fanno `links.rs` e `roles.rs`; a ogni scelta il motore elenca le carte che l'effetto accetta, con le condizioni dello script già applicate. Quell'elenco, per effetto, è il dato.
 - **Perché così.** I filtri sono funzioni Lua con chiusure e parametri di contesto: chiamarli da fuori è fragile. Il motore li valuta nel loro contesto, e la regola resta «leggiamo ciò che il motore offre», la stessa della mappa dei Collegamenti.
-- **Da verificare nella fase 0:** che `ygopro-core` accetti un Deck di migliaia di carte senza cambiare `vendor/` (il limite dei 60 lo applica il client, non il nucleo, ma va provato), il tempo per carta e gli script che contano le carte del Deck. Se non regge, il campione stratificato in più duelli.
+- **Verificato nella fase F0 (25/10, `duelforge-cli synergy-census`).** Il nucleo accetta il pool intero senza toccare `vendor/`: un duello con 12 186 carte nel Deck e 2 217 nell'Extra Deck si crea in 0,5 s (riusato sul thread) e gioca senza errori e senza toccare il tetto di Lua; memoria di picco 734 MB con 4 duelli in parallelo. Una carta si legge in 3,1 s in media (mediana 3,0 s, massimo 6,5 s per una carta con due turni), quindi tutto il Main Deck del pool in circa 2 ore e 40 minuti su 4 core: il campione stratificato non serve. Le 30 carte di prova offrono tutte qualcosa, e per 29 l'elenco letto nel pool, ristretto alle carte di un deck vero che le contiene (21 liste del banco congelato, 9 deck costruiti dal pool), è uguale a quello che il motore offre in quel deck. L'unica differenza, Charge of the Light Brigade, viene dal costo, che manda al Cimitero le prime 3 carte del Deck: l'ordine del Deck cambia ciò che resta da cercare, e con il seme 2 le due letture coincidono. Uscite complete in `/mnt/project-files/analisi/sinergie/f0-summary.txt` e `f0-readings.tsv`.
+- **Come si legge** (`crates/ygo-solver/src/synergy/read.rs`). La carta sta in mano con tre Black Luster Ritual e un Mystical Elf: carte che non fanno niente, ma pagano scarti, Tributi e la rivelazione di Small World. Nel primo momento libero si usa, un turno per volta, ciascuna delle sue Evocazioni ed effetti (al massimo 4 turni); poi le sue azioni non ancora usate e i suoi effetti innescati; le altre carte non si attivano mai. A ogni scelta di carte si registrano le carte offerte fuori dal campo, per suggerimento della scelta (`HINTMSG_*`) e per zona. Si prendono prima le carte preferite (nel confronto, quelle del deck vero) e poi i codici più bassi, così le due letture fanno le stesse scelte.
+- **Il pool** sono tutte le carte con uno script, più i Mostri Normali (quasi tutti senza script, come Elemental HERO Neos); fuori le illustrazioni alternative e i token. Una carta «sempre trattata come» un'altra (Fallen of the White Dragon) ha un alias lontano dal codice ed è una carta a sé. Le due regole sono nate dalla prova: senza, due confronti fallivano.
+- **Limiti, per F1.** Si legge solo ciò che la carta fa dalla mano in un turno vuoto: il Cimitero è vuoto, quindi i recuperi non offrono niente, e gli effetti che vogliono un'altra carta sul campo non partono. Una sola scelta per decisione: i rami di Small World dipendono dal mostro rivelato. I mostri dell'Extra Deck non si leggono dalla mano: servono carte già sul campo (`Placement`). Il tempo va quasi tutto nel gioco, non nella creazione del duello: prima della lettura completa conviene guardare dove (ad esempio un duello salvato e ripreso per carta).
 - **Riassunto leggibile.** Dall'elenco delle carte accettate si ricava una regola sulle proprietà, ad esempio «LIGHT e Livello 4 o meno», con un albero di decisione piccolo sulle colonne del database. Serve a mostrare il ponte («cerca un mostro LIGHT di Livello 4 o meno») e a dire perché una carta è accettata. La verità resta l'elenco.
 - **Rete di sicurezza statica.** Dove la ricerca breve non arriva ad attivare l'effetto (costi, condizioni sul campo), si guarda lo script: le funzioni di filtro senza `IsSetCard` né `IsCode` che chiamano `IsAttribute`, `IsRace` o `IsLevel` (il censimento ne trova 2 589). Queste righe si marcano «da script, non provate».
 
@@ -99,7 +115,7 @@ La sezione può cominciare senza l'anatomia (fasi 0-1 leggono i predicati da sol
 
 **(d) Le liste di riferimento.** Per provare un mix serve un deck di A e uno di B. In ordine: il deck della Bottega scelto dall'utente; la lista più recente di Master Duel Meta con quell'archetipo; altrimenti uno **scheletro** costruito dai dati (i membri legali nel formato, 3 copie dei mostri che cercano o Evocano, 1-2 delle altre, il resto carte che non fanno niente), segnato come meno affidabile. Le liste si scaricano e non si committano mai.
 
-**(e) Dove stanno.** Tutto il derivato (predicati letti, profili, indice delle proprietà) sta in `data/synergy/`, con la versione degli script e del database nella chiave: si ricalcola dopo `fetch-data`, mai nel repository. L'indice delle proprietà è istantaneo; i predicati si leggono una volta per carta, in background (stima da misurare nella fase 0: da qualche decina di minuti a due ore per tutto il pool), oppure solo per gli archetipi richiesti, in pochi secondi.
+**(e) Dove stanno.** Tutto il derivato (predicati letti, profili, indice delle proprietà) sta in `data/synergy/`, con la versione degli script e del database nella chiave: si ricalcola dopo `fetch-data`, mai nel repository. L'indice delle proprietà è istantaneo; i predicati si leggono una volta per carta, in background (misurato in F0: 3,1 s a carta, circa 2 ore e 40 minuti per tutto il Main Deck del pool su 4 core), oppure solo per gli archetipi richiesti, in pochi secondi.
 
 ## 4. Come si trovano i ponti
 
@@ -254,7 +270,7 @@ Costi per PR stimati dalla tabella del piano ambiente (una sessione, contesto so
 
 | Fase | Che cosa | Modello | Dipende da | Costo |
 |---|---|---|---|---|
-| F0 | Prova del deck di lettura e censimento dalla CLI | Opus 5.5 alto | nulla | 15-20 $ |
+| F0 | Prova del deck di lettura e censimento dalla CLI (fatta il 25/10) | Opus 5.5 alto | nulla | 15-20 $ |
 | F1 | Predicati letti, materiali, profili d'archetipo, cache in `data/synergy/` | Opus 5.5 alto | F0; l'anatomia (Brief A della #181) per eventi e blocchi | 25-30 $ |
 | F2 | Grafo dei ponti, stima dei partner, pacchetto; CLI `partners` e `bridges`; prova di riscoperta | Opus 5.5 alto | F1 | 25-30 $ |
 | F3 | Prova col motore: `mix-trial` con strati, sinergia, linee nuove, collegamenti nuovi, dimezzamenti | Opus 5.5 alto | F2 | 25-30 $ |
@@ -361,7 +377,7 @@ Ogni criterio si scrive nella PR della sua fase prima di misurare.
 - **Nessuna regressione.** Le PR del motore sono di classe E con `banco.py same`; la misura del Combo Lab non cambia.
 
 ## 10. Rischi e limiti
-- **Il deck di lettura può non reggere** (memoria, script che contano il Deck, condizioni mai vere). Si misura nella fase 0; c'è il campione stratificato e la rete statica. Ciò che non si legge resta «sconosciuto», mai indovinato.
+- **Il deck di lettura può non reggere** (memoria, script che contano il Deck, condizioni mai vere). Misurato in F0: regge (§3.3); restano le condizioni mai vere in un turno vuoto, e per quelle la rete statica. Ciò che non si legge resta «sconosciuto», mai indovinato.
 - **Le etichette degli archetipi**: setcode e nome di YGOPRODeck non coincidono sempre, e le famiglie (Number, Xyz) gonfiano i ponti. Si usa la gerarchia dei setcode e le famiglie si mostrano a parte.
 - **Liste di riferimento mancanti**: lo scheletro è meno affidabile e lo dice.
 - **La misura ha i suoi gusti**: un'handtrap tenuta in mano vale 0,9 nel profilo «Bilanciato» (`monte-carlo-motore.md`), quindi un pacchetto che toglie handtrap perde. Le handtrap restano fuori dagli scambi di base.

@@ -61,7 +61,7 @@ Breve indice per chi arriva. Il dettaglio è in `docs/PIANO.md` (v1.11, §30–�
 - Classifica per interazione a fine turno: CLI e Combo Lab fatti il 24/10 (l'app vera da provare); resta `--card` (`docs/plans/interazione-fine-turno.md`).
 - Anatomia degli effetti (costo, condizione, azione, restrizioni) nel deck building e come priore del motore: progetto fatto il 24/10, da implementare (`docs/plans/anatomia-effetti.md`).
 - Il valutatore imparato (rete neurale), più avanti: `docs/plans/valutatore-imparato.md`.
-- Sezione «Sinergie» (Il Crogiolo): come unire uno o più archetipi in un deck nuovo, con i ponti letti dagli effetti e la prova del motore. Piano del 25/10 in `docs/plans/sinergie-archetipi.md`, approvato da Valerio il 25/10 (sezione propria nella barra, si parte da un deck della Bottega, liste solo da Master Duel Meta, più di due archetipi dopo la fase 3); prossimo passo F0.
+- Sezione «Sinergie» (Il Crogiolo): come unire uno o più archetipi in un deck nuovo, con i ponti letti dagli effetti e la prova del motore. Piano del 25/10 in `docs/plans/sinergie-archetipi.md`, approvato da Valerio il 25/10 (sezione propria nella barra, si parte da un deck della Bottega, liste solo da Master Duel Meta, più di due archetipi dopo la fase 3). F0 fatto il 25/10: `duelforge-cli synergy-census` e il deck di lettura con tutto il pool, che regge (3,1 s a carta); prossimo passo F1.
 - Simulatore passo per passo di una combo (#36, alla fine).
 
 ## Prossimi passi

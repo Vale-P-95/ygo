@@ -27,9 +27,6 @@ Regole in `AGENTS.md`. Per prendere un task, spostalo in "In corso" con agente, 
 - [ ] **Mascotte nei pannelli info** (claude-code, branch `claude/project-thread-v1jfz3`, PR #166). L'Arcimago del design di Valerio in `InfoDialog` su `InfoButton` e `HelpPopover`, con `kind` per il glifo sulla lavagna.
   - File: `Mascot.tsx`, `InfoDialog.tsx`, `InfoButton.tsx`, `ui/HelpPopover.tsx`, `index.css`.
   - Resta: i testi per voce del design (probabilità, interruzioni, passi) non ripresi.
-- [ ] **Sinergie F0: deck di lettura e censimento** (thread del progetto, branch `claude/project-thread-fpy867`; brief F0 di `docs/plans/sinergie-archetipi.md`).
-  File: `crates/ygo-solver/src/synergy/` (nuovo: `mod.rs`, `census.rs`, `read.rs`), `crates/ygo-solver/src/lib.rs`, `crates/ygo-cli/src/main.rs`.
-  CLI `synergy-census`: numeri del §2 dai dati del motore e prova del deck con tutto il pool su 30 carte.
 
 ## Da fare (in ordine di priorità)
 
@@ -75,7 +72,7 @@ Regole in `AGENTS.md`. Per prendere un task, spostalo in "In corso" con agente, 
 - [x] CI: screenshot e prova fumo con Playwright (PR in revisione): `screens.mjs --smoke` (1280×800, due temi, tutte le sezioni; fallisce su errori di pagina, risposte HTTP ≥ 400 o sezioni vuote) sul job frontend di `ci.yml`, in modo mock; gli screenshot sono l'artifact `screenshots-<sha>`.
 - [ ] Anatomia degli effetti (richiesta di Valerio del 24/10): leggere dagli script Lua e dal testo PSCT costo, condizione, azione, quantità e restrizioni, per l'ispettore del deck building e per il motore. Piano e brief A, B, C in `docs/plans/anatomia-effetti.md`, da fare in ordine (Valerio, 25/10). A fatto il 25/10 (`duelforge-cli anatomy`, §7 del piano); poi B (mockup prima), poi C.
 ### Sinergie tra archetipi (Il Crogiolo)
-- [ ] **Sezione «Sinergie» (Il Crogiolo)** (richiesta di Valerio del 25/10, piano approvato il 25/10 con le decisioni del §11): partner di un archetipo, ponti (ricerche per proprietà, materiali, Small World, eventi, motori condivisi), prova del mix col motore e linee nuove. Piano, brief F0-F5b e costi: `docs/plans/sinergie-archetipi.md`; mockup https://claude.ai/artifact/WDzepFuEQTNKsXL5CDMhoJ. Prima fase: F0 (deck di lettura e censimento).
+- [ ] **Sezione «Sinergie» (Il Crogiolo)** (richiesta di Valerio del 25/10, piano approvato il 25/10 con le decisioni del §11): partner di un archetipo, ponti (ricerche per proprietà, materiali, Small World, eventi, motori condivisi), prova del mix col motore e linee nuove. Piano, brief F0-F5b e costi: `docs/plans/sinergie-archetipi.md`; mockup https://claude.ai/artifact/WDzepFuEQTNKsXL5CDMhoJ. F0 fatto il 25/10: `duelforge-cli synergy-census`, il deck con tutto il pool regge (3,1 s a carta, 29 carte su 30 uguali al deck vero; §2 e §3.3 del piano). Prossima fase: F1 (predicati, materiali e profili).
 
 ### Richieste dal backend per l'interfaccia
 Nessuna aperta. Un dato nuovo per l'interfaccia lo aggiunge la stessa sessione di Claude che fa la schermata, nella stessa PR.
