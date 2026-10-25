@@ -17,6 +17,7 @@ pub mod probe;
 pub mod roles;
 pub mod search;
 pub mod second;
+pub mod synergy;
 pub mod value;
 
 pub use capacity::{board_capacity, capacity, Capacity, Class as InterruptionClass, Interruption as DryInterruption};
