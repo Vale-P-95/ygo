@@ -59,7 +59,7 @@ Breve indice per chi arriva. Il dettaglio è in `docs/PIANO.md` (v1.11, §30–�
 - Turno di prova contro un deck avversario a scelta (#44): livelli 1 e 2 fatti; livello 3 dopo.
 - Andare secondo (§22.7 punto 1): prototipo CLI fatto il 24/10, risposte della board avversaria e Battle Phase il 24/10; restano la tabella «per secondo», il banco della misura e l'interfaccia (`docs/plans/andare-secondo.md`).
 - Classifica per interazione a fine turno: CLI e Combo Lab fatti il 24/10 (l'app vera da provare); resta `--card` (`docs/plans/interazione-fine-turno.md`).
-- Ricerca guidata dall'interazione, senza turno avversario, anche da una carta: piano del 25/10 in `docs/plans/linee-interazione.md` (brief I1-I4, dopo il lettore degli effetti).
+- Interruzioni a fine turno senza turno avversario (`docs/plans/linee-interazione.md`): I1 fatto il 25/10, `combos --capacity` conta dagli effetti delle tue carte, con una verifica a secco sulla board, quante interruzioni separate puoi usare nel turno avversario; restano la ricerca guidata (I2), il calcolo da una carta (I3) e l'interfaccia (I4).
 - Anatomia degli effetti (costo, condizione, azione, restrizioni) nel deck building e come priore del motore: progetto fatto il 24/10, da implementare (`docs/plans/anatomia-effetti.md`).
 - Il valutatore imparato (rete neurale), più avanti: `docs/plans/valutatore-imparato.md`.
 - Simulatore passo per passo di una combo (#36, alla fine).

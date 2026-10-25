@@ -1460,7 +1460,7 @@ fn combos_with(dir: &Path, engine: &Engine, setup: &Setup, deck: DeckList, hand:
             let mut b = board_json(engine, &config, &item.board, i, item.variants, measured, item.took, item.exposure.as_ref());
             b["printed"] = serde_json::json!(rank_of[i]);
             match &capacities[i] {
-                Some(Ok((effects, c))) => b["capacity"] = capacity_json(c, effects),
+                Some(Ok((effects, c))) => b["capacity"] = capacity_json(engine.cards(), c, effects),
                 Some(Err(e)) => b["capacity"] = serde_json::json!({ "error": e.to_string() }),
                 None => {}
             }
@@ -2113,7 +2113,7 @@ type Checked = (Vec<ygo_engine::DryEffect>, ygo_solver::Capacity);
 
 const PLACES: [&str; 4] = ["field", "gy", "banished", "hand"];
 
-fn capacity_json(c: &ygo_solver::Capacity, effects: &[ygo_engine::DryEffect]) -> serde_json::Value {
+fn capacity_json(db: &ygo_engine::CardDb, c: &ygo_solver::Capacity, effects: &[ygo_engine::DryEffect]) -> serde_json::Value {
     let by_class: serde_json::Map<String, serde_json::Value> = ygo_solver::InterruptionClass::ALL
         .iter()
         .zip(c.by_class)
@@ -2134,6 +2134,7 @@ fn capacity_json(c: &ygo_solver::Capacity, effects: &[ygo_engine::DryEffect]) ->
         "exact": c.exact,
         "interruptions": c.interruptions.iter().zip(&c.plan).map(|(it, &n)| serde_json::json!({
             "card": it.code,
+            "name": db.name(it.code),
             "place": PLACES[it.place()],
             "class": it.class.label(),
             "kind": it.kind.name(),
