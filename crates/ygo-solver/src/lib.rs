@@ -16,6 +16,7 @@ pub mod probe;
 pub mod roles;
 pub mod search;
 pub mod second;
+pub mod synergy;
 pub mod value;
 
 pub use card::{resume_card, sample_hands, search_card, CardSearch, HandResult};
